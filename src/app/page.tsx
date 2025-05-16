@@ -198,13 +198,13 @@ export default function EvolvingChessPage() {
 
     if (pawnToPromote && pawnToPromote.type === 'pawn') {
       pawnToPromote.type = pieceType;
+      pawnToPromote.level = 1; // Reset level to 1 upon promotion
       // Optionally update ID if needed, e.g., pawnToPromote.id = `${pawnToPromote.id}_promotedTo_${pieceType}`;
-      // Level remains the same as per typical chess rules, but could be customized here.
       
       setBoard(newBoard);
       toast({
         title: "Pawn Promoted!",
-        description: `${pawnToPromote.color.charAt(0).toUpperCase() + pawnToPromote.color.slice(1)} pawn promoted to ${pieceType}!`,
+        description: `${pawnToPromote.color.charAt(0).toUpperCase() + pawnToPromote.color.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
       });
       
       completeTurn(newBoard, pawnToPromote.color);
@@ -218,8 +218,10 @@ export default function EvolvingChessPage() {
   let playerInCheckForBoard: PlayerColor | null = null;
   if (gameInfo.isCheck) {
     if (gameInfo.isCheckmate) {
+      // If white wins, black is in checkmate, and vice-versa
       playerInCheckForBoard = gameInfo.winner === 'white' ? 'black' : 'white';
     } else {
+      // If just a check, the current player (whose turn it is) is in check
       playerInCheckForBoard = currentPlayer;
     }
   }
