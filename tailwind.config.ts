@@ -9,6 +9,11 @@ export default {
   ],
   theme: {
   	extend: {
+      fontFamily: {
+        sans: ['var(--font-geist-sans)', 'Arial', 'Helvetica', 'sans-serif'],
+        mono: ['var(--font-geist-mono)', 'monospace'],
+        pixel: ['var(--font-press-start-2p)', 'monospace'],
+      },
   		colors: {
   			background: 'hsl(var(--background))',
   			foreground: 'hsl(var(--foreground))',
@@ -63,8 +68,8 @@ export default {
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 2px)',
-  			sm: 'calc(var(--radius) - 4px)'
+  			md: 'calc(var(--radius) - 0px)', // Adjusted for sharper feel with 0rem radius
+  			sm: 'calc(var(--radius) - 0px)'  // Adjusted for sharper feel with 0rem radius
   		},
   		keyframes: {
   			'accordion-down': {

@@ -146,7 +146,7 @@ export default function EvolvingChessPage() {
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
       <div className="w-full flex justify-between items-center mb-4">
-        <h1 className="text-3xl font-bold text-primary">Evolving Chess</h1>
+        <h1 className="text-3xl font-bold text-primary font-pixel">Evolving Chess</h1>
         <Button variant="outline" onClick={resetGame} aria-label="Reset Game">
           <RefreshCw className="h-4 w-4 mr-2" />
           Reset Game

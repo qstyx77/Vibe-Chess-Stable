@@ -23,7 +23,7 @@ export function ChessBoard({
   const displayBoard = playerColor === 'white' ? boardState : [...boardState].reverse().map(row => [...row].reverse());
 
   return (
-    <div className="grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square shadow-2xl rounded-md overflow-hidden border-2 border-primary/50">
+    <div className="grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border">
       {displayBoard.map((row, rowIndex) =>
         row.map((squareData, colIndex) => {
           const isLightSquare = (rowIndex + colIndex) % 2 === 0;

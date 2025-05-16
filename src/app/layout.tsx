@@ -1,5 +1,6 @@
 import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
+import { Press_Start_2P } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Added Toaster
 
@@ -13,9 +14,16 @@ const geistMono = Geist_Mono({ // Corrected function name
   subsets: ['latin'],
 });
 
+const pressStart2P = Press_Start_2P({
+  weight: '400',
+  subsets: ['latin'],
+  variable: '--font-press-start-2p',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Evolving Chess',
-  description: 'An online multiplayer chess game with leveling pieces.',
+  title: 'Evolving Chess - 8 Bit Edition',
+  description: 'An online multiplayer chess game with leveling pieces, in glorious 8-bit style.',
 };
 
 export default function RootLayout({
@@ -24,7 +32,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${pressStart2P.variable}`}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
         <main className="flex-grow">
           {children}
