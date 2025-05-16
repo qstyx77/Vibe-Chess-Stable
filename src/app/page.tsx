@@ -35,6 +35,9 @@ export default function EvolvingChessPage() {
   const [gameInfo, setGameInfo] = useState<GameStatus>(initialGameStatus);
   const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ white: [], black: [] });
 
+  const [flashMessage, setFlashMessage] = useState<string | null>(null);
+  const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
+
   const { toast } = useToast();
 
   const resetGame = useCallback(() => {
@@ -44,13 +47,43 @@ export default function EvolvingChessPage() {
     setPossibleMoves([]);
     setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
+    setFlashMessage(null);
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
   useEffect(() => {
-    // This effect runs when the component mounts
-    // No need to call resetGame here if it's also in the GameControls or page load logic
-  }, []);
+    let timerId: NodeJS.Timeout | null = null;
+    const clearExistingTimer = () => {
+      if (timerId) {
+        clearTimeout(timerId);
+        timerId = null;
+      }
+    };
+  
+    if (gameInfo.isCheckmate) {
+      clearExistingTimer();
+      setFlashMessage('CHECKMATE!');
+      setFlashMessageKey(prev => prev + 1);
+      timerId = setTimeout(() => setFlashMessage(null), 2500); 
+    } else if (gameInfo.isCheck && !gameInfo.isStalemate && !gameInfo.gameOver) {
+      clearExistingTimer();
+      setFlashMessage('CHECK!');
+      setFlashMessageKey(prev => prev + 1);
+      timerId = setTimeout(() => setFlashMessage(null), 1500);
+    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) {
+      // If no longer in check or checkmate, clear the message immediately if it's visible
+      // This handles scenarios where a player moves out of check.
+      if (flashMessage) {
+        clearExistingTimer();
+        setFlashMessage(null);
+      }
+    }
+  
+    return () => {
+      clearExistingTimer();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.gameOver]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -85,7 +118,6 @@ export default function EvolvingChessPage() {
         setSelectedSquare(null);
         setPossibleMoves([]);
         
-        // Check game status after move
         const inCheck = isKingInCheck(newBoard, nextPlayer);
         if (inCheck) {
           const mate = isCheckmate(newBoard, nextPlayer);
@@ -116,7 +148,6 @@ export default function EvolvingChessPage() {
         }
 
       } else {
-        // Clicked on a different square or invalid move, deselect or select new piece
         setSelectedSquare(null);
         setPossibleMoves([]);
         if (clickedPiece && clickedPiece.color === currentPlayer) {
@@ -127,7 +158,6 @@ export default function EvolvingChessPage() {
         }
       }
     } else if (clickedPiece && clickedPiece.color === currentPlayer) {
-      // No piece selected, select this one
       setSelectedSquare(algebraic);
       const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
@@ -137,6 +167,21 @@ export default function EvolvingChessPage() {
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
+      {flashMessage && (
+        <div
+          key={flashMessageKey}
+          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+          aria-live="assertive"
+        >
+          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${gameInfo.isCheckmate ? 'animate-flash-checkmate' : 'animate-flash-check'}`}>
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
+               style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
+            >
+              {flashMessage}
+            </p>
+          </div>
+        </div>
+      )}
       <div className="w-full flex justify-between items-center mb-4">
         <h1 className="text-3xl font-bold text-primary font-pixel">Evolving Chess</h1>
         <Button variant="outline" onClick={resetGame} aria-label="Reset Game">
@@ -162,7 +207,7 @@ export default function EvolvingChessPage() {
             onSquareClick={handleSquareClick}
             playerColor="white" 
             isGameOver={gameInfo.gameOver}
-            playerInCheck={gameInfo.isCheck ? currentPlayer : null}
+            playerInCheck={gameInfo.isCheck ? (gameInfo.winner === 'white' ? 'black' : gameInfo.winner === 'black' ? 'white' : currentPlayer === 'white' ? 'black' : 'white') : null}
           />
         </div>
       </div>

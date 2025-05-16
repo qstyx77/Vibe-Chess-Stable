@@ -68,8 +68,8 @@ export default {
   		},
   		borderRadius: {
   			lg: 'var(--radius)',
-  			md: 'calc(var(--radius) - 0px)', // Adjusted for sharper feel with 0rem radius
-  			sm: 'calc(var(--radius) - 0px)'  // Adjusted for sharper feel with 0rem radius
+  			md: 'calc(var(--radius) - 0px)', 
+  			sm: 'calc(var(--radius) - 0px)'  
   		},
   		keyframes: {
   			'accordion-down': {
@@ -87,11 +87,19 @@ export default {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+        'fadeInOut': {
+          '0%': { opacity: '0', transform: 'scale(0.8) translateY(20px)' },
+          '20%': { opacity: '1', transform: 'scale(1.05) translateY(0)' },
+          '80%': { opacity: '1', transform: 'scale(1) translateY(0)' },
+          '100%': { opacity: '0', transform: 'scale(0.8) translateY(20px)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+        'flash-check': 'fadeInOut 1.5s ease-in-out forwards',
+        'flash-checkmate': 'fadeInOut 2.5s ease-in-out forwards',
   		}
   	}
   },
