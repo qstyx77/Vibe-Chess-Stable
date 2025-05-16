@@ -24,6 +24,7 @@ import { RefreshCw } from 'lucide-react';
 const initialGameStatus: GameStatus = {
   message: "White's turn to move.",
   isCheck: false,
+  playerWithKingInCheck: null,
   isCheckmate: false,
   isStalemate: false,
   gameOver: false,
@@ -102,12 +103,21 @@ export default function EvolvingChessPage() {
       if (mate) {
         setGameInfo({
           message: `Checkmate! ${playerWhoseTurnEnded.charAt(0).toUpperCase() + playerWhoseTurnEnded.slice(1)} wins!`,
-          isCheck: true, isCheckmate: true, isStalemate: false, winner: playerWhoseTurnEnded, gameOver: true,
+          isCheck: true, 
+          playerWithKingInCheck: nextPlayer,
+          isCheckmate: true, 
+          isStalemate: false, 
+          winner: playerWhoseTurnEnded, 
+          gameOver: true,
         });
       } else {
         setGameInfo({
           message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)} is in Check!`,
-          isCheck: true, isCheckmate: false, isStalemate: false, gameOver: false,
+          isCheck: true, 
+          playerWithKingInCheck: nextPlayer,
+          isCheckmate: false, 
+          isStalemate: false, 
+          gameOver: false,
         });
       }
     } else {
@@ -115,12 +125,21 @@ export default function EvolvingChessPage() {
       if (stale) {
         setGameInfo({
           message: `Stalemate! It's a draw.`,
-          isCheck: false, isCheckmate: false, isStalemate: true, winner: 'draw', gameOver: true,
+          isCheck: false, 
+          playerWithKingInCheck: null,
+          isCheckmate: false, 
+          isStalemate: true, 
+          winner: 'draw', 
+          gameOver: true,
         });
       } else {
         setGameInfo({
           message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)}'s turn to move.`,
-          isCheck: false, isCheckmate: false, isStalemate: false, gameOver: false,
+          isCheck: false, 
+          playerWithKingInCheck: null,
+          isCheckmate: false, 
+          isStalemate: false, 
+          gameOver: false,
         });
       }
     }
@@ -131,7 +150,7 @@ export default function EvolvingChessPage() {
     if (gameInfo.gameOver || isPromotingPawn) return;
 
     const { row, col } = algebraicToCoords(algebraic);
-    const clickedPieceData = board[row][col]; // Get the SquareState
+    const clickedPieceData = board[row][col]; 
     const clickedPiece = clickedPieceData.piece;
 
 
@@ -157,21 +176,19 @@ export default function EvolvingChessPage() {
           });
         }
         
-        // Check for promotion
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
         if (movedPiece && movedPiece.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
-            setBoard(newBoard); // Set board before showing promotion dialog
+            setBoard(newBoard); 
             setIsPromotingPawn(true);
             setPromotionSquare(algebraic);
             setSelectedSquare(null); 
             setPossibleMoves([]);
-            // Game continuation logic will be handled in handlePromotionSelect
         } else {
             setBoard(newBoard);
             completeTurn(newBoard, currentPlayer);
         }
 
-      } else { // Clicked on a non-possible move or own piece again
+      } else { 
         setSelectedSquare(null);
         setPossibleMoves([]);
         if (clickedPiece && clickedPiece.color === currentPlayer) {
@@ -181,7 +198,7 @@ export default function EvolvingChessPage() {
           setPossibleMoves(legalFilteredMoves);
         }
       }
-    } else if (clickedPiece && clickedPiece.color === currentPlayer) { // No square selected yet, selecting a piece
+    } else if (clickedPiece && clickedPiece.color === currentPlayer) { 
       setSelectedSquare(algebraic);
       const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
@@ -193,38 +210,98 @@ export default function EvolvingChessPage() {
     if (!promotionSquare) return;
 
     const { row, col } = algebraicToCoords(promotionSquare);
-    const newBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); // Deep copy
-    const pawnToPromote = newBoard[row][col].piece;
+    const originalPawnOnCurrentBoard = board[row][col].piece; 
+    if (!originalPawnOnCurrentBoard || originalPawnOnCurrentBoard.type !== 'pawn') {
+      // This case should ideally not be reached if logic is correct
+      setIsPromotingPawn(false);
+      setPromotionSquare(null);
+      return;
+    }
 
-    if (pawnToPromote && pawnToPromote.type === 'pawn') {
-      pawnToPromote.type = pieceType;
-      pawnToPromote.level = 1; // Reset level to 1 upon promotion
-      // Optionally update ID if needed, e.g., pawnToPromote.id = `${pawnToPromote.id}_promotedTo_${pieceType}`;
+    const originalPawnLevel = originalPawnOnCurrentBoard.level;
+    const pawnColor = originalPawnOnCurrentBoard.color;
+
+    const newBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); // Deep copy
+    const promotedPieceRef = newBoard[row][col].piece;
+
+    if (promotedPieceRef && promotedPieceRef.type === 'pawn') {
+      promotedPieceRef.type = pieceType;
+      promotedPieceRef.level = 1; 
       
       setBoard(newBoard);
       toast({
         title: "Pawn Promoted!",
-        description: `${pawnToPromote.color.charAt(0).toUpperCase() + pawnToPromote.color.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
+        description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
       });
       
-      completeTurn(newBoard, pawnToPromote.color);
+      if (originalPawnLevel >= 5) {
+        toast({
+          title: "Extra Turn!",
+          description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} gets an extra turn!`,
+          duration: 3000,
+        });
+        
+        // Player (pawnColor) gets an extra turn. CurrentPlayer does not change.
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+
+        const opponentColor = pawnColor === 'white' ? 'black' : 'white';
+        const opponentInCheck = isKingInCheck(newBoard, opponentColor);
+
+        if (opponentInCheck) {
+          const opponentIsCheckmated = isCheckmate(newBoard, opponentColor);
+          if (opponentIsCheckmated) {
+            setGameInfo({
+              message: `Checkmate! ${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} wins!`,
+              isCheck: true,
+              playerWithKingInCheck: opponentColor,
+              isCheckmate: true,
+              isStalemate: false,
+              winner: pawnColor, 
+              gameOver: true,
+            });
+          } else {
+            setGameInfo({
+              message: `${opponentColor.charAt(0).toUpperCase() + opponentColor.slice(1)} is in Check! ${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)}'s extra turn.`,
+              isCheck: true,
+              playerWithKingInCheck: opponentColor,
+              isCheckmate: false,
+              isStalemate: false,
+              gameOver: false,
+            });
+          }
+        } else {
+          const opponentIsStalemated = isStalemate(newBoard, opponentColor);
+          if (opponentIsStalemated) {
+            setGameInfo({
+              message: `Stalemate! It's a draw.`,
+              isCheck: false,
+              playerWithKingInCheck: null,
+              isCheckmate: false,
+              isStalemate: true,
+              winner: 'draw',
+              gameOver: true,
+            });
+          } else {
+            setGameInfo({
+              message: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)}'s turn to move. (Extra Turn)`,
+              isCheck: false,
+              playerWithKingInCheck: null,
+              isCheckmate: false,
+              isStalemate: false,
+              gameOver: false,
+            });
+          }
+        }
+      } else {
+        // Normal turn completion - switches player
+        completeTurn(newBoard, pawnColor);
+      }
     }
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
   }, [board, promotionSquare, completeTurn, toast]);
-
-
-  let playerInCheckForBoard: PlayerColor | null = null;
-  if (gameInfo.isCheck) {
-    if (gameInfo.isCheckmate) {
-      // If white wins, black is in checkmate, and vice-versa
-      playerInCheckForBoard = gameInfo.winner === 'white' ? 'black' : 'white';
-    } else {
-      // If just a check, the current player (whose turn it is) is in check
-      playerInCheckForBoard = currentPlayer;
-    }
-  }
 
 
   return (
@@ -269,7 +346,7 @@ export default function EvolvingChessPage() {
             onSquareClick={handleSquareClick}
             playerColor="white" 
             isGameOver={gameInfo.gameOver || isPromotingPawn}
-            playerInCheck={playerInCheckForBoard}
+            playerInCheck={gameInfo.playerWithKingInCheck}
           />
         </div>
       </div>
@@ -281,4 +358,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-

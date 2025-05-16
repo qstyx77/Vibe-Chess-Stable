@@ -27,9 +27,11 @@ export interface Move {
 
 export interface GameStatus {
   message: string;
-  isCheck: boolean;
+  isCheck: boolean; // True if a check condition exists (typically for the player not currently moving)
+  playerWithKingInCheck: PlayerColor | null; // The player whose king is actually in check
   isCheckmate: boolean;
   isStalemate: boolean;
   winner?: PlayerColor | 'draw'; // Winner can also be a draw
   gameOver: boolean;
 }
+
