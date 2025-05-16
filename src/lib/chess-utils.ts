@@ -134,6 +134,45 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
     movingPiece.type = 'queen'; // Auto-queen for simplicity
   }
 
+  // Handle Pawn "Push Back" ability for level 4+
+  if (movingPiece.type === 'pawn' && movingPiece.level >= 4) {
+    const pawnNewRow = toRow;
+    const pawnNewCol = toCol;
+
+    // Check all 8 adjacent squares to the pawn's new position
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        if (dr === 0 && dc === 0) continue; // Skip the pawn's own square
+
+        const adjRow = pawnNewRow + dr;
+        const adjCol = pawnNewCol + dc;
+
+        // Check bounds for the adjacent square
+        if (adjRow >= 0 && adjRow < 8 && adjCol >= 0 && adjCol < 8) {
+          const adjacentSquareState = newBoard[adjRow][adjCol];
+          const enemyPieceToPush = adjacentSquareState.piece;
+
+          if (enemyPieceToPush && enemyPieceToPush.color !== movingPiece.color) {
+            // Enemy piece found. Determine push-back target square.
+            // The direction of push is (dr, dc) relative to the pawn.
+            // The enemy is pushed one step further in this (dr, dc) direction from its current position.
+            const pushTargetRow = adjRow + dr;
+            const pushTargetCol = adjCol + dc;
+
+            // Check bounds for the push-back target square
+            if (pushTargetRow >= 0 && pushTargetRow < 8 && pushTargetCol >= 0 && pushTargetCol < 8) {
+              // Check if the push-back target square is empty
+              if (!newBoard[pushTargetRow][pushTargetCol].piece) {
+                // Perform the push
+                newBoard[pushTargetRow][pushTargetCol].piece = enemyPieceToPush; // Move enemy to new square
+                newBoard[adjRow][adjCol].piece = null; // Vacate enemy's original square
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 
   return { newBoard, capturedPiece };
 }
@@ -165,4 +204,3 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
-
