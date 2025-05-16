@@ -17,14 +17,14 @@ export function initializeBoard(): BoardState {
   // Place pieces
   for (let c = 0; c < 8; c++) {
     // White pawns
-    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, experience: 0 };
+    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1 };
     // Black pawns
-    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, experience: 0 };
+    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1 };
 
     // White pieces
-    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1, experience: 0 };
+    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1 };
     // Black pieces
-    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1, experience: 0 };
+    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1 };
   }
   return board;
 }
@@ -112,12 +112,7 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
 
   // Handle capture & leveling
   if (capturedPiece) {
-    movingPiece.experience += (capturedPiece.level * 20); // Adjusted: 20 exp per level of captured piece
-    const levelThreshold = movingPiece.level * 20; // Example: level up every level * 20 exp
-    if (movingPiece.experience >= levelThreshold) {
-      movingPiece.level += 1;
-      movingPiece.experience = 0; // Reset experience or carry over
-    }
+    movingPiece.level += 1; 
   }
   
   // Simplified pawn promotion
@@ -156,4 +151,3 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
-

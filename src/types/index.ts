@@ -6,7 +6,6 @@ export interface Piece {
   type: PieceType;
   color: PlayerColor;
   level: number;
-  experience: number; // To track progress to next level
   // Stats can be derived, e.g., attack: level * baseAttack
 }
 
