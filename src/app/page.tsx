@@ -207,10 +207,11 @@ export default function EvolvingChessPage() {
             onSquareClick={handleSquareClick}
             playerColor="white" 
             isGameOver={gameInfo.gameOver}
-            playerInCheck={gameInfo.isCheck ? (gameInfo.winner === 'white' ? 'black' : gameInfo.winner === 'black' ? 'white' : currentPlayer === 'white' ? 'black' : 'white') : null}
+            playerInCheck={gameInfo.isCheck ? (gameInfo.isCheckmate ? (gameInfo.winner === 'white' ? 'black' : 'white') : currentPlayer) : null}
           />
         </div>
       </div>
     </div>
   );
 }
+
