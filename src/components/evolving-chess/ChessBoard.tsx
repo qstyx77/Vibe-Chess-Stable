@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare } from '@/types';
@@ -7,7 +8,6 @@ interface ChessBoardProps {
   boardState: BoardState;
   selectedSquare: AlgebraicSquare | null;
   possibleMoves: AlgebraicSquare[];
-  suggestedMovesCoords: { from: AlgebraicSquare, to: AlgebraicSquare }[];
   onSquareClick: (algebraic: AlgebraicSquare) => void;
   playerColor: 'white' | 'black'; // To orient the board
 }
@@ -16,7 +16,6 @@ export function ChessBoard({
   boardState,
   selectedSquare,
   possibleMoves,
-  suggestedMovesCoords,
   onSquareClick,
   playerColor,
 }: ChessBoardProps) {
@@ -29,7 +28,6 @@ export function ChessBoard({
           const isLightSquare = (rowIndex + colIndex) % 2 === 0;
           const isSelected = selectedSquare === squareData.algebraic;
           const isPossible = possibleMoves.includes(squareData.algebraic);
-          const isSuggested = suggestedMovesCoords.some(m => m.to === squareData.algebraic || m.from === squareData.algebraic);
           
           return (
             <ChessSquare
@@ -38,7 +36,6 @@ export function ChessBoard({
               isLightSquare={isLightSquare}
               isSelected={isSelected}
               isPossibleMove={isPossible}
-              isSuggestedMove={isSuggested}
               onClick={onSquareClick}
             />
           );

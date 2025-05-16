@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SquareState, Piece } from '@/types';
@@ -9,7 +10,6 @@ interface ChessSquareProps {
   isLightSquare: boolean;
   isSelected: boolean;
   isPossibleMove: boolean;
-  isSuggestedMove: boolean;
   onClick: (algebraic: SquareState['algebraic']) => void;
 }
 
@@ -18,26 +18,21 @@ export function ChessSquare({
   isLightSquare,
   isSelected,
   isPossibleMove,
-  isSuggestedMove,
   onClick,
 }: ChessSquareProps) {
   const piece = squareData.piece;
 
-  // For 8-bit, we want solid distinct colors.
-  // Light squares: e.g., a lighter shade from the theme (card or muted foreground)
-  // Dark squares: e.g., background or a darker muted color
-  const squareBgColor = isLightSquare ? 'bg-card' : 'bg-muted'; // Muted is darker in new theme
+  const squareBgColor = isLightSquare ? 'bg-card' : 'bg-muted';
 
   return (
     <button
       onClick={() => onClick(squareData.algebraic)}
       className={cn(
-        'w-full aspect-square flex items-center justify-center transition-colors duration-150 ease-in-out relative group rounded-none', // ensure no rounding
+        'w-full aspect-square flex items-center justify-center transition-colors duration-150 ease-in-out relative group rounded-none',
         squareBgColor,
-        isSelected && 'ring-2 ring-inset ring-accent', // Ring will be sharp due to 0rem radius
-        isPossibleMove && !piece && 'bg-accent/40', // Lighter accent for empty possible squares
-        isPossibleMove && piece && 'bg-destructive/60', // More prominent destructive for captures
-        isSuggestedMove && 'outline outline-2 outline-offset-[-2px] outline-primary' // Use primary for suggestion outline
+        isSelected && 'ring-2 ring-inset ring-accent',
+        isPossibleMove && !piece && 'bg-accent/40', 
+        isPossibleMove && piece && 'bg-destructive/60'
       )}
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}`}
     >
