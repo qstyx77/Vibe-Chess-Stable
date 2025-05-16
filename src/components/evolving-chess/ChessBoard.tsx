@@ -3,6 +3,7 @@
 
 import type { BoardState, AlgebraicSquare } from '@/types';
 import { ChessSquare } from './ChessSquare';
+import { cn } from '@/lib/utils';
 
 interface ChessBoardProps {
   boardState: BoardState;
@@ -10,6 +11,7 @@ interface ChessBoardProps {
   possibleMoves: AlgebraicSquare[];
   onSquareClick: (algebraic: AlgebraicSquare) => void;
   playerColor: 'white' | 'black'; // To orient the board
+  isGameOver: boolean;
 }
 
 export function ChessBoard({
@@ -18,25 +20,34 @@ export function ChessBoard({
   possibleMoves,
   onSquareClick,
   playerColor,
+  isGameOver,
 }: ChessBoardProps) {
   const displayBoard = playerColor === 'white' ? boardState : [...boardState].reverse().map(row => [...row].reverse());
 
   return (
-    <div className="grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border">
+    <div className={cn(
+        "grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border",
+        isGameOver && "opacity-70 cursor-not-allowed"
+      )}>
       {displayBoard.map((row, rowIndex) =>
         row.map((squareData, colIndex) => {
-          const isLightSquare = (rowIndex + colIndex) % 2 === 0;
-          const isSelected = selectedSquare === squareData.algebraic;
-          const isPossible = possibleMoves.includes(squareData.algebraic);
+          const actualRowIndex = playerColor === 'white' ? rowIndex : 7 - rowIndex;
+          const actualColIndex = playerColor === 'white' ? colIndex : 7 - colIndex;
+          const currentSquareData = boardState[actualRowIndex][actualColIndex];
+          
+          const isLightSquare = (actualRowIndex + actualColIndex) % 2 === 0;
+          const isSelected = selectedSquare === currentSquareData.algebraic;
+          const isPossible = possibleMoves.includes(currentSquareData.algebraic);
           
           return (
             <ChessSquare
-              key={squareData.algebraic}
-              squareData={squareData}
+              key={currentSquareData.algebraic}
+              squareData={currentSquareData}
               isLightSquare={isLightSquare}
               isSelected={isSelected}
               isPossibleMove={isPossible}
               onClick={onSquareClick}
+              disabled={isGameOver}
             />
           );
         })

@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { SquareState, Piece } from '@/types';
+import type { SquareState } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,7 @@ interface ChessSquareProps {
   isSelected: boolean;
   isPossibleMove: boolean;
   onClick: (algebraic: SquareState['algebraic']) => void;
+  disabled?: boolean;
 }
 
 export function ChessSquare({
@@ -19,6 +20,7 @@ export function ChessSquare({
   isSelected,
   isPossibleMove,
   onClick,
+  disabled = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
 
@@ -26,15 +28,17 @@ export function ChessSquare({
 
   return (
     <button
-      onClick={() => onClick(squareData.algebraic)}
+      onClick={() => !disabled && onClick(squareData.algebraic)}
       className={cn(
         'w-full aspect-square flex items-center justify-center transition-colors duration-150 ease-in-out relative group rounded-none',
         squareBgColor,
-        isSelected && 'ring-2 ring-inset ring-accent',
-        isPossibleMove && !piece && 'bg-accent/40', 
-        isPossibleMove && piece && 'bg-destructive/60'
+        isSelected && !disabled && 'ring-2 ring-inset ring-accent',
+        isPossibleMove && !piece && !disabled && 'bg-accent/40', 
+        isPossibleMove && piece && !disabled && 'bg-destructive/60',
+        disabled && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}`}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (game over)' : ''}`}
+      disabled={disabled}
     >
       {piece && <ChessPieceDisplay piece={piece} />}
       <span className="absolute bottom-0.5 left-0.5 font-pixel text-[8px] text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden">

@@ -30,5 +30,6 @@ export interface GameStatus {
   isCheck: boolean;
   isCheckmate: boolean;
   isStalemate: boolean;
-  winner?: PlayerColor;
+  winner?: PlayerColor | 'draw'; // Winner can also be a draw
+  gameOver: boolean;
 }

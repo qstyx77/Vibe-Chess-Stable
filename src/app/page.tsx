@@ -4,18 +4,35 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
-import { initializeBoard, applyMove, algebraicToCoords, getPossibleMoves } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move } from '@/types';
+import { 
+  initializeBoard, 
+  applyMove, 
+  algebraicToCoords, 
+  getPossibleMoves,
+  isKingInCheck,
+  isCheckmate,
+  isStalemate,
+  filterLegalMoves
+} from '@/lib/chess-utils';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+
+const initialGameStatus: GameStatus = {
+  message: "White's turn to move.",
+  isCheck: false,
+  isCheckmate: false,
+  isStalemate: false,
+  gameOver: false,
+};
 
 export default function EvolvingChessPage() {
   const [board, setBoard] = useState<BoardState>(initializeBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<AlgebraicSquare[]>([]);
-  const [gameStatus, setGameStatus] = useState<string>("White's turn to move.");
+  const [gameInfo, setGameInfo] = useState<GameStatus>(initialGameStatus);
   const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ white: [], black: [] });
 
   const { toast } = useToast();
@@ -25,28 +42,30 @@ export default function EvolvingChessPage() {
     setCurrentPlayer('white');
     setSelectedSquare(null);
     setPossibleMoves([]);
-    setGameStatus("White's turn to move.");
+    setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
   useEffect(() => {
-    resetGame();
-  }, [resetGame]);
+    // This effect runs when the component mounts
+    // No need to call resetGame here if it's also in the GameControls or page load logic
+  }, []);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
+    if (gameInfo.gameOver) return;
+
     const { row, col } = algebraicToCoords(algebraic);
     const clickedPiece = board[row][col].piece;
 
     if (selectedSquare) {
-      const { row: fromRow, col: fromCol } = algebraicToCoords(selectedSquare);
-      const pieceToMove = board[fromRow][fromCol].piece;
+      const pieceToMove = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
 
-      if (pieceToMove && possibleMoves.includes(algebraic)) {
-        // Make the move
+      if (pieceToMove && pieceToMove.color === currentPlayer && possibleMoves.includes(algebraic)) {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured } = applyMove(board, move);
+        
         setBoard(newBoard);
 
         if (captured) {
@@ -54,7 +73,7 @@ export default function EvolvingChessPage() {
             ...prev,
             [pieceToMove.color]: [...prev[pieceToMove.color], captured]
           }));
-          const movingPieceDetails = newBoard[row][col].piece; // Get updated piece details
+          const movingPieceDetails = newBoard[row][col].piece;
           toast({
             title: "Piece Captured!",
             description: `${pieceToMove.color} ${pieceToMove.type} captured ${captured.color} ${captured.type}. ${movingPieceDetails ? `It's now level ${movingPieceDetails.level}!` : ''}`,
@@ -63,24 +82,58 @@ export default function EvolvingChessPage() {
 
         const nextPlayer = currentPlayer === 'white' ? 'black' : 'white';
         setCurrentPlayer(nextPlayer);
-        setGameStatus(`${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)}'s turn to move.`);
         setSelectedSquare(null);
         setPossibleMoves([]);
+        
+        // Check game status after move
+        const inCheck = isKingInCheck(newBoard, nextPlayer);
+        if (inCheck) {
+          const mate = isCheckmate(newBoard, nextPlayer);
+          if (mate) {
+            setGameInfo({
+              message: `Checkmate! ${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} wins!`,
+              isCheck: true, isCheckmate: true, isStalemate: false, winner: currentPlayer, gameOver: true,
+            });
+          } else {
+            setGameInfo({
+              message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)} is in Check!`,
+              isCheck: true, isCheckmate: false, isStalemate: false, gameOver: false,
+            });
+          }
+        } else {
+          const stale = isStalemate(newBoard, nextPlayer);
+          if (stale) {
+            setGameInfo({
+              message: `Stalemate! It's a draw.`,
+              isCheck: false, isCheckmate: false, isStalemate: true, winner: 'draw', gameOver: true,
+            });
+          } else {
+            setGameInfo({
+              message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)}'s turn to move.`,
+              isCheck: false, isCheckmate: false, isStalemate: false, gameOver: false,
+            });
+          }
+        }
+
       } else {
         // Clicked on a different square or invalid move, deselect or select new piece
         setSelectedSquare(null);
         setPossibleMoves([]);
         if (clickedPiece && clickedPiece.color === currentPlayer) {
           setSelectedSquare(algebraic);
-          setPossibleMoves(getPossibleMoves(board, algebraic));
+          const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
+          const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
+          setPossibleMoves(legalFilteredMoves);
         }
       }
     } else if (clickedPiece && clickedPiece.color === currentPlayer) {
       // No piece selected, select this one
       setSelectedSquare(algebraic);
-      setPossibleMoves(getPossibleMoves(board, algebraic));
+      const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
+      const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
+      setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast]);
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver]);
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
@@ -95,8 +148,10 @@ export default function EvolvingChessPage() {
         <div className="md:w-1/3 lg:w-1/4">
           <GameControls
             currentPlayer={currentPlayer}
-            gameStatus={gameStatus}
+            gameStatusMessage={gameInfo.message}
             capturedPieces={capturedPieces}
+            isCheck={gameInfo.isCheck}
+            isGameOver={gameInfo.gameOver}
           />
         </div>
         <div className="md:w-2/3 lg:w-3/4 flex justify-center items-start">
@@ -105,7 +160,8 @@ export default function EvolvingChessPage() {
             selectedSquare={selectedSquare}
             possibleMoves={possibleMoves}
             onSquareClick={handleSquareClick}
-            playerColor="white" // For now, always white's perspective. Could be configurable.
+            playerColor="white" 
+            isGameOver={gameInfo.gameOver}
           />
         </div>
       </div>
