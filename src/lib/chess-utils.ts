@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -111,7 +112,7 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
 
   // Handle capture & leveling
   if (capturedPiece) {
-    movingPiece.experience += (capturedPiece.level * 10); // Example: 10 exp per level of captured piece
+    movingPiece.experience += (capturedPiece.level * 20); // Adjusted: 20 exp per level of captured piece
     const levelThreshold = movingPiece.level * 20; // Example: level up every level * 20 exp
     if (movingPiece.experience >= levelThreshold) {
       movingPiece.level += 1;
@@ -155,3 +156,4 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
+
