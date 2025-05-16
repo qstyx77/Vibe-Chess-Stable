@@ -70,6 +70,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
           return true;
         }
       }
+      // Level 3+ pawns can move one square sideways
+      if (piece.level >= 3) {
+        if (toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetPiece) {
+          return true;
+        }
+      }
       return false;
     case 'knight':
       const dRow = Math.abs(toRow - fromRow);
