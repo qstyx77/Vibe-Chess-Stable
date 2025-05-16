@@ -126,7 +126,17 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
 
   // Handle capture & leveling
   if (capturedPiece) {
-    movingPiece.level += 1; 
+    switch (capturedPiece.type) {
+      case 'pawn':
+        movingPiece.level += 1;
+        break;
+      case 'queen':
+        movingPiece.level += 3;
+        break;
+      default: // Rook, Knight, Bishop, King
+        movingPiece.level += 2;
+        break;
+    }
   }
   
   // Simplified pawn promotion
@@ -204,3 +214,4 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
+
