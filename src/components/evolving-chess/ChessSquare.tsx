@@ -12,6 +12,7 @@ interface ChessSquareProps {
   isPossibleMove: boolean;
   onClick: (algebraic: SquareState['algebraic']) => void;
   disabled?: boolean;
+  isKingInCheck?: boolean;
 }
 
 export function ChessSquare({
@@ -21,6 +22,7 @@ export function ChessSquare({
   isPossibleMove,
   onClick,
   disabled = false,
+  isKingInCheck = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
 
@@ -37,10 +39,10 @@ export function ChessSquare({
         isPossibleMove && piece && !disabled && 'bg-destructive/60',
         disabled && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (game over)' : ''}`}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (game over)' : ''}${isKingInCheck ? ' (King in check!)' : ''}`}
       disabled={disabled}
     >
-      {piece && <ChessPieceDisplay piece={piece} />}
+      {piece && <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} />}
       <span className="absolute bottom-0.5 left-0.5 font-pixel text-[8px] text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden">
         {squareData.algebraic}
       </span>

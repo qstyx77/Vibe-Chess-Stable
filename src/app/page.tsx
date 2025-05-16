@@ -162,6 +162,7 @@ export default function EvolvingChessPage() {
             onSquareClick={handleSquareClick}
             playerColor="white" 
             isGameOver={gameInfo.gameOver}
+            playerInCheck={gameInfo.isCheck ? currentPlayer : null}
           />
         </div>
       </div>

@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { BoardState, AlgebraicSquare } from '@/types';
+import type { BoardState, AlgebraicSquare, PlayerColor } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ interface ChessBoardProps {
   onSquareClick: (algebraic: AlgebraicSquare) => void;
   playerColor: 'white' | 'black'; // To orient the board
   isGameOver: boolean;
+  playerInCheck: PlayerColor | null;
 }
 
 export function ChessBoard({
@@ -21,6 +22,7 @@ export function ChessBoard({
   onSquareClick,
   playerColor,
   isGameOver,
+  playerInCheck,
 }: ChessBoardProps) {
   const displayBoard = playerColor === 'white' ? boardState : [...boardState].reverse().map(row => [...row].reverse());
 
@@ -38,6 +40,7 @@ export function ChessBoard({
           const isLightSquare = (actualRowIndex + actualColIndex) % 2 === 0;
           const isSelected = selectedSquare === currentSquareData.algebraic;
           const isPossible = possibleMoves.includes(currentSquareData.algebraic);
+          const isThisKingInCheck = currentSquareData.piece?.type === 'king' && currentSquareData.piece?.color === playerInCheck;
           
           return (
             <ChessSquare
@@ -48,6 +51,7 @@ export function ChessBoard({
               isPossibleMove={isPossible}
               onClick={onSquareClick}
               disabled={isGameOver}
+              isKingInCheck={isThisKingInCheck}
             />
           );
         })

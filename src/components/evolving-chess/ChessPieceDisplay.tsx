@@ -5,13 +5,17 @@ import { cn } from '@/lib/utils';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
+  isKingInCheck?: boolean;
 }
 
-export function ChessPieceDisplay({ piece }: ChessPieceDisplayProps) {
+export function ChessPieceDisplay({ piece, isKingInCheck = false }: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
-  // In 8-bit, piece colors are often just stark foreground/primary or similar.
-  // Using foreground for white, and secondary or a different vibrant color for black.
-  const pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
+  
+  let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
+
+  if (piece.type === 'king' && isKingInCheck) {
+    pieceColorClass = 'text-destructive animate-pulse'; // Added animate-pulse for more emphasis
+  }
 
   return (
     <div className={cn("relative flex items-center justify-center w-full h-full", pieceColorClass)}>
