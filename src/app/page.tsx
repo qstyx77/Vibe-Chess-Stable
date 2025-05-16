@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
+import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
 import { 
   initializeBoard, 
   applyMove, 
@@ -12,9 +13,10 @@ import {
   isKingInCheck,
   isCheckmate,
   isStalemate,
-  filterLegalMoves
+  filterLegalMoves,
+  coordsToAlgebraic
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -38,6 +40,9 @@ export default function EvolvingChessPage() {
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
 
+  const [isPromotingPawn, setIsPromotingPawn] = useState(false);
+  const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
+
   const { toast } = useToast();
 
   const resetGame = useCallback(() => {
@@ -48,6 +53,8 @@ export default function EvolvingChessPage() {
     setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
     setFlashMessage(null);
+    setIsPromotingPawn(false);
+    setPromotionSquare(null);
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
@@ -71,8 +78,6 @@ export default function EvolvingChessPage() {
       setFlashMessageKey(prev => prev + 1);
       timerId = setTimeout(() => setFlashMessage(null), 1500);
     } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) {
-      // If no longer in check or checkmate, clear the message immediately if it's visible
-      // This handles scenarios where a player moves out of check.
       if (flashMessage) {
         clearExistingTimer();
         setFlashMessage(null);
@@ -85,69 +90,88 @@ export default function EvolvingChessPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.gameOver]);
 
+  const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
+    const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
+    setCurrentPlayer(nextPlayer);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    
+    const inCheck = isKingInCheck(updatedBoard, nextPlayer);
+    if (inCheck) {
+      const mate = isCheckmate(updatedBoard, nextPlayer);
+      if (mate) {
+        setGameInfo({
+          message: `Checkmate! ${playerWhoseTurnEnded.charAt(0).toUpperCase() + playerWhoseTurnEnded.slice(1)} wins!`,
+          isCheck: true, isCheckmate: true, isStalemate: false, winner: playerWhoseTurnEnded, gameOver: true,
+        });
+      } else {
+        setGameInfo({
+          message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)} is in Check!`,
+          isCheck: true, isCheckmate: false, isStalemate: false, gameOver: false,
+        });
+      }
+    } else {
+      const stale = isStalemate(updatedBoard, nextPlayer);
+      if (stale) {
+        setGameInfo({
+          message: `Stalemate! It's a draw.`,
+          isCheck: false, isCheckmate: false, isStalemate: true, winner: 'draw', gameOver: true,
+        });
+      } else {
+        setGameInfo({
+          message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)}'s turn to move.`,
+          isCheck: false, isCheckmate: false, isStalemate: false, gameOver: false,
+        });
+      }
+    }
+  }, []);
+
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
-    if (gameInfo.gameOver) return;
+    if (gameInfo.gameOver || isPromotingPawn) return;
 
     const { row, col } = algebraicToCoords(algebraic);
-    const clickedPiece = board[row][col].piece;
+    const clickedPieceData = board[row][col]; // Get the SquareState
+    const clickedPiece = clickedPieceData.piece;
+
 
     if (selectedSquare) {
-      const pieceToMove = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
+      const pieceToMoveData = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col];
+      const pieceToMove = pieceToMoveData.piece;
 
       if (pieceToMove && pieceToMove.color === currentPlayer && possibleMoves.includes(algebraic)) {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured } = applyMove(board, move);
         
-        setBoard(newBoard);
+        const movedPieceFinalSquare = newBoard[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col];
+        const movedPiece = movedPieceFinalSquare.piece;
 
         if (captured) {
           setCapturedPieces(prev => ({
             ...prev,
             [pieceToMove.color]: [...prev[pieceToMove.color], captured]
           }));
-          const movingPieceDetails = newBoard[row][col].piece;
           toast({
             title: "Piece Captured!",
-            description: `${pieceToMove.color} ${pieceToMove.type} captured ${captured.color} ${captured.type}. ${movingPieceDetails ? `It's now level ${movingPieceDetails.level}!` : ''}`,
+            description: `${pieceToMove.color} ${pieceToMove.type} captured ${captured.color} ${captured.type}. ${movedPiece ? `It's now level ${movedPiece.level}!` : ''}`,
           });
         }
-
-        const nextPlayer = currentPlayer === 'white' ? 'black' : 'white';
-        setCurrentPlayer(nextPlayer);
-        setSelectedSquare(null);
-        setPossibleMoves([]);
         
-        const inCheck = isKingInCheck(newBoard, nextPlayer);
-        if (inCheck) {
-          const mate = isCheckmate(newBoard, nextPlayer);
-          if (mate) {
-            setGameInfo({
-              message: `Checkmate! ${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} wins!`,
-              isCheck: true, isCheckmate: true, isStalemate: false, winner: currentPlayer, gameOver: true,
-            });
-          } else {
-            setGameInfo({
-              message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)} is in Check!`,
-              isCheck: true, isCheckmate: false, isStalemate: false, gameOver: false,
-            });
-          }
+        // Check for promotion
+        const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
+        if (movedPiece && movedPiece.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
+            setBoard(newBoard); // Set board before showing promotion dialog
+            setIsPromotingPawn(true);
+            setPromotionSquare(algebraic);
+            setSelectedSquare(null); 
+            setPossibleMoves([]);
+            // Game continuation logic will be handled in handlePromotionSelect
         } else {
-          const stale = isStalemate(newBoard, nextPlayer);
-          if (stale) {
-            setGameInfo({
-              message: `Stalemate! It's a draw.`,
-              isCheck: false, isCheckmate: false, isStalemate: true, winner: 'draw', gameOver: true,
-            });
-          } else {
-            setGameInfo({
-              message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)}'s turn to move.`,
-              isCheck: false, isCheckmate: false, isStalemate: false, gameOver: false,
-            });
-          }
+            setBoard(newBoard);
+            completeTurn(newBoard, currentPlayer);
         }
 
-      } else {
+      } else { // Clicked on a non-possible move or own piece again
         setSelectedSquare(null);
         setPossibleMoves([]);
         if (clickedPiece && clickedPiece.color === currentPlayer) {
@@ -157,13 +181,49 @@ export default function EvolvingChessPage() {
           setPossibleMoves(legalFilteredMoves);
         }
       }
-    } else if (clickedPiece && clickedPiece.color === currentPlayer) {
+    } else if (clickedPiece && clickedPiece.color === currentPlayer) { // No square selected yet, selecting a piece
       setSelectedSquare(algebraic);
       const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver]);
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn]);
+
+  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
+    if (!promotionSquare) return;
+
+    const { row, col } = algebraicToCoords(promotionSquare);
+    const newBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); // Deep copy
+    const pawnToPromote = newBoard[row][col].piece;
+
+    if (pawnToPromote && pawnToPromote.type === 'pawn') {
+      pawnToPromote.type = pieceType;
+      // Optionally update ID if needed, e.g., pawnToPromote.id = `${pawnToPromote.id}_promotedTo_${pieceType}`;
+      // Level remains the same as per typical chess rules, but could be customized here.
+      
+      setBoard(newBoard);
+      toast({
+        title: "Pawn Promoted!",
+        description: `${pawnToPromote.color.charAt(0).toUpperCase() + pawnToPromote.color.slice(1)} pawn promoted to ${pieceType}!`,
+      });
+      
+      completeTurn(newBoard, pawnToPromote.color);
+    }
+
+    setIsPromotingPawn(false);
+    setPromotionSquare(null);
+  }, [board, promotionSquare, completeTurn, toast]);
+
+
+  let playerInCheckForBoard: PlayerColor | null = null;
+  if (gameInfo.isCheck) {
+    if (gameInfo.isCheckmate) {
+      playerInCheckForBoard = gameInfo.winner === 'white' ? 'black' : 'white';
+    } else {
+      playerInCheckForBoard = currentPlayer;
+    }
+  }
+
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
@@ -206,11 +266,16 @@ export default function EvolvingChessPage() {
             possibleMoves={possibleMoves}
             onSquareClick={handleSquareClick}
             playerColor="white" 
-            isGameOver={gameInfo.gameOver}
-            playerInCheck={gameInfo.isCheck ? (gameInfo.isCheckmate ? (gameInfo.winner === 'white' ? 'black' : 'white') : currentPlayer) : null}
+            isGameOver={gameInfo.gameOver || isPromotingPawn}
+            playerInCheck={playerInCheckForBoard}
           />
         </div>
       </div>
+      <PromotionDialog
+        isOpen={isPromotingPawn}
+        onSelectPiece={handlePromotionSelect}
+        pawnColor={promotionSquare ? board[algebraicToCoords(promotionSquare).row][algebraicToCoords(promotionSquare).col].piece?.color ?? null : null}
+      />
     </div>
   );
 }

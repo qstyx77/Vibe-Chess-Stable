@@ -185,9 +185,10 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
     }
   }
   
-  if (currentMovingPieceRef.type === 'pawn' && (toRow === 0 || toRow === 7)) {
-    currentMovingPieceRef.type = 'queen';
-  }
+  // Automatic promotion to Queen is removed. This will be handled by UI choice.
+  // if (currentMovingPieceRef.type === 'pawn' && (toRow === 0 || toRow === 7)) {
+  //   currentMovingPieceRef.type = 'queen';
+  // }
 
   if (currentMovingPieceRef.type === 'pawn' && currentMovingPieceRef.level >= 4) {
     const pawnNewRow = toRow;
@@ -238,9 +239,16 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolea
     for (let c = 0; c < 8; c++) {
       const attackerPiece = board[r][c].piece;
       if (attackerPiece && attackerPiece.color === opponentColor) {
+        // Temporarily allow checking moves as if the target king square is empty to see if it's a valid attack path
+        // This is a simplified check; a more robust one would consider the attacker's specific move rules to an empty square.
+        const originalTargetPiece = board[kingPos.row][kingPos.col].piece;
+        board[kingPos.row][kingPos.col].piece = null; // Pretend king's square is empty for attack validation
+        
         if (isMoveValid(board, coordsToAlgebraic(r, c), kingSquareAlgebraic, attackerPiece)) {
+          board[kingPos.row][kingPos.col].piece = originalTargetPiece; // Restore piece
           return true;
         }
+        board[kingPos.row][kingPos.col].piece = originalTargetPiece; // Restore piece
       }
     }
   }
@@ -257,8 +265,10 @@ export function filterLegalMoves(
   if (!piece || piece.color !== playerColor) return [];
 
   return pseudoMoves.filter(targetSquare => {
-    const { newBoard } = applyMove(board, { from: pieceOriginalSquare, to: targetSquare });
-    return !isKingInCheck(newBoard, playerColor);
+    // Create a deep copy of the board for simulation
+    const tempBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
+    const { newBoard: boardAfterMove } = applyMove(tempBoard, { from: pieceOriginalSquare, to: targetSquare });
+    return !isKingInCheck(boardAfterMove, playerColor);
   });
 }
 
@@ -281,12 +291,10 @@ function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor): boolean 
 }
 
 export function isCheckmate(board: BoardState, kingInCheckColor: PlayerColor): boolean {
-  // Assumes kingInCheckColor is already in check.
   return isKingInCheck(board, kingInCheckColor) && !hasAnyLegalMoves(board, kingInCheckColor);
 }
 
 export function isStalemate(board: BoardState, playerColor: PlayerColor): boolean {
-  // Assumes playerColor is NOT in check for stalemate definition.
   return !isKingInCheck(board, playerColor) && !hasAnyLegalMoves(board, playerColor);
 }
 
