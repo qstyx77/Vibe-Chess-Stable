@@ -48,10 +48,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   if (targetPiece && targetPiece.color === piece.color) return false; // Cannot capture own piece
 
-  // Piece-specific logic (highly simplified)
+  // Piece-specific logic
   switch (piece.type) {
     case 'pawn':
-      const direction = piece.color === 'white' ? -1 : 1;
+      const direction = piece.color === 'white' ? -1 : 1; // Standard forward direction for row index change
       // Move forward one square
       if (fromCol === toCol && toRow === fromRow + direction && !targetPiece) return true;
       // Move forward two squares (initial move)
@@ -60,8 +60,16 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         ((piece.color === 'white' && fromRow === 6 && toRow === 4 && !board[5][fromCol].piece) ||
          (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2][fromCol].piece))
       ) return true;
-      // Capture
+      // Capture (forward diagonal)
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPiece) return true;
+      
+      // Level 2+ pawns can move one square backward
+      if (piece.level >= 2) {
+        const backwardDirection = direction * -1; // Reverse of standard forward direction
+        if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetPiece) {
+          return true;
+        }
+      }
       return false;
     case 'knight':
       const dRow = Math.abs(toRow - fromRow);
@@ -151,3 +159,4 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
+
