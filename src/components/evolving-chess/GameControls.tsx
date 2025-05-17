@@ -25,12 +25,7 @@ export function GameControls({
   killStreaks,
 }: GameControlsProps) {
   
-  const renderCapturedPieces = (color: PlayerColor, playerKillStreak: number) => {
-    const opponentColor = color === 'white' ? 'black' : 'white'; // This represents the player whose streak it is
-    const streakText = playerKillStreak >= 2 
-      ? `${opponentColor.charAt(0).toUpperCase() + opponentColor.slice(1)}'s Streak: ${playerKillStreak}` 
-      : null;
-
+  const renderCapturedPieces = (color: PlayerColor) => {
     return (
       <div>
         <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]"> {/* Added min-height */}
@@ -41,9 +36,6 @@ export function GameControls({
             </div>
           ))}
         </div>
-        {streakText && (
-          <p className="text-xs text-destructive font-pixel mt-1 text-center">{streakText}</p>
-        )}
       </div>
     );
   };
@@ -74,15 +66,30 @@ export function GameControls({
           </p>
         </div>
 
+        <div className="text-center mt-2 space-y-1">
+          <p className="text-sm font-medium text-destructive font-pixel">
+            White's Streak: {killStreaks.white}
+          </p>
+          <p className="text-sm font-medium text-destructive font-pixel">
+            Black's Streak: {killStreaks.black}
+          </p>
+        </div>
+
         <Separator />
 
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by White:</h3>
-          {renderCapturedPieces('black', killStreaks.white)}
+          {renderCapturedPieces('black')}
+           {killStreaks.white >= 2 && (
+            <p className="text-xs text-destructive font-pixel mt-1 text-center">White's Streak: {killStreaks.white}</p>
+          )}
         </div>
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black:</h3>
-          {renderCapturedPieces('white', killStreaks.black)}
+          {renderCapturedPieces('white')}
+          {killStreaks.black >= 2 && (
+            <p className="text-xs text-destructive font-pixel mt-1 text-center">Black's Streak: {killStreaks.black}</p>
+          )}
         </div>
         
         <Separator />
@@ -94,3 +101,4 @@ export function GameControls({
     </Card>
   );
 }
+
