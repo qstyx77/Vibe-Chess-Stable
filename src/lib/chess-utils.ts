@@ -123,12 +123,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       // Level 3+ specific moves
       if (piece.level >= 3) {
-        // 2-square horizontal jump
-        if (dRowKnight === 0 && dColKnight === 2) {
+        // 3-square horizontal jump
+        if (dRowKnight === 0 && dColKnight === 3) {
             return true;
         }
-        // 2-square vertical jump
-        if (dRowKnight === 2 && dColKnight === 0) {
+        // 3-square vertical jump
+        if (dRowKnight === 3 && dColKnight === 0) {
             return true;
         }
       }
@@ -393,7 +393,7 @@ export function filterLegalMoves(
 ): AlgebraicSquare[] {
   const pieceData = board[algebraicToCoords(pieceOriginalSquare).row][algebraicToCoords(pieceOriginalSquare).col];
   if (!pieceData || !pieceData.piece || pieceData.piece.color !== playerColor) return [];
-  const piece = pieceData.piece;
+  // const piece = pieceData.piece; // Unused
 
   return pseudoMoves.filter(targetSquare => {
     // Create a deep copy of the board for simulation
