@@ -40,6 +40,9 @@ export default function EvolvingChessPage() {
 
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
+  
+  const [killStreakFlashMessage, setKillStreakFlashMessage] = useState<string | null>(null);
+  const [killStreakFlashMessageKey, setKillStreakFlashMessageKey] = useState<number>(0);
 
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
@@ -57,6 +60,7 @@ export default function EvolvingChessPage() {
     setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
     setFlashMessage(null);
+    setKillStreakFlashMessage(null);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
@@ -64,7 +68,7 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
-   useEffect(() => {
+  useEffect(() => {
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
       newFlash = 'CHECKMATE!';
@@ -75,6 +79,8 @@ export default function EvolvingChessPage() {
     if (newFlash) {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
+    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) { // Clear check message if no longer in check/checkmate
+      setFlashMessage(null);
     }
   }, [gameInfo]);
 
@@ -93,6 +99,20 @@ export default function EvolvingChessPage() {
       }
     };
   }, [flashMessage, flashMessageKey]);
+
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | null = null;
+    if (killStreakFlashMessage) {
+      timerId = setTimeout(() => {
+        setKillStreakFlashMessage(null);
+      }, 1500); // All kill streak messages last 1.5s
+    }
+    return () => {
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    };
+  }, [killStreakFlashMessage, killStreakFlashMessageKey]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
@@ -170,15 +190,15 @@ export default function EvolvingChessPage() {
 
         if (captured) {
           const capturingPlayer = currentPlayer;
-          setKillStreaks(prevKillStreaks => {
+           setKillStreaks(prevKillStreaks => {
             const updatedStreaks = { ...prevKillStreaks };
+            const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
             if (lastCapturePlayer === capturingPlayer) {
               updatedStreaks[capturingPlayer]++;
             } else {
               updatedStreaks[capturingPlayer] = 1;
-              const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
-              if (prevKillStreaks[opponentPlayer] > 0) { 
-                 updatedStreaks[opponentPlayer] = 0;
+              if (updatedStreaks[opponentPlayer] > 0) {
+                 updatedStreaks[opponentPlayer] = 0; 
               }
             }
             return updatedStreaks;
@@ -194,7 +214,7 @@ export default function EvolvingChessPage() {
             description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
         } else { 
-          if (lastCapturePlayer === currentPlayer) {
+           if (lastCapturePlayer === currentPlayer) { //Streak broken by current player making non-capture move
             setKillStreaks(prevKillStreaks => {
               if (prevKillStreaks[currentPlayer] > 0) {
                 return { ...prevKillStreaks, [currentPlayer]: 0 };
@@ -202,7 +222,7 @@ export default function EvolvingChessPage() {
               return prevKillStreaks;
             });
           }
-          setLastCapturePlayer(null);
+          setLastCapturePlayer(null); // Any non-capture move breaks the "chain"
         }
         
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
@@ -233,7 +253,7 @@ export default function EvolvingChessPage() {
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks]); // Added killStreaks to dependency array for the functional update in the no-capture case
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -347,9 +367,26 @@ export default function EvolvingChessPage() {
           </div>
         </div>
       )}
+       {killStreakFlashMessage && (
+        <div
+          key={killStreakFlashMessageKey}
+          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+          aria-live="assertive"
+        >
+          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}> {/* Uses animate-flash-check for 1.5s duration */}
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
+               style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
+            >
+              {killStreakFlashMessage}
+            </p>
+          </div>
+        </div>
+      )}
       
-      <div className="w-full flex justify-between items-center mb-4">
-        <h1 className="text-3xl font-bold text-primary font-pixel">Evolving Chess</h1>
+      <div className="w-full flex flex-col items-center mb-6 space-y-3">
+        <h1 className="text-4xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">
+          VIBE CHESS
+        </h1>
         <Button variant="outline" onClick={resetGame} aria-label="Reset Game">
           <RefreshCw className="h-4 w-4 mr-2" />
           Reset Game

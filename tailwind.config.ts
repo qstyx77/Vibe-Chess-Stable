@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -94,12 +95,39 @@ export default {
           '80%': { opacity: '1', transform: 'scale(1) translateY(0)' },
           '100%': { opacity: '0', transform: 'scale(0.8) translateY(20px)' },
         },
+        'pixel-title-flash': {
+          '0%, 49.9%': { 
+            textShadow: `
+              3px 3px 0px hsl(var(--background)), 
+              -3px 3px 0px hsl(var(--background)), 
+              3px -3px 0px hsl(var(--background)), 
+              -3px -3px 0px hsl(var(--background)),
+              3px 0px 0px hsl(var(--background)),
+              -3px 0px 0px hsl(var(--background)),
+              0px 3px 0px hsl(var(--background)),
+              0px -3px 0px hsl(var(--background))
+            ` 
+          },
+          '50%, 99.9%': { 
+            textShadow: `
+              3px 3px 0px hsl(var(--primary)), 
+              -3px 3px 0px hsl(var(--primary)), 
+              3px -3px 0px hsl(var(--primary)), 
+              -3px -3px 0px hsl(var(--primary)),
+              3px 0px 0px hsl(var(--primary)),
+              -3px 0px 0px hsl(var(--primary)),
+              0px 3px 0px hsl(var(--primary)),
+              0px -3px 0px hsl(var(--primary))
+            `
+          },
+        }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
         'flash-check': 'fadeInOut 1.5s ease-in-out forwards',
         'flash-checkmate': 'fadeInOut 2.5s ease-in-out forwards',
+        'pixel-title-flash': 'pixel-title-flash 1.5s steps(2, jump-none) infinite',
   		}
   	}
   },
