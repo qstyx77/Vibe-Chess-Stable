@@ -64,37 +64,35 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
+  // Effect to set flash messages based on game state (check, checkmate)
   useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    const clearExistingTimer = () => {
-      if (timerId) {
-        clearTimeout(timerId);
-        timerId = null;
-      }
-    };
-  
     if (gameInfo.isCheckmate) {
-      clearExistingTimer();
       setFlashMessage('CHECKMATE!');
-      setFlashMessageKey(prev => prev + 1);
-      timerId = setTimeout(() => setFlashMessage(null), 2500); 
+      setFlashMessageKey(k => k + 1);
     } else if (gameInfo.isCheck && !gameInfo.isStalemate && !gameInfo.gameOver) {
-      clearExistingTimer();
       setFlashMessage('CHECK!');
-      setFlashMessageKey(prev => prev + 1);
-      timerId = setTimeout(() => setFlashMessage(null), 1500);
-    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) {
-      if (flashMessage) {
-        clearExistingTimer();
-        setFlashMessage(null);
-      }
+      setFlashMessageKey(k => k + 1);
     }
-  
-    return () => {
-      clearExistingTimer();
-    };
+    // This effect does not clear messages; that's handled by the flashMessage-dependent effect.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.gameOver]);
+
+  // Effect to manage the display duration of any flash message
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | null = null;
+    if (flashMessage) {
+      const duration = flashMessage === 'CHECKMATE!' ? 2500 : 1500; // Checkmate gets longer
+      timerId = setTimeout(() => {
+        setFlashMessage(null);
+      }, duration);
+    }
+    return () => {
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    };
+  }, [flashMessage]); // Re-runs whenever flashMessage content changes
+
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
@@ -167,10 +165,10 @@ export default function EvolvingChessPage() {
         const { newBoard, capturedPiece: captured } = applyMove(board, move);
         
         const movedPieceFinalSquare = newBoard[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col];
-        const movedPieceOnBoard = movedPieceFinalSquare.piece; // The piece that actually exists on the board after move
+        const movedPieceOnBoard = movedPieceFinalSquare.piece; 
 
         if (captured) {
-          const capturingPlayer = currentPlayer; // Player whose turn it was
+          const capturingPlayer = currentPlayer; 
           const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
         
           let currentStreakVal = 0;
@@ -178,7 +176,6 @@ export default function EvolvingChessPage() {
             currentStreakVal = killStreaks[capturingPlayer] + 1;
           } else {
             currentStreakVal = 1;
-            // Reset opponent's streak only if a new player starts a streak
             setKillStreaks(prev => ({ ...prev, [opponentPlayer]: 0 }));
           }
           setKillStreaks(prev => ({ ...prev, [capturingPlayer]: currentStreakVal }));
@@ -190,11 +187,9 @@ export default function EvolvingChessPage() {
             else if (currentStreakVal === 3) streakMessage = "Triple Kill!";
             else if (currentStreakVal === 4) streakMessage = "Ultra Kill!";
             else streakMessage = "RAMPAGE!";
-            toast({
-              title: `${capturingPlayer.charAt(0).toUpperCase() + capturingPlayer.slice(1)} on a ${streakMessage}`,
-              description: `Streak: ${currentStreakVal}`,
-              duration: 3000,
-            });
+            
+            setFlashMessage(streakMessage);
+            setFlashMessageKey(prev => prev + 1);
           }
 
           setCapturedPieces(prev => ({
@@ -205,14 +200,13 @@ export default function EvolvingChessPage() {
             title: "Piece Captured!",
             description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
-        } else { // No capture occurred
+        } else { 
           if (lastCapturePlayer) {
-             // Break the streak of the player who last made a capture, if it wasn't the current player
-            if (lastCapturePlayer !== currentPlayer) { // Ensure a player doesn't break their own streak by a non-capture move if they had an extra turn
+            if (lastCapturePlayer !== currentPlayer) {
                 setKillStreaks(prev => ({ ...prev, [lastCapturePlayer]: 0 }));
             }
           }
-          setLastCapturePlayer(null); // No capture this turn
+          setLastCapturePlayer(null); 
         }
         
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
@@ -330,14 +324,6 @@ export default function EvolvingChessPage() {
             });
           }
         }
-         // If it was an extra turn, and no capture happened on this *promotion setup* (promotion itself isn't a capture)
-         // we need to ensure streaks aren't incorrectly broken if the last move *was* a capture.
-         // However, lastCapturePlayer logic is handled in handleSquareClick based on the actual move.
-         // If the move *before* promotion was not a capture, lastCapturePlayer would be null.
-         // If the move *before* promotion *was* a capture by the current player, lastCapturePlayer is set.
-         // This extra turn logic doesn't make a new capture, so it won't affect lastCapturePlayer itself.
-         // The next actual move by this player will then correctly use lastCapturePlayer.
-
       } else {
         completeTurn(newBoard, pawnColor);
       }
@@ -345,7 +331,7 @@ export default function EvolvingChessPage() {
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast, killStreaks, lastCapturePlayer]); // Added killStreaks and lastCapturePlayer dependencies
+  }, [board, promotionSquare, completeTurn, toast]);
 
 
   return (
@@ -356,7 +342,7 @@ export default function EvolvingChessPage() {
           className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
           aria-live="assertive"
         >
-          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${gameInfo.isCheckmate ? 'animate-flash-checkmate' : 'animate-flash-check'}`}>
+          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}>
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
                style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
             >
