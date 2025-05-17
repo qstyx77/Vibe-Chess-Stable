@@ -154,7 +154,14 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       let rBishop = fromRow + dRowBishop;
       let cBishop = fromCol + dColBishop;
       while (rBishop !== toRow) {
-        if (board[rBishop][cBishop].piece) return false; // Path blocked
+        const pathPiece = board[rBishop][cBishop].piece;
+        if (pathPiece) {
+          if (piece.level >= 2 && pathPiece.color === piece.color) {
+            // Level 2+ Bishop can jump over friendly pieces
+          } else {
+            return false; // Path blocked by an enemy piece, or by a friendly piece if Bishop is level 1
+          }
+        }
         rBishop += dRowBishop;
         cBishop += dColBishop;
       }
@@ -242,8 +249,8 @@ export function getPossibleMoves(board: BoardState, square: AlgebraicSquare): Al
 
     // Kingside castling (O-O)
     const kingsideRookCol = 7;
-    const kingsideRookSquare = board[kingRow][kingsideRookCol];
-    if (kingsideRookSquare && kingsideRookSquare.piece && kingsideRookSquare.piece.type === 'rook' && kingsideRookSquare.piece.color === piece.color && !kingsideRookSquare.piece.hasMoved) {
+    const kingsideRookSquareData = board[kingRow][kingsideRookCol];
+    if (kingsideRookSquareData && kingsideRookSquareData.piece && kingsideRookSquareData.piece.type === 'rook' && kingsideRookSquareData.piece.color === piece.color && !kingsideRookSquareData.piece.hasMoved) {
       const fCol = 5; 
       const gCol = 6; 
       const fSquareAlg = coordsToAlgebraic(kingRow, fCol);
@@ -260,8 +267,8 @@ export function getPossibleMoves(board: BoardState, square: AlgebraicSquare): Al
 
     // Queenside castling (O-O-O)
     const queensideRookCol = 0;
-    const queensideRookSquare = board[kingRow][queensideRookCol];
-    if (queensideRookSquare && queensideRookSquare.piece && queensideRookSquare.piece.type === 'rook' && queensideRookSquare.piece.color === piece.color && !queensideRookSquare.piece.hasMoved) {
+    const queensideRookSquareData = board[kingRow][queensideRookCol];
+    if (queensideRookSquareData && queensideRookSquareData.piece && queensideRookSquareData.piece.type === 'rook' && queensideRookSquareData.piece.color === piece.color && !queensideRookSquareData.piece.hasMoved) {
       const dCol = 3; 
       const cCol = 2; 
       const bCol = 1; 
@@ -301,18 +308,18 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
     if (fromCol === kingStartCol && toCol === kingStartCol + 2) { // Kingside castling
       const rookOriginalCol = 7; 
       const rookTargetCol = 5; 
-      const rookSquare = newBoard[fromRow][rookOriginalCol];
-      if (rookSquare && rookSquare.piece && rookSquare.piece.type === 'rook' && rookSquare.piece.color === movingPieceRef.color) {
-        newBoard[fromRow][rookTargetCol].piece = { ...rookSquare.piece, hasMoved: true };
+      const rookSquareData = newBoard[fromRow][rookOriginalCol];
+      if (rookSquareData && rookSquareData.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === movingPieceRef.color) {
+        newBoard[fromRow][rookTargetCol].piece = { ...rookSquareData.piece, hasMoved: true };
         newBoard[fromRow][rookOriginalCol].piece = null;
       }
     }
     else if (fromCol === kingStartCol && toCol === kingStartCol - 2) { // Queenside castling
       const rookOriginalCol = 0; 
       const rookTargetCol = 3; 
-      const rookSquare = newBoard[fromRow][rookOriginalCol];
-      if (rookSquare && rookSquare.piece && rookSquare.piece.type === 'rook' && rookSquare.piece.color === movingPieceRef.color) {
-        newBoard[fromRow][rookTargetCol].piece = { ...rookSquare.piece, hasMoved: true };
+      const rookSquareData = newBoard[fromRow][rookOriginalCol];
+      if (rookSquareData && rookSquareData.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === movingPieceRef.color) {
+        newBoard[fromRow][rookTargetCol].piece = { ...rookSquareData.piece, hasMoved: true };
         newBoard[fromRow][rookOriginalCol].piece = null;
       }
     }
@@ -410,21 +417,35 @@ export function filterLegalMoves(
     boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: pToMoveOriginal.hasMoved || pToMoveOriginal.type === 'king' || pToMoveOriginal.type === 'rook' }; 
     boardAfterTempMove[fromR][fromC].piece = null;
 
+    // Simulate rook move for castling
     if (pToMoveOriginal.type === 'king' && !pToMoveOriginal.hasMoved && Math.abs(fromC - toC) === 2) {
         const kingRow = pToMoveOriginal.color === 'white' ? 7 : 0;
         if (toC > fromC) { // Kingside
             const rookOriginalCol = 7; const rookTargetCol = 5;
-            const rookSquare = boardAfterTempMove[kingRow][rookOriginalCol];
-            if (rookSquare && rookSquare.piece) {
-                boardAfterTempMove[kingRow][rookTargetCol].piece = {...rookSquare.piece, hasMoved: true};
+            const rookSquareData = boardAfterTempMove[kingRow][rookOriginalCol]; // rook is already moved in simulation if it's a real castling attempt
+            if (rookSquareData && rookSquareData.piece && tempBoard[kingRow][rookTargetCol].piece?.type !== 'rook') { // Check if rook hasn't been "moved" by prior logic
+              // This logic path implies we are checking the validity of king moving two squares
+              // and the rook would move. If there's no piece on original rook square, or it's not a rook, this isn't valid castling.
+              // So we actually check the original board's rook square
+              const originalRook = board[kingRow][rookOriginalCol].piece;
+              if (originalRook && originalRook.type === 'rook' && originalRook.color === pToMoveOriginal.color) {
+                boardAfterTempMove[kingRow][rookTargetCol].piece = {...originalRook, hasMoved: true};
                 boardAfterTempMove[kingRow][rookOriginalCol].piece = null;
+              } else {
+                // This castling path might be invalid if rook isn't there, so the move itself is invalid.
+                // However, isMoveValid for king already checks this by adding castling as a special move.
+                // The purpose here is to ensure the simulated board is correct for isKingInCheck.
+              }
             }
         } else { // Queenside
             const rookOriginalCol = 0; const rookTargetCol = 3;
-            const rookSquare = boardAfterTempMove[kingRow][rookOriginalCol];
-            if (rookSquare && rookSquare.piece) {
-                boardAfterTempMove[kingRow][rookTargetCol].piece = {...rookSquare.piece, hasMoved: true};
+            const rookSquareData = boardAfterTempMove[kingRow][rookOriginalCol];
+            if (rookSquareData && rookSquareData.piece && tempBoard[kingRow][rookTargetCol].piece?.type !== 'rook') {
+               const originalRook = board[kingRow][rookOriginalCol].piece;
+               if (originalRook && originalRook.type === 'rook' && originalRook.color === pToMoveOriginal.color) {
+                boardAfterTempMove[kingRow][rookTargetCol].piece = {...originalRook, hasMoved: true};
                 boardAfterTempMove[kingRow][rookOriginalCol].piece = null;
+               }
             }
         }
     }
