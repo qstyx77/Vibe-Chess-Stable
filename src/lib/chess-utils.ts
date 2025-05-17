@@ -1,14 +1,7 @@
 
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
-
-export interface ConversionEvent {
-  originalPiece: Piece;
-  convertedPiece: Piece;
-  byPiece: Piece; // The Bishop that caused the conversion
-  at: AlgebraicSquare;
-}
 
 export function initializeBoard(): BoardState {
   const board: BoardState = [];
@@ -73,9 +66,17 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (from === to) return false;
   const { row: fromRow, col: fromCol } = algebraicToCoords(from);
   const { row: toRow, col: toCol } = algebraicToCoords(to);
-  const targetPieceOnSquare = board[toRow][toCol].piece;
+  const targetSquareState = board[toRow][toCol];
+  const targetPieceOnSquare = targetSquareState.piece;
 
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) return false; 
+
+  // Check for invulnerable rook capture attempt
+  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color &&
+      targetPieceOnSquare.type === 'rook' &&
+      targetPieceOnSquare.invulnerableTurnsRemaining && targetPieceOnSquare.invulnerableTurnsRemaining > 0) {
+    return false; // Cannot capture an invulnerable enemy rook
+  }
 
   switch (piece.type) {
     case 'pawn':
@@ -195,7 +196,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         if (dRowKing <= 2 && dColKing <= 2) { 
             if ((dRowKing === 2 && dColKing === 0) ||   
                 (dRowKing === 0 && dColKing === 2) ||   
-                (dRowKing === 2 && dColKing === 2)) {  
+                (dRowKing === 2 && dColKing === 2)) {  // Straight line 2-square moves
               const midRow = fromRow + (toRow - fromRow) / 2;
               const midCol = fromCol + (toCol - fromCol) / 2;
               if (board[midRow][midCol].piece) { 
@@ -331,7 +332,7 @@ export function applyMove(
 
   if (isKnightBishopSwap || isBishopKnightSwap) {
     const movingPieceCopy = { ...movingPieceOriginal, hasMoved: true };
-    const targetPieceCopy = { ...targetPieceOriginal }; // Keep original 'hasMoved' status
+    const targetPieceCopy = { ...targetPieceOriginal }; 
     
     newBoard[toRow][toCol].piece = movingPieceCopy; 
     newBoard[fromRow][fromCol].piece = targetPieceCopy; 
@@ -340,7 +341,7 @@ export function applyMove(
 
   const capturedPiece = targetPieceOriginal ? { ...targetPieceOriginal } : null;
   
-  newBoard[toRow][toCol].piece = { ...movingPieceOriginal };
+  newBoard[toRow][toCol].piece = { ...movingPieceOriginal, invulnerableTurnsRemaining: movingPieceOriginal.invulnerableTurnsRemaining }; // Preserve invulnerability status
   newBoard[fromRow][fromCol].piece = null;
   
   const movingPieceRef = newBoard[toRow][toCol].piece!; 
@@ -383,6 +384,10 @@ export function applyMove(
         movingPieceRef.level += 2;
         break;
     }
+    // If the piece that just leveled up is a rook, make it invulnerable
+    if (movingPieceRef.type === 'rook') {
+      movingPieceRef.invulnerableTurnsRemaining = 1;
+    }
   }
   
   if (movingPieceRef.type === 'pawn' && movingPieceRef.level >= 4) {
@@ -412,13 +417,12 @@ export function applyMove(
     }
   }
 
-  // Bishop level 5+ conversion ability
   if (movingPieceRef && movingPieceRef.type === 'bishop' && movingPieceRef.level >= 5) {
     const bishopColor = movingPieceRef.color;
     
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue; // Skip the bishop's own square
+        if (dr === 0 && dc === 0) continue; 
 
         const adjRow = toRow + dr;
         const adjCol = toCol + dc;
@@ -428,13 +432,12 @@ export function applyMove(
           const pieceOnAdjSquare = adjacentSquareState.piece;
 
           if (pieceOnAdjSquare && pieceOnAdjSquare.color !== bishopColor && pieceOnAdjSquare.type !== 'king') {
-            // Enemy piece found, not a king
-            if (Math.random() < 0.5) { // 50% chance
+            if (Math.random() < 0.5) { 
               const originalPieceCopy = { ...pieceOnAdjSquare };
               const convertedPiece: Piece = {
-                ...pieceOnAdjSquare, // Preserves type, level, hasMoved
+                ...pieceOnAdjSquare, 
                 color: bishopColor,
-                id: `conv_${pieceOnAdjSquare.id}_${Date.now()}` // Ensure unique ID
+                id: `conv_${pieceOnAdjSquare.id}_${Date.now()}` 
               };
               newBoard[adjRow][adjCol].piece = convertedPiece;
               conversionEvents.push({
@@ -579,3 +582,4 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
+

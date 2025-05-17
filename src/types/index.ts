@@ -8,6 +8,7 @@ export interface Piece {
   color: PlayerColor;
   level: number;
   hasMoved: boolean; // Added for castling
+  invulnerableTurnsRemaining?: number; // For rook invulnerability
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -34,4 +35,11 @@ export interface GameStatus {
   isStalemate: boolean;
   winner?: PlayerColor | 'draw';
   gameOver: boolean;
+}
+
+export interface ConversionEvent {
+  originalPiece: Piece;
+  convertedPiece: Piece;
+  byPiece: Piece; 
+  at: AlgebraicSquare;
 }
