@@ -5,6 +5,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
+import { RulesDialog } from '@/components/evolving-chess/RulesDialog'; // Added RulesDialog import
 import { 
   initializeBoard, 
   applyMove, 
@@ -20,7 +21,7 @@ import {
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, BookOpen } from 'lucide-react'; // Added BookOpen icon
 
 const initialGameStatus: GameStatus = {
   message: "", 
@@ -42,9 +43,13 @@ export default function EvolvingChessPage() {
 
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
+
+  const [killStreakFlashMessage, setKillStreakFlashMessage] = useState<string | null>(null);
+  const [killStreakFlashMessageKey, setKillStreakFlashMessageKey] = useState<number>(0);
   
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
+  const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false); // State for Rules Dialog
 
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
@@ -59,6 +64,7 @@ export default function EvolvingChessPage() {
     setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
     setFlashMessage(null);
+    setKillStreakFlashMessage(null);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
@@ -99,6 +105,20 @@ export default function EvolvingChessPage() {
   }, [flashMessage, flashMessageKey]);
 
   useEffect(() => {
+    let killStreakTimerId: NodeJS.Timeout | null = null;
+    if (killStreakFlashMessage) {
+      killStreakTimerId = setTimeout(() => {
+        setKillStreakFlashMessage(null);
+      }, 1500); // Kill streak messages last 1.5 seconds
+    }
+    return () => {
+      if (killStreakTimerId) {
+        clearTimeout(killStreakTimerId);
+      }
+    };
+  }, [killStreakFlashMessage, killStreakFlashMessageKey]);
+
+  useEffect(() => {
     setBoard(prevBoard => {
       let boardWasModified = false;
       const boardAfterInvulnerabilityWearOff = prevBoard.map(row => 
@@ -121,7 +141,7 @@ export default function EvolvingChessPage() {
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
     setPossibleMoves([]);
-    setBoardOrientation(playerTakingExtraTurn); // Orient board to player taking extra turn
+    setBoardOrientation(playerTakingExtraTurn);
   
     const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
     const opponentInCheck = isKingInCheck(currentBoard, opponentColor);
@@ -177,7 +197,7 @@ export default function EvolvingChessPage() {
     setCurrentPlayer(nextPlayer);
     setSelectedSquare(null);
     setPossibleMoves([]);
-    setBoardOrientation(nextPlayer); // Flip board to next player's perspective
+    setBoardOrientation(nextPlayer); 
     
     const inCheck = isKingInCheck(updatedBoard, nextPlayer);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
@@ -197,7 +217,7 @@ export default function EvolvingChessPage() {
         });
       } else {
         setGameInfo({
-          message: "", 
+          message: "Check!", 
           isCheck: true, 
           playerWithKingInCheck: newPlayerWithKingInCheck,
           isCheckmate: false, 
@@ -260,7 +280,7 @@ export default function EvolvingChessPage() {
             if (adjR >= 0 && adjR < 8 && adjC >= 0 && adjC < 8) {
               const victimPiece = currentBoardState[adjR][adjC].piece;
               if (victimPiece && victimPiece.color !== currentPlayer && victimPiece.type !== 'king') {
-                if (victimPiece.type === 'rook' && victimPiece.invulnerableTurnsRemaining && victimPiece.invulnerableTurnsRemaining > 0) {
+                 if (victimPiece.type === 'rook' && victimPiece.invulnerableTurnsRemaining && victimPiece.invulnerableTurnsRemaining > 0) {
                   toast({
                     title: "Invulnerable Rook!",
                     description: `${currentPlayer} Knight's self-destruct failed on invulnerable ${victimPiece.color} Rook.`,
@@ -295,16 +315,23 @@ export default function EvolvingChessPage() {
             [currentPlayer]: [...(prev[currentPlayer] || []), ...piecesDestroyed]
           }));
           
-          calculatedNewStreakForPlayer = (lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0) + piecesDestroyed.length;
+          const newStreak = (lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0) + piecesDestroyed.length;
+          calculatedNewStreakForPlayer = newStreak;
 
           setKillStreaks(prevKillStreaks => ({
             ...prevKillStreaks,
-            [currentPlayer]: calculatedNewStreakForPlayer,
+            [currentPlayer]: newStreak,
             [opponentColor]: lastCapturePlayer !== currentPlayer ? 0 : prevKillStreaks[opponentColor],
           }));
           setLastCapturePlayer(currentPlayer);
 
-          if (calculatedNewStreakForPlayer >= 3) {
+          if (newStreak >= 2 && newStreak < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (newStreak >= 3 && newStreak < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (newStreak >= 4 && newStreak < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (newStreak >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
+
+
+          if (newStreak >= 3) {
             const piecesPlayerLost = capturedPieces[opponentColor]; 
             if (piecesPlayerLost && piecesPlayerLost.length > 0) {
               const pieceToResurrectOriginal = piecesPlayerLost[piecesPlayerLost.length - 1];
@@ -346,7 +373,10 @@ export default function EvolvingChessPage() {
           }
         } else { 
           if (lastCapturePlayer === currentPlayer) {
-            setKillStreaks(prevKillStreaks => ({ ...prevKillStreaks, [currentPlayer]: 0 }));
+             setKillStreaks(prevKillStreaks => ({
+               ...prevKillStreaks,
+               [currentPlayer]: 0,
+             }));
           }
           setLastCapturePlayer(null);
           calculatedNewStreakForPlayer = 0;
@@ -387,14 +417,20 @@ export default function EvolvingChessPage() {
             [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
           }));
           
-          calculatedNewStreakForCapturingPlayer = (lastCapturePlayer === capturingPlayer ? killStreaks[capturingPlayer] : 0) + 1;
+          const newStreak = (lastCapturePlayer === capturingPlayer ? killStreaks[capturingPlayer] : 0) + 1;
+          calculatedNewStreakForCapturingPlayer = newStreak;
 
           setKillStreaks(prevKillStreaks => ({
             ...prevKillStreaks,
-            [capturingPlayer]: calculatedNewStreakForCapturingPlayer,
+            [capturingPlayer]: newStreak,
             [opponentPlayer]: lastCapturePlayer !== capturingPlayer ? 0 : prevKillStreaks[opponentPlayer],
           }));
           setLastCapturePlayer(capturingPlayer);
+
+          if (newStreak >= 2 && newStreak < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (newStreak >= 3 && newStreak < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (newStreak >= 4 && newStreak < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (newStreak >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
           
           const pieceOnToSquare = finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece;
           toast({
@@ -402,7 +438,7 @@ export default function EvolvingChessPage() {
             description: `${capturingPlayer} ${pieceOnToSquare?.type} captured ${captured.color} ${captured.type}. ${pieceOnToSquare ? `It's now level ${pieceOnToSquare.level}!` : ''}`,
           });
 
-          if (calculatedNewStreakForCapturingPlayer >= 3) {
+          if (newStreak >= 3) {
             const piecesLostByCapturingPlayer = capturedPieces[opponentPlayer]; 
             if (piecesLostByCapturingPlayer && piecesLostByCapturingPlayer.length > 0) {
               const pieceToResurrectOriginal = piecesLostByCapturingPlayer[piecesLostByCapturingPlayer.length - 1]; 
@@ -579,15 +615,36 @@ export default function EvolvingChessPage() {
           </div>
         </div>
       )}
+       {killStreakFlashMessage && (
+        <div
+          key={killStreakFlashMessageKey}
+          className="fixed inset-0 flex items-center justify-center z-40 pointer-events-none" // z-40 so it's below check/checkmate
+          aria-live="assertive"
+        >
+          <div className="bg-black/50 p-4 md:p-6 rounded-md shadow-xl animate-flash-check">
+            <p className="text-4xl sm:text-5xl md:text-6xl font-bold text-accent font-pixel text-center"
+               style={{ textShadow: '2px 2px 0px hsl(var(--background)), -2px 2px 0px hsl(var(--background)), 2px -2px 0px hsl(var(--background)), -2px -2px 0px hsl(var(--background))' }}
+            >
+              {killStreakFlashMessage}
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="w-full flex flex-col items-center mb-6 space-y-3">
         <h1 className="text-4xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">
           VIBE CHESS
         </h1>
-        <Button variant="outline" onClick={resetGame} aria-label="Reset Game">
-          <RefreshCw className="h-4 w-4 mr-2" />
-          Reset Game
-        </Button>
+        <div className="flex gap-2">
+            <Button variant="outline" onClick={resetGame} aria-label="Reset Game">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reset Game
+            </Button>
+            <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules">
+                <BookOpen className="h-4 w-4 mr-2" />
+                Game Rules
+            </Button>
+        </div>
       </div>
       <div className="flex flex-col md:flex-row gap-6 w-full max-w-6xl">
         <div className="md:w-1/3 lg:w-1/4">
@@ -617,6 +674,7 @@ export default function EvolvingChessPage() {
         onSelectPiece={handlePromotionSelect}
         pawnColor={promotionSquare ? board[algebraicToCoords(promotionSquare).row][algebraicToCoords(promotionSquare).col].piece?.color ?? null : null}
       />
+      <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
     </div>
   );
 }
