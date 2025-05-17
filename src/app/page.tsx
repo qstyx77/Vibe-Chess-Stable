@@ -65,7 +65,6 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
-  // Effect for CHECK/CHECKMATE flash messages
    useEffect(() => {
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
@@ -78,10 +77,9 @@ export default function EvolvingChessPage() {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
     }
-  }, [gameInfo]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
 
-  // Effect to clear the CHECK/CHECKMATE flash message after a timeout
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (flashMessage) {
@@ -172,52 +170,41 @@ export default function EvolvingChessPage() {
         const movedPieceOnBoard = movedPieceFinalSquare.piece; 
 
         if (captured) {
-          const capturingPlayer = currentPlayer; 
+          const capturingPlayer = currentPlayer;
           const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
-        
-          let currentStreakVal = 0;
+          
+          let updatedKillStreaks = { ...killStreaks };
+
           if (lastCapturePlayer === capturingPlayer) {
-            currentStreakVal = killStreaks[capturingPlayer] + 1;
+            // Continue existing streak for capturingPlayer
+            updatedKillStreaks[capturingPlayer]++;
           } else {
-            currentStreakVal = 1;
-            setKillStreaks(prev => ({ ...prev, [opponentPlayer]: 0 })); // Reset opponent's streak
+            // New streak for capturingPlayer
+            updatedKillStreaks[capturingPlayer] = 1;
+            // And, if the opponent had an active streak, it's now broken because capturingPlayer started a new one.
+            if (updatedKillStreaks[opponentPlayer] > 0) {
+              updatedKillStreaks[opponentPlayer] = 0;
+            }
           }
-          setKillStreaks(prev => ({ ...prev, [capturingPlayer]: currentStreakVal }));
+          setKillStreaks(updatedKillStreaks);
           setLastCapturePlayer(capturingPlayer);
         
-          const streakMessages: { [key: number]: string } = {
-            2: "Double Kill!",
-            3: "Triple Kill!",
-            4: "Ultra Kill!",
-          };
-          const rampageMinStreak = 5;
-
-          let streakToastTitle = "";
-          if (currentStreakVal >= rampageMinStreak) {
-            streakToastTitle = `RAMPAGE! (${currentStreakVal} streak)`;
-          } else if (streakMessages[currentStreakVal]) {
-            streakToastTitle = `${streakMessages[currentStreakVal]} (${currentStreakVal} streak)`;
-          }
-
           setCapturedPieces(prev => ({
             ...prev,
             [capturingPlayer]: [...prev[capturingPlayer], captured]
           }));
           toast({
-            title: streakToastTitle ? `${streakToastTitle} - Piece Captured!` : "Piece Captured!",
+            title: "Piece Captured!",
             description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
-        } else { 
-          if (lastCapturePlayer) { // If there was a last capturer (meaning a streak was potentially active)
-            // Reset the streak of the player whose turn it WAS, if they didn't make a capture
-            // And reset the opponent's streak as well if they were the last capturer
-            if (lastCapturePlayer === currentPlayer) {
-                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
-            } else {
-                 setKillStreaks(prev => ({ ...prev, [lastCapturePlayer]: 0 })); // Reset opponent's streak if they were last capturer
-            }
+        } else { // No piece was captured
+          // If currentPlayer had an active streak (meaning lastCapturePlayer === currentPlayer),
+          // and they didn't make a capture, their streak is broken.
+          if (lastCapturePlayer === currentPlayer && killStreaks[currentPlayer] > 0) {
+            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
           }
-          setLastCapturePlayer(null); // No capture, so no last capturer for next turn's check
+          // Regardless of who had a streak, a non-capture move breaks the "chain" of consecutive captures.
+          setLastCapturePlayer(null);
         }
         
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
@@ -287,6 +274,7 @@ export default function EvolvingChessPage() {
         setSelectedSquare(null);
         setPossibleMoves([]);
 
+        // Logic for extra turn: Current player remains the same. Update game state for the opponent.
         const opponentColor = pawnColor === 'white' ? 'black' : 'white';
         const opponentInCheck = isKingInCheck(newBoard, opponentColor);
 
@@ -325,6 +313,7 @@ export default function EvolvingChessPage() {
               gameOver: true,
             });
           } else {
+            // Still current player's turn (extra turn)
             setGameInfo({
               message: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)}'s turn to move. (Extra Turn)`,
               isCheck: false,
@@ -336,18 +325,18 @@ export default function EvolvingChessPage() {
           }
         }
       } else {
+        // No extra turn, complete turn normally for the player who promoted.
         completeTurn(newBoard, pawnColor);
       }
     }
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast, currentPlayer]); // Added currentPlayer to dependencies
+  }, [board, promotionSquare, completeTurn, toast, currentPlayer]); 
 
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
-      {/* Flash Message for CHECK/CHECKMATE */}
       {flashMessage && (
         <div
           key={flashMessageKey}
