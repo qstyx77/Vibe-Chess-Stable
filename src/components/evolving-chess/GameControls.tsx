@@ -43,7 +43,7 @@ export function GameControls({
   return (
     <Card className="w-full shadow-lg">
       <CardHeader>
-        <CardTitle className="text-center text-primary font-pixel">Evolving Chess</CardTitle>
+        {/* <CardTitle className="text-center text-primary font-pixel">Evolving Chess</CardTitle> */}
         <CardDescription 
           className={cn(
             "text-center font-pixel min-h-[3em]", 
@@ -101,4 +101,3 @@ export function GameControls({
     </Card>
   );
 }
-
