@@ -14,7 +14,8 @@ import {
   isCheckmate,
   isStalemate,
   filterLegalMoves,
-  coordsToAlgebraic
+  coordsToAlgebraic,
+  type ConversionEvent
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -64,7 +65,6 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
-   // Effect for Check/Checkmate flash messages
    useEffect(() => {
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
@@ -76,13 +76,11 @@ export default function EvolvingChessPage() {
     if (newFlash) {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
-    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) { // Clear flash if no longer in check/checkmate
+    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) { 
        setFlashMessage(null);
     }
   }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
-
-  // Effect for timing out Check/Checkmate flash messages
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (flashMessage) {
@@ -222,9 +220,9 @@ export default function EvolvingChessPage() {
 
       if (pieceToMove && pieceToMove.color === currentPlayer && possibleMoves.includes(algebraic)) {
         const move: Move = { from: selectedSquare, to: algebraic };
-        const { newBoard, capturedPiece: captured } = applyMove(board, move);
+        const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(board, move);
         let finalBoardStateForTurn = newBoard; 
-        let newStreakForCapturingPlayer = killStreaks[currentPlayer]; // Initialize with current streak
+        let newStreakForCapturingPlayer = 0;
         
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -235,7 +233,6 @@ export default function EvolvingChessPage() {
             [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
           }));
           
-          // Calculate the new streak value explicitly
           if (lastCapturePlayer === capturingPlayer) {
             newStreakForCapturingPlayer = killStreaks[capturingPlayer] + 1;
           } else {
@@ -245,7 +242,6 @@ export default function EvolvingChessPage() {
           setKillStreaks(prevKillStreaks => {
             const updatedStreaks = { ...prevKillStreaks };
             updatedStreaks[capturingPlayer] = newStreakForCapturingPlayer;
-            // If the streak is new for this player, reset opponent's streak
             if (lastCapturePlayer !== capturingPlayer && opponentPlayer) {
               updatedStreaks[opponentPlayer] = 0;
             }
@@ -302,18 +298,24 @@ export default function EvolvingChessPage() {
               }
             }
           }
-
-        } else { // No piece captured
-           if (lastCapturePlayer === currentPlayer) { // If current player had a streak and made a non-capturing move
+        } else { 
+           if (lastCapturePlayer === currentPlayer) {
              setKillStreaks(prevKillStreaks => ({
                ...prevKillStreaks,
-               [currentPlayer]: 0, // Break their streak
+               [currentPlayer]: 0, 
              }));
-             setLastCapturePlayer(null); // Reset because the chain of this player's captures is broken
+             setLastCapturePlayer(null); 
            }
-           // If lastCapturePlayer was the opponent, their streak is NOT broken by current player's non-capturing move.
-           // And lastCapturePlayer should remain as the opponent. So, no change to lastCapturePlayer here.
-           newStreakForCapturingPlayer = 0; // Reset for current player if no capture
+           newStreakForCapturingPlayer = 0; 
+        }
+
+        if (conversionEvents && conversionEvents.length > 0) {
+          conversionEvents.forEach(event => {
+            toast({
+              title: "Piece Converted!",
+              description: `${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)}'s Bishop converted an enemy ${event.originalPiece.type} to their side!`,
+            });
+          });
         }
         
         setBoard(finalBoardStateForTurn); 
@@ -323,13 +325,11 @@ export default function EvolvingChessPage() {
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
         const isPawnPromotingMove = movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7);
         
-        // Use the newStreakForCapturingPlayer calculated above for the extra turn check
         const streakGrantsExtraTurn = newStreakForCapturingPlayer >= 6;
 
         if (isPawnPromotingMove) {
             setIsPromotingPawn(true);
             setPromotionSquare(algebraic);
-            // Extra turn decision will be handled in handlePromotionSelect, considering both pawn level and potential streak
         } else {
             if (streakGrantsExtraTurn) {
                  toast({
@@ -390,8 +390,6 @@ export default function EvolvingChessPage() {
     });
       
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
-    // Check current streak status after the capture that led to promotion
-    // killStreaks state here should be the already updated value from handleSquareClick
     const streakGrantsExtraTurn = killStreaks[pawnColor] >= 6; 
 
     if (pawnLevelGrantsExtraTurn || streakGrantsExtraTurn) {
@@ -476,4 +474,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
