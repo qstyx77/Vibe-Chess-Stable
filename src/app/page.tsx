@@ -218,11 +218,136 @@ export default function EvolvingChessPage() {
       const pieceToMoveData = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col];
       const pieceToMove = pieceToMoveData.piece;
 
+      // Knight Self-Destruct Logic
+      if (selectedSquare === algebraic && pieceToMove && pieceToMove.type === 'knight' && pieceToMove.color === currentPlayer && pieceToMove.level >= 5) {
+        let currentBoardState = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+        const { row: knightR, col: knightC } = algebraicToCoords(selectedSquare);
+        const piecesDestroyed: Piece[] = [];
+        let finalBoardAfterDestruct = currentBoardState; // Will be modified by resurrection too
+
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const adjR = knightR + dr;
+            const adjC = knightC + dc;
+
+            if (adjR >= 0 && adjR < 8 && adjC >= 0 && adjC < 8) {
+              const victimPiece = currentBoardState[adjR][adjC].piece;
+              if (victimPiece && victimPiece.color !== currentPlayer && victimPiece.type !== 'king') {
+                piecesDestroyed.push({ ...victimPiece });
+                currentBoardState[adjR][adjC].piece = null;
+                toast({
+                  title: "Self-Destruct!",
+                  description: `${currentPlayer} Knight obliterated ${victimPiece.color} ${victimPiece.type}.`,
+                });
+              }
+            }
+          }
+        }
+        currentBoardState[knightR][knightC].piece = null; // Remove the knight
+
+        let calculatedNewStreakForPlayer = 0;
+        const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+
+        if (piecesDestroyed.length > 0) {
+          setCapturedPieces(prev => ({
+            ...prev,
+            [currentPlayer]: [...(prev[currentPlayer] || []), ...piecesDestroyed]
+          }));
+          
+          if (lastCapturePlayer === currentPlayer) {
+            calculatedNewStreakForPlayer = killStreaks[currentPlayer] + piecesDestroyed.length;
+          } else {
+            calculatedNewStreakForPlayer = piecesDestroyed.length;
+          }
+
+          setKillStreaks(prevKillStreaks => {
+            const updatedStreaks = { ...prevKillStreaks };
+            updatedStreaks[currentPlayer] = calculatedNewStreakForPlayer;
+            if (lastCapturePlayer !== currentPlayer) {
+              updatedStreaks[opponentColor] = 0;
+            }
+            return updatedStreaks;
+          });
+          setLastCapturePlayer(currentPlayer);
+
+          // Resurrection Logic (adapted for self-destruct)
+          if (calculatedNewStreakForPlayer >= 3) {
+            const piecesPlayerLost = capturedPieces[opponentColor]; // currentPlayer's pieces that opponent captured
+            if (piecesPlayerLost && piecesPlayerLost.length > 0) {
+              const pieceToResurrectOriginal = piecesPlayerLost[piecesPlayerLost.length - 1];
+              const resurrectedPiece = { 
+                ...pieceToResurrectOriginal, 
+                level: 1, 
+                id: `${pieceToResurrectOriginal.id}_res${Date.now()}` 
+              };
+
+              setCapturedPieces(prevGlobalCaptured => {
+                const newGlobalCaptured = { ...prevGlobalCaptured };
+                const specificListOfLostPieces = [...(newGlobalCaptured[opponentColor] || [])];
+                const indexToRemove = specificListOfLostPieces.findIndex(p => p.id === pieceToResurrectOriginal.id);
+                if (indexToRemove !== -1) {
+                  specificListOfLostPieces.splice(indexToRemove, 1);
+                }
+                newGlobalCaptured[opponentColor] = specificListOfLostPieces;
+                return newGlobalCaptured;
+              });
+              
+              const emptySquares: AlgebraicSquare[] = [];
+              for (let r_idx = 0; r_idx < 8; r_idx++) {
+                for (let c_idx = 0; c_idx < 8; c_idx++) {
+                  if (!finalBoardAfterDestruct[r_idx][c_idx].piece) { // Use finalBoardAfterDestruct
+                    emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                  }
+                }
+              }
+
+              if (emptySquares.length > 0) {
+                const randomEmptySquareAlgebraic = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                const { row: resRow, col: resCol } = algebraicToCoords(randomEmptySquareAlgebraic);
+                
+                finalBoardAfterDestruct[resRow][resCol].piece = resurrectedPiece; // Modify finalBoardAfterDestruct
+                
+                toast({
+                  title: "Resurrection!",
+                  description: `${currentPlayer}'s ${resurrectedPiece.type} has returned to the fight! (Level 1)`,
+                });
+              }
+            }
+          }
+        } else { // Knight self-destructed but captured no one
+          if (lastCapturePlayer === currentPlayer) {
+            setKillStreaks(prevKillStreaks => ({ ...prevKillStreaks, [currentPlayer]: 0 }));
+          }
+          setLastCapturePlayer(null);
+          calculatedNewStreakForPlayer = 0;
+        }
+
+        setBoard(finalBoardAfterDestruct);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+
+        const streakGrantsExtraTurn = calculatedNewStreakForPlayer >= 6;
+        if (streakGrantsExtraTurn) {
+          toast({
+            title: "Extra Turn!",
+            description: `${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} gets an extra turn from a 6+ destruction streak!`,
+            duration: 3000,
+          });
+          setGameInfoBasedOnExtraTurn(finalBoardAfterDestruct, currentPlayer);
+        } else {
+          completeTurn(finalBoardAfterDestruct, currentPlayer);
+        }
+        return; // Exit handleSquareClick after self-destruct
+      }
+      // End of Self-Destruct Logic
+
+      // Regular Move Logic
       if (pieceToMove && pieceToMove.color === currentPlayer && possibleMoves.includes(algebraic)) {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(board, move);
         let finalBoardStateForTurn = newBoard; 
-        let newStreakForCapturingPlayer = 0;
+        let calculatedNewStreakForCapturingPlayer = 0;
         
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -234,14 +359,14 @@ export default function EvolvingChessPage() {
           }));
           
           if (lastCapturePlayer === capturingPlayer) {
-            newStreakForCapturingPlayer = killStreaks[capturingPlayer] + 1;
+            calculatedNewStreakForCapturingPlayer = killStreaks[capturingPlayer] + 1;
           } else {
-            newStreakForCapturingPlayer = 1;
+            calculatedNewStreakForCapturingPlayer = 1;
           }
 
           setKillStreaks(prevKillStreaks => {
             const updatedStreaks = { ...prevKillStreaks };
-            updatedStreaks[capturingPlayer] = newStreakForCapturingPlayer;
+            updatedStreaks[capturingPlayer] = calculatedNewStreakForCapturingPlayer;
             if (lastCapturePlayer !== capturingPlayer && opponentPlayer) {
               updatedStreaks[opponentPlayer] = 0;
             }
@@ -254,9 +379,8 @@ export default function EvolvingChessPage() {
             description: `${capturingPlayer} ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece?.type} captured ${captured.color} ${captured.type}. ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece ? `It's now level ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece?.level}!` : ''}`,
           });
 
-          if (newStreakForCapturingPlayer >= 3) {
+          if (calculatedNewStreakForCapturingPlayer >= 3) {
             const piecesLostByCapturingPlayer = capturedPieces[opponentPlayer]; 
-
             if (piecesLostByCapturingPlayer && piecesLostByCapturingPlayer.length > 0) {
               const pieceToResurrectOriginal = piecesLostByCapturingPlayer[piecesLostByCapturingPlayer.length - 1]; 
               const resurrectedPiece = { 
@@ -304,9 +428,9 @@ export default function EvolvingChessPage() {
                ...prevKillStreaks,
                [currentPlayer]: 0, 
              }));
-             setLastCapturePlayer(null); 
            }
-           newStreakForCapturingPlayer = 0; 
+           setLastCapturePlayer(null); 
+           calculatedNewStreakForCapturingPlayer = 0; 
         }
 
         if (conversionEvents && conversionEvents.length > 0) {
@@ -325,7 +449,7 @@ export default function EvolvingChessPage() {
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
         const isPawnPromotingMove = movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7);
         
-        const streakGrantsExtraTurn = newStreakForCapturingPlayer >= 6;
+        const streakGrantsExtraTurn = calculatedNewStreakForCapturingPlayer >= 6;
 
         if (isPawnPromotingMove) {
             setIsPromotingPawn(true);
@@ -359,7 +483,7 @@ export default function EvolvingChessPage() {
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks, capturedPieces, setGameInfoBasedOnExtraTurn]);
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks, capturedPieces, setGameInfoBasedOnExtraTurn, setKillStreaks, setCapturedPieces, setLastCapturePlayer]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -474,3 +598,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
