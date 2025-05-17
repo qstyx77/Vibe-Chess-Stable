@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 
 const initialGameStatus: GameStatus = {
-  message: "White's turn to move.",
+  message: "", // Changed from "White's turn to move."
   isCheck: false,
   playerWithKingInCheck: null,
   isCheckmate: false,
@@ -68,6 +68,7 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
+  // Effect for Check/Checkmate flash messages
   useEffect(() => {
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
@@ -79,12 +80,12 @@ export default function EvolvingChessPage() {
     if (newFlash) {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
-    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) { // Clear check message if no longer in check/checkmate
+    } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) {
       setFlashMessage(null);
     }
-  }, [gameInfo]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
-
+  // Effect for timing out Check/Checkmate flash messages
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (flashMessage) {
@@ -100,12 +101,13 @@ export default function EvolvingChessPage() {
     };
   }, [flashMessage, flashMessageKey]);
 
+  // Effect for timing out Kill Streak flash messages
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (killStreakFlashMessage) {
       timerId = setTimeout(() => {
         setKillStreakFlashMessage(null);
-      }, 1500); // All kill streak messages last 1.5s
+      }, 1500); 
     }
     return () => {
       if (timerId) {
@@ -136,7 +138,7 @@ export default function EvolvingChessPage() {
         });
       } else {
         setGameInfo({
-          message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)} is in Check!`,
+          message: "Check!", // Changed
           isCheck: true, 
           playerWithKingInCheck: nextPlayer,
           isCheckmate: false, 
@@ -158,7 +160,7 @@ export default function EvolvingChessPage() {
         });
       } else {
         setGameInfo({
-          message: `${nextPlayer.charAt(0).toUpperCase() + nextPlayer.slice(1)}'s turn to move.`,
+          message: "", // Changed
           isCheck: false, 
           playerWithKingInCheck: null,
           isCheckmate: false, 
@@ -197,7 +199,7 @@ export default function EvolvingChessPage() {
               updatedStreaks[capturingPlayer]++;
             } else {
               updatedStreaks[capturingPlayer] = 1;
-              if (updatedStreaks[opponentPlayer] > 0) {
+              if (updatedStreaks[opponentPlayer] > 0) { // Reset opponent's streak if new player starts capturing
                  updatedStreaks[opponentPlayer] = 0; 
               }
             }
@@ -214,7 +216,7 @@ export default function EvolvingChessPage() {
             description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
         } else { 
-           if (lastCapturePlayer === currentPlayer) { //Streak broken by current player making non-capture move
+           if (lastCapturePlayer === currentPlayer) { 
             setKillStreaks(prevKillStreaks => {
               if (prevKillStreaks[currentPlayer] > 0) {
                 return { ...prevKillStreaks, [currentPlayer]: 0 };
@@ -222,7 +224,7 @@ export default function EvolvingChessPage() {
               return prevKillStreaks;
             });
           }
-          setLastCapturePlayer(null); // Any non-capture move breaks the "chain"
+          setLastCapturePlayer(null); 
         }
         
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
@@ -309,7 +311,7 @@ export default function EvolvingChessPage() {
             });
           } else {
             setGameInfo({
-              message: `${opponentColor.charAt(0).toUpperCase() + opponentColor.slice(1)} is in Check! ${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)}'s extra turn.`,
+              message: "Check! (Extra Turn)", // Changed
               isCheck: true,
               playerWithKingInCheck: opponentColor,
               isCheckmate: false,
@@ -331,7 +333,7 @@ export default function EvolvingChessPage() {
             });
           } else {
             setGameInfo({
-              message: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)}'s turn to move. (Extra Turn)`,
+              message: "Extra Turn!", // Changed
               isCheck: false,
               playerWithKingInCheck: null,
               isCheckmate: false,
@@ -373,7 +375,7 @@ export default function EvolvingChessPage() {
           className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
           aria-live="assertive"
         >
-          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}> {/* Uses animate-flash-check for 1.5s duration */}
+          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}>
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
                style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
             >
@@ -423,3 +425,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
