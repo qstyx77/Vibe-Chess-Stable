@@ -64,7 +64,7 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
-  // Effect for Check/Checkmate flash messages
+   // Effect for Check/Checkmate flash messages
    useEffect(() => {
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
@@ -77,12 +77,9 @@ export default function EvolvingChessPage() {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
     } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) {
-      // Only clear if it's not a check/checkmate message currently showing something else related
-      if (flashMessage === 'CHECK!' || flashMessage === 'CHECKMATE!') {
-         setFlashMessage(null);
-      }
+       setFlashMessage(null);
     }
-  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate, flashMessage]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
 
   // Effect for timing out Check/Checkmate flash messages
@@ -174,15 +171,32 @@ export default function EvolvingChessPage() {
       if (pieceToMove && pieceToMove.color === currentPlayer && possibleMoves.includes(algebraic)) {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured } = applyMove(board, move);
+        let finalBoardStateForTurn = newBoard; // This board will be modified by resurrection if applicable
         
-        const movedPieceFinalSquare = newBoard[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col];
-        const movedPieceOnBoard = movedPieceFinalSquare.piece; 
-
         if (captured) {
           const capturingPlayer = currentPlayer;
-           setKillStreaks(prevKillStreaks => {
+          const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
+
+          // Add captured piece to capturing player's collection
+           setCapturedPieces(prev => ({
+            ...prev,
+            [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
+          }));
+          
+          toast({
+            title: "Piece Captured!",
+            description: `${capturingPlayer} ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece?.type} captured ${captured.color} ${captured.type}. ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece ? `It's now level ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece?.level}!` : ''}`,
+          });
+
+          let calculatedNewStreakForCapturingPlayer;
+          if (lastCapturePlayer === capturingPlayer) {
+            calculatedNewStreakForCapturingPlayer = (killStreaks[capturingPlayer] || 0) + 1;
+          } else {
+            calculatedNewStreakForCapturingPlayer = 1;
+          }
+
+          setKillStreaks(prevKillStreaks => {
             const updatedStreaks = { ...prevKillStreaks };
-            const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
             if (lastCapturePlayer === capturingPlayer) {
               updatedStreaks[capturingPlayer]++;
             } else {
@@ -194,15 +208,56 @@ export default function EvolvingChessPage() {
             return updatedStreaks;
           });
           setLastCapturePlayer(capturingPlayer);
-        
-          setCapturedPieces(prev => ({
-            ...prev,
-            [capturingPlayer]: [...prev[capturingPlayer], captured]
-          }));
-          toast({
-            title: "Piece Captured!",
-            description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
-          });
+
+          // Resurrection logic
+          if (calculatedNewStreakForCapturingPlayer >= 3) {
+            const piecesLostByCapturingPlayer = capturedPieces[opponentPlayer]; // These are currentPlayer's pieces captured by opponent
+
+            if (piecesLostByCapturingPlayer && piecesLostByCapturingPlayer.length > 0) {
+              const pieceToResurrectOriginal = piecesLostByCapturingPlayer[piecesLostByCapturingPlayer.length - 1]; // Take the last one
+              const resurrectedPiece = { 
+                ...pieceToResurrectOriginal, 
+                level: 1, 
+                id: `${pieceToResurrectOriginal.id}_res${Date.now()}` // Ensure unique ID
+              };
+
+              // Update capturedPieces state to remove the resurrected piece
+              setCapturedPieces(prevGlobalCaptured => {
+                const newGlobalCaptured = { ...prevGlobalCaptured };
+                const specificListOfLostPieces = [...(newGlobalCaptured[opponentPlayer] || [])];
+                const indexToRemove = specificListOfLostPieces.findIndex(p => p.id === pieceToResurrectOriginal.id);
+                if (indexToRemove !== -1) {
+                  specificListOfLostPieces.splice(indexToRemove, 1);
+                }
+                newGlobalCaptured[opponentPlayer] = specificListOfLostPieces;
+                return newGlobalCaptured;
+              });
+              
+              const emptySquares: AlgebraicSquare[] = [];
+              // Find empty squares on the board *after the initial capture*
+              for (let r_idx = 0; r_idx < 8; r_idx++) {
+                for (let c_idx = 0; c_idx < 8; c_idx++) {
+                  if (!finalBoardStateForTurn[r_idx][c_idx].piece) {
+                    emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                  }
+                }
+              }
+
+              if (emptySquares.length > 0) {
+                const randomEmptySquareAlgebraic = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                const { row: resRow, col: resCol } = algebraicToCoords(randomEmptySquareAlgebraic);
+                
+                // Place resurrected piece on the finalBoardStateForTurn
+                finalBoardStateForTurn[resRow][resCol].piece = resurrectedPiece;
+                
+                toast({
+                  title: "Resurrection!",
+                  description: `${capturingPlayer}'s ${resurrectedPiece.type} has returned to the fight! (Level 1)`,
+                });
+              }
+            }
+          }
+
         } else { 
            // No capture this turn
            if (lastCapturePlayer === currentPlayer) {
@@ -211,22 +266,25 @@ export default function EvolvingChessPage() {
                ...prevKillStreaks,
                [currentPlayer]: 0,
              }));
-             setLastCapturePlayer(null); // Streak broken, so no LCP.
+             setLastCapturePlayer(null); 
            }
            // If lastCapturePlayer was the opponent, their streak continues (LCP remains opponent).
            // If lastCapturePlayer was null, it remains null.
         }
         
+        setBoard(finalBoardStateForTurn); // Update the main board state with all changes
+
+        const movedPieceFinalSquare = finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col];
+        const movedPieceOnBoard = movedPieceFinalSquare.piece; 
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
+
         if (movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
-            setBoard(newBoard); 
             setIsPromotingPawn(true);
             setPromotionSquare(algebraic);
             setSelectedSquare(null); 
             setPossibleMoves([]);
         } else {
-            setBoard(newBoard);
-            completeTurn(newBoard, currentPlayer);
+            completeTurn(finalBoardStateForTurn, currentPlayer);
         }
 
       } else { 
@@ -245,98 +303,101 @@ export default function EvolvingChessPage() {
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks]);
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks, capturedPieces]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
 
     const { row, col } = algebraicToCoords(promotionSquare);
-    const originalPawnOnCurrentBoard = board[row][col].piece; 
-    if (!originalPawnOnCurrentBoard || originalPawnOnCurrentBoard.type !== 'pawn') {
+    // Create a new board state for this update to avoid mutating the current `board` state directly
+    // before `completeTurn` or extra turn logic is called.
+    let boardAfterPromotion = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); 
+    
+    const originalPawnOnBoard = boardAfterPromotion[row][col].piece; 
+    if (!originalPawnOnBoard || originalPawnOnBoard.type !== 'pawn') {
       setIsPromotingPawn(false);
       setPromotionSquare(null);
       return;
     }
 
-    const originalPawnLevel = originalPawnOnCurrentBoard.level;
-    const pawnColor = originalPawnOnCurrentBoard.color;
-
-    const newBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); 
-    const promotedPieceRef = newBoard[row][col].piece;
-
-    if (promotedPieceRef && promotedPieceRef.type === 'pawn') {
-      promotedPieceRef.type = pieceType;
-      promotedPieceRef.level = 1; 
+    const originalPawnLevel = originalPawnOnBoard.level;
+    const pawnColor = originalPawnOnBoard.color;
+    
+    // Promote the piece directly on boardAfterPromotion
+    boardAfterPromotion[row][col].piece = {
+      ...originalPawnOnBoard,
+      type: pieceType,
+      level: 1, // Reset level on promotion
+    };
       
-      setBoard(newBoard); 
+    setBoard(boardAfterPromotion); // Update main board state
+    toast({
+      title: "Pawn Promoted!",
+      description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
+    });
+      
+    if (originalPawnLevel >= 5) {
       toast({
-        title: "Pawn Promoted!",
-        description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
+        title: "Extra Turn!",
+        description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} gets an extra turn!`,
+        duration: 3000,
       });
-      
-      if (originalPawnLevel >= 5) {
-        toast({
-          title: "Extra Turn!",
-          description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} gets an extra turn!`,
-          duration: 3000,
-        });
         
-        setSelectedSquare(null);
-        setPossibleMoves([]);
+      setSelectedSquare(null);
+      setPossibleMoves([]);
 
-        const opponentColor = pawnColor === 'white' ? 'black' : 'white';
-        const opponentInCheck = isKingInCheck(newBoard, opponentColor);
-        let newPlayerWithKingInCheckForExtraTurn : PlayerColor | null = null;
+      const opponentColor = pawnColor === 'white' ? 'black' : 'white';
+      const opponentInCheck = isKingInCheck(boardAfterPromotion, opponentColor);
+      let newPlayerWithKingInCheckForExtraTurn : PlayerColor | null = null;
 
-        if (opponentInCheck) {
-          newPlayerWithKingInCheckForExtraTurn = opponentColor;
-          const opponentIsCheckmated = isCheckmate(newBoard, opponentColor);
-          if (opponentIsCheckmated) {
-            setGameInfo({
-              message: `Checkmate! ${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} wins!`,
-              isCheck: true,
-              playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
-              isCheckmate: true,
-              isStalemate: false,
-              winner: pawnColor, 
-              gameOver: true,
-            });
-          } else {
-            setGameInfo({
-              message: "Check! (Extra Turn)", 
-              isCheck: true,
-              playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
-              isCheckmate: false,
-              isStalemate: false,
-              gameOver: false,
-            });
-          }
+      if (opponentInCheck) {
+        newPlayerWithKingInCheckForExtraTurn = opponentColor;
+        const opponentIsCheckmated = isCheckmate(boardAfterPromotion, opponentColor);
+        if (opponentIsCheckmated) {
+          setGameInfo({
+            message: `Checkmate! ${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} wins!`,
+            isCheck: true,
+            playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
+            isCheckmate: true,
+            isStalemate: false,
+            winner: pawnColor, 
+            gameOver: true,
+          });
         } else {
-          const opponentIsStalemated = isStalemate(newBoard, opponentColor);
-          if (opponentIsStalemated) {
-            setGameInfo({
-              message: `Stalemate! It's a draw.`,
-              isCheck: false,
-              playerWithKingInCheck: null,
-              isCheckmate: false,
-              isStalemate: true,
-              winner: 'draw',
-              gameOver: true,
-            });
-          } else {
-            setGameInfo({
-              message: "Extra Turn!", 
-              isCheck: false,
-              playerWithKingInCheck: null,
-              isCheckmate: false,
-              isStalemate: false,
-              gameOver: false,
-            });
-          }
+          setGameInfo({
+            message: "Check! (Extra Turn)", 
+            isCheck: true,
+            playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
+            isCheckmate: false,
+            isStalemate: false,
+            gameOver: false,
+          });
         }
       } else {
-        completeTurn(newBoard, pawnColor);
+        const opponentIsStalemated = isStalemate(boardAfterPromotion, opponentColor);
+        if (opponentIsStalemated) {
+          setGameInfo({
+            message: `Stalemate! It's a draw.`,
+            isCheck: false,
+            playerWithKingInCheck: null,
+            isCheckmate: false,
+            isStalemate: true,
+            winner: 'draw',
+            gameOver: true,
+          });
+        } else {
+          setGameInfo({
+            message: "Extra Turn!", 
+            isCheck: false,
+            playerWithKingInCheck: null,
+            isCheckmate: false,
+            isStalemate: false,
+            gameOver: false,
+          });
+        }
       }
+    } else {
+      completeTurn(boardAfterPromotion, pawnColor);
     }
 
     setIsPromotingPawn(false);
@@ -402,3 +463,5 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
