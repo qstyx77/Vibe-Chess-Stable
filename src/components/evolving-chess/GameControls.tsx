@@ -13,6 +13,7 @@ interface GameControlsProps {
   capturedPieces: { white: Piece[], black: Piece[] };
   isCheck: boolean;
   isGameOver: boolean;
+  killStreaks: { white: number, black: number };
 }
 
 export function GameControls({
@@ -21,18 +22,31 @@ export function GameControls({
   capturedPieces,
   isCheck,
   isGameOver,
+  killStreaks,
 }: GameControlsProps) {
   
-  const renderCapturedPieces = (color: PlayerColor) => (
-    <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]"> {/* Added min-height */}
-      {capturedPieces[color].length === 0 && <span className="text-xs text-muted-foreground font-pixel">None</span>}
-      {capturedPieces[color].map(p => (
-        <div key={p.id} className="w-6 h-6 relative">
-          <ChessPieceDisplay piece={p} />
+  const renderCapturedPieces = (color: PlayerColor, playerKillStreak: number) => {
+    const opponentColor = color === 'white' ? 'black' : 'white';
+    const streakText = playerKillStreak >= 2 
+      ? `${opponentColor.charAt(0).toUpperCase() + opponentColor.slice(1)}'s Kill Streak: ${playerKillStreak}` 
+      : null;
+
+    return (
+      <div>
+        <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]"> {/* Added min-height */}
+          {capturedPieces[color].length === 0 && <span className="text-xs text-muted-foreground font-pixel">None</span>}
+          {capturedPieces[color].map(p => (
+            <div key={p.id} className="w-6 h-6 relative">
+              <ChessPieceDisplay piece={p} />
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
-  );
+        {streakText && (
+          <p className="text-xs text-accent font-pixel mt-1 text-center">{streakText}</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Card className="w-full shadow-lg">
@@ -64,11 +78,11 @@ export function GameControls({
 
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by White:</h3>
-          {renderCapturedPieces('black')}
+          {renderCapturedPieces('black', killStreaks.white)}
         </div>
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black:</h3>
-          {renderCapturedPieces('white')}
+          {renderCapturedPieces('white', killStreaks.black)}
         </div>
         
         <Separator />
