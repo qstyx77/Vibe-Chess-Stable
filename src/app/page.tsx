@@ -47,7 +47,6 @@ export default function EvolvingChessPage() {
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
 
-
   const { toast } = useToast();
 
   const resetGame = useCallback(() => {
@@ -77,7 +76,7 @@ export default function EvolvingChessPage() {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
     }
-  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
+  }, [gameInfo]);
 
 
   useEffect(() => {
@@ -171,22 +170,19 @@ export default function EvolvingChessPage() {
 
         if (captured) {
           const capturingPlayer = currentPlayer;
-          const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
-          
-          let updatedKillStreaks = { ...killStreaks };
-
-          if (lastCapturePlayer === capturingPlayer) {
-            // Continue existing streak for capturingPlayer
-            updatedKillStreaks[capturingPlayer]++;
-          } else {
-            // New streak for capturingPlayer
-            updatedKillStreaks[capturingPlayer] = 1;
-            // And, if the opponent had an active streak, it's now broken because capturingPlayer started a new one.
-            if (updatedKillStreaks[opponentPlayer] > 0) {
-              updatedKillStreaks[opponentPlayer] = 0;
+          setKillStreaks(prevKillStreaks => {
+            const updatedStreaks = { ...prevKillStreaks };
+            if (lastCapturePlayer === capturingPlayer) {
+              updatedStreaks[capturingPlayer]++;
+            } else {
+              updatedStreaks[capturingPlayer] = 1;
+              const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
+              if (prevKillStreaks[opponentPlayer] > 0) { 
+                 updatedStreaks[opponentPlayer] = 0;
+              }
             }
-          }
-          setKillStreaks(updatedKillStreaks);
+            return updatedStreaks;
+          });
           setLastCapturePlayer(capturingPlayer);
         
           setCapturedPieces(prev => ({
@@ -197,13 +193,15 @@ export default function EvolvingChessPage() {
             title: "Piece Captured!",
             description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
-        } else { // No piece was captured
-          // If currentPlayer had an active streak (meaning lastCapturePlayer === currentPlayer),
-          // and they didn't make a capture, their streak is broken.
-          if (lastCapturePlayer === currentPlayer && killStreaks[currentPlayer] > 0) {
-            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
+        } else { 
+          if (lastCapturePlayer === currentPlayer) {
+            setKillStreaks(prevKillStreaks => {
+              if (prevKillStreaks[currentPlayer] > 0) {
+                return { ...prevKillStreaks, [currentPlayer]: 0 };
+              }
+              return prevKillStreaks;
+            });
           }
-          // Regardless of who had a streak, a non-capture move breaks the "chain" of consecutive captures.
           setLastCapturePlayer(null);
         }
         
@@ -235,7 +233,7 @@ export default function EvolvingChessPage() {
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks]);
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks]); // Added killStreaks to dependency array for the functional update in the no-capture case
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -274,7 +272,6 @@ export default function EvolvingChessPage() {
         setSelectedSquare(null);
         setPossibleMoves([]);
 
-        // Logic for extra turn: Current player remains the same. Update game state for the opponent.
         const opponentColor = pawnColor === 'white' ? 'black' : 'white';
         const opponentInCheck = isKingInCheck(newBoard, opponentColor);
 
@@ -313,7 +310,6 @@ export default function EvolvingChessPage() {
               gameOver: true,
             });
           } else {
-            // Still current player's turn (extra turn)
             setGameInfo({
               message: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)}'s turn to move. (Extra Turn)`,
               isCheck: false,
@@ -325,14 +321,13 @@ export default function EvolvingChessPage() {
           }
         }
       } else {
-        // No extra turn, complete turn normally for the player who promoted.
         completeTurn(newBoard, pawnColor);
       }
     }
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast, currentPlayer]); 
+  }, [board, promotionSquare, completeTurn, toast]); 
 
 
   return (

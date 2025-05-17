@@ -26,9 +26,9 @@ export function GameControls({
 }: GameControlsProps) {
   
   const renderCapturedPieces = (color: PlayerColor, playerKillStreak: number) => {
-    const opponentColor = color === 'white' ? 'black' : 'white';
+    const opponentColor = color === 'white' ? 'black' : 'white'; // This represents the player whose streak it is
     const streakText = playerKillStreak >= 2 
-      ? `${opponentColor.charAt(0).toUpperCase() + opponentColor.slice(1)}'s Kill Streak: ${playerKillStreak}` 
+      ? `${opponentColor.charAt(0).toUpperCase() + opponentColor.slice(1)}'s Streak: ${playerKillStreak}` 
       : null;
 
     return (
@@ -42,7 +42,7 @@ export function GameControls({
           ))}
         </div>
         {streakText && (
-          <p className="text-xs text-accent font-pixel mt-1 text-center">{streakText}</p>
+          <p className="text-xs text-destructive font-pixel mt-1 text-center">{streakText}</p>
         )}
       </div>
     );
@@ -54,7 +54,7 @@ export function GameControls({
         <CardTitle className="text-center text-primary font-pixel">Evolving Chess</CardTitle>
         <CardDescription 
           className={cn(
-            "text-center font-pixel min-h-[3em]", // Added min-height for consistent layout
+            "text-center font-pixel min-h-[3em]", 
              isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
           )}
         >
