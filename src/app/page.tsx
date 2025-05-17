@@ -44,6 +44,9 @@ export default function EvolvingChessPage() {
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
 
+  const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
+  const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
+
   const { toast } = useToast();
 
   const resetGame = useCallback(() => {
@@ -56,6 +59,8 @@ export default function EvolvingChessPage() {
     setFlashMessage(null);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
+    setKillStreaks({ white: 0, black: 0 });
+    setLastCapturePlayer(null);
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
@@ -153,7 +158,6 @@ export default function EvolvingChessPage() {
     const clickedPieceData = board[row][col]; 
     const clickedPiece = clickedPieceData.piece;
 
-
     if (selectedSquare) {
       const pieceToMoveData = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col];
       const pieceToMove = pieceToMoveData.piece;
@@ -163,21 +167,56 @@ export default function EvolvingChessPage() {
         const { newBoard, capturedPiece: captured } = applyMove(board, move);
         
         const movedPieceFinalSquare = newBoard[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col];
-        const movedPiece = movedPieceFinalSquare.piece;
+        const movedPieceOnBoard = movedPieceFinalSquare.piece; // The piece that actually exists on the board after move
 
         if (captured) {
+          const capturingPlayer = currentPlayer; // Player whose turn it was
+          const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
+        
+          let currentStreakVal = 0;
+          if (lastCapturePlayer === capturingPlayer) {
+            currentStreakVal = killStreaks[capturingPlayer] + 1;
+          } else {
+            currentStreakVal = 1;
+            // Reset opponent's streak only if a new player starts a streak
+            setKillStreaks(prev => ({ ...prev, [opponentPlayer]: 0 }));
+          }
+          setKillStreaks(prev => ({ ...prev, [capturingPlayer]: currentStreakVal }));
+          setLastCapturePlayer(capturingPlayer);
+        
+          if (currentStreakVal >= 2) {
+            let streakMessage = "";
+            if (currentStreakVal === 2) streakMessage = "Double Kill!";
+            else if (currentStreakVal === 3) streakMessage = "Triple Kill!";
+            else if (currentStreakVal === 4) streakMessage = "Ultra Kill!";
+            else streakMessage = "RAMPAGE!";
+            toast({
+              title: `${capturingPlayer.charAt(0).toUpperCase() + capturingPlayer.slice(1)} on a ${streakMessage}`,
+              description: `Streak: ${currentStreakVal}`,
+              duration: 3000,
+            });
+          }
+
           setCapturedPieces(prev => ({
             ...prev,
-            [pieceToMove.color]: [...prev[pieceToMove.color], captured]
+            [capturingPlayer]: [...prev[capturingPlayer], captured]
           }));
           toast({
             title: "Piece Captured!",
-            description: `${pieceToMove.color} ${pieceToMove.type} captured ${captured.color} ${captured.type}. ${movedPiece ? `It's now level ${movedPiece.level}!` : ''}`,
+            description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
+        } else { // No capture occurred
+          if (lastCapturePlayer) {
+             // Break the streak of the player who last made a capture, if it wasn't the current player
+            if (lastCapturePlayer !== currentPlayer) { // Ensure a player doesn't break their own streak by a non-capture move if they had an extra turn
+                setKillStreaks(prev => ({ ...prev, [lastCapturePlayer]: 0 }));
+            }
+          }
+          setLastCapturePlayer(null); // No capture this turn
         }
         
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
-        if (movedPiece && movedPiece.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
+        if (movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
             setBoard(newBoard); 
             setIsPromotingPawn(true);
             setPromotionSquare(algebraic);
@@ -204,7 +243,7 @@ export default function EvolvingChessPage() {
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
     }
-  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn]);
+  }, [board, currentPlayer, selectedSquare, possibleMoves, toast, gameInfo.gameOver, isPromotingPawn, completeTurn, lastCapturePlayer, killStreaks]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -212,7 +251,6 @@ export default function EvolvingChessPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const originalPawnOnCurrentBoard = board[row][col].piece; 
     if (!originalPawnOnCurrentBoard || originalPawnOnCurrentBoard.type !== 'pawn') {
-      // This case should ideally not be reached if logic is correct
       setIsPromotingPawn(false);
       setPromotionSquare(null);
       return;
@@ -221,7 +259,7 @@ export default function EvolvingChessPage() {
     const originalPawnLevel = originalPawnOnCurrentBoard.level;
     const pawnColor = originalPawnOnCurrentBoard.color;
 
-    const newBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); // Deep copy
+    const newBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); 
     const promotedPieceRef = newBoard[row][col].piece;
 
     if (promotedPieceRef && promotedPieceRef.type === 'pawn') {
@@ -241,7 +279,6 @@ export default function EvolvingChessPage() {
           duration: 3000,
         });
         
-        // Player (pawnColor) gets an extra turn. CurrentPlayer does not change.
         setSelectedSquare(null);
         setPossibleMoves([]);
 
@@ -293,15 +330,22 @@ export default function EvolvingChessPage() {
             });
           }
         }
+         // If it was an extra turn, and no capture happened on this *promotion setup* (promotion itself isn't a capture)
+         // we need to ensure streaks aren't incorrectly broken if the last move *was* a capture.
+         // However, lastCapturePlayer logic is handled in handleSquareClick based on the actual move.
+         // If the move *before* promotion was not a capture, lastCapturePlayer would be null.
+         // If the move *before* promotion *was* a capture by the current player, lastCapturePlayer is set.
+         // This extra turn logic doesn't make a new capture, so it won't affect lastCapturePlayer itself.
+         // The next actual move by this player will then correctly use lastCapturePlayer.
+
       } else {
-        // Normal turn completion - switches player
         completeTurn(newBoard, pawnColor);
       }
     }
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast]);
+  }, [board, promotionSquare, completeTurn, toast, killStreaks, lastCapturePlayer]); // Added killStreaks and lastCapturePlayer dependencies
 
 
   return (
@@ -358,3 +402,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
