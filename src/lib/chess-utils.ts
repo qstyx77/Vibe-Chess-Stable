@@ -134,7 +134,37 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return true;
     case 'king':
-      return Math.abs(toRow - fromRow) <= 1 && Math.abs(toCol - fromCol) <= 1;
+      const dRowKing = Math.abs(toRow - fromRow);
+      const dColKing = Math.abs(toCol - fromCol);
+
+      // Standard 1-square move (max delta is 1 for row and col)
+      if (dRowKing <= 1 && dColKing <= 1) {
+        return true;
+      }
+
+      // Level 2+ extended move
+      if (piece.level >= 2) {
+        // Target must be within 2 squares in row and col
+        if (dRowKing <= 2 && dColKing <= 2) { 
+          // If it's a linear 2-square move (where one delta is 2 and other is 0, or both are 2),
+          // check the intermediate square for blockage.
+          if ((dRowKing === 2 && dColKing === 0) ||   // Purely vertical 2-square move
+              (dRowKing === 0 && dColKing === 2) ||   // Purely horizontal 2-square move
+              (dRowKing === 2 && dColKing === 2)) {  // Purely diagonal 2-square move
+            
+            // Calculate intermediate square coordinates
+            const midRow = fromRow + (toRow - fromRow) / 2;
+            const midCol = fromCol + (toCol - fromCol) / 2;
+            if (board[midRow][midCol].piece) {
+              return false; // Path blocked for linear 2-square move
+            }
+          }
+          // If it's a 2-square non-linear move (e.g., |2,1| or |1,2| not covered by linear check), or 
+          // a linear 2-square move with a clear path, it's valid.
+          return true;
+        }
+      }
+      return false; // Not a valid 1-square move, or not level 2+ for extended move, or invalid extended move
     default:
       return false;
   }
@@ -166,10 +196,10 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
   if (!movingPiece) return { newBoard: board, capturedPiece: null };
 
   const capturedPiece = newBoard[toRow][toCol].piece ? { ...newBoard[toRow][toCol].piece! } : null;
-  newBoard[toRow][toCol].piece = { ...movingPiece }; // Make a copy to avoid mutation issues
+  newBoard[toRow][toCol].piece = { ...movingPiece }; 
   newBoard[fromRow][fromCol].piece = null;
 
-  const currentMovingPieceRef = newBoard[toRow][toCol].piece!; // Reference to the piece that just moved
+  const currentMovingPieceRef = newBoard[toRow][toCol].piece!; 
 
   if (capturedPiece) {
     switch (capturedPiece.type) {
@@ -185,11 +215,6 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
     }
   }
   
-  // Automatic promotion to Queen is removed. This will be handled by UI choice.
-  // if (currentMovingPieceRef.type === 'pawn' && (toRow === 0 || toRow === 7)) {
-  //   currentMovingPieceRef.type = 'queen';
-  // }
-
   if (currentMovingPieceRef.type === 'pawn' && currentMovingPieceRef.level >= 4) {
     const pawnNewRow = toRow;
     const pawnNewCol = toCol;
@@ -240,15 +265,14 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolea
       const attackerPiece = board[r][c].piece;
       if (attackerPiece && attackerPiece.color === opponentColor) {
         // Temporarily allow checking moves as if the target king square is empty to see if it's a valid attack path
-        // This is a simplified check; a more robust one would consider the attacker's specific move rules to an empty square.
-        const originalTargetPiece = board[kingPos.row][kingPos.col].piece;
-        board[kingPos.row][kingPos.col].piece = null; // Pretend king's square is empty for attack validation
+        const originalKingPieceOnTarget = board[kingPos.row][kingPos.col].piece;
+        // For validating an attack on the king, the king's square is considered the target.
+        // isMoveValid checks if the attackerPiece can move from its current square to kingSquareAlgebraic.
+        // The targetPiece (the king itself) is handled by isMoveValid (it allows capturing opponent's pieces).
         
         if (isMoveValid(board, coordsToAlgebraic(r, c), kingSquareAlgebraic, attackerPiece)) {
-          board[kingPos.row][kingPos.col].piece = originalTargetPiece; // Restore piece
           return true;
         }
-        board[kingPos.row][kingPos.col].piece = originalTargetPiece; // Restore piece
       }
     }
   }
@@ -267,8 +291,16 @@ export function filterLegalMoves(
   return pseudoMoves.filter(targetSquare => {
     // Create a deep copy of the board for simulation
     const tempBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
-    const { newBoard: boardAfterMove } = applyMove(tempBoard, { from: pieceOriginalSquare, to: targetSquare });
-    return !isKingInCheck(boardAfterMove, playerColor);
+    
+    // Simulate the move without applying full applyMove side effects like leveling up.
+    // Just move the piece for the check validation.
+    const { row: fromR, col: fromC } = algebraicToCoords(pieceOriginalSquare);
+    const { row: toR, col: toC } = algebraicToCoords(targetSquare);
+    const pToMove = tempBoard[fromR][fromC].piece;
+    tempBoard[toR][toC].piece = pToMove;
+    tempBoard[fromR][fromC].piece = null;
+
+    return !isKingInCheck(tempBoard, playerColor);
   });
 }
 
@@ -308,7 +340,8 @@ export function getPieceUnicode(piece: Piece): string {
     case 'rook': return isWhite ? '♖' : '♜';
     case 'bishop': return isWhite ? '♗' : '♝';
     case 'knight': return isWhite ? '♘' : '♞';
-    case 'pawn': return isWhite ? '♙' : '♟︎';
+    case 'pawn': return isWhite ? '♟︎' : '♟︎'; // Fixed black pawn to use the filled variant
     default: return '';
   }
 }
+
