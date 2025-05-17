@@ -46,14 +46,11 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
             if (!attackingPieceData) continue;
             const attackingPiece = attackingPieceData.piece;
             if (attackingPiece && attackingPiece.color === attackerColor) {
-                // For pawn attacks, isMoveValid needs the 'from' and 'to' to be different
-                // and pawns attack diagonally.
                 if (attackingPiece.type === 'pawn') {
                     const { row: fromR, col: fromC } = algebraicToCoords(coordsToAlgebraic(r,c));
                     const { row: toR, col: toC } = algebraicToCoords(squareToAttack);
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
                     if (Math.abs(fromC - toC) === 1 && toR === fromR + direction) {
-                         // This is a diagonal pawn capture square, so it's "attacked"
                         return true;
                     }
                 } else if (isMoveValid(board, coordsToAlgebraic(r,c), squareToAttack, attackingPiece)) {
@@ -71,39 +68,31 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   const { row: toRow, col: toCol } = algebraicToCoords(to);
   const targetPieceOnSquare = board[toRow][toCol].piece;
 
-  if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) return false;
+  if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) return false; // Can't capture own piece (standard move)
 
   switch (piece.type) {
     case 'pawn':
       const direction = piece.color === 'white' ? -1 : 1;
-      // Standard 1-square forward move (empty square)
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
-      // Standard 2-square initial forward move (both squares empty)
       if (
         fromCol === toCol && !targetPieceOnSquare && !piece.hasMoved &&
         ((piece.color === 'white' && fromRow === 6 && toRow === 4 && !board[5][fromCol].piece) ||
          (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2][fromCol].piece))
       ) return true;
-      // Standard diagonal capture
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) {
-        // Check if target is a high-level bishop
         if (targetPieceOnSquare.type === 'bishop' && targetPieceOnSquare.level >= 3) {
-          return false; // Pawn cannot capture level 3+ bishop
+          return false; 
         }
         return true;
       }
       
-      // Level 2+ specific moves
       if (piece.level >= 2) {
         const backwardDirection = direction * -1;
-        // 1-square backward move (empty square)
         if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetPieceOnSquare) {
           return true;
         }
       }
-      // Level 3+ specific moves
       if (piece.level >= 3) {
-        // 1-square sideways move (empty square)
         if (toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetPieceOnSquare) {
           return true;
         }
@@ -112,49 +101,36 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     case 'knight':
       const dRowKnight = Math.abs(toRow - fromRow);
       const dColKnight = Math.abs(toCol - fromCol);
-      // Standard L-shape move
       if ((dRowKnight === 2 && dColKnight === 1) || (dRowKnight === 1 && dColKnight === 2)) {
         return true;
       }
-      // Level 2+ specific moves
       if (piece.level >= 2) {
-        // 1-square horizontal move
-        if (dRowKnight === 0 && dColKnight === 1) {
-          return true;
-        }
-        // 1-square vertical move
-        if (dRowKnight === 1 && dColKnight === 0) {
+        if ((dRowKnight === 0 && dColKnight === 1) || (dRowKnight === 1 && dColKnight === 0)) {
           return true;
         }
       }
-      // Level 3+ specific moves
       if (piece.level >= 3) {
-        // 3-square horizontal jump
-        if (dRowKnight === 0 && dColKnight === 3) {
-            return true;
-        }
-        // 3-square vertical jump
-        if (dRowKnight === 3 && dColKnight === 0) {
+        if ((dRowKnight === 0 && dColKnight === 3) || (dRowKnight === 3 && dColKnight === 0)) {
             return true;
         }
       }
       return false;
     case 'rook':
-      if (fromRow !== toRow && fromCol !== toCol) return false; // Must be same row or same column
-      if (fromRow === toRow) { // Horizontal move
+      if (fromRow !== toRow && fromCol !== toCol) return false; 
+      if (fromRow === toRow) { 
         const step = toCol > fromCol ? 1 : -1;
         for (let c = fromCol + step; c !== toCol; c += step) {
-          if (board[fromRow][c].piece) return false; // Path blocked
+          if (board[fromRow][c].piece) return false; 
         }
-      } else { // Vertical move
+      } else { 
         const step = toRow > fromRow ? 1 : -1;
         for (let r = fromRow + step; r !== toRow; r += step) {
-          if (board[r][fromCol].piece) return false; // Path blocked
+          if (board[r][fromCol].piece) return false; 
         }
       }
       return true;
     case 'bishop':
-      if (Math.abs(toRow - fromRow) !== Math.abs(toCol - fromCol)) return false; // Must be diagonal
+      if (Math.abs(toRow - fromRow) !== Math.abs(toCol - fromCol)) return false; 
       const dRowBishop = toRow > fromRow ? 1 : -1;
       const dColBishop = toCol > fromCol ? 1 : -1;
       let rBishop = fromRow + dRowBishop;
@@ -165,7 +141,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
           if (piece.level >= 2 && pathPiece.color === piece.color) {
             // Level 2+ Bishop can jump over friendly pieces
           } else {
-            return false; // Path blocked by an enemy piece, or by a friendly piece if Bishop is level 1
+            return false; 
           }
         }
         rBishop += dRowBishop;
@@ -177,7 +153,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const isBishopMove = Math.abs(toRow - fromRow) === Math.abs(toCol - fromCol);
       if (!isRookMove && !isBishopMove) return false;
 
-      if (isRookMove) { // Check rook-like path
+      if (isRookMove) { 
         if (fromRow === toRow) {
           const step = toCol > fromCol ? 1 : -1;
           for (let c = fromCol + step; c !== toCol; c += step) {
@@ -189,7 +165,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
             if (board[r][fromCol].piece) return false;
           }
         }
-      } else { // Check bishop-like path
+      } else { 
         const dRowQueen = toRow > fromRow ? 1 : -1;
         const dColQueen = toCol > fromCol ? 1 : -1;
         let rQueen = fromRow + dRowQueen;
@@ -205,25 +181,22 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const dRowKing = Math.abs(toRow - fromRow);
       const dColKing = Math.abs(toCol - fromCol);
 
-      // Standard 1-square move
       if (dRowKing <= 1 && dColKing <= 1) {
         return true;
       }
 
-      // Level 2+ specific moves (up to 2 squares)
       if (piece.level >= 2) {
         if (dRowKing <= 2 && dColKing <= 2) { 
-            // Check for path obstruction only on straight 2-square moves
-            if ((dRowKing === 2 && dColKing === 0) ||   // Vertical 2-square
-                (dRowKing === 0 && dColKing === 2) ||   // Horizontal 2-square
-                (dRowKing === 2 && dColKing === 2)) {  // Diagonal 2-square
+            if ((dRowKing === 2 && dColKing === 0) ||   
+                (dRowKing === 0 && dColKing === 2) ||   
+                (dRowKing === 2 && dColKing === 2)) {  
               const midRow = fromRow + (toRow - fromRow) / 2;
               const midCol = fromCol + (toCol - fromCol) / 2;
-              if (board[midRow][midCol].piece) { // Check if intermediate square is occupied
+              if (board[midRow][midCol].piece) { 
                 return false; 
               }
             }
-            return true; // If not a straight 2-square move or path is clear
+            return true; 
         }
       }
       return false;
@@ -248,12 +221,27 @@ export function getPossibleMoves(board: BoardState, square: AlgebraicSquare): Al
     }
   }
 
-  // Castling logic
+  // Knight-Bishop Swap for Level 4+ Knights
+  if (piece.type === 'knight' && piece.level >= 4) {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const potentialSwapTargetPieceData = board[r][c].piece;
+        if (
+          potentialSwapTargetPieceData &&
+          potentialSwapTargetPieceData.type === 'bishop' &&
+          potentialSwapTargetPieceData.color === piece.color &&
+          coordsToAlgebraic(r,c) !== square // Ensure knight is not trying to swap with itself if somehow a bishop is on its square
+        ) {
+          possibleMoves.push(coordsToAlgebraic(r, c));
+        }
+      }
+    }
+  }
+
   if (piece.type === 'king' && !piece.hasMoved && !isKingInCheck(board, piece.color)) {
     const opponentColor = piece.color === 'white' ? 'black' : 'white';
     const kingRow = piece.color === 'white' ? 7 : 0;
 
-    // Kingside castling (O-O)
     const kingsideRookCol = 7;
     const kingsideRookSquareData = board[kingRow][kingsideRookCol];
     if (kingsideRookSquareData && kingsideRookSquareData.piece && kingsideRookSquareData.piece.type === 'rook' && kingsideRookSquareData.piece.color === piece.color && !kingsideRookSquareData.piece.hasMoved) {
@@ -271,7 +259,6 @@ export function getPossibleMoves(board: BoardState, square: AlgebraicSquare): Al
       }
     }
 
-    // Queenside castling (O-O-O)
     const queensideRookCol = 0;
     const queensideRookSquareData = board[kingRow][queensideRookCol];
     if (queensideRookSquareData && queensideRookSquareData.piece && queensideRookSquareData.piece.type === 'rook' && queensideRookSquareData.piece.color === piece.color && !queensideRookSquareData.piece.hasMoved) {
@@ -302,7 +289,23 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
   const movingPieceOriginal = newBoard[fromRow][fromCol].piece; 
   if (!movingPieceOriginal) return { newBoard: board, capturedPiece: null };
 
-  const capturedPiece = newBoard[toRow][toCol].piece ? { ...newBoard[toRow][toCol].piece! } : null;
+  const targetPieceOriginal = newBoard[toRow][toCol].piece; // Piece on the target square
+
+  // Handle Knight-Bishop Swap
+  if (
+    movingPieceOriginal.type === 'knight' &&
+    movingPieceOriginal.level >= 4 &&
+    targetPieceOriginal &&
+    targetPieceOriginal.type === 'bishop' &&
+    targetPieceOriginal.color === movingPieceOriginal.color
+  ) {
+    newBoard[toRow][toCol].piece = { ...movingPieceOriginal, hasMoved: true }; // Knight moves to Bishop's square
+    newBoard[fromRow][fromCol].piece = { ...targetPieceOriginal }; // Bishop moves to Knight's original square
+    return { newBoard, capturedPiece: null }; // No capture in a swap
+  }
+
+  // Standard move/capture logic
+  const capturedPiece = targetPieceOriginal ? { ...targetPieceOriginal } : null;
   
   newBoard[toRow][toCol].piece = { ...movingPieceOriginal };
   newBoard[fromRow][fromCol].piece = null;
@@ -310,8 +313,8 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
   const movingPieceRef = newBoard[toRow][toCol].piece!; 
 
   if (movingPieceRef.type === 'king' && !movingPieceOriginal.hasMoved) {
-    const kingStartCol = 4; // King's standard starting column index
-    if (fromCol === kingStartCol && toCol === kingStartCol + 2) { // Kingside castling
+    const kingStartCol = 4; 
+    if (fromCol === kingStartCol && toCol === kingStartCol + 2) { 
       const rookOriginalCol = 7; 
       const rookTargetCol = 5; 
       const rookSquareData = newBoard[fromRow][rookOriginalCol];
@@ -320,7 +323,7 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
         newBoard[fromRow][rookOriginalCol].piece = null;
       }
     }
-    else if (fromCol === kingStartCol && toCol === kingStartCol - 2) { // Queenside castling
+    else if (fromCol === kingStartCol && toCol === kingStartCol - 2) { 
       const rookOriginalCol = 0; 
       const rookTargetCol = 3; 
       const rookSquareData = newBoard[fromRow][rookOriginalCol];
@@ -365,7 +368,7 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
             const pushTargetCol = adjCol + dc;
             if (pushTargetRow >= 0 && pushTargetRow < 8 && pushTargetCol >= 0 && pushTargetCol < 8) {
               if (!newBoard[pushTargetRow][pushTargetCol].piece) {
-                newBoard[pushTargetRow][pushTargetCol].piece = { ...enemyPieceToPush }; // Make a copy
+                newBoard[pushTargetRow][pushTargetCol].piece = { ...enemyPieceToPush }; 
                 newBoard[adjRow][adjCol].piece = null;
               }
             }
@@ -392,7 +395,7 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolea
     if (kingPosAlg) break;
   }
 
-  if (!kingPosAlg) return false; // Should ideally not happen in a normal game
+  if (!kingPosAlg) return false; 
 
   const opponentColor = kingColor === 'white' ? 'black' : 'white';
   return isSquareAttacked(board, kingPosAlg, opponentColor);
@@ -406,10 +409,8 @@ export function filterLegalMoves(
 ): AlgebraicSquare[] {
   const pieceData = board[algebraicToCoords(pieceOriginalSquare).row][algebraicToCoords(pieceOriginalSquare).col];
   if (!pieceData || !pieceData.piece || pieceData.piece.color !== playerColor) return [];
-  // const piece = pieceData.piece; // Unused
 
   return pseudoMoves.filter(targetSquare => {
-    // Create a deep copy of the board for simulation
     const tempBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
     
     const { row: fromR, col: fromC } = algebraicToCoords(pieceOriginalSquare);
@@ -419,41 +420,42 @@ export function filterLegalMoves(
     if (!pToMoveOriginal) return false;
 
     let boardAfterTempMove = tempBoard;
-    
-    boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: pToMoveOriginal.hasMoved || pToMoveOriginal.type === 'king' || pToMoveOriginal.type === 'rook' }; 
-    boardAfterTempMove[fromR][fromC].piece = null;
+    const pOnTargetSquare = tempBoard[toR][toC].piece;
 
-    // Simulate rook move for castling
-    if (pToMoveOriginal.type === 'king' && !pToMoveOriginal.hasMoved && Math.abs(fromC - toC) === 2) {
-        const kingRow = pToMoveOriginal.color === 'white' ? 7 : 0;
-        if (toC > fromC) { // Kingside
-            const rookOriginalCol = 7; const rookTargetCol = 5;
-            const rookSquareData = boardAfterTempMove[kingRow][rookOriginalCol]; // rook is already moved in simulation if it's a real castling attempt
-            if (rookSquareData && rookSquareData.piece && tempBoard[kingRow][rookTargetCol].piece?.type !== 'rook') { // Check if rook hasn't been "moved" by prior logic
-              // This logic path implies we are checking the validity of king moving two squares
-              // and the rook would move. If there's no piece on original rook square, or it's not a rook, this isn't valid castling.
-              // So we actually check the original board's rook square
+    // Simulate Knight-Bishop Swap for legality check
+    if (
+      pToMoveOriginal.type === 'knight' &&
+      pToMoveOriginal.level >= 4 &&
+      pOnTargetSquare &&
+      pOnTargetSquare.type === 'bishop' &&
+      pOnTargetSquare.color === pToMoveOriginal.color
+    ) {
+      boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: true }; // Knight to Bishop's square
+      boardAfterTempMove[fromR][fromC].piece = { ...pOnTargetSquare }; // Bishop to Knight's square
+    } else {
+      // Standard move simulation
+      boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: pToMoveOriginal.hasMoved || pToMoveOriginal.type === 'king' || pToMoveOriginal.type === 'rook' }; 
+      boardAfterTempMove[fromR][fromC].piece = null;
+
+      // Simulate rook move for castling
+      if (pToMoveOriginal.type === 'king' && !pToMoveOriginal.hasMoved && Math.abs(fromC - toC) === 2) {
+          const kingRow = pToMoveOriginal.color === 'white' ? 7 : 0;
+          if (toC > fromC) { 
+              const rookOriginalCol = 7; const rookTargetCol = 5;
               const originalRook = board[kingRow][rookOriginalCol].piece;
               if (originalRook && originalRook.type === 'rook' && originalRook.color === pToMoveOriginal.color) {
                 boardAfterTempMove[kingRow][rookTargetCol].piece = {...originalRook, hasMoved: true};
                 boardAfterTempMove[kingRow][rookOriginalCol].piece = null;
-              } else {
-                // This castling path might be invalid if rook isn't there, so the move itself is invalid.
-                // However, isMoveValid for king already checks this by adding castling as a special move.
-                // The purpose here is to ensure the simulated board is correct for isKingInCheck.
               }
-            }
-        } else { // Queenside
-            const rookOriginalCol = 0; const rookTargetCol = 3;
-            const rookSquareData = boardAfterTempMove[kingRow][rookOriginalCol];
-            if (rookSquareData && rookSquareData.piece && tempBoard[kingRow][rookTargetCol].piece?.type !== 'rook') {
+          } else { 
+              const rookOriginalCol = 0; const rookTargetCol = 3;
                const originalRook = board[kingRow][rookOriginalCol].piece;
                if (originalRook && originalRook.type === 'rook' && originalRook.color === pToMoveOriginal.color) {
                 boardAfterTempMove[kingRow][rookTargetCol].piece = {...originalRook, hasMoved: true};
                 boardAfterTempMove[kingRow][rookOriginalCol].piece = null;
                }
-            }
-        }
+          }
+      }
     }
     return !isKingInCheck(boardAfterTempMove, playerColor);
   });
