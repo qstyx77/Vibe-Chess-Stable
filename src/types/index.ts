@@ -7,6 +7,7 @@ export interface Piece {
   type: PieceType;
   color: PlayerColor;
   level: number;
+  hasMoved: boolean; // Added for castling
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -27,11 +28,10 @@ export interface Move {
 
 export interface GameStatus {
   message: string;
-  isCheck: boolean; // True if a check condition exists (typically for the player not currently moving)
-  playerWithKingInCheck: PlayerColor | null; // The player whose king is actually in check
+  isCheck: boolean;
+  playerWithKingInCheck: PlayerColor | null;
   isCheckmate: boolean;
   isStalemate: boolean;
-  winner?: PlayerColor | 'draw'; // Winner can also be a draw
+  winner?: PlayerColor | 'draw';
   gameOver: boolean;
 }
-
