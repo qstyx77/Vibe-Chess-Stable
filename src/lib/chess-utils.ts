@@ -80,7 +80,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       // Standard 2-square initial forward move (both squares empty)
       if (
-        fromCol === toCol && !targetPieceOnSquare &&
+        fromCol === toCol && !targetPieceOnSquare && !piece.hasMoved &&
         ((piece.color === 'white' && fromRow === 6 && toRow === 4 && !board[5][fromCol].piece) ||
          (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2][fromCol].piece))
       ) return true;
@@ -119,6 +119,17 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         // 1-square vertical move
         if (dRowKnight === 1 && dColKnight === 0) {
           return true;
+        }
+      }
+      // Level 3+ specific moves
+      if (piece.level >= 3) {
+        // 2-square horizontal jump
+        if (dRowKnight === 0 && dColKnight === 2) {
+            return true;
+        }
+        // 2-square vertical jump
+        if (dRowKnight === 2 && dColKnight === 0) {
+            return true;
         }
       }
       return false;
@@ -286,8 +297,8 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
   const movingPieceRef = newBoard[toRow][toCol].piece!; 
 
   if (movingPieceRef.type === 'king' && !movingPieceOriginal.hasMoved) {
-    const kingStartCol = 4; 
-    if (fromCol === kingStartCol && toCol === kingStartCol + 2) { 
+    const kingStartCol = 4; // King's standard starting column index
+    if (fromCol === kingStartCol && toCol === kingStartCol + 2) { // Kingside castling
       const rookOriginalCol = 7; 
       const rookTargetCol = 5; 
       const rookSquare = newBoard[fromRow][rookOriginalCol];
@@ -296,7 +307,7 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
         newBoard[fromRow][rookOriginalCol].piece = null;
       }
     }
-    else if (fromCol === kingStartCol && toCol === kingStartCol - 2) {
+    else if (fromCol === kingStartCol && toCol === kingStartCol - 2) { // Queenside castling
       const rookOriginalCol = 0; 
       const rookTargetCol = 3; 
       const rookSquare = newBoard[fromRow][rookOriginalCol];
@@ -307,7 +318,7 @@ export function applyMove(board: BoardState, move: Move): { newBoard: BoardState
     }
   }
   
-  if (movingPieceRef.type === 'king' || movingPieceRef.type === 'rook' || movingPieceRef.type === 'pawn') {
+  if (movingPieceRef.type === 'king' || movingPieceRef.type === 'rook' || (movingPieceRef.type === 'pawn' && !movingPieceOriginal.hasMoved && Math.abs(toRow-fromRow) === 2)) {
     movingPieceRef.hasMoved = true;
   }
 
@@ -368,7 +379,7 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolea
     if (kingPosAlg) break;
   }
 
-  if (!kingPosAlg) return false; 
+  if (!kingPosAlg) return false; // Should ideally not happen in a normal game
 
   const opponentColor = kingColor === 'white' ? 'black' : 'white';
   return isSquareAttacked(board, kingPosAlg, opponentColor);
@@ -390,18 +401,16 @@ export function filterLegalMoves(
     
     const { row: fromR, col: fromC } = algebraicToCoords(pieceOriginalSquare);
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
-    const pToMoveOriginal = tempBoard[fromR][fromC].piece; // Should be a copy due to map
+    const pToMoveOriginal = tempBoard[fromR][fromC].piece; 
     
-    if (!pToMoveOriginal) return false; // Should not happen if piece exists
+    if (!pToMoveOriginal) return false;
 
     let boardAfterTempMove = tempBoard;
     
-    // Simulate the move on the temporary board
-    boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal }; // Ensure it's a fresh copy for the move
+    boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: pToMoveOriginal.hasMoved || pToMoveOriginal.type === 'king' || pToMoveOriginal.type === 'rook' }; 
     boardAfterTempMove[fromR][fromC].piece = null;
 
-    // If it was a castling move, also move the rook on the temporary board
-    if (pToMoveOriginal.type === 'king' && Math.abs(fromC - toC) === 2 && !pToMoveOriginal.hasMoved) {
+    if (pToMoveOriginal.type === 'king' && !pToMoveOriginal.hasMoved && Math.abs(fromC - toC) === 2) {
         const kingRow = pToMoveOriginal.color === 'white' ? 7 : 0;
         if (toC > fromC) { // Kingside
             const rookOriginalCol = 7; const rookTargetCol = 5;
