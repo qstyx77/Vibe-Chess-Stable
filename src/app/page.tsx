@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 
 const initialGameStatus: GameStatus = {
-  message: "", // Changed from "White's turn to move."
+  message: "", 
   isCheck: false,
   playerWithKingInCheck: null,
   isCheckmate: false,
@@ -41,9 +41,6 @@ export default function EvolvingChessPage() {
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
   
-  const [killStreakFlashMessage, setKillStreakFlashMessage] = useState<string | null>(null);
-  const [killStreakFlashMessageKey, setKillStreakFlashMessageKey] = useState<number>(0);
-
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
 
@@ -60,7 +57,6 @@ export default function EvolvingChessPage() {
     setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
     setFlashMessage(null);
-    setKillStreakFlashMessage(null);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
@@ -69,7 +65,7 @@ export default function EvolvingChessPage() {
   }, [toast]);
 
   // Effect for Check/Checkmate flash messages
-  useEffect(() => {
+   useEffect(() => {
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
       newFlash = 'CHECKMATE!';
@@ -81,9 +77,13 @@ export default function EvolvingChessPage() {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
     } else if (!gameInfo.isCheck && !gameInfo.isCheckmate) {
-      setFlashMessage(null);
+      // Only clear if it's not a check/checkmate message currently showing something else related
+      if (flashMessage === 'CHECK!' || flashMessage === 'CHECKMATE!') {
+         setFlashMessage(null);
+      }
     }
-  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate, flashMessage]);
+
 
   // Effect for timing out Check/Checkmate flash messages
   useEffect(() => {
@@ -101,21 +101,6 @@ export default function EvolvingChessPage() {
     };
   }, [flashMessage, flashMessageKey]);
 
-  // Effect for timing out Kill Streak flash messages
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (killStreakFlashMessage) {
-      timerId = setTimeout(() => {
-        setKillStreakFlashMessage(null);
-      }, 1500); 
-    }
-    return () => {
-      if (timerId) {
-        clearTimeout(timerId);
-      }
-    };
-  }, [killStreakFlashMessage, killStreakFlashMessageKey]);
-
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
@@ -124,13 +109,16 @@ export default function EvolvingChessPage() {
     setPossibleMoves([]);
     
     const inCheck = isKingInCheck(updatedBoard, nextPlayer);
+    let newPlayerWithKingInCheck: PlayerColor | null = null;
+
     if (inCheck) {
+      newPlayerWithKingInCheck = nextPlayer;
       const mate = isCheckmate(updatedBoard, nextPlayer);
       if (mate) {
         setGameInfo({
           message: `Checkmate! ${playerWhoseTurnEnded.charAt(0).toUpperCase() + playerWhoseTurnEnded.slice(1)} wins!`,
           isCheck: true, 
-          playerWithKingInCheck: nextPlayer,
+          playerWithKingInCheck: newPlayerWithKingInCheck,
           isCheckmate: true, 
           isStalemate: false, 
           winner: playerWhoseTurnEnded, 
@@ -138,9 +126,9 @@ export default function EvolvingChessPage() {
         });
       } else {
         setGameInfo({
-          message: "Check!", // Changed
+          message: "Check!", 
           isCheck: true, 
-          playerWithKingInCheck: nextPlayer,
+          playerWithKingInCheck: newPlayerWithKingInCheck,
           isCheckmate: false, 
           isStalemate: false, 
           gameOver: false,
@@ -160,7 +148,7 @@ export default function EvolvingChessPage() {
         });
       } else {
         setGameInfo({
-          message: "", // Changed
+          message: "", 
           isCheck: false, 
           playerWithKingInCheck: null,
           isCheckmate: false, 
@@ -199,7 +187,7 @@ export default function EvolvingChessPage() {
               updatedStreaks[capturingPlayer]++;
             } else {
               updatedStreaks[capturingPlayer] = 1;
-              if (updatedStreaks[opponentPlayer] > 0) { // Reset opponent's streak if new player starts capturing
+              if (updatedStreaks[opponentPlayer] > 0) { 
                  updatedStreaks[opponentPlayer] = 0; 
               }
             }
@@ -216,15 +204,17 @@ export default function EvolvingChessPage() {
             description: `${capturingPlayer} ${movedPieceOnBoard?.type} captured ${captured.color} ${captured.type}. ${movedPieceOnBoard ? `It's now level ${movedPieceOnBoard.level}!` : ''}`,
           });
         } else { 
-           if (lastCapturePlayer === currentPlayer) { 
-            setKillStreaks(prevKillStreaks => {
-              if (prevKillStreaks[currentPlayer] > 0) {
-                return { ...prevKillStreaks, [currentPlayer]: 0 };
-              }
-              return prevKillStreaks;
-            });
-          }
-          setLastCapturePlayer(null); 
+           // No capture this turn
+           if (lastCapturePlayer === currentPlayer) {
+             // Current player had a streak but didn't capture. Reset their streak.
+             setKillStreaks(prevKillStreaks => ({
+               ...prevKillStreaks,
+               [currentPlayer]: 0,
+             }));
+             setLastCapturePlayer(null); // Streak broken, so no LCP.
+           }
+           // If lastCapturePlayer was the opponent, their streak continues (LCP remains opponent).
+           // If lastCapturePlayer was null, it remains null.
         }
         
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
@@ -296,14 +286,16 @@ export default function EvolvingChessPage() {
 
         const opponentColor = pawnColor === 'white' ? 'black' : 'white';
         const opponentInCheck = isKingInCheck(newBoard, opponentColor);
+        let newPlayerWithKingInCheckForExtraTurn : PlayerColor | null = null;
 
         if (opponentInCheck) {
+          newPlayerWithKingInCheckForExtraTurn = opponentColor;
           const opponentIsCheckmated = isCheckmate(newBoard, opponentColor);
           if (opponentIsCheckmated) {
             setGameInfo({
               message: `Checkmate! ${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} wins!`,
               isCheck: true,
-              playerWithKingInCheck: opponentColor,
+              playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
               isCheckmate: true,
               isStalemate: false,
               winner: pawnColor, 
@@ -311,9 +303,9 @@ export default function EvolvingChessPage() {
             });
           } else {
             setGameInfo({
-              message: "Check! (Extra Turn)", // Changed
+              message: "Check! (Extra Turn)", 
               isCheck: true,
-              playerWithKingInCheck: opponentColor,
+              playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
               isCheckmate: false,
               isStalemate: false,
               gameOver: false,
@@ -333,7 +325,7 @@ export default function EvolvingChessPage() {
             });
           } else {
             setGameInfo({
-              message: "Extra Turn!", // Changed
+              message: "Extra Turn!", 
               isCheck: false,
               playerWithKingInCheck: null,
               isCheckmate: false,
@@ -365,21 +357,6 @@ export default function EvolvingChessPage() {
                style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
             >
               {flashMessage}
-            </p>
-          </div>
-        </div>
-      )}
-       {killStreakFlashMessage && (
-        <div
-          key={killStreakFlashMessageKey}
-          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
-          aria-live="assertive"
-        >
-          <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}>
-            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
-               style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
-            >
-              {killStreakFlashMessage}
             </p>
           </div>
         </div>
@@ -425,4 +402,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
