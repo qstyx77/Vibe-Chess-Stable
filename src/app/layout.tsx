@@ -1,3 +1,4 @@
+
 import type {Metadata} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
 import { Press_Start_2P } from 'next/font/google';
@@ -22,7 +23,7 @@ const pressStart2P = Press_Start_2P({
 });
 
 export const metadata: Metadata = {
-  title: 'Evolving Chess - 8 Bit Edition',
+  title: 'VIBE CHESS - 8 Bit Edition',
   description: 'An online multiplayer chess game with leveling pieces, in glorious 8-bit style.',
 };
 
@@ -38,6 +39,9 @@ export default function RootLayout({
           {children}
         </main>
         <Toaster />
+        <footer className="py-4 text-center text-xs text-muted-foreground font-pixel">
+          Made By Sugga
+        </footer>
       </body>
     </html>
   );
