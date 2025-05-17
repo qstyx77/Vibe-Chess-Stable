@@ -85,7 +85,13 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
          (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2][fromCol].piece))
       ) return true;
       // Standard diagonal capture
-      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) return true;
+      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) {
+        // Check if target is a high-level bishop
+        if (targetPieceOnSquare.type === 'bishop' && targetPieceOnSquare.level >= 3) {
+          return false; // Pawn cannot capture level 3+ bishop
+        }
+        return true;
+      }
       
       // Level 2+ specific moves
       if (piece.level >= 2) {
