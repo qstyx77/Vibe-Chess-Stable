@@ -42,15 +42,14 @@ export function GameControls({
 
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader>
-        {/* <CardTitle className="text-center text-primary font-pixel">Evolving Chess</CardTitle> */}
+      <CardHeader className="pb-2"> {/* Reduced bottom padding */}
         <CardDescription 
           className={cn(
-            "text-center font-pixel min-h-[3em]", 
+            "text-center font-pixel min-h-[1.5em]", // Reduced min-height
              isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
           )}
         >
-          {gameStatusMessage}
+          {gameStatusMessage || "\u00A0"} {/* Use non-breaking space if empty to maintain some height for pulse */}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -101,3 +100,4 @@ export function GameControls({
     </Card>
   );
 }
+
