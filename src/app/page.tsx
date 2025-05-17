@@ -48,6 +48,8 @@ export default function EvolvingChessPage() {
 
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
+  const [transientKillStreakMessage, setTransientKillStreakMessage] = useState<string | null>(null);
+
 
   const { toast } = useToast();
 
@@ -63,23 +65,35 @@ export default function EvolvingChessPage() {
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
     setLastCapturePlayer(null);
+    setTransientKillStreakMessage(null); // Reset transient message
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
+  // Effect to determine and set the flash message based on game state and transient kill streaks
   useEffect(() => {
-    if (gameInfo.isCheckmate) {
-      setFlashMessage('CHECKMATE!');
-      setFlashMessageKey(k => k + 1);
-    } else if (gameInfo.isCheck && !gameInfo.isStalemate && !gameInfo.gameOver) {
-      // Only set "CHECK!" if flashMessage is not currently a kill streak message.
-      // This allows a kill streak message to display, then "CHECK!" can display after it times out.
-      if (!flashMessage || !killStreakMessagesList.includes(flashMessage)) {
-        setFlashMessage('CHECK!');
-        setFlashMessageKey(k => k + 1);
-      }
-    }
-  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.gameOver, flashMessage]);
+    let newFlash: string | null = null;
 
+    if (gameInfo.isCheckmate) {
+      newFlash = 'CHECKMATE!';
+    } else if (transientKillStreakMessage) {
+      newFlash = transientKillStreakMessage;
+    } else if (gameInfo.isCheck && gameInfo.playerWithKingInCheck && !gameInfo.gameOver && !gameInfo.isStalemate) {
+      newFlash = 'CHECK!';
+    }
+
+    if (newFlash) {
+      setFlashMessage(newFlash);
+      setFlashMessageKey(k => k + 1);
+    }
+    
+    // Reset transientKillStreakMessage after it has been considered by this effect.
+    if (transientKillStreakMessage) {
+      setTransientKillStreakMessage(null);
+    }
+  }, [gameInfo, transientKillStreakMessage]);
+
+
+  // Effect to clear the flash message after a timeout
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (flashMessage) {
@@ -93,7 +107,7 @@ export default function EvolvingChessPage() {
         clearTimeout(timerId);
       }
     };
-  }, [flashMessage]);
+  }, [flashMessage, flashMessageKey]); // flashMessageKey ensures timer resets if message is re-triggered
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
@@ -157,6 +171,8 @@ export default function EvolvingChessPage() {
     const { row, col } = algebraicToCoords(algebraic);
     const clickedPieceData = board[row][col]; 
     const clickedPiece = clickedPieceData.piece;
+    let currentTransientKillStreak: string | null = null;
+
 
     if (selectedSquare) {
       const pieceToMoveData = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col];
@@ -184,14 +200,10 @@ export default function EvolvingChessPage() {
           setLastCapturePlayer(capturingPlayer);
         
           if (currentStreakVal >= 2) {
-            let streakMessage = "";
-            if (currentStreakVal === 2) streakMessage = "Double Kill!";
-            else if (currentStreakVal === 3) streakMessage = "Triple Kill!";
-            else if (currentStreakVal === 4) streakMessage = "Ultra Kill!";
-            else streakMessage = "RAMPAGE!";
-            
-            setFlashMessage(streakMessage);
-            setFlashMessageKey(prev => prev + 1);
+            if (currentStreakVal === 2) currentTransientKillStreak = "Double Kill!";
+            else if (currentStreakVal === 3) currentTransientKillStreak = "Triple Kill!";
+            else if (currentStreakVal === 4) currentTransientKillStreak = "Ultra Kill!";
+            else currentTransientKillStreak = "RAMPAGE!";
           }
 
           setCapturedPieces(prev => ({
@@ -204,13 +216,17 @@ export default function EvolvingChessPage() {
           });
         } else { 
           if (lastCapturePlayer) {
-            if (lastCapturePlayer !== currentPlayer) {
+            if (lastCapturePlayer !== currentPlayer) { // Opponent made a non-capture move, break their streak
                 setKillStreaks(prev => ({ ...prev, [lastCapturePlayer]: 0 }));
+            } else { // Current player made a non-capture move, break their own streak
+                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
             }
           }
           setLastCapturePlayer(null); 
         }
         
+        setTransientKillStreakMessage(currentTransientKillStreak); // Set or clear transient message
+
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
         if (movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
             setBoard(newBoard); 
@@ -226,6 +242,7 @@ export default function EvolvingChessPage() {
       } else { 
         setSelectedSquare(null);
         setPossibleMoves([]);
+        setTransientKillStreakMessage(null); // Clicked invalid square or own piece, clear potential streak signal
         if (clickedPiece && clickedPiece.color === currentPlayer) {
           setSelectedSquare(algebraic);
           const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
@@ -235,6 +252,7 @@ export default function EvolvingChessPage() {
       }
     } else if (clickedPiece && clickedPiece.color === currentPlayer) { 
       setSelectedSquare(algebraic);
+      setTransientKillStreakMessage(null); // Selecting a piece, clear potential streak signal
       const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
@@ -262,7 +280,7 @@ export default function EvolvingChessPage() {
       promotedPieceRef.type = pieceType;
       promotedPieceRef.level = 1; 
       
-      setBoard(newBoard);
+      setBoard(newBoard); // Update board state first
       toast({
         title: "Pawn Promoted!",
         description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
@@ -275,6 +293,8 @@ export default function EvolvingChessPage() {
           duration: 3000,
         });
         
+        // Logic for extra turn: Current player remains the same.
+        // Update gameInfo based on the new board state for the *opponent*.
         setSelectedSquare(null);
         setPossibleMoves([]);
 
@@ -327,13 +347,14 @@ export default function EvolvingChessPage() {
           }
         }
       } else {
+        // No extra turn, complete the turn normally.
         completeTurn(newBoard, pawnColor);
       }
     }
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast]);
+  }, [board, promotionSquare, completeTurn, toast, currentPlayer]); // Added currentPlayer to dependencies of handlePromotionSelect
 
 
   return (
@@ -390,4 +411,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
