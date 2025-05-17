@@ -224,7 +224,7 @@ export default function EvolvingChessPage() {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured } = applyMove(board, move);
         let finalBoardStateForTurn = newBoard; 
-        let calculatedNewStreakForCapturingPlayer = killStreaks[currentPlayer];
+        let newStreakForCapturingPlayer = killStreaks[currentPlayer]; // Initialize with current streak
         
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -235,25 +235,30 @@ export default function EvolvingChessPage() {
             [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
           }));
           
+          // Calculate the new streak value explicitly
+          if (lastCapturePlayer === capturingPlayer) {
+            newStreakForCapturingPlayer = killStreaks[capturingPlayer] + 1;
+          } else {
+            newStreakForCapturingPlayer = 1;
+          }
+
+          setKillStreaks(prevKillStreaks => {
+            const updatedStreaks = { ...prevKillStreaks };
+            updatedStreaks[capturingPlayer] = newStreakForCapturingPlayer;
+            // If the streak is new for this player, reset opponent's streak
+            if (lastCapturePlayer !== capturingPlayer && opponentPlayer) {
+              updatedStreaks[opponentPlayer] = 0;
+            }
+            return updatedStreaks;
+          });
+          setLastCapturePlayer(capturingPlayer);
+          
           toast({
             title: "Piece Captured!",
             description: `${capturingPlayer} ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece?.type} captured ${captured.color} ${captured.type}. ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece ? `It's now level ${finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece?.level}!` : ''}`,
           });
-          
-          setKillStreaks(prevKillStreaks => {
-            const updatedStreaks = { ...prevKillStreaks };
-            if (lastCapturePlayer === capturingPlayer) {
-              updatedStreaks[capturingPlayer]++;
-            } else {
-              updatedStreaks[capturingPlayer] = 1;
-              if (opponentPlayer) updatedStreaks[opponentPlayer] = 0; 
-            }
-            calculatedNewStreakForCapturingPlayer = updatedStreaks[capturingPlayer]; // Update here for immediate use
-            return updatedStreaks;
-          });
-          setLastCapturePlayer(capturingPlayer);
 
-          if (calculatedNewStreakForCapturingPlayer >= 3) {
+          if (newStreakForCapturingPlayer >= 3) {
             const piecesLostByCapturingPlayer = capturedPieces[opponentPlayer]; 
 
             if (piecesLostByCapturingPlayer && piecesLostByCapturingPlayer.length > 0) {
@@ -298,14 +303,17 @@ export default function EvolvingChessPage() {
             }
           }
 
-        } else { 
-           if (lastCapturePlayer === currentPlayer) {
+        } else { // No piece captured
+           if (lastCapturePlayer === currentPlayer) { // If current player had a streak and made a non-capturing move
              setKillStreaks(prevKillStreaks => ({
                ...prevKillStreaks,
-               [currentPlayer]: 0,
+               [currentPlayer]: 0, // Break their streak
              }));
-             setLastCapturePlayer(null); 
+             setLastCapturePlayer(null); // Reset because the chain of this player's captures is broken
            }
+           // If lastCapturePlayer was the opponent, their streak is NOT broken by current player's non-capturing move.
+           // And lastCapturePlayer should remain as the opponent. So, no change to lastCapturePlayer here.
+           newStreakForCapturingPlayer = 0; // Reset for current player if no capture
         }
         
         setBoard(finalBoardStateForTurn); 
@@ -314,7 +322,9 @@ export default function EvolvingChessPage() {
         const movedPieceOnBoard = movedPieceFinalSquare.piece; 
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
         const isPawnPromotingMove = movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7);
-        const streakGrantsExtraTurn = calculatedNewStreakForCapturingPlayer >= 6;
+        
+        // Use the newStreakForCapturingPlayer calculated above for the extra turn check
+        const streakGrantsExtraTurn = newStreakForCapturingPlayer >= 6;
 
         if (isPawnPromotingMove) {
             setIsPromotingPawn(true);
@@ -381,6 +391,7 @@ export default function EvolvingChessPage() {
       
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
     // Check current streak status after the capture that led to promotion
+    // killStreaks state here should be the already updated value from handleSquareClick
     const streakGrantsExtraTurn = killStreaks[pawnColor] >= 6; 
 
     if (pawnLevelGrantsExtraTurn || streakGrantsExtraTurn) {
@@ -417,7 +428,7 @@ export default function EvolvingChessPage() {
         >
           <div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}>
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
-               style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
+               style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
             >
               {flashMessage}
             </p>
@@ -465,3 +476,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
