@@ -43,12 +43,15 @@ export default function EvolvingChessPage() {
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
 
+  const [killStreakFlashMessage, setKillStreakFlashMessage] = useState<string | null>(null);
+  const [killStreakFlashMessageKey, setKillStreakFlashMessageKey] = useState<number>(0);
+
+
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
 
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
-  const [transientKillStreakMessage, setTransientKillStreakMessage] = useState<string | null>(null);
 
 
   const { toast } = useToast();
@@ -61,22 +64,19 @@ export default function EvolvingChessPage() {
     setGameInfo(initialGameStatus);
     setCapturedPieces({ white: [], black: [] });
     setFlashMessage(null);
+    setKillStreakFlashMessage(null);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
     setLastCapturePlayer(null);
-    setTransientKillStreakMessage(null); // Reset transient message
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
-  // Effect to determine and set the flash message based on game state and transient kill streaks
+  // Effect for CHECK/CHECKMATE flash messages
   useEffect(() => {
     let newFlash: string | null = null;
-
     if (gameInfo.isCheckmate) {
       newFlash = 'CHECKMATE!';
-    } else if (transientKillStreakMessage) {
-      newFlash = transientKillStreakMessage;
     } else if (gameInfo.isCheck && gameInfo.playerWithKingInCheck && !gameInfo.gameOver && !gameInfo.isStalemate) {
       newFlash = 'CHECK!';
     }
@@ -84,19 +84,18 @@ export default function EvolvingChessPage() {
     if (newFlash) {
       setFlashMessage(newFlash);
       setFlashMessageKey(k => k + 1);
+    } else if (flashMessage && (flashMessage === 'CHECK!' || flashMessage === 'CHECKMATE!') && !gameInfo.isCheck && !gameInfo.isCheckmate) {
+      // If a check/checkmate message was showing but is no longer relevant, clear it.
+      // This handles cases where a move resolves check, but a kill streak message shouldn't be cleared by this effect.
+      // setFlashMessage(null); // This line might be too aggressive, handled by timeout instead
     }
-    
-    // Reset transientKillStreakMessage after it has been considered by this effect.
-    if (transientKillStreakMessage) {
-      setTransientKillStreakMessage(null);
-    }
-  }, [gameInfo, transientKillStreakMessage]);
+  }, [gameInfo, flashMessage]); // Added flashMessage to dependency to re-evaluate if it needs clearing
 
 
-  // Effect to clear the flash message after a timeout
+  // Effect to clear the CHECK/CHECKMATE flash message after a timeout
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
-    if (flashMessage) {
+    if (flashMessage && (flashMessage === 'CHECK!' || flashMessage === 'CHECKMATE!')) {
       const duration = flashMessage === 'CHECKMATE!' ? 2500 : 1500; 
       timerId = setTimeout(() => {
         setFlashMessage(null);
@@ -107,7 +106,22 @@ export default function EvolvingChessPage() {
         clearTimeout(timerId);
       }
     };
-  }, [flashMessage, flashMessageKey]); // flashMessageKey ensures timer resets if message is re-triggered
+  }, [flashMessage, flashMessageKey]);
+
+  // Effect to clear the KILL STREAK flash message after a timeout
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | null = null;
+    if (killStreakFlashMessage) {
+      timerId = setTimeout(() => {
+        setKillStreakFlashMessage(null);
+      }, 1500); // Kill streak messages last 1.5 seconds
+    }
+    return () => {
+      if (timerId) {
+        clearTimeout(timerId);
+      }
+    };
+  }, [killStreakFlashMessage, killStreakFlashMessageKey]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
@@ -171,8 +185,6 @@ export default function EvolvingChessPage() {
     const { row, col } = algebraicToCoords(algebraic);
     const clickedPieceData = board[row][col]; 
     const clickedPiece = clickedPieceData.piece;
-    let currentTransientKillStreak: string | null = null;
-
 
     if (selectedSquare) {
       const pieceToMoveData = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col];
@@ -200,10 +212,16 @@ export default function EvolvingChessPage() {
           setLastCapturePlayer(capturingPlayer);
         
           if (currentStreakVal >= 2) {
-            if (currentStreakVal === 2) currentTransientKillStreak = "Double Kill!";
-            else if (currentStreakVal === 3) currentTransientKillStreak = "Triple Kill!";
-            else if (currentStreakVal === 4) currentTransientKillStreak = "Ultra Kill!";
-            else currentTransientKillStreak = "RAMPAGE!";
+            let streakMsg = "";
+            if (currentStreakVal === 2) streakMsg = "Double Kill!";
+            else if (currentStreakVal === 3) streakMsg = "Triple Kill!";
+            else if (currentStreakVal === 4) streakMsg = "Ultra Kill!";
+            else streakMsg = "RAMPAGE!";
+            
+            setKillStreakFlashMessage(streakMsg);
+            setKillStreakFlashMessageKey(k => k + 1);
+          } else {
+            setKillStreakFlashMessage(null); // Clear if streak is less than 2
           }
 
           setCapturedPieces(prev => ({
@@ -216,17 +234,16 @@ export default function EvolvingChessPage() {
           });
         } else { 
           if (lastCapturePlayer) {
-            if (lastCapturePlayer !== currentPlayer) { // Opponent made a non-capture move, break their streak
+            if (lastCapturePlayer !== currentPlayer) { 
                 setKillStreaks(prev => ({ ...prev, [lastCapturePlayer]: 0 }));
-            } else { // Current player made a non-capture move, break their own streak
+            } else { 
                  setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
             }
           }
           setLastCapturePlayer(null); 
+          setKillStreakFlashMessage(null); // No capture, no kill streak message
         }
         
-        setTransientKillStreakMessage(currentTransientKillStreak); // Set or clear transient message
-
         const {row: toRowPawnCheck} = algebraicToCoords(algebraic);
         if (movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7)) {
             setBoard(newBoard); 
@@ -242,7 +259,7 @@ export default function EvolvingChessPage() {
       } else { 
         setSelectedSquare(null);
         setPossibleMoves([]);
-        setTransientKillStreakMessage(null); // Clicked invalid square or own piece, clear potential streak signal
+        setKillStreakFlashMessage(null); 
         if (clickedPiece && clickedPiece.color === currentPlayer) {
           setSelectedSquare(algebraic);
           const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
@@ -252,7 +269,7 @@ export default function EvolvingChessPage() {
       }
     } else if (clickedPiece && clickedPiece.color === currentPlayer) { 
       setSelectedSquare(algebraic);
-      setTransientKillStreakMessage(null); // Selecting a piece, clear potential streak signal
+      setKillStreakFlashMessage(null); 
       const pseudoPossibleMoves = getPossibleMoves(board, algebraic);
       const legalFilteredMoves = filterLegalMoves(board, algebraic, pseudoPossibleMoves, currentPlayer);
       setPossibleMoves(legalFilteredMoves);
@@ -280,7 +297,7 @@ export default function EvolvingChessPage() {
       promotedPieceRef.type = pieceType;
       promotedPieceRef.level = 1; 
       
-      setBoard(newBoard); // Update board state first
+      setBoard(newBoard); 
       toast({
         title: "Pawn Promoted!",
         description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)`,
@@ -293,8 +310,6 @@ export default function EvolvingChessPage() {
           duration: 3000,
         });
         
-        // Logic for extra turn: Current player remains the same.
-        // Update gameInfo based on the new board state for the *opponent*.
         setSelectedSquare(null);
         setPossibleMoves([]);
 
@@ -347,18 +362,18 @@ export default function EvolvingChessPage() {
           }
         }
       } else {
-        // No extra turn, complete the turn normally.
         completeTurn(newBoard, pawnColor);
       }
     }
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast, currentPlayer]); // Added currentPlayer to dependencies of handlePromotionSelect
+  }, [board, promotionSquare, completeTurn, toast, currentPlayer]); 
 
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
+      {/* Flash Message for CHECK/CHECKMATE */}
       {flashMessage && (
         <div
           key={flashMessageKey}
@@ -370,6 +385,22 @@ export default function EvolvingChessPage() {
                style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
             >
               {flashMessage}
+            </p>
+          </div>
+        </div>
+      )}
+      {/* Flash Message for KILL STREAKS */}
+      {killStreakFlashMessage && (
+        <div
+          key={killStreakFlashMessageKey}
+          className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none"
+          aria-live="assertive"
+        >
+          <div className="bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check"> {/* Uses same animation as "CHECK!" */}
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-pixel text-center"
+               style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}
+            >
+              {killStreakFlashMessage}
             </p>
           </div>
         </div>
@@ -411,3 +442,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
