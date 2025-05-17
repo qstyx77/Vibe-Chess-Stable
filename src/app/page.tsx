@@ -117,7 +117,7 @@ export default function EvolvingChessPage() {
       }
       return prevBoard; // Return original board state if no Rooks' invulnerability changed
     });
-  }, [currentPlayer]); // `setBoard` is stable, so this runs primarily when currentPlayer changes.
+  }, [currentPlayer]); 
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
@@ -233,7 +233,7 @@ export default function EvolvingChessPage() {
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     if (gameInfo.gameOver || isPromotingPawn) return;
 
-    const currentBoardForClick = board; // Use the board state as of the click, after invulnerability effect may have run
+    const currentBoardForClick = board; 
 
     const { row, col } = algebraicToCoords(algebraic);
     const clickedPieceData = currentBoardForClick[row][col]; 
@@ -259,13 +259,21 @@ export default function EvolvingChessPage() {
             if (adjR >= 0 && adjR < 8 && adjC >= 0 && adjC < 8) {
               const victimPiece = currentBoardState[adjR][adjC].piece;
               if (victimPiece && victimPiece.color !== currentPlayer && victimPiece.type !== 'king') {
-                 // Check for Rook invulnerability before destroying
+                // Check for Rook invulnerability
                 if (victimPiece.type === 'rook' && victimPiece.invulnerableTurnsRemaining && victimPiece.invulnerableTurnsRemaining > 0) {
                   toast({
-                    title: "Invulnerable!",
-                    description: `${currentPlayer} Knight's self-destruct failed to destroy invulnerable ${victimPiece.color} Rook.`,
+                    title: "Invulnerable Rook!",
+                    description: `${currentPlayer} Knight's self-destruct failed on invulnerable ${victimPiece.color} Rook.`,
                   });
-                  continue; // Skip destroying this invulnerable rook
+                  continue;
+                }
+                // Check for Queen invulnerability
+                if (victimPiece.type === 'queen' && victimPiece.level >=5 && pieceToMove.level < victimPiece.level) {
+                   toast({
+                    title: "Invulnerable Queen!",
+                    description: `${currentPlayer} Knight's self-destruct failed on high-level ${victimPiece.color} Queen.`,
+                  });
+                  continue;
                 }
                 piecesDestroyed.push({ ...victimPiece });
                 currentBoardState[adjR][adjC].piece = null;
@@ -279,7 +287,7 @@ export default function EvolvingChessPage() {
         }
         currentBoardState[knightR][knightC].piece = null; // Remove the knight
 
-        let calculatedNewStreakForPlayer = 0;
+        let calculatedNewStreakForPlayer = 0; // Initialize here
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
 
         if (piecesDestroyed.length > 0) {
@@ -351,8 +359,8 @@ export default function EvolvingChessPage() {
           if (lastCapturePlayer === currentPlayer) {
             setKillStreaks(prevKillStreaks => ({ ...prevKillStreaks, [currentPlayer]: 0 }));
           }
-          setLastCapturePlayer(null);
-          calculatedNewStreakForPlayer = 0;
+          setLastCapturePlayer(null); // Reset if no pieces were destroyed
+          calculatedNewStreakForPlayer = 0; // Ensure reset if no capture
         }
 
         setBoard(finalBoardAfterDestruct);
@@ -379,7 +387,7 @@ export default function EvolvingChessPage() {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(currentBoardForClick, move);
         let finalBoardStateForTurn = newBoard; 
-        let calculatedNewStreakForCapturingPlayer = killStreaks[currentPlayer]; // Start with current streak
+        let calculatedNewStreakForCapturingPlayer = 0; // Initialize here
         
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -487,7 +495,6 @@ export default function EvolvingChessPage() {
         if (isPawnPromotingMove) {
             setIsPromotingPawn(true);
             setPromotionSquare(algebraic);
-            // Extra turn due to streak will be handled in handlePromotionSelect if applicable
         } else {
             if (streakGrantsExtraTurn) {
                  toast({
@@ -523,7 +530,6 @@ export default function EvolvingChessPage() {
     if (!promotionSquare) return;
 
     const { row, col } = algebraicToCoords(promotionSquare);
-    // Use a fresh copy of the board state for promotion
     let boardAfterPromotion = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); 
     
     const originalPawnOnBoard = boardAfterPromotion[row][col].piece; 
@@ -540,8 +546,7 @@ export default function EvolvingChessPage() {
       ...originalPawnOnBoard,
       type: pieceType,
       level: 1, 
-      // invulnerableTurnsRemaining will be handled if it's a rook by applyMove logic, but promotion itself doesn't grant it
-      invulnerableTurnsRemaining: pieceType === 'rook' ? 1 : 0, // Grant invulnerability if promoted to Rook
+      invulnerableTurnsRemaining: pieceType === 'rook' ? 1 : 0, 
     };
       
     setBoard(boardAfterPromotion); 
@@ -551,7 +556,6 @@ export default function EvolvingChessPage() {
     });
       
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
-    // Check current streak of the promoting player
     const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
     const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6; 
 
@@ -576,7 +580,7 @@ export default function EvolvingChessPage() {
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
-  }, [board, promotionSquare, completeTurn, toast, killStreaks, setGameInfoBasedOnExtraTurn, currentPlayer]); // Added currentPlayer to deps
+  }, [board, promotionSquare, completeTurn, toast, killStreaks, setGameInfoBasedOnExtraTurn, currentPlayer]);
 
 
   return (
