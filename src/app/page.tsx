@@ -38,6 +38,7 @@ export default function EvolvingChessPage() {
   const [possibleMoves, setPossibleMoves] = useState<AlgebraicSquare[]>([]);
   const [gameInfo, setGameInfo] = useState<GameStatus>(initialGameStatus);
   const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ white: [], black: [] });
+  const [boardOrientation, setBoardOrientation] = useState<PlayerColor>('white');
 
   const [flashMessage, setFlashMessage] = useState<string | null>(null);
   const [flashMessageKey, setFlashMessageKey] = useState<number>(0);
@@ -62,6 +63,7 @@ export default function EvolvingChessPage() {
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
     setLastCapturePlayer(null);
+    setBoardOrientation('white');
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
@@ -97,31 +99,29 @@ export default function EvolvingChessPage() {
   }, [flashMessage, flashMessageKey]);
 
   useEffect(() => {
-    // This effect runs when currentPlayer changes, effectively at the start of their turn.
-    // It clears invulnerability for the current player's rooks that were protecting them during opponent's last turn.
     setBoard(prevBoard => {
       let boardWasModified = false;
       const boardAfterInvulnerabilityWearOff = prevBoard.map(row => 
         row.map(square => {
           if (square.piece && square.piece.color === currentPlayer && square.piece.type === 'rook' && square.piece.invulnerableTurnsRemaining && square.piece.invulnerableTurnsRemaining > 0) {
             boardWasModified = true;
-            // Make a new piece object to ensure React detects the change
             return { ...square, piece: { ...square.piece, invulnerableTurnsRemaining: 0 } };
           }
-          return square; // Return the original square if no change
+          return square; 
         })
       );
       
       if (boardWasModified) {
         return boardAfterInvulnerabilityWearOff;
       }
-      return prevBoard; // Return original board state if no Rooks' invulnerability changed
+      return prevBoard; 
     });
   }, [currentPlayer]); 
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
     setPossibleMoves([]);
+    setBoardOrientation(playerTakingExtraTurn); // Orient board to player taking extra turn
   
     const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
     const opponentInCheck = isKingInCheck(currentBoard, opponentColor);
@@ -169,7 +169,7 @@ export default function EvolvingChessPage() {
       isStalemate: false, 
       gameOver: false,
     });
-  }, [setGameInfo, setSelectedSquare, setPossibleMoves]);
+  }, [setGameInfo, setSelectedSquare, setPossibleMoves, setBoardOrientation]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
@@ -177,6 +177,7 @@ export default function EvolvingChessPage() {
     setCurrentPlayer(nextPlayer);
     setSelectedSquare(null);
     setPossibleMoves([]);
+    setBoardOrientation(nextPlayer); // Flip board to next player's perspective
     
     const inCheck = isKingInCheck(updatedBoard, nextPlayer);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
@@ -227,7 +228,7 @@ export default function EvolvingChessPage() {
         });
       }
     }
-  }, [setGameInfo, setCurrentPlayer, setSelectedSquare, setPossibleMoves]);
+  }, [setGameInfo, setCurrentPlayer, setSelectedSquare, setPossibleMoves, setBoardOrientation]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -259,7 +260,6 @@ export default function EvolvingChessPage() {
             if (adjR >= 0 && adjR < 8 && adjC >= 0 && adjC < 8) {
               const victimPiece = currentBoardState[adjR][adjC].piece;
               if (victimPiece && victimPiece.color !== currentPlayer && victimPiece.type !== 'king') {
-                // Check for Rook invulnerability
                 if (victimPiece.type === 'rook' && victimPiece.invulnerableTurnsRemaining && victimPiece.invulnerableTurnsRemaining > 0) {
                   toast({
                     title: "Invulnerable Rook!",
@@ -267,7 +267,6 @@ export default function EvolvingChessPage() {
                   });
                   continue;
                 }
-                // Check for Queen invulnerability
                 if (victimPiece.type === 'queen' && victimPiece.level >=5 && pieceToMove.level < victimPiece.level) {
                    toast({
                     title: "Invulnerable Queen!",
@@ -285,9 +284,9 @@ export default function EvolvingChessPage() {
             }
           }
         }
-        currentBoardState[knightR][knightC].piece = null; // Remove the knight
-
-        let calculatedNewStreakForPlayer = 0; // Initialize here
+        currentBoardState[knightR][knightC].piece = null; 
+        
+        let calculatedNewStreakForPlayer = 0;
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
 
         if (piecesDestroyed.length > 0) {
@@ -296,20 +295,13 @@ export default function EvolvingChessPage() {
             [currentPlayer]: [...(prev[currentPlayer] || []), ...piecesDestroyed]
           }));
           
-          if (lastCapturePlayer === currentPlayer) {
-            calculatedNewStreakForPlayer = killStreaks[currentPlayer] + piecesDestroyed.length;
-          } else {
-            calculatedNewStreakForPlayer = piecesDestroyed.length;
-          }
+          calculatedNewStreakForPlayer = (lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0) + piecesDestroyed.length;
 
-          setKillStreaks(prevKillStreaks => {
-            const updatedStreaks = { ...prevKillStreaks };
-            updatedStreaks[currentPlayer] = calculatedNewStreakForPlayer;
-            if (lastCapturePlayer !== currentPlayer) {
-              updatedStreaks[opponentColor] = 0;
-            }
-            return updatedStreaks;
-          });
+          setKillStreaks(prevKillStreaks => ({
+            ...prevKillStreaks,
+            [currentPlayer]: calculatedNewStreakForPlayer,
+            [opponentColor]: lastCapturePlayer !== currentPlayer ? 0 : prevKillStreaks[opponentColor],
+          }));
           setLastCapturePlayer(currentPlayer);
 
           if (calculatedNewStreakForPlayer >= 3) {
@@ -325,10 +317,7 @@ export default function EvolvingChessPage() {
               setCapturedPieces(prevGlobalCaptured => {
                 const newGlobalCaptured = { ...prevGlobalCaptured };
                 const specificListOfLostPieces = [...(newGlobalCaptured[opponentColor] || [])];
-                const indexToRemove = specificListOfLostPieces.findIndex(p => p.id === pieceToResurrectOriginal.id);
-                if (indexToRemove !== -1) {
-                  specificListOfLostPieces.splice(indexToRemove, 1);
-                }
+                specificListOfLostPieces.pop();
                 newGlobalCaptured[opponentColor] = specificListOfLostPieces;
                 return newGlobalCaptured;
               });
@@ -359,8 +348,8 @@ export default function EvolvingChessPage() {
           if (lastCapturePlayer === currentPlayer) {
             setKillStreaks(prevKillStreaks => ({ ...prevKillStreaks, [currentPlayer]: 0 }));
           }
-          setLastCapturePlayer(null); // Reset if no pieces were destroyed
-          calculatedNewStreakForPlayer = 0; // Ensure reset if no capture
+          setLastCapturePlayer(null);
+          calculatedNewStreakForPlayer = 0;
         }
 
         setBoard(finalBoardAfterDestruct);
@@ -387,7 +376,7 @@ export default function EvolvingChessPage() {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(currentBoardForClick, move);
         let finalBoardStateForTurn = newBoard; 
-        let calculatedNewStreakForCapturingPlayer = 0; // Initialize here
+        let calculatedNewStreakForCapturingPlayer = 0;
         
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -398,20 +387,13 @@ export default function EvolvingChessPage() {
             [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
           }));
           
-          if (lastCapturePlayer === capturingPlayer) {
-            calculatedNewStreakForCapturingPlayer = killStreaks[capturingPlayer] + 1;
-          } else {
-            calculatedNewStreakForCapturingPlayer = 1;
-          }
+          calculatedNewStreakForCapturingPlayer = (lastCapturePlayer === capturingPlayer ? killStreaks[capturingPlayer] : 0) + 1;
 
-          setKillStreaks(prevKillStreaks => {
-            const updatedStreaks = { ...prevKillStreaks };
-            updatedStreaks[capturingPlayer] = calculatedNewStreakForCapturingPlayer;
-            if (lastCapturePlayer !== capturingPlayer && opponentPlayer) {
-              updatedStreaks[opponentPlayer] = 0;
-            }
-            return updatedStreaks;
-          });
+          setKillStreaks(prevKillStreaks => ({
+            ...prevKillStreaks,
+            [capturingPlayer]: calculatedNewStreakForCapturingPlayer,
+            [opponentPlayer]: lastCapturePlayer !== capturingPlayer ? 0 : prevKillStreaks[opponentPlayer],
+          }));
           setLastCapturePlayer(capturingPlayer);
           
           const pieceOnToSquare = finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece;
@@ -433,10 +415,7 @@ export default function EvolvingChessPage() {
               setCapturedPieces(prevGlobalCaptured => {
                 const newGlobalCaptured = { ...prevGlobalCaptured };
                 const specificListOfLostPieces = [...(newGlobalCaptured[opponentPlayer] || [])];
-                const indexToRemove = specificListOfLostPieces.findIndex(p => p.id === pieceToResurrectOriginal.id);
-                if (indexToRemove !== -1) {
-                  specificListOfLostPieces.splice(indexToRemove, 1);
-                }
+                specificListOfLostPieces.pop();
                 newGlobalCaptured[opponentPlayer] = specificListOfLostPieces;
                 return newGlobalCaptured;
               });
@@ -627,7 +606,7 @@ export default function EvolvingChessPage() {
             selectedSquare={selectedSquare}
             possibleMoves={possibleMoves}
             onSquareClick={handleSquareClick}
-            playerColor="white" 
+            playerColor={boardOrientation} 
             isGameOver={gameInfo.gameOver || isPromotingPawn}
             playerInCheck={gameInfo.playerWithKingInCheck}
           />
