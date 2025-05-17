@@ -30,6 +30,8 @@ const initialGameStatus: GameStatus = {
   gameOver: false,
 };
 
+const killStreakMessagesList = ["Double Kill!", "Triple Kill!", "Ultra Kill!", "RAMPAGE!"];
+
 export default function EvolvingChessPage() {
   const [board, setBoard] = useState<BoardState>(initializeBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
@@ -64,24 +66,24 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
   }, [toast]);
 
-  // Effect to set flash messages based on game state (check, checkmate)
   useEffect(() => {
     if (gameInfo.isCheckmate) {
       setFlashMessage('CHECKMATE!');
       setFlashMessageKey(k => k + 1);
     } else if (gameInfo.isCheck && !gameInfo.isStalemate && !gameInfo.gameOver) {
-      setFlashMessage('CHECK!');
-      setFlashMessageKey(k => k + 1);
+      // Only set "CHECK!" if flashMessage is not currently a kill streak message.
+      // This allows a kill streak message to display, then "CHECK!" can display after it times out.
+      if (!flashMessage || !killStreakMessagesList.includes(flashMessage)) {
+        setFlashMessage('CHECK!');
+        setFlashMessageKey(k => k + 1);
+      }
     }
-    // This effect does not clear messages; that's handled by the flashMessage-dependent effect.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.gameOver]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.gameOver, flashMessage]);
 
-  // Effect to manage the display duration of any flash message
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (flashMessage) {
-      const duration = flashMessage === 'CHECKMATE!' ? 2500 : 1500; // Checkmate gets longer
+      const duration = flashMessage === 'CHECKMATE!' ? 2500 : 1500; 
       timerId = setTimeout(() => {
         setFlashMessage(null);
       }, duration);
@@ -91,7 +93,7 @@ export default function EvolvingChessPage() {
         clearTimeout(timerId);
       }
     };
-  }, [flashMessage]); // Re-runs whenever flashMessage content changes
+  }, [flashMessage]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
