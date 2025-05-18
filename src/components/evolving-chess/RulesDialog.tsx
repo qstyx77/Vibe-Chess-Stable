@@ -46,7 +46,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="h-[60vh] pr-4">
+        <ScrollArea className="h-[40vh] pr-4">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="general">
               <AccordionTrigger className="text-lg hover:text-accent">General Gameplay</AccordionTrigger>
@@ -63,7 +63,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="killstreaks">
               <AccordionTrigger className="text-lg hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Activation">Achieved by capturing enemy pieces on consecutive turns.</PieceRule>
+                <PieceRule title="Activation">Achieved by capturing enemy pieces on consecutive turns by the same player.</PieceRule>
                 <PieceRule title="Streak of 3+ (Resurrection)">
                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1.
                 </PieceRule>
@@ -94,7 +94,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
                   <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight can be re-selected to self-destruct. The Knight is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
+                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight can be re-selected to self-destruct. The Knight is removed from the board, and all adjacent enemy pieces (except Kings, invulnerable Rooks, and higher-level invulnerable Queens) are captured. This counts towards kill streaks." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -117,7 +117,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="Upon Level Up" description="Invulnerability: Becomes invulnerable to capture for the opponent's next turn. This also applies if promoted to a Rook." />
+                  <LevelRule level="Upon Level Up / Promotion" description="Invulnerability: Becomes invulnerable to capture for the opponent's next turn. This also applies if promoted to a Rook." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -152,3 +152,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
