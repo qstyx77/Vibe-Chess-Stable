@@ -121,11 +121,10 @@ export default function EvolvingChessPage() {
         flashedCheckStateRef.current = currentCheckStateString;
       }
     } else {
-      // If game is no longer in check/checkmate, reset the ref
-      // This allows a future check/checkmate event to flash again.
       flashedCheckStateRef.current = null;
-       // And if a check/checkmate message is showing, clear it (though timeout usually handles this)
       if (flashMessage === 'CHECK!' || flashMessage === 'CHECKMATE!') {
+        // Only clear if it was a check/checkmate message and now it's not
+        // This prevents clearing kill streak messages prematurely if they were showing
         setFlashMessage(null);
       }
     }
@@ -162,14 +161,10 @@ export default function EvolvingChessPage() {
   }, [killStreakFlashMessage, killStreakFlashMessageKey]);
 
   useEffect(() => {
-    // This effect is for wearing off Rook invulnerability at the START of the current player's turn.
-    // It should run when currentPlayer changes.
     setBoard(prevBoard => {
       let boardWasModified = false;
       const boardAfterInvulnerabilityWearOff = prevBoard.map(row =>
         row.map(square => {
-          // Only wear off invulnerability for the CURRENT player's rooks.
-          // This means the invulnerability lasted through the opponent's turn.
           if (square.piece && square.piece.color === currentPlayer && square.piece.type === 'rook' && square.piece.invulnerableTurnsRemaining && square.piece.invulnerableTurnsRemaining > 0) {
             boardWasModified = true;
             return { ...square, piece: { ...square.piece, invulnerableTurnsRemaining: 0 } };
@@ -181,18 +176,16 @@ export default function EvolvingChessPage() {
       if (boardWasModified) {
         return boardAfterInvulnerabilityWearOff;
       }
-      return prevBoard; // Return previous board if no changes to avoid unnecessary re-renders
+      return prevBoard;
     });
-  }, [currentPlayer]); // Runs when currentPlayer changes
+  }, [currentPlayer]);
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
     setPossibleMoves([]);
-    // Board orientation should be for the player taking the extra turn
     if (viewMode === 'flipping') {
       setBoardOrientation(playerTakingExtraTurn);
     }
-    // In tabletop, orientation is fixed.
 
     const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
     const opponentInCheck = isKingInCheck(currentBoard, opponentColor);
@@ -229,10 +222,9 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    // Standard extra turn setup
     setGameInfo({
       message: `${playerTakingExtraTurn.charAt(0).toUpperCase() + playerTakingExtraTurn.slice(1)}'s Extra Turn!`,
-      isCheck: false, // Own king is not in check to start their extra turn (or they would've lost)
+      isCheck: false, 
       playerWithKingInCheck: null,
       isCheckmate: false,
       isStalemate: false,
@@ -243,14 +235,13 @@ export default function EvolvingChessPage() {
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
-    setCurrentPlayer(nextPlayer); // This will trigger the useEffect for rook invulnerability wear-off
+    setCurrentPlayer(nextPlayer); 
     setSelectedSquare(null);
     setPossibleMoves([]);
 
     if (viewMode === 'flipping') {
       setBoardOrientation(nextPlayer);
     }
-    // In tabletop, orientation is fixed.
 
     const inCheck = isKingInCheck(updatedBoard, nextPlayer);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
@@ -292,7 +283,7 @@ export default function EvolvingChessPage() {
         });
       } else {
         setGameInfo({
-          message: "", // Cleared for normal turn
+          message: "", 
           isCheck: false,
           playerWithKingInCheck: null,
           isCheckmate: false,
@@ -307,7 +298,7 @@ export default function EvolvingChessPage() {
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     if (gameInfo.gameOver || isPromotingPawn) return;
 
-    const currentBoardForClick = board; // Use current board state
+    const currentBoardForClick = board; 
     const { row, col } = algebraicToCoords(algebraic);
     const clickedPieceData = currentBoardForClick[row][col];
     const clickedPiece = clickedPieceData.piece;
@@ -318,14 +309,12 @@ export default function EvolvingChessPage() {
 
       saveStateToHistory();
 
-      // Knight Self-Destruct Logic
       if (selectedSquare === algebraic && pieceToMove && pieceToMove.type === 'knight' && pieceToMove.color === currentPlayer && pieceToMove.level >= 5) {
         let finalBoardAfterDestruct = currentBoardForClick.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
         const { row: knightR, col: knightC } = algebraicToCoords(selectedSquare);
         const piecesDestroyed: Piece[] = [];
         
-        let calculatedNewStreakForPlayer = 0;
-        const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+        let currentCalculatedStreakForPlayer = 0;
 
         for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
@@ -363,7 +352,7 @@ export default function EvolvingChessPage() {
             }
           }
         }
-        finalBoardAfterDestruct[knightR][knightC].piece = null;
+        finalBoardAfterDestruct[knightR][knightC].piece = null; // Remove the knight
 
         if (piecesDestroyed.length > 0) {
           setCapturedPieces(prev => ({
@@ -371,25 +360,24 @@ export default function EvolvingChessPage() {
             [currentPlayer]: [...(prev[currentPlayer] || []), ...piecesDestroyed]
           }));
 
-          calculatedNewStreakForPlayer = (lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0) + piecesDestroyed.length;
-
-          setKillStreaks(prevKillStreaks => ({
-            ...prevKillStreaks,
-            [currentPlayer]: calculatedNewStreakForPlayer,
-            [opponentColor]: lastCapturePlayer !== currentPlayer ? 0 : prevKillStreaks[opponentColor],
-          }));
+          if (lastCapturePlayer === currentPlayer) {
+            currentCalculatedStreakForPlayer = killStreaks[currentPlayer] + piecesDestroyed.length;
+          } else {
+            currentCalculatedStreakForPlayer = piecesDestroyed.length;
+          }
+          setKillStreaks(prev => ({ ...prev, [currentPlayer]: currentCalculatedStreakForPlayer }));
           setLastCapturePlayer(currentPlayer);
 
-          if (calculatedNewStreakForPlayer >= 2 && calculatedNewStreakForPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (calculatedNewStreakForPlayer >= 3 && calculatedNewStreakForPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (calculatedNewStreakForPlayer >= 4 && calculatedNewStreakForPlayer < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (calculatedNewStreakForPlayer >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
+
+          if (currentCalculatedStreakForPlayer >= 2 && currentCalculatedStreakForPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (currentCalculatedStreakForPlayer >= 3 && currentCalculatedStreakForPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (currentCalculatedStreakForPlayer >= 4 && currentCalculatedStreakForPlayer < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (currentCalculatedStreakForPlayer >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
 
 
-          if (calculatedNewStreakForPlayer >= 3) {
-            // Use a temporary board state for finding empty squares that reflects the current state *after* destruction
+          if (currentCalculatedStreakForPlayer >= 3) {
             let boardForResurrection = finalBoardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-            const piecesPlayerLost = capturedPieces[opponentColor];
+            const piecesPlayerLost = capturedPieces[currentPlayer === 'white' ? 'black' : 'white'];
             if (piecesPlayerLost && piecesPlayerLost.length > 0) {
               const pieceToResurrectOriginal = piecesPlayerLost[piecesPlayerLost.length - 1];
               const resurrectedPiece = {
@@ -400,9 +388,9 @@ export default function EvolvingChessPage() {
 
               setCapturedPieces(prevGlobalCaptured => {
                 const newGlobalCaptured = { ...prevGlobalCaptured };
-                const specificListOfLostPieces = [...(newGlobalCaptured[opponentColor] || [])];
+                const specificListOfLostPieces = [...(newGlobalCaptured[currentPlayer === 'white' ? 'black' : 'white'] || [])];
                 specificListOfLostPieces.pop();
-                newGlobalCaptured[opponentColor] = specificListOfLostPieces;
+                newGlobalCaptured[currentPlayer === 'white' ? 'black' : 'white'] = specificListOfLostPieces;
                 return newGlobalCaptured;
               });
 
@@ -418,7 +406,6 @@ export default function EvolvingChessPage() {
               if (emptySquares.length > 0) {
                 const randomEmptySquareAlgebraic = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                 const { row: resRow, col: resCol } = algebraicToCoords(randomEmptySquareAlgebraic);
-                // Apply resurrection to the same board state that will be used for turn completion
                 finalBoardAfterDestruct[resRow][resCol].piece = resurrectedPiece;
                 toast({
                   title: "Resurrection!",
@@ -428,25 +415,17 @@ export default function EvolvingChessPage() {
               }
             }
           }
-        } else {
-            setKillStreaks(prevKillStreaks => {
-                const newKillStreaks = { ...prevKillStreaks };
-                if (lastCapturePlayer === currentPlayer) {
-                    newKillStreaks[currentPlayer] = 0;
-                }
-                return newKillStreaks;
-            });
-            if (lastCapturePlayer === currentPlayer) {
-                 setLastCapturePlayer(null);
-            }
-            calculatedNewStreakForPlayer = 0;
+        } else { // Knight self-destruct hit no pieces
+            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 })); // Current player's streak broken
+            // lastCapturePlayer remains unchanged if no pieces were destroyed by self-destruct
+             currentCalculatedStreakForPlayer = 0;
         }
 
         setBoard(finalBoardAfterDestruct);
         setSelectedSquare(null);
         setPossibleMoves([]);
 
-        const streakGrantsExtraTurn = calculatedNewStreakForPlayer >= 6;
+        const streakGrantsExtraTurn = currentCalculatedStreakForPlayer >= 6;
         if (streakGrantsExtraTurn) {
           toast({
             title: "Extra Turn!",
@@ -459,16 +438,13 @@ export default function EvolvingChessPage() {
         }
         return;
       }
-      // End of Self-Destruct Logic
-
-      // Regular Move Logic
+      
       if (pieceToMove && pieceToMove.color === currentPlayer && possibleMoves.includes(algebraic)) {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(currentBoardForClick, move);
-        let finalBoardStateForTurn = newBoard; // This is the board after applyMove
+        let finalBoardStateForTurn = newBoard; 
 
-        let calculatedNewStreakForCapturingPlayer = 0;
-        const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+        let currentCalculatedStreakForCapturingPlayer = 0;
 
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -476,21 +452,20 @@ export default function EvolvingChessPage() {
             ...prev,
             [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
           }));
-
-          calculatedNewStreakForCapturingPlayer = (lastCapturePlayer === capturingPlayer ? killStreaks[capturingPlayer] : 0) + 1;
-
-          setKillStreaks(prevKillStreaks => ({
-            ...prevKillStreaks,
-            [capturingPlayer]: calculatedNewStreakForCapturingPlayer,
-            [opponentColor]: lastCapturePlayer !== capturingPlayer ? 0 : prevKillStreaks[opponentColor],
-          }));
+          
+          if (lastCapturePlayer === capturingPlayer) {
+            currentCalculatedStreakForCapturingPlayer = killStreaks[capturingPlayer] + 1;
+          } else {
+            currentCalculatedStreakForCapturingPlayer = 1;
+          }
+          setKillStreaks(prev => ({ ...prev, [capturingPlayer]: currentCalculatedStreakForCapturingPlayer }));
           setLastCapturePlayer(capturingPlayer);
 
 
-          if (calculatedNewStreakForCapturingPlayer >= 2 && calculatedNewStreakForCapturingPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (calculatedNewStreakForCapturingPlayer >= 3 && calculatedNewStreakForCapturingPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (calculatedNewStreakForCapturingPlayer >= 4 && calculatedNewStreakForCapturingPlayer < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (calculatedNewStreakForCapturingPlayer >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
+          if (currentCalculatedStreakForCapturingPlayer >= 2 && currentCalculatedStreakForCapturingPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (currentCalculatedStreakForCapturingPlayer >= 3 && currentCalculatedStreakForCapturingPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (currentCalculatedStreakForCapturingPlayer >= 4 && currentCalculatedStreakForCapturingPlayer < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (currentCalculatedStreakForCapturingPlayer >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
 
           const pieceOnToSquare = finalBoardStateForTurn[algebraicToCoords(algebraic).row][algebraicToCoords(algebraic).col].piece;
           toast({
@@ -499,10 +474,9 @@ export default function EvolvingChessPage() {
             duration: 2500,
           });
 
-          if (calculatedNewStreakForCapturingPlayer >= 3) {
-             // Use finalBoardStateForTurn for finding empty squares
+          if (currentCalculatedStreakForCapturingPlayer >= 3) {
             let boardForResurrection = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-            const piecesLostByCapturingPlayer = capturedPieces[opponentColor];
+            const piecesLostByCapturingPlayer = capturedPieces[capturingPlayer === 'white' ? 'black' : 'white'];
             if (piecesLostByCapturingPlayer && piecesLostByCapturingPlayer.length > 0) {
               const pieceToResurrectOriginal = piecesLostByCapturingPlayer[piecesLostByCapturingPlayer.length - 1];
               const resurrectedPiece = {
@@ -513,9 +487,9 @@ export default function EvolvingChessPage() {
 
               setCapturedPieces(prevGlobalCaptured => {
                 const newGlobalCaptured = { ...prevGlobalCaptured };
-                const specificListOfLostPieces = [...(newGlobalCaptured[opponentColor] || [])];
+                const specificListOfLostPieces = [...(newGlobalCaptured[capturingPlayer === 'white' ? 'black' : 'white'] || [])];
                 specificListOfLostPieces.pop();
-                newGlobalCaptured[opponentColor] = specificListOfLostPieces;
+                newGlobalCaptured[capturingPlayer === 'white' ? 'black' : 'white'] = specificListOfLostPieces;
                 return newGlobalCaptured;
               });
 
@@ -531,7 +505,6 @@ export default function EvolvingChessPage() {
               if (emptySquares.length > 0) {
                 const randomEmptySquareAlgebraic = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                 const { row: resRow, col: resCol } = algebraicToCoords(randomEmptySquareAlgebraic);
-                 // Apply resurrection to the same board state that will be used for turn completion
                 finalBoardStateForTurn[resRow][resCol].piece = resurrectedPiece;
                 toast({
                   title: "Resurrection!",
@@ -541,18 +514,10 @@ export default function EvolvingChessPage() {
               }
             }
           }
-        } else {
-            setKillStreaks(prevKillStreaks => {
-                const newKillStreaks = { ...prevKillStreaks };
-                if (lastCapturePlayer === currentPlayer) {
-                    newKillStreaks[currentPlayer] = 0;
-                }
-                return newKillStreaks;
-            });
-            if (lastCapturePlayer === currentPlayer) {
-                setLastCapturePlayer(null);
-            }
-            calculatedNewStreakForCapturingPlayer = 0;
+        } else { // No piece captured on regular move
+            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 })); // Current player's streak broken
+            // lastCapturePlayer remains unchanged
+            currentCalculatedStreakForCapturingPlayer = 0;
         }
 
 
@@ -573,7 +538,7 @@ export default function EvolvingChessPage() {
         const { row: toRowPawnCheck } = algebraicToCoords(algebraic);
         const isPawnPromotingMove = movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7);
 
-        const streakGrantsExtraTurn = calculatedNewStreakForCapturingPlayer >= 6;
+        const streakGrantsExtraTurn = currentCalculatedStreakForCapturingPlayer >= 6;
 
         if (isPawnPromotingMove) {
           setIsPromotingPawn(true);
@@ -620,20 +585,20 @@ export default function EvolvingChessPage() {
       killStreaks,
       capturedPieces,
       setGameInfoBasedOnExtraTurn,
-      saveStateToHistory, // Ensure all dependencies are listed
+      saveStateToHistory, 
       setBoard,
-      setCurrentPlayer,
+      // setCurrentPlayer, // Not needed here as it's part of completeTurn or setGameInfoBasedOnExtraTurn
       setGameInfo,
       setCapturedPieces,
       setKillStreaks,
       setLastCapturePlayer,
-      // setFlashMessage, // No longer directly set for streaks
       setKillStreakFlashMessage,
+      setKillStreakFlashMessageKey, // Added missing key
       setIsPromotingPawn,
       setPromotionSquare,
       setPossibleMoves,
       setSelectedSquare,
-      viewMode // Added viewMode
+      viewMode
     ]
   );
 
@@ -642,7 +607,6 @@ export default function EvolvingChessPage() {
 
     saveStateToHistory();
 
-    // Use a fresh copy of the board for promotion changes
     let boardAfterPromotion = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
 
     const { row, col } = algebraicToCoords(promotionSquare);
@@ -660,11 +624,11 @@ export default function EvolvingChessPage() {
     boardAfterPromotion[row][col].piece = {
       ...originalPawnOnBoard,
       type: pieceType,
-      level: 1, // Reset level to 1 on promotion
-      invulnerableTurnsRemaining: pieceType === 'rook' ? 1 : 0, // Grant invulnerability if promoted to Rook
+      level: 1, 
+      invulnerableTurnsRemaining: pieceType === 'rook' ? 1 : 0, 
     };
 
-    setBoard(boardAfterPromotion); // Update board state immediately
+    setBoard(boardAfterPromotion); 
     toast({
       title: "Pawn Promoted!",
       description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)${pieceType === 'rook' ? ' Invulnerable for 1 turn!' : ''}`,
@@ -672,6 +636,7 @@ export default function EvolvingChessPage() {
     });
 
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
+    // Use the current killStreaks state for the player who promoted the pawn
     const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
     const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
 
@@ -682,7 +647,7 @@ export default function EvolvingChessPage() {
         reason = `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} gets an extra turn from high-level promotion AND a 6+ kill streak!`;
       } else if (pawnLevelGrantsExtraTurn) {
         reason = `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} gets an extra turn from high-level promotion!`;
-      } else {
+      } else { // streakGrantsExtraTurn must be true
         reason = `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} gets an extra turn for a 6+ kill streak!`;
       }
       toast({
@@ -702,13 +667,13 @@ export default function EvolvingChessPage() {
       promotionSquare,
       completeTurn,
       toast,
-      killStreaks,
+      killStreaks, // killStreaks is a dependency now
       setGameInfoBasedOnExtraTurn,
       saveStateToHistory,
       setBoard,
       setIsPromotingPawn,
       setPromotionSquare,
-      viewMode // Added viewMode
+      // viewMode // No direct use of viewMode in this function, but it's part of game state
     ]
   );
 
@@ -735,7 +700,7 @@ export default function EvolvingChessPage() {
         setSelectedSquare(null);
         setPossibleMoves([]);
         setFlashMessage(null);
-        flashedCheckStateRef.current = null; // Reset flashed state on undo
+        flashedCheckStateRef.current = null; 
         setKillStreakFlashMessage(null);
         setIsPromotingPawn(false);
         setPromotionSquare(null);
@@ -744,19 +709,18 @@ export default function EvolvingChessPage() {
       }
       return newHistory;
     });
-  }, [historyStack, toast]); // Removed other state setters from deps as they are set directly
+  }, [historyStack, toast, setBoard, setCurrentPlayer, setGameInfo, setCapturedPieces, setKillStreaks, setLastCapturePlayer, setBoardOrientation, setViewMode, setFlashMessage, setKillStreakFlashMessage, setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves]);
 
   const handleToggleViewMode = () => {
     setViewMode(prevMode => {
       const newMode = prevMode === 'flipping' ? 'tabletop' : 'flipping';
       if (newMode === 'flipping') {
-        setBoardOrientation(currentPlayer); // Orient to current player when switching to flipping
+        setBoardOrientation(currentPlayer); 
+      } else {
+        // In tabletop, we want white at the bottom visually.
+        // The board orientation logic for display handles this.
+        setBoardOrientation('white'); 
       }
-      // In tabletop, board orientation is effectively fixed (White's perspective)
-      // but pieces are rotated. The actual boardOrientation state might not be directly used
-      // by ChessBoard for rendering if viewMode is tabletop, depending on its internal logic.
-      // However, ensuring it's logical (e.g. 'white' for tabletop base) is good.
-      // For now, let's keep it simple and just toggle. The ChessBoard logic handles display.
       return newMode;
     });
   };
@@ -850,3 +814,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
