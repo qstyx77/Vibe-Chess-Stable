@@ -414,8 +414,8 @@ export function applyMove(
         movingPieceRef.level += 2;
         break;
     }
-    // If the piece that just leveled up is a rook, make it invulnerable
-    if (movingPieceRef.type === 'rook') {
+    // If the piece that just leveled up is a rook, AND its new level is 3 or higher, make it invulnerable
+    if (movingPieceRef.type === 'rook' && movingPieceRef.level >= 3) {
       movingPieceRef.invulnerableTurnsRemaining = 1;
     }
   }
@@ -624,4 +624,5 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
+
 

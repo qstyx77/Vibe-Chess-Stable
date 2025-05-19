@@ -116,8 +116,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Rook Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="Upon Level Up / Promotion" description="Invulnerability: Becomes invulnerable to capture for the opponent's next turn. This also applies if promoted to a Rook." />
+                  <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
+                  <LevelRule level="3+" description="Upon leveling up to Level 3 (or any higher level through capture), it becomes invulnerable for the opponent's next turn." />
+                  <LevelRule level="Promotion" description="If a Pawn is promoted to a Rook (starts at Level 1), the Rook is invulnerable for the opponent's next turn." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
