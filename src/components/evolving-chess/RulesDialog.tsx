@@ -57,6 +57,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in/through/into check).</PieceRule>
+                <PieceRule title="Auto-Checkmate on Extra Turn">
+                  If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a 6+ kill streak) on the same move, it is an immediate checkmate, and that player wins.
+                </PieceRule>
               </AccordionContent>
             </AccordionItem>
 

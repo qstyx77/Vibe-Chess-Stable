@@ -105,7 +105,6 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     // This effect primarily handles Check and Checkmate messages.
-    // Kill streak messages are handled separately.
     let newFlash: string | null = null;
     if (gameInfo.isCheckmate) {
       newFlash = 'CHECKMATE!';
@@ -122,6 +121,7 @@ export default function EvolvingChessPage() {
          setFlashMessage(null);
       }
     }
+  // Removed flashMessage from dependency array to prevent re-flashing "CHECK!"
   }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
 
@@ -181,51 +181,49 @@ export default function EvolvingChessPage() {
 
     const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
     const opponentInCheck = isKingInCheck(currentBoard, opponentColor);
-    let newPlayerWithKingInCheckForExtraTurn: PlayerColor | null = null;
-    let extraTurnMessage = "Extra Turn!";
 
-    if (opponentInCheck) {
-      newPlayerWithKingInCheckForExtraTurn = opponentColor;
-      const opponentIsCheckmated = isCheckmate(currentBoard, opponentColor);
-      if (opponentIsCheckmated) {
-        setGameInfo({
-          message: `Checkmate! ${playerTakingExtraTurn.charAt(0).toUpperCase() + playerTakingExtraTurn.slice(1)} wins!`,
-          isCheck: true,
-          playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
-          isCheckmate: true,
-          isStalemate: false,
-          winner: playerTakingExtraTurn,
-          gameOver: true,
-        });
-        return;
-      } else {
-        extraTurnMessage = "Check! (Extra Turn)";
-      }
-    } else {
-      const opponentIsStalemated = isStalemate(currentBoard, opponentColor);
-      if (opponentIsStalemated) {
-        setGameInfo({
-          message: `Stalemate! It's a draw.`,
-          isCheck: false,
-          playerWithKingInCheck: null,
-          isCheckmate: false,
-          isStalemate: true,
-          winner: 'draw',
-          gameOver: true,
-        });
-        return;
-      }
+    if (opponentInCheck) { // If the move that earned an extra turn also put the opponent in check
+      toast({
+        title: "Auto-Checkmate!",
+        description: `${playerTakingExtraTurn.charAt(0).toUpperCase() + playerTakingExtraTurn.slice(1)} wins by delivering check and earning an extra turn!`,
+        duration: 3000, // Longer duration for game-ending event
+      });
+      setGameInfo({
+        message: `Checkmate! ${playerTakingExtraTurn.charAt(0).toUpperCase() + playerTakingExtraTurn.slice(1)} wins!`,
+        isCheck: true,
+        playerWithKingInCheck: opponentColor,
+        isCheckmate: true,
+        isStalemate: false,
+        winner: playerTakingExtraTurn,
+        gameOver: true,
+      });
+      return; // Game over
     }
-
+  
+    // If no check was delivered, proceed with normal extra turn status (could still be stalemate)
+    const opponentIsStalemated = isStalemate(currentBoard, opponentColor);
+    if (opponentIsStalemated) {
+      setGameInfo({
+        message: `Stalemate! It's a draw.`,
+        isCheck: false,
+        playerWithKingInCheck: null,
+        isCheckmate: false,
+        isStalemate: true,
+        winner: 'draw',
+        gameOver: true,
+      });
+      return; // Game over
+    }
+  
     setGameInfo({
-      message: extraTurnMessage,
-      isCheck: opponentInCheck,
-      playerWithKingInCheck: newPlayerWithKingInCheckForExtraTurn,
+      message: "Extra Turn!", // Standard extra turn message
+      isCheck: false, // Opponent is not in check if we reach here
+      playerWithKingInCheck: null,
       isCheckmate: false,
       isStalemate: false,
       gameOver: false,
     });
-  }, []);
+  }, [setSelectedSquare, setPossibleMoves, setBoardOrientation, setGameInfo, toast]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
@@ -284,7 +282,7 @@ export default function EvolvingChessPage() {
         });
       }
     }
-  }, []);
+  }, [setCurrentPlayer, setSelectedSquare, setPossibleMoves, setBoardOrientation, setGameInfo]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -308,6 +306,7 @@ export default function EvolvingChessPage() {
         const { row: knightR, col: knightC } = algebraicToCoords(selectedSquare);
         const piecesDestroyed: Piece[] = [];
         let finalBoardAfterDestruct = currentBoardState; 
+        let calculatedNewStreakForPlayer = 0;
 
         for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
@@ -347,8 +346,6 @@ export default function EvolvingChessPage() {
         }
         currentBoardState[knightR][knightC].piece = null; 
         finalBoardAfterDestruct = currentBoardState; 
-
-        let calculatedNewStreakForPlayer = 0;
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
 
         if (piecesDestroyed.length > 0) {
@@ -412,16 +409,14 @@ export default function EvolvingChessPage() {
             }
           }
         } else { 
-          if (lastCapturePlayer === currentPlayer) {
-            setKillStreaks(prevKillStreaks => ({
-              ...prevKillStreaks,
-              [currentPlayer]: 0,
-            }));
+           setKillStreaks(prevKillStreaks => ({
+            ...prevKillStreaks,
+            [currentPlayer]: lastCapturePlayer === currentPlayer ? 0 : prevKillStreaks[currentPlayer],
+            [opponentColor]: lastCapturePlayer === currentPlayer ? prevKillStreaks[opponentColor] : (lastCapturePlayer === opponentColor ? 0 : prevKillStreaks[opponentColor])
+          }));
+          if (lastCapturePlayer === currentPlayer || piecesDestroyed.length === 0) {
+            setLastCapturePlayer(null);
           }
-          // If no pieces were destroyed, but the knight self-destructed, lastCapturePlayer is reset to null
-          // to indicate the "chain" of captures by the current player is broken.
-          // This happens regardless of who was the lastCapturePlayer before this self-destruct.
-          setLastCapturePlayer(null);
           calculatedNewStreakForPlayer = 0;
         }
         
@@ -525,16 +520,12 @@ export default function EvolvingChessPage() {
             }
           }
         } else { 
-           if (lastCapturePlayer === currentPlayer) { 
-            setKillStreaks(prevKillStreaks => ({
-              ...prevKillStreaks,
-              [currentPlayer]: 0,
-            }));
-            setLastCapturePlayer(null);
-          } else if (lastCapturePlayer && lastCapturePlayer !== currentPlayer) {
-            // Opponent had a streak, but current player made a non-capturing move.
-            // Opponent's streak persists. lastCapturePlayer remains opponent.
-          } else { // lastCapturePlayer was null
+           setKillStreaks(prevKillStreaks => ({
+            ...prevKillStreaks,
+            [currentPlayer]: lastCapturePlayer === currentPlayer ? 0 : prevKillStreaks[currentPlayer],
+             [opponentColor]: lastCapturePlayer === currentPlayer ? prevKillStreaks[opponentColor] : (lastCapturePlayer === opponentColor ? 0 : prevKillStreaks[opponentColor])
+          }));
+           if (lastCapturePlayer === currentPlayer) {
             setLastCapturePlayer(null);
           }
           calculatedNewStreakForCapturingPlayer = 0;
@@ -674,7 +665,10 @@ export default function EvolvingChessPage() {
       toast,
       killStreaks,
       setGameInfoBasedOnExtraTurn,
-      saveStateToHistory
+      saveStateToHistory,
+      setBoard, 
+      setIsPromotingPawn,
+      setPromotionSquare
     ]
   );
 
@@ -709,7 +703,7 @@ export default function EvolvingChessPage() {
       }
       return newHistory;
     });
-  }, [historyStack, toast]);
+  }, [historyStack, toast, setHistoryStack, setBoard, setCurrentPlayer, setGameInfo, setCapturedPieces, setKillStreaks, setLastCapturePlayer, setBoardOrientation, setViewMode, setSelectedSquare, setPossibleMoves, setFlashMessage, setKillStreakFlashMessage, setIsPromotingPawn, setPromotionSquare]);
 
   const handleToggleViewMode = () => {
     setViewMode(prevMode => prevMode === 'flipping' ? 'tabletop' : 'flipping');
