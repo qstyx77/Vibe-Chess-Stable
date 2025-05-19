@@ -122,7 +122,7 @@ export default function EvolvingChessPage() {
          setFlashMessage(null);
       }
     }
-  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate, flashMessage]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
 
   useEffect(() => {
