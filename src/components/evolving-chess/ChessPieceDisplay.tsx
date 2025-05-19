@@ -1,14 +1,15 @@
 
-import type { Piece } from '@/types';
+import type { Piece, ViewMode } from '@/types'; // Added ViewMode
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
   isKingInCheck?: boolean;
+  viewMode?: ViewMode; // Added viewMode prop
 }
 
-export function ChessPieceDisplay({ piece, isKingInCheck = false }: ChessPieceDisplayProps) {
+export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode }: ChessPieceDisplayProps) { // Destructure viewMode
   const unicode = getPieceUnicode(piece);
   
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
@@ -17,8 +18,14 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false }: ChessPieceDi
     pieceColorClass = 'text-destructive animate-pulse'; // Added animate-pulse for more emphasis
   }
 
+  const shouldRotateBlackPiece = viewMode === 'tabletop' && piece.color === 'black';
+
   return (
-    <div className={cn("relative flex items-center justify-center w-full h-full", pieceColorClass)}>
+    <div className={cn(
+        "relative flex items-center justify-center w-full h-full",
+        pieceColorClass,
+        shouldRotateBlackPiece && "rotate-180" // Apply rotation if tabletop and black piece
+      )}>
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
       {piece.level > 1 && (
         <span

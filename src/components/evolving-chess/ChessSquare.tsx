@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { SquareState } from '@/types';
+import type { SquareState, ViewMode } from '@/types'; // Added ViewMode
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 
@@ -13,6 +13,7 @@ interface ChessSquareProps {
   onClick: (algebraic: SquareState['algebraic']) => void;
   disabled?: boolean;
   isKingInCheck?: boolean;
+  viewMode?: ViewMode; // Added viewMode prop
 }
 
 export function ChessSquare({
@@ -23,6 +24,7 @@ export function ChessSquare({
   onClick,
   disabled = false,
   isKingInCheck = false,
+  viewMode, // Destructure viewMode
 }: ChessSquareProps) {
   const piece = squareData.piece;
 
@@ -42,7 +44,7 @@ export function ChessSquare({
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (game over)' : ''}${isKingInCheck ? ' (King in check!)' : ''}`}
       disabled={disabled}
     >
-      {piece && <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} />}
+      {piece && <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} viewMode={viewMode} />} {/* Pass viewMode */}
       <span className="absolute bottom-0.5 left-0.5 font-pixel text-[8px] text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden">
         {squareData.algebraic}
       </span>
