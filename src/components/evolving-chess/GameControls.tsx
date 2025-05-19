@@ -79,16 +79,10 @@ export function GameControls({
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black:</h3>
           {renderCapturedPieces('black')}
-           {killStreaks.white >= 2 && ( // This streak still belongs to White, who captured these black pieces
-            <p className="text-xs text-destructive font-pixel mt-1 text-center">White's Streak: {killStreaks.white}</p>
-          )}
         </div>
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by White:</h3>
           {renderCapturedPieces('white')}
-          {killStreaks.black >= 2 && ( // This streak still belongs to Black, who captured these white pieces
-            <p className="text-xs text-destructive font-pixel mt-1 text-center">Black's Streak: {killStreaks.black}</p>
-          )}
         </div>
         
         <Separator />
