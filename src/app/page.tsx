@@ -98,7 +98,7 @@ export default function EvolvingChessPage() {
     setLastCapturePlayer(null);
     setBoardOrientation('white');
     setHistoryStack([]);
-    toast({ title: "Game Reset", description: "The board has been reset to the initial state." });
+    toast({ title: "Game Reset", description: "The board has been reset to the initial state.", duration: 2500 });
   }, [toast]);
 
   useEffect(() => {
@@ -315,6 +315,7 @@ export default function EvolvingChessPage() {
                   toast({
                     title: "Invulnerable Rook!",
                     description: `${currentPlayer} Knight's self-destruct failed on invulnerable ${victimPiece.color} Rook.`,
+                    duration: 2500,
                   });
                   continue;
                 }
@@ -322,6 +323,7 @@ export default function EvolvingChessPage() {
                    toast({
                     title: "Invulnerable Queen!",
                     description: `${currentPlayer} Knight's self-destruct failed on high-level ${victimPiece.color} Queen.`,
+                    duration: 2500,
                   });
                   continue;
                 }
@@ -330,6 +332,7 @@ export default function EvolvingChessPage() {
                 toast({
                   title: "Self-Destruct!",
                   description: `${currentPlayer} Knight obliterated ${victimPiece.color} ${victimPiece.type}.`,
+                  duration: 2500,
                 });
               }
             }
@@ -397,6 +400,7 @@ export default function EvolvingChessPage() {
                 toast({
                   title: "Resurrection!",
                   description: `${currentPlayer}'s ${resurrectedPiece.type} has returned to the fight! (Level 1)`,
+                  duration: 2500,
                 });
               }
             }
@@ -421,7 +425,7 @@ export default function EvolvingChessPage() {
           toast({
             title: "Extra Turn!",
             description: `${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} gets an extra turn from a 6+ destruction streak!`,
-            duration: 3000,
+            duration: 2500,
           });
           setGameInfoBasedOnExtraTurn(finalBoardAfterDestruct, currentPlayer);
         } else {
@@ -436,6 +440,7 @@ export default function EvolvingChessPage() {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(currentBoardForClick, move);
         let finalBoardStateForTurn = newBoard;
+        
         let calculatedNewStreakForCapturingPlayer = 0;
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
 
@@ -465,6 +470,7 @@ export default function EvolvingChessPage() {
           toast({
             title: "Piece Captured!",
             description: `${capturingPlayer} ${pieceOnToSquare?.type} captured ${captured.color} ${captured.type}. ${pieceOnToSquare ? `It's now level ${pieceOnToSquare.level}!` : ''}`,
+            duration: 2500,
           });
 
           if (calculatedNewStreakForCapturingPlayer >= 3) {
@@ -503,6 +509,7 @@ export default function EvolvingChessPage() {
                 toast({
                   title: "Resurrection!",
                   description: `${capturingPlayer}'s ${resurrectedPiece.type} has returned to the fight! (Level 1)`,
+                  duration: 2500,
                 });
               }
             }
@@ -515,7 +522,6 @@ export default function EvolvingChessPage() {
             }));
             setLastCapturePlayer(null);
           }
-          // If lastCapturePlayer was the opponent, their streak continues. If it was null, it stays null.
           calculatedNewStreakForCapturingPlayer = 0;
         }
 
@@ -525,6 +531,7 @@ export default function EvolvingChessPage() {
             toast({
               title: "Piece Converted!",
               description: `${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)}'s Bishop converted an enemy ${event.originalPiece.type} to their side!`,
+              duration: 2500,
             });
           });
         }
@@ -546,7 +553,7 @@ export default function EvolvingChessPage() {
             toast({
               title: "Extra Turn!",
               description: `${currentPlayer.charAt(0).toUpperCase() + currentPlayer.slice(1)} gets an extra turn for a 6+ kill streak!`,
-              duration: 3000,
+              duration: 2500,
             });
             setGameInfoBasedOnExtraTurn(finalBoardStateForTurn, currentPlayer);
           } else {
@@ -580,12 +587,10 @@ export default function EvolvingChessPage() {
       isPromotingPawn,
       completeTurn,
       lastCapturePlayer,
-      killStreaks, // Added killStreaks to dependency array
+      killStreaks, 
       capturedPieces,
       setGameInfoBasedOnExtraTurn,
       saveStateToHistory,
-      // killStreakFlashMessage, // Removed as it's handled separately
-      // flashMessage, // Removed as it's handled separately
     ]
   );
 
@@ -618,10 +623,10 @@ export default function EvolvingChessPage() {
     toast({
       title: "Pawn Promoted!",
       description: `${pawnColor.charAt(0).toUpperCase() + pawnColor.slice(1)} pawn promoted to ${pieceType}! (Level 1)${pieceType === 'rook' ? ' Invulnerable for 1 turn!' : ''}`,
+      duration: 2500,
     });
 
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
-    // For streak check, use the current killStreaks state, as the promoting move itself was not a capture.
     const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
     const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
 
@@ -638,7 +643,7 @@ export default function EvolvingChessPage() {
       toast({
         title: "Extra Turn!",
         description: reason,
-        duration: 3000,
+        duration: 2500,
       });
       setGameInfoBasedOnExtraTurn(boardAfterPromotion, pawnColor);
     } else {
@@ -660,7 +665,7 @@ export default function EvolvingChessPage() {
 
   const handleUndo = useCallback(() => {
     if (historyStack.length === 0) {
-      toast({ title: "Undo Failed", description: "No moves to undo." });
+      toast({ title: "Undo Failed", description: "No moves to undo.", duration: 2500 });
       return;
     }
 
@@ -684,7 +689,7 @@ export default function EvolvingChessPage() {
         setIsPromotingPawn(false);
         setPromotionSquare(null);
 
-        toast({ title: "Move Undone", description: "Returned to previous state." });
+        toast({ title: "Move Undone", description: "Returned to previous state.", duration: 2500 });
       }
       return newHistory;
     });
@@ -775,3 +780,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
