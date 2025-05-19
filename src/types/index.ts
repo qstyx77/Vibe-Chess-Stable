@@ -44,6 +44,8 @@ export interface ConversionEvent {
   at: AlgebraicSquare;
 }
 
+export type ViewMode = 'flipping' | 'tabletop';
+
 export interface GameSnapshot {
   board: BoardState;
   currentPlayer: PlayerColor;
@@ -52,4 +54,6 @@ export interface GameSnapshot {
   killStreaks: { white: number, black: number };
   lastCapturePlayer: PlayerColor | null;
   boardOrientation: PlayerColor;
+  viewMode: ViewMode;
 }
+

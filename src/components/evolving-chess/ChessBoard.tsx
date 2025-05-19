@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { BoardState, AlgebraicSquare, PlayerColor } from '@/types';
+import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 
@@ -10,9 +10,10 @@ interface ChessBoardProps {
   selectedSquare: AlgebraicSquare | null;
   possibleMoves: AlgebraicSquare[];
   onSquareClick: (algebraic: AlgebraicSquare) => void;
-  playerColor: PlayerColor; // To orient the board (now dynamic)
+  playerColor: PlayerColor; // Logical orientation for the current turn
   isGameOver: boolean;
   playerInCheck: PlayerColor | null;
+  viewMode: ViewMode; // New prop for view mode
 }
 
 export function ChessBoard({
@@ -20,12 +21,19 @@ export function ChessBoard({
   selectedSquare,
   possibleMoves,
   onSquareClick,
-  playerColor, // This prop will now determine the orientation
+  playerColor, 
   isGameOver,
   playerInCheck,
+  viewMode,
 }: ChessBoardProps) {
-  // Determine the orientation of the board based on playerColor
-  const displayBoard = playerColor === 'white' ? boardState : [...boardState].reverse().map(row => [...row].reverse());
+  
+  // Determine if the board should be visually flipped
+  const visuallyFlipBoard = viewMode === 'flipping' && playerColor === 'black';
+
+  // Create the board for display based on whether it's visually flipped
+  const displayBoard = visuallyFlipBoard
+    ? [...boardState].reverse().map(row => [...row].reverse())
+    : boardState; // If flipping for white, or tabletop view, boardState is as-is (white at bottom)
 
   return (
     <div className={cn(
@@ -34,20 +42,23 @@ export function ChessBoard({
       )}>
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
-          // Calculate actual indices based on orientation for consistent data access
-          const actualRowIndex = playerColor === 'white' ? displayedRowIndex : 7 - displayedRowIndex;
-          const actualColIndex = playerColor === 'white' ? displayedColIndex : 7 - displayedColIndex;
-          const currentSquareData = boardState[actualRowIndex][actualColIndex]; // Always fetch data from original board state
+          // Calculate actual indices based on visual flip for consistent data access from original boardState
+          const actualRowIndex = visuallyFlipBoard ? 7 - displayedRowIndex : displayedRowIndex;
+          const actualColIndex = visuallyFlipBoard ? 7 - displayedColIndex : displayedColIndex;
+          
+          // Always fetch data from the original boardState using actual indices
+          const currentSquareData = boardState[actualRowIndex][actualColIndex]; 
           
           const isLightSquare = (actualRowIndex + actualColIndex) % 2 === 0;
           const isSelected = selectedSquare === currentSquareData.algebraic;
           const isPossible = possibleMoves.includes(currentSquareData.algebraic);
+          // playerInCheck is the color of the king that is actually in check
           const isThisKingInCheck = currentSquareData.piece?.type === 'king' && currentSquareData.piece?.color === playerInCheck;
           
           return (
             <ChessSquare
               key={currentSquareData.algebraic}
-              squareData={currentSquareData}
+              squareData={currentSquareData} // Pass data derived from actual indices
               isLightSquare={isLightSquare}
               isSelected={isSelected}
               isPossibleMove={isPossible}
