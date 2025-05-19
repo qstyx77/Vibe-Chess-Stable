@@ -345,24 +345,24 @@ export default function EvolvingChessPage() {
             ...prev,
             [currentPlayer]: [...(prev[currentPlayer] || []), ...piecesDestroyed]
           }));
-
-          const newStreak = (lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0) + piecesDestroyed.length;
-          calculatedNewStreakForPlayer = newStreak;
+          
+          const currentStreak = lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0;
+          calculatedNewStreakForPlayer = currentStreak + piecesDestroyed.length;
 
           setKillStreaks(prevKillStreaks => ({
             ...prevKillStreaks,
-            [currentPlayer]: newStreak,
+            [currentPlayer]: calculatedNewStreakForPlayer,
             [opponentColor]: lastCapturePlayer !== currentPlayer ? 0 : prevKillStreaks[opponentColor],
           }));
           setLastCapturePlayer(currentPlayer);
 
-          if (newStreak >= 2 && newStreak < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (newStreak >= 3 && newStreak < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (newStreak >= 4 && newStreak < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
-          else if (newStreak >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
+          if (calculatedNewStreakForPlayer >= 2 && calculatedNewStreakForPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (calculatedNewStreakForPlayer >= 3 && calculatedNewStreakForPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (calculatedNewStreakForPlayer >= 4 && calculatedNewStreakForPlayer < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
+          else if (calculatedNewStreakForPlayer >= 5) { setKillStreakFlashMessage("RAMPAGE!"); setKillStreakFlashMessageKey(k => k + 1); }
 
 
-          if (newStreak >= 3) {
+          if (calculatedNewStreakForPlayer >= 3) {
             const piecesPlayerLost = capturedPieces[opponentColor];
             if (piecesPlayerLost && piecesPlayerLost.length > 0) {
               const pieceToResurrectOriginal = piecesPlayerLost[piecesPlayerLost.length - 1];
@@ -408,8 +408,8 @@ export default function EvolvingChessPage() {
               ...prevKillStreaks,
               [currentPlayer]: 0,
             }));
+            setLastCapturePlayer(null);
           }
-          setLastCapturePlayer(null); // It was currentPlayer, now it's null as no capture this turn.
           calculatedNewStreakForPlayer = 0;
         }
 
@@ -437,7 +437,7 @@ export default function EvolvingChessPage() {
         const move: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(currentBoardForClick, move);
         let finalBoardStateForTurn = newBoard;
-        let calculatedNewStreakForCapturingPlayer = 0; // Renamed to avoid conflict
+        let calculatedNewStreakForCapturingPlayer = 0;
 
         if (captured) {
           const capturingPlayer = currentPlayer;
@@ -510,25 +510,18 @@ export default function EvolvingChessPage() {
               }
             }
           }
-        } else {
-          if (lastCapturePlayer === currentPlayer) { // Current player made a non-capturing move but was the last to capture
+        } else { // No capture
+           if (lastCapturePlayer === currentPlayer) {
             setKillStreaks(prevKillStreaks => ({
               ...prevKillStreaks,
               [currentPlayer]: 0,
             }));
+            setLastCapturePlayer(null); // Current player made a non-capturing move, so they are not the last capturer.
           }
-          // If lastCapturePlayer was the opponent, their streak persists.
-          // A non-capture by currentPlayer does not break opponent's streak.
-          // Only set lastCapturePlayer to null if the *current* player broke *their own* streak.
-          // Or, more simply, if it's a non-capture move, the lastCapturePlayer no longer applies to *this turn's outcome*
-          // but we want to preserve if the *opponent* had a streak.
-          // The logic here is: if currentPlayer made a non-capture, they are not the lastCapturePlayer *for the next turn*.
-          // If the *other* player had a streak, it remains.
-          if (lastCapturePlayer === currentPlayer) {
-             setLastCapturePlayer(null);
-          }
+          // If lastCapturePlayer was the opponent, their streak continues.
           calculatedNewStreakForCapturingPlayer = 0;
         }
+
 
         if (conversionEvents && conversionEvents.length > 0) {
           conversionEvents.forEach(event => {
@@ -593,7 +586,7 @@ export default function EvolvingChessPage() {
       killStreaks,
       capturedPieces,
       setGameInfoBasedOnExtraTurn,
-      saveStateToHistory // Added saveStateToHistory
+      saveStateToHistory
     ]
   );
 
@@ -629,7 +622,7 @@ export default function EvolvingChessPage() {
     });
 
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
-    const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0; // Use pawnColor for streak check
+    const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
     const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
 
     if (pawnLevelGrantsExtraTurn || streakGrantsExtraTurn) {
@@ -660,7 +653,7 @@ export default function EvolvingChessPage() {
       toast,
       killStreaks,
       setGameInfoBasedOnExtraTurn,
-      saveStateToHistory // Added saveStateToHistory
+      saveStateToHistory
     ]
   );
 
@@ -687,8 +680,8 @@ export default function EvolvingChessPage() {
         setPossibleMoves([]);
         setFlashMessage(null);
         setKillStreakFlashMessage(null);
-        setIsPromotingPawn(false); // Ensure promotion state is also reset
-        setPromotionSquare(null); // Ensure promotion square is also reset
+        setIsPromotingPawn(false);
+        setPromotionSquare(null);
 
         toast({ title: "Move Undone", description: "Returned to previous state." });
       }
@@ -735,15 +728,15 @@ export default function EvolvingChessPage() {
           VIBE CHESS
         </h1>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={resetGame} aria-label="Reset Game">
+          <Button variant="outline" size="sm" onClick={resetGame} aria-label="Reset Game">
             <RefreshCw className="h-4 w-4 mr-2" />
             Reset Game
           </Button>
-          <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules">
+          <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules">
             <BookOpen className="h-4 w-4 mr-2" />
             Game Rules
           </Button>
-          <Button variant="outline" onClick={handleUndo} disabled={historyStack.length === 0} aria-label="Undo Move">
+          <Button variant="outline" size="sm" onClick={handleUndo} disabled={historyStack.length === 0} aria-label="Undo Move">
             <Undo2 className="h-4 w-4 mr-2" />
             Undo Move
           </Button>
@@ -781,3 +774,5 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
