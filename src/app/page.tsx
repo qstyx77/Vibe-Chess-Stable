@@ -121,12 +121,13 @@ export default function EvolvingChessPage() {
         flashedCheckStateRef.current = currentCheckStateString;
       }
     } else {
+        // Only clear the ref if the condition is no longer true and it was previously set.
+        // This prevents clearing the ref if a non-check/non-checkmate message (like a kill streak) was displayed
+        // and then the game state moved to a non-check situation.
         if (flashedCheckStateRef.current && (flashedCheckStateRef.current.endsWith('-check') || flashedCheckStateRef.current === 'checkmate')) {
-         // Only clear the flash message if it was a check/checkmate and the condition is no longer true
-         // This also implicitly means a non-check/non-checkmate message (like a kill streak) would not be cleared by this block
-         // setFlashMessage(null); // This line is removed to let the timeout handle it
+           // No need to setFlashMessage(null) here as the timeout effect handles it.
         }
-        flashedCheckStateRef.current = null; // Always reset the ref if no current check state
+        flashedCheckStateRef.current = null; 
     }
   }, [gameInfo, gameInfo.isCheck, gameInfo.isCheckmate, gameInfo.playerWithKingInCheck, gameInfo.gameOver, gameInfo.isStalemate]);
 
@@ -315,7 +316,7 @@ export default function EvolvingChessPage() {
         const { row: knightR, col: knightC } = algebraicToCoords(selectedSquare);
         const piecesDestroyed: Piece[] = [];
         
-        const selfDestructPlayer = currentPlayer; // Player whose knight is self-destructing
+        const selfDestructPlayer = currentPlayer;
         let calculatedNewStreakForPlayer: number;
 
         for (let dr = -1; dr <= 1; dr++) {
@@ -357,17 +358,7 @@ export default function EvolvingChessPage() {
         finalBoardAfterDestruct[knightR][knightC].piece = null; // Remove the knight
 
         if (piecesDestroyed.length > 0) {
-          setCapturedPieces(prev => ({
-            ...prev,
-            [selfDestructPlayer]: [...(prev[selfDestructPlayer] || []), ...piecesDestroyed]
-          }));
-
-          if (lastCapturePlayer === selfDestructPlayer) {
-            calculatedNewStreakForPlayer = (killStreaks[selfDestructPlayer] || 0) + piecesDestroyed.length;
-          } else {
-            calculatedNewStreakForPlayer = piecesDestroyed.length;
-          }
-          
+          calculatedNewStreakForPlayer = (killStreaks[selfDestructPlayer] || 0) + piecesDestroyed.length;
           setKillStreaks(prevKillStreaks => {
             const newStreaks = {
               white: prevKillStreaks.white,
@@ -377,6 +368,10 @@ export default function EvolvingChessPage() {
             return newStreaks;
           });
           setLastCapturePlayer(selfDestructPlayer);
+          setCapturedPieces(prev => ({
+            ...prev,
+            [selfDestructPlayer]: [...(prev[selfDestructPlayer] || []), ...piecesDestroyed]
+          }));
 
 
           if (calculatedNewStreakForPlayer >= 2 && calculatedNewStreakForPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
@@ -426,12 +421,19 @@ export default function EvolvingChessPage() {
             }
           }
         } else { // Knight self-destruct hit no pieces
-            setKillStreaks(prevKillStreaks => ({
-              ...prevKillStreaks,
-              [selfDestructPlayer]: 0, 
-            }));
-            // `lastCapturePlayer` remains UNCHANGED here. A failed self-destruct doesn't change who made the last actual capture.
             calculatedNewStreakForPlayer = 0;
+            setKillStreaks(prevKillStreaks => {
+                const newStreaks = {
+                  white: prevKillStreaks.white,
+                  black: prevKillStreaks.black,
+                };
+                newStreaks[selfDestructPlayer] = 0; // Reset this player's streak
+                return newStreaks;
+            });
+            // If this player was the last to capture, reset lastCapturePlayer
+            if (lastCapturePlayer === selfDestructPlayer) {
+                setLastCapturePlayer(null);
+            }
         }
 
         setBoard(finalBoardAfterDestruct);
@@ -458,21 +460,11 @@ export default function EvolvingChessPage() {
         const { newBoard, capturedPiece: captured, conversionEvents } = applyMove(currentBoardForClick, move);
         let finalBoardStateForTurn = newBoard; 
 
-        let currentCalculatedStreakForCapturingPlayer: number; // For this turn's capture by currentPlayer
+        let currentCalculatedStreakForCapturingPlayer: number; 
+        const capturingPlayer = currentPlayer;
 
         if (captured) {
-          const capturingPlayer = currentPlayer; // Player who made the capture
-          setCapturedPieces(prev => ({
-            ...prev,
-            [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
-          }));
-          
-          if (lastCapturePlayer === capturingPlayer) {
-            currentCalculatedStreakForCapturingPlayer = (killStreaks[capturingPlayer] || 0) + 1;
-          } else {
-            currentCalculatedStreakForCapturingPlayer = 1;
-          }
-
+          currentCalculatedStreakForCapturingPlayer = (killStreaks[capturingPlayer] || 0) + 1;
           setKillStreaks(prevKillStreaks => {
             const newStreaks = {
               white: prevKillStreaks.white,
@@ -482,7 +474,11 @@ export default function EvolvingChessPage() {
             return newStreaks;
           });
           setLastCapturePlayer(capturingPlayer);
-
+          setCapturedPieces(prev => ({
+            ...prev,
+            [capturingPlayer]: [...(prev[capturingPlayer] || []), captured]
+          }));
+          
 
           if (currentCalculatedStreakForCapturingPlayer >= 2 && currentCalculatedStreakForCapturingPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
           else if (currentCalculatedStreakForCapturingPlayer >= 3 && currentCalculatedStreakForCapturingPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
@@ -537,13 +533,19 @@ export default function EvolvingChessPage() {
             }
           }
         } else { // No piece captured on regular move
-            const nonCapturingPlayer = currentPlayer;
-            setKillStreaks(prevKillStreaks => ({
-              ...prevKillStreaks,
-              [nonCapturingPlayer]: 0, 
-            }));
-            // `lastCapturePlayer` remains UNCHANGED. A non-capturing move doesn't change who made the last actual capture.
             currentCalculatedStreakForCapturingPlayer = 0;
+            setKillStreaks(prevKillStreaks => {
+                const newStreaks = {
+                  white: prevKillStreaks.white,
+                  black: prevKillStreaks.black,
+                };
+                newStreaks[capturingPlayer] = 0; // Reset this player's streak
+                return newStreaks;
+            });
+             // If this player was the last one to capture, reset lastCapturePlayer
+            if (lastCapturePlayer === capturingPlayer) {
+                setLastCapturePlayer(null);
+            }
         }
 
 
@@ -607,8 +609,8 @@ export default function EvolvingChessPage() {
       gameInfo.gameOver,
       isPromotingPawn,
       completeTurn,
-      lastCapturePlayer,
       killStreaks,
+      lastCapturePlayer,
       capturedPieces,
       setGameInfoBasedOnExtraTurn,
       saveStateToHistory, 
@@ -661,7 +663,7 @@ export default function EvolvingChessPage() {
     });
 
     const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
-    const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
+    const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0; // Read current streak
     const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
 
 
