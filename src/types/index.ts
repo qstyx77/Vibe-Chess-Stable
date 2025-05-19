@@ -40,6 +40,16 @@ export interface GameStatus {
 export interface ConversionEvent {
   originalPiece: Piece;
   convertedPiece: Piece;
-  byPiece: Piece; 
+  byPiece: Piece;
   at: AlgebraicSquare;
+}
+
+export interface GameSnapshot {
+  board: BoardState;
+  currentPlayer: PlayerColor;
+  gameInfo: GameStatus;
+  capturedPieces: { white: Piece[], black: Piece[] };
+  killStreaks: { white: number, black: number };
+  lastCapturePlayer: PlayerColor | null;
+  boardOrientation: PlayerColor;
 }
