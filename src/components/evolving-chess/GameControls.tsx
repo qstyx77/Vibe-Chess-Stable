@@ -46,9 +46,8 @@ export function GameControls({
       <CardHeader className="pb-2"> {/* Reduced bottom padding */}
         <CardDescription 
           className={cn(
-            "text-center font-pixel min-h-[1.5em]", // Reduced min-height
-             isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
-             gameStatusMessage.includes("AI is thinking") && "text-primary font-semibold"
+            "text-center font-pixel min-h-[1.5em]",
+             isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
           )}
         >
           {gameStatusMessage || "\u00A0"} {/* Use non-breaking space if empty to maintain some height for pulse */}
@@ -63,7 +62,7 @@ export function GameControls({
               isGameOver && "opacity-50"
             )}
           >
-            {isGameOver ? "-" : (currentPlayer === 'white' ? 'WHITE' : 'BLACK (AI)')}
+            {isGameOver ? "-" : (currentPlayer === 'white' ? 'WHITE' : 'BLACK')}
           </p>
         </div>
 
@@ -79,7 +78,7 @@ export function GameControls({
         <Separator />
 
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black (AI):</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black:</h3>
           {renderCapturedPieces('black')}
         </div>
         <div>
@@ -88,11 +87,8 @@ export function GameControls({
         </div>
         
         <Separator />
-        <div className="text-center text-sm text-muted-foreground font-pixel">
-            <p>Game Mode: Player vs AI</p>
-        </div>
+        {/* Removed Game Mode text or revert to previous if any */}
       </CardContent>
     </Card>
   );
 }
-

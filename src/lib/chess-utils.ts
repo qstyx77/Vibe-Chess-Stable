@@ -624,27 +624,3 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
-
-export function boardToSimpleString(board: BoardState, turnColor: PlayerColor): string {
-  const pieceStrings: string[] = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const square = board[r][c];
-      if (square.piece) {
-        const p = square.piece;
-        let pieceStr = `${p.color === 'white' ? 'w' : 'b'}${p.type.charAt(0).toUpperCase()}`;
-        if (p.type === 'knight') pieceStr = `${p.color === 'white' ? 'w' : 'b'}N`; // Use N for Knight
-        else pieceStr = `${p.color === 'white' ? 'w' : 'b'}${p.type.charAt(0).toUpperCase()}`;
-        
-        let status = `(L${p.level}`;
-        if (p.type === 'rook' && p.invulnerableTurnsRemaining && p.invulnerableTurnsRemaining > 0) {
-          status += ',I';
-        }
-        status += ')';
-        pieceStrings.push(`${pieceStr}@${square.algebraic}${status}`);
-      }
-    }
-  }
-  return `Board: ${pieceStrings.join(' ')}. Turn: ${turnColor}.`;
-}
-
