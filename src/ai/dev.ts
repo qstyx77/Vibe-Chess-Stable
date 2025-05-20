@@ -2,4 +2,5 @@
 import { config } from 'dotenv';
 config();
 
-// Removed import for '@/ai/flows/suggest-moves.ts';
+// Import your flows an actions here to make them available to the Genkit Inspector.
+import './flows/chess-ai-move-flow';

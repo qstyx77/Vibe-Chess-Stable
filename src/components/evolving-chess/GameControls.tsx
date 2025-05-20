@@ -26,11 +26,12 @@ export function GameControls({
 }: GameControlsProps) {
   
   const renderCapturedPieces = (color: PlayerColor) => {
+    const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
     return (
       <div>
         <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]"> {/* Added min-height */}
-          {capturedPieces[color].length === 0 && <span className="text-xs text-muted-foreground font-pixel">None</span>}
-          {capturedPieces[color].map(p => (
+          {actualCaptured.length === 0 && <span className="text-xs text-muted-foreground font-pixel">None</span>}
+          {actualCaptured.map(p => (
             <div key={p.id} className="w-6 h-6 relative">
               <ChessPieceDisplay piece={p} />
             </div>
@@ -46,7 +47,8 @@ export function GameControls({
         <CardDescription 
           className={cn(
             "text-center font-pixel min-h-[1.5em]", // Reduced min-height
-             isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
+             isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
+             gameStatusMessage.includes("AI is thinking") && "text-primary font-semibold"
           )}
         >
           {gameStatusMessage || "\u00A0"} {/* Use non-breaking space if empty to maintain some height for pulse */}
@@ -61,7 +63,7 @@ export function GameControls({
               isGameOver && "opacity-50"
             )}
           >
-            {isGameOver ? "-" : currentPlayer.toUpperCase()}
+            {isGameOver ? "-" : (currentPlayer === 'white' ? 'WHITE' : 'BLACK (AI)')}
           </p>
         </div>
 
@@ -77,7 +79,7 @@ export function GameControls({
         <Separator />
 
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black:</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black (AI):</h3>
           {renderCapturedPieces('black')}
         </div>
         <div>
@@ -87,10 +89,10 @@ export function GameControls({
         
         <Separator />
         <div className="text-center text-sm text-muted-foreground font-pixel">
-            <p>Game Mode: Local Hotseat</p>
-            <p className="opacity-50">Online Multiplayer (Soon)</p>
+            <p>Game Mode: Player vs AI</p>
         </div>
       </CardContent>
     </Card>
   );
 }
+
