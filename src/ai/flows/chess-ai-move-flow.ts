@@ -64,14 +64,24 @@ Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn pro
 
 Your goal is to choose the best possible move. Prioritize King safety.
 Consider captures, piece development, controlling the center, and using special abilities if advantageous.
+
 Your output MUST be a valid JSON object with "from" and "to" algebraic square notations. For example: {"from": "e7", "to": "e5"}.
-Suggest ONE legal move.
-Think step by step for your reasoning (but only output the JSON move).
-1. Identify all your pieces.
-2. For each piece, identify all its legal moves considering its current level and abilities, and standard chess rules.
-3. Evaluate the board after each potential move.
-4. Choose the move that provides the best strategic advantage or mitigates threats.
-5. Ensure the move is legal and does not put your own King in check.
+You must suggest exactly ONE move. This move MUST be strictly legal according to standard chess rules AND all special VIBE CHESS abilities described above.
+It is CRITICAL that your suggested move is valid. Double-check:
+- The piece at your 'from' square belongs to you (color: {{{playerColor}}}).
+- The move from 'from' to 'to' is a valid trajectory for that specific piece, considering its current level and abilities.
+- The move does not leave your King in check.
+- If a piece has NO legal moves (e.g., it is pinned or blocked), DO NOT select it as the piece to move. You must choose a piece that has at least one legal move. The game state implies that at least one such move exists if it is your turn and the game is not over.
+
+Think step-by-step to ensure legality (but only output the JSON move):
+1. Identify all pieces belonging to {{{playerColor}}}.
+2. For EACH of these pieces, determine ALL its legal moves. A move is legal if:
+    a. It adheres to the piece's movement rules (standard + VIBE CHESS abilities for its level).
+    b. The path is clear if required (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
+    c. The destination square is either empty or occupied by an opponent's piece (that can be legally captured).
+    d. The move does not place or leave your own King in check.
+3. From all the legal moves you identified across all your pieces, select the one you deem best. If multiple pieces have legal moves, choose the piece and move that offers a strategic advantage.
+4. Format this single chosen move as the JSON output.
 
 Based on the board: {{{boardString}}}
 Suggest a move for {{{playerColor}}}:
