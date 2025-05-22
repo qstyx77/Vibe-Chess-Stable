@@ -1,4 +1,3 @@
-
 'use server';
 /**
  * @fileOverview A chess AI agent that suggests moves.
@@ -34,7 +33,7 @@ const prompt = ai.definePrompt({
   input: { schema: ChessAiMoveInputSchema },
   output: { schema: ChessAiMoveOutputSchema },
   prompt: `You are a strategic chess AI playing "VIBE CHESS", a game with evolving pieces.
-Your color is {{{playerColor}}}.
+Your color is {{{playerColor}}}. It is your turn to move.
 The current board state is:
 {{{boardString}}}
 
@@ -70,15 +69,15 @@ You must suggest exactly ONE move. This move MUST be strictly legal according to
 
 It is ABSOLUTELY CRITICAL that your suggested move is valid.
 BEFORE deciding on a move, meticulously verify the following:
-1. The piece at your 'from' square belongs to you (color: {{{playerColor}}}).
+1. The piece at your 'from' square MUST belong to you (color: {{{playerColor}}}). VERIFY THIS CAREFULLY from the boardString.
 2. CRITICALLY: The piece at the 'from' square MUST have at least one legal move available. If a piece has NO legal moves (e.g., it is pinned, blocked, or has no valid squares to move to according to all rules), YOU CANNOT CHOOSE THIS PIECE TO MOVE. You must select a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make.
 3. The move from the selected piece's 'from' square to your chosen 'to' square is a valid trajectory for that specific piece, considering its current level and all VIBE CHESS abilities.
 4. The move does not place or leave your own King in check.
 
 Think step-by-step to ensure legality (but only output the JSON move):
-A. Identify ALL pieces belonging to {{{playerColor}}}.
+A. Identify ALL pieces belonging to {{{playerColor}}} on the board. Confirm their color from the boardString.
 B. For EACH of these pieces, determine ALL its legal moves based on standard chess rules AND all VIBE CHESS abilities for its level. A move is legal if:
-    i. It adheres to the piece's movement rules (including any level-based enhancements).
+    i. It adheres to the piece's movement rules (including any level-based enhancements). For example, a pawn on its first move can move two squares forward if the path is clear.
     ii. The path is clear if required by the piece type (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
     iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities).
     iv. Crucially, the move does not place or leave your own King in check.
@@ -100,15 +99,19 @@ const chessAiMoveFlow = ai.defineFlow(
   async (input) => {
     const { output } = await prompt(input);
     if (!output) {
-      throw new Error('AI failed to provide a move.');
+      // This case should ideally be handled by the LLM providing some output, even if it's an error message.
+      // However, if output is truly undefined/null, it's an unexpected failure.
+      console.error("AI Error: No output received from the Genkit flow.");
+      throw new Error('AI failed to provide any response.');
     }
-    // Basic validation for 'from' and 'to' format, more robust validation happens in page.tsx
-    if (!/^[a-h][1-8]$/.test(output.from) || !/^[a-h][1-8]$/.test(output.to)) {
-        console.warn("AI returned invalid square format. From: " + output.from + ", To: " + output.to);
-        // This could be enhanced to throw an error or attempt recovery.
-        // For now, let it pass to page.tsx validation which should catch it.
+    // Basic validation for 'from' and 'to' format (e.g., "e2", "e4")
+    // More robust validation (is it a real square, is it a legal move) happens in page.tsx
+    if (!output.from || !/^[a-h][1-8]$/.test(output.from) || !output.to || !/^[a-h][1-8]$/.test(output.to)) {
+        console.warn("AI Warning: AI returned invalid square format. From: " + output.from + ", To: " + output.to + ". The AI may not understand the board or output requirements correctly.");
+        // Potentially throw an error here to be caught by page.tsx and forfeit turn
+        // For now, let page.tsx's validation catch it.
+        // Consider if a "graceful failure" output from the AI is better, e.g., {"from": "error", "to": "error", "reasoning": "Could not determine a move"}
     }
     return output;
   }
 );
-
