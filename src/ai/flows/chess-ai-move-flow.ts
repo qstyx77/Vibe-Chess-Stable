@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A chess AI agent that suggests moves.
@@ -61,6 +62,8 @@ Kill Streaks:
 
 Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn promo or 6+ kill streak) on the same move, it's an immediate checkmate.
 
+**CRITICAL SAFETY INSTRUCTION: IF YOUR ({{{playerColor}}}) KING IS CURRENTLY IN CHECK, your *absolute highest priority* is to make a move that gets your King out of check. All other strategic considerations are secondary until your King is safe. You MUST find a legal move that resolves the check. If no such move exists, it is checkmate, but you should still try to output a valid "from" and "to" if you believe you have a last resort move, or explain if you believe it's checkmate in the reasoning.**
+
 Your goal is to choose the best possible move. Prioritize King safety.
 Consider captures, piece development, controlling the center, and using special abilities if advantageous.
 
@@ -72,17 +75,17 @@ BEFORE deciding on a move, meticulously verify the following:
 1. The piece at your 'from' square MUST belong to you (color: {{{playerColor}}}). VERIFY THIS CAREFULLY from the boardString.
 2. CRITICALLY: The piece at the 'from' square MUST have at least one legal move available. If a piece has NO legal moves (e.g., it is pinned, blocked, or has no valid squares to move to according to all rules), YOU CANNOT CHOOSE THIS PIECE TO MOVE. You must select a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make.
 3. The move from the selected piece's 'from' square to your chosen 'to' square is a valid trajectory for that specific piece, considering its current level and all VIBE CHESS abilities.
-4. The move does not place or leave your own King in check.
+4. The move does not place or leave your own King in check. If your King is already in check, this move MUST resolve the check.
 
 Think step-by-step to ensure legality (but only output the JSON move):
-A. Identify ALL pieces belonging to {{{playerColor}}} on the board. Confirm their color from the boardString.
-B. For EACH of these pieces, determine ALL its legal moves based on standard chess rules AND all VIBE CHESS abilities for its level. A move is legal if:
-    i. It adheres to the piece's movement rules (including any level-based enhancements). For example, a pawn on its first move can move two squares forward if the path is clear.
-    ii. The path is clear if required by the piece type (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
+A. Identify ALL pieces belonging to {{{playerColor}}} on the board. Confirm their color from the boardString. Determine if your King is currently in check by analyzing opponent piece positions and capabilities.
+B. For EACH of your pieces, determine ALL its legal moves based on standard chess rules AND all VIBE CHESS abilities for its level. A move is legal if:
+    i. It adheres to the piece's movement rules (including any level-based enhancements).
+    ii. The path is clear if required by the piece type.
     iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities).
-    iv. Crucially, the move does not place or leave your own King in check.
-C. MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available. If your evaluation of step B for a chosen piece results in an empty list of legal moves, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move. Do not suggest a move for a piece that cannot legally move.
-D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic.
+    iv. Crucially, the move does not place or leave your own King in check. If your King starts the turn in check, this move MUST result in your King no longer being in check.
+C. MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available (as defined in B.i-iv). If your King is in check, ensure the chosen piece and its move resolves the check. If your evaluation of step B for a chosen piece results in an empty list of legal moves, or no moves that resolve an existing check, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move that satisfies all conditions.
+D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic, with the absolute priority of resolving check if applicable.
 E. Format this single chosen move as the JSON output.
 
 Based on the board: {{{boardString}}}
@@ -101,17 +104,19 @@ const chessAiMoveFlow = ai.defineFlow(
     if (!output) {
       // This case should ideally be handled by the LLM providing some output, even if it's an error message.
       // However, if output is truly undefined/null, it's an unexpected failure.
-      console.error("AI Error: No output received from the Genkit flow.");
-      throw new Error('AI failed to provide any response.');
+      console.error("AI Error: No output received from the Genkit flow for input:", input);
+      // Return a "null move" or specific error structure if page.tsx is designed to handle it,
+      // otherwise, this might propagate as an error.
+      // For now, let's make it return an object that will likely be caught as invalid by page.tsx
+      return { from: "error", to: "error", reasoning: "AI failed to generate output." };
     }
     // Basic validation for 'from' and 'to' format (e.g., "e2", "e4")
     // More robust validation (is it a real square, is it a legal move) happens in page.tsx
     if (!output.from || !/^[a-h][1-8]$/.test(output.from) || !output.to || !/^[a-h][1-8]$/.test(output.to)) {
         console.warn("AI Warning: AI returned invalid square format. From: " + output.from + ", To: " + output.to + ". The AI may not understand the board or output requirements correctly.");
-        // Potentially throw an error here to be caught by page.tsx and forfeit turn
-        // For now, let page.tsx's validation catch it.
-        // Consider if a "graceful failure" output from the AI is better, e.g., {"from": "error", "to": "error", "reasoning": "Could not determine a move"}
+        // This will likely be caught by page.tsx's validation as an invalid move too.
     }
     return output;
   }
 );
+
