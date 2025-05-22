@@ -82,7 +82,7 @@ B. For EACH of these pieces, determine ALL its legal moves based on standard che
     ii. The path is clear if required by the piece type (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
     iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities).
     iv. Crucially, the move does not place or leave your own King in check.
-C. IMPORTANT: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available. If your initial choice of piece has no legal moves, discard it and pick another one of your pieces that does.
+C. MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available. If your evaluation of step B for a chosen piece results in an empty list of legal moves, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move. Do not suggest a move for a piece that cannot legally move.
 D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic.
 E. Format this single chosen move as the JSON output.
 
@@ -104,11 +104,9 @@ const chessAiMoveFlow = ai.defineFlow(
     }
     // Basic validation for 'from' and 'to' format, more robust validation happens in page.tsx
     if (!/^[a-h][1-8]$/.test(output.from) || !/^[a-h][1-8]$/.test(output.to)) {
-        // Attempt to recover or ask for a retry if output is parsable but invalid format
-        console.warn("AI returned invalid square format, attempting to parse reasoning or re-prompt might be needed.");
-        // For now, let it pass and be caught by page.tsx validation or throw specific error
-        // This part can be enhanced with retries or asking for clarification from the LLM.
-        // For simplicity, we will let the game logic in page.tsx handle detailed validation.
+        console.warn("AI returned invalid square format. From: " + output.from + ", To: " + output.to);
+        // This could be enhanced to throw an error or attempt recovery.
+        // For now, let it pass to page.tsx validation which should catch it.
     }
     return output;
   }
