@@ -43,6 +43,7 @@ The current board state is:
 IMPORTANT: You have been provided with a list of squares: {{#each availablePieceSquares}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.
 These squares contain your pieces that are GUARANTEED to have at least one legal move.
 YOU MUST CHOOSE YOUR 'FROM' SQUARE FROM THIS LIST.
+**Note that while a piece on this list *can* make at least one legal move, you must still ensure the specific 'to' square you choose for it is a valid destination according to all game rules and does not leave your King in check.**
 {{/if}}
 
 Piece Notation:
@@ -101,13 +102,13 @@ Your goal is to choose the best possible move. First, ensure your selected piece
 4.  **CREATE THREATS, CONTROL SPACE, & IMPROVE POSITION (Work Towards Checkmate):**
     *   **Deliver Checks:** If you can safely deliver check to the opponent's King, especially if it forces the King to a worse square or restricts its options, this is often a strong move. Consider how your pieces can work together to create a "net" around the enemy King.
     *   **Threaten Mate:** Look for moves that create an immediate threat of checkmate on your next turn (a "mate-in-one" threat).
-    *   **Dominate Key Squares & Center Control:** Control central squares (d4, e4, d5, e5) and squares around the opponent's King. Active pieces controlling key areas are generally better.
+    *   **Dominate Key Squares & Center Control:** Control central squares (d4, e4, d5, e5) and squares around the opponent's King. Active pieces controlling key areas are generally better. Aim for active piece placement where your pieces control many squares, have good mobility, and coordinate well. Consider outposts for knights and open files/diagonals for rooks and bishops.
     *   **Piece Development & Activity (Mobility):** Especially in the early game, move your Knights and Bishops off their starting squares towards the center or influential positions where they control more squares and have more options. Do not just move pawns if no better capturing, threatening, or developing moves are available. Aim to activate your pieces and increase their mobility.
 5.  **STRATEGIC CONSIDERATIONS (Think Ahead):**
-    *   **Evaluate the Position After Your Move:** Before settling on a move, consider what the board will look like *after* your move. Does it improve your material balance (using piece values like P=1, N/B=3, R=5, Q=9), piece activity/mobility, central control, or King safety? Aim to make moves that lead to an objectively better position for you.
+    *   **Evaluate the Position After Your Move:** Before settling on a move, consider what the board will look like *after* your move. Does it improve your material balance (using piece values like P=1, N/B=3, R=5, Q=9), piece activity/mobility, central control, or King safety? Aim to make moves that lead to an objectively better position for you. If your move is a capture, briefly consider if the opponent has an immediate, strong recapture or tactical response. Aim for positions that are 'quiet' and favorable after any immediate exchanges are resolved.
     *   **Consider Opponent's Likely Response:** Briefly think about the opponent's most likely replies to your candidate moves. Does your move leave you vulnerable to a strong counter-attack? Try to think a step or two ahead.
 6.  **Utilizing Special Abilities:** If your pieces have leveled up, look for opportunities to use their special abilities (e.g., Knight swaps, Bishop conversions, Pawn push-backs, Rook invulnerability after leveling) to gain an advantage, create threats, or improve your position.
-7.  **Long-Term King Safety:** Beyond immediate checks, consider the long-term safety of your King. Is it well-defended?
+7.  **Long-Term King Safety:** Beyond immediate checks, consider the long-term safety of your King. Is it well-defended? In the early and middle game, prioritize King safety. In the endgame, an active King can be a powerful asset.
 8.  **Pawn Structure:** While pawn moves are common, ensure they support your overall strategy and don't create weaknesses. Pawn moves should generally be made if no better capturing, threatening, developing, or position-improving moves are available.
 
 If it is your first move of the game, consider standard openings like moving a center pawn two squares (e.g., e2-e4 if white, e7-e5 if black) or developing a knight (e.g., g1-f3 if white, g8-f6 if black). **BEFORE outputting this move, you MUST simulate it in your mind: confirm the piece exists, is yours, and that the path and destination square are valid according to all rules for that piece type and its current level.**
@@ -144,13 +145,10 @@ const chessAiMoveFlow = ai.defineFlow(
     const { output } = await prompt(input);
     if (!output) {
       console.error("AI Error: No output received from the Genkit flow for input:", input);
-      // Return a structured error that page.tsx can interpret as an invalid move
       return { from: "error", to: "error", reasoning: "AI failed to generate output." };
     }
-    // Basic validation for square format. This doesn't check game legality.
     if (!output.from || !/^[a-h][1-8]$/.test(output.from) || !output.to || !/^[a-h][1-8]$/.test(output.to)) {
         console.warn("AI Warning: AI returned invalid square format. From: " + output.from + ", To: " + output.to + ". The AI may not understand the board or output requirements correctly. AI will forfeit turn.");
-        // Consider this an invalid move too, so page.tsx can forfeit the turn.
         return { from: "error", to: "error", reasoning: "AI returned invalid square format." };
     }
     return output;
