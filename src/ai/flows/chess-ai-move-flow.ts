@@ -78,7 +78,13 @@ Your goal is to choose the best possible move.
         *   Generally, if a legal capture of any other enemy piece (Rook, Bishop, Knight, Pawn) is available, and it doesn't lead to an immediate checkmate against you or a definite, catastrophic loss of material for no significant gain, **YOU SHOULD ALMOST ALWAYS CHOOSE THIS CAPTURE over a simple pawn move or minor piece repositioning.** Do not be overly passive.
     *   **Pawn Captures of High-Value Pieces:** Pay special attention to opportunities where one of your Pawns can legally and safely capture a high-value enemy piece like a Queen or Rook. **Remember: Pawns capture one square diagonally forward. They CANNOT capture by moving straight forward.** If such a move is available, it does not put your King in danger, and the target is not a Level 3+ Bishop (which are immune to Pawn capture), it is an extremely strong move and should be heavily favored.
     *   **Verification is Key:** Before committing to a capture, meticulously verify its complete legality: the piece can make the move (e.g., Pawns capture diagonally, not forward; Knights use L-shapes or cardinal moves based on level), its path is clear if required by its type, the target is not invulnerable to your piece (e.g., high-level Queen vs. lower-level attacker, invulnerable Rook, **Bishop immunity to Pawn capture**), and **critically, the move does not put your own King in check or leave it in check.** If the capture isn't safe or fully legal, re-evaluate.
-3.  **Protect Your High-Value Pieces (especially your Queen):** Before making a move, especially a pawn move or a move with a less valuable piece, quickly assess if that move will leave your Queen (or other high-value pieces like Rooks) open to an immediate and unfavorable capture by the opponent. Avoid moves that unnecessarily endanger your Queen if safer alternatives with similar strategic value exist.
+3.  **THREAT RESPONSE & PROTECTING YOUR PIECES:**
+    *   **Assess Threats:** If the opponent moves a high-value piece like their Queen or Rook into an aggressive position early, calmly assess the direct threats. Is your King in check? Is one of your pieces directly attacked and can be captured on the next move?
+    *   **Prioritize King Safety:** If your King is threatened, resolving that threat is paramount (see CRITICAL SAFETY INSTRUCTION).
+    *   **Counter-Attack/Capture:** If the opponent's aggressive piece (e.g., their Queen) can be legally and safely captured by one of your pieces, this is often a very strong response (see AGGRESSIVE CAPTURES).
+    *   **Defend:** If a valuable piece of yours is attacked, consider moving it to safety or defending it with another piece.
+    *   **Avoid Unnecessary Panic:** Not every aggressive-looking move from the opponent requires an immediate defensive reaction if it doesn't create an immediate, concrete threat. Continue with your development or strategic plan if the opponent's move is speculative and doesn't force your hand.
+    *   **Protect Your Own High-Value Pieces:** Before making any move, especially a pawn move or a move with a less valuable piece, quickly assess if that move will leave *your* Queen (or other high-value pieces like Rooks) open to an immediate and unfavorable capture. Avoid moves that unnecessarily endanger your key pieces if safer alternatives with similar strategic value exist.
 4.  **Create Threats & Control Space (Work Towards Checkmate):**
     *   **Deliver Checks:** If you can safely deliver check to the opponent's King, especially if it forces the King to a worse square or restricts its options, this is often a strong move. Consider how your pieces can work together to create a "net" around the enemy King.
     *   **Threaten Mate:** Look for moves that create an immediate threat of checkmate on your next turn (a "mate-in-one" threat).
@@ -142,3 +148,4 @@ const chessAiMoveFlow = ai.defineFlow(
   }
 );
 
+    
