@@ -5,7 +5,7 @@
  *
  * - chessAiMoveFlow - A function that calls the Genkit flow to get a move.
  * - ChessAiMoveInput - The input type for the chessAiMoveFlow.
- * - ChessAiMoveOutput - The return type for the chessAiMoveFlow.
+ * - ChessAiMoveOutput - The return type for the chessAiMoveOutput.
  */
 
 import { ai } from '@/ai/genkit';
@@ -77,7 +77,7 @@ Your goal is to choose the best possible move.
 6.  **Long-Term King Safety:** Beyond immediate checks, consider the long-term safety of your King. Is it well-defended?
 7.  **Pawn Structure:** While pawn moves are common, ensure they support your overall strategy and don't create weaknesses. Pawn moves should generally be made if no better capturing or developing moves are available.
 
-If it is your first move of the game, consider standard openings like moving a center pawn two squares (e.g., e2-e4 if white, e7-e5 if black) or developing a knight (e.g., g1-f3 if white, g8-f6 if black). Double check that this move is legal for the specific piece chosen (e.g., a pawn can move two squares from its starting position).
+If it is your first move of the game, consider standard openings like moving a center pawn two squares (e.g., e2-e4 if white, e7-e5 if black) or developing a knight (e.g., g1-f3 if white, g8-f6 if black). **BEFORE outputting this move, you MUST simulate it in your mind: confirm the piece exists, is yours, and that the path and destination square are valid according to all rules for that piece type and its current level.**
 
 Your output MUST be a valid JSON object with "from" and "to" algebraic square notations. For example: {"from": "e7", "to": "e5"}.
 You must suggest exactly ONE move. This move MUST be strictly legal according to standard chess rules AND all special VIBE CHESS abilities described above.
@@ -85,7 +85,7 @@ You must suggest exactly ONE move. This move MUST be strictly legal according to
 It is ABSOLUTELY CRITICAL that your suggested move is valid.
 BEFORE deciding on a move, meticulously verify the following:
 1. The piece at your 'from' square MUST belong to you (color: {{{playerColor}}}). VERIFY THIS CAREFULLY from the boardString.
-2. CRITICALLY: The piece at the 'from' square MUST have at least one legal move available. If a piece has NO legal moves (e.g., it is pinned, blocked, or has no valid squares to move to according to all rules), YOU CANNOT CHOOSE THIS PIECE TO MOVE. You must select a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make.
+2. **ULTRA-CRITICAL**: The piece at the 'from' square you select MUST have at least one legal move available to it according to ALL game rules (standard chess + VIBE CHESS abilities for its level). **DO NOT SELECT A PIECE FOR THE 'FROM' SQUARE IF IT HAS NO LEGAL MOVES.** If your initial choice of piece has no legal moves, you MUST choose a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make with some piece. **Your FIRST STEP in choosing a 'from' square is to confirm that the piece on that square is actually capable of making at least one move.**
 3. The move from the selected piece's 'from' square to your chosen 'to' square is a valid trajectory for that specific piece, considering its current level and all VIBE CHESS abilities.
 4. The move does not place or leave your own King in check. If your King is already in check, this move MUST resolve the check.
 
@@ -96,7 +96,7 @@ B. For EACH of your pieces, determine ALL its legal moves based on standard ches
     ii. The path is clear if required by the piece type (e.g., Rooks, Bishops, Queens).
     iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities like those of high-level Queens or Rooks, or Bishop immunity to Pawn capture).
     iv. Crucially, the move does not place or leave your own King in check. If your King starts the turn in check, this move MUST result in your King no longer being in check (e.g., by moving the King, blocking the attack, or **capturing the attacking piece**).
-C. MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available (as defined in B.i-iv). If your evaluation of step B for a chosen piece results in an empty list of legal moves, or no moves that resolve an existing check, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move that satisfies all conditions. **DO NOT SUGGEST A MOVE FOR A PIECE THAT HAS NO LEGAL MOVES.**
+C. **MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available (as defined in B.i-iv). If your evaluation of step B for a chosen piece results in an empty list of legal moves, or no moves that resolve an existing check, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move that satisfies all conditions. DO NOT SUGGEST A MOVE FOR A PIECE THAT HAS NO LEGAL MOVES.**
 D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic, using the strategic elements listed above, with the absolute priority of resolving check if applicable.
 E. Format this single chosen move as the JSON output.
 
