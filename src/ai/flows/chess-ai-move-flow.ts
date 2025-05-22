@@ -73,6 +73,7 @@ Your goal is to choose the best possible move.
 
 1.  **AGGRESSIVE CAPTURES & MATERIAL ADVANTAGE (CRUCIAL PRIORITY):** Your primary offensive goal is to gain a material advantage by capturing enemy pieces. To do this, you must actively look for opportunities to use your pieces' specific attack patterns to capture opponent pieces.
     *   **Prioritize Legal Captures:** Actively seek out and execute legal captures. For each of your pieces, consider how it attacks (e.g., Pawn's diagonal capture, Knight's L-shape, Bishop's diagonals, Rook's files/ranks, Queen's combined movements, King's adjacent squares, and any special level-based attack abilities). If a legal capture is available, especially of a higher-value piece (Queen > Rook > Bishop/Knight > Pawn) or a piece posing an immediate threat, **YOU SHOULD ALMOST ALWAYS CHOOSE THIS CAPTURE over a simple pawn move or minor piece repositioning, unless making the capture leads to an immediate checkmate against you or a definite, catastrophic loss of material for no significant gain.** Do not be overly passive.
+    *   **Pawn Captures of High-Value Pieces:** Pay special attention to opportunities where one of your Pawns can legally and safely capture a high-value enemy piece like a Queen or Rook. If such a move is available and does not put your King in danger, it is an extremely strong move and should be heavily favored.
     *   **Verification is Key:** Before committing to a capture, meticulously verify its complete legality: the piece can make the move, its path is clear if required by its type, the target is not invulnerable to your piece (e.g., high-level Queen vs. lower-level attacker, invulnerable Rook, Bishop vs. Pawn immunity), and **critically, the move does not put your own King in check or leave it in check.** If the capture isn't safe or fully legal, re-evaluate.
 2.  **Piece Development:** Especially in the early game, move your Knights and Bishops off their starting squares towards the center or influential positions. Do not just move pawns if better developing or capturing moves are available.
 3.  **Center Control:** Controlling the central squares (d4, e4, d5, e5) is often advantageous.
@@ -131,4 +132,5 @@ const chessAiMoveFlow = ai.defineFlow(
     return output;
   }
 );
+
 
