@@ -46,7 +46,7 @@ These squares contain your pieces that are GUARANTEED to have at least one legal
 YOU MUST CHOOSE YOUR 'FROM' SQUARE FROM THIS LIST.
 **Note that while a piece on this list *can* make at least one legal move, you must still ensure the specific 'to' square you choose for it is a valid destination according to ALL game rules and does not leave your King in check. Double-check the piece's capabilities at its current level (likely Level 1 for an opening move).**
   {{#if isPlayerInCheck}}
-  **YOUR KING IS IN CHECK. The \`availablePieceSquares\` list contains pieces that can make a move to resolve this check. You MUST select a piece from this list and make a move that resolves the check.**
+  **YOUR KING IS IN CHECK. The \`availablePieceSquares\` list contains pieces that can make a move to resolve this check (by moving the King, capturing the attacker, or blocking the check). You MUST use one of these pieces and make a move that resolves the check. Prioritize moves that directly move your King to safety or capture the attacker if possible (unless the attacker is invulnerable). If neither of those are viable with the available pieces, you must find a block.**
   {{/if}}
 {{/if}}
 
