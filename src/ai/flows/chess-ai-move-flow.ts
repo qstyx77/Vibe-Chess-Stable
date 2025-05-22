@@ -64,14 +64,15 @@ Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn pro
 
 **CRITICAL SAFETY INSTRUCTION: IF YOUR ({{{playerColor}}}) KING IS CURRENTLY IN CHECK, your *absolute highest priority* is to make a move that gets your King out of check. This can be achieved by: 1. Moving your King to a safe square. 2. Blocking the check with another piece. 3. Capturing the piece that is delivering the check. You MUST find a legal move that resolves the check. All other strategic considerations are secondary until your King is safe. If no such move exists, it is checkmate, but you should still try to output a valid "from" and "to" if you believe you have a last resort move, or explain if you believe it's checkmate in the reasoning.**
 
-Your goal is to choose the best possible move. Prioritize King safety.
-Consider the following strategic elements:
-1.  **Aggressive Captures & Material Advantage:** Actively look for opportunities to capture enemy pieces. Prioritize capturing higher-value pieces (Queen > Rook > Bishop/Knight > Pawn) or pieces that pose an immediate threat to your King or other valuable pieces. If a capture is available, evaluate it strongly, even if it involves trading pieces, as long as it doesn't lead to an immediate checkmate against you or a significant, unrecoverable material disadvantage.
+Your goal is to choose the best possible move.
+**ABSOLUTE HIGHEST PRIORITY: KING SAFETY.** First, ensure your King is not in check, or if it is, that your move resolves the check. After King safety is assured, consider the following strategic elements:
+
+1.  **AGGRESSIVE CAPTURES & MATERIAL ADVANTAGE (HIGH PRIORITY):** Actively seek and execute captures of enemy pieces. Prioritize capturing higher-value pieces (Queen > Rook > Bishop/Knight > Pawn) or pieces that pose an immediate threat to your King or other valuable pieces. If a legal capture is available that does not lead to an immediate checkmate against you or a significant, unrecoverable material disadvantage, **YOU SHOULD STRONGLY FAVOR MAKING THE CAPTURE.** Gaining material advantage is a key way to win. Do not be overly passive if a good capture opportunity exists.
 2.  **Piece Development:** Especially in the early game, aim to move your Knights and Bishops off their starting squares towards the center or influential positions. Don't just move pawns.
 3.  **Center Control:** Controlling the central squares (d4, e4, d5, e5) is often advantageous.
 4.  **Utilizing Special Abilities:** If your pieces have leveled up, look for opportunities to use their special abilities (e.g., Knight swaps, Bishop conversions, Pawn push-backs, Rook invulnerability after leveling).
 5.  **Threats:** Can you make a move that threatens an opponent's piece, forcing them to react?
-6.  **King Safety:** Beyond immediate checks, consider the long-term safety of your King. Is it well-defended?
+6.  **Long-Term King Safety:** Beyond immediate checks, consider the long-term safety of your King. Is it well-defended?
 7.  **Pawn Structure:** While pawn moves are common, ensure they support your overall strategy and don't create weaknesses.
 
 If it is your first move of the game, consider standard openings like moving a center pawn two squares (e.g., e2-e4 if white, e7-e5 if black) or developing a knight (e.g., g1-f3 if white, g8-f6 if black). Double check that this move is legal for the specific piece chosen (e.g., a pawn can move two squares from its starting position).
