@@ -78,11 +78,11 @@ export function GameControls({
         <Separator />
 
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by Black:</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured Black Pieces:</h3>
           {renderCapturedPieces('black')}
         </div>
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured by White:</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured White Pieces:</h3>
           {renderCapturedPieces('white')}
         </div>
         
@@ -92,3 +92,4 @@ export function GameControls({
     </Card>
   );
 }
+
