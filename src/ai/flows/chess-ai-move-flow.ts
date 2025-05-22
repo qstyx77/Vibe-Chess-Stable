@@ -66,6 +66,7 @@ Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn pro
 
 Your goal is to choose the best possible move. Prioritize King safety.
 Consider captures, piece development, controlling the center, and using special abilities if advantageous.
+If it is your first move of the game, consider standard openings like moving a center pawn two squares (e.g., e2-e4 if white, e7-e5 if black) or developing a knight. Double check that this move is legal for the specific piece chosen (e.g., a pawn can move two squares from its starting position).
 
 Your output MUST be a valid JSON object with "from" and "to" algebraic square notations. For example: {"from": "e7", "to": "e5"}.
 You must suggest exactly ONE move. This move MUST be strictly legal according to standard chess rules AND all special VIBE CHESS abilities described above.
@@ -84,7 +85,7 @@ B. For EACH of your pieces, determine ALL its legal moves based on standard ches
     ii. The path is clear if required by the piece type.
     iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities).
     iv. Crucially, the move does not place or leave your own King in check. If your King starts the turn in check, this move MUST result in your King no longer being in check.
-C. MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available (as defined in B.i-iv). If your King is in check, ensure the chosen piece and its move resolves the check. If your evaluation of step B for a chosen piece results in an empty list of legal moves, or no moves that resolve an existing check, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move that satisfies all conditions.
+C. MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available (as defined in B.i-iv). If your evaluation of step B for a chosen piece results in an empty list of legal moves, or no moves that resolve an existing check, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move that satisfies all conditions. **DO NOT SUGGEST A MOVE FOR A PIECE THAT HAS NO LEGAL MOVES.**
 D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic, with the absolute priority of resolving check if applicable.
 E. Format this single chosen move as the JSON output.
 
@@ -102,19 +103,11 @@ const chessAiMoveFlow = ai.defineFlow(
   async (input) => {
     const { output } = await prompt(input);
     if (!output) {
-      // This case should ideally be handled by the LLM providing some output, even if it's an error message.
-      // However, if output is truly undefined/null, it's an unexpected failure.
       console.error("AI Error: No output received from the Genkit flow for input:", input);
-      // Return a "null move" or specific error structure if page.tsx is designed to handle it,
-      // otherwise, this might propagate as an error.
-      // For now, let's make it return an object that will likely be caught as invalid by page.tsx
       return { from: "error", to: "error", reasoning: "AI failed to generate output." };
     }
-    // Basic validation for 'from' and 'to' format (e.g., "e2", "e4")
-    // More robust validation (is it a real square, is it a legal move) happens in page.tsx
     if (!output.from || !/^[a-h][1-8]$/.test(output.from) || !output.to || !/^[a-h][1-8]$/.test(output.to)) {
         console.warn("AI Warning: AI returned invalid square format. From: " + output.from + ", To: " + output.to + ". The AI may not understand the board or output requirements correctly.");
-        // This will likely be caught by page.tsx's validation as an invalid move too.
     }
     return output;
   }
