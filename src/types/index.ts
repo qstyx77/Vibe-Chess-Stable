@@ -55,5 +55,6 @@ export interface GameSnapshot {
   lastCapturePlayer: PlayerColor | null;
   boardOrientation: PlayerColor;
   viewMode: ViewMode;
+  isBlackAI: boolean;
+  isWhiteAI: boolean;
 }
-

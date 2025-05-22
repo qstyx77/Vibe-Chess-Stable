@@ -3,4 +3,4 @@ import { config } from 'dotenv';
 config();
 
 // Import your flows an actions here to make them available to the Genkit Inspector.
-// No flows imported now as the AI player is removed.
+import './flows/chess-ai-move-flow';

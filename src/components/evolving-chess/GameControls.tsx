@@ -14,6 +14,9 @@ interface GameControlsProps {
   isCheck: boolean;
   isGameOver: boolean;
   killStreaks: { white: number, black: number };
+  isBlackAI: boolean;
+  isWhiteAI: boolean;
+  isAiThinking: boolean;
 }
 
 export function GameControls({
@@ -23,8 +26,11 @@ export function GameControls({
   isCheck,
   isGameOver,
   killStreaks,
+  isBlackAI,
+  isWhiteAI,
+  isAiThinking,
 }: GameControlsProps) {
-  
+
   const renderCapturedPieces = (color: PlayerColor) => {
     const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
     return (
@@ -41,16 +47,28 @@ export function GameControls({
     );
   };
 
+  const getPlayerDisplayName = (player: PlayerColor) => {
+    if (player === 'white') {
+      return `WHITE${isWhiteAI ? ' (AI)' : ''}`;
+    }
+    return `BLACK${isBlackAI ? ' (AI)' : ''}`;
+  };
+  
+  const currentTurnMessage = isAiThinking && ((currentPlayer === 'black' && isBlackAI) || (currentPlayer === 'white' && isWhiteAI)) 
+    ? `${getPlayerDisplayName(currentPlayer)} is thinking...`
+    : gameStatusMessage;
+
+
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader className="pb-2"> {/* Reduced bottom padding */}
-        <CardDescription 
+      <CardHeader className="pb-2">
+        <CardDescription
           className={cn(
             "text-center font-pixel min-h-[1.5em]",
-             isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
+             isCheck && !isGameOver && !isAiThinking && "text-destructive font-bold animate-pulse"
           )}
         >
-          {gameStatusMessage || "\u00A0"} {/* Use non-breaking space if empty to maintain some height for pulse */}
+          {currentTurnMessage || "\u00A0"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -62,7 +80,7 @@ export function GameControls({
               isGameOver && "opacity-50"
             )}
           >
-            {isGameOver ? "-" : (currentPlayer === 'white' ? 'WHITE' : 'BLACK')}
+            {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
           </p>
         </div>
 
@@ -85,11 +103,9 @@ export function GameControls({
           <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured White Pieces:</h3>
           {renderCapturedPieces('white')}
         </div>
-        
+
         <Separator />
-        {/* Removed Game Mode text or revert to previous if any */}
       </CardContent>
     </Card>
   );
 }
-
