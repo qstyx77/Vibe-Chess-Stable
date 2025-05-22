@@ -46,7 +46,7 @@ These squares contain your pieces that are GUARANTEED to have at least one legal
 YOU MUST CHOOSE YOUR 'FROM' SQUARE FROM THIS LIST.
 **Note that while a piece on this list *can* make at least one legal move, you must still ensure the specific 'to' square you choose for it is a valid destination according to all game rules and does not leave your King in check.**
 {{#if isPlayerInCheck}}
-**YOUR KING IS IN CHECK. The \`availablePieceSquares\` list contains pieces that can make a move to resolve this check (by moving the King, capturing the attacker, or blocking the check). You MUST use one of these pieces and make a move that resolves the check. Prioritize moves that directly move your King to safety or capture the attacker if possible (unless the attacker is invulnerable). If neither of those are viable with the available pieces, you must find a block.**
+**YOUR KING IS IN CHECK. The \`availablePieceSquares\` list contains pieces that can make a move to resolve this check. You MUST select a piece from this list and make a move that resolves the check.**
 {{/if}}
 {{else}}
 {{#if isPlayerInCheck}}
@@ -108,7 +108,7 @@ Your goal is to choose the best possible move. First, ensure your selected piece
     *   **Avoid Unnecessary Panic:** Not every aggressive-looking move from the opponent requires an immediate defensive reaction if it doesn't create an immediate, concrete threat. Continue with your development or strategic plan if the opponent's move is speculative and doesn't force your hand.
     *   **Protect Your Own High-Value Pieces (especially your Queen):** Before making any move, especially a pawn move or a move with a less valuable piece, quickly assess if that move will leave *your* Queen (or other high-value pieces like Rooks) open to an immediate and unfavorable capture. Avoid moves that unnecessarily endanger your key pieces if safer alternatives with similar strategic value exist.
 4.  **CREATE THREATS, CONTROL SPACE, & IMPROVE POSITION (Work Towards Checkmate):**
-    *   **Deliver Checks:** If you can safely deliver check to the opponent's King, especially if it forces the King to a worse square or restricts its options, this is often a strong move. Consider how your pieces can work together to create a "net" around the enemy King. For example, Knights are often strong in the center or on outposts; Rooks are powerful on open files or controlling the 7th/8th ranks; Bishops thrive on open diagonals.
+    *   **Deliver Checks:** If you can safely deliver check to the opponent's King, especially if it forces the King to a worse square or restricts its options, this is often a strong move. Consider how your pieces can work together to create a "net" around the enemy King. For example, Knights are often strong in the center or on outposts; Rooks are powerful on open files or controlling the 7th/8th ranks; Bishops thrive on open diagonals. Aim for active piece placement where your pieces control many squares, have good mobility, and coordinate well. Consider outposts for knights and open files/diagonals for rooks and bishops.
     *   **Threaten Mate:** Look for moves that create an immediate threat of checkmate on your next turn (a "mate-in-one" threat).
     *   **Dominate Key Squares & Center Control:** Control central squares (d4, e4, d5, e5) and squares around the opponent's King. Aim for active piece placement where your pieces control many squares, have good mobility, and coordinate well.
     *   **Piece Development & Activity (Mobility):** Especially in the early game (first ~5-10 moves), move your Knights and Bishops off their starting squares towards the center or influential positions where they control more squares and have more options. For instance, after moving a center pawn, developing a Knight to support it is often a good follow-up. Do not just move pawns if no better capturing, threatening, or developing moves are available. Aim to activate your pieces and increase their mobility.
@@ -164,5 +164,4 @@ const chessAiMoveFlow = ai.defineFlow(
     return output;
   }
 );
-
 
