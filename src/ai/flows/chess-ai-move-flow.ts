@@ -15,6 +15,7 @@ const ChessAiMoveInputSchema = z.object({
   boardString: z.string().describe('A string representation of the current chess board state, including piece locations, types, levels, and any special statuses. Also indicates whose turn it is.'),
   playerColor: z.enum(['white', 'black']).describe('The color of the player for whom the AI should suggest a move.'),
   availablePieceSquares: z.array(z.string()).optional().describe('An optional list of algebraic notations of squares containing pieces that currently have at least one legal move. If provided, the AI MUST select its "from" square from one of these squares.'),
+  isPlayerInCheck: z.boolean().optional().describe('An optional flag indicating if the current player (for whom the move is being suggested) is currently in check.'),
 });
 export type ChessAiMoveInput = z.infer<typeof ChessAiMoveInputSchema>;
 
@@ -44,6 +45,9 @@ IMPORTANT: You have been provided with a list of squares: {{#each availablePiece
 These squares contain your pieces that are GUARANTEED to have at least one legal move.
 YOU MUST CHOOSE YOUR 'FROM' SQUARE FROM THIS LIST.
 **Note that while a piece on this list *can* make at least one legal move, you must still ensure the specific 'to' square you choose for it is a valid destination according to all game rules and does not leave your King in check.**
+{{#if isPlayerInCheck}}
+**YOUR KING IS IN CHECK. The \`availablePieceSquares\` list contains pieces that can make a move to resolve this check. You MUST use one of these pieces and make a move that resolves the check. Prioritize moves that directly move your King to safety or capture the attacker if possible.**
+{{/if}}
 {{/if}}
 
 Piece Notation:
@@ -130,7 +134,7 @@ E. Format this single chosen move as the JSON output.
 **FINAL AI SELF-CORRECTION CHECK: Before outputting your JSON, one last time, simulate the move in your head. Does the piece exist at \`from\`? Is it your color? {{#if availablePieceSquares}}Is \`from\` one of the provided availablePieceSquares?{{/if}} Can this specific piece, with its current level and VIBE CHESS abilities, legally move from \`from\` to \`to\`? Does the move clear all obstacles if needed? Is the destination square valid for capture or movement? Does it keep your King safe? **Crucially, if the piece you selected for the 'from' square has zero valid moves to any 'to' square after all checks (even if it was in availablePieceSquares, you must verify the specific 'to' choice), YOU MUST ABANDON THIS 'FROM' PIECE AND RESTART YOUR SELECTION PROCESS (Step A-D) WITH A DIFFERENT PIECE FROM THE availablePieceSquares LIST (if provided) or from scratch. Failure to output a move for a piece that can legally move is a critical error.** If ANY doubt, you MUST pick a different, simpler, or more obviously legal move, even if less strategic. Prioritize legality above all else. **IF YOU DETERMINE YOUR CHOSEN MOVE IS ILLEGAL, DO NOT OUTPUT IT. INSTEAD, RESTART YOUR THINKING PROCESS FROM STEP A TO FIND A GUARANTEED LEGAL MOVE.**
 
 Based on the board: {{{boardString}}}
-{{#if availablePieceSquares}}Using one of these squares as 'from': {{#each availablePieceSquares}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.{{/if}}
+{{#if availablePieceSquares}}Using one of these squares as 'from': {{#each availablePieceSquares}}{{{this}}}{{#unless @last}}, {{/unless}}{{/each}}.{{#if isPlayerInCheck}} **Remember, your King is in check, so your move MUST resolve this.**{{/if}}{{/if}}
 Suggest a move for {{{playerColor}}}:
 `,
 });
@@ -145,8 +149,10 @@ const chessAiMoveFlow = ai.defineFlow(
     const { output } = await prompt(input);
     if (!output) {
       console.error("AI Error: No output received from the Genkit flow for input:", input);
+      // Ensure a structured error response that matches ChessAiMoveOutputSchema
       return { from: "error", to: "error", reasoning: "AI failed to generate output." };
     }
+    // Basic validation for square format.
     if (!output.from || !/^[a-h][1-8]$/.test(output.from) || !output.to || !/^[a-h][1-8]$/.test(output.to)) {
         console.warn("AI Warning: AI returned invalid square format. From: " + output.from + ", To: " + output.to + ". The AI may not understand the board or output requirements correctly. AI will forfeit turn.");
         return { from: "error", to: "error", reasoning: "AI returned invalid square format." };
