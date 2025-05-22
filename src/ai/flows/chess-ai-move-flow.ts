@@ -71,19 +71,19 @@ You must suggest exactly ONE move. This move MUST be strictly legal according to
 It is ABSOLUTELY CRITICAL that your suggested move is valid.
 BEFORE deciding on a move, meticulously verify the following:
 1. The piece at your 'from' square belongs to you (color: {{{playerColor}}}).
-2. CRITICALLY: The piece at 'from' square MUST have at least one legal move available. If a piece has NO legal moves (e.g., it is pinned, blocked, or has no valid squares to move to according to all rules), YOU CANNOT CHOOSE THIS PIECE TO MOVE. You must select a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists.
+2. CRITICALLY: The piece at the 'from' square MUST have at least one legal move available. If a piece has NO legal moves (e.g., it is pinned, blocked, or has no valid squares to move to according to all rules), YOU CANNOT CHOOSE THIS PIECE TO MOVE. You must select a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make.
 3. The move from the selected piece's 'from' square to your chosen 'to' square is a valid trajectory for that specific piece, considering its current level and all VIBE CHESS abilities.
 4. The move does not place or leave your own King in check.
 
 Think step-by-step to ensure legality (but only output the JSON move):
-A. Identify all pieces belonging to {{{playerColor}}}.
+A. Identify ALL pieces belonging to {{{playerColor}}}.
 B. For EACH of these pieces, determine ALL its legal moves based on standard chess rules AND all VIBE CHESS abilities for its level. A move is legal if:
-    i. It adheres to the piece's movement rules.
-    ii. The path is clear if required (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
-    iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured.
+    i. It adheres to the piece's movement rules (including any level-based enhancements).
+    ii. The path is clear if required by the piece type (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
+    iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities).
     iv. Crucially, the move does not place or leave your own King in check.
-C. From the set of all pieces that have one or more legal moves (from step B), select one such piece.
-D. From the legal moves available to THAT selected piece, choose the one you deem most strategic.
+C. IMPORTANT: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available. If your initial choice of piece has no legal moves, discard it and pick another one of your pieces that does.
+D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic.
 E. Format this single chosen move as the JSON output.
 
 Based on the board: {{{boardString}}}
@@ -113,3 +113,4 @@ const chessAiMoveFlow = ai.defineFlow(
     return output;
   }
 );
+
