@@ -65,7 +65,7 @@ Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn pro
 It is ABSOLUTELY CRITICAL that your suggested move is valid.
 BEFORE deciding on a move, meticulously verify the following:
 1. The piece at your 'from' square MUST belong to you (color: {{{playerColor}}}). VERIFY THIS CAREFULLY from the boardString.
-2. **ULTRA-CRITICAL: The piece at the 'from' square you select MUST have at least one legal move available to it according to ALL game rules (standard chess + VIBE CHESS abilities for its level). **DO NOT SELECT A PIECE FOR THE 'FROM' SQUARE IF IT HAS NO LEGAL MOVES.** Selecting a piece with zero legal moves is a critical failure of your process. If your initial choice of piece has no legal moves, you MUST choose a different piece that does have legal moves. **The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make with some piece.** Your FIRST STEP in choosing a 'from' square is to confirm that the piece on that square is actually capable of making at least one move.
+2. **ULTRA-CRITICAL: The piece at the 'from' square you select MUST have at least one legal move available to it according to ALL game rules (standard chess + VIBE CHESS abilities for its level). **DO NOT SELECT A PIECE FOR THE 'FROM' SQUARE IF IT HAS NO LEGAL MOVES.** Selecting a piece with zero legal moves is a critical failure of your process. Your FIRST STEP in choosing a 'from' square is to confirm that the piece on that square is actually capable of making at least one move. **The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists for you to make with some piece.**
 3. The move from the selected piece's 'from' square to your chosen 'to' square is a valid trajectory for that specific piece, considering its current level and all VIBE CHESS abilities. This includes understanding how it *captures* versus how it *moves* if they are different (e.g., **Pawns move forward but capture diagonally. Pawns CANNOT capture by moving straight forward.**).
 4. The move does not place or leave your own King in check. If your King is already in check, this move MUST resolve the check.
 
@@ -95,9 +95,9 @@ Your goal is to choose the best possible move. First, ensure your selected piece
     *   **Deliver Checks:** If you can safely deliver check to the opponent's King, especially if it forces the King to a worse square or restricts its options, this is often a strong move. Consider how your pieces can work together to create a "net" around the enemy King.
     *   **Threaten Mate:** Look for moves that create an immediate threat of checkmate on your next turn (a "mate-in-one" threat).
     *   **Dominate Key Squares & Center Control:** Control central squares (d4, e4, d5, e5) and squares around the opponent's King. Active pieces controlling key areas are generally better.
-    *   **Piece Development & Activity:** Especially in the early game, move your Knights and Bishops off their starting squares towards the center or influential positions. Do not just move pawns if no better capturing, threatening, or developing moves are available. Aim to activate your pieces.
+    *   **Piece Development & Activity (Mobility):** Especially in the early game, move your Knights and Bishops off their starting squares towards the center or influential positions where they control more squares and have more options. Do not just move pawns if no better capturing, threatening, or developing moves are available. Aim to activate your pieces and increase their mobility.
 5.  **STRATEGIC CONSIDERATIONS (Think Ahead):**
-    *   **Evaluate the Position After Your Move:** Before settling on a move, consider what the board will look like *after* your move. Does it improve your material balance, piece activity, central control, or King safety?
+    *   **Evaluate the Position After Your Move:** Before settling on a move, consider what the board will look like *after* your move. Does it improve your material balance (using piece values like P=1, N/B=3, R=5, Q=9), piece activity/mobility, central control, or King safety?
     *   **Consider Opponent's Likely Response:** Briefly think about the opponent's most likely replies to your candidate moves. Does your move leave you vulnerable to a strong counter-attack? Try to think a step or two ahead.
 6.  **Utilizing Special Abilities:** If your pieces have leveled up, look for opportunities to use their special abilities (e.g., Knight swaps, Bishop conversions, Pawn push-backs, Rook invulnerability after leveling) to gain an advantage, create threats, or improve your position.
 7.  **Long-Term King Safety:** Beyond immediate checks, consider the long-term safety of your King. Is it well-defended?
@@ -148,3 +148,4 @@ const chessAiMoveFlow = ai.defineFlow(
     return output;
   }
 );
+
