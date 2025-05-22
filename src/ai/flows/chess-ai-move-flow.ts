@@ -63,9 +63,9 @@ Kill Streaks:
 Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn promo or 6+ kill streak) on the same move, it's an immediate checkmate.
 
 **CRITICAL SAFETY INSTRUCTION: IF YOUR ({{{playerColor}}}) KING IS CURRENTLY IN CHECK, your *absolute highest priority* is to make a move that gets your King out of check. This can be achieved by:
-1. Moving your King to a safe square (a square where it is not attacked by any opponent piece).
+1. Moving your King to a safe square (a square where it is not attacked by any other opponent piece).
 2. Blocking the check with another one of your pieces.
-3. CAPTURING THE PIECE THAT IS DELIVERING THE CHECK (this is often the best option if available and safe, either with your King or another piece).
+3. CAPTURING THE PIECE THAT IS DELIVERING THE CHECK. This is often the best and most direct option. **If the attacking piece (e.g., an enemy Queen) is on an adjacent square to your King, and your King can legally capture it without moving into another check, YOU SHOULD STRONGLY PRIORITIZE THIS CAPTURE.** This applies even if it's your King making the capture.
 You MUST find a legal move that resolves the check. All other strategic considerations are secondary until your King is safe. If no such move exists, it is checkmate, but you should still try to output a valid "from" and "to" if you believe you have a last resort move, or explain if you believe it's checkmate in the reasoning.**
 
 Your goal is to choose the best possible move.
@@ -99,9 +99,9 @@ B. For EACH of your pieces, determine ALL its legal moves based on standard ches
     i. It adheres to the piece's movement rules (including any level-based enhancements). This includes distinguishing between movement patterns and capture patterns (e.g., Pawns move forward but capture diagonally).
     ii. The path is clear if required by the piece type (e.g., Rooks, Bishops, Queens).
     iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured (considering invulnerabilities like those of high-level Queens or Rooks, or Bishop immunity to Pawn capture).
-    iv. Crucially, the move does not place or leave your own King in check. If your King starts the turn in check, this move MUST result in your King no longer being in check (e.g., by **moving the King to a safe square**, blocking the attack, or **capturing the attacking piece**).
+    iv. Crucially, the move does not place or leave your own King in check. If your King starts the turn in check, this move MUST result in your King no longer being in check (e.g., by **moving the King to a safe square**, blocking the attack, or **CAPTURING THE ATTACKING PIECE - remember the strong advice in the CRITICAL SAFETY INSTRUCTION if the attacker is adjacent to your King**).
 C. **MOST IMPORTANTLY: From the set of all your pieces evaluated in step B, you MUST select a piece that has one or more legal moves available (as defined in B.i-iv). If your evaluation of step B for a chosen piece results in an empty list of legal moves, or no moves that resolve an existing check, YOU MUST DISCARD THAT PIECE AND CHOOSE A DIFFERENT PIECE FROM STEP A for which step B yields at least one legal move that satisfies all conditions. DO NOT SUGGEST A MOVE FOR A PIECE THAT HAS NO LEGAL MOVES. The game guarantees that a legal move is available if it is not checkmate or stalemate, so you must find one.**
-D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic, using the strategic elements listed above, with the absolute priority of resolving check if applicable (prioritizing King moves to safety or captures of the checking piece if possible). **CRITICALLY RE-VERIFY that this single chosen move fully adheres to all conditions in B.i through B.iv before finalizing your decision.**
+D. From the legal moves available to THAT selected piece (from step C), choose the one you deem most strategic, using the strategic elements listed above, with the absolute priority of resolving check if applicable (prioritizing King moves to safety or captures of the checking piece if possible, **especially if the King can capture an adjacent checker**). **CRITICALLY RE-VERIFY that this single chosen move fully adheres to all conditions in B.i through B.iv before finalizing your decision.**
 E. Format this single chosen move as the JSON output.
 
 Based on the board: {{{boardString}}}
