@@ -66,7 +66,7 @@ Auto-Checkmate: If a player delivers check AND earns an extra turn (L5+ pawn pro
 
 Your goal is to choose the best possible move. Prioritize King safety.
 Consider the following strategic elements:
-1.  **Captures:** Are there any enemy pieces you can capture safely? Prioritize higher-value pieces or pieces that pose an immediate threat.
+1.  **Aggressive Captures & Material Advantage:** Actively look for opportunities to capture enemy pieces. Prioritize capturing higher-value pieces (Queen > Rook > Bishop/Knight > Pawn) or pieces that pose an immediate threat to your King or other valuable pieces. If a capture is available, evaluate it strongly, even if it involves trading pieces, as long as it doesn't lead to an immediate checkmate against you or a significant, unrecoverable material disadvantage.
 2.  **Piece Development:** Especially in the early game, aim to move your Knights and Bishops off their starting squares towards the center or influential positions. Don't just move pawns.
 3.  **Center Control:** Controlling the central squares (d4, e4, d5, e5) is often advantageous.
 4.  **Utilizing Special Abilities:** If your pieces have leveled up, look for opportunities to use their special abilities (e.g., Knight swaps, Bishop conversions, Pawn push-backs, Rook invulnerability after leveling).
