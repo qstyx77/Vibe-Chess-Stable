@@ -45,6 +45,9 @@ IMPORTANT: You have been provided with a list of squares: {{#each availablePiece
 These squares contain your pieces that are GUARANTEED to have at least one legal move.
 YOU MUST CHOOSE YOUR 'FROM' SQUARE FROM THIS LIST.
 **Note that while a piece on this list *can* make at least one legal move, you must still ensure the specific 'to' square you choose for it is a valid destination according to all game rules and does not leave your King in check.**
+  {{#if isPlayerInCheck}}
+  **Remember, your King is in check, so your move MUST resolve this.**
+  {{/if}}
 {{/if}}
 
 Piece Notation:
