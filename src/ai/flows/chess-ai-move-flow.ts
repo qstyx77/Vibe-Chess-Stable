@@ -67,21 +67,24 @@ Consider captures, piece development, controlling the center, and using special 
 
 Your output MUST be a valid JSON object with "from" and "to" algebraic square notations. For example: {"from": "e7", "to": "e5"}.
 You must suggest exactly ONE move. This move MUST be strictly legal according to standard chess rules AND all special VIBE CHESS abilities described above.
-It is CRITICAL that your suggested move is valid. Double-check:
-- The piece at your 'from' square belongs to you (color: {{{playerColor}}}).
-- The move from 'from' to 'to' is a valid trajectory for that specific piece, considering its current level and abilities.
-- The move does not leave your King in check.
-- If a piece has NO legal moves (e.g., it is pinned or blocked), DO NOT select it as the piece to move. You must choose a piece that has at least one legal move. The game state implies that at least one such move exists if it is your turn and the game is not over.
+
+It is ABSOLUTELY CRITICAL that your suggested move is valid.
+BEFORE deciding on a move, meticulously verify the following:
+1. The piece at your 'from' square belongs to you (color: {{{playerColor}}}).
+2. CRITICALLY: The piece at 'from' square MUST have at least one legal move available. If a piece has NO legal moves (e.g., it is pinned, blocked, or has no valid squares to move to according to all rules), YOU CANNOT CHOOSE THIS PIECE TO MOVE. You must select a different piece that does have legal moves. The game guarantees that if it's your turn and not checkmate/stalemate, at least one legal move exists.
+3. The move from the selected piece's 'from' square to your chosen 'to' square is a valid trajectory for that specific piece, considering its current level and all VIBE CHESS abilities.
+4. The move does not place or leave your own King in check.
 
 Think step-by-step to ensure legality (but only output the JSON move):
-1. Identify all pieces belonging to {{{playerColor}}}.
-2. For EACH of these pieces, determine ALL its legal moves. A move is legal if:
-    a. It adheres to the piece's movement rules (standard + VIBE CHESS abilities for its level).
-    b. The path is clear if required (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
-    c. The destination square is either empty or occupied by an opponent's piece (that can be legally captured).
-    d. The move does not place or leave your own King in check.
-3. From all the legal moves you identified across all your pieces, select the one you deem best. If multiple pieces have legal moves, choose the piece and move that offers a strategic advantage.
-4. Format this single chosen move as the JSON output.
+A. Identify all pieces belonging to {{{playerColor}}}.
+B. For EACH of these pieces, determine ALL its legal moves based on standard chess rules AND all VIBE CHESS abilities for its level. A move is legal if:
+    i. It adheres to the piece's movement rules.
+    ii. The path is clear if required (e.g., for Rooks, Bishops, Queens, non-jumping King moves).
+    iii. The destination square is either empty or occupied by an opponent's piece that can be legally captured.
+    iv. Crucially, the move does not place or leave your own King in check.
+C. From the set of all pieces that have one or more legal moves (from step B), select one such piece.
+D. From the legal moves available to THAT selected piece, choose the one you deem most strategic.
+E. Format this single chosen move as the JSON output.
 
 Based on the board: {{{boardString}}}
 Suggest a move for {{{playerColor}}}:
