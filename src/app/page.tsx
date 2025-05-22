@@ -802,11 +802,38 @@ export default function EvolvingChessPage() {
       const performAiMove = async () => {
         try {
           const boardString = boardToSimpleString(board, currentPlayer);
-          const aiResult = await getAiMove({ boardString, playerColor: currentPlayer });
+          
+          // Client-side pre-computation of movable pieces for the AI
+          const aiMovablePieceSquares: AlgebraicSquare[] = [];
+          for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+              const squareState = board[r][c];
+              if (squareState.piece && squareState.piece.color === currentPlayer) {
+                const pieceMoves = getPossibleMoves(board, squareState.algebraic);
+                const legalPieceMoves = filterLegalMoves(board, squareState.algebraic, pieceMoves, currentPlayer);
+                if (legalPieceMoves.length > 0) {
+                  aiMovablePieceSquares.push(squareState.algebraic);
+                }
+              }
+            }
+          }
+          // If AI has no movable pieces, it's likely checkmate or stalemate, which should be caught earlier.
+          // But as a safeguard, if this list is empty, AI forfeits.
+          if (aiMovablePieceSquares.length === 0 && !(isCheckmate(board, currentPlayer) || isStalemate(board, currentPlayer))) {
+              console.warn(`AI (${currentPlayer}) Warning: No movable pieces found, but not checkmate/stalemate. Forfeiting turn.`);
+              toast({ title: `AI (${currentPlayer}) Error`, description: "AI has no legal moves. Turn forfeited.", variant: "destructive", duration: 2500 });
+              completeTurn(board, currentPlayer);
+              setIsAiThinking(false);
+              setGameInfo(prev => ({...prev, message: ""}));
+              return;
+          }
 
-          if (!aiResult || !aiResult.from || !aiResult.to || !/^[a-h][1-8]$/.test(aiResult.from) || !/^[a-h][1-8]$/.test(aiResult.to) ) {
-            console.error("AI Error: AI returned incomplete or invalid format move data.", aiResult);
-            toast({ title: `AI (${currentPlayer}) Error`, description: "AI returned invalid data. Turn forfeited.", variant: "destructive", duration: 2500 });
+
+          const aiResult = await getAiMove({ boardString, playerColor: currentPlayer, availablePieceSquares: aiMovablePieceSquares });
+
+          if (!aiResult || aiResult.from === "error" || !/^[a-h][1-8]$/.test(aiResult.from) || !/^[a-h][1-8]$/.test(aiResult.to) ) {
+            console.error("AI Error: AI returned incomplete, error-marked, or invalid format move data.", aiResult);
+            toast({ title: `AI (${currentPlayer}) Error`, description: aiResult.reasoning || "AI failed to provide a valid move. Turn forfeited.", variant: "destructive", duration: 2500 });
             completeTurn(board, currentPlayer);
             setIsAiThinking(false);
             setGameInfo(prev => ({...prev, message: ""}));
@@ -818,7 +845,7 @@ export default function EvolvingChessPage() {
           const fromSquareData = board[fromCoords.row][fromCoords.col];
 
           if (!fromSquareData.piece || fromSquareData.piece.color !== currentPlayer) {
-             console.error(`AI Error: AI tried to move an invalid piece from ${aiFrom}. Piece: ${JSON.stringify(fromSquareData.piece)} Current Player: ${currentPlayer}`);
+             console.warn(`AI (${currentPlayer}) Warning: AI tried to move an invalid piece from ${aiFrom} (e.g. not its own, or empty square, or not from availablePieceSquares). Piece: ${JSON.stringify(fromSquareData.piece)}. Turn forfeited.`);
              toast({ title: `AI (${currentPlayer}) Error`, description: `AI tried to move an invalid piece. Turn forfeited.`, variant: "destructive", duration: 2500 });
              completeTurn(board, currentPlayer);
              setIsAiThinking(false);
@@ -826,12 +853,13 @@ export default function EvolvingChessPage() {
              return;
           }
 
+          // Even if 'from' was from availablePieceSquares, re-check the specific 'to' move
           const legalMovesForAiPiece = filterLegalMoves(board, aiFrom as AlgebraicSquare, getPossibleMoves(board, aiFrom as AlgebraicSquare), currentPlayer);
           const isKnightSelfDestruct = fromSquareData.piece.type === 'knight' && fromSquareData.piece.level >= 5 && aiFrom === aiTo;
 
-          if (!isKnightSelfDestruct) {
-            if (legalMovesForAiPiece.length === 0) {
-              console.warn(`AI (${currentPlayer}) Warning: AI chose a piece at ${aiFrom} which has no legal moves. Attempted move: ${aiTo}. Turn forfeited.`);
+          if (!isKnightSelfDestruct) { // Knight self-destruct is its own kind of legal move
+            if (legalMovesForAiPiece.length === 0) { // This check should ideally be redundant if availablePieceSquares logic works
+              console.warn(`AI (${currentPlayer}) Warning: AI chose a piece at ${aiFrom} which has no legal moves (this should have been caught by availablePieceSquares). Attempted move: ${aiTo}. Turn forfeited.`);
               toast({ title: `AI (${currentPlayer}) Warning`, description: `AI chose a piece with no legal moves. Turn forfeited.`, variant: "destructive", duration: 2500 });
               completeTurn(board, currentPlayer);
               setIsAiThinking(false);
@@ -941,6 +969,7 @@ export default function EvolvingChessPage() {
             const isPawnPromotingMove = movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7);
 
             if (isPawnPromotingMove) {
+              // AI auto-promotes to Queen for simplicity
               const { row: promoR, col: promoC } = algebraicToCoords(aiTo as AlgebraicSquare);
               finalBoardStateForAiTurn[promoR][promoC].piece = {
                 ...movedPieceOnBoard,
@@ -951,6 +980,7 @@ export default function EvolvingChessPage() {
               toast({ title: `AI ${currentPlayer} Pawn promoted to Queen!`, duration: 2500 });
             }
             setBoard(finalBoardStateForAiTurn);
+            // AI does not get extra turns for simplicity in this version
             completeTurn(finalBoardStateForAiTurn, currentPlayer); 
           }
 
@@ -984,6 +1014,23 @@ export default function EvolvingChessPage() {
       setKillStreaks, 
       setLastCapturePlayer, 
       setCapturedPieces,
+      // Added missing dependencies for AI logic
+      determineBoardOrientation,
+      setGameInfoBasedOnExtraTurn,
+      setBoardOrientation,
+      setCurrentPlayer,
+      setFlashMessage,
+      setGameInfo,
+      setHistoryStack,
+      setIsBlackAI,
+      setIsPromotingPawn,
+      setIsWhiteAI,
+      setKillStreakFlashMessage,
+      setKillStreakFlashMessageKey,
+      setPossibleMoves,
+      setPromotionSquare,
+      setSelectedSquare,
+      setViewMode,
     ]);
 
 
