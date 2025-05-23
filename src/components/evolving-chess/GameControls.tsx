@@ -14,9 +14,6 @@ interface GameControlsProps {
   isCheck: boolean;
   isGameOver: boolean;
   killStreaks: { white: number, black: number };
-  isBlackAI: boolean;
-  isWhiteAI: boolean;
-  isAiThinking: boolean;
 }
 
 export function GameControls({
@@ -26,9 +23,6 @@ export function GameControls({
   isCheck,
   isGameOver,
   killStreaks,
-  isBlackAI,
-  isWhiteAI,
-  isAiThinking,
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
@@ -48,15 +42,10 @@ export function GameControls({
   };
 
   const getPlayerDisplayName = (player: PlayerColor) => {
-    if (player === 'white') {
-      return `WHITE${isWhiteAI ? ' (AI)' : ''}`;
-    }
-    return `BLACK${isBlackAI ? ' (AI)' : ''}`;
+    return player.charAt(0).toUpperCase() + player.slice(1);
   };
   
-  const currentTurnMessage = isAiThinking && ((currentPlayer === 'black' && isBlackAI) || (currentPlayer === 'white' && isWhiteAI)) 
-    ? `${getPlayerDisplayName(currentPlayer)} is thinking...`
-    : gameStatusMessage;
+  const currentTurnMessage = gameStatusMessage;
 
 
   return (
@@ -65,7 +54,7 @@ export function GameControls({
         <CardDescription
           className={cn(
             "text-center font-pixel min-h-[1.5em]",
-             isCheck && !isGameOver && !isAiThinking && "text-destructive font-bold animate-pulse"
+             isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
           )}
         >
           {currentTurnMessage || "\u00A0"}
@@ -109,3 +98,4 @@ export function GameControls({
     </Card>
   );
 }
+

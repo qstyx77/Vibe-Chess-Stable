@@ -17,13 +17,11 @@ import {
   filterLegalMoves,
   coordsToAlgebraic,
   type ConversionEvent,
-  boardToSimpleString,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, BookOpen, Undo2, View, Bot } from 'lucide-react';
-import { getAiMove } from '@/ai/flows/chess-ai-move-flow';
+import { RefreshCw, BookOpen, Undo2, View } from 'lucide-react';
 
 const initialGameStatus: GameStatus = {
   message: "",
@@ -60,30 +58,16 @@ export default function EvolvingChessPage() {
 
   const [historyStack, setHistoryStack] = useState<GameSnapshot[]>([]);
 
-  const [isBlackAI, setIsBlackAI] = useState(false);
-  const [isWhiteAI, setIsWhiteAI] = useState(false);
-  const [isAiThinking, setIsAiThinking] = useState(false);
-
   const { toast } = useToast();
 
   const determineBoardOrientation = useCallback((
     currentViewMode: ViewMode,
     playerForTurn: PlayerColor,
-    blackIsAI: boolean,
-    whiteIsAI: boolean
   ): PlayerColor => {
-    if (whiteIsAI && blackIsAI) {
-      return 'white'; 
-    } else if (whiteIsAI) { 
-      return 'black';
-    } else if (blackIsAI) { 
-      return 'white';
+    if (currentViewMode === 'flipping') {
+      return playerForTurn;
     } else { 
-      if (currentViewMode === 'flipping') {
-        return playerForTurn;
-      } else { 
-        return 'white';
-      }
+      return 'white'; // Tabletop view is always White-oriented
     }
   }, []);
 
@@ -104,15 +88,13 @@ export default function EvolvingChessPage() {
       lastCapturePlayer: lastCapturePlayer,
       boardOrientation: boardOrientation,
       viewMode: viewMode,
-      isBlackAI: isBlackAI,
-      isWhiteAI: isWhiteAI,
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
       if (newHistory.length > 20) return newHistory.slice(-20);
       return newHistory;
     });
-  }, [board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode, isBlackAI, isWhiteAI]);
+  }, [board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode]);
 
 
   const resetGame = useCallback(() => {
@@ -130,12 +112,9 @@ export default function EvolvingChessPage() {
     setPromotionSquare(null);
     setKillStreaks({ white: 0, black: 0 });
     setLastCapturePlayer(null);
-    setIsBlackAI(false);
-    setIsWhiteAI(false);
-    setIsAiThinking(false);
     setHistoryStack([]);
     setViewMode('flipping'); 
-    setBoardOrientation(determineBoardOrientation('flipping', 'white', false, false));
+    setBoardOrientation(determineBoardOrientation('flipping', 'white'));
     toast({ title: "Game Reset", description: "The board has been reset to the initial state.", duration: 2500 });
   }, [toast, determineBoardOrientation]); 
 
@@ -214,7 +193,7 @@ export default function EvolvingChessPage() {
     setSelectedSquare(null);
     setPossibleMoves([]);
     
-    setBoardOrientation(determineBoardOrientation(viewMode, playerTakingExtraTurn, isBlackAI, isWhiteAI));
+    setBoardOrientation(determineBoardOrientation(viewMode, playerTakingExtraTurn));
 
     const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
     const opponentInCheck = isKingInCheck(currentBoard, opponentColor);
@@ -259,7 +238,7 @@ export default function EvolvingChessPage() {
       isStalemate: false,
       gameOver: false,
     });
-  }, [toast, viewMode, isBlackAI, isWhiteAI, determineBoardOrientation]); 
+  }, [toast, viewMode, determineBoardOrientation]); 
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
@@ -268,7 +247,7 @@ export default function EvolvingChessPage() {
     setSelectedSquare(null);
     setPossibleMoves([]);
 
-    setBoardOrientation(determineBoardOrientation(viewMode, nextPlayer, isBlackAI, isWhiteAI));
+    setBoardOrientation(determineBoardOrientation(viewMode, nextPlayer));
 
     const inCheck = isKingInCheck(updatedBoard, nextPlayer);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
@@ -319,11 +298,11 @@ export default function EvolvingChessPage() {
         });
       }
     }
-  }, [setCurrentPlayer, setSelectedSquare, setPossibleMoves, setBoardOrientation, viewMode, isBlackAI, isWhiteAI, determineBoardOrientation]); 
+  }, [setCurrentPlayer, setSelectedSquare, setPossibleMoves, setBoardOrientation, viewMode, determineBoardOrientation]); 
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
-    if (gameInfo.gameOver || isPromotingPawn || isAiThinking) return;
+    if (gameInfo.gameOver || isPromotingPawn) return;
 
     const currentBoardForClick = board;
     const { row, col } = algebraicToCoords(algebraic);
@@ -384,7 +363,7 @@ export default function EvolvingChessPage() {
         finalBoardAfterDestruct[knightR][knightC].piece = null; 
 
         if (piecesDestroyed.length > 0) {
-          calculatedNewStreakForPlayer = (lastCapturePlayer === selfDestructPlayer ? killStreaks[selfDestructPlayer] : 0) + piecesDestroyed.length;
+          calculatedNewStreakForPlayer = (killStreaks[selfDestructPlayer] || 0) + piecesDestroyed.length;
           setKillStreaks(prevKillStreaks => {
             const newStreaks = {
               white: prevKillStreaks.white,
@@ -403,7 +382,7 @@ export default function EvolvingChessPage() {
               white: prevKillStreaks.white,
               black: prevKillStreaks.black,
             };
-            if (prevKillStreaks[selfDestructPlayer] > 0) { // Only reset if they had a streak
+            if (prevKillStreaks[selfDestructPlayer] > 0) {
                 newStreaks[selfDestructPlayer] = 0;
             }
             return newStreaks;
@@ -412,6 +391,7 @@ export default function EvolvingChessPage() {
             setLastCapturePlayer(null); 
            }
         }
+
         if (calculatedNewStreakForPlayer >= 2 && calculatedNewStreakForPlayer < 3) { setKillStreakFlashMessage("Double Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
         else if (calculatedNewStreakForPlayer >= 3 && calculatedNewStreakForPlayer < 4) { setKillStreakFlashMessage("Triple Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
         else if (calculatedNewStreakForPlayer >= 4 && calculatedNewStreakForPlayer < 5) { setKillStreakFlashMessage("Ultra Kill!"); setKillStreakFlashMessageKey(k => k + 1); }
@@ -486,7 +466,7 @@ export default function EvolvingChessPage() {
         let currentCalculatedStreakForCapturingPlayer: number;
 
         if (captured) {
-          currentCalculatedStreakForCapturingPlayer = (lastCapturePlayer === capturingPlayer ? killStreaks[capturingPlayer] : 0) + 1;
+          currentCalculatedStreakForCapturingPlayer = (killStreaks[capturingPlayer] || 0) + 1;
           setKillStreaks(prevKillStreaks => {
               const newStreaks = {
                 white: prevKillStreaks.white,
@@ -552,20 +532,17 @@ export default function EvolvingChessPage() {
             }
           }
         } else { 
-            // No capture on this move
             currentCalculatedStreakForCapturingPlayer = 0; 
             setKillStreaks(prevKillStreaks => {
                 const newStreaks = {
                   white: prevKillStreaks.white,
                   black: prevKillStreaks.black,
                 };
-                // Only reset the current player's streak if they had one
                 if (prevKillStreaks[capturingPlayer] > 0) {
                     newStreaks[capturingPlayer] = 0;
                 }
                 return newStreaks;
             });
-            // If the current player was the last one to capture, their streak is now broken
             if (lastCapturePlayer === capturingPlayer) { 
                 setLastCapturePlayer(null); 
             }
@@ -637,9 +614,6 @@ export default function EvolvingChessPage() {
       capturedPieces,
       setGameInfoBasedOnExtraTurn,
       saveStateToHistory,
-      isAiThinking,
-      isBlackAI, 
-      isWhiteAI,
       determineBoardOrientation,
       viewMode, 
     ]
@@ -712,8 +686,6 @@ export default function EvolvingChessPage() {
       killStreaks,
       setGameInfoBasedOnExtraTurn,
       saveStateToHistory,
-      isBlackAI, 
-      isWhiteAI,
       viewMode,
       determineBoardOrientation,
     ]
@@ -738,10 +710,7 @@ export default function EvolvingChessPage() {
         setLastCapturePlayer(lastState.lastCapturePlayer);
         setBoardOrientation(lastState.boardOrientation); 
         setViewMode(lastState.viewMode);
-        setIsBlackAI(lastState.isBlackAI);
-        setIsWhiteAI(lastState.isWhiteAI);
-        setIsAiThinking(false); 
-
+        
         setSelectedSquare(null);
         setPossibleMoves([]);
         setFlashMessage(null);
@@ -759,280 +728,13 @@ export default function EvolvingChessPage() {
   const handleToggleViewMode = () => {
     setViewMode(prevMode => {
       const newMode = prevMode === 'flipping' ? 'tabletop' : 'flipping';
-      setBoardOrientation(determineBoardOrientation(newMode, currentPlayer, isBlackAI, isWhiteAI));
+      setBoardOrientation(determineBoardOrientation(newMode, currentPlayer));
       return newMode;
     });
   };
 
-  const handleToggleBlackAI = () => {
-    const newIsBlackAI = !isBlackAI;
-    setIsBlackAI(newIsBlackAI);
-    toast({ title: `Black AI ${newIsBlackAI ? 'Enabled' : 'Disabled'}`, duration: 1500 });
-    setBoardOrientation(determineBoardOrientation(viewMode, currentPlayer, newIsBlackAI, isWhiteAI));
-  };
-
-  const handleToggleWhiteAI = () => {
-    const newIsWhiteAI = !isWhiteAI;
-    setIsWhiteAI(newIsWhiteAI);
-    toast({ title: `White AI ${newIsWhiteAI ? 'Enabled' : 'Disabled'}`, duration: 1500 });
-    setBoardOrientation(determineBoardOrientation(viewMode, currentPlayer, isBlackAI, newIsWhiteAI));
-  };
-
-  useEffect(() => {
-    const isCurrentPlayerAI = (currentPlayer === 'black' && isBlackAI) || (currentPlayer === 'white' && isWhiteAI);
-
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn) {
-      setIsAiThinking(true);
-      setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} is thinking...`}));
-
-      const performAiMove = async () => {
-        try {
-          const boardString = boardToSimpleString(board, currentPlayer);
-          
-          const aiMovablePieceSquares: AlgebraicSquare[] = [];
-          for (let r = 0; r < 8; r++) {
-            for (let c = 0; c < 8; c++) {
-              const squareState = board[r][c];
-              if (squareState.piece && squareState.piece.color === currentPlayer) {
-                const pieceMoves = getPossibleMoves(board, squareState.algebraic);
-                const legalPieceMoves = filterLegalMoves(board, squareState.algebraic, pieceMoves, currentPlayer);
-                if (legalPieceMoves.length > 0) {
-                  aiMovablePieceSquares.push(squareState.algebraic);
-                }
-              }
-            }
-          }
-          
-          if (aiMovablePieceSquares.length === 0 && !(isCheckmate(board, currentPlayer) || isStalemate(board, currentPlayer))) {
-              console.warn(`AI (${currentPlayer}) Warning: No movable pieces found (and not checkmate/stalemate), but King might be in check. Board: ${boardString}`);
-              toast({ title: `AI (${currentPlayer}) Error`, description: "AI has no legal moves to escape check. Turn forfeited.", variant: "destructive", duration: 2500 });
-              completeTurn(board, currentPlayer);
-              setIsAiThinking(false);
-              setGameInfo(prev => ({...prev, message: ""}));
-              return;
-          }
-
-
-          const aiResult = await getAiMove({ boardString, playerColor: currentPlayer, availablePieceSquares: aiMovablePieceSquares, isPlayerInCheck: gameInfo.isCheck && gameInfo.playerWithKingInCheck === currentPlayer });
-
-          if (!aiResult || aiResult.from === "error" || !/^[a-h][1-8]$/.test(aiResult.from) || !/^[a-h][1-8]$/.test(aiResult.to) ) {
-            console.error("AI Error: AI returned incomplete, error-marked, or invalid format move data.", aiResult);
-            toast({ title: `AI (${currentPlayer}) Error`, description: aiResult.reasoning || "AI failed to provide a valid move. Turn forfeited.", variant: "destructive", duration: 2500 });
-            completeTurn(board, currentPlayer);
-            setIsAiThinking(false);
-            setGameInfo(prev => ({...prev, message: ""}));
-            return;
-          }
-
-          const { from: aiFrom, to: aiTo } = aiResult;
-          const fromCoords = algebraicToCoords(aiFrom as AlgebraicSquare);
-          const fromSquareData = board[fromCoords.row][fromCoords.col];
-
-          if (aiMovablePieceSquares && aiMovablePieceSquares.length > 0 && !aiMovablePieceSquares.includes(aiFrom as AlgebraicSquare)) {
-            console.warn(`AI (${currentPlayer}) Warning: AI chose a 'from' square (${aiFrom}) that was not in the provided availablePieceSquares list: [${aiMovablePieceSquares.join(', ')}]. This indicates the AI ignored a critical instruction. Turn forfeited.`);
-            toast({ title: `AI (${currentPlayer}) Error`, description: `AI internal error (invalid 'from' square choice). Turn forfeited.`, variant: "destructive", duration: 2500 });
-            completeTurn(board, currentPlayer);
-            setIsAiThinking(false);
-            setGameInfo(prev => ({ ...prev, message: "" }));
-            return;
-          }
-          
-          if (!fromSquareData.piece || fromSquareData.piece.color !== currentPlayer) {
-             console.warn(`AI (${currentPlayer}) Warning: AI tried to move an invalid piece from ${aiFrom} (e.g. not its own, or empty square). Piece: ${JSON.stringify(fromSquareData.piece)}. Turn forfeited.`);
-             toast({ title: `AI (${currentPlayer}) Error`, description: `AI tried to move an invalid piece. Turn forfeited.`, variant: "destructive", duration: 2500 });
-             completeTurn(board, currentPlayer);
-             setIsAiThinking(false);
-             setGameInfo(prev => ({...prev, message: ""}));
-             return;
-          }
-
-          const legalMovesForAiPiece = filterLegalMoves(board, aiFrom as AlgebraicSquare, getPossibleMoves(board, aiFrom as AlgebraicSquare), currentPlayer);
-          const isKnightSelfDestruct = fromSquareData.piece.type === 'knight' && fromSquareData.piece.level >= 5 && aiFrom === aiTo;
-
-          if (!isKnightSelfDestruct) { 
-            if (legalMovesForAiPiece.length === 0) { 
-              console.warn(`AI (${currentPlayer}) Warning: AI chose a piece at ${aiFrom} which has no legal moves (this should have been caught by availablePieceSquares). Attempted move: ${aiTo}. Turn forfeited.`);
-              toast({ title: `AI (${currentPlayer}) Warning`, description: `AI chose a piece with no legal moves. Turn forfeited.`, variant: "destructive", duration: 2500 });
-              completeTurn(board, currentPlayer);
-              setIsAiThinking(false);
-              setGameInfo(prev => ({...prev, message: ""}));
-              return;
-            }
-            
-            if (!legalMovesForAiPiece.includes(aiTo as AlgebraicSquare)) {
-              console.warn(`AI (${currentPlayer}) Warning: AI suggested an illegal move: ${aiFrom} to ${aiTo}. Valid moves for ${aiFrom}: ${legalMovesForAiPiece.join(', ')}. Turn forfeited.`);
-              toast({ title: `AI (${currentPlayer}) Warning`, description: `AI suggested an illegal move. Turn forfeited.`, variant: "destructive", duration: 2500 });
-              completeTurn(board, currentPlayer);
-              setIsAiThinking(false);
-              setGameInfo(prev => ({...prev, message: ""}));
-              return;
-            }
-          }
-          
-          toast({ title: `AI (${currentPlayer}) moves: ${aiFrom} to ${aiTo}`, description: aiResult.reasoning || "AI chose this move.", duration: 2500});
-          saveStateToHistory();
-
-          if (isKnightSelfDestruct) { 
-            let finalBoardAfterDestruct = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-            const { row: knightR, col: knightC } = algebraicToCoords(aiFrom as AlgebraicSquare);
-            const piecesDestroyed: Piece[] = [];
-            const selfDestructPlayer = currentPlayer;
-            let calculatedNewStreakForPlayer;
-
-
-            for (let dr = -1; dr <= 1; dr++) {
-                for (let dc = -1; dc <= 1; dc++) {
-                if (dr === 0 && dc === 0) continue;
-                const adjR = knightR + dr;
-                const adjC = knightC + dc;
-
-                if (adjR >= 0 && adjR < 8 && adjC >= 0 && adjC < 8) {
-                    const victimPiece = finalBoardAfterDestruct[adjR][adjC].piece;
-                    if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
-                        if (victimPiece.type === 'rook' && victimPiece.invulnerableTurnsRemaining && victimPiece.invulnerableTurnsRemaining > 0) continue;
-                        if (victimPiece.type === 'queen' && victimPiece.level >= 5 && fromSquareData.piece.level < victimPiece.level) continue;
-                        
-                        piecesDestroyed.push({ ...victimPiece });
-                        finalBoardAfterDestruct[adjR][adjC].piece = null;
-                    }
-                }
-                }
-            }
-            finalBoardAfterDestruct[knightR][knightC].piece = null;
-
-            if (piecesDestroyed.length > 0) {
-              calculatedNewStreakForPlayer = (lastCapturePlayer === selfDestructPlayer ? killStreaks[selfDestructPlayer] : 0) + piecesDestroyed.length;
-              setKillStreaks(prevKillStreaks => {
-                const newStreaks = {
-                  white: prevKillStreaks.white,
-                  black: prevKillStreaks.black,
-                };
-                newStreaks[selfDestructPlayer] = calculatedNewStreakForPlayer;
-                return newStreaks;
-              });
-              setCapturedPieces(prev => ({ ...prev, [selfDestructPlayer]: [...(prev[selfDestructPlayer] || []), ...piecesDestroyed] }));
-              setLastCapturePlayer(selfDestructPlayer);
-            } else {
-                 calculatedNewStreakForPlayer = 0;
-                 setKillStreaks(prevKillStreaks => {
-                    const newStreaks = {
-                      white: prevKillStreaks.white,
-                      black: prevKillStreaks.black,
-                    };
-                    if(prevKillStreaks[selfDestructPlayer] > 0) { // Only reset if they had a streak
-                        newStreaks[selfDestructPlayer] = 0;
-                    }
-                    return newStreaks;
-                 });
-                 if (lastCapturePlayer === selfDestructPlayer) setLastCapturePlayer(null);
-            }
-            setBoard(finalBoardAfterDestruct);
-            // AI does not get extra turns from streaks or self-destruct in this simplified version
-            completeTurn(finalBoardAfterDestruct, selfDestructPlayer); 
-          } else { 
-            const { newBoard: boardAfterAiMove, capturedPiece: aiCaptured, conversionEvents: aiConversionEvents } = applyMove(board, { from: aiFrom as AlgebraicSquare, to: aiTo as AlgebraicSquare });
-            let finalBoardStateForAiTurn = boardAfterAiMove;
-            
-            if (aiCaptured) {
-              const newAiStreak = (lastCapturePlayer === currentPlayer ? killStreaks[currentPlayer] : 0) + 1;
-                setKillStreaks(prev => {
-                    const newStreaks = {
-                        white: prev.white,
-                        black: prev.black,
-                    };
-                    newStreaks[currentPlayer] = newAiStreak;
-                    return newStreaks;
-                });
-                setLastCapturePlayer(currentPlayer);
-                setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), aiCaptured] }));
-            } else {
-                 setKillStreaks(prev => {
-                     const newStreaks = {
-                        white: prev.white,
-                        black: prev.black,
-                     };
-                     if(prev[currentPlayer] > 0) { // Only reset if they had a streak
-                        newStreaks[currentPlayer] = 0;
-                     }
-                     return newStreaks;
-                 });
-                 if (lastCapturePlayer === currentPlayer) setLastCapturePlayer(null);
-            }
-
-            if (aiConversionEvents && aiConversionEvents.length > 0) { /* Handle AI conversion toasts if desired, though AI doesn't get this ability yet */ }
-
-            const movedPieceOnBoard = finalBoardStateForAiTurn[algebraicToCoords(aiTo as AlgebraicSquare).row][algebraicToCoords(aiTo as AlgebraicSquare).col].piece;
-            const { row: toRowPawnCheck } = algebraicToCoords(aiTo as AlgebraicSquare);
-            const isPawnPromotingMove = movedPieceOnBoard && movedPieceOnBoard.type === 'pawn' && (toRowPawnCheck === 0 || toRowPawnCheck === 7);
-
-            if (isPawnPromotingMove) {
-              const { row: promoR, col: promoC } = algebraicToCoords(aiTo as AlgebraicSquare);
-              finalBoardStateForAiTurn[promoR][promoC].piece = {
-                ...movedPieceOnBoard,
-                type: 'queen', // AI always promotes to queen
-                level: 1,
-                invulnerableTurnsRemaining: 0, // AI promoted queen not invulnerable
-              };
-              toast({ title: `AI ${currentPlayer} Pawn promoted to Queen!`, duration: 2500 });
-            }
-            setBoard(finalBoardStateForAiTurn);
-            // AI does not get extra turns from streaks or promotions in this simplified version
-            completeTurn(finalBoardStateForAiTurn, currentPlayer); 
-          }
-
-        } catch (error) {
-          console.error("AI Move Error (Caught in performAiMove):", error);
-          toast({ title: `AI (${currentPlayer}) Error`, description: (error instanceof Error ? error.message : String(error)) || "AI could not make a move. Turn forfeited.", variant: "destructive", duration: 2500 });
-          completeTurn(board, currentPlayer); // Pass turn if any error occurs
-        } finally {
-          setIsAiThinking(false);
-          setGameInfo(prev => ({...prev, message: ""})); 
-        }
-      };
-      performAiMove();
-    }
-  }, [
-      board, 
-      currentPlayer, 
-      isBlackAI, 
-      isWhiteAI, 
-      gameInfo, // Full gameInfo to react to changes in check, game over, etc.
-      isAiThinking, 
-      isPromotingPawn, 
-      toast, 
-      completeTurn, 
-      saveStateToHistory, 
-      killStreaks, 
-      lastCapturePlayer, 
-      capturedPieces, 
-      determineBoardOrientation,
-      setGameInfoBasedOnExtraTurn,
-      viewMode, // Added to ensure re-runs if viewMode (which affects orientation) changes.
-      setGameInfo, // Ensure all state setters used in the effect are dependencies
-      setBoard,
-      setCurrentPlayer,
-      setSelectedSquare,
-      setPossibleMoves,
-      setCapturedPieces,
-      setKillStreaks,
-      setLastCapturePlayer,
-      setKillStreakFlashMessage,
-      setKillStreakFlashMessageKey,
-      setIsPromotingPawn,
-      setPromotionSquare,
-      setBoardOrientation,
-      setFlashMessage, // For check/checkmate flashes
-      setHistoryStack,
-      setIsBlackAI, // From handleUndo
-      setIsWhiteAI, // From handleUndo
-      setViewMode // From handleUndo
-    ]);
-
   const getPlayerDisplayName = (player: PlayerColor) => {
-    if (player === 'white') {
-      return `WHITE${isWhiteAI ? ' (AI)' : ''}`;
-    }
-    return `BLACK${isBlackAI ? ' (AI)' : ''}`;
+    return player.charAt(0).toUpperCase() + player.slice(1);
   };
 
   return (
@@ -1081,19 +783,11 @@ export default function EvolvingChessPage() {
             <BookOpen className="h-4 w-4 mr-1" />
             Rules
           </Button>
-          <Button variant="outline" onClick={handleUndo} disabled={historyStack.length === 0 || isAiThinking} aria-label="Undo Move" className="h-8 px-2 text-xs">
+          <Button variant="outline" onClick={handleUndo} disabled={historyStack.length === 0} aria-label="Undo Move" className="h-8 px-2 text-xs">
             <Undo2 className="h-4 w-4 mr-1" />
             Undo
           </Button>
-          <Button variant="outline" onClick={handleToggleWhiteAI} disabled={isAiThinking && currentPlayer === 'white'} aria-label="Toggle White AI" className="h-8 px-2 text-xs">
-            <Bot className="h-4 w-4 mr-1" />
-            White AI: {isWhiteAI ? 'On' : 'Off'}
-          </Button>
-          <Button variant="outline" onClick={handleToggleBlackAI} disabled={isAiThinking && currentPlayer === 'black'} aria-label="Toggle Black AI" className="h-8 px-2 text-xs">
-            <Bot className="h-4 w-4 mr-1" />
-            Black AI: {isBlackAI ? 'On' : 'Off'}
-          </Button>
-           <Button variant="outline" onClick={handleToggleViewMode} disabled={isAiThinking} aria-label="Toggle Board View" className="h-8 px-2 text-xs">
+           <Button variant="outline" onClick={handleToggleViewMode} aria-label="Toggle Board View" className="h-8 px-2 text-xs">
             <View className="h-4 w-4 mr-1" />
             View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
           </Button>
@@ -1103,14 +797,11 @@ export default function EvolvingChessPage() {
         <div className="md:w-1/3 lg:w-1/4">
           <GameControls
             currentPlayer={currentPlayer}
-            gameStatusMessage={isAiThinking && ((currentPlayer === 'black' && isBlackAI) || (currentPlayer === 'white' && isWhiteAI)) ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
+            gameStatusMessage={gameInfo.message}
             capturedPieces={capturedPieces}
             isCheck={gameInfo.isCheck}
             isGameOver={gameInfo.gameOver}
             killStreaks={killStreaks}
-            isBlackAI={isBlackAI}
-            isWhiteAI={isWhiteAI}
-            isAiThinking={isAiThinking}
           />
         </div>
         <div className="md:w-2/3 lg:w-3/4 flex justify-center items-start">
@@ -1120,7 +811,7 @@ export default function EvolvingChessPage() {
             possibleMoves={possibleMoves}
             onSquareClick={handleSquareClick}
             playerColor={boardOrientation}
-            isGameOver={gameInfo.gameOver || isPromotingPawn || isAiThinking}
+            isGameOver={gameInfo.gameOver || isPromotingPawn}
             playerInCheck={gameInfo.playerWithKingInCheck}
             viewMode={viewMode}
           />

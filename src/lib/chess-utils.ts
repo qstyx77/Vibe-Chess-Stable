@@ -625,30 +625,3 @@ export function getPieceUnicode(piece: Piece): string {
   }
 }
 
-// Helper function to convert board state to a simplified string for AI
-export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor): string {
-  let boardStr = `PlayerTurn: ${forPlayer}\nPieces:\n`;
-  const piecesOnBoard: string[] = [];
-
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const square = board[r][c];
-      if (square.piece) {
-        const piece = square.piece;
-        let pieceStr = `${piece.color === 'white' ? 'w' : 'b'}${piece.type.charAt(0).toUpperCase()}`; // e.g., wP, bR
-        pieceStr += `@${square.algebraic}`; // e.g., wP@e2
-        pieceStr += `(L${piece.level}`; // e.g., wP@e2(L1
-        if (piece.type === 'rook' && piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) {
-          pieceStr += ',I'; // Invulnerable
-        }
-        if (piece.hasMoved) {
-          pieceStr += ',M'; // Moved (relevant for castling or first pawn move)
-        }
-        pieceStr += ')';
-        piecesOnBoard.push(pieceStr);
-      }
-    }
-  }
-  boardStr += piecesOnBoard.join(' ');
-  return boardStr;
-}
