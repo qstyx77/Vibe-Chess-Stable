@@ -626,38 +626,3 @@ export function getPieceUnicode(piece: Piece): string {
     default: return '';
   }
 }
-
-/**
- * Converts the current board state to a compact string representation for AI consumption.
- * Example piece format: wP@e2(L1) - White Pawn at e2, Level 1
- * Special statuses: M (hasMoved), I (Invulnerable)
- * @param board The current board state.
- * @param forPlayer The player whose turn it is.
- * @returns A string representing the board state.
- */
-export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor): string {
-  let boardStr = `Turn: ${forPlayer}. Pieces: `;
-  const piecesOnBoard: string[] = [];
-
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const square = board[r][c];
-      if (square.piece) {
-        const p = square.piece;
-        let pieceStr = `${p.color === 'white' ? 'w' : 'b'}${p.type.charAt(0).toUpperCase()}`;
-        pieceStr += `@${square.algebraic}`;
-        pieceStr += `(L${p.level}`;
-        if (p.hasMoved && (p.type === 'king' || p.type === 'rook' || p.type === 'pawn')) {
-          pieceStr += ',M'; // M for hasMoved, relevant for castling/pawn special moves
-        }
-        if (p.type === 'rook' && p.invulnerableTurnsRemaining && p.invulnerableTurnsRemaining > 0) {
-          pieceStr += ',I'; // I for Invulnerable
-        }
-        pieceStr += ')';
-        piecesOnBoard.push(pieceStr);
-      }
-    }
-  }
-  boardStr += piecesOnBoard.join(' ');
-  return boardStr;
-}
