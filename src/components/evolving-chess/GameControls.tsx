@@ -14,6 +14,8 @@ interface GameControlsProps {
   isCheck: boolean;
   isGameOver: boolean;
   killStreaks: { white: number, black: number };
+  isWhiteAI: boolean; // New prop
+  isBlackAI: boolean; // New prop
 }
 
 export function GameControls({
@@ -23,13 +25,15 @@ export function GameControls({
   isCheck,
   isGameOver,
   killStreaks,
+  isWhiteAI, // Destructure new prop
+  isBlackAI, // Destructure new prop
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
-    const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white; // Pieces captured BY this color
+    const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
     return (
       <div>
-        <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]"> {/* Added min-height */}
+        <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
           {actualCaptured.length === 0 && <span className="text-xs text-muted-foreground font-pixel">None</span>}
           {actualCaptured.map(p => (
             <div key={p.id} className="w-6 h-6 relative">
@@ -41,15 +45,17 @@ export function GameControls({
     );
   };
 
-  const getPlayerDisplayName = (player: PlayerColor) => {
-    return player.charAt(0).toUpperCase() + player.slice(1);
+  const getPlayerDisplayNameWithAI = (player: PlayerColor) => {
+    let name = player.charAt(0).toUpperCase() + player.slice(1);
+    if (player === 'white' && isWhiteAI) name += " (AI)";
+    if (player === 'black' && isBlackAI) name += " (AI)";
+    return name;
   };
 
   let currentTurnMessage = gameStatusMessage;
    if (!currentTurnMessage && !isGameOver) {
-    currentTurnMessage = "\u00A0"; // Non-breaking space to maintain height
+    currentTurnMessage = "\u00A0"; 
   }
-
 
   return (
     <Card className="w-full shadow-lg">
@@ -58,6 +64,7 @@ export function GameControls({
           className={cn(
             "text-center font-pixel min-h-[1.5em]",
              isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
+             (gameStatusMessage.includes("(AI) is thinking...") && "text-primary font-bold")
           )}
         >
           {currentTurnMessage}
@@ -72,7 +79,7 @@ export function GameControls({
               isGameOver && "opacity-50"
             )}
           >
-            {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
+            {isGameOver ? "-" : getPlayerDisplayNameWithAI(currentPlayer)}
           </p>
         </div>
 
@@ -101,3 +108,5 @@ export function GameControls({
     </Card>
   );
 }
+
+    
