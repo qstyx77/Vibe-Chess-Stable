@@ -76,6 +76,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   // Invulnerability for level 5+ Queens against lower-level pieces
   if (targetPieceOnSquare && targetPieceOnSquare.type === 'queen' && targetPieceOnSquare.level >= 5 && piece.level < targetPieceOnSquare.level) {
+    console.log(`VIBE_DEBUG: Queen on ${to} (L${targetPieceOnSquare.level}) is invulnerable to ${piece.type} on ${from} (L${piece.level})`);
     return false; // Cannot capture an invulnerable high-level Queen with a lower-level piece
   }
 
@@ -83,6 +84,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color &&
       targetPieceOnSquare.type === 'rook' &&
       targetPieceOnSquare.invulnerableTurnsRemaining && targetPieceOnSquare.invulnerableTurnsRemaining > 0) {
+    console.log(`VIBE_DEBUG: Rook on ${to} (Invulnerable turns: ${targetPieceOnSquare.invulnerableTurnsRemaining}) cannot be captured by ${piece.type} on ${from}`);
     return false; // Cannot capture an invulnerable enemy rook
   }
 
@@ -625,3 +627,4 @@ export function getPieceUnicode(piece: Piece): string {
   }
 }
 
+    
