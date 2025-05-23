@@ -76,16 +76,16 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   // Invulnerability for level 5+ Queens against lower-level pieces
   if (targetPieceOnSquare && targetPieceOnSquare.type === 'queen' && targetPieceOnSquare.level >= 5 && piece.level < targetPieceOnSquare.level) {
-    console.log(`VIBE_DEBUG: Queen on ${to} (L${targetPieceOnSquare.level}) is invulnerable to ${piece.type} on ${from} (L${piece.level})`);
-    return false; // Cannot capture an invulnerable high-level Queen with a lower-level piece
+    console.log(`VIBE_DEBUG: CAPTURE BLOCKED (Queen Invuln). Target Queen ${targetPieceOnSquare.id} (L${targetPieceOnSquare.level}) at ${to} is invulnerable to Attacker ${piece.type} (L${piece.level}) from ${from}.`);
+    return false; 
   }
 
   // Check for invulnerable rook capture attempt
   if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color &&
       targetPieceOnSquare.type === 'rook' &&
       targetPieceOnSquare.invulnerableTurnsRemaining && targetPieceOnSquare.invulnerableTurnsRemaining > 0) {
-    console.log(`VIBE_DEBUG: Rook on ${to} (Invulnerable turns: ${targetPieceOnSquare.invulnerableTurnsRemaining}) cannot be captured by ${piece.type} on ${from}`);
-    return false; // Cannot capture an invulnerable enemy rook
+    console.log(`VIBE_DEBUG: CAPTURE BLOCKED (Rook Invuln). Target Rook ${targetPieceOnSquare.id} (L${targetPieceOnSquare.level}) at ${to} is invulnerable (Turns: ${targetPieceOnSquare.invulnerableTurnsRemaining}). Attacker: ${piece.type} (L${piece.level}) from ${from}.`);
+    return false; 
   }
 
   switch (piece.type) {
@@ -233,117 +233,20 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   }
 }
 
-export function getPossibleMoves(board: BoardState, square: AlgebraicSquare): AlgebraicSquare[] {
-  const { row, col } = algebraicToCoords(square);
-  const pieceData = board[row][col];
-  if (!pieceData || !pieceData.piece) return [];
-  const piece = pieceData.piece;
-
-  const possibleMoves: AlgebraicSquare[] = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const targetSquare = coordsToAlgebraic(r, c);
-      if (isMoveValid(board, square, targetSquare, piece)) {
-        possibleMoves.push(targetSquare);
-      }
-    }
-  }
-
-  // Knight-Bishop Swap (Knight Initiated)
-  if (piece.type === 'knight' && piece.level >= 4) {
-    for (let r_idx = 0; r_idx < 8; r_idx++) {
-      for (let c_idx = 0; c_idx < 8; c_idx++) {
-        const potentialSwapTargetPieceData = board[r_idx][c_idx].piece;
-        if (
-          potentialSwapTargetPieceData &&
-          potentialSwapTargetPieceData.type === 'bishop' &&
-          potentialSwapTargetPieceData.color === piece.color &&
-          coordsToAlgebraic(r_idx,c_idx) !== square
-        ) {
-          possibleMoves.push(coordsToAlgebraic(r_idx, c_idx)); // Add bishop's square as target
-        }
-      }
-    }
-  }
-
-  // Bishop-Knight Swap (Bishop Initiated)
-  if (piece.type === 'bishop' && piece.level >= 4) {
-    for (let r_idx = 0; r_idx < 8; r_idx++) {
-      for (let c_idx = 0; c_idx < 8; c_idx++) {
-        const potentialSwapTargetPieceData = board[r_idx][c_idx].piece;
-        if (
-          potentialSwapTargetPieceData &&
-          potentialSwapTargetPieceData.type === 'knight' &&
-          potentialSwapTargetPieceData.color === piece.color &&
-          coordsToAlgebraic(r_idx,c_idx) !== square
-        ) {
-          possibleMoves.push(coordsToAlgebraic(r_idx, c_idx)); // Add knight's square as target
-        }
-      }
-    }
-  }
-
-  // Castling
-  if (piece.type === 'king' && !piece.hasMoved && !isKingInCheck(board, piece.color)) {
-    const opponentColor = piece.color === 'white' ? 'black' : 'white';
-    const kingRow = piece.color === 'white' ? 7 : 0;
-
-    // Kingside (O-O)
-    const kingsideRookCol = 7;
-    const kingsideRookSquareData = board[kingRow][kingsideRookCol];
-    if (kingsideRookSquareData && kingsideRookSquareData.piece && kingsideRookSquareData.piece.type === 'rook' && kingsideRookSquareData.piece.color === piece.color && !kingsideRookSquareData.piece.hasMoved) {
-      const fCol = 5; // Square F1/F8
-      const gCol = 6; // Square G1/G8
-      const fSquareAlg = coordsToAlgebraic(kingRow, fCol);
-      const gSquareAlg = coordsToAlgebraic(kingRow, gCol);
-
-      if (!board[kingRow][fCol].piece && !board[kingRow][gCol].piece) { // Squares between are empty
-        if (!isSquareAttacked(board, square, opponentColor) && // King not attacked
-            !isSquareAttacked(board, fSquareAlg, opponentColor) && // King doesn't pass through attacked square
-            !isSquareAttacked(board, gSquareAlg, opponentColor)) {  // King doesn't land on attacked square
-          possibleMoves.push(gSquareAlg); // Add G1/G8 as a possible move
-        }
-      }
-    }
-
-    // Queenside (O-O-O)
-    const queensideRookCol = 0;
-    const queensideRookSquareData = board[kingRow][queensideRookCol];
-    if (queensideRookSquareData && queensideRookSquareData.piece && queensideRookSquareData.piece.type === 'rook' && queensideRookSquareData.piece.color === piece.color && !queensideRookSquareData.piece.hasMoved) {
-      const dCol = 3; // Square D1/D8
-      const cCol = 2; // Square C1/C8
-      const bCol = 1; // Square B1/B8 (only check for emptiness)
-      const dSquareAlg = coordsToAlgebraic(kingRow, dCol);
-      const cSquareAlg = coordsToAlgebraic(kingRow, cCol);
-
-      if (!board[kingRow][dCol].piece && !board[kingRow][cCol].piece && !board[kingRow][bCol].piece) { // Squares between are empty
-         if (!isSquareAttacked(board, square, opponentColor) && // King not attacked
-            !isSquareAttacked(board, dSquareAlg, opponentColor) && // King doesn't pass through attacked square
-            !isSquareAttacked(board, cSquareAlg, opponentColor)) {  // King doesn't land on attacked square
-          possibleMoves.push(cSquareAlg); // Add C1/C8 as a possible move
-        }
-      }
-    }
-  }
-  return possibleMoves;
-}
-
 export function applyMove(
   board: BoardState,
   move: Move
 ): { newBoard: BoardState, capturedPiece: Piece | null, conversionEvents: ConversionEvent[] } {
-  // Create a deep copy of the board to modify
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
   const { row: toRow, col: toCol } = algebraicToCoords(move.to);
   const conversionEvents: ConversionEvent[] = [];
 
   const movingPieceOriginal = newBoard[fromRow][fromCol].piece;
-  if (!movingPieceOriginal) return { newBoard: board, capturedPiece: null, conversionEvents }; // Should not happen if move is valid
+  if (!movingPieceOriginal) return { newBoard: board, capturedPiece: null, conversionEvents }; 
 
-  const targetPieceOriginal = newBoard[toRow][toCol].piece; // Piece at destination, if any
+  const targetPieceOriginal = newBoard[toRow][toCol].piece; 
 
-  // Handle Knight-Bishop or Bishop-Knight Swap
   const isKnightBishopSwap =
     movingPieceOriginal.type === 'knight' &&
     movingPieceOriginal.level >= 4 &&
@@ -360,36 +263,34 @@ export function applyMove(
 
   if (isKnightBishopSwap || isBishopKnightSwap) {
     const movingPieceCopy = { ...movingPieceOriginal, hasMoved: true };
-    const targetPieceCopy = { ...targetPieceOriginal }; // hasMoved status preserved
+    const targetPieceCopy = { ...targetPieceOriginal }; 
 
-    newBoard[toRow][toCol].piece = movingPieceCopy; // Moving piece goes to target's square
-    newBoard[fromRow][fromCol].piece = targetPieceCopy; // Target piece goes to moving piece's original square
+    newBoard[toRow][toCol].piece = movingPieceCopy; 
+    newBoard[fromRow][fromCol].piece = targetPieceCopy; 
     return { newBoard, capturedPiece: null, conversionEvents };
   }
 
-  // Regular move/capture
   const capturedPiece = targetPieceOriginal ? { ...targetPieceOriginal } : null;
 
-  newBoard[toRow][toCol].piece = { ...movingPieceOriginal, invulnerableTurnsRemaining: movingPieceOriginal.invulnerableTurnsRemaining }; // Preserve invulnerability status if moving
+  newBoard[toRow][toCol].piece = { ...movingPieceOriginal, invulnerableTurnsRemaining: movingPieceOriginal.invulnerableTurnsRemaining };
   newBoard[fromRow][fromCol].piece = null;
 
-  const movingPieceRef = newBoard[toRow][toCol].piece!; // Reference to the piece in its new position
+  const movingPieceRef = newBoard[toRow][toCol].piece!;
 
-  // Castling: Move the rook as well
-  if (movingPieceRef.type === 'king' && !movingPieceOriginal.hasMoved) { // King moved and hadn't moved before
-    const kingStartCol = 4; // Standard king start column index (e for files a-h)
-    if (fromCol === kingStartCol && toCol === kingStartCol + 2) { // Kingside castling (e.g., e1 to g1)
-      const rookOriginalCol = 7; // H-file
-      const rookTargetCol = 5;   // F-file
+  if (movingPieceRef.type === 'king' && !movingPieceOriginal.hasMoved) { 
+    const kingStartCol = 4; 
+    if (fromCol === kingStartCol && toCol === kingStartCol + 2) { 
+      const rookOriginalCol = 7; 
+      const rookTargetCol = 5;   
       const rookSquareData = newBoard[fromRow][rookOriginalCol];
       if (rookSquareData && rookSquareData.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === movingPieceRef.color) {
         newBoard[fromRow][rookTargetCol].piece = { ...rookSquareData.piece, hasMoved: true };
         newBoard[fromRow][rookOriginalCol].piece = null;
       }
     }
-    else if (fromCol === kingStartCol && toCol === kingStartCol - 2) { // Queenside castling (e.g., e1 to c1)
-      const rookOriginalCol = 0; // A-file
-      const rookTargetCol = 3;   // D-file
+    else if (fromCol === kingStartCol && toCol === kingStartCol - 2) { 
+      const rookOriginalCol = 0; 
+      const rookTargetCol = 3;   
       const rookSquareData = newBoard[fromRow][rookOriginalCol];
       if (rookSquareData && rookSquareData.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === movingPieceRef.color) {
         newBoard[fromRow][rookTargetCol].piece = { ...rookSquareData.piece, hasMoved: true };
@@ -398,13 +299,12 @@ export function applyMove(
     }
   }
 
-  // Update hasMoved for King, Rook, or initial Pawn double move
   if (movingPieceRef.type === 'king' || movingPieceRef.type === 'rook' || (movingPieceRef.type === 'pawn' && !movingPieceOriginal.hasMoved && Math.abs(toRow-fromRow) === 2)) {
     movingPieceRef.hasMoved = true;
   }
 
-  // Leveling up and Rook invulnerability
   if (capturedPiece) {
+    const levelBeforeCapture = movingPieceOriginal.level; // Store level before this specific capture
     switch (capturedPiece.type) {
       case 'pawn':
         movingPieceRef.level += 1;
@@ -412,36 +312,36 @@ export function applyMove(
       case 'queen':
         movingPieceRef.level += 3;
         break;
-      default: // Rook, Knight, Bishop, King
+      default: 
         movingPieceRef.level += 2;
         break;
     }
-    // If the piece that just leveled up is a rook, AND its new level is 3 or higher, make it invulnerable
-    if (movingPieceRef.type === 'rook' && movingPieceRef.level >= 3) {
-      movingPieceRef.invulnerableTurnsRemaining = 1;
+    
+    if (movingPieceRef.type === 'rook' && movingPieceRef.level >= 3 && movingPieceRef.level > levelBeforeCapture) {
+        movingPieceRef.invulnerableTurnsRemaining = 1;
+        console.log(`VIBE_DEBUG: Rook ${movingPieceRef.id} (L${movingPieceRef.level} from L${levelBeforeCapture}) at ${coordsToAlgebraic(toRow,toCol)} GAINED invulnerability from leveling up via capture.`);
     }
   }
 
-  // Level 4+ Pawn Push ability
   if (movingPieceRef.type === 'pawn' && movingPieceRef.level >= 4) {
     const pawnNewRow = toRow;
     const pawnNewCol = toCol;
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue; // Don't check pawn's own square
+        if (dr === 0 && dc === 0) continue; 
         const adjRow = pawnNewRow + dr;
         const adjCol = pawnNewCol + dc;
 
         if (adjRow >= 0 && adjRow < 8 && adjCol >= 0 && adjCol < 8) {
           const enemyPieceToPush = newBoard[adjRow][adjCol].piece;
           if (enemyPieceToPush && enemyPieceToPush.color !== movingPieceRef.color) {
-            const pushTargetRow = adjRow + dr; // One step further in the same direction
+            const pushTargetRow = adjRow + dr; 
             const pushTargetCol = adjCol + dc;
 
             if (pushTargetRow >= 0 && pushTargetRow < 8 && pushTargetCol >= 0 && pushTargetCol < 8) {
-              if (!newBoard[pushTargetRow][pushTargetCol].piece) { // If target square is empty
-                newBoard[pushTargetRow][pushTargetCol].piece = { ...enemyPieceToPush }; // Move enemy piece
-                newBoard[adjRow][adjCol].piece = null; // Vacate original square
+              if (!newBoard[pushTargetRow][pushTargetCol].piece) { 
+                newBoard[pushTargetRow][pushTargetCol].piece = { ...enemyPieceToPush }; 
+                newBoard[adjRow][adjCol].piece = null; 
               }
             }
           }
@@ -450,13 +350,12 @@ export function applyMove(
     }
   }
 
-  // Level 5+ Bishop Conversion ability
   if (movingPieceRef && movingPieceRef.type === 'bishop' && movingPieceRef.level >= 5) {
     const bishopColor = movingPieceRef.color;
 
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
-        if (dr === 0 && dc === 0) continue; // Skip the bishop's own square
+        if (dr === 0 && dc === 0) continue; 
 
         const adjRow = toRow + dr;
         const adjCol = toCol + dc;
@@ -466,12 +365,12 @@ export function applyMove(
           const pieceOnAdjSquare = adjacentSquareState.piece;
 
           if (pieceOnAdjSquare && pieceOnAdjSquare.color !== bishopColor && pieceOnAdjSquare.type !== 'king') {
-            if (Math.random() < 0.5) { // 50% chance to convert
+            if (Math.random() < 0.5) { 
               const originalPieceCopy = { ...pieceOnAdjSquare };
               const convertedPiece: Piece = {
-                ...pieceOnAdjSquare, // Keep type, level, hasMoved
-                color: bishopColor, // Change color
-                id: `conv_${pieceOnAdjSquare.id}_${Date.now()}` // New ID
+                ...pieceOnAdjSquare, 
+                color: bishopColor, 
+                id: `conv_${pieceOnAdjSquare.id}_${Date.now()}` 
               };
               newBoard[adjRow][adjCol].piece = convertedPiece;
               conversionEvents.push({
@@ -493,7 +392,6 @@ export function applyMove(
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolean {
   let kingPosAlg: AlgebraicSquare | null = null;
-  // Find the king's position
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const pSquare = board[r][c];
@@ -507,13 +405,12 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolea
     if (kingPosAlg) break;
   }
 
-  if (!kingPosAlg) return false; // Should not happen in a valid game
+  if (!kingPosAlg) return false; 
 
   const opponentColor = kingColor === 'white' ? 'black' : 'white';
   return isSquareAttacked(board, kingPosAlg, opponentColor);
 }
 
-// Filters pseudo-legal moves to ensure they don't leave the king in check
 export function filterLegalMoves(
   board: BoardState,
   pieceOriginalSquare: AlgebraicSquare,
@@ -524,19 +421,17 @@ export function filterLegalMoves(
   if (!pieceData || !pieceData.piece || pieceData.piece.color !== playerColor) return [];
 
   return pseudoMoves.filter(targetSquare => {
-    // Create a temporary board for simulating the move
     const tempBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
 
     const { row: fromR, col: fromC } = algebraicToCoords(pieceOriginalSquare);
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
-    const pToMoveOriginal = tempBoard[fromR][fromC].piece; // The piece being moved
+    const pToMoveOriginal = tempBoard[fromR][fromC].piece; 
 
-    if (!pToMoveOriginal) return false; // Should not happen
+    if (!pToMoveOriginal) return false; 
 
     let boardAfterTempMove = tempBoard;
-    const pOnTargetSquare = tempBoard[toR][toC].piece; // Piece at destination (if any)
+    const pOnTargetSquare = tempBoard[toR][toC].piece; 
 
-    // Special handling for Knight-Bishop or Bishop-Knight swap simulation
     const isKnightBishopSwapSim =
       pToMoveOriginal.type === 'knight' &&
       pToMoveOriginal.level >= 4 &&
@@ -552,27 +447,24 @@ export function filterLegalMoves(
       pOnTargetSquare.color === pToMoveOriginal.color;
 
     if (isKnightBishopSwapSim || isBishopKnightSwapSim) {
-      // Simulate the swap
       boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: true };
-      boardAfterTempMove[fromR][fromC].piece = { ...pOnTargetSquare };
+      boardAfterTempMove[fromR][fromC].piece = { ...(pOnTargetSquare as Piece) }; // Ensure pOnTargetSquare is treated as Piece
     } else {
-      // Simulate regular move/capture
-      boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: pToMoveOriginal.hasMoved || pToMoveOriginal.type === 'king' || pToMoveOriginal.type === 'rook' }; // Update hasMoved if king/rook
+      boardAfterTempMove[toR][toC].piece = { ...pToMoveOriginal, hasMoved: pToMoveOriginal.hasMoved || pToMoveOriginal.type === 'king' || pToMoveOriginal.type === 'rook' }; 
       boardAfterTempMove[fromR][fromC].piece = null;
 
-      // Simulate rook movement for castling
       if (pToMoveOriginal.type === 'king' && !pToMoveOriginal.hasMoved && Math.abs(fromC - toC) === 2) {
           const kingRow = pToMoveOriginal.color === 'white' ? 7 : 0;
-          if (toC > fromC) { // Kingside
+          if (toC > fromC) { 
               const rookOriginalCol = 7; const rookTargetCol = 5;
-              const originalRook = board[kingRow][rookOriginalCol].piece; // Get original rook from *original* board
+              const originalRook = board[kingRow][rookOriginalCol].piece; 
               if (originalRook && originalRook.type === 'rook' && originalRook.color === pToMoveOriginal.color) {
                 boardAfterTempMove[kingRow][rookTargetCol].piece = {...originalRook, hasMoved: true};
                 boardAfterTempMove[kingRow][rookOriginalCol].piece = null;
               }
-          } else { // Queenside
+          } else { 
               const rookOriginalCol = 0; const rookTargetCol = 3;
-               const originalRook = board[kingRow][rookOriginalCol].piece; // Get original rook
+               const originalRook = board[kingRow][rookOriginalCol].piece; 
                if (originalRook && originalRook.type === 'rook' && originalRook.color === pToMoveOriginal.color) {
                 boardAfterTempMove[kingRow][rookTargetCol].piece = {...originalRook, hasMoved: true};
                 boardAfterTempMove[kingRow][rookOriginalCol].piece = null;
@@ -584,7 +476,6 @@ export function filterLegalMoves(
   });
 }
 
-// Checks if a player has any legal moves
 function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor): boolean {
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -609,8 +500,69 @@ export function isCheckmate(board: BoardState, kingInCheckColor: PlayerColor): b
 }
 
 export function isStalemate(board: BoardState, playerColor: PlayerColor): boolean {
-  // Player is NOT in check, but has no legal moves
   return !isKingInCheck(board, playerColor) && !hasAnyLegalMoves(board, playerColor);
+}
+
+export function getPossibleMoves(board: BoardState, fromSquare: AlgebraicSquare): AlgebraicSquare[] {
+  const { row: fromRow, col: fromCol } = algebraicToCoords(fromSquare);
+  const pieceData = board[fromRow][fromCol];
+  if (!pieceData || !pieceData.piece) return [];
+  const piece = pieceData.piece;
+  const possible: AlgebraicSquare[] = [];
+
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const toSquare = coordsToAlgebraic(r, c);
+      if (fromSquare === toSquare) continue;
+
+      // Check for Knight-Bishop or Bishop-Knight swap
+      if (piece.type === 'knight' && piece.level >= 4) {
+        const targetPieceData = board[r][c];
+        if (targetPieceData && targetPieceData.piece && targetPieceData.piece.type === 'bishop' && targetPieceData.piece.color === piece.color) {
+          possible.push(toSquare);
+          continue; 
+        }
+      }
+      if (piece.type === 'bishop' && piece.level >= 4) {
+        const targetPieceData = board[r][c];
+        if (targetPieceData && targetPieceData.piece && targetPieceData.piece.type === 'knight' && targetPieceData.piece.color === piece.color) {
+          possible.push(toSquare);
+          continue;
+        }
+      }
+      
+      // Standard move validation
+      if (isMoveValid(board, fromSquare, toSquare, piece)) {
+        possible.push(toSquare);
+      }
+    }
+  }
+
+  // Castling for King
+  if (piece.type === 'king' && !piece.hasMoved && !isKingInCheck(board, piece.color)) {
+    const kingRow = piece.color === 'white' ? 7 : 0;
+    // Kingside castling (O-O)
+    if (
+      !board[kingRow][5].piece && !board[kingRow][6].piece &&
+      board[kingRow][7].piece && board[kingRow][7].piece?.type === 'rook' &&
+      board[kingRow][7].piece?.color === piece.color && !board[kingRow][7].piece?.hasMoved &&
+      !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), piece.color === 'white' ? 'black' : 'white') &&
+      !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), piece.color === 'white' ? 'black' : 'white')
+    ) {
+      possible.push(coordsToAlgebraic(kingRow, 6));
+    }
+    // Queenside castling (O-O-O)
+    if (
+      !board[kingRow][1].piece && !board[kingRow][2].piece && !board[kingRow][3].piece &&
+      board[kingRow][0].piece && board[kingRow][0].piece?.type === 'rook' &&
+      board[kingRow][0].piece?.color === piece.color && !board[kingRow][0].piece?.hasMoved &&
+      !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), piece.color === 'white' ? 'black' : 'white') &&
+      !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), piece.color === 'white' ? 'black' : 'white')
+    ) {
+      possible.push(coordsToAlgebraic(kingRow, 2));
+    }
+  }
+  return possible;
 }
 
 export function getPieceUnicode(piece: Piece): string {
@@ -622,7 +574,7 @@ export function getPieceUnicode(piece: Piece): string {
     case 'rook': return isWhite ? '♖' : '♜';
     case 'bishop': return isWhite ? '♗' : '♝';
     case 'knight': return isWhite ? '♘' : '♞';
-    case 'pawn': return isWhite ? '♙' : '♟︎';
+    case 'pawn': return isWhite ? '♙' : '♟︎'; 
     default: return '';
   }
 }
