@@ -67,7 +67,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Activation">Achieved by capturing enemy pieces on consecutive turns by the same player.</PieceRule>
-                <PieceRule title="Streak of 3+ (Resurrection)">
+                <PieceRule title="Streak of 3 (Resurrection)">
                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1.
                 </PieceRule>
                 <PieceRule title="Streak of 6+ (Extra Turn)">
@@ -156,4 +156,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
