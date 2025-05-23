@@ -14,6 +14,9 @@ interface GameControlsProps {
   isCheck: boolean;
   isGameOver: boolean;
   killStreaks: { white: number, black: number };
+  isWhiteAI: boolean; // Added for AI status
+  isBlackAI: boolean; // Added for AI status
+  isAiThinking: boolean; // Added for AI thinking status
 }
 
 export function GameControls({
@@ -23,10 +26,13 @@ export function GameControls({
   isCheck,
   isGameOver,
   killStreaks,
+  isWhiteAI,
+  isBlackAI,
+  isAiThinking,
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
-    const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
+    const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white; // Pieces captured BY this color
     return (
       <div>
         <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]"> {/* Added min-height */}
@@ -41,11 +47,18 @@ export function GameControls({
     );
   };
 
-  const getPlayerDisplayName = (player: PlayerColor) => {
-    return player.charAt(0).toUpperCase() + player.slice(1);
+  const getPlayerDisplayNameWithAI = (player: PlayerColor) => {
+    const baseName = player.charAt(0).toUpperCase() + player.slice(1);
+    const isAI = (player === 'white' && isWhiteAI) || (player === 'black' && isBlackAI);
+    return isAI ? `${baseName} (AI)` : baseName;
   };
   
-  const currentTurnMessage = gameStatusMessage;
+  let currentTurnMessage = gameStatusMessage;
+  if (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) {
+    currentTurnMessage = `${getPlayerDisplayNameWithAI(currentPlayer)} is thinking...`;
+  } else if (!currentTurnMessage && !isGameOver) {
+    currentTurnMessage = "\u00A0"; // Non-breaking space to maintain height
+  }
 
 
   return (
@@ -54,10 +67,11 @@ export function GameControls({
         <CardDescription
           className={cn(
             "text-center font-pixel min-h-[1.5em]",
-             isCheck && !isGameOver && "text-destructive font-bold animate-pulse"
+             isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
+             isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) && "text-accent animate-pulse"
           )}
         >
-          {currentTurnMessage || "\u00A0"}
+          {currentTurnMessage}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -69,7 +83,7 @@ export function GameControls({
               isGameOver && "opacity-50"
             )}
           >
-            {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
+            {isGameOver ? "-" : getPlayerDisplayNameWithAI(currentPlayer)}
           </p>
         </div>
 
@@ -98,4 +112,3 @@ export function GameControls({
     </Card>
   );
 }
-
