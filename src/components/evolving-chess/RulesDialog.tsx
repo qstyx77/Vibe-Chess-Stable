@@ -58,7 +58,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in/through/into check).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
-                  If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a 6+ kill streak) on the same move, it is an immediate checkmate, and that player wins.
+                  If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -70,7 +70,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Streak of 3 (Resurrection)">
                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1.
                 </PieceRule>
-                <PieceRule title="Streak of 6+ (Extra Turn)">
+                <PieceRule title="Streak of 6 (Extra Turn)">
                   You gain an extra turn immediately.
                 </PieceRule>
               </AccordionContent>
@@ -156,3 +156,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
