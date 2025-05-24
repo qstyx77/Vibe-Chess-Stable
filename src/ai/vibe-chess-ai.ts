@@ -281,7 +281,7 @@ class VibeChessAI {
                 
                 switch (piece.type) {
                     case 'rook':
-                        if (level >= 3 && piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) { // Check invulnerableTurnsRemaining
+                        if (level >= 3 && piece.invulnerable) { // Check boolean invulnerable
                             score += 100 * multiplier;
                         }
                         break;
@@ -515,10 +515,9 @@ class VibeChessAI {
             if (this.isValidSquare(newRow, newCol)) {
                 const target = gameState.board[newRow][newCol];
                 if (!target || target.color !== piece.color) {
-                     // Invulnerability check (Rook L3+, Queen L5+ vs lower level)
-                    if (target) {
-                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerableTurnsRemaining && target.invulnerableTurnsRemaining > 0) continue;
-                        if (target.type === 'queen' && (target.level || 1) >= 5 && level < (target.level || 1) ) continue;
+                    if (target) { // Check invulnerability of the target piece
+                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerable) continue;
+                        if (target.type === 'queen' && (target.level || 1) >= 5 && piece.level < (target.level || 1)) continue; // Queen Royal Guard
                     }
                     moves.push({ from: [row, col], to: [newRow, newCol], type: target ? 'capture' : 'move'});
                 }
@@ -561,9 +560,9 @@ class VibeChessAI {
                         continue; 
                     }
                     if (target.color !== piece.color) {
-                         // Invulnerability check
-                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerableTurnsRemaining && target.invulnerableTurnsRemaining > 0) break; // Stop if target is invulnerable rook
-                        if (target.type === 'queen' && (target.level || 1) >= 5 && level < (target.level || 1) ) break; // Stop if target is higher-level invulnerable queen
+                        // Invulnerability check for the target piece
+                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerable) break;
+                        if (target.type === 'queen' && (target.level || 1) >= 5 && piece.level < (target.level || 1)) break; // Queen Royal Guard
 
                         moves.push({ from: [row, col], to: [newRow, newCol], type: 'capture' });
                     }
@@ -644,8 +643,8 @@ class VibeChessAI {
                 if (!target || target.color !== piece.color) {
                     // Invulnerability check for target piece
                     if (target) {
-                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerableTurnsRemaining && target.invulnerableTurnsRemaining > 0) continue;
-                        if (target.type === 'queen' && (target.level || 1) >= 5 && level < (target.level || 1)) continue;
+                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerable) continue;
+                        if (target.type === 'queen' && (target.level || 1) >= 5 && piece.level < (target.level || 1)) continue; // Queen Royal Guard
                     }
                     moves.push({ from: [row, col], to: [newRow, newCol], type: target ? 'capture' : 'move' });
                 }
@@ -693,7 +692,7 @@ class VibeChessAI {
     isPieceInvulnerable(piece: Piece, attackerPiece: Piece | null): boolean {
         const pieceLevel = piece.level || 1;
         
-        if (piece.type === 'rook' && pieceLevel >= 3 && piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) {
+        if (piece.type === 'rook' && pieceLevel >= 3 && piece.invulnerable) { // Check boolean invulnerable
             return true;
         }
         
@@ -705,7 +704,6 @@ class VibeChessAI {
         return false;
     }
 
-
     /**
      * Utility functions
      */
@@ -713,23 +711,6 @@ class VibeChessAI {
         return row >= 0 && row < 8 && col >= 0 && col < 8;
     }
 
-    /**
-     * CRITICAL for Minimax: This function MUST accurately reflect ALL Vibe Chess rules
-     * when applying a move to a new game state for simulation.
-     * The current version is a STUB and only copies state and basic piece movement.
-     * It does NOT accurately simulate:
-     *  - Leveling up on capture.
-     *  - Triggering invulnerability for Rooks.
-     *  - Pawn push-back (L4+).
-     *  - Bishop conversion (L5+).
-     *  - Knight self-destruct.
-     *  - Updating kill streaks or handle resurrection.
-     *  - Pawn promotion.
-     *  - Updating 'hasMoved' for King/Rook accurately for castling checks.
-     *  - Decrementing 'invulnerableTurnsRemaining'.
-     *  - Updating 'currentPlayer' for the next turn.
-     * Without these, the Minimax search is evaluating incorrect future states.
-     */
     makeMove(gameState: AIGameState, move: AIMove): AIGameState {
         const newState: AIGameState = JSON.parse(JSON.stringify(gameState)); // Deep copy
 
@@ -744,19 +725,61 @@ class VibeChessAI {
         }
 
         // Basic piece move for simulation
+        const capturedPieceOriginal = newState.board[toRow][toCol] ? { ...newState.board[toRow][toCol] } : null;
         newState.board[toRow][toCol] = { ...movingPiece };
         newState.board[fromRow][fromCol] = null;
         
-        // Rudimentary 'hasMoved' for AI's internal castling check (if it were fully implemented)
-        if (newState.board[toRow][toCol] && (newState.board[toRow][toCol]!.type === 'king' || newState.board[toRow][toCol]!.type === 'rook')) {
-            (newState.board[toRow][toCol]! as Piece).hasMoved = true;
+        const pieceOnNewSquare = newState.board[toRow][toCol] as Piece; // Assert it's a Piece after moving
+
+        // Mark as moved (simple version)
+        pieceOnNewSquare.hasMoved = true;
+        if (pieceOnNewSquare.type === 'king' || pieceOnNewSquare.type === 'rook') {
+             // More specific hasMoved logic for castling would go here if AI simulated castling
         }
 
-        // CRITICAL: Simulate currentPlayer switch for the next node in Minimax
-        newState.currentPlayer = newState.currentPlayer === 'white' ? 'black' : 'white';
+
+        // Simulate VIBE CHESS leveling on capture for the AI's piece
+        if (capturedPieceOriginal && pieceOnNewSquare) {
+            const originalLevel = pieceOnNewSquare.level;
+            switch (capturedPieceOriginal.type) {
+                case 'pawn': pieceOnNewSquare.level = Math.min(6, pieceOnNewSquare.level + 1); break;
+                case 'queen': pieceOnNewSquare.level = Math.min(6, pieceOnNewSquare.level + 3); break;
+                default: pieceOnNewSquare.level = Math.min(6, pieceOnNewSquare.level + 2); break;
+            }
+
+            // If it's a rook and it leveled up to L3+ now (and wasn't L3+ before), it becomes invulnerable
+            if (pieceOnNewSquare.type === 'rook' && pieceOnNewSquare.level >= 3 && originalLevel < 3) {
+                pieceOnNewSquare.invulnerable = true;
+            }
+        }
+
+        // Simulate Pawn Promotion (AI defaults to Queen for simplicity in evaluation)
+        const promotionRankSim = movingPiece.color === 'white' ? 0 : 7;
+        if (pieceOnNewSquare && pieceOnNewSquare.type === 'pawn' && toRow === promotionRankSim) {
+            pieceOnNewSquare.type = 'queen'; 
+            pieceOnNewSquare.level = 1; 
+            // If AI could promote to Rook, then: pieceOnNewSquare.invulnerable = true;
+        }
         
-        // TODO: Implement FULL Vibe Chess rule simulation here for accurate Minimax.
-        // This includes leveling, captures, special abilities, promotions, kill streaks, etc.
+        // Simulate invulnerability wear-off for the NEXT player
+        const nextPlayerColorSim = movingPiece.color === 'white' ? 'black' : 'white';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = newState.board[r][c];
+                if (p && p.color === nextPlayerColorSim && p.type === 'rook' && p.invulnerable) {
+                    p.invulnerable = false; 
+                }
+            }
+        }
+        
+        newState.currentPlayer = nextPlayerColorSim;
+        
+        // Note: This makeMove is still simplified. It doesn't handle:
+        // - Kill streaks / resurrection for evaluation.
+        // - Special abilities like Pawn Push-Back, Bishop Conversion, Knight Self-Destruct effect on board.
+        // - Castling (beyond simple king/rook hasMoved).
+        // - Accurate 'hasMoved' tracking for all pieces (currently just sets to true on move).
+        // These would be needed for a fully accurate VIBE CHESS AI simulation.
 
         return newState;
     }
@@ -799,7 +822,7 @@ class VibeChessAI {
                 const piece = gameState.board[r][c];
                 if (piece && piece.color === attackerColor) {
                     // This needs to use the AI's internal generatePieceMoves
-                    // which should check for Vibe Chess specific capture rules
+                    // which should check for VIBE Chess specific capture rules
                     const moves = this.generatePieceMoves(gameState, r, c, piece);
                     for (const move of moves) {
                         if (move.to[0] === targetRow && move.to[1] === targetCol && (move.type === 'capture' || (piece.type === 'knight' && move.type === 'move'))) { 
