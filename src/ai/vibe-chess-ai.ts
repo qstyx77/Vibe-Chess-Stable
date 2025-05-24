@@ -73,8 +73,6 @@ class VibeChessAI {
         // Determine if AI is maximizing player based on its color and current turn for Minimax
         // The 'isMaximizingPlayer' in minimax is true if it's AI's turn to make a move it wants to maximize.
         // If gameState.currentPlayer is the AI's color, then the AI is maximizing.
-        // However, the `minimax` signature uses `color === 'white'` for initial isMaximizingPlayer.
-        // It should be `gameState.currentPlayer === color` for the root call, or simply pass `true` if the initial call is for AI's turn.
         // For simplicity, let's assume the first call to minimax is always for the AI player to maximize its score.
         const result = this.minimax(gameState, this.maxDepth, -Infinity, Infinity, true, color);
         
@@ -118,7 +116,7 @@ class VibeChessAI {
             }
         }
 
-        let bestMove: AIMove | null = moves[0] || null;
+        let bestMove: AIMove | null = moves[0] || null; // Default to first move if any
 
         if (isMaximizingPlayer) {
             let maxEval = -Infinity;
@@ -193,7 +191,7 @@ class VibeChessAI {
                 if (piece) {
                     const level = Math.max(1, Math.min(6, piece.level || 1)); // Ensure level is within 1-6
                     const pieceValueArray = this.pieceValues[piece.type];
-                    const pieceValue = pieceValueArray ? pieceValueArray[level - 1] : (piece.type === 'king' ? 0 : 100); // Default for unknown types if any, king has own val
+                    const pieceValue = pieceValueArray ? pieceValueArray[level - 1] : (piece.type === 'king' ? 0 : 100); // Default for unknown types, king has own eval
                     
                     if (piece.color === aiColor) {
                         score += pieceValue;
@@ -226,8 +224,9 @@ class VibeChessAI {
                         score += this.positionalBonuses.nearCenter;
                     }
                     
+                    // Development bonus for knights and bishops if they have moved or are high level
                     if ((piece.type === 'knight' || piece.type === 'bishop') && 
-                        (piece.level || 1) >= 2 && piece.hasMoved !== false) { // Assuming piece.hasMoved implies it's developed
+                        ((piece.level || 1) >= 2 || piece.hasMoved !== false)) { 
                         score += this.positionalBonuses.development;
                     }
                 }
@@ -281,13 +280,13 @@ class VibeChessAI {
                 
                 switch (piece.type) {
                     case 'rook':
-                        if (level >= 3 && piece.invulnerable) { // Check boolean invulnerable
+                        if (level >= 3 && piece.invulnerable) { // Check boolean invulnerable from adapted state
                             score += 100 * multiplier;
                         }
                         break;
                         
                     case 'queen':
-                        if (level >= 5) { // Royal Guard - needs context of attacking piece level
+                        if (level >= 5) { // Royal Guard - needs context of attacking piece level for true eval
                             score += 150 * multiplier; // Simplified static bonus
                         }
                         break;
@@ -314,7 +313,7 @@ class VibeChessAI {
                         if (distanceToPromotion <= 2) {
                             score += (20 * (3 - distanceToPromotion)) * multiplier;
                         }
-                        if (level >= 4) { // Push-back potential
+                        if (level >= 4) { // Push-back potential (hard to evaluate statically)
                             score += 15 * multiplier;
                         }
                         break;
@@ -339,19 +338,19 @@ class VibeChessAI {
         let score = 0;
         
         if (aiKingPos) {
-            if (this.isInCheckByInvulnerable(gameState, aiColor)) {
-                score -= 500; // Severe penalty for being in check by invulnerable piece
+            if (this.isInCheckByInvulnerable(gameState, aiColor)) { // Check if AI king is checked by invulnerable
+                score -= 500; 
             }
             const aiThreats = this.countThreatsToSquare(gameState, aiKingPos.row, aiKingPos.col, aiColor);
-            score -= aiThreats * 30; // General penalty for threats
+            score -= aiThreats * 30; 
         }
         
         if (opponentKingPos) {
-             if (this.isInCheckByInvulnerable(gameState, opponentColor)) {
-                score += 400; // High bonus for putting opponent in check by invulnerable piece
+             if (this.isInCheckByInvulnerable(gameState, opponentColor)) { // Check if opponent king is checked by invulnerable
+                score += 400; 
             }
             const opponentThreats = this.countThreatsToSquare(gameState, opponentKingPos.row, opponentKingPos.col, opponentColor);
-            score += opponentThreats * 40; // General bonus for threatening opponent
+            score += opponentThreats * 40; 
         }
         
         return score;
@@ -391,15 +390,15 @@ class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const piece = gameState.board[r][c];
                 if (piece && piece.color === color) {
-                    const pieceMoves = this.generatePieceMoves(gameState, r, c, piece); // Pass piece
+                    const pieceMoves = this.generatePieceMoves(gameState, r, c, piece); 
                     moves.push(...pieceMoves);
                 }
             }
         }
         
         return moves.filter(move => {
-            const tempState = this.makeMove(gameState, move);
-            return !this.isInCheck(tempState, color);
+            const tempState = this.makeMove(gameState, move); // Simulate move
+            return !this.isInCheck(tempState, color); // Check if king is in check in new state
         });
     }
 
@@ -462,7 +461,7 @@ class VibeChessAI {
             if (this.isValidSquare(newRow, newCol)) {
                 const target = gameState.board[newRow][newCol];
                 if (target && target.color !== piece.color) {
-                     // Bishop L3+ immunity
+                    // Bishop L3+ immunity
                     if (target.type === 'bishop' && (target.level || 1) >=3) continue;
                     moves.push({ from: [row, col], to: [newRow, newCol], type: 'capture' });
                 }
@@ -498,15 +497,15 @@ class VibeChessAI {
         const moves: AIMove[] = [];
         const level = piece.level || 1;
         
-        const knightDeltas = [
+        let knightDeltas = [
             [-2, -1], [-2, 1], [-1, -2], [-1, 2],
             [1, -2], [1, 2], [2, -1], [2, 1]
         ];
         if (level >= 2) { // Cardinal moves
-            knightDeltas.push([-1,0], [1,0], [0,-1], [0,1]);
+            knightDeltas.push(...[[-1,0], [1,0], [0,-1], [0,1]]);
         }
         if (level >= 3) { // 3-square cardinal jumps
-             knightDeltas.push([-3,0], [3,0], [0,-3], [0,3]);
+             knightDeltas.push(...[[-3,0], [3,0], [0,-3], [0,3]]);
         }
         
         for (const [deltaRow, deltaCol] of knightDeltas) {
@@ -515,11 +514,19 @@ class VibeChessAI {
             if (this.isValidSquare(newRow, newCol)) {
                 const target = gameState.board[newRow][newCol];
                 if (!target || target.color !== piece.color) {
-                    if (target) { // Check invulnerability of the target piece
-                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerable) continue;
-                        if (target.type === 'queen' && (target.level || 1) >= 5 && piece.level < (target.level || 1)) continue; // Queen Royal Guard
-                    }
+                    if (target && this.isPieceInvulnerable(target, piece)) continue; // Check if target is invulnerable TO THIS KNIGHT
                     moves.push({ from: [row, col], to: [newRow, newCol], type: target ? 'capture' : 'move'});
+                }
+            }
+        }
+        
+        if (level >= 4) { // Swap with friendly Bishop
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const targetPiece = gameState.board[r][c];
+                    if (targetPiece && targetPiece.color === piece.color && targetPiece.type === 'bishop') {
+                        moves.push({ from: [row, col], to: [r,c], type: 'swap'});
+                    }
                 }
             }
         }
@@ -560,13 +567,12 @@ class VibeChessAI {
                         continue; 
                     }
                     if (target.color !== piece.color) {
-                        // Invulnerability check for the target piece
-                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerable) break;
-                        if (target.type === 'queen' && (target.level || 1) >= 5 && piece.level < (target.level || 1)) break; // Queen Royal Guard
-
+                        if (this.isPieceInvulnerable(target, piece)) break; // Check if target is invulnerable TO THIS PIECE
                         moves.push({ from: [row, col], to: [newRow, newCol], type: 'capture' });
                     }
-                    break; // Blocked by own piece (if not Bishop L2+) or after a capture
+                    // Blocked by own piece (if not Bishop L2+) or after a capture
+                    // Or blocked by an invulnerable piece it cannot capture
+                    break; 
                 }
             }
         }
@@ -583,7 +589,18 @@ class VibeChessAI {
      * @returns {AIMove[]}
      */
     generateBishopMoves(gameState: AIGameState, row: number, col: number, piece: Piece): AIMove[] {
-        return this.generateSlidingMoves(gameState, row, col, piece, [[-1,-1],[-1,1],[1,-1],[1,1]]);
+        const moves = this.generateSlidingMoves(gameState, row, col, piece, [[-1,-1],[-1,1],[1,-1],[1,1]]);
+        if ((piece.level || 1) >= 4) { // Swap with friendly Knight
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const targetPiece = gameState.board[r][c];
+                    if (targetPiece && targetPiece.color === piece.color && targetPiece.type === 'knight') {
+                        moves.push({ from: [row, col], to: [r,c], type: 'swap'});
+                    }
+                }
+            }
+        }
+        return moves;
     }
 
     /**
@@ -636,29 +653,25 @@ class VibeChessAI {
                 if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2) && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc)) ) {
                      const midRow = row + Math.sign(dr);
                      const midCol = col + Math.sign(dc);
-                     if (gameState.board[midRow] && gameState.board[midRow][midCol]) continue; // Path blocked
+                     if (gameState.board[midRow] && gameState.board[midRow][midCol]) continue; 
                 }
                 
                 const target = gameState.board[newRow][newCol];
                 if (!target || target.color !== piece.color) {
-                    // Invulnerability check for target piece
-                    if (target) {
-                        if (target.type === 'rook' && (target.level || 1) >= 3 && target.invulnerable) continue;
-                        if (target.type === 'queen' && (target.level || 1) >= 5 && piece.level < (target.level || 1)) continue; // Queen Royal Guard
-                    }
+                    if (target && this.isPieceInvulnerable(target, piece)) continue; // Check if target is invulnerable TO THIS KING
                     moves.push({ from: [row, col], to: [newRow, newCol], type: target ? 'capture' : 'move' });
                 }
             }
         }
-        // Castling (Simplified: AI needs to check game rules for hasMoved, path clear, not in check)
-        // Current AI does not implement castling logic due to complexity in makeMove simulation.
+        // Castling (Simplified: AI needs to check game rules for hasMoved, path clear, not in check from main game)
+        // This AI's internal move generation for king does not currently implement castling.
         return moves;
     }
 
     /**
-     * Check if king is in check by invulnerable piece
+     * Check if king is in check by invulnerable piece (used for eval and direct check identification)
      * @param {AIGameState} gameState
-     * @param {PlayerColor} color
+     * @param {PlayerColor} color - The color of the king to check
      * @returns {boolean}
      */
     isInCheckByInvulnerable(gameState: AIGameState, color: PlayerColor): boolean {
@@ -670,11 +683,12 @@ class VibeChessAI {
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const piece = gameState.board[r][c];
-                if (piece && piece.color === enemyColor && this.isPieceInvulnerable(piece, null)) { // Pass null for attacker for general inv check
-                    const moves = this.generatePieceMoves(gameState, r, c, piece);
+                // Check if the 'piece' exists, is an enemy, and is invulnerable (general check, not against specific attacker)
+                if (piece && piece.color === enemyColor && this.isPieceInvulnerable(piece, null)) { 
+                    const moves = this.generatePieceMoves(gameState, r, c, piece); // Generate moves for this invulnerable enemy piece
                     for (const move of moves) {
                         if (move.to[0] === kingPos.row && move.to[1] === kingPos.col) {
-                            return true;
+                            return true; // Found an invulnerable piece attacking the king
                         }
                     }
                 }
@@ -686,7 +700,7 @@ class VibeChessAI {
     /**
      * Check if a piece is currently invulnerable against a potential attacker
      * @param {Piece} piece - The piece to check for invulnerability
-     * @param {Piece | null} attackerPiece - The piece attempting to attack (null if general check)
+     * @param {Piece | null} attackerPiece - The piece attempting to attack (null for general invulnerability check for eval)
      * @returns {boolean}
      */
     isPieceInvulnerable(piece: Piece, attackerPiece: Piece | null): boolean {
@@ -697,9 +711,9 @@ class VibeChessAI {
         }
         
         if (piece.type === 'queen' && pieceLevel >= 5) {
-            if (!attackerPiece) return true; // General invulnerability for eval
+            if (!attackerPiece) return true; // General invulnerability for eval or against non-specific threat
             const attackerLevel = attackerPiece.level || 1;
-            if (attackerLevel < pieceLevel) return true; // Royal Guard
+            if (attackerLevel < pieceLevel) return true; // Royal Guard specific condition
         }
         return false;
     }
@@ -724,36 +738,58 @@ class VibeChessAI {
             return newState; 
         }
 
-        // Basic piece move for simulation
+        // Store original state of captured piece for leveling logic
         const capturedPieceOriginal = newState.board[toRow][toCol] ? { ...newState.board[toRow][toCol] } : null;
-        newState.board[toRow][toCol] = { ...movingPiece };
-        newState.board[fromRow][fromCol] = null;
         
-        const pieceOnNewSquare = newState.board[toRow][toCol] as Piece; // Assert it's a Piece after moving
-
-        // Mark as moved (simple version)
-        pieceOnNewSquare.hasMoved = true;
-        if (pieceOnNewSquare.type === 'king' || pieceOnNewSquare.type === 'rook') {
-             // More specific hasMoved logic for castling would go here if AI simulated castling
+        // Handle swap moves
+        if (move.type === 'swap') {
+            const targetPiece = newState.board[toRow][toCol]; // This is the friendly piece to swap with
+            newState.board[toRow][toCol] = { ...movingPiece, hasMoved: true }; // Moving piece moves to target's square
+            newState.board[fromRow][fromCol] = targetPiece ? { ...targetPiece } : null; // Target piece moves to moving piece's original square
+        } 
+        // Handle Knight self-destruct
+        else if (move.type === 'self-destruct' && movingPiece.type === 'knight' && (movingPiece.level || 1) >= 5) {
+            newState.board[fromRow][fromCol] = null; // Knight is removed
+            // Logic for destroying adjacent pieces (simplified, does not add to capturedPieces for AI eval)
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const adjR = fromRow + dr;
+                    const adjC = fromCol + dc;
+                    if (this.isValidSquare(adjR, adjC)) {
+                        const victim = newState.board[adjR][adjC];
+                        if (victim && victim.color !== movingPiece.color && victim.type !== 'king' && !this.isPieceInvulnerable(victim, movingPiece)) {
+                            newState.board[adjR][adjC] = null;
+                        }
+                    }
+                }
+            }
+        } 
+        // Standard move/capture
+        else {
+            newState.board[toRow][toCol] = { ...movingPiece, hasMoved: true };
+            newState.board[fromRow][fromCol] = null;
         }
-
+        
+        const pieceOnNewSquare = newState.board[toRow][toCol]; 
 
         // Simulate VIBE CHESS leveling on capture for the AI's piece
-        if (capturedPieceOriginal && pieceOnNewSquare) {
-            const originalLevel = pieceOnNewSquare.level;
+        if (capturedPieceOriginal && pieceOnNewSquare && move.type === 'capture') { // Ensure it's a capture
+            const originalLevel = pieceOnNewSquare.level || 1;
+            let levelGain = 0;
             switch (capturedPieceOriginal.type) {
-                case 'pawn': pieceOnNewSquare.level = Math.min(6, pieceOnNewSquare.level + 1); break;
-                case 'queen': pieceOnNewSquare.level = Math.min(6, pieceOnNewSquare.level + 3); break;
-                default: pieceOnNewSquare.level = Math.min(6, pieceOnNewSquare.level + 2); break;
+                case 'pawn': levelGain = 1; break;
+                case 'queen': levelGain = 3; break;
+                default: levelGain = 2; break;
             }
+            pieceOnNewSquare.level = Math.min(6, originalLevel + levelGain);
 
-            // If it's a rook and it leveled up to L3+ now (and wasn't L3+ before), it becomes invulnerable
             if (pieceOnNewSquare.type === 'rook' && pieceOnNewSquare.level >= 3 && originalLevel < 3) {
-                pieceOnNewSquare.invulnerable = true;
+                pieceOnNewSquare.invulnerable = true; // Gain invulnerability (boolean)
             }
         }
 
-        // Simulate Pawn Promotion (AI defaults to Queen for simplicity in evaluation)
+        // Simulate Pawn Promotion (AI defaults to Queen)
         const promotionRankSim = movingPiece.color === 'white' ? 0 : 7;
         if (pieceOnNewSquare && pieceOnNewSquare.type === 'pawn' && toRow === promotionRankSim) {
             pieceOnNewSquare.type = 'queen'; 
@@ -774,12 +810,11 @@ class VibeChessAI {
         
         newState.currentPlayer = nextPlayerColorSim;
         
-        // Note: This makeMove is still simplified. It doesn't handle:
-        // - Kill streaks / resurrection for evaluation.
-        // - Special abilities like Pawn Push-Back, Bishop Conversion, Knight Self-Destruct effect on board.
-        // - Castling (beyond simple king/rook hasMoved).
-        // - Accurate 'hasMoved' tracking for all pieces (currently just sets to true on move).
-        // These would be needed for a fully accurate VIBE CHESS AI simulation.
+        // Note: This makeMove is simplified. Does not handle:
+        // - Pawn Push-Back, Bishop Conversion effect on board.
+        // - Castling.
+        // - Kill streaks / resurrection for evaluation (these are part of gameState.killStreaks).
+        // - Accurate `hasMoved` for all scenarios (e.g. Rook in castling).
 
         return newState;
     }
@@ -822,10 +857,11 @@ class VibeChessAI {
                 const piece = gameState.board[r][c];
                 if (piece && piece.color === attackerColor) {
                     // This needs to use the AI's internal generatePieceMoves
-                    // which should check for VIBE Chess specific capture rules
+                    // which should check for VIBE Chess specific capture rules including invulnerability
                     const moves = this.generatePieceMoves(gameState, r, c, piece);
                     for (const move of moves) {
-                        if (move.to[0] === targetRow && move.to[1] === targetCol && (move.type === 'capture' || (piece.type === 'knight' && move.type === 'move'))) { 
+                        // A move to the square implies a threat, either by 'move' or 'capture' type
+                        if (move.to[0] === targetRow && move.to[1] === targetCol ) { 
                             threats++;
                             break; 
                         }
@@ -840,7 +876,7 @@ class VibeChessAI {
         const kingPos = this.findKingPos(gameState, color);
         if (!kingPos) return false; 
         return this.countThreatsToSquare(gameState, kingPos.row, kingPos.col, color) > 0 ||
-               this.isInCheckByInvulnerable(gameState, color);
+               this.isInCheckByInvulnerable(gameState, color); // Check for invulnerable threats
     }
     
     wouldLeaveKingInCheck(gameState: AIGameState, move: AIMove, color: PlayerColor): boolean {
@@ -850,7 +886,7 @@ class VibeChessAI {
 
     isInCheckmate(gameState: AIGameState, color: PlayerColor): boolean {
         if (!this.isInCheck(gameState, color)) return false;
-        const moves = this.generateAllMoves(gameState, color); // These should already be legal
+        const moves = this.generateAllMoves(gameState, color); // These should already be legal (not leaving king in check)
         return moves.length === 0;
     }
 
