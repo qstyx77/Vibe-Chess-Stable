@@ -25,6 +25,8 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap'; // For AI move objects
+  promoteTo?: PieceType; // For AI promotion
 }
 
 export interface GameStatus {
@@ -35,6 +37,8 @@ export interface GameStatus {
   isStalemate: boolean;
   winner?: PlayerColor | 'draw';
   gameOver: boolean;
+  killStreaks?: { white: number, black: number }; // Added for AI state consistency
+  capturedPieces?: { white: Piece[], black: Piece[] }; // Added for AI state consistency
 }
 
 export interface ConversionEvent {
@@ -55,8 +59,8 @@ export interface GameSnapshot {
   lastCapturePlayer: PlayerColor | null;
   boardOrientation: PlayerColor;
   viewMode: ViewMode;
-  isWhiteAI: boolean; // Added for AI state
-  isBlackAI: boolean; // Added for AI state
+  isWhiteAI: boolean;
+  isBlackAI: boolean;
+  enemySelectedSquare?: AlgebraicSquare | null; // Added for undo
+  enemyPossibleMoves?: AlgebraicSquare[];   // Added for undo
 }
-
-    
