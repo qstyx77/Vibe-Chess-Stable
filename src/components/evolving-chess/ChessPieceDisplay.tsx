@@ -7,7 +7,7 @@ interface ChessPieceDisplayProps {
   piece: Piece;
   isKingInCheck?: boolean;
   viewMode?: ViewMode;
-  isJustMoved?: boolean; // New prop for animation
+  isJustMoved?: boolean;
 }
 
 export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false }: ChessPieceDisplayProps) { 
@@ -26,7 +26,7 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
         "relative flex items-center justify-center w-full h-full",
         pieceColorClass,
         shouldRotateBlackPiece && "rotate-180",
-        isJustMoved && "animate-ping" // TEMPORARILY using animate-ping for diagnostics
+        isJustMoved && "animate-piece-slide-in" 
       )}>
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
       {piece.level > 1 && (

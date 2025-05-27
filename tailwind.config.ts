@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -133,26 +134,10 @@ export default {
           '50%': { opacity: '0.7', backgroundSize: '200% 200%' },
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
-        'piece-slide-in': { // Exaggerated keyframes for diagnostics
-            '0%': { 
-              transform: 'translateY(20px) scale(0.3) rotate(-45deg)', 
-              opacity: '0',
-              backgroundColor: 'rgba(255, 0, 0, 0.7)' // Bright red start
-            },
-            '20%': { 
-              transform: 'translateY(-10px) scale(1.2) rotate(15deg)',
-              opacity: '1',
-              backgroundColor: 'rgba(0, 255, 0, 0.7)' // Bright green
-            },
-            '70%': { 
-              transform: 'translateY(5px) scale(0.8) rotate(-10deg)',
-              backgroundColor: 'rgba(0, 0, 255, 0.7)' // Bright blue
-            },
-            '100%': { 
-              transform: 'translateY(0) scale(1) rotate(0deg)', 
-              opacity: '1',
-              backgroundColor: 'transparent' // Back to normal
-            },
+        'piece-slide-in': {
+            '0%': { transform: 'scale(1) translateY(-8px)', opacity: '1' },
+            '50%': { transform: 'scale(0.6) translateY(-15px)', opacity: '1' },
+            '100%': { transform: 'scale(1) translateY(0px)', opacity: '1' },
           },
   		},
   		animation: {
