@@ -130,21 +130,52 @@ export default {
           '50%': { opacity: '0.6', backgroundSize: '80px 80px'},
         },
         'checkmate-pattern-flash': {
-          '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)', transform: 'scale3d(0.5, 0.5, 1)' },
-          '50%': { opacity: '0.6', backgroundSize: '200% 200%', transform: 'scale3d(1, 1, 1)' },
-          '100%': { opacity: '0', backgroundSize: '100% 100%', transform: 'scale3d(0.5, 0.5, 1)'},
+          '0%': { 
+            opacity: '0',
+            backgroundImage: `repeating-conic-gradient(hsl(var(--destructive)) 0% 25%, hsl(var(--accent)) 0% 50%)`,
+            backgroundSize: '20px 20px',
+            transform: 'scale(0.1)'
+          },
+          '10%': { 
+            opacity: '0.8',
+            backgroundSize: '40px 40px',
+            transform: 'scale(1)'
+          },
+          '20%': { 
+            opacity: '0.6',
+            backgroundSize: '30px 30px',
+          },
+          '30%': { 
+            opacity: '0.8',
+            backgroundSize: '60px 60px',
+          },
+          '40%': { 
+            opacity: '0.5',
+            backgroundSize: '50px 50px',
+          },
+          '50%, 80%': { 
+            opacity: '0.7',
+            backgroundImage: `repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--destructive)) 0% 50%)`, 
+            backgroundSize: '80px 80px',
+            transform: 'scale(1.2) rotate(5deg)' 
+          },
+          '100%': { 
+            opacity: '0',
+            transform: 'scale(0.5) rotate(0deg)',
+            backgroundSize: '20px 20px'
+          },
         },
         'piece-slide-in': {
           '0%': { 
-            transform: 'translate3d(0, -10px, 0) scale3d(0.8, 0.8, 1)', 
+            transform: 'scale3d(0.5, 0.5, 1)', 
             opacity: '1' 
           },
           '50%': { 
-            transform: 'translate3d(0, 2px, 0) scale3d(1.1, 1.1, 1)', 
+            transform: 'scale3d(1.2, 1.2, 1)', 
             opacity: '1' 
           },
           '100%': { 
-            transform: 'translate3d(0, 0, 0) scale3d(1, 1, 1)', 
+            transform: 'scale3d(1, 1, 1)', 
             opacity: '1' 
           },
         }
@@ -172,6 +203,9 @@ export default {
         '.backface-hidden': {
           'backface-visibility': 'hidden',
         },
+        '.will-change-transform': {
+          'will-change': 'transform',
+        }
       }
       addUtilities(newUtilities)
     }
