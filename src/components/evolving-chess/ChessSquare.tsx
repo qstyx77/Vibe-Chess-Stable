@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { SquareState, ViewMode, AlgebraicSquare } from '@/types';
+import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +17,7 @@ interface ChessSquareProps {
   isKingInCheck?: boolean;
   viewMode?: ViewMode;
   animatedSquareTo?: AlgebraicSquare | null;
+  currentPlayerColor?: PlayerColor; // Added to distinguish player's pieces for enemy capture styling
 }
 
 export function ChessSquare({
@@ -31,24 +32,29 @@ export function ChessSquare({
   isKingInCheck = false,
   viewMode,
   animatedSquareTo,
+  currentPlayerColor,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const squareBgColor = isLightSquare ? 'bg-card' : 'bg-muted';
 
   const isJustMoved = !!(animatedSquareTo && squareData.algebraic === animatedSquareTo && piece);
 
+  // Determine if an enemy move is targeting one of the current player's pieces
+  const isEnemyCaptureOfPlayerPiece = isEnemyPossibleMove && piece && piece.color === currentPlayerColor;
+
   return (
     <button
       onClick={() => !disabled && onClick(squareData.algebraic)}
       className={cn(
-        'w-full aspect-square flex items-center justify-center relative group rounded-none', // Removed transition-colors
+        'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d',
         squareBgColor,
         isSelected && !disabled && 'ring-2 ring-inset ring-accent', 
         isPossibleMove && !piece && !disabled && 'bg-accent/40',  
         isPossibleMove && piece && !disabled && 'bg-destructive/60', 
         isEnemySelected && !disabled && 'ring-2 ring-inset ring-blue-600', 
         isEnemyPossibleMove && !piece && !disabled && 'bg-blue-600/30', 
-        isEnemyPossibleMove && piece && !disabled && 'bg-yellow-500/50', 
+        isEnemyCaptureOfPlayerPiece && !disabled && 'bg-yellow-500/50', // Enemy capture of player's piece
+        isEnemyPossibleMove && piece && piece.color !== currentPlayerColor && !isEnemyCaptureOfPlayerPiece && !disabled && 'bg-yellow-500/50', // Enemy capture of opponent's piece (if AI vs AI or future multi-enemy context)
         disabled && 'cursor-not-allowed'
       )}
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}`}

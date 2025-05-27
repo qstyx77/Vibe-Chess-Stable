@@ -122,22 +122,20 @@ export default {
           },
         },
         'capture-pattern-flash': {
-          '0%': { opacity: '0', backgroundSize: '40px 40px', backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--primary)) 0, hsl(var(--primary)) 10px, hsl(var(--secondary)) 10px, hsl(var(--secondary)) 20px)' },
+          '0%, 100%': { opacity: '0', backgroundSize: '40px 40px', backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--primary)) 0, hsl(var(--primary)) 10px, hsl(var(--secondary)) 10px, hsl(var(--secondary)) 20px)' },
           '50%': { opacity: '0.6', backgroundSize: '80px 80px' },
-          '100%': { opacity: '0', backgroundSize: '40px 40px' },
         },
         'check-pattern-flash': {
-          '0%': { opacity: '0', backgroundSize: '20px 20px', backgroundImage: 'repeating-linear-gradient(0deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px), repeating-linear-gradient(90deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px)' },
+          '0%, 100%': { opacity: '0', backgroundSize: '20px 20px', backgroundImage: 'repeating-linear-gradient(0deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px), repeating-linear-gradient(90deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px)' },
           '50%': { opacity: '0.7', backgroundSize: '40px 40px'},
-          '100%': { opacity: '0', backgroundSize: '20px 20px' },
         },
         'checkmate-pattern-flash': {
           '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)' },
           '50%': { opacity: '0.7', backgroundSize: '200% 200%' },
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
-        'piece-slide-in': { // New keyframes for piece sliding
-          '0%': { transform: 'translateY(8px) scale(0.7)', opacity: '0.5' },
+        'piece-slide-in': { 
+          '0%': { transform: 'translateY(8px) scale(0.7)', opacity: '1' },
           '100%': { transform: 'translateY(0) scale(1)', opacity: '1' },
         },
   		},
@@ -150,9 +148,19 @@ export default {
         'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
         'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
-        'animate-piece-slide-in': 'piece-slide-in 0.3s ease-out', // New animation utility
+        'animate-piece-slide-in': 'piece-slide-in 0.3s ease-out', 
   		}
   	}
   },
-  plugins: [require('tailwindcss-animate')]
+  plugins: [
+    require('tailwindcss-animate'),
+    function({ addUtilities }) {
+      const newUtilities = {
+        '.transform-style-preserve-3d': {
+          'transform-style': 'preserve-3d',
+        },
+      }
+      addUtilities(newUtilities)
+    }
+  ]
 }  satisfies Config;
