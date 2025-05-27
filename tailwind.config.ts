@@ -135,9 +135,18 @@ export default {
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
         'piece-slide-in': {
-            '0%': { transform: 'translateY(-8px) scale(1)', opacity: '1' },    // Start normal size, slightly lifted
-            '50%': { transform: 'translateY(-15px) scale(0.2)', opacity: '1' }, // Shrink significantly, lift more
-            '100%': { transform: 'translateY(0px) scale(1)', opacity: '1' },   // Return to normal size and position
+            '0%': { 
+              transform: 'translateY(-8px) scale(1)', 
+              opacity: '1' 
+            },
+            '50%': { 
+              transform: 'translateY(-15px) scale(0.2)', // Exaggerated shrink
+              opacity: '1' 
+            },
+            '100%': { 
+              transform: 'translateY(0px) scale(1)', 
+              opacity: '1' 
+            },
           },
   		},
   		animation: {
