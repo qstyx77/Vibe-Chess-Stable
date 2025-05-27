@@ -121,17 +121,19 @@ export default {
           },
         },
         'capture-pattern-flash': {
-          '0%, 100%': { opacity: '0', backgroundColor: 'hsl(var(--primary))' },
-          '50%': { opacity: '0.5' },
+          '0%': { opacity: '0', backgroundSize: '40px 40px', backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--primary)) 0, hsl(var(--primary)) 10px, hsl(var(--secondary)) 10px, hsl(var(--secondary)) 20px)' },
+          '50%': { opacity: '0.6', backgroundSize: '80px 80px' },
+          '100%': { opacity: '0', backgroundSize: '40px 40px' },
         },
         'check-pattern-flash': {
-          '0%, 100%': { opacity: '0', backgroundColor: 'hsl(var(--destructive))' },
-          '50%': { opacity: '0.5' },
+          '0%': { opacity: '0', backgroundSize: '20px 20px', backgroundImage: 'repeating-linear-gradient(0deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px), repeating-linear-gradient(90deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px)' },
+          '50%': { opacity: '0.7', backgroundSize: '40px 40px'},
+          '100%': { opacity: '0', backgroundSize: '20px 20px' },
         },
         'checkmate-pattern-flash': {
-          '0%': { opacity: '0', transform: 'scale(0.8)', backgroundColor: 'hsl(var(--accent))' },
-          '50%': { opacity: '0.7', transform: 'scale(1.2)' },
-          '100%': { opacity: '0', transform: 'scale(0.8)' },
+          '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)' },
+          '50%': { opacity: '0.7', backgroundSize: '200% 200%' },
+          '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
   		},
   		animation: {
