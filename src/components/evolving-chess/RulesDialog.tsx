@@ -60,6 +60,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Auto-Checkmate on Extra Turn">
                   If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
+                <PieceRule title="Threefold Repetition">
+                  If the same board position (including piece locations, current player, and castling rights) occurs three times during a game, the game is a draw.
+                </PieceRule>
               </AccordionContent>
             </AccordionItem>
 
@@ -156,4 +159,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
