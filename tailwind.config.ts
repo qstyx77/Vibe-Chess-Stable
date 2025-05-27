@@ -144,4 +144,9 @@ export default {
         'pixel-title-flash': 'pixel-title-flash 1.5s steps(2, jump-none) infinite',
         'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
-        'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-
+        'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
+  		}
+  	}
+  },
+  plugins: [require('tailwindcss-animate')]
+}  satisfies Config;
