@@ -135,9 +135,9 @@ export default {
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
         'piece-slide-in': {
-            '0%': { transform: 'scale(1) translateY(-8px)', opacity: '1' },
-            '50%': { transform: 'scale(0.6) translateY(-15px)', opacity: '1' },
-            '100%': { transform: 'scale(1) translateY(0px)', opacity: '1' },
+            '0%': { transform: 'translateY(-8px) scale(1)', opacity: '1' },    // Start normal size, slightly lifted
+            '50%': { transform: 'translateY(-15px) scale(0.2)', opacity: '1' }, // Shrink significantly, lift more
+            '100%': { transform: 'translateY(0px) scale(1)', opacity: '1' },   // Return to normal size and position
           },
   		},
   		animation: {
@@ -149,7 +149,7 @@ export default {
         'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
         'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
-        'animate-piece-slide-in': 'piece-slide-in 0.7s cubic-bezier(0.25, 0.1, 0.25, 1.5) forwards', 
+        'animate-piece-slide-in': 'piece-slide-in 0.7s ease-out forwards', 
   		}
   	}
   },
