@@ -9,14 +9,15 @@ interface ChessBoardProps {
   boardState: BoardState;
   selectedSquare: AlgebraicSquare | null;
   possibleMoves: AlgebraicSquare[];
-  enemySelectedSquare: AlgebraicSquare | null; // New prop
-  enemyPossibleMoves: AlgebraicSquare[];   // New prop
+  enemySelectedSquare: AlgebraicSquare | null;
+  enemyPossibleMoves: AlgebraicSquare[];
   onSquareClick: (algebraic: AlgebraicSquare) => void;
-  playerColor: PlayerColor; // Logical orientation for the current turn
-  currentPlayerColor: PlayerColor; // Whose actual turn it is
-  isInteractionDisabled: boolean; // Combined prop for disabling clicks
+  playerColor: PlayerColor; 
+  currentPlayerColor: PlayerColor;
+  isInteractionDisabled: boolean;
   playerInCheck: PlayerColor | null;
   viewMode: ViewMode;
+  animatedSquareTo: AlgebraicSquare | null; // New prop for animation
 }
 
 export function ChessBoard({
@@ -26,11 +27,12 @@ export function ChessBoard({
   enemySelectedSquare,
   enemyPossibleMoves,
   onSquareClick,
-  playerColor, // Orientation
-  currentPlayerColor, // Actual current player
+  playerColor,
+  currentPlayerColor,
   isInteractionDisabled,
   playerInCheck,
   viewMode,
+  animatedSquareTo, // Destructure new prop
 }: ChessBoardProps) {
   
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -43,7 +45,7 @@ export function ChessBoard({
     <div 
       className={cn(
         "grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border",
-        isInteractionDisabled && "opacity-70 cursor-not-allowed", // Use combined prop
+        isInteractionDisabled && "opacity-70 cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90"
       )}
     >
@@ -74,13 +76,10 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled} // Use combined prop
+              disabled={isInteractionDisabled}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
-              // Pass currentPlayerColor if ChessSquare needs it to determine if an enemy capture is on one of the player's pieces
-              // For enemyPossibleMove + piece, the styling can just check if piece exists and is of opposite color to enemySelectedSquare's piece
-              // But the current logic in ChessSquare seems fine as it relies on `piece.color === currentPlayer` which it doesn't have.
-              // Let's simplify the ChessSquare to just use piece.color for styling captures by enemy.
+              animatedSquareTo={animatedSquareTo} // Pass down prop
             />
           );
         })

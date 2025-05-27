@@ -1,21 +1,22 @@
 
-import type { Piece, ViewMode } from '@/types'; // Added ViewMode
+import type { Piece, ViewMode } from '@/types'; 
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
   isKingInCheck?: boolean;
-  viewMode?: ViewMode; // Added viewMode prop
+  viewMode?: ViewMode;
+  isJustMoved?: boolean; // New prop for animation
 }
 
-export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode }: ChessPieceDisplayProps) { // Destructure viewMode
+export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false }: ChessPieceDisplayProps) { 
   const unicode = getPieceUnicode(piece);
   
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
 
   if (piece.type === 'king' && isKingInCheck) {
-    pieceColorClass = 'text-destructive animate-pulse'; // Added animate-pulse for more emphasis
+    pieceColorClass = 'text-destructive animate-pulse';
   }
 
   const shouldRotateBlackPiece = viewMode === 'tabletop' && piece.color === 'black';
@@ -24,7 +25,8 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode }: Ch
     <div className={cn(
         "relative flex items-center justify-center w-full h-full",
         pieceColorClass,
-        shouldRotateBlackPiece && "rotate-180" // Apply rotation if tabletop and black piece
+        shouldRotateBlackPiece && "rotate-180",
+        isJustMoved && "animate-piece-slide-in" // Apply slide-in animation
       )}>
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
       {piece.level > 1 && (
