@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -135,8 +134,9 @@ export default {
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
         'piece-slide-in': { 
-          '0%': { transform: 'translateY(8px) scale(0.7)', opacity: '1' },
-          '100%': { transform: 'translateY(0) scale(1)', opacity: '1' },
+          '0%': { transform: 'translateY(16px) scale(0.5) rotate(-15deg)', opacity: '1' },
+          '70%': { transform: 'translateY(-4px) scale(1.1) rotate(5deg)', opacity: '1' },
+          '100%': { transform: 'translateY(0) scale(1) rotate(0deg)', opacity: '1' },
         },
   		},
   		animation: {
@@ -148,7 +148,7 @@ export default {
         'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
         'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
-        'animate-piece-slide-in': 'piece-slide-in 0.3s ease-out', 
+        'animate-piece-slide-in': 'piece-slide-in 0.7s cubic-bezier(0.25, 0.1, 0.25, 1.5)', 
   		}
   	}
   },
@@ -158,6 +158,9 @@ export default {
       const newUtilities = {
         '.transform-style-preserve-3d': {
           'transform-style': 'preserve-3d',
+        },
+        '.backface-hidden': {
+          'backface-visibility': 'hidden',
         },
       }
       addUtilities(newUtilities)
