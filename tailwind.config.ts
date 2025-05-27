@@ -134,9 +134,10 @@ export default {
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
         'piece-slide-in': { 
-          '0%': { transform: 'translateY(16px) scale(0.5) rotate(-15deg)', opacity: '1' },
-          '70%': { transform: 'translateY(-4px) scale(1.1) rotate(5deg)', opacity: '1' },
-          '100%': { transform: 'translateY(0) scale(1) rotate(0deg)', opacity: '1' },
+          '0%': { transform: 'scale(0.6) translateY(-20px) rotate(-10deg)', opacity: '0' },
+          '20%': { transform: 'scale(0.7) translateY(-10px) rotate(-5deg)', opacity: '1' },
+          '70%': { transform: 'scale(1.1) translateY(2px) rotate(3deg)', opacity: '1' },
+          '100%': { transform: 'scale(1) translateY(0) rotate(0deg)', opacity: '1' },
         },
   		},
   		animation: {
@@ -167,3 +168,5 @@ export default {
     }
   ]
 }  satisfies Config;
+
+    
