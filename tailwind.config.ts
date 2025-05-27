@@ -149,7 +149,7 @@ export default {
         'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
         'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
-        'animate-piece-slide-in': 'piece-slide-in 0.7s cubic-bezier(0.25, 0.1, 0.25, 1.5)', 
+        'animate-piece-slide-in': 'piece-slide-in 0.7s cubic-bezier(0.25, 0.1, 0.25, 1.5) forwards', 
   		}
   	}
   },
