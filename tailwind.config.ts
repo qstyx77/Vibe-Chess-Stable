@@ -133,7 +133,7 @@ export default {
           '50%': { opacity: '0.7', backgroundSize: '200% 200%' },
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
-        'piece-slide-in': { 
+        'piece-slide-in': {
           '0%': { transform: 'scale(0.6) translateY(-20px) rotate(-10deg)', opacity: '0' },
           '20%': { transform: 'scale(0.7) translateY(-10px) rotate(-5deg)', opacity: '1' },
           '70%': { transform: 'scale(1.1) translateY(2px) rotate(3deg)', opacity: '1' },
