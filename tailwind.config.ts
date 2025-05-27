@@ -135,25 +135,9 @@ export default {
           '100%': { opacity: '0', backgroundSize: '100% 100%', transform: 'scale(0.5)'},
         },
         'piece-slide-in': {
-          '0%': { 
-            transform: 'translateY(10px) scale(0.2) rotate(-15deg)', 
-            opacity: '0',
-            backgroundColor: 'rgba(255, 0, 0, 0.5)' 
-          },
-          '20%': { 
-            transform: 'translateY(0px) scale(0.2) rotate(-5deg)',
-            opacity: '1',
-            backgroundColor: 'rgba(0, 255, 0, 0.5)' 
-          },
-          '70%': { 
-            transform: 'translateY(-2px) scale(1.1) rotate(3deg)',
-            backgroundColor: 'rgba(0, 0, 255, 0.5)'
-          },
-          '100%': { 
-            transform: 'translateY(0) scale(1) rotate(0deg)', 
-            opacity: '1',
-            backgroundColor: 'transparent' 
-          },
+          '0%': { transform: 'scale(0.5)', opacity: '1' },
+          '50%': { transform: 'scale(1.2)', opacity: '1' },
+          '100%': { transform: 'scale(1)', opacity: '1' },
         }
   		},
   		animation: {
