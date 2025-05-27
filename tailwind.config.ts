@@ -135,9 +135,18 @@ export default {
           '100%': { opacity: '0', backgroundSize: '100% 100%', transform: 'scale3d(0.5, 0.5, 1)'},
         },
         'piece-slide-in': {
-          '0%': { transform: 'scale3d(0.5, 0.5, 1)', opacity: '1' },
-          '50%': { transform: 'scale3d(1.2, 1.2, 1)', opacity: '1' },
-          '100%': { transform: 'scale3d(1, 1, 1)', opacity: '1' },
+          '0%': { 
+            transform: 'translate3d(0, -10px, 0) scale3d(0.8, 0.8, 1)', 
+            opacity: '1' 
+          },
+          '50%': { 
+            transform: 'translate3d(0, 2px, 0) scale3d(1.1, 1.1, 1)', 
+            opacity: '1' 
+          },
+          '100%': { 
+            transform: 'translate3d(0, 0, 0) scale3d(1, 1, 1)', 
+            opacity: '1' 
+          },
         }
   		},
   		animation: {
