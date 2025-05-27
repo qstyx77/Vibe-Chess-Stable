@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { SquareState, ViewMode, PlayerColor, AlgebraicSquare } from '@/types';
+import type { SquareState, ViewMode, AlgebraicSquare } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +16,7 @@ interface ChessSquareProps {
   disabled?: boolean;
   isKingInCheck?: boolean;
   viewMode?: ViewMode;
-  animatedSquareTo?: AlgebraicSquare | null; // New prop for animation
+  animatedSquareTo?: AlgebraicSquare | null;
 }
 
 export function ChessSquare({
@@ -30,7 +30,7 @@ export function ChessSquare({
   disabled = false,
   isKingInCheck = false,
   viewMode,
-  animatedSquareTo, // Destructure new prop
+  animatedSquareTo,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const squareBgColor = isLightSquare ? 'bg-card' : 'bg-muted';
@@ -41,7 +41,7 @@ export function ChessSquare({
     <button
       onClick={() => !disabled && onClick(squareData.algebraic)}
       className={cn(
-        'w-full aspect-square flex items-center justify-center transition-colors duration-150 ease-in-out relative group rounded-none',
+        'w-full aspect-square flex items-center justify-center relative group rounded-none', // Removed transition-colors
         squareBgColor,
         isSelected && !disabled && 'ring-2 ring-inset ring-accent', 
         isPossibleMove && !piece && !disabled && 'bg-accent/40',  
