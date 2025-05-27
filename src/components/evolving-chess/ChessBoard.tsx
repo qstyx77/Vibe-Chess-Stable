@@ -46,7 +46,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border",
         isInteractionDisabled && "opacity-70 cursor-not-allowed",
-        viewMode === 'tabletop' && "rotate-90 will-change-transform" // Added will-change-transform
+        viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden" 
       )}
     >
       {displayBoard.map((row, displayedRowIndex) =>
