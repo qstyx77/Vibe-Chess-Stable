@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -120,7 +119,20 @@ export default {
               0px -3px 0px hsl(var(--primary))
             `
           },
-        }
+        },
+        'capture-pattern-flash': {
+          '0%, 100%': { opacity: '0', backgroundColor: 'hsl(var(--primary))' },
+          '50%': { opacity: '0.5' },
+        },
+        'check-pattern-flash': {
+          '0%, 100%': { opacity: '0', backgroundColor: 'hsl(var(--destructive))' },
+          '50%': { opacity: '0.5' },
+        },
+        'checkmate-pattern-flash': {
+          '0%': { opacity: '0', transform: 'scale(0.8)', backgroundColor: 'hsl(var(--accent))' },
+          '50%': { opacity: '0.7', transform: 'scale(1.2)' },
+          '100%': { opacity: '0', transform: 'scale(0.8)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -128,6 +140,9 @@ export default {
         'flash-check': 'fadeInOut 1.5s ease-in-out forwards',
         'flash-checkmate': 'fadeInOut 2.5s ease-in-out forwards',
         'pixel-title-flash': 'pixel-title-flash 1.5s steps(2, jump-none) infinite',
+        'capture-pattern-flash': 'capture-pattern-flash 1.25s ease-in-out forwards',
+        'check-pattern-flash': 'check-pattern-flash 1.25s ease-in-out forwards',
+        'checkmate-pattern-flash': 'checkmate-pattern-flash 1.25s ease-in-out forwards',
   		}
   	}
   },
