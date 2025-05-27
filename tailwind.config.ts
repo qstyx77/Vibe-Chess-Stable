@@ -1,3 +1,4 @@
+
 import type { Config } from "tailwindcss";
 
 export default {
@@ -129,11 +130,15 @@ export default {
           '50%': { opacity: '0.6', backgroundSize: '80px 80px'},
         },
         'checkmate-pattern-flash': {
-          '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)', transform: 'scale(0.5)' },
-          '50%': { opacity: '0.6', backgroundSize: '200% 200%', transform: 'scale(1)' },
-          '100%': { opacity: '0', backgroundSize: '100% 100%', transform: 'scale(0.5)'},
+          '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)', transform: 'scale3d(0.5, 0.5, 1)' },
+          '50%': { opacity: '0.6', backgroundSize: '200% 200%', transform: 'scale3d(1, 1, 1)' },
+          '100%': { opacity: '0', backgroundSize: '100% 100%', transform: 'scale3d(0.5, 0.5, 1)'},
         },
-        // 'piece-slide-in' removed from here
+        'piece-slide-in': {
+          '0%': { transform: 'scale3d(0.5, 0.5, 1)', opacity: '1' },
+          '50%': { transform: 'scale3d(1.2, 1.2, 1)', opacity: '1' },
+          '100%': { transform: 'scale3d(1, 1, 1)', opacity: '1' },
+        }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -144,7 +149,7 @@ export default {
         'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
         'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
-        // 'animate-piece-slide-in' removed from here
+        'animate-piece-slide-in': 'piece-slide-in 0.7s ease-out forwards',
   		}
   	}
   },

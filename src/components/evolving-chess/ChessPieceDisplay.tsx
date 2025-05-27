@@ -1,5 +1,5 @@
 
-import type { Piece, ViewMode } from '@/types'; 
+import type { Piece, ViewMode } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 
@@ -10,7 +10,7 @@ interface ChessPieceDisplayProps {
   isJustMoved?: boolean;
 }
 
-export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false }: ChessPieceDisplayProps) { 
+export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false }: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
   
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
@@ -22,12 +22,12 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
   const shouldRotateBlackPiece = viewMode === 'tabletop' && piece.color === 'black';
 
   return (
-    <div 
+    <div
       className={cn(
         "relative flex items-center justify-center w-full h-full",
         pieceColorClass,
         shouldRotateBlackPiece && "rotate-180",
-        isJustMoved && "animate-piece-slide-in" // Restored Tailwind animation class
+        isJustMoved && "animate-piece-slide-in transform-gpu" // Added transform-gpu
       )}
     >
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
