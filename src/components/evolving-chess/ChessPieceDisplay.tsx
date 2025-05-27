@@ -21,13 +21,25 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
 
   const shouldRotateBlackPiece = viewMode === 'tabletop' && piece.color === 'black';
 
+  const justMovedStyle = isJustMoved 
+    ? { 
+        backgroundColor: 'rgba(0, 255, 0, 0.7)', // Bright semi-transparent green
+        border: '4px solid red',
+        transform: 'scale(1.3)', // Make it noticeably larger
+        transition: 'transform 0.3s ease-out, backgroundColor 0.3s ease-out, border 0.3s ease-out' 
+      } 
+    : {};
+
   return (
-    <div className={cn(
+    <div 
+      className={cn(
         "relative flex items-center justify-center w-full h-full",
         pieceColorClass,
-        shouldRotateBlackPiece && "rotate-180",
-        isJustMoved && "animate-piece-slide-in" 
-      )}>
+        shouldRotateBlackPiece && "rotate-180"
+        // isJustMoved && "animate-piece-slide-in" // Temporarily removed custom animation class
+      )}
+      style={justMovedStyle} // Apply direct inline style for diagnostics
+    >
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
       {piece.level > 1 && (
         <span

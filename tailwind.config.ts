@@ -122,32 +122,39 @@ export default {
           },
         },
         'capture-pattern-flash': {
-          '0%, 100%': { opacity: '0', backgroundSize: '40px 40px', backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--primary)) 0, hsl(var(--primary)) 10px, hsl(var(--secondary)) 10px, hsl(var(--secondary)) 20px)' },
-          '50%': { opacity: '0.6', backgroundSize: '80px 80px' },
+          '0%, 100%': { opacity: '0', backgroundSize: '80px 80px', backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--primary)) 0, hsl(var(--primary)) 20px, hsl(var(--secondary)) 20px, hsl(var(--secondary)) 40px)' },
+          '50%': { opacity: '0.5', backgroundSize: '160px 160px' },
         },
         'check-pattern-flash': {
-          '0%, 100%': { opacity: '0', backgroundSize: '20px 20px', backgroundImage: 'repeating-linear-gradient(0deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px), repeating-linear-gradient(90deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 5px, transparent 5px, transparent 10px)' },
-          '50%': { opacity: '0.7', backgroundSize: '40px 40px'},
+          '0%, 100%': { opacity: '0', backgroundSize: '40px 40px', backgroundImage: 'repeating-linear-gradient(0deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 10px, transparent 10px, transparent 20px), repeating-linear-gradient(90deg, hsl(var(--destructive)) 0, hsl(var(--destructive)) 10px, transparent 10px, transparent 20px)' },
+          '50%': { opacity: '0.6', backgroundSize: '80px 80px'},
         },
         'checkmate-pattern-flash': {
-          '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)' },
-          '50%': { opacity: '0.7', backgroundSize: '200% 200%' },
-          '100%': { opacity: '0', backgroundSize: '100% 100%'},
+          '0%': { opacity: '0', backgroundSize: '100% 100%', backgroundImage: 'repeating-conic-gradient(hsl(var(--accent)) 0% 25%, hsl(var(--background)) 0% 50%)', transform: 'scale(0.5)' },
+          '50%': { opacity: '0.6', backgroundSize: '200% 200%', transform: 'scale(1)' },
+          '100%': { opacity: '0', backgroundSize: '100% 100%', transform: 'scale(0.5)'},
         },
         'piece-slide-in': {
-            '0%': { 
-              transform: 'translateY(-8px) scale(1)', 
-              opacity: '1' 
-            },
-            '50%': { 
-              transform: 'translateY(-15px) scale(0.2)', // Exaggerated shrink
-              opacity: '1' 
-            },
-            '100%': { 
-              transform: 'translateY(0px) scale(1)', 
-              opacity: '1' 
-            },
+          '0%': { 
+            transform: 'translateY(10px) scale(0.2) rotate(-15deg)', 
+            opacity: '0',
+            backgroundColor: 'rgba(255, 0, 0, 0.5)' 
           },
+          '20%': { 
+            transform: 'translateY(0px) scale(0.2) rotate(-5deg)',
+            opacity: '1',
+            backgroundColor: 'rgba(0, 255, 0, 0.5)' 
+          },
+          '70%': { 
+            transform: 'translateY(-2px) scale(1.1) rotate(3deg)',
+            backgroundColor: 'rgba(0, 0, 255, 0.5)'
+          },
+          '100%': { 
+            transform: 'translateY(0) scale(1) rotate(0deg)', 
+            opacity: '1',
+            backgroundColor: 'transparent' 
+          },
+        }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
