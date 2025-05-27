@@ -142,11 +142,6 @@ export default {
         'flash-check': 'fadeInOut 1.5s ease-in-out forwards',
         'flash-checkmate': 'fadeInOut 2.5s ease-in-out forwards',
         'pixel-title-flash': 'pixel-title-flash 1.5s steps(2, jump-none) infinite',
-        'capture-pattern-flash': 'capture-pattern-flash 1.25s ease-in-out forwards',
-        'check-pattern-flash': 'check-pattern-flash 1.25s ease-in-out forwards',
-        'checkmate-pattern-flash': 'checkmate-pattern-flash 1.25s ease-in-out forwards',
-  		}
-  	}
-  },
-  plugins: [require("tailwindcss-animate")],
-} satisfies Config;
+        'capture-pattern-flash': 'capture-pattern-flash 2.25s ease-in-out forwards',
+        'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
+        'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-
