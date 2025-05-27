@@ -133,20 +133,20 @@ export default {
           '50%': { opacity: '0.7', backgroundSize: '200% 200%' },
           '100%': { opacity: '0', backgroundSize: '100% 100%'},
         },
-        'piece-slide-in': {
+        'piece-slide-in': { // Exaggerated keyframes for diagnostics
             '0%': { 
-              transform: 'translateY(10px) scale(0.5) rotate(-15deg)', 
+              transform: 'translateY(20px) scale(0.3) rotate(-45deg)', 
               opacity: '0',
-              backgroundColor: 'rgba(255, 0, 0, 0.5)' // Bright red, semi-transparent start
+              backgroundColor: 'rgba(255, 0, 0, 0.7)' // Bright red start
             },
             '20%': { 
-              transform: 'translateY(0px) scale(0.7) rotate(-5deg)',
+              transform: 'translateY(-10px) scale(1.2) rotate(15deg)',
               opacity: '1',
-              backgroundColor: 'rgba(0, 255, 0, 0.5)' // Bright green, semi-transparent
+              backgroundColor: 'rgba(0, 255, 0, 0.7)' // Bright green
             },
             '70%': { 
-              transform: 'translateY(-2px) scale(1.1) rotate(3deg)',
-              backgroundColor: 'rgba(0, 0, 255, 0.5)' // Bright blue, semi-transparent
+              transform: 'translateY(5px) scale(0.8) rotate(-10deg)',
+              backgroundColor: 'rgba(0, 0, 255, 0.7)' // Bright blue
             },
             '100%': { 
               transform: 'translateY(0) scale(1) rotate(0deg)', 
@@ -183,5 +183,3 @@ export default {
     }
   ]
 }  satisfies Config;
-    
-

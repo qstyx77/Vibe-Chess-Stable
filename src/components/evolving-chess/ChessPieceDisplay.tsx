@@ -26,7 +26,7 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
         "relative flex items-center justify-center w-full h-full",
         pieceColorClass,
         shouldRotateBlackPiece && "rotate-180",
-        isJustMoved && "animate-piece-slide-in" // Apply slide-in animation
+        isJustMoved && "animate-ping" // TEMPORARILY using animate-ping for diagnostics
       )}>
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
       {piece.level > 1 && (
