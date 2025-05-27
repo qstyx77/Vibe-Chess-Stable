@@ -17,7 +17,7 @@ interface ChessBoardProps {
   isInteractionDisabled: boolean;
   playerInCheck: PlayerColor | null;
   viewMode: ViewMode;
-  animatedSquareTo: AlgebraicSquare | null; // New prop for animation
+  animatedSquareTo: AlgebraicSquare | null;
 }
 
 export function ChessBoard({
@@ -32,7 +32,7 @@ export function ChessBoard({
   isInteractionDisabled,
   playerInCheck,
   viewMode,
-  animatedSquareTo, // Destructure new prop
+  animatedSquareTo,
 }: ChessBoardProps) {
   
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -46,7 +46,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border",
         isInteractionDisabled && "opacity-70 cursor-not-allowed",
-        viewMode === 'tabletop' && "rotate-90"
+        viewMode === 'tabletop' && "rotate-90 will-change-transform" // Added will-change-transform
       )}
     >
       {displayBoard.map((row, displayedRowIndex) =>
@@ -79,7 +79,7 @@ export function ChessBoard({
               disabled={isInteractionDisabled}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
-              animatedSquareTo={animatedSquareTo} // Pass down prop
+              animatedSquareTo={animatedSquareTo}
             />
           );
         })
