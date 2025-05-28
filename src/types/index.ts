@@ -65,7 +65,12 @@ export interface GameSnapshot {
   enemySelectedSquare?: AlgebraicSquare | null; 
   enemyPossibleMoves?: AlgebraicSquare[];
   positionHistory: string[];
-  lastMoveFrom: AlgebraicSquare | null; // Added
-  lastMoveTo: AlgebraicSquare | null;   // Added
+  lastMoveFrom: AlgebraicSquare | null;
+  lastMoveTo: AlgebraicSquare | null;
+  isAwaitingPawnSacrifice: boolean;
+  playerToSacrificePawn: PlayerColor | null;
+  // Add new fields for sacrifice context if they need to be part of undo
+  boardForPostSacrifice: BoardState | null;
+  playerWhoMadeQueenMove: PlayerColor | null;
+  isExtraTurnFromQueenMove: boolean;
 }
-

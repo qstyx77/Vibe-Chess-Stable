@@ -19,8 +19,10 @@ interface ChessBoardProps {
   viewMode: ViewMode;
   animatedSquareTo: AlgebraicSquare | null;
   applyBoardOpacityEffect?: boolean;
-  lastMoveFrom: AlgebraicSquare | null; // Added
-  lastMoveTo: AlgebraicSquare | null;   // Added
+  lastMoveFrom: AlgebraicSquare | null;
+  lastMoveTo: AlgebraicSquare | null;
+  isAwaitingPawnSacrifice: boolean;
+  playerToSacrificePawn: PlayerColor | null;
 }
 
 export function ChessBoard({
@@ -37,8 +39,10 @@ export function ChessBoard({
   viewMode,
   animatedSquareTo,
   applyBoardOpacityEffect,
-  lastMoveFrom, // Destructure
-  lastMoveTo,   // Destructure
+  lastMoveFrom,
+  lastMoveTo,
+  isAwaitingPawnSacrifice,
+  playerToSacrificePawn
 }: ChessBoardProps) {
   
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -76,6 +80,10 @@ export function ChessBoard({
           const isThisLastMoveFrom = currentSquareData.algebraic === lastMoveFrom;
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
 
+          const isSacrificeTargetSquare = isAwaitingPawnSacrifice && 
+                                          currentSquareData.piece?.type === 'pawn' &&
+                                          currentSquareData.piece?.color === playerToSacrificePawn;
+
           return (
             <ChessSquare
               key={currentSquareData.algebraic} 
@@ -86,13 +94,16 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled}
+              disabled={isInteractionDisabled && !isSacrificeTargetSquare} // Allow clicking on sacrifice target
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
               currentPlayerColor={currentPlayerColor} 
-              isLastMoveFrom={isThisLastMoveFrom} // Pass down
-              isLastMoveTo={isThisLastMoveTo}     // Pass down
+              isLastMoveFrom={isThisLastMoveFrom}
+              isLastMoveTo={isThisLastMoveTo}
+              isSacrificeTarget={isSacrificeTargetSquare}
+              isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} 
+              playerToSacrificePawn={playerToSacrificePawn}
             />
           );
         })
@@ -100,4 +111,3 @@ export function ChessBoard({
     </div>
   );
 }
-

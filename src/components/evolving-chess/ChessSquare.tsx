@@ -18,8 +18,11 @@ interface ChessSquareProps {
   viewMode?: ViewMode;
   animatedSquareTo?: AlgebraicSquare | null;
   currentPlayerColor?: PlayerColor;
-  isLastMoveFrom?: boolean; // Added
-  isLastMoveTo?: boolean;   // Added
+  isLastMoveFrom?: boolean;
+  isLastMoveTo?: boolean;
+  isSacrificeTarget?: boolean;
+  isAwaitingPawnSacrifice?: boolean;
+  playerToSacrificePawn?: PlayerColor | null;
 }
 
 export function ChessSquare({
@@ -35,43 +38,59 @@ export function ChessSquare({
   viewMode,
   animatedSquareTo,
   currentPlayerColor,
-  isLastMoveFrom, // Destructure
-  isLastMoveTo,   // Destructure
+  isLastMoveFrom,
+  isLastMoveTo,
+  isSacrificeTarget = false,
+  isAwaitingPawnSacrifice = false,
+  playerToSacrificePawn = null,
 }: ChessSquareProps) {
   const piece = squareData.piece;
 
   const isJustMoved = !!(animatedSquareTo && squareData.algebraic === animatedSquareTo && piece);
 
-  let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted'; // Default
+  let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted'; 
 
   if (isLastMoveFrom || isLastMoveTo) {
-      currentBgClass = 'bg-yellow-300/40'; // Soft yellow highlight for last move
+      currentBgClass = 'bg-yellow-300/40'; 
   }
 
-  // Possible move highlights will override last move highlight if applicable
   if (isPossibleMove && !piece && !disabled) currentBgClass = 'bg-accent/40';
   if (isPossibleMove && piece && !disabled) currentBgClass = 'bg-destructive/60';
   if (isEnemyPossibleMove && !piece && !disabled) currentBgClass = 'bg-blue-600/30';
   if (isEnemyPossibleMove && piece && !disabled) currentBgClass = 'bg-yellow-500/50';
 
 
-  const selectionRingClass = isSelected && !disabled ? 'ring-2 ring-inset ring-accent' 
-                           : isEnemySelected && !disabled ? 'ring-2 ring-inset ring-blue-600' 
-                           : '';
+  let selectionRingClass = '';
+  if (isAwaitingPawnSacrifice && piece?.type === 'pawn' && piece?.color === playerToSacrificePawn) {
+    selectionRingClass = 'ring-4 ring-inset ring-cyan-400 animate-pulse'; // Highlight for sacrifice
+  } else if (isSelected && !disabled) {
+    selectionRingClass = 'ring-2 ring-inset ring-accent';
+  } else if (isEnemySelected && !disabled) {
+    selectionRingClass = 'ring-2 ring-inset ring-blue-600';
+  }
+  
+  const effectiveDisabled = disabled && !(isAwaitingPawnSacrifice && piece?.type === 'pawn' && piece?.color === playerToSacrificePawn);
+
 
   return (
     <button
-      onClick={() => !disabled && onClick(squareData.algebraic)}
+      onClick={() => !effectiveDisabled && onClick(squareData.algebraic)}
       className={cn(
         'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu',
         currentBgClass, 
         selectionRingClass,
-        disabled && 'cursor-not-allowed'
+        effectiveDisabled && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}`}
-      disabled={disabled}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${effectiveDisabled ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}`}
+      disabled={effectiveDisabled}
     >
-      {piece && <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} viewMode={viewMode} isJustMoved={isJustMoved} />}
+      {piece && <ChessPieceDisplay 
+                  piece={piece} 
+                  isKingInCheck={isKingInCheck} 
+                  viewMode={viewMode} 
+                  isJustMoved={isJustMoved} 
+                  isSacrificeTarget={isAwaitingPawnSacrifice && piece.type === 'pawn' && piece.color === playerToSacrificePawn}
+                />}
       <span className="absolute bottom-0.5 left-0.5 font-pixel text-[8px] text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden">
         {squareData.algebraic}
       </span>
@@ -81,4 +100,3 @@ export function ChessSquare({
     </button>
   );
 }
-
