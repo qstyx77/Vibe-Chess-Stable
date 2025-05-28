@@ -35,7 +35,7 @@ export interface GameStatus {
   playerWithKingInCheck: PlayerColor | null;
   isCheckmate: boolean;
   isStalemate: boolean;
-  isThreefoldRepetitionDraw?: boolean; // Added for threefold repetition
+  isThreefoldRepetitionDraw?: boolean;
   winner?: PlayerColor | 'draw';
   gameOver: boolean;
   killStreaks?: { white: number, black: number }; 
@@ -64,5 +64,8 @@ export interface GameSnapshot {
   isBlackAI: boolean;
   enemySelectedSquare?: AlgebraicSquare | null; 
   enemyPossibleMoves?: AlgebraicSquare[];
-  positionHistory: string[]; // Added for threefold repetition
+  positionHistory: string[];
+  lastMoveFrom: AlgebraicSquare | null; // Added
+  lastMoveTo: AlgebraicSquare | null;   // Added
 }
+

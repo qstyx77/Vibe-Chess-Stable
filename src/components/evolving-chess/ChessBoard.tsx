@@ -19,6 +19,8 @@ interface ChessBoardProps {
   viewMode: ViewMode;
   animatedSquareTo: AlgebraicSquare | null;
   applyBoardOpacityEffect?: boolean;
+  lastMoveFrom: AlgebraicSquare | null; // Added
+  lastMoveTo: AlgebraicSquare | null;   // Added
 }
 
 export function ChessBoard({
@@ -28,13 +30,15 @@ export function ChessBoard({
   enemySelectedSquare,
   enemyPossibleMoves,
   onSquareClick,
-  playerColor, // This is boardOrientation from page.tsx
+  playerColor, 
   currentPlayerColor,
   isInteractionDisabled,
   playerInCheck,
   viewMode,
   animatedSquareTo,
   applyBoardOpacityEffect,
+  lastMoveFrom, // Destructure
+  lastMoveTo,   // Destructure
 }: ChessBoardProps) {
   
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -54,16 +58,13 @@ export function ChessBoard({
     >
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
-          // Determine actual indices based on whether the board is visually flipped for display logic
           const actualRowIndex = visuallyFlipBoardForLogic ? 7 - displayedRowIndex : displayedRowIndex;
           const actualColIndex = visuallyFlipBoardForLogic ? 7 - displayedColIndex : displayedColIndex;
           
-          // Use actual indices to get the correct square data from the original boardState
           const currentSquareData = boardState[actualRowIndex][actualColIndex]; 
           
           const isLightSquare = (actualRowIndex + actualColIndex) % 2 === 0;
           
-          // Check selection/move states against the actual algebraic notation
           const isPlayerSelected = selectedSquare === currentSquareData.algebraic;
           const isPlayerPossibleMove = possibleMoves.includes(currentSquareData.algebraic);
           
@@ -72,9 +73,12 @@ export function ChessBoard({
 
           const isThisKingInCheck = currentSquareData.piece?.type === 'king' && currentSquareData.piece?.color === playerInCheck;
           
+          const isThisLastMoveFrom = currentSquareData.algebraic === lastMoveFrom;
+          const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
+
           return (
             <ChessSquare
-              key={currentSquareData.algebraic} // Key should be based on the actual unique square ID
+              key={currentSquareData.algebraic} 
               squareData={currentSquareData}
               isLightSquare={isLightSquare}
               isSelected={isPlayerSelected}
@@ -86,7 +90,9 @@ export function ChessBoard({
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              currentPlayerColor={currentPlayerColor} // Pass current player color for enemy capture styling
+              currentPlayerColor={currentPlayerColor} 
+              isLastMoveFrom={isThisLastMoveFrom} // Pass down
+              isLastMoveTo={isThisLastMoveTo}     // Pass down
             />
           );
         })
@@ -94,3 +100,4 @@ export function ChessBoard({
     </div>
   );
 }
+

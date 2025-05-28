@@ -18,6 +18,8 @@ interface ChessSquareProps {
   viewMode?: ViewMode;
   animatedSquareTo?: AlgebraicSquare | null;
   currentPlayerColor?: PlayerColor;
+  isLastMoveFrom?: boolean; // Added
+  isLastMoveTo?: boolean;   // Added
 }
 
 export function ChessSquare({
@@ -33,26 +35,37 @@ export function ChessSquare({
   viewMode,
   animatedSquareTo,
   currentPlayerColor,
+  isLastMoveFrom, // Destructure
+  isLastMoveTo,   // Destructure
 }: ChessSquareProps) {
   const piece = squareData.piece;
-  const squareBgColor = isLightSquare ? 'bg-card' : 'bg-muted';
 
   const isJustMoved = !!(animatedSquareTo && squareData.algebraic === animatedSquareTo && piece);
 
-  const isEnemyCaptureOfPlayerPiece = isEnemyPossibleMove && piece && piece.color === currentPlayerColor;
+  let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted'; // Default
+
+  if (isLastMoveFrom || isLastMoveTo) {
+      currentBgClass = 'bg-yellow-300/40'; // Soft yellow highlight for last move
+  }
+
+  // Possible move highlights will override last move highlight if applicable
+  if (isPossibleMove && !piece && !disabled) currentBgClass = 'bg-accent/40';
+  if (isPossibleMove && piece && !disabled) currentBgClass = 'bg-destructive/60';
+  if (isEnemyPossibleMove && !piece && !disabled) currentBgClass = 'bg-blue-600/30';
+  if (isEnemyPossibleMove && piece && !disabled) currentBgClass = 'bg-yellow-500/50';
+
+
+  const selectionRingClass = isSelected && !disabled ? 'ring-2 ring-inset ring-accent' 
+                           : isEnemySelected && !disabled ? 'ring-2 ring-inset ring-blue-600' 
+                           : '';
 
   return (
     <button
       onClick={() => !disabled && onClick(squareData.algebraic)}
       className={cn(
-        'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu', // Added transform-gpu
-        squareBgColor,
-        isSelected && !disabled && 'ring-2 ring-inset ring-accent', 
-        isPossibleMove && !piece && !disabled && 'bg-accent/40',  
-        isPossibleMove && piece && !disabled && 'bg-destructive/60', 
-        isEnemySelected && !disabled && 'ring-2 ring-inset ring-blue-600', 
-        isEnemyPossibleMove && !piece && !disabled && 'bg-blue-600/30', 
-        isEnemyPossibleMove && piece && !disabled && 'bg-yellow-500/50',
+        'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu',
+        currentBgClass, 
+        selectionRingClass,
         disabled && 'cursor-not-allowed'
       )}
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${disabled ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}`}
@@ -68,3 +81,4 @@ export function ChessSquare({
     </button>
   );
 }
+
