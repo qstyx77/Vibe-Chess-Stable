@@ -56,7 +56,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
-                <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in/through/into check).</PieceRule>
+                <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in/through/into check). Castling is not allowed if the King is currently in check.</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
                   If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
@@ -159,3 +159,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
