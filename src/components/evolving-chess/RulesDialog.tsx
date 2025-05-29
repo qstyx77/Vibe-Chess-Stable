@@ -56,7 +56,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
-                <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in/through/into check). Castling is not allowed if the King is in check.</PieceRule>
+                <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
                   If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
@@ -69,7 +69,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="killstreaks">
               <AccordionTrigger className="text-lg hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Activation">Achieved by capturing enemy pieces on consecutive turns by the same player.</PieceRule>
+                <PieceRule title="Activation">Achieved by capturing enemy pieces. A player's streak only resets if that player makes a non-capturing move.</PieceRule>
                 <PieceRule title="Streak of 3 (Resurrection)">
                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1.
                 </PieceRule>
@@ -143,8 +143,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">King Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle." />
-                  <LevelRule level="2+" description="Extended Reach: Can move/capture up to 2 squares in any direction. If this 2-square move is in a straight line (horizontal, vertical, or diagonal), the intermediate square must be empty." />
+                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square)." />
+                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty and not under attack by an opponent's piece." />
+                  <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
