@@ -587,6 +587,33 @@ class VibeChessAI {
         }
         return abilitiesScore;
     }
+
+    // --- Invulnerability Check ---
+    isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, gameState: AIGameState): boolean {
+        if (!targetPiece) return false; // No piece, not invulnerable
+        if (!attackingPiece) return false; // No attacker context
+
+        const targetLevel = targetPiece.level || 1;
+        const attackerLevel = attackingPiece.level || 1;
+
+        // Rule 1: Queen L5+ vs. lower level attacker
+        if (targetPiece.type === 'queen' && targetLevel >= 5 && attackerLevel < targetLevel) {
+            return true;
+        }
+
+        // Rule 2: Bishop L3+ vs. Pawn attacker
+        if (targetPiece.type === 'bishop' && targetLevel >= 3 && attackingPiece.type === 'pawn') {
+            return true;
+        }
+        
+        // Rule 3: General invulnerability turns (e.g., Rook L3+ ability)
+        // This is checked based on the targetPiece's own property
+        if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
+            return true;
+        }
+
+        return false;
+    }
     
     // --- Move Generation ---
     generateAllMoves(gameState: AIGameState, color: PlayerColor): AIMove[] {
@@ -670,7 +697,7 @@ class VibeChessAI {
             if (this.isValidSquare(r + dir, c + dc)) {
                 const target = board[r + dir][c + dc];
                 if (target && target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, gameState)) {
-                     if (!(target.type === 'bishop' && (target.level || 1) >= 3 && piece.type === 'pawn')) { // Bishop L3+ immunity
+                     if (!(target.type === 'bishop' && (target.level || 1) >= 3 && piece.type === 'pawn')) { // Bishop L3+ immunity (already covered by general invuln check)
                         if (r + dir === promotionRank) {
                             ['queen', 'rook', 'bishop', 'knight'].forEach(pt => moves.push({ from: [r,c], to: [r + dir, c + dc], type: 'promotion', promoteTo: pt as PieceType }));
                         } else {
@@ -983,6 +1010,62 @@ class VibeChessAI {
         }
         return count;
     }
+
+    // Helper for quick move evaluation during move ordering
+    quickEvaluateMove(gameState: AIGameState, move: AIMove, playerColor: PlayerColor): number {
+        let score = 0;
+        const [toR, toC] = move.to;
+        const targetPiece = gameState.board[toR]?.[toC];
+        
+        if (targetPiece && targetPiece.color !== playerColor) { // Capture
+            const capturedValue = this.pieceValues[targetPiece.type]?.[(targetPiece.level || 1) - 1] || 0;
+            score += capturedValue * 10; // Heavily prioritize captures
+        }
+        
+        if (move.type === 'promotion') {
+            const promoValue = this.pieceValues[move.promoteTo || 'queen']?.[0] || 0;
+            score += promoValue;
+        }
+
+        // Positional bonus for moving to center (simple heuristic)
+        if (this.centerSquares.has(`${toR}${toC}`)) {
+            score += 5;
+        } else if (this.nearCenterSquares.has(`${toR}${toC}`)) {
+            score += 2;
+        }
+        
+        // Add a small bonus for checks (if we can quickly determine it)
+        // This requires simulating the move, which might be too slow for quick eval.
+        // For now, keeping it simple.
+        // const tempState = this.makeMoveOptimized(gameState, move, playerColor);
+        // if (this.isInCheck(tempState, playerColor === 'white' ? 'black' : 'white')) {
+        //     score += 10;
+        // }
+
+        return score;
+    }
+    
+    // Get a string key for the current game state for caching
+    getPositionKey(gameState: AIGameState, isMaximizingPlayer: boolean): string {
+        let key = '';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = gameState.board[r][c];
+                if (p) {
+                    key += `${p.color[0]}${p.type[0]}${p.level || 1}`;
+                    if (p.invulnerableTurnsRemaining) key += `i${p.invulnerableTurnsRemaining}`;
+                } else {
+                    key += '--';
+                }
+            }
+        }
+        key += `-${gameState.currentPlayer[0]}`;
+        key += `-${isMaximizingPlayer ? 'M' : 'm'}`;
+        key += `-w${gameState.killStreaks?.white || 0}b${gameState.killStreaks?.black || 0}`;
+        // Could add castling rights if tracked more explicitly in AIGameState beyond piece.hasMoved
+        return key;
+    }
+
 }
 
 export default VibeChessAI;
