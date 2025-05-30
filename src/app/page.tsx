@@ -20,7 +20,8 @@ import {
   getCastlingRightsString,
   boardToPositionHash,
   type ConversionEvent,
-  isPieceInvulnerableToAttack, // Changed from isPieceInvulnerable
+  isPieceInvulnerableToAttack,
+  isValidSquare, // Added import
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -121,6 +122,7 @@ export default function EvolvingChessPage() {
   const [playerWhoMadeQueenMove, setPlayerWhoMadeQueenMove] = useState<PlayerColor | null>(null);
   const [isExtraTurnFromQueenMove, setIsExtraTurnFromQueenMove] = useState<boolean>(false);
 
+  // States for Rook Sacrifice/Resurrection (previously removed, ensure they are not needed for current logic)
   const [isAwaitingRookSacrifice, setIsAwaitingRookSacrifice] = useState(false);
   const [playerToSacrificeForRook, setPlayerToSacrificeForRook] = useState<PlayerColor | null>(null);
   const [rookToMakeInvulnerable, setRookToMakeInvulnerable] = useState<AlgebraicSquare | null>(null);
@@ -132,7 +134,6 @@ export default function EvolvingChessPage() {
   const { toast } = useToast();
   const mainContentRef = useRef<HTMLDivElement>(null);
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn;
-
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -435,7 +436,7 @@ export default function EvolvingChessPage() {
             };
             
             boardAfterResurrection[resR][resC].piece = resurrectedPieceData;
-            setBoard(boardAfterResurrection); // Update board state immediately with resurrected piece
+            setBoard(boardAfterResurrection); 
 
             toast({
               title: "Rook's Call!",
@@ -456,19 +457,17 @@ export default function EvolvingChessPage() {
         } else {
              console.log(`ROOK_RES_DEBUG: No pieces for ${playerWhosePieceLeveled} to resurrect.`);
         }
-        return prevCaptured; // No change if resurrection failed
+        return prevCaptured; 
       });
       
-      // Pass the potentially modified board to processMoveEnd
       processMoveEnd(boardAfterResurrection, playerWhosePieceLeveled, isExtraTurnFromOriginalMove);
-      return false; // Resurrection attempt handled (successfully or not), turn proceeds
+      return false; 
     }
 
-    // If no resurrection was triggered
     console.log("ROOK_RES_DEBUG: Rook did not trigger L3+ resurrection. Calling processMoveEnd.");
     processMoveEnd(boardAfterPrimaryMove, playerWhosePieceLeveled, isExtraTurnFromOriginalMove);
     return false;
-  }, [toast, getPlayerDisplayName, processMoveEnd, setBoard, setCapturedPieces]);
+  }, [toast, getPlayerDisplayName, processMoveEnd, setBoard, setCapturedPieces, isValidSquare]);
 
 
   const saveStateToHistory = useCallback(() => {
@@ -618,7 +617,7 @@ export default function EvolvingChessPage() {
             if (adjR >= 0 && adjR < 8 && adjC >= 0 && adjC < 8) {
               const victimPiece = boardAfterDestruct[adjR][adjC].piece;
               if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
-                if (isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected, boardAfterDestruct)) { // Changed to isPieceInvulnerableToAttack
+                if (isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected, boardAfterDestruct)) { 
                   toast({ title: "Invulnerable!", description: `${getPlayerDisplayName(selfDestructPlayer)} Knight's self-destruct failed on invulnerable ${victimPiece.type}.`, duration: 2500 });
                   continue;
                 }
@@ -844,8 +843,10 @@ export default function EvolvingChessPage() {
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice) {
             setIsPromotingPawn(true); setPromotionSquare(algebraic);
           } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice) {
-            // processRookSacrificeCheck was removed from here as Rook L3+ resurrection is now handled above.
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, streakGrantsExtraTurn);
+            const sacrificeNeededForRook = processRookSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, algebraic, originalPieceLevelBeforeMove, streakGrantsExtraTurn);
+            if(!sacrificeNeededForRook){
+              processMoveEnd(finalBoardStateForTurn, currentPlayer, streakGrantsExtraTurn);
+            }
           }
           setIsMoveProcessing(false);
         }, 800);
@@ -875,8 +876,8 @@ export default function EvolvingChessPage() {
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
     setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
-    isAwaitingRookSacrifice, processRookSacrificeCheck, 
-    algebraicToCoords, applyMove, isKingInCheck, isPieceInvulnerableToAttack, 
+    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp, processRookSacrificeCheck, 
+    algebraicToCoords, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare,
     setGameInfoBasedOnExtraTurn, completeTurn 
   ]);
 
@@ -1074,7 +1075,7 @@ export default function EvolvingChessPage() {
                     if (adjR_AI >= 0 && adjR_AI < 8 && adjC_AI >= 0 && adjC_AI < 8) {
                         const victimPiece_AI = finalBoardStateForAI[adjR_AI][adjC_AI].piece;
                         if (victimPiece_AI && victimPiece_AI.color !== currentPlayer && victimPiece_AI.type !== 'king') {
-                        if (isPieceInvulnerableToAttack(victimPiece_AI, selfDestructingKnight_AI, finalBoardStateForAI)) { // Changed to isPieceInvulnerableToAttack
+                        if (isPieceInvulnerableToAttack(victimPiece_AI, selfDestructingKnight_AI, finalBoardStateForAI)) { 
                             toast({ title: "Invulnerable!", description: `AI Knight's self-destruct failed on invulnerable ${victimPiece_AI.type}.`, duration: 2500 });
                             continue;
                         }
@@ -1295,7 +1296,7 @@ export default function EvolvingChessPage() {
     setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
     setLastMoveFrom, setLastMoveTo,
     processPawnSacrificeCheck, processRookSacrificeCheck,
-    algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack,
+    algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare,
     setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd
   ]);
 
@@ -1684,6 +1685,8 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
 
     
 

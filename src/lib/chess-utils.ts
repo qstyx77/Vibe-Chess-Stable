@@ -202,7 +202,7 @@ export function getPossibleMovesInternal(
   return possible;
 }
 
-function isValidSquare(row: number, col: number): boolean {
+export function isValidSquare(row: number, col: number): boolean {
     return row >= 0 && row < 8 && col >= 0 && col < 8;
 }
 
@@ -453,12 +453,6 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     const targetLevel = targetPiece.level || 1;
     const attackerLevel = attackingPiece.level || 1;
 
-    // Rook temporary invulnerability - No longer used
-    // if (targetPiece.type === 'rook' && targetLevel >= 3 && targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
-    //   console.log(`VIBE_DEBUG: Invulnerability Check: Target Rook ${targetPiece.id} is invulnerable. Turns left: ${targetPiece.invulnerableTurnsRemaining}`);
-    //   return true;
-    // }
-
     // Queen Royal Guard
     if (targetPiece.type === 'queen' && targetLevel >= 5 && attackerLevel < targetLevel) {
       return true;
@@ -555,14 +549,12 @@ export function applyMove(
       default: levelGain = 0; break; 
     }
     movingPieceRef.level = Math.min(6, (movingPieceRef.level || 1) + levelGain);
-    // Rook invulnerability is no longer set here; it's handled by the new L3+ resurrection ability.
   }
 
   if (movingPieceRef.type === 'pawn' && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
       movingPieceRef.type = move.promoteTo;
       movingPieceRef.level = 1;
-      // Rook invulnerability from promotion is no longer set here.
     }
   }
 
@@ -749,8 +741,8 @@ export function getPieceUnicode(piece: Piece): string {
     case 'queen': return isWhite ? '♕' : '♛';
     case 'rook': return isWhite ? '♖' : '♜';
     case 'bishop': return isWhite ? '♗' : '♝';
-    case 'knight': return isWhite ? '♘' : '♞'; // Corrected Black Knight
-    case 'pawn': return isWhite ? '♙' : '♟︎'; // White pawn outlined, Black pawn filled
+    case 'knight': return isWhite ? '♘' : '♞'; 
+    case 'pawn': return isWhite ? '♙' : '♟︎'; 
     default: return '';
   }
 }
@@ -780,3 +772,4 @@ export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor): 
     boardStr += ` Castling:${getCastlingRightsString(board)}`;
     return boardStr.trim();
 }
+
