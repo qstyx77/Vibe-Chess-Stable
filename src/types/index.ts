@@ -8,7 +8,7 @@ export interface Piece {
   color: PlayerColor;
   level: number;
   hasMoved: boolean; 
-  // invulnerableTurnsRemaining?: number; // Removed for Rook simplification
+  // invulnerableTurnsRemaining?: number; // REMOVED - Rook invulnerability handled differently or not at all
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -25,8 +25,8 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap'; // For AI move objects
-  promoteTo?: PieceType; // For AI promotion
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap';
+  promoteTo?: PieceType;
 }
 
 export interface GameStatus {
@@ -38,8 +38,6 @@ export interface GameStatus {
   isThreefoldRepetitionDraw?: boolean;
   winner?: PlayerColor | 'draw';
   gameOver: boolean;
-  killStreaks?: { white: number, black: number }; 
-  capturedPieces?: { white: Piece[], black: Piece[] }; 
 }
 
 export interface ConversionEvent {
@@ -67,18 +65,9 @@ export interface GameSnapshot {
   positionHistory: string[];
   lastMoveFrom: AlgebraicSquare | null;
   lastMoveTo: AlgebraicSquare | null;
-  // States for Queen's pawn sacrifice
+  
+  // Pawn Sacrifice States
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
-  boardForPostSacrifice: BoardState | null; // Board state after Queen's move but before pawn sacrifice
-  playerWhoMadeQueenMove: PlayerColor | null; // Player whose Queen leveled up
-  isExtraTurnFromQueenMove: boolean; // If the Queen's move itself granted an extra turn
-
-  // Removed Rook sacrifice states
-  // isAwaitingRookSacrifice: boolean;
-  // playerToSacrificeForRook: PlayerColor | null;
-  // rookToMakeInvulnerable: AlgebraicSquare | null;
-  // boardForRookSacrifice: BoardState | null;
-  // originalTurnPlayerForRookSacrifice: PlayerColor | null;
-  // isExtraTurnFromRookLevelUp: boolean;
-}
+  boardForPostSacrifice: BoardState | null;
+  player
