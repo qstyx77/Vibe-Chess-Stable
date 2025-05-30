@@ -332,10 +332,10 @@ class VibeChessAI {
             if (pieceOnToSquare.type === 'bishop' && (pieceOnToSquare.level || 1) >= 5 && (move.type === 'move' || move.type === 'capture' || move.type === 'promotion')) {
                 this.handleBishopConversion(newState, toRow, toCol, pieceOnToSquare.color);
             }
-            // Rook Resurrection: if the piece that moved is a rook, its level is >=3, AND its level increased this turn
+            // Rook Resurrection:
             if (pieceOnToSquare.type === 'rook' &&
                 (pieceOnToSquare.level || 1) >= 3 &&
-                (pieceOnToSquare.level || 1) > originalLevelOfMovingPiece
+                (pieceOnToSquare.level || 1) > originalLevelOfMovingPiece // Level increased this turn
             ) {
                 this.handleResurrection(newState, currentPlayer);
             }
@@ -391,25 +391,20 @@ class VibeChessAI {
     }
 
     handleBishopConversion(newState: AIGameState, bishopRow: number, bishopCol: number, bishopColor: PlayerColor) {
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-                if (dr === 0 && dc === 0) continue;
-                const adjR = bishopRow + dr;
-                const adjC = bishopCol + dc;
-                if (this.isValidSquare(adjR, adjC)) {
-                    const adjPiece = newState.board[adjR][adjC];
-                    if (adjPiece && adjPiece.color !== bishopColor && adjPiece.type !== 'king') {
-                        if (this.shouldConvertPiece(adjR, adjC)) { 
-                            adjPiece.color = bishopColor;
-                            adjPiece.id = `conv_${adjPiece.id}_${Date.now()}`;
-                        }
-                    }
-                }
-            }
-        }
+        // The AI will no longer simulate the color change part of the conversion,
+        // as it's a 50% chance in the actual game and the AI cannot predict this.
+        // This prevents the AI's internal board from desynchronizing due to its
+        // deterministic simulation of a probabilistic event.
+        // If other effects were tied to conversion (e.g., level changes for the converted piece),
+        // those would also be skipped or handled based on a non-conversion scenario from the AI's perspective.
+        // For VIBE CHESS, the main effect is the color change, which we are now skipping in AI simulation.
     }
     
     shouldConvertPiece(row: number, col: number): boolean { 
+        // This method was previously used by the AI to deterministically decide conversion.
+        // Since the actual game conversion is 50% random, this method is no longer directly
+        // used by handleBishopConversion to change colors in the AI's simulation.
+        // It's kept here for potential future AI heuristics if a more complex simulation of probability is desired.
         return (row + col) % 2 === 0; 
     }
 
@@ -695,7 +690,7 @@ class VibeChessAI {
                 moves.push({ from: [r,c], to: [r + dir, c], type: 'move' });
             }
             // Forward 2 from start
-            if (r === startRow && this.isValidSquare(r + 2 * dir, c) && !board[r + 2 * dir][c] && !board[r + dir][c]) { // Check intermediate square
+            if (r === startRow && this.isValidSquare(r + 2 * dir, c) && !board[r + dir][c] && !board[r + 2 * dir][c]) { 
                 moves.push({ from: [r,c], to: [r + 2 * dir, c], type: 'move' });
             }
         }
@@ -1073,3 +1068,4 @@ export default VibeChessAI;
 
 
     
+
