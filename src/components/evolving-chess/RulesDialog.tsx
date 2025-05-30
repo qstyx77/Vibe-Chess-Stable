@@ -100,7 +100,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
                   <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight can be re-selected to self-destruct. The Knight is removed from the board, and all adjacent enemy pieces (except Kings, invulnerable Rooks, and higher-level invulnerable Queens) are captured. This counts towards kill streaks." />
+                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight can be re-selected to self-destruct. The Knight is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -123,8 +123,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="3+" description="Upon leveling up to Level 3 (or any higher level through capture), it becomes invulnerable for the opponent's next turn." />
-                  <LevelRule level="Promotion" description="If a Pawn is promoted to a Rook (starts at Level 1), the Rook is invulnerable for the opponent's next turn." />
+                  <LevelRule level="3+" description="Resurrection Call: Upon this Rook leveling up to Level 3 or higher (e.g., through capture, or if a Pawn promoted to a Rook then levels up to L3+), it immediately attempts to resurrect one of its player's own captured pieces. The resurrected piece (chosen randomly from available captured pieces) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
