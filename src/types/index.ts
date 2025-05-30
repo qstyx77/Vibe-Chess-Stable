@@ -8,7 +8,7 @@ export interface Piece {
   color: PlayerColor;
   level: number;
   hasMoved: boolean; 
-  invulnerableTurnsRemaining?: number; 
+  // invulnerableTurnsRemaining?: number; // Removed for Rook simplification
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -67,10 +67,18 @@ export interface GameSnapshot {
   positionHistory: string[];
   lastMoveFrom: AlgebraicSquare | null;
   lastMoveTo: AlgebraicSquare | null;
+  // States for Queen's pawn sacrifice
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
-  // Add new fields for sacrifice context if they need to be part of undo
-  boardForPostSacrifice: BoardState | null;
-  playerWhoMadeQueenMove: PlayerColor | null;
-  isExtraTurnFromQueenMove: boolean;
+  boardForPostSacrifice: BoardState | null; // Board state after Queen's move but before pawn sacrifice
+  playerWhoMadeQueenMove: PlayerColor | null; // Player whose Queen leveled up
+  isExtraTurnFromQueenMove: boolean; // If the Queen's move itself granted an extra turn
+
+  // Removed Rook sacrifice states
+  // isAwaitingRookSacrifice: boolean;
+  // playerToSacrificeForRook: PlayerColor | null;
+  // rookToMakeInvulnerable: AlgebraicSquare | null;
+  // boardForRookSacrifice: BoardState | null;
+  // originalTurnPlayerForRookSacrifice: PlayerColor | null;
+  // isExtraTurnFromRookLevelUp: boolean;
 }
