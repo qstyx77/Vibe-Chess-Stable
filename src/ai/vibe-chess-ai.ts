@@ -695,7 +695,7 @@ class VibeChessAI {
                 moves.push({ from: [r,c], to: [r + dir, c], type: 'move' });
             }
             // Forward 2 from start
-            if (r === startRow && this.isValidSquare(r + 2 * dir, c) && !board[r + 2 * dir][c]) {
+            if (r === startRow && this.isValidSquare(r + 2 * dir, c) && !board[r + 2 * dir][c] && !board[r + dir][c]) { // Check intermediate square
                 moves.push({ from: [r,c], to: [r + 2 * dir, c], type: 'move' });
             }
         }
