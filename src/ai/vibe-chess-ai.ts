@@ -229,6 +229,8 @@ class VibeChessAI {
         
         let pieceWasCaptured = false;
         const originalTargetPiece = newState.board[toRow][toCol] ? { ...newState.board[toRow][toCol]! } : null;
+        const originalLevelOfMovingPiece = gameState.board[fromRow][fromCol]?.level || 1;
+
 
         // 1. Decrease invulnerability for opponent's pieces at START of this simulated turn
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
@@ -256,7 +258,8 @@ class VibeChessAI {
             const levelBonus = this.captureLevelBonuses[originalTargetPiece.type as PieceType] || 1;
             movingPieceCopy.level = Math.min(6, (movingPieceCopy.level || 1) + levelBonus);
             if (movingPieceCopy.type === 'rook' && (movingPieceCopy.level || 1) >= 3) {
-                movingPieceCopy.invulnerableTurnsRemaining = 1;
+                // Rook L3 invulnerability is handled in game logic, not directly set here by AI simulation
+                // AI will recognize it if the game state has it.
             }
             newState.board[toRow][toCol] = movingPieceCopy;
             newState.board[fromRow][fromCol] = null;
@@ -274,8 +277,12 @@ class VibeChessAI {
                 return newState; // Cannot capture own piece on promotion
             }
             movingPieceCopy.type = move.promoteTo || 'queen';
-            movingPieceCopy.level = 1;
-            if (movingPieceCopy.type === 'rook') movingPieceCopy.invulnerableTurnsRemaining = 1;
+            movingPieceCopy.level = 1; // Base level for promoted piece
+            // If promotion results in a capture, level up the new piece
+            if (pieceWasCaptured && originalTargetPiece) {
+                 const levelBonusPromo = this.captureLevelBonuses[originalTargetPiece.type as PieceType] || 1;
+                 movingPieceCopy.level = Math.min(6, movingPieceCopy.level + levelBonusPromo);
+            }
             newState.extraTurn = originalPawnLevel >= 5;
             newState.board[toRow][toCol] = movingPieceCopy;
             newState.board[fromRow][fromCol] = null;
@@ -325,16 +332,18 @@ class VibeChessAI {
             if (pieceOnToSquare.type === 'bishop' && (pieceOnToSquare.level || 1) >= 5 && (move.type === 'move' || move.type === 'capture' || move.type === 'promotion')) {
                 this.handleBishopConversion(newState, toRow, toCol, pieceOnToSquare.color);
             }
-            // Rook L3+ Resurrection
-            const originalLevelOfMovingPiece = gameState.board[fromRow][fromCol]?.level || 1;
-            if (pieceOnToSquare.type === 'rook' && (pieceOnToSquare.level || 1) >= 3 && originalLevelOfMovingPiece < 3) {
+            // Rook Resurrection: if the piece that moved is a rook, its level is >=3, AND its level increased this turn
+            if (pieceOnToSquare.type === 'rook' &&
+                (pieceOnToSquare.level || 1) >= 3 &&
+                (pieceOnToSquare.level || 1) > originalLevelOfMovingPiece
+            ) {
                 this.handleResurrection(newState, currentPlayer);
             }
         }
 
         // 4. Update Kill Streaks
         if (pieceWasCaptured) {
-            newState.killStreaks[currentPlayer] = (newState.killStreaks[currentPlayer] || 0) + 1;
+            newState.killStreaks[currentPlayer] = (newState.killStreaks[currentPlayer] || 0) + 1; // Assuming 1 piece captured for simplicity; self-destruct would need more complex update here if AI uses it
             newState.killStreaks[opponentColor] = 0;
             if (newState.killStreaks[currentPlayer] === 3) this.handleResurrection(newState, currentPlayer);
             if (newState.killStreaks[currentPlayer] === 6) newState.extraTurn = true;
@@ -413,15 +422,10 @@ class VibeChessAI {
         if (!pieceToResurrect) return;
 
         const emptySquares: [number, number][] = [];
-        let rookPos = null; // Find the rook that triggered this
+        // AI simplified resurrection: Place on any empty square.
+        // A more complex version would place it adjacent to the triggering Rook,
+        // but that requires knowing which Rook triggered it if multiple are L3+.
         for(let r=0; r<8; r++) for(let c=0; c<8; c++){
-            const p = newState.board[r][c];
-            if(p && p.type === 'rook' && p.color === currentPlayer && (p.level || 1) >= 3){
-                // This logic is for the main game's resurrection, AI needs simpler adjacency
-                // For AI, we'd need to know WHICH rook triggered it.
-                // This simplified AI resurrection places it anywhere.
-                // For a more accurate simulation, the move object would need to carry rook's pos.
-            }
             if(!newState.board[r][c]) emptySquares.push([r,c]);
         }
 
@@ -568,9 +572,10 @@ class VibeChessAI {
                     const multiplier = piece.color === aiColor ? 1 : -1;
                     abilitiesScore += ((piece.level || 1) -1) * 15 * multiplier; // General level bonus
 
-                    if (piece.type === 'rook' && (piece.level || 1) >= 3 && piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) {
-                        abilitiesScore += 75 * multiplier;
-                    }
+                    // Rook L3+ invulnerability is a game state effect, not directly an AI evaluation bonus unless it provides material advantage
+                    // if (piece.type === 'rook' && (piece.level || 1) >= 3 && piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) {
+                    //     abilitiesScore += 75 * multiplier; 
+                    // }
                     if (piece.type === 'queen' && (piece.level || 1) >= 5) {
                         abilitiesScore += 60 * multiplier; 
                     }
@@ -606,8 +611,10 @@ class VibeChessAI {
             return true;
         }
         
-        // Rule 3: General invulnerability turns (e.g., Rook L3+ ability)
-        // This is checked based on the targetPiece's own property
+        // Rule 3: General invulnerability turns (e.g., Rook L3+ ability from game rules, not AI eval)
+        // This is checked based on the targetPiece's own property if set by the game engine.
+        // The AI's `invulnerableTurnsRemaining` is for *opponent* pieces after *its* rook levels.
+        // The game state passed to the AI should reflect actual invulnerability.
         if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
             return true;
         }
@@ -644,10 +651,10 @@ class VibeChessAI {
         const moves: AIMove[] = [];
         switch (piece.type) {
             case 'pawn':   this.addPawnMoves(moves, gameState, row, col, piece);   break;
-            case 'knight': this.addKnightMoves(moves, gameState.board, row, col, piece); break;
-            case 'bishop': this.addSlidingMoves(moves, gameState.board, row, col, piece, this.directions.bishop); break;
-            case 'rook':   this.addSlidingMoves(moves, gameState.board, row, col, piece, this.directions.rook);   break;
-            case 'queen':  this.addSlidingMoves(moves, gameState.board, row, col, piece, this.directions.queen);  break;
+            case 'knight': this.addKnightMoves(moves, gameState, row, col, piece); break; // Pass full gameState for invuln check
+            case 'bishop': this.addSlidingMoves(moves, gameState, row, col, piece, this.directions.bishop); break;
+            case 'rook':   this.addSlidingMoves(moves, gameState, row, col, piece, this.directions.rook);   break;
+            case 'queen':  this.addSlidingMoves(moves, gameState, row, col, piece, this.directions.queen);  break;
             case 'king':   this.addKingMoves(moves, gameState, row, col, piece);   break;
         }
         // Add special moves (self-destruct, swap)
@@ -721,13 +728,14 @@ class VibeChessAI {
         }
     }
 
-    addKnightMoves(moves: AIMove[], board: AIBoardState, r: number, c: number, piece: Piece) {
+    addKnightMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
         const level = piece.level || 1;
+        const board = gameState.board; // Extract board for convenience
         this.knightMoves.forEach(([dr, dc]) => { // Standard L-shape
             const R = r + dr; const C = c + dc;
             if (this.isValidSquare(R, C)) {
                 const target = board[R][C];
-                if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, {board} as AIGameState))) {
+                if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, gameState))) {
                     moves.push({ from: [r,c], to: [R,C], type: target ? 'capture' : 'move' });
                 }
             }
@@ -737,7 +745,7 @@ class VibeChessAI {
                 const R = r + dr; const C = c + dc;
                  if (this.isValidSquare(R, C)) {
                     const target = board[R][C];
-                    if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, {board} as AIGameState))) {
+                    if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, gameState))) {
                         moves.push({ from: [r,c], to: [R,C], type: target ? 'capture' : 'move' });
                     }
                 }
@@ -748,7 +756,7 @@ class VibeChessAI {
                 const R = r + dr; const C = c + dc;
                  if (this.isValidSquare(R, C)) {
                     const target = board[R][C];
-                    if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, {board} as AIGameState))) {
+                    if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece, gameState))) {
                         moves.push({ from: [r,c], to: [R,C], type: target ? 'capture' : 'move' });
                     }
                 }
@@ -756,8 +764,9 @@ class VibeChessAI {
         }
     }
 
-    addSlidingMoves(moves: AIMove[], board: AIBoardState, r: number, c: number, piece: Piece, directions: [number,number][]) {
+    addSlidingMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece, directions: [number,number][]) {
         const level = piece.level || 1;
+        const board = gameState.board; // Extract board for convenience
         directions.forEach(([dr, dc]) => {
             for (let i = 1; i < 8; i++) {
                 const R = r + i * dr; const C = c + i * dc;
@@ -767,7 +776,7 @@ class VibeChessAI {
                     moves.push({ from: [r,c], to: [R,C], type: 'move' });
                 } else {
                     if (target.color !== piece.color) {
-                        if (!this.isPieceInvulnerableToAttack(target, piece, {board} as AIGameState)) {
+                        if (!this.isPieceInvulnerableToAttack(target, piece, gameState)) {
                            moves.push({ from: [r,c], to: [R,C], type: 'capture' });
                         }
                     } else if (piece.type === 'bishop' && level >=2 && target.color === piece.color){
@@ -1034,14 +1043,6 @@ class VibeChessAI {
             score += 2;
         }
         
-        // Add a small bonus for checks (if we can quickly determine it)
-        // This requires simulating the move, which might be too slow for quick eval.
-        // For now, keeping it simple.
-        // const tempState = this.makeMoveOptimized(gameState, move, playerColor);
-        // if (this.isInCheck(tempState, playerColor === 'white' ? 'black' : 'white')) {
-        //     score += 10;
-        // }
-
         return score;
     }
     
@@ -1069,3 +1070,6 @@ class VibeChessAI {
 }
 
 export default VibeChessAI;
+
+
+    
