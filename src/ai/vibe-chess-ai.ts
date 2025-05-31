@@ -105,7 +105,7 @@ class VibeChessAI {
             const legalMoves = this.generateAllMoves(gameState, color);
 
             if (legalMoves.length === 0) {
-                console.log(`AI: No legal moves available for ${color}.`);
+                // console.log(`AI: No legal moves available for ${color}.`);
                 return null;
             }
 
@@ -318,10 +318,9 @@ class VibeChessAI {
             }
             if (pieceOnToSquare.type === 'rook' &&
                 (pieceOnToSquare.level || 1) >= 3 &&
-                (pieceOnToSquare.level || 1) > originalLevelOfMovingPiece
+                (pieceOnToSquare.level || 1) > originalLevelOfMovingPiece // Ensure level actually increased to >=3
             ) {
                 this.handleResurrection(newState, currentPlayer);
-                 // AI does not set invulnerableTurnsRemaining for its own rook. It relies on page.tsx to manage actual board state.
             }
 
             if (pieceOnToSquare.type === 'queen' &&
@@ -396,9 +395,12 @@ class VibeChessAI {
 
     handleBishopConversion(newState: AIGameState, bishopRow: number, bishopCol: number, bishopColor: PlayerColor) {
         // AI does not simulate the 50% conversion to prevent desync.
+        // It will rely on the main game state to update for actual conversions.
     }
 
     shouldConvertPiece(row: number, col: number): boolean {
+        // This method is not strictly used by the AI's makeMoveOptimized for changing colors
+        // to avoid desync with the probabilistic nature of the actual game.
         return (row + col) % 2 === 0;
     }
 
@@ -590,20 +592,17 @@ class VibeChessAI {
     }
 
     isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null): boolean {
-        if (!targetPiece) return false;
-        if (!attackingPiece) return false;
-
+        if (!targetPiece || !attackingPiece) return false;
+    
         const targetLevel = targetPiece.level || 1;
         const attackerLevel = attackingPiece.level || 1;
-
+    
         if (targetPiece.type === 'queen' && targetLevel >= 5 && attackerLevel < targetLevel) {
             return true;
         }
-
         if (targetPiece.type === 'bishop' && targetLevel >= 3 && attackingPiece.type === 'pawn') {
             return true;
         }
-        
         if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
             return true;
         }
@@ -691,7 +690,7 @@ class VibeChessAI {
                 moves.push({ from: [r,c], to: [r + dir, c], type: 'move' });
             }
             // Forward 2 from start
-            if (r === startRow && this.isValidSquare(r + 2 * dir, c) && !board[r + dir][c] && !board[r + 2 * dir][c]) {
+            if (r === startRow && !piece.hasMoved && this.isValidSquare(r + 2 * dir, c) && !board[r + dir][c] && !board[r + 2 * dir][c]) {
                 moves.push({ from: [r,c], to: [r + 2 * dir, c], type: 'move' });
             }
         }
@@ -961,7 +960,6 @@ class VibeChessAI {
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
                         if (this.isValidSquare(midR, midC) && gameState.board[midR][midC]) return false; // Path blocked
-                        // Check if intermediate square is attacked (only if not simplifying further)
                         if (!simplifyKingCheck && this.isSquareAttacked(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) {
                             return false;
                         }
@@ -1072,6 +1070,7 @@ class VibeChessAI {
                 if (p) {
                     key += `${p.color[0]}${p.type[0]}${p.level || 1}`;
                     if (p.invulnerableTurnsRemaining) key += `i${p.invulnerableTurnsRemaining}`;
+                    if (p.hasMoved) key += 'm';
                 } else {
                     key += '--';
                 }
@@ -1089,5 +1088,3 @@ class VibeChessAI {
 }
 
 export default VibeChessAI;
-
-    
