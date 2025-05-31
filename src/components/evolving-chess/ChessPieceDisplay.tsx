@@ -8,9 +8,11 @@ interface ChessPieceDisplayProps {
   isKingInCheck?: boolean;
   viewMode?: ViewMode;
   isJustMoved?: boolean;
+  // Added for sacrifice pawn animation
+  isSacrificeTarget?: boolean; 
 }
 
-export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false }: ChessPieceDisplayProps) {
+export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false, isSacrificeTarget = false }: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
   
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
@@ -20,6 +22,18 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
   }
 
   const shouldRotateBlackPiece = viewMode === 'tabletop' && piece.color === 'black';
+  const isAnimating = isJustMoved;
+
+  let animationOriginClass = "";
+  if (isAnimating) {
+    // If the piece is black AND in tabletop view (rotated 180deg), its visual "bottom" (relative to black player) is its original "top".
+    // Otherwise (white piece, or black piece not rotated for tabletop), its visual "bottom" is its original "bottom".
+    if (shouldRotateBlackPiece) {
+      animationOriginClass = "origin-top"; 
+    } else {
+      animationOriginClass = "origin-bottom";
+    }
+  }
 
   return (
     <div
@@ -27,7 +41,9 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
         "relative flex items-center justify-center w-full h-full",
         pieceColorClass,
         shouldRotateBlackPiece && "rotate-180",
-        isJustMoved && "animate-piece-slide-in transform-gpu" // Added transform-gpu
+        isAnimating && !isSacrificeTarget && "animate-piece-slide-in transform-gpu", // Don't animate if it's a sacrifice preview
+        isAnimating && isSacrificeTarget && "animate-pulse", // Different animation for sacrifice target
+        animationOriginClass 
       )}
     >
       <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
@@ -43,3 +59,4 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
     </div>
   );
 }
+
