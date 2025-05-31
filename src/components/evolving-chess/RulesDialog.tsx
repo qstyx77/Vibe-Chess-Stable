@@ -123,7 +123,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases, if its new level is 3 or higher, it attempts to resurrect one of its player's own captured pieces. This also applies if a Pawn promotes to a Rook and, as part of that same move (e.g., through a capture during promotion), the new Rook immediately reaches Level 3 or higher. The resurrected piece (chosen randomly from available captured pieces) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases, if its new level is 3 or higher, it attempts to resurrect one of its player's own captured pieces. The resurrected piece (chosen randomly from available captured pieces) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -159,6 +159,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
-
-    
