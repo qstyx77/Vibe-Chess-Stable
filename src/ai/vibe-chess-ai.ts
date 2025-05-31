@@ -229,11 +229,10 @@ class VibeChessAI {
 
         let pieceWasCaptured = false;
         const originalTargetPiece = newState.board[toRow][toCol] ? { ...newState.board[toRow][toCol]! } : null;
-        const originalLevelOfMovingPiece = gameState.board[fromRow][fromCol]?.level || 1;
+        const originalLevelOfMovingPiece = parseInt(String(gameState.board[fromRow][fromCol]?.level || 1), 10);
 
 
-        // 1. Invulnerability decrement is handled by the main game loop in page.tsx now.
-        //    The AI will just respect the invulnerability flags as they are on the gameState.board.
+        // 1. Invulnerability is respected, not decremented by AI.
 
         // 2. Apply the move and basic consequences
         movingPieceCopy.hasMoved = true;
@@ -245,7 +244,7 @@ class VibeChessAI {
             pieceWasCaptured = true;
             newState.capturedPieces[currentPlayer].push(originalTargetPiece);
             const levelBonus = this.captureLevelBonuses[originalTargetPiece.type as PieceType] || 1;
-            movingPieceCopy.level = Math.min(6, (movingPieceCopy.level || 1) + levelBonus);
+            movingPieceCopy.level = Math.min(6, (parseInt(String(movingPieceCopy.level || 1), 10)) + levelBonus);
             newState.board[toRow][toCol] = movingPieceCopy;
             newState.board[fromRow][fromCol] = null;
         } else if (move.type === 'move') {
@@ -253,7 +252,7 @@ class VibeChessAI {
             newState.board[toRow][toCol] = movingPieceCopy;
             newState.board[fromRow][fromCol] = null;
         } else if (move.type === 'promotion') {
-            const originalPawnLevel = gameState.board[fromRow][fromCol]?.level || 1;
+            const originalPawnLevel = parseInt(String(gameState.board[fromRow][fromCol]?.level || 1), 10);
             if (originalTargetPiece && originalTargetPiece.color !== movingPieceCopy.color) { // Capture promotion
                  if (this.isPieceInvulnerableToAttack(originalTargetPiece, movingPieceCopy)) return newState;
                  pieceWasCaptured = true;
@@ -280,7 +279,7 @@ class VibeChessAI {
             newState.board[fromRow][rookToCol] = { ...rook, hasMoved: true };
             newState.board[fromRow][fromCol] = null;
             newState.board[fromRow][rookFromCol] = null;
-        } else if (move.type === 'self-destruct' && movingPieceCopy.type === 'knight' && (movingPieceCopy.level || 1) >= 5) {
+        } else if (move.type === 'self-destruct' && movingPieceCopy.type === 'knight' && (parseInt(String(movingPieceCopy.level || 1), 10)) >= 5) {
             let destroyedCount = 0;
             for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                 if (dr === 0 && dc === 0) continue;
@@ -299,8 +298,8 @@ class VibeChessAI {
         } else if (move.type === 'swap') {
             const targetPieceForSwap = newState.board[toRow][toCol];
             if (!targetPieceForSwap || targetPieceForSwap.color !== movingPieceCopy.color ||
-                !((movingPieceCopy.type === 'knight' && targetPieceForSwap.type === 'bishop' && (movingPieceCopy.level || 1) >= 4) ||
-                  (movingPieceCopy.type === 'bishop' && targetPieceForSwap.type === 'knight' && (movingPieceCopy.level || 1) >= 4)) ) {
+                !((movingPieceCopy.type === 'knight' && targetPieceForSwap.type === 'bishop' && (parseInt(String(movingPieceCopy.level || 1), 10)) >= 4) ||
+                  (movingPieceCopy.type === 'bishop' && targetPieceForSwap.type === 'knight' && (parseInt(String(movingPieceCopy.level || 1), 10)) >= 4)) ) {
                 return newState; // Invalid swap
             }
             newState.board[toRow][toCol] = { ...movingPieceCopy, hasMoved: true };
@@ -310,21 +309,21 @@ class VibeChessAI {
         // 3. Apply VIBE CHESS post-move effects for the piece that MOVED
         const pieceOnToSquare = newState.board[toRow][toCol];
         if (pieceOnToSquare && pieceOnToSquare.id === movingPieceCopy.id) { // Ensure it's the piece that moved
-            if (pieceOnToSquare.type === 'pawn' && (pieceOnToSquare.level || 1) >= 4 && (move.type === 'move' || move.type === 'capture' || move.type === 'promotion')) {
+            if (pieceOnToSquare.type === 'pawn' && (parseInt(String(pieceOnToSquare.level || 1), 10)) >= 4 && (move.type === 'move' || move.type === 'capture' || move.type === 'promotion')) {
                 this.handlePawnPushBack(newState, toRow, toCol, pieceOnToSquare.color);
             }
-            if (pieceOnToSquare.type === 'bishop' && (pieceOnToSquare.level || 1) >= 5 && (move.type === 'move' || move.type === 'capture' || move.type === 'promotion')) {
-                this.handleBishopConversion(newState, toRow, toCol, pieceOnToSquare.color);
+            if (pieceOnToSquare.type === 'bishop' && (parseInt(String(pieceOnToSquare.level || 1), 10)) >= 5 && (move.type === 'move' || move.type === 'capture' || move.type === 'promotion')) {
+                // Bishop conversion is probabilistic and handled by main game, AI doesn't simulate the change
             }
             if (pieceOnToSquare.type === 'rook' &&
-                (pieceOnToSquare.level || 1) >= 3 &&
-                (pieceOnToSquare.level || 1) > originalLevelOfMovingPiece // Ensure level actually increased to >=3
+                (parseInt(String(pieceOnToSquare.level || 1), 10)) >= 3 &&
+                (parseInt(String(pieceOnToSquare.level || 1), 10)) > originalLevelOfMovingPiece 
             ) {
                 this.handleResurrection(newState, currentPlayer);
             }
 
             if (pieceOnToSquare.type === 'queen' &&
-                (pieceOnToSquare.level || 1) >= 5 &&
+                (parseInt(String(pieceOnToSquare.level || 1), 10)) >= 5 &&
                 originalLevelOfMovingPiece < 5 &&
                 (move.type === 'capture' || (move.type === 'promotion' && pieceWasCaptured))
             ) {
@@ -395,12 +394,9 @@ class VibeChessAI {
 
     handleBishopConversion(newState: AIGameState, bishopRow: number, bishopCol: number, bishopColor: PlayerColor) {
         // AI does not simulate the 50% conversion to prevent desync.
-        // It will rely on the main game state to update for actual conversions.
     }
 
     shouldConvertPiece(row: number, col: number): boolean {
-        // This method is not strictly used by the AI's makeMoveOptimized for changing colors
-        // to avoid desync with the probabilistic nature of the actual game.
         return (row + col) % 2 === 0;
     }
 
@@ -418,9 +414,8 @@ class VibeChessAI {
         }
 
         if (emptySquares.length > 0) {
-            // AI attempts to place on a back rank square if possible, otherwise random
             let placed = false;
-            const backRank = currentPlayer === 'white' ? 7 : 0; // AI resurrects on its own back rank logic
+            const backRank = currentPlayer === 'white' ? 7 : 0; 
             const preferredResSquares = emptySquares.filter(([r_sq,c_sq]) => r_sq === backRank);
             
             let resRow, resCol;
@@ -435,7 +430,7 @@ class VibeChessAI {
 
             newState.capturedPieces[opponentColor] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
 
-            const promotionRank = currentPlayer === 'white' ? 0 : 7; // Opponent's back rank for promotion
+            const promotionRank = currentPlayer === 'white' ? 0 : 7; 
             if (resurrectedPiece.type === 'pawn' && resRow === promotionRank) {
                 newState.board[resRow][resCol]!.type = 'queen';
                 newState.board[resRow][resCol]!.level = 1;
@@ -477,7 +472,7 @@ class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const piece = gameState.board[r][c];
                 if (piece) {
-                    const level = Math.max(1, Math.min(6, piece.level || 1));
+                    const level = Math.max(1, Math.min(6, parseInt(String(piece.level || 1), 10)));
                     const value = this.pieceValues[piece.type]?.[level - 1] || this.pieceValues[piece.type]?.[0] || 0;
                     materialScore += (piece.color === aiColor ? value : -value);
                 }
@@ -571,19 +566,20 @@ class VibeChessAI {
                 const piece = gameState.board[r][c];
                 if (piece) {
                     const multiplier = piece.color === aiColor ? 1 : -1;
-                    abilitiesScore += ((piece.level || 1) -1) * 15 * multiplier; // General level bonus
+                    const pieceLevel = parseInt(String(piece.level || 1), 10);
+                    abilitiesScore += (pieceLevel -1) * 15 * multiplier; // General level bonus
 
-                    if (piece.type === 'queen' && (piece.level || 1) >= 5) {
+                    if (piece.type === 'queen' && pieceLevel >= 5) {
                         abilitiesScore += 60 * multiplier; // L5 Queen is strong
                     }
-                    if (piece.type === 'bishop' && (piece.level || 1) >= 3){ // Pawn immunity for bishop
+                    if (piece.type === 'bishop' && pieceLevel >= 3){ // Pawn immunity for bishop
                         abilitiesScore += 25 * multiplier;
                     }
                      if (piece.type === 'pawn') {
                         const promotionRank = piece.color === 'white' ? 0 : 7;
                         const distanceToPromotion = Math.abs(r - promotionRank);
                          abilitiesScore += (7 - distanceToPromotion) * 8 * multiplier; // Closer to promotion is good
-                         if ((piece.level || 1) >= 5) abilitiesScore += 30 * multiplier; // L5 Pawn extra turn potential
+                         if (pieceLevel >= 5) abilitiesScore += 30 * multiplier; // L5 Pawn extra turn potential
                     }
                 }
             }
@@ -594,8 +590,8 @@ class VibeChessAI {
     isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null): boolean {
         if (!targetPiece || !attackingPiece) return false;
     
-        const targetLevel = targetPiece.level || 1;
-        const attackerLevel = attackingPiece.level || 1;
+        const targetLevel = parseInt(String(targetPiece.level || 1), 10);
+        const attackerLevel = parseInt(String(attackingPiece.level || 1), 10);
     
         if (targetPiece.type === 'queen' && targetLevel >= 5 && attackerLevel < targetLevel) {
             return true;
@@ -658,7 +654,7 @@ class VibeChessAI {
     }
 
     addSpecialMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
-        const level = piece.level || 1;
+        const level = parseInt(String(piece.level || 1), 10);
         if (piece.type === 'knight' && level >= 5) {
             moves.push({ from: [r, c], to: [r, c], type: 'self-destruct' });
         }
@@ -679,7 +675,7 @@ class VibeChessAI {
         const dir = piece.color === 'white' ? -1 : 1;
         const startRow = piece.color === 'white' ? 6 : 1;
         const promotionRank = piece.color === 'white' ? 0 : 7;
-        const level = piece.level || 1;
+        const level = parseInt(String(piece.level || 1), 10);
         const board = gameState.board;
 
         // Forward 1
@@ -699,7 +695,7 @@ class VibeChessAI {
             if (this.isValidSquare(r + dir, c + dc)) {
                 const target = board[r + dir][c + dc];
                 if (target && target.color !== piece.color && !this.isPieceInvulnerableToAttack(target, piece)) {
-                     if (!(target.type === 'bishop' && (target.level || 1) >= 3 && piece.type === 'pawn')) { // Bishop L3+ immune to pawns
+                     if (!(target.type === 'bishop' && (parseInt(String(target.level || 1), 10)) >= 3 && piece.type === 'pawn')) { // Bishop L3+ immune to pawns
                         if (r + dir === promotionRank) {
                             ['queen', 'rook', 'bishop', 'knight'].forEach(pt => moves.push({ from: [r,c], to: [r + dir, c + dc], type: 'promotion', promoteTo: pt as PieceType }));
                         } else {
@@ -724,7 +720,7 @@ class VibeChessAI {
     }
 
     addKnightMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
-        const level = piece.level || 1;
+        const level = parseInt(String(piece.level || 1), 10);
         const board = gameState.board;
         this.knightMoves.forEach(([dr, dc]) => {
             const R = r + dr; const C = c + dc;
@@ -760,7 +756,7 @@ class VibeChessAI {
     }
 
     addSlidingMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece, directions: [number,number][]) {
-        const level = piece.level || 1;
+        const level = parseInt(String(piece.level || 1), 10);
         const board = gameState.board;
         directions.forEach(([dr, dc]) => {
             for (let i = 1; i < 8; i++) {
@@ -785,7 +781,7 @@ class VibeChessAI {
     }
 
     addKingMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
-        const level = piece.level || 1;
+        const level = parseInt(String(piece.level || 1), 10);
         let maxDist = level >= 2 ? 2 : 1;
         const board = gameState.board;
         const opponentColor = piece.color === 'white' ? 'black' : 'white';
@@ -867,8 +863,7 @@ class VibeChessAI {
 
         const legalMoves = this.generateAllMoves(gameState, playerToMove);
         if (legalMoves.length === 0) {
-            // No legal moves: checkmate or stalemate
-            return true; // isKingInCheck will determine if it's mate or stale in evaluation
+            return true; 
         }
         return false;
     }
@@ -883,14 +878,13 @@ class VibeChessAI {
         if (!rook || rook.type !== 'rook' || rook.hasMoved) return false;
 
         const pathStart = kingside ? kingCol + 1 : rookCol + 1;
-        const pathEnd = kingside ? rookCol -1 : kingCol -1; // Path for squares between king and rook
+        const pathEnd = kingside ? rookCol -1 : kingCol -1; 
         for (let c = Math.min(pathStart, pathEnd); c <= Math.max(pathStart, pathEnd); c++) {
-            if (gameState.board[kingRow][c]) return false; // Path blocked
+            if (gameState.board[kingRow][c]) return false; 
         }
 
         const opponentColor = color === 'white' ? 'black' : 'white';
-        // Squares king passes through or lands on for castling
-        const squaresToNotBeAttacked: [number, number][] = [[kingRow, kingCol]]; // Current square
+        const squaresToNotBeAttacked: [number, number][] = [[kingRow, kingCol]]; 
         if (kingside) {
             squaresToNotBeAttacked.push([kingRow, kingCol + 1], [kingRow, kingCol + 2]);
         } else {
@@ -922,9 +916,8 @@ class VibeChessAI {
         const [toRow, toCol] = to;
         const deltaRow = toRow - fromRow;
         const deltaCol = toCol - fromCol;
-        const targetPiece = gameState.board[toRow][toCol]; // The piece on the square being attacked
+        const targetPiece = gameState.board[toRow][toCol]; 
 
-        // Check invulnerability of the target piece BEFORE specific piece logic
         if (targetPiece && this.isPieceInvulnerableToAttack(targetPiece, piece)) {
              return false;
         }
@@ -934,7 +927,7 @@ class VibeChessAI {
                 const direction = piece.color === 'white' ? -1 : 1;
                 return deltaRow === direction && Math.abs(deltaCol) === 1;
             case 'knight':
-                const knightLevel = piece.level || 1;
+                const knightLevel = parseInt(String(piece.level || 1), 10);
                 if ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2)) return true;
                 if (knightLevel >=2 && ((deltaRow === 0 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && deltaCol === 0))) return true;
                 if (knightLevel >=3 && ((deltaRow === 0 && Math.abs(deltaCol) === 3) || (Math.abs(deltaRow) === 3 && deltaCol === 0))) return true;
@@ -946,7 +939,7 @@ class VibeChessAI {
             case 'queen':
                 return (Math.abs(deltaRow) === Math.abs(deltaCol) || deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece);
             case 'king':
-                const kingLevel = piece.level || 1;
+                const kingLevel = parseInt(String(piece.level || 1), 10);
                 let effectiveMaxDist = kingLevel >= 2 ? 2 : 1;
                 let canUseKnightMove = kingLevel >= 5;
 
@@ -981,13 +974,13 @@ class VibeChessAI {
         const [toRow, toCol] = to;
         const deltaRow = Math.sign(toRow - fromRow);
         const deltaCol = Math.sign(toCol - fromCol);
-        const bishopLevelForPhasing = (piece.type === 'bishop' && (piece.level || 1) >= 2);
+        const bishopLevelForPhasing = (piece.type === 'bishop' && (parseInt(String(piece.level || 1), 10)) >= 2);
 
         let r = fromRow + deltaRow;
         let c = fromCol + deltaCol;
 
         while (r !== toRow || c !== toCol) {
-            if (!this.isValidSquare(r,c)) return false; // Should not happen if 'to' is valid
+            if (!this.isValidSquare(r,c)) return false; 
             const pathPiece = board[r][c];
             if (pathPiece) {
                 if (bishopLevelForPhasing && pathPiece.color === piece.color) {
@@ -1043,7 +1036,7 @@ class VibeChessAI {
         const targetPiece = gameState.board[toR]?.[toC];
 
         if (targetPiece && targetPiece.color !== playerColor) {
-            const capturedValue = this.pieceValues[targetPiece.type]?.[(targetPiece.level || 1) - 1] || 0;
+            const capturedValue = this.pieceValues[targetPiece.type]?.[(parseInt(String(targetPiece.level || 1), 10)) - 1] || 0;
             score += capturedValue * 10; // Heavily prioritize captures
         }
 
@@ -1068,7 +1061,7 @@ class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const p = gameState.board[r][c];
                 if (p) {
-                    key += `${p.color[0]}${p.type[0]}${p.level || 1}`;
+                    key += `${p.color[0]}${p.type[0]}${parseInt(String(p.level || 1), 10)}`;
                     if (p.invulnerableTurnsRemaining) key += `i${p.invulnerableTurnsRemaining}`;
                     if (p.hasMoved) key += 'm';
                 } else {
@@ -1078,9 +1071,6 @@ class VibeChessAI {
         }
         key += `-${gameState.currentPlayer[0]}`;
         key += `-${isMaximizingPlayer ? 'M' : 'm'}`;
-        // Castling rights should be part of the key if they are tracked and affect move generation
-        // For simplicity, if not explicitly tracked on AIGameState, can omit or derive from piece.hasMoved
-        // key += `-cr${this.getAICastlingRights(gameState)}`; 
         key += `-w${gameState.killStreaks?.white || 0}b${gameState.killStreaks?.black || 0}`;
         return key;
     }
@@ -1088,3 +1078,4 @@ class VibeChessAI {
 }
 
 export default VibeChessAI;
+
