@@ -3,12 +3,11 @@ export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
 
 export interface Piece {
-  id: string; 
+  id: string;
   type: PieceType;
   color: PlayerColor;
   level: number;
-  hasMoved: boolean; 
-  // invulnerableTurnsRemaining?: number; // REMOVED - Rook invulnerability handled differently or not at all
+  hasMoved: boolean;
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -16,11 +15,11 @@ export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'
 export interface SquareState {
   piece: Piece | null;
   algebraic: AlgebraicSquare;
-  rowIndex: number; 
-  colIndex: number; 
+  rowIndex: number;
+  colIndex: number;
 }
 
-export type BoardState = SquareState[][]; 
+export type BoardState = SquareState[][];
 
 export interface Move {
   from: AlgebraicSquare;
@@ -60,14 +59,28 @@ export interface GameSnapshot {
   viewMode: ViewMode;
   isWhiteAI: boolean;
   isBlackAI: boolean;
-  enemySelectedSquare?: AlgebraicSquare | null; 
+  enemySelectedSquare?: AlgebraicSquare | null;
   enemyPossibleMoves?: AlgebraicSquare[];
   positionHistory: string[];
   lastMoveFrom: AlgebraicSquare | null;
   lastMoveTo: AlgebraicSquare | null;
-  
-  // Pawn Sacrifice States
+
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
   boardForPostSacrifice: BoardState | null;
-  player
+  playerWhoMadeQueenMove: PlayerColor | null;
+  isExtraTurnFromQueenMove: boolean;
+
+  isAwaitingRookSacrifice: boolean;
+  playerToSacrificeForRook: PlayerColor | null;
+  rookToMakeInvulnerable: AlgebraicSquare | null;
+  boardForRookSacrifice: BoardState | null;
+  originalTurnPlayerForRookSacrifice: PlayerColor | null;
+  isExtraTurnFromRookLevelUp: boolean;
+
+  // States for pawn promotion after resurrection
+  isResurrectionPromotionInProgress: boolean;
+  playerForPostResurrectionPromotion: PlayerColor | null;
+  isExtraTurnForPostResurrectionPromotion: boolean;
+  promotionSquare: AlgebraicSquare | null; // Ensure promotionSquare is part of snapshot
+}

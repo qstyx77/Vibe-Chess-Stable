@@ -20,8 +20,10 @@ import {
   getCastlingRightsString,
   boardToPositionHash,
   type ConversionEvent,
-  isPieceInvulnerableToAttack, // Correct function import
-  isValidSquare, // Added import
+  isPieceInvulnerableToAttack,
+  isValidSquare,
+  processRookResurrectionCheck,
+  type RookResurrectionResult,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -29,7 +31,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, BookOpen, Undo2, View, Bot } from 'lucide-react';
 import VibeChessAI from '@/ai/vibe-chess-ai';
 
-let resurrectionIdCounter = 0;
+let globalResurrectionIdCounter = 0; // Moved from chess-utils to be page-specific for client-side
 
 const initialGameStatus: GameStatus = {
   message: "\u00A0",
@@ -109,7 +111,7 @@ export default function EvolvingChessPage() {
   const [isWhiteAI, setIsWhiteAI] = useState(false);
   const [isBlackAI, setIsBlackAI] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const aiInstanceRef = useRef(new VibeChessAI(2)); // AI depth
+  const aiInstanceRef = useRef(new VibeChessAI(2));
   const aiErrorOccurredRef = useRef(false);
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
@@ -128,6 +130,10 @@ export default function EvolvingChessPage() {
   const [boardForRookSacrifice, setBoardForRookSacrifice] = useState<BoardState | null>(null);
   const [originalTurnPlayerForRookSacrifice, setOriginalTurnPlayerForRookSacrifice] = useState<PlayerColor | null>(null);
   const [isExtraTurnFromRookLevelUp, setIsExtraTurnFromRookLevelUp] = useState<boolean>(false);
+
+  const [isResurrectionPromotionInProgress, setIsResurrectionPromotionInProgress] = useState(false);
+  const [playerForPostResurrectionPromotion, setPlayerForPostResurrectionPromotion] = useState<PlayerColor | null>(null);
+  const [isExtraTurnForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion] = useState<boolean>(false);
 
 
   const { toast } = useToast();
@@ -243,7 +249,7 @@ export default function EvolvingChessPage() {
         isCheck: false,
         playerWithKingInCheck: null,
         isCheckmate: false,
-        isStalemate: true,
+        isStalemate: true, // Mark as stalemate for draw condition
         isThreefoldRepetitionDraw: true,
         gameOver: true,
         winner: 'draw',
@@ -292,6 +298,10 @@ export default function EvolvingChessPage() {
       boardForRookSacrifice: boardForRookSacrifice ? boardForRookSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))) : null,
       originalTurnPlayerForRookSacrifice: originalTurnPlayerForRookSacrifice,
       isExtraTurnFromRookLevelUp: isExtraTurnFromRookLevelUp,
+      isResurrectionPromotionInProgress: isResurrectionPromotionInProgress,
+      playerForPostResurrectionPromotion: playerForPostResurrectionPromotion,
+      isExtraTurnForPostResurrectionPromotion: isExtraTurnForPostResurrectionPromotion,
+      promotionSquare: promotionSquare,
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -302,7 +312,8 @@ export default function EvolvingChessPage() {
     board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode,
     isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
-    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp
+    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
+    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare,
   ]);
 
   const processPawnSacrificeCheck = useCallback((
@@ -322,7 +333,7 @@ export default function EvolvingChessPage() {
     const queenAfterLeveling = boardAfterPrimaryMove[toR]?.[toC]?.piece;
 
     const {row: fromRPrev, col: fromCPrev} = algebraicToCoords(queenMovedWithThis.from);
-    const pieceOnFromSquare = board[fromRPrev]?.[fromCPrev]?.piece; // Read from original `board` state for true "before move" level
+    const pieceOnFromSquare = board[fromRPrev]?.[fromCPrev]?.piece;
 
     const originalLevel = originalQueenLevelIfKnown !== undefined
         ? originalQueenLevelIfKnown
@@ -392,85 +403,6 @@ export default function EvolvingChessPage() {
     processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
     return false;
   }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, board, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, algebraicToCoords]);
-
-  const processRookResurrectionCheck = useCallback((
-    boardAfterPrimaryMove: BoardState, // Board AFTER the move that might have leveled up the rook
-    playerWhosePieceLeveled: PlayerColor,
-    rookMove: Move | null,
-    rookSquareAfterMove: AlgebraicSquare | null, // The 'to' square of the rook
-    originalLevelOfPiece: number | undefined, // Level of the rook *before* this move
-    currentCapturedPiecesState: { white: Piece[], black: Piece[] }
-  ): { boardWithResurrection: BoardState, capturedPiecesAfterResurrection: { white: Piece[], black: Piece[] }, resurrectionPerformed: boolean } => {
-
-    let boardWithResurrection = boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-    let capturedPiecesAfterResurrection = {
-        white: currentCapturedPiecesState.white.map(p => ({...p})),
-        black: currentCapturedPiecesState.black.map(p => ({...p}))
-    };
-    let resurrectionPerformed = false;
-
-    if (!rookMove || !rookSquareAfterMove) {
-      return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed };
-    }
-
-    const { row: rookR, col: rookC } = algebraicToCoords(rookSquareAfterMove);
-    const rookOnBoard = boardWithResurrection[rookR]?.[rookC]?.piece; // Rook piece after its move and potential level-up
-
-    if (!rookOnBoard || rookOnBoard.type !== 'rook' || rookOnBoard.color !== playerWhosePieceLeveled) {
-      return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed };
-    }
-
-    const newRookLevel = rookOnBoard.level || 1; // Level of the rook on the 'to' square (potentially new level)
-    const oldLevelOfThisPieceType = (rookMove?.type === 'promotion' && rookMove?.promoteTo === 'rook')
-                                    ? 0 // For a promotion to rook, its "old level as a rook" is effectively 0.
-                                    : (originalLevelOfPiece || 0); // Use the passed original level
-
-    if (newRookLevel >= 3 && newRookLevel > oldLevelOfThisPieceType) {
-      const opponentColor = playerWhosePieceLeveled === 'white' ? 'black' : 'white';
-      const piecesToChooseFrom = capturedPiecesAfterResurrection[opponentColor] ? [...capturedPiecesAfterResurrection[opponentColor]] : [];
-
-      if (piecesToChooseFrom.length > 0) {
-        const pieceToResurrectOriginal = piecesToChooseFrom[Math.floor(Math.random() * piecesToChooseFrom.length)];
-
-        const emptyAdjacentSquares: AlgebraicSquare[] = [];
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const adjR = rookR + dr;
-            const adjC = rookC + dc;
-            if (isValidSquare(adjR, adjC) && !boardWithResurrection[adjR][adjC].piece) {
-              emptyAdjacentSquares.push(coordsToAlgebraic(adjR, adjC));
-            }
-          }
-        }
-
-        if (emptyAdjacentSquares.length > 0) {
-          const targetSquareAlg = emptyAdjacentSquares[Math.floor(Math.random() * emptyAdjacentSquares.length)];
-          const { row: resR, col: resC } = algebraicToCoords(targetSquareAlg);
-
-          const newUniqueSuffix = resurrectionIdCounter++;
-          const resurrectedPieceData: Piece = {
-            ...pieceToResurrectOriginal,
-            level: 1,
-            id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`,
-            hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved,
-          };
-
-          boardWithResurrection[resR][resC].piece = resurrectedPieceData;
-
-          toast({
-            title: "Rook's Call!",
-            description: `${getPlayerDisplayName(playerWhosePieceLeveled)}'s Rook resurrected their ${resurrectedPieceData.type} to ${targetSquareAlg}! (L1)`,
-            duration: 3000,
-          });
-
-          capturedPiecesAfterResurrection[opponentColor] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrectOriginal.id);
-          resurrectionPerformed = true;
-        }
-      }
-    }
-    return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed };
-  }, [toast, getPlayerDisplayName, isValidSquare, algebraicToCoords, coordsToAlgebraic]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -615,18 +547,32 @@ export default function EvolvingChessPage() {
         if (calculatedNewStreakForSelfDestructPlayer === 3) {
           let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
           if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-            const pieceToResOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
+            const pieceToResOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop(); // Modifies the copy
             if (pieceToResOriginal) {
               const emptySquares: AlgebraicSquare[] = [];
               for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
               if (emptySquares.length > 0) {
                 const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                 const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                const newUniqueSuffix = resurrectionIdCounter++;
+                const newUniqueSuffix = globalResurrectionIdCounter++;
                 const resurrectedPiece: Piece = { ...pieceToResOriginal, level: 1, id: `${pieceToResOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResOriginal.type === 'king' || pieceToResOriginal.type === 'rook' ? false : pieceToResOriginal.hasMoved };
-                finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResOriginal.id);
+                finalBoardStateForTurn[resR][resC].piece = resurrectedPiece; // Update board
+                finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResOriginal.id); // Update captured list
                 toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+
+                const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
+                if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
+                    setPlayerForPostResurrectionPromotion(selfDestructPlayer);
+                    setIsExtraTurnForPostResurrectionPromotion(calculatedNewStreakForSelfDestructPlayer === 6);
+                    setIsResurrectionPromotionInProgress(true);
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(randomSquareAlg);
+                    setBoard(finalBoardStateForTurn);
+                    setCapturedPieces(finalCapturedPiecesStateForTurn);
+                    setIsMoveProcessing(false);
+                    setAnimatedSquareTo(null);
+                    return; // Show promotion dialog
+                }
               }
             }
           }
@@ -656,22 +602,14 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
-        // const pieceBeingMoved = finalBoardStateForTurn[algebraicToCoords(selectedSquare).row]?.[algebraicToCoords(selectedSquare).col]?.piece;
-        // originalPieceLevelBeforeMove is already captured above and should be correct for the piece on the 'from' square.
-
         const moveBeingMade: Move = { from: selectedSquare, to: algebraic };
         const { newBoard, capturedPiece: captured, conversionEvents, originalPieceLevel: levelFromApplyMove } = applyMove(finalBoardStateForTurn, moveBeingMade);
         finalBoardStateForTurn = newBoard;
-        // originalPieceLevelBeforeMove should remain the level from before this current move.
-        // levelFromApplyMove is the same information but captured inside applyMove, which is more robust.
-
 
         const capturingPlayer = currentPlayer;
         const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
-
         let piecesCapturedThisTurn = 0;
         if (captured) piecesCapturedThisTurn = 1;
-
         let currentCalculatedStreakForCapturingPlayer: number = killStreaks[capturingPlayer] || 0;
 
         setKillStreaks(prevKillStreaks => {
@@ -687,7 +625,6 @@ export default function EvolvingChessPage() {
             currentCalculatedStreakForCapturingPlayer = newStreaks[capturingPlayer];
             return newStreaks;
         });
-
 
         if (captured) {
           setLastCapturePlayer(capturingPlayer);
@@ -708,11 +645,25 @@ export default function EvolvingChessPage() {
               if (emptySquares.length > 0) {
                 const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                 const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                const newUniqueSuffix = resurrectionIdCounter++;
+                const newUniqueSuffix = globalResurrectionIdCounter++;
                 const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved };
                 finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                 finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
                 toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+
+                const promoRow = capturingPlayer === 'white' ? 0 : 7;
+                if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
+                    setPlayerForPostResurrectionPromotion(capturingPlayer);
+                    setIsExtraTurnForPostResurrectionPromotion(currentCalculatedStreakForCapturingPlayer === 6);
+                    setIsResurrectionPromotionInProgress(true);
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(randomSquareAlg);
+                    setBoard(finalBoardStateForTurn);
+                    setCapturedPieces(finalCapturedPiecesStateForTurn);
+                    setIsMoveProcessing(false);
+                    setAnimatedSquareTo(null);
+                    return; // Show promotion dialog
+                }
               }
             }
           }
@@ -720,15 +671,11 @@ export default function EvolvingChessPage() {
 
         const { row: toR, col: toC } = algebraicToCoords(algebraic);
         const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR]?.[toC]?.piece;
-        let humanRookResurrectionPerformed = false;
+        let humanRookResData: RookResurrectionResult | null = null;
 
         if (movedPieceOnToSquareHuman && (movedPieceOnToSquareHuman.type === 'rook' || (moveBeingMade.type === 'promotion' && moveBeingMade.promoteTo === 'rook')) ) {
           const oldLevelForResurrectionCheck = levelFromApplyMove !== undefined ? levelFromApplyMove : originalPieceLevelBeforeMove;
-          const {
-            boardWithResurrection: boardAfterHumanRookRes,
-            capturedPiecesAfterResurrection: capturedAfterHumanRookRes,
-            resurrectionPerformed: humanResPerformed
-          } = processRookResurrectionCheck(
+          humanRookResData = processRookResurrectionCheck(
             finalBoardStateForTurn,
             currentPlayer,
             moveBeingMade,
@@ -736,13 +683,32 @@ export default function EvolvingChessPage() {
             oldLevelForResurrectionCheck,
             finalCapturedPiecesStateForTurn
           );
-          if (humanResPerformed) {
-            finalBoardStateForTurn = boardAfterHumanRookRes;
-            finalCapturedPiecesStateForTurn = capturedAfterHumanRookRes;
-            humanRookResurrectionPerformed = true;
+          if (humanRookResData.resurrectionPerformed) {
+            finalBoardStateForTurn = humanRookResData.boardWithResurrection;
+            finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
+            toast({
+                title: "Rook's Call!",
+                description: `${getPlayerDisplayName(currentPlayer)}'s Rook resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L1)`,
+                duration: 3000,
+            });
+
+            if (humanRookResData.resurrectedPieceData?.type === 'pawn') {
+                const promoRow = currentPlayer === 'white' ? 0 : 7;
+                if (algebraicToCoords(humanRookResData.resurrectedSquareAlg!).row === promoRow) {
+                    setPlayerForPostResurrectionPromotion(currentPlayer);
+                    setIsExtraTurnForPostResurrectionPromotion(currentCalculatedStreakForCapturingPlayer === 6);
+                    setIsResurrectionPromotionInProgress(true);
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
+                    setBoard(finalBoardStateForTurn);
+                    setCapturedPieces(finalCapturedPiecesStateForTurn);
+                    setIsMoveProcessing(false);
+                    setAnimatedSquareTo(null);
+                    return; // Show promotion dialog
+                }
+            }
           }
         }
-
 
         if (conversionEvents && conversionEvents.length > 0) {
           conversionEvents.forEach(event => toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 2500 }));
@@ -759,22 +725,20 @@ export default function EvolvingChessPage() {
           const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
           const isPawnPromotingMove = pieceOnBoardAfterMove && pieceOnBoardAfterMove.type === 'pawn' && (toR === 0 || toR === 7);
           const streakGrantsExtraTurn = currentCalculatedStreakForCapturingPlayer === 6;
+          let isPendingHumanResurrectionPromotion = isResurrectionPromotionInProgress; // Check if already set by prior logic
 
           let sacrificeNeededForQueen = false;
-
-          if (!humanRookResurrectionPerformed && pieceOnBoardAfterMove?.type === 'queen' ) {
+          if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
              sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMove, streakGrantsExtraTurn);
           }
 
-
-          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !humanRookResurrectionPerformed) {
+          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
             setIsPromotingPawn(true); setPromotionSquare(algebraic);
-          } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !humanRookResurrectionPerformed) {
+          } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
             processMoveEnd(finalBoardStateForTurn, currentPlayer, streakGrantsExtraTurn);
-          } else if (humanRookResurrectionPerformed) {
+          } else if (humanRookResData?.resurrectionPerformed && !isPendingHumanResurrectionPromotion) {
              processMoveEnd(finalBoardStateForTurn, currentPlayer, streakGrantsExtraTurn);
           }
-
           setIsMoveProcessing(false);
         }, 800);
         return;
@@ -803,129 +767,115 @@ export default function EvolvingChessPage() {
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
     setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
-    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp, processRookResurrectionCheck,
-    algebraicToCoords, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare,
-    setGameInfoBasedOnExtraTurn, completeTurn, getPossibleMoves, coordsToAlgebraic
+    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
+    algebraicToCoords, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare, processRookResurrectionCheck,
+    setGameInfoBasedOnExtraTurn, completeTurn, getPossibleMoves, coordsToAlgebraic,
+    isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice) return;
-    saveStateToHistory();
-
-    let boardAfterPromotion = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+    if (!promotionSquare || isMoveProcessing ) return; // Removed awaiting checks as they should allow promo
+    
+    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
     const { row, col } = algebraicToCoords(promotionSquare);
-    const originalPawnOnBoardForPromo = boardAfterPromotion[row][col].piece; // This is the pawn that just reached the promotion square
+    const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
 
-    if (!originalPawnOnBoardForPromo || originalPawnOnBoardForPromo.type !== 'pawn') {
-      setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false); return;
-    }
-    const originalPawnLevel = originalPawnOnBoardForPromo.level || 1; // Level of the pawn *before* it became a new piece
-    const pawnColor = originalPawnOnBoardForPromo.color;
-
-    // Determine if the promotion move was a capture by checking the original board state
-    // at the 'to' square (promotionSquare) before the pawn arrived there.
-    // This requires looking at the state *before* the pawn's move to the promotion rank.
-    // We can infer this from `lastMoveFrom` if it's set and the `board` state.
-    let capturedPieceOnPromotion: Piece | null = null;
-    if (lastMoveFrom) {
-        const {row: prevToRow, col: prevToCol} = algebraicToCoords(promotionSquare); // this is the 'to' square
-        // Need to check the state of 'board' (main board state) *before* the pawn's move that landed it here.
-        // This is tricky without more history. For now, assume promotion itself doesn't re-evaluate a capture.
-        // The capture bonus should have been applied to the pawn *when it moved* to the promotion square by `applyMove`.
-        // So originalPawnOnBoardForPromo.level already reflects any capture bonus.
+    if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && !isResurrectionPromotionInProgress) ) {
+        // If it's a resurrection promotion, the piece might already be something else if logic error, but it must exist.
+        // For normal promotion, it must be a pawn.
+      setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false);
+      setIsResurrectionPromotionInProgress(false); // Reset this too
+      return;
     }
 
-    boardAfterPromotion[row][col].piece = {
-      ...originalPawnOnBoardForPromo, // Retain ID prefix, color
+    saveStateToHistory(); // Save state before promotion modification
+
+    const originalPawnLevel = pieceBeingPromoted.level || 1;
+    const pawnColor = pieceBeingPromoted.color;
+    const originalPieceId = pieceBeingPromoted.id;
+
+    boardToUpdate[row][col].piece = {
+      ...pieceBeingPromoted,
       type: pieceType,
-      level: 1, // Promoted pieces always start at Level 1.
-      id: `${originalPawnOnBoardForPromo.id}_promo_${pieceType}`,
+      level: 1,
+      id: isResurrectionPromotionInProgress ? `${originalPieceId}_resPromo_${pieceType}` : `${originalPieceId}_promo_${pieceType}`,
       hasMoved: true,
     };
-
-    setLastMoveTo(promotionSquare);
+    
+    setLastMoveTo(promotionSquare); // Keep lastMoveTo updated
     setIsMoveProcessing(true);
     setAnimatedSquareTo(promotionSquare);
-
-    let finalBoardStateAfterPromotion = boardAfterPromotion;
-    let finalCapturedPiecesAfterPromotion = {
-        white: capturedPieces.white.map(p => ({ ...p })),
-        black: capturedPieces.black.map(p => ({ ...p }))
-    };
-
-    setBoard(finalBoardStateAfterPromotion);
+    setBoard(boardToUpdate); // Update board immediately with the new piece type
 
     setTimeout(() => {
       setAnimatedSquareTo(null);
-      toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L1)`, duration: 2500 });
-
-      setEnemySelectedSquare(null);
-      setEnemyPossibleMoves([]);
-
-      const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5; // Based on pawn's level *before* type change
-      const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
-      const streakGrantsExtraTurn = currentStreakForPromotingPlayer === 6;
-      const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
-
-      let sacrificeNeededForQueen = false;
-      let promotionRookResurrectionPerformed = false;
-
-      const moveThatLedToPromotion: Move = {
-        from: lastMoveFrom!,
-        to: promotionSquare,
-        type: 'promotion',
-        promoteTo: pieceType
-      };
       
-      // The original level for the promoted piece (as its new type) is 0 for resurrection check.
-      // Its actual level on board is 1.
-      const originalLevelForResCheck = 0; 
+      if (isResurrectionPromotionInProgress) {
+        toast({ title: "Resurrected Pawn Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s Pawn on ${promotionSquare} promoted to ${pieceType}! (L1)`, duration: 2500 });
+        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion);
+        setIsResurrectionPromotionInProgress(false);
+        setPlayerForPostResurrectionPromotion(null);
+        setIsExtraTurnForPostResurrectionPromotion(false);
+      } else {
+        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L1)`, duration: 2500 });
+        const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
+        const currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
+        const streakGrantsExtraTurn = currentStreakForPromotingPlayer === 6;
+        const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
-      if (pieceType === 'queen') {
-        // originalPawnLevel is the level of the PAWN before it became a queen.
-        // The queen itself is L1. The sacrifice check depends on the Queen's actual current level (which is 1).
-        // But the rule is: "upon reaching Level 5 or higher for the first time (by leveling up from a level below 5)"
-        // A newly promoted queen is L1, so it cannot trigger this.
-        // So, `processPawnSacrificeCheck` should use originalPawnLevel for the extra turn, but the Queen's L1 for the sacrifice check.
-        // The current `processPawnSacrificeCheck` takes `originalQueenLevelIfKnown`. This should be 0 or 1 for a newly promoted Queen.
-         sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateAfterPromotion, pawnColor, moveThatLedToPromotion, 1, combinedExtraTurn);
+        let sacrificeNeededForQueen = false;
+        let promotionRookResurrectionPerformed = false;
+        const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
 
-      } else if (pieceType === 'rook') {
-          const {
-            boardWithResurrection,
-            capturedPiecesAfterResurrection,
-            resurrectionPerformed
-        } = processRookResurrectionCheck(
-            finalBoardStateAfterPromotion,
-            pawnColor,
-            moveThatLedToPromotion,
-            promotionSquare,
-            originalLevelForResCheck, // "Old level as a rook" is 0
-            finalCapturedPiecesAfterPromotion
-        );
-        if (resurrectionPerformed) {
-            finalBoardStateAfterPromotion = boardWithResurrection;
-            finalCapturedPiecesAfterPromotion = capturedPiecesAfterResurrection;
+        if (pieceType === 'queen') {
+          sacrificeNeededForQueen = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, 1, combinedExtraTurn);
+        } else if (pieceType === 'rook') {
+          const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, resurrectedPieceData, resurrectedSquareAlg } = processRookResurrectionCheck(
+            boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 0, capturedPieces
+          );
+          if (resurrectionPerformed) {
+            boardToUpdate = boardWithResurrection;
+            setCapturedPieces(capturedPiecesAfterResurrection); // Update captured pieces state
+            setBoard(boardToUpdate); // Update board if rook resurrected something
             promotionRookResurrectionPerformed = true;
-            setBoard(finalBoardStateAfterPromotion);
-            setCapturedPieces(finalCapturedPiecesAfterPromotion);
+            toast({ title: "Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${resurrectedPieceData!.type} to ${resurrectedSquareAlg!}! (L1)`, duration: 3000 });
+            
+            // Check if this newly resurrected piece is a pawn on promo rank
+            if (resurrectedPieceData?.type === 'pawn') {
+                const promoR = pawnColor === 'white' ? 0 : 7;
+                if (algebraicToCoords(resurrectedSquareAlg!).row === promoR) {
+                    setPlayerForPostResurrectionPromotion(pawnColor);
+                    setIsExtraTurnForPostResurrectionPromotion(combinedExtraTurn); // Use the original extra turn context
+                    setIsResurrectionPromotionInProgress(true); // Set up for another potential promotion dialog
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(resurrectedSquareAlg!);
+                    // Board and captured pieces are already set
+                    setIsMoveProcessing(false);
+                    setAnimatedSquareTo(null);
+                    // Current promotion dialog will close, new one will open due to state change
+                    return; 
+                }
+            }
+          }
+        }
+
+        if (!sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress) { // Ensure not stuck in another promo loop
+           processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn);
         }
       }
-
-      if (!sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !promotionRookResurrectionPerformed) {
-         processMoveEnd(finalBoardStateAfterPromotion, pawnColor, combinedExtraTurn);
-      } else if (promotionRookResurrectionPerformed) { // If rook res happened, it handles its own board/captured updates
-         processMoveEnd(finalBoardStateAfterPromotion, pawnColor, combinedExtraTurn);
-      }
-      // If sacrificeNeededForQueen is true, processMoveEnd is handled by the sacrifice logic.
-
-      setIsPromotingPawn(false); setPromotionSquare(null);
+      
+      setEnemySelectedSquare(null);
+      setEnemyPossibleMoves([]);
+      setIsPromotingPawn(false);
+      setPromotionSquare(null);
       setIsMoveProcessing(false);
     }, 800);
   }, [
     board, promotionSquare, toast, killStreaks, saveStateToHistory, getPlayerDisplayName, processPawnSacrificeCheck, processRookResurrectionCheck,
     isMoveProcessing, setBoard, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
-    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, setLastMoveTo, processMoveEnd, algebraicToCoords, capturedPieces, setCapturedPieces
+    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, algebraicToCoords, capturedPieces, setCapturedPieces,
+    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
+    setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo
   ]);
 
 
@@ -971,7 +921,6 @@ export default function EvolvingChessPage() {
 
         const pieceDataAtFromAI = finalBoardStateForAI[aiMoveDataFromVibeAI.from[0]]?.[aiMoveDataFromVibeAI.from[1]];
         const pieceOnFromSquareForAI = pieceDataAtFromAI?.piece;
-        // originalPieceLevelForAI is captured here, before applyMove for AI
         originalPieceLevelForAI = pieceOnFromSquareForAI?.level || 1;
 
 
@@ -1070,7 +1019,7 @@ export default function EvolvingChessPage() {
             } else {
               const { newBoard, capturedPiece: capturedByAI, conversionEvents, originalPieceLevel: levelFromInternalApply } = applyMove(finalBoardStateForAI, moveForApplyMoveAI!);
               finalBoardStateForAI = newBoard;
-              levelFromAIApplyMove = levelFromInternalApply; // Use the level from applyMove
+              levelFromAIApplyMove = levelFromInternalApply;
               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${moveForApplyMoveAI!.from} to ${moveForApplyMoveAI!.to}`, duration: 1500 });
 
               if (capturedByAI) {
@@ -1098,48 +1047,50 @@ export default function EvolvingChessPage() {
                 });
 
                 if (aiMoveCapturedSomething) {
-                setLastCapturePlayer(currentPlayer);
-                setShowCaptureFlash(true);
-                setCaptureFlashKey(k => k + 1);
+                  setLastCapturePlayer(currentPlayer);
+                  setShowCaptureFlash(true);
+                  setCaptureFlashKey(k => k + 1);
                 } else {
-                if(lastCapturePlayer === currentPlayer) setLastCapturePlayer(null);
+                  if(lastCapturePlayer === currentPlayer) setLastCapturePlayer(null);
                 }
 
 
                 if (currentCalculatedStreakForAIPlayer === 3) {
-                const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
-                let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
-                if (piecesOfAICapturedByOpponent.length > 0) {
-                    const pieceToResOriginalAI = piecesOfAICapturedByOpponent.pop();
-                    if (pieceToResOriginalAI) {
-                    const emptySqAI: AlgebraicSquare[] = [];
-                    for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
-                    if (emptySqAI.length > 0) {
-                        const randSqAI = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
-                        const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI);
-                        const newUniqueSuffixAI = resurrectionIdCounter++;
-                        const resurrectedAI: Piece = { ...pieceToResOriginalAI, level: 1, id: `${pieceToResOriginalAI.id}_res_${newUniqueSuffixAI}_${Date.now()}`, hasMoved: pieceToResOriginalAI.type === 'king' || pieceToResOriginalAI.type === 'rook' ? false : pieceToResOriginalAI.hasMoved };
-                        finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
-                        finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
-                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
-                    }
-                    }
-                }
+                  const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
+                  let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
+                  if (piecesOfAICapturedByOpponent.length > 0) {
+                      const pieceToResOriginalAI = piecesOfAICapturedByOpponent.pop();
+                      if (pieceToResOriginalAI) {
+                      const emptySqAI: AlgebraicSquare[] = [];
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
+                      if (emptySqAI.length > 0) {
+                          const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
+                          const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
+                          const newUniqueSuffixAI = globalResurrectionIdCounter++;
+                          const resurrectedAI: Piece = { ...pieceToResOriginalAI, level: 1, id: `${pieceToResOriginalAI.id}_res_${newUniqueSuffixAI}_${Date.now()}`, hasMoved: pieceToResOriginalAI.type === 'king' || pieceToResOriginalAI.type === 'rook' ? false : pieceToResOriginalAI.hasMoved };
+                          finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
+                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
+                          toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
+
+                          const promoRowAI = currentPlayer === 'white' ? 0 : 7;
+                          if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
+                              finalBoardStateForAI[resRAI][resCAI].piece!.type = 'queen'; // AI promotes to Queen
+                              finalBoardStateForAI[resRAI][resCAI].piece!.level = 1;
+                              finalBoardStateForAI[resRAI][resCAI].piece!.id = `${resurrectedAI.id}_resPromo_Q`;
+                              toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                          }
+                      }
+                      }
+                  }
                 }
 
                 const { row: aiToR, col: aiToC } = algebraicToCoords(aiToAlg as AlgebraicSquare);
                 const aiMovedPieceOnToSquare = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-                let aiRookResurrectionPerformed = false;
+                let aiRookResData: RookResurrectionResult | null = null;
 
                 if (aiMovedPieceOnToSquare && (aiMovedPieceOnToSquare.type === 'rook' || (moveForApplyMoveAI!.type === 'promotion' && moveForApplyMoveAI!.promoteTo === 'rook')) && moveForApplyMoveAI!.type !== 'self-destruct') {
-                  // For AI, originalPieceLevelForAI was captured before its applyMove.
-                  // levelFromAIApplyMove is what applyMove calculated as the original level. They should be the same here.
                   const oldLevelForAIResCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI;
-                  const {
-                      boardWithResurrection: boardAfterAIRookRes,
-                      capturedPiecesAfterResurrection: capturedAfterAIRookRes,
-                      resurrectionPerformed: aiResPerformed
-                  } = processRookResurrectionCheck(
+                  aiRookResData = processRookResurrectionCheck(
                       finalBoardStateForAI,
                       currentPlayer,
                       moveForApplyMoveAI,
@@ -1147,10 +1098,21 @@ export default function EvolvingChessPage() {
                       oldLevelForAIResCheck,
                       finalCapturedPiecesForAI
                   );
-                  if (aiResPerformed) {
-                      finalBoardStateForAI = boardAfterAIRookRes;
-                      finalCapturedPiecesForAI = capturedAfterAIRookRes;
-                      aiRookResurrectionPerformed = true;
+                  if (aiRookResData.resurrectionPerformed) {
+                      finalBoardStateForAI = aiRookResData.boardWithResurrection;
+                      finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
+                      toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 3000 });
+                      
+                      if (aiRookResData.resurrectedPieceData?.type === 'pawn') {
+                          const promoRowAI = currentPlayer === 'white' ? 0 : 7;
+                          const {row: resRookAIR, col: resRookAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
+                          if (resRookAIR === promoRowAI) {
+                              finalBoardStateForAI[resRookAIR][resRookAIC].piece!.type = 'queen';
+                              finalBoardStateForAI[resRookAIR][resRookAIC].piece!.level = 1;
+                              finalBoardStateForAI[resRookAIR][resRookAIC].piece!.id = `${aiRookResData.resurrectedPieceData.id}_resPromo_Q`;
+                              toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                          }
+                      }
                   }
                 }
 
@@ -1172,11 +1134,10 @@ export default function EvolvingChessPage() {
 
                 let sacrificeNeededForAIQueen = false;
 
-                if (isAIPawnPromoting && !isAwaitingRookSacrifice && !isAwaitingPawnSacrifice && !aiRookResurrectionPerformed) {
-                    const promotedTypeAI = moveForApplyMoveAI!.promoteTo || 'queen'; // AI should specify promoteTo if it intends promotion
-                    const pawnLevelBeforeAIPromo = levelFromAIApplyMove || originalPieceLevelForAI || 1; // Level of the pawn before type change
+                if (isAIPawnPromoting && !isAwaitingRookSacrifice && !isAwaitingPawnSacrifice ) {
+                    const promotedTypeAI = moveForApplyMoveAI!.promoteTo || 'queen';
+                    const pawnLevelBeforeAIPromo = levelFromAIApplyMove || originalPieceLevelForAI || 1;
 
-                    // Update the piece on board to the promoted type and L1
                     const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                     if(finalBoardStateForAI[promoR][promoC].piece && finalBoardStateForAI[promoR][promoC].piece!.type === 'pawn') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = promotedTypeAI;
@@ -1184,49 +1145,45 @@ export default function EvolvingChessPage() {
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
                         setBoard(finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))));
                     }
-
-
                     toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L1)`, duration: 2500 });
 
                     const aiPawnPromoExtraTurn = pawnLevelBeforeAIPromo >= 5;
                     const combinedExtraTurnForAI = aiPawnPromoExtraTurn || streakGrantsExtraTurnForAI;
-
                     const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                     if (pieceAfterAIPromo?.type === 'queen') {
-                      sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI!, 1, combinedExtraTurnForAI); // Newly promoted Queen is L1
-                    } else if (pieceAfterAIPromo?.type === 'rook' && !aiRookResurrectionPerformed) {
-                        const {
-                            boardWithResurrection: boardAfterAIPromoRookRes,
-                            capturedPiecesAfterResurrection: capturedAfterAIPromoRookRes,
-                            resurrectionPerformed: aiPromoRookResPerformed
-                        } = processRookResurrectionCheck(
-                            finalBoardStateForAI,
-                            currentPlayer,
-                            moveForApplyMoveAI,
-                            aiToAlg as AlgebraicSquare,
-                            0, // Original level of a promoting pawn "as a rook" is 0
-                            finalCapturedPiecesForAI
+                      sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI!, 1, combinedExtraTurnForAI);
+                    } else if (pieceAfterAIPromo?.type === 'rook' && aiRookResData && !aiRookResData.resurrectionPerformed) { // only if rook res didn't happen earlier
+                        const { boardWithResurrection, capturedPiecesAfterResurrection: capturedAfterAIRookRes, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg } = processRookResurrectionCheck(
+                            finalBoardStateForAI, currentPlayer, moveForApplyMoveAI, aiToAlg as AlgebraicSquare, 0, finalCapturedPiecesForAI
                         );
                         if (aiPromoRookResPerformed) {
-                            finalBoardStateForAI = boardAfterAIPromoRookRes;
-                            finalCapturedPiecesForAI = capturedAfterAIPromoRookRes;
+                            finalBoardStateForAI = boardWithResurrection;
+                            finalCapturedPiecesForAI = capturedAfterAIRookRes;
                             setBoard(finalBoardStateForAI);
                             setCapturedPieces(finalCapturedPiecesForAI);
-                            // aiRookResurrectionPerformed already true if this path taken
+                            toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
+                            if(aiPromoRookPieceData?.type === 'pawn'){
+                                const promoR_AI = currentPlayer === 'white' ? 0 : 7;
+                                const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
+                                if (resRookPromoAIR === promoR_AI) {
+                                    finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.type = 'queen';
+                                    finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.level = 1;
+                                    finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.id = `${aiPromoRookPieceData.id}_resPromo_Q`;
+                                    toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                }
+                            }
                         }
                     }
-
                     if(!sacrificeNeededForAIQueen && !isAwaitingRookSacrifice && !isAwaitingPawnSacrifice){
                         processMoveEnd(finalBoardStateForAI, currentPlayer, combinedExtraTurnForAI);
                     }
-
-                } else if (!isAwaitingRookSacrifice && !isAwaitingPawnSacrifice && !aiRookResurrectionPerformed && pieceAtDestinationAI?.type === 'queen') {
+                } else if (!isAwaitingRookSacrifice && !isAwaitingPawnSacrifice && pieceAtDestinationAI?.type === 'queen') {
                     sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI!, levelFromAIApplyMove, streakGrantsExtraTurnForAI);
                     if (!sacrificeNeededForAIQueen) {
                         processMoveEnd(finalBoardStateForAI, currentPlayer, streakGrantsExtraTurnForAI);
                     }
-                } else if (aiRookResurrectionPerformed || (!sacrificeNeededForAIQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice) ) {
+                } else if (aiRookResData?.resurrectionPerformed || (!sacrificeNeededForAIQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice) ) {
                      processMoveEnd(finalBoardStateForAI, currentPlayer, streakGrantsExtraTurnForAI);
                 }
 
@@ -1270,18 +1227,18 @@ export default function EvolvingChessPage() {
     setIsAiThinking, setIsMoveProcessing, setAnimatedSquareTo,
     setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
     setLastMoveFrom, setLastMoveTo,
-    processPawnSacrificeCheck, processRookResurrectionCheck,
-    algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare,
+    processPawnSacrificeCheck,
+    algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare, processRookResurrectionCheck,
     setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd
   ]);
 
 
   useEffect(() => {
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI);
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress) {
       performAiMove();
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -1384,7 +1341,7 @@ export default function EvolvingChessPage() {
 
 
   const resetGame = useCallback(() => {
-    resurrectionIdCounter = 0;
+    globalResurrectionIdCounter = 0;
     const initialBoardState = initializeBoard();
     setBoard(initialBoardState);
     setCurrentPlayer('white');
@@ -1445,12 +1402,16 @@ export default function EvolvingChessPage() {
     setOriginalTurnPlayerForRookSacrifice(null);
     setIsExtraTurnFromRookLevelUp(false);
 
+    setIsResurrectionPromotionInProgress(false);
+    setPlayerForPostResurrectionPromotion(null);
+    setIsExtraTurnForPostResurrectionPromotion(false);
+
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
   }, [toast, determineBoardOrientation, getCastlingRightsString, boardToPositionHash]);
 
   const handleUndo = useCallback(() => {
-    if ((isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice) {
-      toast({ title: "Undo Failed", description: "Cannot undo during AI turn, processing, or sacrifice.", duration: 2500 });
+    if ((isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
+      toast({ title: "Undo Failed", description: "Cannot undo during AI turn, processing, or pending actions.", duration: 2500 });
       return;
     }
     if (historyStack.length === 0) {
@@ -1509,7 +1470,7 @@ export default function EvolvingChessPage() {
       setShowCheckFlashBackground(false);
       setShowCheckmatePatternFlash(false);
       setIsPromotingPawn(false);
-      setPromotionSquare(null);
+      setPromotionSquare(stateToRestore.promotionSquare || null);
       setAnimatedSquareTo(null);
       setIsMoveProcessing(false);
       aiErrorOccurredRef.current = false;
@@ -1528,6 +1489,10 @@ export default function EvolvingChessPage() {
       setOriginalTurnPlayerForRookSacrifice(stateToRestore.originalTurnPlayerForRookSacrifice);
       setIsExtraTurnFromRookLevelUp(stateToRestore.isExtraTurnFromRookLevelUp);
 
+      setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
+      setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
+
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 2500 });
     } else {
@@ -1536,14 +1501,15 @@ export default function EvolvingChessPage() {
     }
   }, [
     historyStack, isAiThinking, toast, currentPlayer, isWhiteAI, isBlackAI, determineBoardOrientation, isMoveProcessing,
-    isAwaitingPawnSacrifice, isAwaitingRookSacrifice,
+    isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress,
     setBoard, setCurrentPlayer, setGameInfo, setCapturedPieces, setKillStreaks, setLastCapturePlayer,
     setPositionHistory, setLastMoveFrom, setLastMoveTo, setIsWhiteAI, setIsBlackAI, setViewMode, setBoardOrientation,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setFlashMessage,
     setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
     setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
     setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
-    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, setOriginalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp
+    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, setOriginalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
+    setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion
   ]);
 
 
@@ -1578,7 +1544,7 @@ export default function EvolvingChessPage() {
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, viewMode, isWhiteAI, toast, determineBoardOrientation, setIsBlackAI, setBoardOrientation, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice;
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress;
 
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
@@ -1599,7 +1565,7 @@ export default function EvolvingChessPage() {
             <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-xs">
               <BookOpen className="mr-1" /> Rules
             </Button>
-            <Button variant="outline" onClick={handleUndo} disabled={historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice} aria-label="Undo Move" className="h-8 px-2 text-xs">
+            <Button variant="outline" onClick={handleUndo} disabled={historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress} aria-label="Undo Move" className="h-8 px-2 text-xs">
               <Undo2 className="mr-1" /> Undo
             </Button>
             <Button variant="outline" onClick={handleToggleWhiteAI} disabled={(isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-xs">
@@ -1618,9 +1584,10 @@ export default function EvolvingChessPage() {
             <GameControls
               currentPlayer={currentPlayer}
               gameStatusMessage={
-                isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn to sacrifice!` :
-                  isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                    gameInfo.message || "\u00A0"
+                isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting Pawn!` :
+                  isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn to sacrifice!` :
+                    isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
+                      gameInfo.message || "\u00A0"
               }
               capturedPieces={capturedPieces}
               isCheck={gameInfo.isCheck}
@@ -1656,7 +1623,10 @@ export default function EvolvingChessPage() {
       <PromotionDialog
         isOpen={isPromotingPawn}
         onSelectPiece={handlePromotionSelect}
-        pawnColor={promotionSquare && board[algebraicToCoords(promotionSquare).row][algebraicToCoords(promotionSquare).col].piece?.color || null}
+        pawnColor={
+            promotionSquare &&
+            (isResurrectionPromotionInProgress ? playerForPostResurrectionPromotion : board[algebraicToCoords(promotionSquare).row][algebraicToCoords(promotionSquare).col].piece?.color) || null
+        }
       />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
     </div>
