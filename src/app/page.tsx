@@ -147,6 +147,16 @@ export default function EvolvingChessPage() {
     return name;
   }, [isWhiteAI, isBlackAI]);
 
+  const getKillStreakToastMessage = useCallback((streak: number): string | null => {
+    if (streak === 1) return "KILL STREAK!";
+    if (streak === 2) return "DOUBLE KILL!";
+    if (streak === 3) return "TRIPLE KILL!";
+    if (streak === 4) return "ULTRA KILL!";
+    if (streak === 5) return "MONSTER KILL!";
+    if (streak >= 6) return "RAMPAGE!";
+    return null; 
+  }, []);
+
   const determineBoardOrientation = useCallback((
     currentViewMode: ViewMode,
     playerForTurn: PlayerColor,
@@ -493,7 +503,7 @@ export default function EvolvingChessPage() {
       console.log(`[DEBUG page.tsx]   Does fresh list include ${algebraic}? ${isMoveInFreshList}`);
 
 
-      if (selectedSquare === algebraic && pieceToMoveFromSelected.type === 'knight' && pieceToMoveFromSelected.color === currentPlayer && originalPieceLevelBeforeMove >= 5) {
+      if (selectedSquare === algebraic && pieceToMoveFromSelected.type === 'knight' && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
         console.log(`[DEBUG page.tsx] Knight self-destruct condition met for ${selectedSquare}.`);
         saveStateToHistory();
         setLastMoveFrom(selectedSquare);
@@ -545,6 +555,14 @@ export default function EvolvingChessPage() {
             newStreakForSelfDestructPlayer = 0;
         }
         setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer }));
+
+        if (selfDestructCapturedSomething) {
+            const streakMsg = getKillStreakToastMessage(newStreakForSelfDestructPlayer);
+            if (streakMsg) {
+                setKillStreakFlashMessage(streakMsg);
+                setKillStreakFlashMessageKey(k => k + 1);
+            }
+        }
 
 
         if (selfDestructCapturedSomething) {
@@ -630,6 +648,14 @@ export default function EvolvingChessPage() {
             newStreakForCapturingPlayer = 0; 
         }
         setKillStreaks(prev => ({ ...prev, [capturingPlayer]: newStreakForCapturingPlayer }));
+
+        if (pieceWasCapturedThisTurn) {
+            const streakMsg = getKillStreakToastMessage(newStreakForCapturingPlayer);
+            if (streakMsg) {
+                setKillStreakFlashMessage(streakMsg);
+                setKillStreakFlashMessageKey(k => k + 1);
+            }
+        }
 
 
         if (captured) {
@@ -788,7 +814,8 @@ export default function EvolvingChessPage() {
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
     algebraicToCoords, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare, processRookResurrectionCheck,
     setGameInfoBasedOnExtraTurn, completeTurn, getPossibleMoves, coordsToAlgebraic,
-    isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress
+    isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress,
+    getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -1054,6 +1081,14 @@ export default function EvolvingChessPage() {
                 }
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
 
+                if (aiMoveCapturedSomething) {
+                    const streakMsg = getKillStreakToastMessage(newStreakForAIPlayer);
+                    if (streakMsg) {
+                        setKillStreakFlashMessage(streakMsg);
+                        setKillStreakFlashMessageKey(k => k + 1);
+                    }
+                }
+
 
                 if (aiMoveCapturedSomething) {
                   setLastCapturePlayer(currentPlayer);
@@ -1241,7 +1276,8 @@ export default function EvolvingChessPage() {
     setLastMoveFrom, setLastMoveTo,
     processPawnSacrificeCheck,
     algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare, processRookResurrectionCheck,
-    setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves
+    setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves,
+    getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey
   ]);
 
 
@@ -1650,4 +1686,5 @@ export default function EvolvingChessPage() {
     
 
     
+
 
