@@ -327,8 +327,8 @@ class VibeChessAI {
             }
 
             if (pieceOnToSquare.type === 'queen' &&
-                (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 5) &&
-                originalLevelOfMovingPiece < 5 &&
+                (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 6) &&
+                originalLevelOfMovingPiece < 6 &&
                 (move.type === 'capture' || (move.type === 'promotion' && pieceWasCaptured))
             ) {
                 let pawnSacrificed = false;
@@ -572,8 +572,8 @@ class VibeChessAI {
                     if (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel)) {
                         abilitiesScore += (pieceActualLevel -1) * 15 * multiplier; // General level bonus
 
-                        if (piece.type === 'queen' && pieceActualLevel >= 5) {
-                            abilitiesScore += 60 * multiplier; // L5 Queen is strong
+                        if (piece.type === 'queen' && pieceActualLevel >= 6) {
+                            abilitiesScore += 60 * multiplier; // L6 Queen is strong
                         }
                         if (piece.type === 'bishop' && pieceActualLevel >= 3){ // Pawn immunity for bishop
                             abilitiesScore += 25 * multiplier;
@@ -597,7 +597,7 @@ class VibeChessAI {
         const targetActualLevel = Number(targetPiece.level || 1);
         const attackerActualLevel = Number(attackingPiece.level || 1);
     
-        if (targetPiece.type === 'queen' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 5 && (typeof attackerActualLevel !== 'number' || isNaN(attackerActualLevel) || attackerActualLevel < targetActualLevel)) {
+        if (targetPiece.type === 'queen' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 6 && (typeof attackerActualLevel !== 'number' || isNaN(attackerActualLevel) || attackerActualLevel < targetActualLevel)) {
             return true;
         }
         if (targetPiece.type === 'bishop' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 3 && attackingPiece.type === 'pawn') {
@@ -795,14 +795,21 @@ class VibeChessAI {
         for (let dr_k = -maxDist; dr_k <= maxDist; dr_k++) {
             for (let dc_k = -maxDist; dc_k <= maxDist; dc_k++) {
                 if (dr_k === 0 && dc_k === 0) continue;
+
+                // Ensure only straight or diagonal moves are processed by this general loop.
+                if (!(dr_k === 0 || dc_k === 0 || Math.abs(dr_k) === Math.abs(dc_k))) {
+                    continue;
+                }
+
                 const R_k = r + dr_k; const C_k = c + dc_k;
                 if (this.isValidSquare(R_k, C_k)) {
-                    if (maxDist === 2 && (Math.abs(dr_k) === 2 || Math.abs(dc_k) === 2) && (dr_k === 0 || dc_k === 0 || Math.abs(dr_k) === Math.abs(dc_k))) {
+                    // Check for 2-square linear moves needing a clear intermediate square
+                    if (maxDist === 2 && (Math.abs(dr_k) === 2 || Math.abs(dc_k) === 2) ) {
                         const midR_k = r + Math.sign(dr_k);
                         const midC_k = c + Math.sign(dc_k);
                         if (this.isValidSquare(midR_k, midC_k)) {
-                            if (board[midR_k][midC_k]) continue; 
-                            if (this.isSquareAttacked(gameState, midR_k, midC_k, opponentColor, true)) continue;
+                            if (board[midR_k][midC_k]) continue; // Intermediate square must be empty
+                            if (this.isSquareAttacked(gameState, midR_k, midC_k, opponentColor, true)) continue; // Intermediate square cannot be attacked
                         }
                     }
                     const target_k = board[R_k][C_k];
@@ -812,6 +819,7 @@ class VibeChessAI {
                 }
             }
         }
+        // L5+ Knight move
         if (typeof kingActualLevel === 'number' && !isNaN(kingActualLevel) && kingActualLevel >= 5) {
              console.log(`[DEBUG] AI King at ${r},${c} (L${kingActualLevel}) attempting to add Knight moves.`);
             this.knightMoves.forEach(([dr_n,dc_n]) => {
@@ -827,6 +835,7 @@ class VibeChessAI {
             console.log(`[DEBUG] AI King at ${r},${c} (L${kingActualLevel}) NOT adding Knight moves.`);
         }
 
+        // Castling
         if (!piece.hasMoved && !this.isInCheck(gameState, piece.color)) {
             if (this.canCastle(gameState, piece.color, true, r, c)) {
                 moves.push({ from: [r,c], to: [r, c + 2], type: 'castle' });
@@ -947,19 +956,22 @@ class VibeChessAI {
                 return (Math.abs(deltaRow) === Math.abs(deltaCol) || deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece);
             case 'king':
                 const kingActualLevelForAttack = Number(piece.level || 1);
-                let effectiveMaxDist = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 2) ? 2 : 1;
-                let canUseKnightMove = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 5);
+                let effectiveMaxDist = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 2 && !simplifyKingCheck) ? 2 : 1;
+                let canUseKnightMove = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 5 && !simplifyKingCheck);
 
+                // For simplified checks (like castling), king only attacks 1 square standardly
                 if (simplifyKingCheck) {
                     effectiveMaxDist = 1;
                     canUseKnightMove = false;
                 }
 
-                if (Math.abs(deltaRow) <= effectiveMaxDist && Math.abs(deltaCol) <= effectiveMaxDist) {
-                    if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2) && (deltaRow === 0 || deltaCol === 0 || Math.abs(deltaRow) === Math.abs(deltaCol))) {
+                // Check standard king moves (1 or 2 squares, straight/diagonal)
+                if (Math.abs(deltaRow) <= effectiveMaxDist && Math.abs(deltaCol) <= effectiveMaxDist && (deltaRow === 0 || deltaCol === 0 || Math.abs(deltaRow) === Math.abs(deltaCol))) {
+                    if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2)) { // If it's a 2-square move
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
-                        if (this.isValidSquare(midR, midC) && gameState.board[midR][midC]) return false; 
+                        if (this.isValidSquare(midR, midC) && gameState.board[midR][midC]) return false; // Path must be clear
+                        // If simplifying for castling, don't recursively check if mid-square is attacked
                         if (!simplifyKingCheck && this.isSquareAttacked(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) {
                             return false;
                         }
@@ -967,6 +979,7 @@ class VibeChessAI {
                     return true;
                 }
 
+                // Check L5+ Knight move ability
                 if (canUseKnightMove && ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2))) {
                     return true;
                 }
@@ -1084,4 +1097,5 @@ class VibeChessAI {
 }
 
 export default VibeChessAI;
+
 

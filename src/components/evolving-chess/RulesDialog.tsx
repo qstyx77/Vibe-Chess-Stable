@@ -132,8 +132,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Queen Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1-4" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece in her path)." />
-                  <LevelRule level="5+" description="Royal Guard & Pawn Sacrifice: Invulnerable to attacks from any enemy piece of a lower level. Additionally, upon reaching Level 5 or higher for the first time (by leveling up from a level below 5), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
+                  <LevelRule level="1-5" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece in her path)." />
+                  <LevelRule level="6" description="Royal Guard & Pawn Sacrifice: Invulnerable to attacks from any enemy piece of a lower level. Additionally, upon reaching Level 6 for the first time (by leveling up from a level below 6), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -159,3 +159,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+

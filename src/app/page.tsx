@@ -353,8 +353,8 @@ export default function EvolvingChessPage() {
     const conditionMet = queenAfterLeveling &&
       queenAfterLeveling.type === 'queen' &&
       queenAfterLeveling.color === playerWhoseQueenLeveled &&
-      (Number(queenAfterLeveling.level || 1)) >= 5 &&
-      originalLevel < 5;
+      (Number(queenAfterLeveling.level || 1)) >= 6 && 
+      originalLevel < 6; 
 
 
     if (conditionMet) {
@@ -1511,7 +1511,7 @@ export default function EvolvingChessPage() {
     setIsExtraTurnForPostResurrectionPromotion(false);
 
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
-  }, [toast, determineBoardOrientation, getCastlingRightsString, boardToPositionHash]);
+  }, [toast, determineBoardOrientation, getCastlingRightsString, boardToPositionHash, board, currentPlayer]);
 
   const handleUndo = useCallback(() => {
     if ((isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
@@ -1742,6 +1742,7 @@ export default function EvolvingChessPage() {
     
 
     
+
 
 
 
