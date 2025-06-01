@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -19,7 +20,8 @@ body {
     --background: 270 30% 15%; /* Dark Purple */
     --foreground: 60 80% 90%; /* Pale Yellow */
 
-    --card: 270 30% 22%; /* Darker mid Purple */
+    /* Swapped for correct a1 dark square appearance */
+    --card: 270 20% 25%; /* For LIGHT squares (e.g., b1, a2) */
     --card-foreground: 60 80% 90%; /* Pale Yellow */
 
     --popover: 270 30% 22%;
@@ -31,7 +33,8 @@ body {
     --secondary: 210 60% 50%; /* Bright Blue */
     --secondary-foreground: 210 60% 90%; /* Pale Blue/White */
 
-    --muted: 270 20% 25%; /* Dark Muted Purple (for darker square) */
+    /* Swapped for correct a1 dark square appearance */
+    --muted: 270 30% 22%; /* For DARK squares (e.g., a1, c1) */
     --muted-foreground: 270 20% 65%; /* Light Muted Purple */
 
     --accent: 320 80% 60%; /* Pink/Magenta */
@@ -66,16 +69,22 @@ body {
     /* Ensuring .dark variables match the new :root for consistency */
     --background: 270 30% 15%;
     --foreground: 60 80% 90%;
-    --card: 270 30% 22%;
+
+    /* Swapped for correct a1 dark square appearance */
+    --card: 270 20% 25%; /* For LIGHT squares */
     --card-foreground: 60 80% 90%;
+    
     --popover: 270 30% 22%;
     --popover-foreground: 60 80% 90%;
     --primary: 180 70% 50%;
     --primary-foreground: 180 70% 10%;
     --secondary: 210 60% 50%;
     --secondary-foreground: 210 60% 90%;
-    --muted: 270 20% 25%;
+
+    /* Swapped for correct a1 dark square appearance */
+    --muted: 270 30% 22%; /* For DARK squares */
     --muted-foreground: 270 20% 65%;
+    
     --accent: 320 80% 60%;
     --accent-foreground: 320 80% 10%;
     --destructive: 0 70% 50%;
@@ -128,3 +137,5 @@ body {
 .animate-piece-slide-in {
   animation: piece-slide-in 0.7s ease-out forwards;
 }
+
+    
