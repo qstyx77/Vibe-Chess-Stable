@@ -486,8 +486,9 @@ export default function EvolvingChessPage() {
       
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare);
       console.log(`[DEBUG page.tsx] Attempting move WITH ${pieceToMoveFromSelected.type} (L${originalPieceLevelBeforeMove}) from ${selectedSquare} to ${algebraic}.`);
-      console.log(`[DEBUG page.tsx]   Freshly calculated moves for this piece:`, freshlyCalculatedMovesForThisPiece);
-      console.log(`[DEBUG page.tsx]   'possibleMoves' state variable (for comparison):`, possibleMoves);
+      console.log(`[DEBUG page.tsx]   Freshly calculated moves for this piece: ${JSON.stringify(freshlyCalculatedMovesForThisPiece)}`);
+      console.log(`[DEBUG page.tsx]   'possibleMoves' state variable (for comparison): ${JSON.stringify(possibleMoves)}`);
+      
       const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
       console.log(`[DEBUG page.tsx]   Does fresh list include ${algebraic}? ${isMoveInFreshList}`);
 
@@ -750,7 +751,7 @@ export default function EvolvingChessPage() {
         }, 800);
         return;
       } else {
-         console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS NOT in freshlyCalculatedMoves. ILLEGAL. (State possibleMoves: ${possibleMoves.join(', ')})`);
+         console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS NOT in freshlyCalculatedMoves. ILLEGAL. (State possibleMoves: ${JSON.stringify(possibleMoves)})`);
          setSelectedSquare(null);
          setPossibleMoves([]);
          toast({ title: "Illegal Move", description: `That move is not allowed for the ${pieceToMoveFromSelected.type}.`, variant: "destructive", duration: 3000 });
@@ -761,7 +762,7 @@ export default function EvolvingChessPage() {
       setSelectedSquare(algebraic);
       const legalMovesForPlayer = getPossibleMoves(board, algebraic);
       const pieceLevelForLog = Number(clickedPiece.level || 1);
-      console.log(`[DEBUG page.tsx] Selected piece ${clickedPiece.type} L${pieceLevelForLog} at ${algebraic}. Calculated possibleMoves by getPossibleMoves:`, legalMovesForPlayer);
+      console.log(`[DEBUG page.tsx] Selected piece ${clickedPiece.type} L${pieceLevelForLog} at ${algebraic}. Calculated possibleMoves by getPossibleMoves: ${JSON.stringify(legalMovesForPlayer)}`);
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
@@ -1649,3 +1650,4 @@ export default function EvolvingChessPage() {
     
 
     
+
