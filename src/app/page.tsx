@@ -406,6 +406,7 @@ export default function EvolvingChessPage() {
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
+    console.log("Lemur Test Message - Square Clicked:", algebraic);
     if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) return;
 
     const { row, col } = algebraicToCoords(algebraic);
@@ -468,7 +469,7 @@ export default function EvolvingChessPage() {
     };
     
 
-    if (selectedSquare) { // Attempting a move
+    if (selectedSquare) { 
       const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
       const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
       const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
@@ -487,7 +488,8 @@ export default function EvolvingChessPage() {
       console.log(`[DEBUG page.tsx] Attempting move WITH ${pieceToMoveFromSelected.type} (L${originalPieceLevelBeforeMove}) from ${selectedSquare} to ${algebraic}.`);
       console.log(`[DEBUG page.tsx]   Freshly calculated moves for this piece:`, freshlyCalculatedMovesForThisPiece);
       console.log(`[DEBUG page.tsx]   'possibleMoves' state variable (for comparison):`, possibleMoves);
-      console.log(`[DEBUG page.tsx]   Does fresh list include ${algebraic}? ${freshlyCalculatedMovesForThisPiece.includes(algebraic)}`);
+      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+      console.log(`[DEBUG page.tsx]   Does fresh list include ${algebraic}? ${isMoveInFreshList}`);
 
 
       if (selectedSquare === algebraic && pieceToMoveFromSelected.type === 'knight' && pieceToMoveFromSelected.color === currentPlayer && originalPieceLevelBeforeMove >= 5) {
@@ -603,7 +605,7 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false);
         }, 800);
         return;
-      } else if (freshlyCalculatedMovesForThisPiece.includes(algebraic)) {
+      } else if (isMoveInFreshList) {
         console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS IN freshlyCalculatedMoves. Proceeding with move application.`);
         saveStateToHistory();
         setLastMoveFrom(selectedSquare);
@@ -755,7 +757,7 @@ export default function EvolvingChessPage() {
          setIsMoveProcessing(false); 
          return;
       }
-    } else if (clickedPiece && clickedPiece.color === currentPlayer) { // Piece is FIRST selected
+    } else if (clickedPiece && clickedPiece.color === currentPlayer) { 
       setSelectedSquare(algebraic);
       const legalMovesForPlayer = getPossibleMoves(board, algebraic);
       const pieceLevelForLog = Number(clickedPiece.level || 1);
@@ -763,7 +765,7 @@ export default function EvolvingChessPage() {
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
-    } else { // Clicked empty, or enemy piece, or deselected own piece.
+    } else { 
       setSelectedSquare(null);
       setPossibleMoves([]);
       if (clickedPiece && clickedPiece.color !== currentPlayer) {
@@ -1500,7 +1502,7 @@ export default function EvolvingChessPage() {
 
       setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
       setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnFromPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
 
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 2500 });
