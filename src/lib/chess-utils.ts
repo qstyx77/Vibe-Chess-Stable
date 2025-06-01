@@ -525,7 +525,7 @@ export function applyMove(
   }
   pieceNowOnToSquare.hasMoved = true;
 
-  if (capturedPiece && pieceNowOnToSquare.type !== 'king') { // King does not level up from captures
+  if (capturedPiece) {
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
@@ -868,3 +868,4 @@ export function processRookResurrectionCheck(
     newResurrectionIdCounter: nextResurrectionIdCounter
   };
 }
+
