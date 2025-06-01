@@ -122,7 +122,7 @@ export function getPossibleMovesInternal(
         }
     }
     // Knight moves for L5+ King
-    if (currentLevel >= 5) {
+    if (currentLevel > 4) { // Changed from >= 5
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
         for (const [dr, dc] of knightDeltas) {
             const toR = fromRow + dr;
@@ -221,7 +221,7 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                     const { row: kingR, col: kingC } = algebraicToCoords(coordsToAlgebraic(r, c));
                     let currentKingLevel = parseInt(String(attackingPiece.level || 1), 10);
                     let maxDistance = currentKingLevel >= 2 ? 2 : 1;
-                    let canKnightMove = currentKingLevel >= 5;
+                    let canKnightMove = currentKingLevel > 4; // Changed from >= 5
 
                     if (simplifyKingCheck) {
                         maxDistance = 1;
@@ -425,12 +425,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return true;
     case 'king':
-      const kingLevelKing = pieceLevel;
+      const kingLevelKing = parseInt(String(piece.level || 1), 10);
       const dRowKing = Math.abs(toRow - fromRow);
       const dColKing = Math.abs(toCol - fromCol);
       const maxKingDistance = kingLevelKing >= 2 ? 2 : 1;
 
-      if (kingLevelKing >= 5 && ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2))) {
+      if (kingLevelKing > 4 && ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2))) { // Changed from >= 5
         return true;
       }
       if (dRowKing <= maxKingDistance && dColKing <= maxKingDistance) {

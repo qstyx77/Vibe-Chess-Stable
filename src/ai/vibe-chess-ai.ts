@@ -806,7 +806,7 @@ class VibeChessAI {
                 }
             }
         }
-        if (level >= 5) {
+        if (level > 4) { // Changed from >= 5
             this.knightMoves.forEach(([dr,dc]) => {
                 const R = r + dr; const C = c + dc;
                 if (this.isValidSquare(R,C)){
@@ -941,7 +941,7 @@ class VibeChessAI {
             case 'king':
                 const kingLevel = parseInt(String(piece.level || 1), 10);
                 let effectiveMaxDist = kingLevel >= 2 ? 2 : 1;
-                let canUseKnightMove = kingLevel >= 5;
+                let canUseKnightMove = kingLevel > 4; // Changed from >= 5
 
                 if (simplifyKingCheck) {
                     effectiveMaxDist = 1;
