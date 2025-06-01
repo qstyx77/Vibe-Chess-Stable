@@ -8,6 +8,7 @@ export interface Piece {
   color: PlayerColor;
   level: number;
   hasMoved: boolean;
+  invulnerableTurnsRemaining?: number; // Added for Rook L6 ability if needed
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -78,9 +79,8 @@ export interface GameSnapshot {
   originalTurnPlayerForRookSacrifice: PlayerColor | null;
   isExtraTurnFromRookLevelUp: boolean;
 
-  // States for pawn promotion after resurrection
   isResurrectionPromotionInProgress: boolean;
   playerForPostResurrectionPromotion: PlayerColor | null;
   isExtraTurnForPostResurrectionPromotion: boolean;
-  promotionSquare: AlgebraicSquare | null; // Ensure promotionSquare is part of snapshot
+  promotionSquare: AlgebraicSquare | null; 
 }

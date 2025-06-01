@@ -485,7 +485,6 @@ export default function EvolvingChessPage() {
       const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
       
       if (!pieceToMoveFromSelected) {
-        console.error(`[DEBUG page.tsx] ERROR: No piece found on selectedSquare ${selectedSquare} from board state for move attempt.`);
         setSelectedSquare(null); 
         setPossibleMoves([]);
         setIsMoveProcessing(false);
@@ -504,7 +503,6 @@ export default function EvolvingChessPage() {
 
 
       if (selectedSquare === algebraic && pieceToMoveFromSelected.type === 'knight' && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
-        console.log(`[DEBUG page.tsx] Knight self-destruct condition met for ${selectedSquare}.`);
         saveStateToHistory();
         setLastMoveFrom(selectedSquare);
         setLastMoveTo(selectedSquare);
@@ -584,7 +582,7 @@ export default function EvolvingChessPage() {
                 const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                 const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
                 const newUniqueSuffix = globalResurrectionIdCounter++;
-                const resurrectedPiece: Piece = { ...pieceToResOriginal, level: 1, id: `${pieceToResOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResOriginal.type === 'king' || pieceToResOriginal.type === 'rook' ? false : pieceToResOriginal.hasMoved };
+                const resurrectedPiece: Piece = { ...pieceToResOriginal, level: 1, id: `${pieceToResOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResOriginal.type === 'king' || pieceToResOriginal.type === 'rook' ? false : pieceToResOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
                 finalBoardStateForTurn[resR][resC].piece = resurrectedPiece; 
                 finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResOriginal.id); 
                 toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
@@ -633,8 +631,36 @@ export default function EvolvingChessPage() {
         setAnimatedSquareTo(algebraic);
 
         const moveBeingMade: Move = { from: selectedSquare, to: algebraic };
-        const { newBoard, capturedPiece: captured, conversionEvents, originalPieceLevel: levelFromApplyMove } = applyMove(finalBoardStateForTurn, moveBeingMade);
+        const { newBoard, capturedPiece: captured, conversionEvents, originalPieceLevel: levelFromApplyMove, selfCheckByPushBack } = applyMove(finalBoardStateForTurn, moveBeingMade);
         finalBoardStateForTurn = newBoard;
+
+        if (selfCheckByPushBack) {
+          const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+          toast({
+            title: "Auto-Checkmate!",
+            description: `${getPlayerDisplayName(currentPlayer)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
+            variant: "destructive",
+            duration: 5000
+          });
+          setGameInfo(prev => ({
+            ...prev,
+            message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
+            isCheck: true,
+            playerWithKingInCheck: currentPlayer,
+            isCheckmate: true,
+            isStalemate: false,
+            gameOver: true,
+            winner: opponentPlayer
+          }));
+          setBoard(finalBoardStateForTurn);
+          setCapturedPieces(finalCapturedPiecesStateForTurn);
+          setIsMoveProcessing(false);
+          setAnimatedSquareTo(null);
+          setSelectedSquare(null); setPossibleMoves([]);
+          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+          return;
+        }
+
 
         const capturingPlayer = currentPlayer;
         const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
@@ -678,7 +704,7 @@ export default function EvolvingChessPage() {
                 const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                 const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
                 const newUniqueSuffix = globalResurrectionIdCounter++;
-                const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved };
+                const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
                 finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                 finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
                 toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
@@ -1020,6 +1046,7 @@ export default function EvolvingChessPage() {
             let aiMoveCapturedSomething = false;
             let piecesDestroyedByAICount = 0;
             let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
+            let selfCheckByAIPushBack = false;
 
 
             if (moveForApplyMoveAI!.type === 'self-destruct') {
@@ -1058,17 +1085,46 @@ export default function EvolvingChessPage() {
                   aiErrorOccurredRef.current = true;
               }
             } else {
-              const { newBoard, capturedPiece: capturedByAI, conversionEvents, originalPieceLevel: levelFromInternalApply } = applyMove(finalBoardStateForAI, moveForApplyMoveAI!);
-              finalBoardStateForAI = newBoard;
-              levelFromAIApplyMove = levelFromInternalApply;
+              const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI!);
+              finalBoardStateForAI = applyMoveResult.newBoard;
+              levelFromAIApplyMove = applyMoveResult.originalPieceLevel;
+              selfCheckByAIPushBack = applyMoveResult.selfCheckByPushBack;
+
+              if (selfCheckByAIPushBack) {
+                const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                toast({
+                  title: "Auto-Checkmate!",
+                  description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
+                  variant: "destructive",
+                  duration: 5000
+                });
+                setGameInfo(prev => ({
+                  ...prev,
+                  message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
+                  isCheck: true,
+                  playerWithKingInCheck: currentPlayer,
+                  isCheckmate: true,
+                  isStalemate: false,
+                  gameOver: true,
+                  winner: opponentPlayer
+                }));
+                setBoard(finalBoardStateForAI);
+                setCapturedPieces(finalCapturedPiecesForAI);
+                setIsMoveProcessing(false);
+                setIsAiThinking(false);
+                setAnimatedSquareTo(null);
+                setSelectedSquare(null); setPossibleMoves([]);
+                setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+                return;
+              }
               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${moveForApplyMoveAI!.from} to ${moveForApplyMoveAI!.to}`, duration: 1500 });
 
-              if (capturedByAI) {
+              if (applyMoveResult.capturedPiece) {
                 aiMoveCapturedSomething = true;
-                finalCapturedPiecesForAI[currentPlayer].push(capturedByAI);
+                finalCapturedPiecesForAI[currentPlayer].push(applyMoveResult.capturedPiece);
               }
-              if (conversionEvents && conversionEvents.length > 0) {
-                conversionEvents.forEach(event => toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 2500 }));
+              if (applyMoveResult.conversionEvents && applyMoveResult.conversionEvents.length > 0) {
+                applyMoveResult.conversionEvents.forEach(event => toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 2500 }));
               }
             }
 
@@ -1111,7 +1167,7 @@ export default function EvolvingChessPage() {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
                           const newUniqueSuffixAI = globalResurrectionIdCounter++;
-                          const resurrectedAI: Piece = { ...pieceToResOriginalAI, level: 1, id: `${pieceToResOriginalAI.id}_res_${newUniqueSuffixAI}_${Date.now()}`, hasMoved: pieceToResOriginalAI.type === 'king' || pieceToResOriginalAI.type === 'rook' ? false : pieceToResOriginalAI.hasMoved };
+                          const resurrectedAI: Piece = { ...pieceToResOriginalAI, level: 1, id: `${pieceToResOriginalAI.id}_res_${newUniqueSuffixAI}_${Date.now()}`, hasMoved: pieceToResOriginalAI.type === 'king' || pieceToResOriginalAI.type === 'rook' ? false : pieceToResOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                           finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
                           toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
@@ -1686,5 +1742,6 @@ export default function EvolvingChessPage() {
     
 
     
+
 
 
