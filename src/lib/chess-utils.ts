@@ -96,7 +96,8 @@ export function getPossibleMovesInternal(
   const currentLevel = parseInt(String(piece.level || 1), 10);
 
   if (piece.type === 'king') {
-    const maxDistance = currentLevel >= 2 ? 2 : 1;
+    const kingActualLevel = Number(piece.level);
+    const maxDistance = (typeof kingActualLevel === 'number' && !isNaN(kingActualLevel) && kingActualLevel >= 2) ? 2 : 1;
 
     for (let dr = -maxDistance; dr <= maxDistance; dr++) {
         for (let dc = -maxDistance; dc <= maxDistance; dc++) {
@@ -122,7 +123,7 @@ export function getPossibleMovesInternal(
         }
     }
     // Knight moves for L5+ King
-    if (currentLevel > 4) { // Changed from >= 5
+    if (typeof kingActualLevel === 'number' && !isNaN(kingActualLevel) && kingActualLevel >= 5) {
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
         for (const [dr, dc] of knightDeltas) {
             const toR = fromRow + dr;
@@ -173,7 +174,8 @@ export function getPossibleMovesInternal(
   }
 
   // Swap moves for Knight L4+ and Bishop L4+
-  if (piece.type === 'knight' && currentLevel >= 4) {
+  const pieceActualLevelForSwap = Number(piece.level);
+  if (piece.type === 'knight' && typeof pieceActualLevelForSwap === 'number' && !isNaN(pieceActualLevelForSwap) && pieceActualLevelForSwap >= 4) {
     for (let r_idx = 0; r_idx < 8; r_idx++) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
         const targetPiece = board[r_idx]?.[c_idx]?.piece;
@@ -183,7 +185,7 @@ export function getPossibleMovesInternal(
       }
     }
   }
-  if (piece.type === 'bishop' && currentLevel >= 4) {
+  if (piece.type === 'bishop' && typeof pieceActualLevelForSwap === 'number' && !isNaN(pieceActualLevelForSwap) && pieceActualLevelForSwap >= 4) {
     for (let r_idx = 0; r_idx < 8; r_idx++) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
         const targetPiece = board[r_idx]?.[c_idx]?.piece;
@@ -219,9 +221,9 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                     }
                 } else if (attackingPiece.type === 'king') {
                     const { row: kingR, col: kingC } = algebraicToCoords(coordsToAlgebraic(r, c));
-                    let currentKingLevel = parseInt(String(attackingPiece.level || 1), 10);
-                    let maxDistance = currentKingLevel >= 2 ? 2 : 1;
-                    let canKnightMove = currentKingLevel > 4; // Changed from >= 5
+                    const currentKingActualLevel = Number(attackingPiece.level);
+                    let maxDistance = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 2) ? 2 : 1;
+                    let canKnightMove = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 5);
 
                     if (simplifyKingCheck) {
                         maxDistance = 1;
@@ -285,19 +287,19 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   const targetSquareState = board[toRow]?.[toCol];
   const targetPieceOnSquare = targetSquareState?.piece;
-  const pieceLevel = parseInt(String(piece.level || 1), 10);
+  const pieceActualLevel = Number(piece.level);
 
 
   const isKnightBishopSwap =
     piece.type === 'knight' &&
-    pieceLevel >= 4 &&
+    (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >= 4) &&
     targetPieceOnSquare &&
     targetPieceOnSquare.type === 'bishop' &&
     targetPieceOnSquare.color === piece.color;
 
   const isBishopKnightSwap =
     piece.type === 'bishop' &&
-    pieceLevel >= 4 &&
+    (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >= 4) &&
     targetPieceOnSquare &&
     targetPieceOnSquare.type === 'knight' &&
     targetPieceOnSquare.color === piece.color;
@@ -316,7 +318,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   switch (piece.type) {
     case 'pawn':
       const direction = piece.color === 'white' ? -1 : 1;
-      const levelPawn = pieceLevel;
+      const levelPawn = parseInt(String(piece.level || 1), 10);
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       if (
         fromCol === toCol && !targetPieceOnSquare && !piece.hasMoved &&
@@ -341,7 +343,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     case 'knight':
       const dRowKnight = Math.abs(toRow - fromRow);
       const dColKnight = Math.abs(toCol - fromCol);
-      const knightLevel = pieceLevel;
+      const knightLevel = parseInt(String(piece.level || 1), 10);
       if ((dRowKnight === 2 && dColKnight === 1) || (dRowKnight === 1 && dColKnight === 2)) {
         return true;
       }
@@ -371,7 +373,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return true;
     case 'bishop':
-      const bishopLevel = pieceLevel;
+      const bishopLevel = parseInt(String(piece.level || 1), 10);
       if (Math.abs(toRow - fromRow) !== Math.abs(toCol - fromCol)) return false;
       const dRowDirBishop = Math.sign(toRow - fromRow);
       const dColDirBishop = Math.sign(toCol - fromCol);
@@ -425,13 +427,13 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return true;
     case 'king':
-      const kingLevelKing = parseInt(String(piece.level || 1), 10);
+      const kingActualLevelForValidation = Number(piece.level);
       const dRowKing = Math.abs(toRow - fromRow);
       const dColKing = Math.abs(toCol - fromCol);
-      const maxKingDistance = kingLevelKing >= 2 ? 2 : 1;
+      const maxKingDistance = (typeof kingActualLevelForValidation === 'number' && !isNaN(kingActualLevelForValidation) && kingActualLevelForValidation >= 2) ? 2 : 1;
 
-      if (kingLevelKing > 4 && ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2))) { // Changed from >= 5
-        return true;
+      if (typeof kingActualLevelForValidation === 'number' && !isNaN(kingActualLevelForValidation) && kingActualLevelForValidation >= 5 && ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2))) {
+        return true; // Knight move
       }
       if (dRowKing <= maxKingDistance && dColKing <= maxKingDistance) {
         if (maxKingDistance === 2 && (dRowKing === 2 || dColKing === 2) && (dRowKing === 0 || dColKing === 0 || dRowKing === dColKing)) {
@@ -488,9 +490,10 @@ export function applyMove(
   const originalPieceLevel = parseInt(String(movingPieceOriginalRef.level || 1), 10);
   const targetPieceOriginal = newBoard[toRow]?.[toCol]?.piece;
 
+  const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level);
   if (
-    (movingPieceOriginalRef.type === 'knight' && (parseInt(String(movingPieceOriginalRef.level || 1), 10)) >= 4 && targetPieceOriginal?.type === 'bishop' && targetPieceOriginal.color === movingPieceOriginalRef.color) ||
-    (movingPieceOriginalRef.type === 'bishop' && (parseInt(String(movingPieceOriginalRef.level || 1), 10)) >= 4 && targetPieceOriginal?.type === 'knight' && targetPieceOriginal.color === movingPieceOriginalRef.color)
+    (movingPieceOriginalRef.type === 'knight' && (typeof movingPieceActualLevelForSwap === 'number' && !isNaN(movingPieceActualLevelForSwap) && movingPieceActualLevelForSwap >= 4) && targetPieceOriginal?.type === 'bishop' && targetPieceOriginal.color === movingPieceOriginalRef.color) ||
+    (movingPieceOriginalRef.type === 'bishop' && (typeof movingPieceActualLevelForSwap === 'number' && !isNaN(movingPieceActualLevelForSwap) && movingPieceActualLevelForSwap >= 4) && targetPieceOriginal?.type === 'knight' && targetPieceOriginal.color === movingPieceOriginalRef.color)
   ) {
     const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true };
     const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true };
@@ -559,7 +562,9 @@ export function applyMove(
   }
 
 
-  if (pieceNowOnToSquare.type === 'pawn' && (parseInt(String(pieceNowOnToSquare.level || 1), 10)) >= 4) {
+  const pieceNowOnToSquareActualLevel = Number(pieceNowOnToSquare.level);
+
+  if (pieceNowOnToSquare.type === 'pawn' && (typeof pieceNowOnToSquareActualLevel === 'number' && !isNaN(pieceNowOnToSquareActualLevel) && pieceNowOnToSquareActualLevel >= 4)) {
     const pawnNewRow = toRow;
     const pawnNewCol = toCol;
     for (let dr = -1; dr <= 1; dr++) {
@@ -585,7 +590,7 @@ export function applyMove(
     }
   }
 
-  if (pieceNowOnToSquare.type === 'bishop' && (parseInt(String(pieceNowOnToSquare.level || 1), 10)) >= 5) {
+  if (pieceNowOnToSquare.type === 'bishop' && (typeof pieceNowOnToSquareActualLevel === 'number' && !isNaN(pieceNowOnToSquareActualLevel) && pieceNowOnToSquareActualLevel >= 5)) {
     const bishopColor = pieceNowOnToSquare.color;
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
@@ -658,12 +663,13 @@ export function filterLegalMoves(
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
     const pieceToMoveCopy = { ...originalMovingPiece };
     const targetPieceForSim = tempBoardState[toR]?.[toC]?.piece;
+    const pieceToMoveActualLevelForSwap = Number(pieceToMoveCopy.level);
 
     const isKnightBishopSwapSim =
-      pieceToMoveCopy.type === 'knight' && (parseInt(String(pieceToMoveCopy.level || 1), 10)) >= 4 &&
+      pieceToMoveCopy.type === 'knight' && (typeof pieceToMoveActualLevelForSwap === 'number' && !isNaN(pieceToMoveActualLevelForSwap) && pieceToMoveActualLevelForSwap >= 4) &&
       targetPieceForSim && targetPieceForSim.type === 'bishop' && targetPieceForSim.color === pieceToMoveCopy.color;
     const isBishopKnightSwapSim =
-      pieceToMoveCopy.type === 'bishop' && (parseInt(String(pieceToMoveCopy.level || 1), 10)) >= 4 &&
+      pieceToMoveCopy.type === 'bishop' && (typeof pieceToMoveActualLevelForSwap === 'number' && !isNaN(pieceToMoveActualLevelForSwap) && pieceToMoveActualLevelForSwap >= 4) &&
       targetPieceForSim && targetPieceForSim.type === 'knight' && targetPieceForSim.color === pieceToMoveCopy.color;
 
     if (isKnightBishopSwapSim || isBishopKnightSwapSim) {
