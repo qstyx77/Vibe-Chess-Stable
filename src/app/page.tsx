@@ -470,32 +470,25 @@ export default function EvolvingChessPage() {
 
     if (selectedSquare) { // Attempting a move
       const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
-      const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected]; // Read directly from current board state
+      const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
       const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
       
       if (!pieceToMoveFromSelected) {
         console.error(`[DEBUG page.tsx] ERROR: No piece found on selectedSquare ${selectedSquare} from board state for move attempt.`);
         setSelectedSquare(null); 
         setPossibleMoves([]);
-        setIsMoveProcessing(false); // Ensure this is reset if we bail early
+        setIsMoveProcessing(false);
         return;
       }
 
       originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
-
-      console.log(
-        `[DEBUG page.tsx] Attempting move with piece: ${pieceToMoveFromSelected.type} L${originalPieceLevelBeforeMove} from ${selectedSquare} to ${algebraic}.`
-      );
-
+      
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare);
-      console.log(
-        `[DEBUG page.tsx] Freshly calculated moves for ${pieceToMoveFromSelected.type} L${originalPieceLevelBeforeMove} at ${selectedSquare}:`,
-        freshlyCalculatedMovesForThisPiece
-      );
-      console.log(
-        `[DEBUG page.tsx] Current 'possibleMoves' state variable (for comparison):`,
-        possibleMoves 
-      );
+      console.log(`[DEBUG page.tsx] Attempting move WITH ${pieceToMoveFromSelected.type} (L${originalPieceLevelBeforeMove}) from ${selectedSquare} to ${algebraic}.`);
+      console.log(`[DEBUG page.tsx]   Freshly calculated moves for this piece:`, freshlyCalculatedMovesForThisPiece);
+      console.log(`[DEBUG page.tsx]   'possibleMoves' state variable (for comparison):`, possibleMoves);
+      console.log(`[DEBUG page.tsx]   Does fresh list include ${algebraic}? ${freshlyCalculatedMovesForThisPiece.includes(algebraic)}`);
+
 
       if (selectedSquare === algebraic && pieceToMoveFromSelected.type === 'knight' && pieceToMoveFromSelected.color === currentPlayer && originalPieceLevelBeforeMove >= 5) {
         console.log(`[DEBUG page.tsx] Knight self-destruct condition met for ${selectedSquare}.`);
@@ -611,7 +604,7 @@ export default function EvolvingChessPage() {
         }, 800);
         return;
       } else if (freshlyCalculatedMovesForThisPiece.includes(algebraic)) {
-        console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS IN freshlyCalculatedMoves. Proceeding.`);
+        console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS IN freshlyCalculatedMoves. Proceeding with move application.`);
         saveStateToHistory();
         setLastMoveFrom(selectedSquare);
         setLastMoveTo(algebraic);
@@ -755,8 +748,7 @@ export default function EvolvingChessPage() {
         }, 800);
         return;
       } else {
-         console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS NOT in freshlyCalculatedMoves. ILLEGAL. Freshly calculated:`, freshlyCalculatedMovesForThisPiece);
-         // Reset selection as the move is illegal based on fresh calculation
+         console.log(`[DEBUG page.tsx] Move ${selectedSquare}->${algebraic} IS NOT in freshlyCalculatedMoves. ILLEGAL. (State possibleMoves: ${possibleMoves.join(', ')})`);
          setSelectedSquare(null);
          setPossibleMoves([]);
          toast({ title: "Illegal Move", description: `That move is not allowed for the ${pieceToMoveFromSelected.type}.`, variant: "destructive", duration: 3000 });
@@ -765,11 +757,9 @@ export default function EvolvingChessPage() {
       }
     } else if (clickedPiece && clickedPiece.color === currentPlayer) { // Piece is FIRST selected
       setSelectedSquare(algebraic);
-      const legalMovesForPlayer = getPossibleMoves(board, algebraic); // Already filters for legality
-      console.log(
-        `[DEBUG page.tsx] Selected piece ${clickedPiece.type} L${Number(clickedPiece.level || 1)} at ${algebraic}. Calculated possibleMoves by getPossibleMoves:`,
-        legalMovesForPlayer
-      );
+      const legalMovesForPlayer = getPossibleMoves(board, algebraic);
+      const pieceLevelForLog = Number(clickedPiece.level || 1);
+      console.log(`[DEBUG page.tsx] Selected piece ${clickedPiece.type} L${pieceLevelForLog} at ${algebraic}. Calculated possibleMoves by getPossibleMoves:`, legalMovesForPlayer);
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
@@ -778,7 +768,7 @@ export default function EvolvingChessPage() {
       setPossibleMoves([]);
       if (clickedPiece && clickedPiece.color !== currentPlayer) {
         setEnemySelectedSquare(algebraic);
-        const enemyMoves = getPossibleMoves(board, algebraic); // For display only
+        const enemyMoves = getPossibleMoves(board, algebraic); 
         setEnemyPossibleMoves(enemyMoves);
       } else {
         setEnemySelectedSquare(null);
@@ -950,8 +940,6 @@ export default function EvolvingChessPage() {
           aiErrorOccurredRef.current = true;
         } else {
           const pseudoPossibleMovesForAiPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg);
-          // const legalMovesForAiPieceOnBoard = filterLegalMoves(finalBoardStateForAI, aiFromAlg, pseudoPossibleMovesForAiPiece, currentPlayer);
-          // We trust getPossibleMoves to return only legal moves now
           const legalMovesForAiPieceOnBoard = pseudoPossibleMovesForAiPiece;
 
           let isAiMoveActuallyLegal = false;
@@ -1381,7 +1369,7 @@ export default function EvolvingChessPage() {
     setCapturedPieces({ white: [], black: [] });
 
     const initialCastlingRights = getCastlingRightsString(initialBoardState);
-    const initialHash = boardToPositionHash(initialBoardState, 'white', initialCastlingRights);
+    const initialHash = boardToPositionHash(board, currentPlayer, initialCastlingRights);
     if(initialHash) setPositionHistory([initialHash]); else setPositionHistory([]);
 
 
@@ -1512,7 +1500,7 @@ export default function EvolvingChessPage() {
 
       setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
       setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnFromPostResurrectionPromotion);
 
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 2500 });
@@ -1653,6 +1641,8 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
 
     
 
