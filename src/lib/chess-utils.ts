@@ -70,7 +70,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const square = board[r]?.[c];
       const piece = square?.piece;
       if (piece) {
-        hash += `${getPieceChar(piece)}L${piece.level || 1}`;
+        hash += `${getPieceChar(piece)}L${parseInt(String(piece.level || 1), 10)}`;
       } else {
         hash += '--';
       }
@@ -93,10 +93,10 @@ export function getPossibleMovesInternal(
   const { row: fromRow, col: fromCol } = algebraicToCoords(fromSquare);
   const pieceColor = piece.color;
   const opponentColor = pieceColor === 'white' ? 'black' : 'white';
-  const level = parseInt(String(piece.level || 1), 10);
+  const currentLevel = parseInt(String(piece.level || 1), 10);
 
   if (piece.type === 'king') {
-    const maxDistance = level >= 2 ? 2 : 1;
+    const maxDistance = currentLevel >= 2 ? 2 : 1;
 
     for (let dr = -maxDistance; dr <= maxDistance; dr++) {
         for (let dc = -maxDistance; dc <= maxDistance; dc++) {
@@ -121,7 +121,8 @@ export function getPossibleMovesInternal(
             }
         }
     }
-    if (level >= 5) {
+    // Knight moves for L5+ King
+    if (currentLevel >= 5) {
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
         for (const [dr, dc] of knightDeltas) {
             const toR = fromRow + dr;
@@ -160,7 +161,7 @@ export function getPossibleMovesInternal(
             }
         }
     }
-  } else {
+  } else { // For pieces other than King
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
           const toSquare = coordsToAlgebraic(r,c);
@@ -171,7 +172,8 @@ export function getPossibleMovesInternal(
       }
   }
 
-  if (piece.type === 'knight' && (parseInt(String(piece.level || 1), 10)) >= 4) {
+  // Swap moves for Knight L4+ and Bishop L4+
+  if (piece.type === 'knight' && currentLevel >= 4) {
     for (let r_idx = 0; r_idx < 8; r_idx++) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
         const targetPiece = board[r_idx]?.[c_idx]?.piece;
@@ -181,7 +183,7 @@ export function getPossibleMovesInternal(
       }
     }
   }
-  if (piece.type === 'bishop' && (parseInt(String(piece.level || 1), 10)) >= 4) {
+  if (piece.type === 'bishop' && currentLevel >= 4) {
     for (let r_idx = 0; r_idx < 8; r_idx++) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
         const targetPiece = board[r_idx]?.[c_idx]?.piece;
@@ -423,13 +425,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return true;
     case 'king':
-      const kingLevel = pieceLevel;
+      const kingLevelKing = pieceLevel;
       const dRowKing = Math.abs(toRow - fromRow);
       const dColKing = Math.abs(toCol - fromCol);
+      const maxKingDistance = kingLevelKing >= 2 ? 2 : 1;
 
-      const maxKingDistance = kingLevel >= 2 ? 2 : 1;
-
-      if (kingLevel >= 5 && ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2))) {
+      if (kingLevelKing >= 5 && ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2))) {
         return true;
       }
       if (dRowKing <= maxKingDistance && dColKing <= maxKingDistance) {
@@ -439,8 +440,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
             if (board[midRow]?.[midCol]?.piece) {
                 return false;
             }
-            const opponentColor = piece.color === 'white' ? 'black' : 'white';
-            if (isSquareAttacked(board, coordsToAlgebraic(midRow, midCol), opponentColor, true)) {
+            const opponentColorKing = piece.color === 'white' ? 'black' : 'white';
+            if (isSquareAttacked(board, coordsToAlgebraic(midRow, midCol), opponentColorKing, true)) {
                 return false;
             }
         }
@@ -524,7 +525,7 @@ export function applyMove(
   }
   pieceNowOnToSquare.hasMoved = true;
 
-  if (capturedPiece) {
+  if (capturedPiece && pieceNowOnToSquare.type !== 'king') { // King does not level up from captures
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
@@ -867,4 +868,3 @@ export function processRookResurrectionCheck(
     newResurrectionIdCounter: nextResurrectionIdCounter
   };
 }
-
