@@ -1,5 +1,5 @@
 
-import type { Piece, PlayerColor, PieceType, AlgebraicSquare, AIGameState, AIBoardState, AIMove, AISquareState } from '@/types';
+import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState } from '@/types';
 import { coordsToAlgebraic } from '@/lib/chess-utils';
 
 /**
@@ -67,12 +67,42 @@ export class VibeChessAI {
     /**
      * Main AI move selection function
      */
-    getBestMove(gameState: AIGameState, color: PlayerColor): AIMove | null {
+    getBestMove(originalGameState: AIGameState, color: PlayerColor): AIMove | null {
         try {
+            // Create a pristine, local copy of the board for this call
+            const localBoardCopy: AIBoardState = [];
+            if (originalGameState.board && Array.isArray(originalGameState.board)) {
+                for (let r_idx = 0; r_idx < 8; r_idx++) {
+                    localBoardCopy[r_idx] = [];
+                    const originalRow = originalGameState.board[r_idx];
+                    if (originalRow && Array.isArray(originalRow)) {
+                        for (let c_idx = 0; c_idx < 8; c_idx++) {
+                            const originalSquare = originalRow[c_idx];
+                            localBoardCopy[r_idx][c_idx] = {
+                                piece: originalSquare?.piece ? { ...originalSquare.piece } : null
+                            };
+                        }
+                    } else { // Fallback for malformed row
+                         localBoardCopy[r_idx] = Array(8).fill(null).map(() => ({ piece: null }));
+                    }
+                }
+            } else {
+                 // Fallback: create empty board if originalGameState.board is malformed
+                for (let r_idx = 0; r_idx < 8; r_idx++) {
+                    localBoardCopy[r_idx] = Array(8).fill(null).map(() => ({ piece: null }));
+                }
+            }
+
+            // Use this local copy for all operations within getBestMove and its callees
+            const gameState: AIGameState = {
+                ...originalGameState, // Copy other properties
+                board: localBoardCopy   // Use the freshly copied board
+            };
+
             this.searchStartTime = Date.now();
             this.positionCache.clear();
 
-            if (!gameState?.board || !color) {
+            if (!gameState.board || !color) {
                 return null;
             }
 
@@ -88,8 +118,14 @@ export class VibeChessAI {
 
         } catch (error) {
             console.error("AI: Error in getBestMove:", error);
-            const fallbackMoves = this.generateAllMoves(gameState, color);
-            return fallbackMoves.length > 0 ? fallbackMoves[0] : null;
+            // Attempt to generate moves with original state as a last resort if local copy fails
+            try {
+                const fallbackMoves = this.generateAllMoves(originalGameState, color);
+                return fallbackMoves.length > 0 ? fallbackMoves[0] : null;
+            } catch (fallbackError) {
+                console.error("AI: Error in fallback move generation:", fallbackError);
+                return null;
+            }
         }
     }
 
@@ -176,35 +212,35 @@ export class VibeChessAI {
             for (let r_idx = 0; r_idx < 8; r_idx++) {
                 newBoardForOptimizedMove[r_idx] = [];
                 const originalRow = gameState.board[r_idx];
-                for (let c_idx = 0; c_idx < 8; c_idx++) {
-                    const originalSquare = originalRow?.[c_idx];
-                    newBoardForOptimizedMove[r_idx][c_idx] = {
-                        piece: originalSquare?.piece ? { ...originalSquare.piece } : null
-                    };
+                if (originalRow && Array.isArray(originalRow)) {
+                    for (let c_idx = 0; c_idx < 8; c_idx++) {
+                        const originalSquare = originalRow[c_idx];
+                        newBoardForOptimizedMove[r_idx][c_idx] = {
+                            piece: originalSquare?.piece ? { ...originalSquare.piece } : null
+                        };
+                    }
+                } else {
+                     newBoardForOptimizedMove[r_idx] = Array(8).fill(null).map(() => ({ piece: null }));
                 }
             }
-        } else { // Fallback for malformed board
+        } else { 
             for (let r_idx = 0; r_idx < 8; r_idx++) {
-                newBoardForOptimizedMove[r_idx] = [];
-                for (let c_idx = 0; c_idx < 8; c_idx++) {
-                    newBoardForOptimizedMove[r_idx][c_idx] = { piece: null };
-                }
+                newBoardForOptimizedMove[r_idx] = Array(8).fill(null).map(() => ({ piece: null }));
             }
         }
     
-        // Deep copy non-board properties. Careful with nested objects like capturedPieces & killStreaks.
         const baseStateCopy: Partial<AIGameState> = {
-            ...gameState,
+            ...gameState, // Spread first to copy all existing properties
             killStreaks: gameState.killStreaks ? { ...gameState.killStreaks } : { white: 0, black: 0 },
             capturedPieces: {
                 white: gameState.capturedPieces?.white?.map(p => ({ ...p })) || [],
                 black: gameState.capturedPieces?.black?.map(p => ({ ...p })) || [],
             }
         };
-        delete baseStateCopy.board; // Remove old board reference before spreading
+        delete baseStateCopy.board; // Remove the old board reference
     
         const newState: AIGameState = {
-            ...(baseStateCopy as Omit<AIGameState, 'board' | 'currentPlayer' | 'extraTurn' | 'gameMoveCounter'>), // Cast after removing board
+            ...(baseStateCopy as Omit<AIGameState, 'board' | 'currentPlayer' | 'extraTurn' | 'gameMoveCounter'>),
             board: newBoardForOptimizedMove,
             currentPlayer: currentPlayer, 
             extraTurn: false, 
@@ -278,7 +314,9 @@ export class VibeChessAI {
             if (!rook || rook.type !== 'rook' || rook.hasMoved || movingPieceCopy.hasMoved) return newState;
             
             newState.board[toRow][toCol].piece = { ...movingPieceCopy, hasMoved: true };
-            newState.board[fromRow][rookToColCastle].piece = { ...rook, hasMoved: true };
+            if (newState.board[fromRow]?.[rookToColCastle]) {
+                newState.board[fromRow][rookToColCastle].piece = { ...rook, hasMoved: true };
+            }
             newState.board[fromRow][fromCol].piece = null;
             if(newState.board[fromRow]?.[rookFromColCastle]) {
                 newState.board[fromRow][rookFromColCastle].piece = null;
@@ -439,7 +477,8 @@ export class VibeChessAI {
 
         const emptySquares: [number, number][] = [];
         for(let r=0; r<8; r++) for(let c=0; c<8; c++){
-            if(newState.board[r]?.[c] && !newState.board[r][c].piece ) emptySquares.push([r,c]);
+            const currentSquare = newState.board[r]?.[c];
+            if(currentSquare && !currentSquare.piece ) emptySquares.push([r,c]);
         }
 
         if (emptySquares.length > 0) {
@@ -538,7 +577,7 @@ export class VibeChessAI {
                     } else if (this.nearCenterSquares.has(`${r}${c}`)) {
                         positionalScore += this.positionalBonuses.nearCenter * multiplier;
                     }
-                    if ((piece.type === 'knight' || piece.type === 'bishop') && piece.hasMoved) {
+                    if ((piece.type === 'knight' || piece.type === 'bishop') && !piece.hasMoved) { // Check for !hasMoved
                         positionalScore += this.positionalBonuses.development * multiplier;
                     }
                 }
@@ -695,14 +734,36 @@ export class VibeChessAI {
 
         const legalMoves = allPossibleMoves.filter(move => {
             try {
-                // Create a completely new copy for validation to avoid any shared state issues
+                 // Create a completely new copy for validation
+                const tempStateForValidation_Board: AIBoardState = [];
+                if (gameState.board && Array.isArray(gameState.board)) {
+                    for (let r_idx = 0; r_idx < 8; r_idx++) {
+                        tempStateForValidation_Board[r_idx] = [];
+                        const originalRow = gameState.board[r_idx];
+                         if (originalRow && Array.isArray(originalRow)) {
+                            for (let c_idx = 0; c_idx < 8; c_idx++) {
+                                const originalSquare = originalRow[c_idx];
+                                tempStateForValidation_Board[r_idx][c_idx] = {
+                                    piece: originalSquare?.piece ? { ...originalSquare.piece } : null
+                                };
+                            }
+                        } else {
+                            tempStateForValidation_Board[r_idx] = Array(8).fill(null).map(() => ({ piece: null }));
+                        }
+                    }
+                } else {
+                    for (let r_idx = 0; r_idx < 8; r_idx++) {
+                        tempStateForValidation_Board[r_idx] = Array(8).fill(null).map(() => ({ piece: null }));
+                    }
+                }
+
                 const tempStateForValidation: AIGameState = {
                     ...gameState,
-                    board: gameState.board.map(row => row.map(sq => ({ piece: sq.piece ? { ...sq.piece } : null }))),
-                    killStreaks: { ...gameState.killStreaks },
+                    board: tempStateForValidation_Board,
+                    killStreaks: gameState.killStreaks ? { ...gameState.killStreaks } : { white: 0, black: 0 },
                     capturedPieces: { 
-                        white: gameState.capturedPieces.white.map(p => ({...p})),
-                        black: gameState.capturedPieces.black.map(p => ({...p}))
+                        white: gameState.capturedPieces?.white?.map(p => ({...p})) || [],
+                        black: gameState.capturedPieces?.black?.map(p => ({...p})) || []
                     }
                 };
                 const tempStateAfterMove = this.makeMoveOptimized(tempStateForValidation, move, color);
@@ -1090,7 +1151,7 @@ export class VibeChessAI {
         while (r !== toRow || c !== toCol) {
             if (!this.isValidSquareAI(r,c)) return false;
             const pathSquare = board[r]?.[c];
-            if (!pathSquare) return false;
+            if (!pathSquare) return false; // Should not happen if isValidSquareAI passed
             const pathPiece = pathSquare.piece;
             if (pathPiece) {
                 if (bishopLevelForPhasing && pathPiece.color === piece.color) {
@@ -1191,8 +1252,13 @@ export class VibeChessAI {
         }
         key += `-${gameState.currentPlayer[0]}`;
         key += `-${isMaximizingPlayer ? 'M' : 'm'}`;
-        key += `-w${gameState.killStreaks?.white || 0}b${gameState.killStreaks?.black || 0}`;
+        const whiteKillStreak = gameState.killStreaks?.white ?? 0;
+        const blackKillStreak = gameState.killStreaks?.black ?? 0;
+        key += `-w${whiteKillStreak}b${blackKillStreak}`;
         key += `-mc${gameState.gameMoveCounter || 0}`;
         return key;
     }
 }
+
+// Removed 'export default VibeChessAI;' as it's now a named export
+// This file is src/lib/vibe-chess-ai.ts and should not have 'use server'
