@@ -1,4 +1,5 @@
 
+'use server';
 import type { Piece, PlayerColor, PieceType, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic } from '@/lib/chess-utils'; // Added for logging if needed
 
@@ -197,14 +198,40 @@ class VibeChessAI {
     }
 
     makeMoveOptimized(gameState: AIGameState, move: AIMove, currentPlayer: PlayerColor): AIGameState {
+        // Create a new board structure with deep-copied pieces
+        const newBoardForOptimizedMove: AIBoardState = [];
+        if (gameState.board && Array.isArray(gameState.board)) {
+            for (let r_idx = 0; r_idx < 8; r_idx++) {
+                newBoardForOptimizedMove[r_idx] = [];
+                for (let c_idx = 0; c_idx < 8; c_idx++) {
+                    const originalRow = gameState.board[r_idx];
+                    const originalSquare = originalRow ? originalRow[c_idx] : undefined;
+                    newBoardForOptimizedMove[r_idx][c_idx] = {
+                        piece: originalSquare?.piece ? { ...originalSquare.piece } : null
+                    };
+                }
+            }
+        } else {
+            // Fallback: If original board is malformed, create an empty 8x8 AISquareState board
+            for (let r_idx = 0; r_idx < 8; r_idx++) {
+                newBoardForOptimizedMove[r_idx] = [];
+                for (let c_idx = 0; c_idx < 8; c_idx++) {
+                    newBoardForOptimizedMove[r_idx][c_idx] = { piece: null };
+                }
+            }
+        }
+    
+        // Deep copy other gameState properties using JSON stringify/parse for simplicity,
+        // then override with the new board and other turn-specific updates.
+        const baseStateCopy = JSON.parse(JSON.stringify(gameState));
+    
         const newState: AIGameState = {
-            ...JSON.parse(JSON.stringify(gameState)), 
-            board: gameState.board.map(row => row.map(square => ({ piece: square.piece ? { ...square.piece } : null }))), 
-            currentPlayer: currentPlayer,
-            extraTurn: false,
-            gameOver: gameState.gameOver,
-            winner: gameState.winner,
-            gameMoveCounter: (gameState.gameMoveCounter || 0) + 1
+            ...baseStateCopy, // Contains deep copies of killStreaks, capturedPieces, etc.
+            board: newBoardForOptimizedMove, // Use the meticulously copied board
+            currentPlayer: currentPlayer, // This will be updated based on turn logic later
+            extraTurn: false, // Reset for this move, will be set if applicable
+            // gameOver and winner are preserved from baseStateCopy unless changed by the move
+            gameMoveCounter: (baseStateCopy.gameMoveCounter || 0) + 1
         };
 
 
@@ -727,7 +754,7 @@ class VibeChessAI {
         const dir = piece.color === 'white' ? -1 : 1;
         const startRow = piece.color === 'white' ? 6 : 1;
         const promotionRank = piece.color === 'white' ? 0 : 7;
-        const level = Number(piece.level || 1);
+        const levelPawn = Number(piece.level || 1);
         const board = gameState.board;
 
         if (this.isValidSquareAI(r + dir, c) && !board[r + dir]?.[c]?.piece ) {
@@ -758,13 +785,14 @@ class VibeChessAI {
                         }
                     }
                 }
-                // Diagonal move to empty square removed.
             }
         });
-        if (typeof level === 'number' && !isNaN(level) && level >= 2 && this.isValidSquareAI(r - dir, c) && !board[r - dir]?.[c]?.piece ) {
-            moves.push({ from: [r,c], to: [r - dir, c], type: 'move' });
+        if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
+            if (this.isValidSquareAI(r - dir, c) && !board[r - dir]?.[c]?.piece ) {
+                moves.push({ from: [r,c], to: [r - dir, c], type: 'move' });
+            }
         }
-        if (typeof level === 'number' && !isNaN(level) && level >= 3) {
+        if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 3) {
             [-1, 1].forEach(dc => {
                 if (this.isValidSquareAI(r, c + dc) && !board[r]?.[c + dc]?.piece ) {
                     moves.push({ from: [r,c], to: [r, c + dc], type: 'move' });
