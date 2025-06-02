@@ -29,8 +29,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { RefreshCw, BookOpen, Undo2, View, Bot } from 'lucide-react';
-// Removed static import: import VibeChessAI from '@/ai/vibe-chess-ai';
-import type VibeChessAIClass from '@/ai/vibe-chess-ai';
+import type { VibeChessAI as VibeChessAIClassType } from '@/lib/vibe-chess-ai';
 
 
 let globalResurrectionIdCounter = 0;
@@ -111,7 +110,7 @@ export default function EvolvingChessPage() {
   const [isWhiteAI, setIsWhiteAI] = useState(false);
   const [isBlackAI, setIsBlackAI] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const aiInstanceRef = useRef<VibeChessAIClass | null>(null);
+  const aiInstanceRef = useRef<VibeChessAIClassType | null>(null);
   const aiErrorOccurredRef = useRef(false);
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
@@ -144,23 +143,23 @@ export default function EvolvingChessPage() {
   useEffect(() => {
     const initializeAI = async () => {
       try {
-        const VibeChessAIModule = await import('@/ai/vibe-chess-ai');
-        const VibeChessAI = VibeChessAIModule.default;
-        if (VibeChessAI && typeof VibeChessAI === 'function') {
-          aiInstanceRef.current = new VibeChessAI(2); 
+        const VibeChessAIModule = await import('@/lib/vibe-chess-ai');
+        const ActualVibeChessAI = VibeChessAIModule.VibeChessAI; 
+        if (ActualVibeChessAI && typeof ActualVibeChessAI === 'function') {
+          aiInstanceRef.current = new ActualVibeChessAI(2); 
         } else {
-          console.error("Failed to load VibeChessAI constructor dynamically.");
+          console.error("Failed to load VibeChessAI constructor dynamically from named export.");
           toast({
             title: "AI Initialization Error",
-            description: "Could not load the AI engine.",
+            description: "Could not load the AI engine (named export not found or not a constructor).",
             variant: "destructive",
           });
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error dynamically importing VibeChessAI:", err);
         toast({
           title: "AI Import Error",
-          description: "There was an issue loading the AI component.",
+          description: `There was an issue loading the AI component: ${err.message}`,
           variant: "destructive",
         });
       }
@@ -936,7 +935,7 @@ export default function EvolvingChessPage() {
             globalResurrectionIdCounter = newResurrectionIdCounter!;
             toast({ title: "Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${resurrectedPieceData!.type} to ${resurrectedSquareAlg!}! (L1)`, duration: 3000 });
 
-            if (resurrectedPieceData?.type === 'pawn') {
+            if (resurrectedPieceData?.type === 'pawn'){
                 const promoR = pawnColor === 'white' ? 0 : 7;
                 if (algebraicToCoords(resurrectedSquareAlg!).row === promoR) {
                     setPlayerForPostResurrectionPromotion(pawnColor);
@@ -986,7 +985,6 @@ export default function EvolvingChessPage() {
         variant: "destructive",
       });
       setIsAiThinking(false);
-      // Potentially disable AI for this player or force a reset
       if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
       return;
     }
@@ -1015,32 +1013,20 @@ export default function EvolvingChessPage() {
 
       if (!aiMoveDataFromVibeAI) {
         const isAiInCheck = isKingInCheck(finalBoardStateForAI, currentPlayer);
+        const opponent = currentPlayer === 'white' ? 'black' : 'white';
         if (isAiInCheck) {
-            const opponent = currentPlayer === 'white' ? 'black' : 'white';
-            setGameInfo(prev => ({
-                ...prev,
-                message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`,
-                isCheck: true,
-                playerWithKingInCheck: currentPlayer,
-                isCheckmate: true,
-                isStalemate: false,
-                gameOver: true,
-                winner: opponent,
-            }));
-            toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 3000 });
+            const isMate = isCheckmate(finalBoardStateForAI, currentPlayer);
+            if (isMate) {
+                setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
+                toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 3000 });
+            } else {
+                 console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves but is not in checkmate (still in check). This may indicate an issue or a rare position.`);
+                 aiErrorOccurredRef.current = true;
+            }
         } else {
-            const isAiStalemated = isStalemate(finalBoardStateForAI, currentPlayer);
-            if (isAiStalemated) {
-              setGameInfo(prev => ({
-                  ...prev,
-                  message: "Stalemate! It's a draw.",
-                  isCheck: false,
-                  playerWithKingInCheck: null,
-                  isCheckmate: false,
-                  isStalemate: true,
-                  gameOver: true,
-                  winner: 'draw',
-              }));
+            const isStale = isStalemate(finalBoardStateForAI, currentPlayer);
+            if (isStale) {
+              setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
               toast({ title: "Stalemate!", description: "It's a draw! AI has no moves.", duration: 3000 });
             } else {
               console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves but is not in checkmate or stalemate.`);
@@ -1403,7 +1389,7 @@ export default function EvolvingChessPage() {
     setLastMoveFrom, setLastMoveTo,
     processPawnSacrificeCheck,
     algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare, processRookResurrectionCheck,
-    setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves, isStalemate,
+    setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves, isStalemate, isCheckmate,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter
   ]);
 
