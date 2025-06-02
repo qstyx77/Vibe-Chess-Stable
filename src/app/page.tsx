@@ -845,12 +845,28 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false);
         }, 800);
         return;
-      } else {
-         setSelectedSquare(null);
-         setPossibleMoves([]);
-         toast({ title: "Illegal Move", description: `That move is not allowed for the ${pieceToMoveFromSelected.type}.`, variant: "destructive", duration: 3000 });
-         setIsMoveProcessing(false);
-         return;
+      } else { // Attempted an illegal move
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        setEnemySelectedSquare(null);
+        setEnemyPossibleMoves([]);
+
+        const { row: illegalToR, col: illegalToC } = algebraicToCoords(algebraic);
+        const pieceOnIllegalTarget = board[illegalToR]?.[illegalToC]?.piece;
+
+        if (pieceOnIllegalTarget) {
+          if (pieceOnIllegalTarget.color === currentPlayer) {
+            setSelectedSquare(algebraic);
+            const legalMovesForNewSelection = getPossibleMoves(board, algebraic);
+            setPossibleMoves(legalMovesForNewSelection);
+          } else { 
+            setEnemySelectedSquare(algebraic);
+            const enemyMovesForNewSelection = getPossibleMoves(board, algebraic);
+            setEnemyPossibleMoves(enemyMovesForNewSelection);
+          }
+        }
+        setIsMoveProcessing(false);
+        return;
       }
     } else if (clickedPiece && clickedPiece.color === currentPlayer) {
       setSelectedSquare(algebraic);
@@ -1150,14 +1166,18 @@ export default function EvolvingChessPage() {
                             continue;
                         }
                         finalCapturedPiecesForAI[currentPlayer].push({ ...victimPiece_AI });
-                        finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
+                        if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
+                            finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
+                        }
                         aiMoveCapturedSomething = true;
                         piecesDestroyedByAICount++;
                         }
                     }
                     }
                 }
-                finalBoardStateForAI[knightR_AI][knightC_AI].piece = null;
+                if(finalBoardStateForAI[knightR_AI]?.[knightC_AI]) {
+                    finalBoardStateForAI[knightR_AI][knightC_AI].piece = null;
+                }
                 toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) Knight Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
               } else {
                   aiErrorOccurredRef.current = true;
