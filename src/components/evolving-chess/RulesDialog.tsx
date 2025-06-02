@@ -46,14 +46,17 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
           </DialogDescription>
         </DialogHeader>
         
-        <ScrollArea className="h-[40vh] pr-4">
+        <ScrollArea className="h-[60vh] pr-4">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="general">
               <AccordionTrigger className="text-lg hover:text-accent">General Gameplay</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King.</PieceRule>
+                <PieceRule title="Piece Levels">
+                  Pieces (except the Queen) level up by capturing opponent pieces and do not have a maximum level. The Queen's maximum level is 6. Each piece type gains different abilities as it levels up.
+                </PieceRule>
                 <PieceRule title="Pawn Promotion">
-                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1.
+                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1, plus any level bonus gained if the promotion move also captured an opponent's piece.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
@@ -98,7 +101,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
-                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right)." />
+                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
                   <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight can be re-selected to self-destruct. The Knight is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
                 </ul>
@@ -123,7 +126,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases, if its new level is 3 or higher, it attempts to resurrect one of its player's own captured pieces. The resurrected piece (chosen randomly from available captured pieces) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases to 3 or higher (from a lower level), it attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -133,7 +136,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-5" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece in her path)." />
-                  <LevelRule level="6" description="Royal Guard & Pawn Sacrifice: Invulnerable to attacks from any enemy piece of a lower level. The Queen's maximum level is 6. Additionally, upon reaching Level 6 for the first time (by leveling up from a level below 6), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
+                  <LevelRule level="6" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 6. At Level 6, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, upon reaching Level 6 for the first time (by leveling up from a level below 6), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>

@@ -9,7 +9,7 @@ export function initializeBoard(): BoardState {
     const row: SquareState[] = [];
     for (let c = 0; c < 8; c++) {
       const algebraic = String.fromCharCode(97 + c) + (8 - r) as AlgebraicSquare;
-      row.push({ piece: null, item: null, algebraic, rowIndex: r, colIndex: c });
+      row.push({ piece: null, algebraic, rowIndex: r, colIndex: c });
     }
     board.push(row);
   }
@@ -340,7 +340,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetSquareState?.piece && targetSquareState.piece.color !== piece.color) {
         return true;
       }
-      // Diagonal move to empty square removed.
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
         const backwardDirection = direction * -1;
         if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetSquareState?.piece) {
@@ -368,6 +367,11 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       if (typeof knightLevel === 'number' && !isNaN(knightLevel) && knightLevel >= 3) {
         if ((dRowKnight === 0 && dColKnight === 3) || (dRowKnight === 3 && dColKnight === 0)) {
+            if (dRowKnight === 3) { // Jumping 3 vertically
+                if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece) return false;
+            } else { // Jumping 3 horizontally
+                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece) return false;
+            }
             return true;
         }
       }
@@ -494,7 +498,7 @@ export function applyMove(
   board: BoardState,
   move: Move
 ): ApplyMoveResult {
-  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: null })));
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
 
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
   const { row: toRow, col: toCol } = algebraicToCoords(move.to);
@@ -560,14 +564,19 @@ export function applyMove(
       case 'king': levelGain = 1; break;
       default: levelGain = 0; break;
     }
-    pieceNowOnToSquare.level = Math.min(6, originalPieceLevel + levelGain);
+    const newCalculatedLevel = originalPieceLevel + levelGain;
+    if (pieceNowOnToSquare.type === 'queen') {
+        pieceNowOnToSquare.level = Math.min(6, newCalculatedLevel);
+    } else {
+        pieceNowOnToSquare.level = newCalculatedLevel;
+    }
   }
 
   if (pieceNowOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
       const promotedPieceBaseLevel = 1;
       let finalPromotedLevel = promotedPieceBaseLevel;
-      if (capturedPiece) {
+      if (capturedPiece) { // Captured during the promotion move
         let levelGainFromCapture = 0;
         switch (capturedPiece.type) {
           case 'pawn': levelGainFromCapture = 1; break;
@@ -577,7 +586,12 @@ export function applyMove(
           case 'queen': levelGainFromCapture = 3; break;
           case 'king': levelGainFromCapture = 1; break;
         }
-        finalPromotedLevel = Math.min(6, promotedPieceBaseLevel + levelGainFromCapture);
+        const newLevelWithCapture = promotedPieceBaseLevel + levelGainFromCapture;
+        if (move.promoteTo === 'queen') {
+            finalPromotedLevel = Math.min(6, newLevelWithCapture);
+        } else {
+            finalPromotedLevel = newLevelWithCapture;
+        }
       }
       pieceNowOnToSquare.type = move.promoteTo;
       pieceNowOnToSquare.level = finalPromotedLevel;
@@ -687,7 +701,7 @@ export function filterLegalMoves(
   const originalMovingPiece = fromSquareState.piece;
 
   return pseudoMoves.filter(targetSquare => {
-    const tempBoardState = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: null })));
+    const tempBoardState = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null })));
     const { row: fromR, col: fromC } = algebraicToCoords(pieceOriginalSquare);
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
     const pieceToMoveCopy = { ...originalMovingPiece };
@@ -783,7 +797,8 @@ export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor): 
     let boardStr = "";
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
-            const square = board[r][c];
+            const square = board[r]?.[c];
+            if (!square) continue;
             const piece = square.piece;
             if (piece) {
                 let pieceStr = piece.color === 'white' ? 'w' : 'b';
@@ -820,7 +835,7 @@ export function processRookResurrectionCheck(
   currentCapturedPiecesState: { white: Piece[]; black: Piece[] },
   currentResurrectionIdCounter: number
 ): RookResurrectionResult {
-  let boardWithResurrection = boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: null })));
+  let boardWithResurrection = boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
   let capturedPiecesAfterResurrection = {
     white: currentCapturedPiecesState.white.map(p => ({ ...p })),
     black: currentCapturedPiecesState.black.map(p => ({ ...p }))
@@ -899,3 +914,4 @@ export function processRookResurrectionCheck(
     newResurrectionIdCounter: nextResurrectionIdCounter
   };
 }
+
