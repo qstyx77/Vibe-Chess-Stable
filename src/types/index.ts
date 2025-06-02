@@ -18,7 +18,6 @@ export interface SquareState {
   algebraic: AlgebraicSquare;
   rowIndex: number;
   colIndex: number;
-  item: null; // Explicitly set to null, items removed
 }
 
 export type BoardState = SquareState[][];
@@ -93,4 +92,29 @@ export interface GameSnapshot {
   playerForPostResurrectionPromotion: PlayerColor | null;
   isExtraTurnForPostResurrectionPromotion: boolean;
   promotionSquare: AlgebraicSquare | null;
+}
+
+// AI-specific types, can be used by both AI and page.tsx for adaptation
+export interface AISquareState {
+  piece: Piece | null;
+}
+export type AIBoardState = AISquareState[][];
+
+export interface AIMove {
+  from: [number, number]; // [row, col]
+  to: [number, number];   // [row, col]
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap';
+  promoteTo?: PieceType;
+}
+
+export interface AIGameState {
+  board: AIBoardState;
+  currentPlayer: PlayerColor;
+  killStreaks: { white: number; black: number };
+  capturedPieces: { white: Piece[]; black: Piece[] };
+  gameMoveCounter: number;
+  gameOver?: boolean;
+  winner?: PlayerColor | 'draw';
+  extraTurn?: boolean;
+  autoCheckmate?: boolean;
 }

@@ -25,7 +25,7 @@ import {
   processRookResurrectionCheck,
   type RookResurrectionResult,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { RefreshCw, BookOpen, Undo2, View, Bot } from 'lucide-react';
@@ -51,15 +51,30 @@ function adaptBoardForAI(
   currentKillStreaks: { white: number; black: number },
   currentCapturedPieces: { white: Piece[]; black: Piece[] },
   gameMoveCounter: number
-): any { 
-  const aiBoard = currentBoardState.map(row =>
-    (row || []).map(squareState => ({ 
-        piece: squareState?.piece ? { ...squareState.piece } : null, 
-    }))
-  );
+): AIGameState {
+  const newAiBoard: AIBoardState = [];
+  for (let r = 0; r < 8; r++) {
+    const boardRow = currentBoardState[r];
+    const newAiRow: AISquareState[] = [];
+    if (boardRow) { 
+      for (let c = 0; c < 8; c++) {
+        const squareState = boardRow[c]; 
+        if (squareState && squareState.piece) {
+          newAiRow.push({ piece: { ...squareState.piece } });
+        } else {
+          newAiRow.push({ piece: null });
+        }
+      }
+    } else { 
+      for (let c = 0; c < 8; c++) {
+        newAiRow.push({ piece: null });
+      }
+    }
+    newAiBoard.push(newAiRow);
+  }
 
   return {
-    board: aiBoard,
+    board: newAiBoard,
     currentPlayer: playerForAITurn,
     killStreaks: {
       white: currentKillStreaks?.white || 0,
@@ -1000,14 +1015,14 @@ export default function EvolvingChessPage() {
     let originalPieceLevelForAI: number | undefined;
     let moveForApplyMoveAI: Move | null = null;
 
-    let finalBoardStateForAI = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-    let finalCapturedPiecesForAI = {
-      white: capturedPieces.white.map(p => ({ ...p })),
-      black: capturedPieces.black.map(p => ({ ...p }))
+    let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null })));
+    let finalCapturedPiecesForAI = { 
+      white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
+      black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
     };
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise(resolve => setTimeout(resolve, 50)); 
       const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter);
       const aiMoveDataFromVibeAI = aiInstanceRef.current.getBestMove(gameStateForAI, currentPlayer);
 
@@ -1795,4 +1810,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
