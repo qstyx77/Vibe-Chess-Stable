@@ -8,7 +8,7 @@ export interface Piece {
   color: PlayerColor;
   level: number;
   hasMoved: boolean;
-  invulnerableTurnsRemaining?: number; // Added for Rook L6 ability if needed
+  invulnerableTurnsRemaining?: number;
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -18,6 +18,7 @@ export interface SquareState {
   algebraic: AlgebraicSquare;
   rowIndex: number;
   colIndex: number;
+  item: null; // Explicitly set to null, items removed
 }
 
 export type BoardState = SquareState[][];
@@ -47,6 +48,14 @@ export interface ConversionEvent {
   at: AlgebraicSquare;
 }
 
+export interface ApplyMoveResult {
+  newBoard: BoardState;
+  capturedPiece: Piece | null;
+  conversionEvents: ConversionEvent[];
+  originalPieceLevel?: number;
+  selfCheckByPushBack: boolean;
+}
+
 export type ViewMode = 'flipping' | 'tabletop';
 
 export interface GameSnapshot {
@@ -65,6 +74,7 @@ export interface GameSnapshot {
   positionHistory: string[];
   lastMoveFrom: AlgebraicSquare | null;
   lastMoveTo: AlgebraicSquare | null;
+  gameMoveCounter: number;
 
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
@@ -82,5 +92,5 @@ export interface GameSnapshot {
   isResurrectionPromotionInProgress: boolean;
   playerForPostResurrectionPromotion: PlayerColor | null;
   isExtraTurnForPostResurrectionPromotion: boolean;
-  promotionSquare: AlgebraicSquare | null; 
+  promotionSquare: AlgebraicSquare | null;
 }
