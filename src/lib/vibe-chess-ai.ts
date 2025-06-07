@@ -438,25 +438,36 @@ export class VibeChessAI {
                 this.handleResurrection(newState, currentPlayer);
             }
 
-            if (pieceOnToSquare.type === 'queen' &&
-                (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel === 7) && 
-                (move.type === 'capture' || (move.type === 'promotion' && pieceWasCaptured)) // Sacrifice only if it *became* L7 via capture or promotion-capture
-            ) {
-                let pawnSacrificed = false;
-                for(let r_sac=0; r_sac<8; r_sac++) {
-                    for(let c_sac=0; c_sac<8; c_sac++) {
-                        const p_square_state = newState.board[r_sac]?.[c_sac];
-                        const p = p_square_state?.piece;
-                        if (p && (p.type === 'pawn' || p.type === 'commander') && p.color === currentPlayer) {
-                            if(p_square_state) p_square_state.piece = null;
-                            const opponentColorForSac = currentPlayer === 'white' ? 'black' : 'white';
-                            // Ensure unique ID for sacrificed pawn in AI simulation
-                            newState.capturedPieces[opponentColorForSac].push({...p, id: `${p.id}_sac_AI_${Date.now()}`}); 
-                            pawnSacrificed = true;
-                            break;
-                        }
+            // Queen L7 sacrifice check
+            if (pieceOnToSquare.type === 'queen') {
+                const queenCurrentLevelAI = Number(pieceOnToSquare.level || 1);
+                let triggerAISacrifice = false;
+                if (queenCurrentLevelAI === 7) {
+                    if (move.type === 'promotion' && move.promoteTo === 'queen') {
+                        // Promoted to Queen and became L7
+                        triggerAISacrifice = true;
+                    } else if (move.type !== 'promotion' && movingPieceCopy.type === 'queen' && originalLevelOfMovingPiece < 7) {
+                        // Was already a Queen (original type was queen), and leveled up from < 7 to L7
+                        triggerAISacrifice = true;
                     }
-                    if (pawnSacrificed) break;
+                }
+
+                if (triggerAISacrifice) {
+                    let pawnSacrificed = false;
+                    for(let r_sac=0; r_sac<8; r_sac++) {
+                        for(let c_sac=0; c_sac<8; c_sac++) {
+                            const p_square_state = newState.board[r_sac]?.[c_sac];
+                            const p = p_square_state?.piece;
+                            if (p && (p.type === 'pawn' || p.type === 'commander') && p.color === currentPlayer) {
+                                if(p_square_state) p_square_state.piece = null;
+                                const opponentColorForSac = currentPlayer === 'white' ? 'black' : 'white';
+                                newState.capturedPieces[opponentColorForSac].push({...p, id: `${p.id}_sac_AI_${Date.now()}`}); 
+                                pawnSacrificed = true;
+                                break;
+                            }
+                        }
+                        if (pawnSacrificed) break;
+                    }
                 }
             }
              if (pieceOnToSquare.type === 'king' && pieceOnToSquare.level > originalLevelOfMovingPiece) {
@@ -1459,16 +1470,8 @@ export class VibeChessAI {
                 return (Math.abs(deltaRow) === Math.abs(deltaCol) || deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece) && !targetSquareState.item;
             case 'king':
                 const kingActualLevelForAttack = Number(piece.level || 1);
-                // Use the 'simplifyKingCheck' parameter passed into this function call
                 let effectiveMaxDist = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 2 && !simplifyKingCheck) ? 2 : 1;
                 let canUseKnightMove = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 5 && !simplifyKingCheck);
-
-                // This explicit override block was potentially problematic if simplifyKingCheck was true when it shouldn't be.
-                // The logic above now correctly uses !simplifyKingCheck for L2+/L5+ abilities.
-                // if (simplifyKingCheck) {
-                //     effectiveMaxDist = 1;
-                //     canUseKnightMove = false;
-                // }
 
 
                 if (Math.abs(deltaRow) <= effectiveMaxDist && Math.abs(deltaCol) <= effectiveMaxDist && (deltaRow === 0 || deltaCol === 0 || Math.abs(deltaRow) === Math.abs(deltaCol))) {
@@ -1476,7 +1479,6 @@ export class VibeChessAI {
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
                         if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) return false; 
-                        // Always simplify the check on the intermediate square for the attacking King's own path
                         if (this.isSquareAttackedAI(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) {
                             return false; 
                         }
