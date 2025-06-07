@@ -23,7 +23,7 @@ import {
   isValidSquare,
   processRookResurrectionCheck,
   type RookResurrectionResult,
-  spawnAnvil, // Added spawnAnvil
+  spawnAnvil, 
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -61,7 +61,7 @@ function adaptBoardForAI(
         const squareState = boardRow[c_idx]; 
         newAiRow.push({ 
           piece: squareState?.piece ? { ...squareState.piece } : null,
-          item: squareState?.item ? { ...squareState.item } : null, // Copy item
+          item: squareState?.item ? { ...squareState.item } : null, 
         });
       }
     } else { 
@@ -288,10 +288,10 @@ export default function EvolvingChessPage() {
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
 
-    // Anvil Spawning Logic
+    
     if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
       boardForNextStep = spawnAnvil(boardForNextStep);
-      setBoard(boardForNextStep); // Update board state immediately
+      setBoard(boardForNextStep); 
       toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
     }
 
@@ -332,7 +332,7 @@ export default function EvolvingChessPage() {
       board: board.map(row => row.map(square => ({
         ...square,
         piece: square.piece ? { ...square.piece } : null,
-        item: square.item ? { ...square.item } : null, // Save item
+        item: square.item ? { ...square.item } : null, 
       }))),
       currentPlayer: currentPlayer,
       gameInfo: { ...gameInfo },
@@ -385,7 +385,7 @@ export default function EvolvingChessPage() {
     boardAfterPrimaryMove: BoardState,
     playerWhoseQueenLeveled: PlayerColor,
     queenMovedWithThis: Move | null,
-    originalQueenLevelIfKnown: number | undefined,
+    originalQueenLevelIfKnown: number | undefined, 
     isExtraTurnFromOriginalMove: boolean
   ): boolean => {
 
@@ -396,19 +396,11 @@ export default function EvolvingChessPage() {
 
     const { row: toR, col: toC } = algebraicToCoords(queenMovedWithThis.to);
     const queenAfterLeveling = boardAfterPrimaryMove[toR]?.[toC]?.piece;
-
-    const {row: fromRPrev, col: fromCPrev} = algebraicToCoords(queenMovedWithThis.from);
-    const pieceOnFromSquare = board[fromRPrev]?.[fromCPrev]?.piece;
-
-    const originalLevel = originalQueenLevelIfKnown !== undefined
-        ? originalQueenLevelIfKnown
-        : (pieceOnFromSquare && pieceOnFromSquare.type === 'queen' ? (Number(pieceOnFromSquare.level || 1)) : 0);
-
+    
     const conditionMet = queenAfterLeveling &&
       queenAfterLeveling.type === 'queen' &&
       queenAfterLeveling.color === playerWhoseQueenLeveled &&
-      (Number(queenAfterLeveling.level || 1)) >= 6 &&
-      originalLevel < 6;
+      (Number(queenAfterLeveling.level || 1)) === 7; // Check if new level IS 7
 
     if (conditionMet) {
       let hasPawnsToSacrifice = false;
@@ -449,23 +441,23 @@ export default function EvolvingChessPage() {
               [opponentColor]: [...(prev[opponentColor] || []), sacrificedAIPawn!]
             }));
           }
-          toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn!`, duration: 2500 });
+          toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn for L7 Queen!`, duration: 2500 });
           processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
-          return false;
+          return false; 
         } else {
           setIsAwaitingPawnSacrifice(true);
           setPlayerToSacrificePawn(playerWhoseQueenLeveled);
           setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))));
           setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
           setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
-          setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select a Pawn to sacrifice!` }));
-          return true;
+          setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select a Pawn to sacrifice for your L7 Queen!` }));
+          return true; 
         }
       }
     }
     processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
     return false;
-  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, board, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, algebraicToCoords]);
+  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, algebraicToCoords]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -513,7 +505,7 @@ export default function EvolvingChessPage() {
       return;
     }
     
-    if (clickedItem) { // Clicked on a square with an item, but not a piece.
+    if (clickedItem) { 
         setSelectedSquare(null);
         setPossibleMoves([]);
         setEnemySelectedSquare(null);
@@ -592,7 +584,7 @@ export default function EvolvingChessPage() {
             if (isValidSquare(adjR, adjC)) {
               const victimPiece = boardAfterDestruct[adjR][adjC].piece;
               const victimItem = boardAfterDestruct[adjR][adjC].item;
-              if (victimItem?.type === 'anvil') continue; // Cannot destroy anvil with self-destruct
+              if (victimItem?.type === 'anvil') continue; 
 
               if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
                 if (isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected)) {
@@ -678,8 +670,13 @@ export default function EvolvingChessPage() {
 
           const streakGrantsExtraTurn = newStreakForSelfDestructPlayer === 6;
           const currentMoveData: Move = { from: selectedSquare!, to: selectedSquare!, type: 'self-destruct' };
+          const pieceAfterSelfDestruct = finalBoardStateForTurn[algebraicToCoords(selectedSquare!).row]?.[algebraicToCoords(selectedSquare!).col]?.piece;
 
-          const sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, selfDestructPlayer, currentMoveData, originalPieceLevelBeforeMove, streakGrantsExtraTurn);
+          let sacrificeNeededForQueen = false;
+          if (pieceAfterSelfDestruct?.type === 'queen') {
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, selfDestructPlayer, currentMoveData, originalPieceLevelBeforeMove, streakGrantsExtraTurn);
+          }
+
           if (!sacrificeNeededForQueen) {
             processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn);
           }
@@ -876,7 +873,7 @@ export default function EvolvingChessPage() {
       } else { 
         setSelectedSquare(null);
         setPossibleMoves([]);
-        if (clickedPiece && !clickedItem) { // Cannot select a piece if an item is on the square
+        if (clickedPiece && !clickedItem) { 
             if(clickedPiece.color === currentPlayer) {
                 setSelectedSquare(algebraic);
                 const legalMovesForNewSelection = getPossibleMoves(board, algebraic);
@@ -888,26 +885,26 @@ export default function EvolvingChessPage() {
                 const enemyMovesForNewSelection = getPossibleMoves(board, algebraic);
                 setEnemyPossibleMoves(enemyMovesForNewSelection);
             }
-        } else { // Clicked on empty square (or square with only item)
+        } else { 
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
         }
         setIsMoveProcessing(false);
         return;
       }
-    } else if (clickedPiece && !clickedItem && clickedPiece.color === currentPlayer) { // Cannot select a piece if an item is on the square
+    } else if (clickedPiece && !clickedItem && clickedPiece.color === currentPlayer) { 
       setSelectedSquare(algebraic);
       const legalMovesForPlayer = getPossibleMoves(board, algebraic);
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
-    } else if (clickedPiece && !clickedItem && clickedPiece.color !== currentPlayer) { // Cannot select enemy piece if item on square
+    } else if (clickedPiece && !clickedItem && clickedPiece.color !== currentPlayer) { 
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(algebraic);
       const enemyMoves = getPossibleMoves(board, algebraic);
       setEnemyPossibleMoves(enemyMoves);
-    } else { // Clicked on empty square or square with only an item
+    } else { 
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(null);
@@ -1146,7 +1143,7 @@ export default function EvolvingChessPage() {
                 (pieceOnFromSquareForAI.type === 'knight' && originalPieceLevelForAI >=4 && targetPieceForAISwap?.type === 'bishop' && targetPieceForAISwap.color === pieceOnFromSquareForAI.color ) ||
                 (pieceOnFromSquareForAI.type === 'bishop' && originalPieceLevelForAI >=4 && targetPieceForAISwap?.type === 'knight' && targetPieceForAISwap.color === pieceOnFromSquareForAI.color );
 
-            if (validSwapCondition && !finalBoardStateForAI[algebraicToCoords(aiToAlg).row]?.[algebraicToCoords(aiToAlg).col]?.item) { // Cannot swap onto item
+            if (validSwapCondition && !finalBoardStateForAI[algebraicToCoords(aiToAlg).row]?.[algebraicToCoords(aiToAlg).col]?.item) { 
                  isAiMoveActuallyLegal = true;
             } else {
                  console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Validation Error: AI suggested illegal swap: ${aiFromAlg} to ${aiToAlg}. Swap Condition: ${validSwapCondition}. Item on target: ${!!finalBoardStateForAI[algebraicToCoords(aiToAlg).row]?.[algebraicToCoords(aiToAlg).col]?.item}`);
@@ -1195,7 +1192,7 @@ export default function EvolvingChessPage() {
                         const victimSquareState = finalBoardStateForAI[adjR_AI]?.[adjC_AI];
                         const victim = victimSquareState?.piece;
                         const victimItem = victimSquareState?.item;
-                        if (victimItem?.type === 'anvil') continue; // Cannot destroy anvil
+                        if (victimItem?.type === 'anvil') continue; 
 
                         if (victim && victim.color !== currentPlayer && victim.type !== 'king' && !isPieceInvulnerableToAttack(victim, selfDestructingKnight_AI)) {
                         finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
@@ -1582,7 +1579,7 @@ export default function EvolvingChessPage() {
 
   const resetGame = useCallback(() => {
     globalResurrectionIdCounter = 0;
-    const initialBoardState = initializeBoard(); // This now initializes items as null
+    const initialBoardState = initializeBoard(); 
     setBoard(initialBoardState);
     setCurrentPlayer('white');
     setSelectedSquare(null);

@@ -52,10 +52,10 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King.</PieceRule>
                 <PieceRule title="Piece Levels">
-                  Pieces (except the Queen) level up by capturing opponent pieces and do not have a maximum level. The Queen's maximum level is 6. Each piece type gains different abilities as it levels up.
+                  Pieces (except the Queen) level up by capturing opponent pieces and do not have a maximum level. The Queen's maximum level is 7. Each piece type gains different abilities as it levels up.
                 </PieceRule>
                 <PieceRule title="Pawn Promotion">
-                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly (Queen capped at L6).
+                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly (Queen capped at L7).
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
@@ -158,8 +158,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Queen Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1-5" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="6" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 6. At Level 6, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, upon reaching Level 6 for the first time (by leveling up from a level below 6), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
+                  <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
+                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -185,4 +185,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
