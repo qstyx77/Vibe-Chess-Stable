@@ -51,8 +51,16 @@ export function ChessPieceDisplay({
       >
         <span className={cn("font-pixel select-none", piece.type === 'pawn' || piece.type === 'commander' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>
           {unicode}
-          {piece.type === 'commander' && <span className="absolute -top-1 -right-1 text-base leading-none" aria-label="Commander Star">🌟</span>}
         </span>
+        {piece.type === 'commander' && (
+          <span 
+            className="absolute -top-1 -right-1 text-base leading-none" 
+            style={{ transform: 'translate(25%, -25%)' }} // Adjust positioning as needed
+            aria-label="Commander Star"
+          >
+            🌟
+          </span>
+        )}
         {(piece.level || 1) > 1 && (
           <span
             className="absolute inset-0 flex items-center justify-center font-pixel text-sm text-destructive pointer-events-none"
@@ -66,4 +74,3 @@ export function ChessPieceDisplay({
     </div>
   );
 }
-
