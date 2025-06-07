@@ -1405,6 +1405,7 @@ export class VibeChessAI {
                 if(!squareState) continue;
                 const piece = squareState.piece;
                 if(piece && piece.color === attackerColor){
+                    // Pass simplifyKingCheck when evaluating if an enemy King can attack r_target, c_target
                     if (this.canAttackSquare(gameState, [r_att,c_att], [r_target, c_target], piece, simplifyKingCheck)) {
                         return true;
                     }
@@ -1458,29 +1459,33 @@ export class VibeChessAI {
                 return (Math.abs(deltaRow) === Math.abs(deltaCol) || deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece) && !targetSquareState.item;
             case 'king':
                 const kingActualLevelForAttack = Number(piece.level || 1);
+                // Use the 'simplifyKingCheck' parameter passed into this function call
                 let effectiveMaxDist = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 2 && !simplifyKingCheck) ? 2 : 1;
                 let canUseKnightMove = (typeof kingActualLevelForAttack === 'number' && !isNaN(kingActualLevelForAttack) && kingActualLevelForAttack >= 5 && !simplifyKingCheck);
 
-                if (simplifyKingCheck) { // When checking if a square is attacked (e.g. for castling), simplify king's threat
-                    effectiveMaxDist = 1;
-                    canUseKnightMove = false;
-                }
+                // This explicit override block was potentially problematic if simplifyKingCheck was true when it shouldn't be.
+                // The logic above now correctly uses !simplifyKingCheck for L2+/L5+ abilities.
+                // if (simplifyKingCheck) {
+                //     effectiveMaxDist = 1;
+                //     canUseKnightMove = false;
+                // }
+
 
                 if (Math.abs(deltaRow) <= effectiveMaxDist && Math.abs(deltaCol) <= effectiveMaxDist && (deltaRow === 0 || deltaCol === 0 || Math.abs(deltaRow) === Math.abs(deltaCol))) {
-                    if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2)) { // If it's a 2-square linear move
+                    if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2)) { 
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
-                        if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) return false; // Path blocked
-                        // When checking if king attacks a square, don't simplify its own movement path check regarding opponent attacks
-                        if (!simplifyKingCheck && this.isSquareAttackedAI(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) { 
-                            return false; // Cannot move through an attacked square to attack
+                        if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) return false; 
+                        // Always simplify the check on the intermediate square for the attacking King's own path
+                        if (this.isSquareAttackedAI(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) {
+                            return false; 
                         }
                     }
-                    return !targetSquareState.item; // Can't attack square with item
+                    return !targetSquareState.item; 
                 }
 
                 if (canUseKnightMove && ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2))) {
-                    return !targetSquareState.item; // Can't attack square with item
+                    return !targetSquareState.item; 
                 }
                 return false;
             default:
