@@ -172,7 +172,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
                   <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty (no piece or item) and not under attack by an opponent's piece." />
                   <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
-                  <LevelRule level="NEW!" description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
+                  <LevelRule level="" description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
