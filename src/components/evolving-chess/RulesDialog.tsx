@@ -39,8 +39,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border font-pixel text-foreground max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle className="text-primary text-center text-2xl">VIBE CHESS - Game Rules</DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
+          <DialogTitle className="text-primary text-center text-xl">VIBE CHESS - Game Rules</DialogTitle>
+          <DialogDescription className="text-center text-muted-foreground text-xs">
             Understand the special abilities and mechanics.
           </DialogDescription>
         </DialogHeader>
@@ -48,7 +48,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
         <ScrollArea className="h-[60vh] pr-4">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="general">
-              <AccordionTrigger className="text-lg hover:text-accent">General Gameplay</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">General Gameplay</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King.</PieceRule>
                 <PieceRule title="Piece Levels">
@@ -69,7 +69,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="anvils">
-              <AccordionTrigger className="text-lg hover:text-accent">Anvil Mechanic</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Anvil Mechanic</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Spawning">Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil 🧱 drops onto a random empty square on the board.</PieceRule>
                 <PieceRule title="Blocking">
@@ -93,7 +93,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="killstreaks">
-              <AccordionTrigger className="text-lg hover:text-accent">Kill Streaks</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Activation">Achieved by capturing enemy pieces. A player's streak only resets if that player makes a non-capturing move.</PieceRule>
                 <PieceRule title="Streak of 3 (Resurrection)">
@@ -106,7 +106,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="pawn">
-              <AccordionTrigger className="text-lg hover:text-accent">Pawn Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Pawn Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
@@ -119,7 +119,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="knight">
-              <AccordionTrigger className="text-lg hover:text-accent">Knight Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Knight Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
@@ -132,7 +132,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="bishop">
-              <AccordionTrigger className="text-lg hover:text-accent">Bishop Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Bishop Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
@@ -145,7 +145,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="rook">
-              <AccordionTrigger className="text-lg hover:text-accent">Rook Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Rook Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece or item in its path)." />
@@ -155,7 +155,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="queen">
-              <AccordionTrigger className="text-lg hover:text-accent">Queen Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Queen Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
@@ -165,7 +165,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="king">
-              <AccordionTrigger className="text-lg hover:text-accent">King Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">King Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
