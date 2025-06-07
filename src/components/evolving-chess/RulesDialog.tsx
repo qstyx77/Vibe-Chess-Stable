@@ -40,7 +40,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border font-pixel text-foreground max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="text-primary text-center text-xl">VIBE CHESS - Game Rules</DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground text-xs">
+          <DialogDescription className="text-center text-xs text-muted-foreground">
             Understand the special abilities and mechanics.
           </DialogDescription>
         </DialogHeader>
@@ -52,10 +52,10 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King.</PieceRule>
                 <PieceRule title="Piece Levels">
-                  Pieces (except the Queen) level up by capturing opponent pieces and do not have a maximum level. The Queen's maximum level is 7. Each piece type gains different abilities as it levels up.
+                  Pieces level up by capturing opponent pieces and do not have a maximum level. Each piece type gains different abilities as it levels up. (See individual piece sections for details).
                 </PieceRule>
                 <PieceRule title="Pawn Promotion">
-                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly (Queen capped at L7).
+                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
@@ -81,9 +81,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <ul className="list-disc list-inside pl-4 mt-1">
                       <li className="text-sm">If a pawn pushes an adjacent anvil: The anvil moves one square in the push direction.
                         <ul className="list-circle list-inside pl-4">
-                          <li>If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game.</li>
-                          <li>If the anvil is pushed off the board, it is removed from the game.</li>
-                          <li>An anvil cannot push another anvil; the push fails.</li>
+                          <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game (it does not go to the captured pieces display). This still counts towards kill streaks.</li>
+                          <li className="text-sm">If the anvil is pushed off the board, it is removed from the game.</li>
+                          <li className="text-sm">An anvil cannot push another anvil; the push fails.</li>
                         </ul>
                       </li>
                       <li className="text-sm">If a pawn pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
@@ -96,7 +96,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="killstreaks">
               <AccordionTrigger className="text-base hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Activation">Achieved by capturing enemy pieces. A player's streak only resets if that player makes a non-capturing move.</PieceRule>
+                <PieceRule title="Activation">Achieved by capturing enemy pieces (including anvil captures). A player's streak only resets if that player makes a non-capturing move.</PieceRule>
                 <PieceRule title="Streak of 3 (Resurrection)">
                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1.
                 </PieceRule>
@@ -160,7 +160,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
+                  <LevelRule level="7" description="Royal Guard &amp; Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -187,4 +187,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-

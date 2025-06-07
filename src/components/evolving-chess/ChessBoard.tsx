@@ -84,6 +84,7 @@ export function ChessBoard({
                                           currentSquareData.piece?.type === 'pawn' &&
                                           currentSquareData.piece?.color === playerToSacrificePawn;
 
+
           return (
             <ChessSquare
               key={currentSquareData.algebraic} 
@@ -94,7 +95,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTargetSquare} // Allow clicking on sacrifice target
+              disabled={isInteractionDisabled && !isSacrificeTargetSquare} 
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}

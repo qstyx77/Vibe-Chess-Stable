@@ -176,7 +176,7 @@ export function getPossibleMovesInternal(
             }
         }
     }
-  } else {
+  } else { // For non-king pieces
     for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
           const toSquare = coordsToAlgebraic(r_idx,c_idx);
@@ -186,6 +186,10 @@ export function getPossibleMovesInternal(
         }
       }
   }
+   if (piece.type === 'pawn' && fromSquare === 'h7') {
+        // console.log(`ChessUtils (getPossibleMovesInternal): H7 Pawn (${piece.color} L${piece.level}) Pseudo-moves: ${possible.join(', ')}`);
+    }
+
 
   const pieceActualLevelForSwap = Number(piece.level || 1);
   if (typeof pieceActualLevelForSwap === 'number' && !isNaN(pieceActualLevelForSwap)) {
@@ -584,15 +588,10 @@ export function applyMove(
       case 'bishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
-      case 'king': levelGain = 1; break; // King capture leads to game end, but level up still happens first
+      case 'king': levelGain = 1; break; 
       default: levelGain = 0; break;
     }
-    const newCalculatedLevel = originalPieceLevel + levelGain;
-    if (pieceNowOnToSquare.type === 'queen') {
-        pieceNowOnToSquare.level = Math.min(7, newCalculatedLevel); // Queen max level 7
-    } else {
-        pieceNowOnToSquare.level = newCalculatedLevel;
-    }
+    pieceNowOnToSquare.level = originalPieceLevel + levelGain;
   }
 
   if (pieceNowOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7)) {
@@ -613,15 +612,10 @@ export function applyMove(
       }
 
       pieceNowOnToSquare.type = move.promoteTo;
-      if (move.promoteTo === 'queen') {
-          pieceNowOnToSquare.level = Math.min(7, promotedPieceBaseLevel); // Queen max level 7
-      } else {
-          pieceNowOnToSquare.level = promotedPieceBaseLevel;
-      }
+      pieceNowOnToSquare.level = promotedPieceBaseLevel;
     }
   }
 
-  // King's Dominion: Queen level reduction
   if (
     pieceNowOnToSquare.type === 'king' &&
     pieceNowOnToSquare.level > originalPieceLevel 
@@ -839,9 +833,6 @@ export function getPossibleMoves(board: BoardState, fromSquare: AlgebraicSquare)
     if (!squareState || !squareState.piece) return [];
     const piece = squareState.piece;
     const pseudoMoves = getPossibleMovesInternal(board, fromSquare, piece, true);
-    if (piece.type === 'pawn' && fromSquare === 'h7') {
-        console.log(`ChessUtils: Pseudo-moves for h7 pawn: ${pseudoMoves.join(', ')}`);
-    }
     return filterLegalMoves(board, fromSquare, pseudoMoves, piece.color);
 }
 
@@ -1033,4 +1024,3 @@ export function spawnAnvil(board: BoardState): BoardState {
   }
   return newBoard;
 }
-

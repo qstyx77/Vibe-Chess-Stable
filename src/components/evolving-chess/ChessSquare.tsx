@@ -41,7 +41,7 @@ export function ChessSquare({
   isLastMoveTo,
   isSacrificeTarget = false,
   isAwaitingPawnSacrifice = false,
-  playerToSacrificePawn = null,
+  playerToSacrificePawn = null
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;

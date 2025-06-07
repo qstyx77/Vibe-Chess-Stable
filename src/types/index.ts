@@ -1,6 +1,6 @@
 
 export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander';
 export type ItemType = 'anvil';
 
 export interface Item {
@@ -109,6 +109,10 @@ export interface GameSnapshot {
   playerForPostResurrectionPromotion: PlayerColor | null;
   isExtraTurnForPostResurrectionPromotion: boolean;
   promotionSquare: AlgebraicSquare | null;
+
+  firstBloodAchieved: boolean;
+  playerWhoGotFirstBlood: PlayerColor | null;
+  isAwaitingCommanderPromotion: boolean;
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation
@@ -135,4 +139,6 @@ export interface AIGameState {
   winner?: PlayerColor | 'draw';
   extraTurn?: boolean;
   autoCheckmate?: boolean;
+  firstBloodAchieved?: boolean; // Added for AI context
+  playerWhoGotFirstBlood?: PlayerColor | null; // Added for AI context
 }
