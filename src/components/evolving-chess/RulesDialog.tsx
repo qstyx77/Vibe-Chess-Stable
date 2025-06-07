@@ -17,7 +17,6 @@ import {
 } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
 
 interface RulesDialogProps {
   isOpen: boolean;
@@ -56,7 +55,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   Pieces (except the Queen) level up by capturing opponent pieces and do not have a maximum level. The Queen's maximum level is 6. Each piece type gains different abilities as it levels up.
                 </PieceRule>
                 <PieceRule title="Pawn Promotion">
-                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1, plus any level bonus gained if the promotion move also captured an opponent's piece.
+                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly (Queen capped at L6).
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
@@ -64,7 +63,31 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
                 <PieceRule title="Threefold Repetition">
-                  If the same board position (including piece locations, current player, and castling rights) occurs three times during a game, the game is a draw.
+                  If the same board position (including piece and item locations, current player, and castling rights) occurs three times during a game, the game is a draw.
+                </PieceRule>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="anvils">
+              <AccordionTrigger className="text-lg hover:text-accent">Anvil Mechanic</AccordionTrigger>
+              <AccordionContent>
+                <PieceRule title="Spawning">Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil 🧱 drops onto a random empty square on the board.</PieceRule>
+                <PieceRule title="Blocking">
+                  Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.
+                </PieceRule>
+                <PieceRule title="Interaction">Anvils cannot be captured or destroyed by normal piece moves.</PieceRule>
+                <PieceRule title="Pawn Push-Back (L4+ Pawn)">
+                  A Level 4+ Pawn's Push-Back ability can interact with anvils:
+                  <ul className="list-disc list-inside pl-4 mt-1">
+                    <li className="text-sm">If a pawn pushes an adjacent anvil: The anvil moves one square in the push direction.
+                      <ul className="list-circle list-inside pl-4">
+                        <li>If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game.</li>
+                        <li>If the anvil is pushed off the board, it is removed from the game.</li>
+                        <li>An anvil cannot push another anvil; the push fails.</li>
+                      </ul>
+                    </li>
+                    <li className="text-sm">If a pawn pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
+                  </ul>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -89,7 +112,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
-                  <LevelRule level="4+" description="Push-Back: If the Pawn moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece, that enemy piece is pushed 1 square further in the same direction from the Pawn, provided the destination square is empty." />
+                  <LevelRule level="4+" description="Push-Back: If the Pawn moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn, if possible. See Anvil Mechanic for details on anvil interaction." />
                   <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn is promoted, its player gets an extra turn." />
                 </ul>
               </AccordionContent>
@@ -112,11 +135,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Bishop Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces in its path)." />
+                  <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
+                  <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or items in its path)." />
                   <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight on the board." />
-                  <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King) to convert that piece to its own color (level and type preserved)." />
+                  <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King, on a square without an item) to convert that piece to its own color (level and type preserved)." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -125,8 +148,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Rook Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece in its path)." />
-                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases to 3 or higher (from a lower level), it attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece or item in its path)." />
+                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases to 3 or higher (from a lower level), it attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square (no piece or item) adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -135,7 +158,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">Queen Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1-5" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece in her path)." />
+                  <LevelRule level="1-5" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
                   <LevelRule level="6" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 6. At Level 6, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, upon reaching Level 6 for the first time (by leveling up from a level below 6), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
@@ -145,8 +168,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-lg hover:text-accent">King Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square)." />
-                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty and not under attack by an opponent's piece." />
+                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
+                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty (no piece or item) and not under attack by an opponent's piece." />
                   <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
                 </ul>
               </AccordionContent>
@@ -162,4 +185,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-

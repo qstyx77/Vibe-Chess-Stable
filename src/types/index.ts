@@ -1,6 +1,12 @@
 
 export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king';
+export type ItemType = 'anvil';
+
+export interface Item {
+  type: ItemType;
+  // id?: string; // Future use if items need unique IDs
+}
 
 export interface Piece {
   id: string;
@@ -15,6 +21,7 @@ export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'
 
 export interface SquareState {
   piece: Piece | null;
+  item: Item | null; // Added item property
   algebraic: AlgebraicSquare;
   rowIndex: number;
   colIndex: number;
@@ -49,7 +56,9 @@ export interface ConversionEvent {
 
 export interface ApplyMoveResult {
   newBoard: BoardState;
-  capturedPiece: Piece | null;
+  capturedPiece: Piece | null; // Piece captured by another piece
+  pieceCapturedByAnvil: Piece | null; // Piece "captured" by a pushed anvil
+  anvilPushedOffBoard: boolean;
   conversionEvents: ConversionEvent[];
   originalPieceLevel?: number;
   selfCheckByPushBack: boolean;
@@ -58,7 +67,7 @@ export interface ApplyMoveResult {
 export type ViewMode = 'flipping' | 'tabletop';
 
 export interface GameSnapshot {
-  board: BoardState;
+  board: BoardState; // Includes items on squares
   currentPlayer: PlayerColor;
   gameInfo: GameStatus;
   capturedPieces: { white: Piece[], black: Piece[] };
@@ -97,6 +106,7 @@ export interface GameSnapshot {
 // AI-specific types, can be used by both AI and page.tsx for adaptation
 export interface AISquareState {
   piece: Piece | null;
+  item: Item | null; // Added item property
 }
 export type AIBoardState = AISquareState[][];
 
