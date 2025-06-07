@@ -9,9 +9,17 @@ interface ChessPieceDisplayProps {
   viewMode?: ViewMode;
   isJustMoved?: boolean;
   isSacrificeTarget?: boolean;
+  isCommanderPromoTarget?: boolean;
 }
 
-export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJustMoved = false, isSacrificeTarget = false }: ChessPieceDisplayProps) {
+export function ChessPieceDisplay({ 
+  piece, 
+  isKingInCheck = false, 
+  viewMode, 
+  isJustMoved = false, 
+  isSacrificeTarget = false,
+  isCommanderPromoTarget = false,
+}: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
   
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
@@ -36,12 +44,15 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
         className={cn(
           "relative flex items-center justify-center w-full h-full",
           pieceColorClass,
-          isAnimating && !isSacrificeTarget && "animate-piece-slide-in transform-gpu",
-          isAnimating && isSacrificeTarget && "animate-pulse",
+          isAnimating && !isSacrificeTarget && !isCommanderPromoTarget && "animate-piece-slide-in transform-gpu",
+          (isSacrificeTarget || isCommanderPromoTarget) && "animate-pulse",
           animationOriginClass
         )}
       >
-        <span className={cn("font-pixel select-none", piece.type === 'pawn' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>{unicode}</span>
+        <span className={cn("font-pixel select-none", piece.type === 'pawn' || piece.type === 'commander' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>
+          {unicode}
+          {piece.type === 'commander' && <span className="absolute -top-1 -right-1 text-base leading-none" aria-label="Commander Star">🌟</span>}
+        </span>
         {(piece.level || 1) > 1 && (
           <span
             className="absolute inset-0 flex items-center justify-center font-pixel text-sm text-destructive pointer-events-none"
@@ -55,3 +66,4 @@ export function ChessPieceDisplay({ piece, isKingInCheck = false, viewMode, isJu
     </div>
   );
 }
+

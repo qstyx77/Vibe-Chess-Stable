@@ -23,6 +23,8 @@ interface ChessBoardProps {
   lastMoveTo: AlgebraicSquare | null;
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
+  isAwaitingCommanderPromotion?: boolean;
+  playerToPromoteCommander?: PlayerColor | null;
 }
 
 export function ChessBoard({
@@ -42,7 +44,9 @@ export function ChessBoard({
   lastMoveFrom,
   lastMoveTo,
   isAwaitingPawnSacrifice,
-  playerToSacrificePawn
+  playerToSacrificePawn,
+  isAwaitingCommanderPromotion,
+  playerToPromoteCommander,
 }: ChessBoardProps) {
   
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -56,7 +60,8 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border group",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && "cursor-not-allowed",
+        // Interaction disabled should now consider commander promo state
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d" 
       )}
     >
@@ -81,8 +86,14 @@ export function ChessBoard({
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
 
           const isSacrificeTargetSquare = isAwaitingPawnSacrifice && 
-                                          currentSquareData.piece?.type === 'pawn' &&
-                                          currentSquareData.piece?.color === playerToSacrificePawn;
+                                          currentSquareData.piece &&
+                                          (currentSquareData.piece.type === 'pawn' || currentSquareData.piece.type === 'commander') &&
+                                          currentSquareData.piece.color === playerToSacrificePawn;
+          
+          const isCommanderPromoTargetSquare = isAwaitingCommanderPromotion &&
+                                               currentSquareData.piece?.type === 'pawn' &&
+                                               currentSquareData.piece?.level === 1 &&
+                                               currentSquareData.piece?.color === playerToPromoteCommander;
 
 
           return (
@@ -95,7 +106,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTargetSquare} 
+              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare} 
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
@@ -105,6 +116,9 @@ export function ChessBoard({
               isSacrificeTarget={isSacrificeTargetSquare}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} 
               playerToSacrificePawn={playerToSacrificePawn}
+              isCommanderPromoTarget={isCommanderPromoTargetSquare}
+              isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
+              playerToPromoteCommander={playerToPromoteCommander}
             />
           );
         })
@@ -112,3 +126,4 @@ export function ChessBoard({
     </div>
   );
 }
+

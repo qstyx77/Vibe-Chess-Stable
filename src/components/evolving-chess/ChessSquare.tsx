@@ -23,6 +23,9 @@ interface ChessSquareProps {
   isSacrificeTarget?: boolean;
   isAwaitingPawnSacrifice?: boolean;
   playerToSacrificePawn?: PlayerColor | null;
+  isCommanderPromoTarget?: boolean;
+  isAwaitingCommanderPromotion?: boolean;
+  playerToPromoteCommander?: PlayerColor | null;
 }
 
 export function ChessSquare({
@@ -41,7 +44,10 @@ export function ChessSquare({
   isLastMoveTo,
   isSacrificeTarget = false,
   isAwaitingPawnSacrifice = false,
-  playerToSacrificePawn = null
+  playerToSacrificePawn = null,
+  isCommanderPromoTarget = false,
+  isAwaitingCommanderPromotion = false,
+  playerToPromoteCommander = null,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -54,15 +60,17 @@ export function ChessSquare({
       currentBgClass = 'bg-yellow-300/40';
   }
 
-  if (isPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-accent/40'; // Can only move to empty square
-  if (isPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-destructive/60'; // Can capture piece if no item
+  if (isPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-accent/40';
+  if (isPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-destructive/60';
   
   if (isEnemyPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-blue-600/30';
   if (isEnemyPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-yellow-500/50';
 
 
   let selectionRingClass = '';
-  if (isAwaitingPawnSacrifice && piece?.type === 'pawn' && piece?.color === playerToSacrificePawn) {
+  if (isCommanderPromoTarget) {
+    selectionRingClass = 'ring-4 ring-inset ring-green-400 animate-pulse';
+  } else if (isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn) {
     selectionRingClass = 'ring-4 ring-inset ring-cyan-400 animate-pulse';
   } else if (isSelected && !disabled) {
     selectionRingClass = 'ring-2 ring-inset ring-accent';
@@ -70,7 +78,7 @@ export function ChessSquare({
     selectionRingClass = 'ring-2 ring-inset ring-blue-600';
   }
   
-  const effectiveDisabled = disabled && !(isAwaitingPawnSacrifice && piece?.type === 'pawn' && piece?.color === playerToSacrificePawn);
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget;
 
 
   return (
@@ -80,10 +88,11 @@ export function ChessSquare({
         'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu',
         currentBgClass,
         selectionRingClass,
-        (effectiveDisabled || item) && 'cursor-not-allowed' // Squares with items also not clickable for moves
+        effectiveDisabled && 'cursor-not-allowed',
+        item && 'cursor-not-allowed' 
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || item ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}`}
-      disabled={effectiveDisabled || !!item} // Disable button if there's an item, unless it's a pawn sacrifice target
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || item ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}`}
+      disabled={effectiveDisabled || !!item}
     >
       {item && item.type === 'anvil' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -91,13 +100,14 @@ export function ChessSquare({
         </div>
       )}
       {piece && (
-        <div className="relative z-10 w-full h-full"> {/* Ensure piece is above item */}
+        <div className="relative z-10 w-full h-full">
           <ChessPieceDisplay
             piece={piece}
             isKingInCheck={isKingInCheck}
             viewMode={viewMode}
             isJustMoved={isJustMoved}
-            isSacrificeTarget={isAwaitingPawnSacrifice && piece.type === 'pawn' && piece.color === playerToSacrificePawn}
+            isSacrificeTarget={isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn}
+            isCommanderPromoTarget={isCommanderPromoTarget}
           />
         </div>
       )}
@@ -110,3 +120,4 @@ export function ChessSquare({
     </button>
   );
 }
+
