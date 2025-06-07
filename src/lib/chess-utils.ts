@@ -38,7 +38,7 @@ function getPieceChar(piece: Piece | null): string {
   let char = '';
   switch (piece.type) {
     case 'pawn': char = 'P'; break;
-    case 'commander': char = 'C'; break; // Or 'P' if you want it to look like a pawn in the hash
+    case 'commander': char = 'P'; break; // Commander uses Pawn symbol in hash
     case 'knight': char = 'N'; break;
     case 'bishop': char = 'B'; break;
     case 'rook': char = 'R'; break;
@@ -503,10 +503,10 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackerLevel < targetLevel ) { // Royal Guard at L7
       return true;
     }
-    if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander')) { // Commanders are like pawns for this
+    if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander')) { // Pawn Immunity (Commanders are pawns for this)
       return true;
     }
-    if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
+    if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) { // General invulnerability
         return true;
     }
     return false;
@@ -901,7 +901,7 @@ export function getPieceUnicode(piece: Piece): string {
     case 'pawn': // Fallthrough
     case 'commander': // Commander uses pawn symbol
       return isWhite ? '♙' : '♟︎';
-    default: return ''; // Should not be reached if all types handled
+    default: return ''; 
   }
 }
 
@@ -1050,6 +1050,3 @@ export function spawnAnvil(board: BoardState): BoardState {
   }
   return newBoard;
 }
-
-
-    
