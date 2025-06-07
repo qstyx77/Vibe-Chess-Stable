@@ -202,6 +202,13 @@ export function getPossibleMovesInternal(
         }
     }
   }
+
+  // Diagnostic Log
+  if (fromSquare === 'h7' && piece.type === 'pawn') {
+    console.log(`[chess-utils] Pawn at h7 (L${piece.level}, ${piece.color}) internal pseudo-moves: ${possible.join(', ')}`);
+  }
+
+
   return possible;
 }
 
@@ -574,9 +581,9 @@ export function applyMove(
 
   if (pieceNowOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
-      const promotedPieceBaseLevel = 1;
-      let finalPromotedLevel = promotedPieceBaseLevel;
-      if (capturedPiece) { // Captured during the promotion move
+      let promotedPieceBaseLevel = 1; 
+      
+      if (capturedPiece) { 
         let levelGainFromCapture = 0;
         switch (capturedPiece.type) {
           case 'pawn': levelGainFromCapture = 1; break;
@@ -586,17 +593,18 @@ export function applyMove(
           case 'queen': levelGainFromCapture = 3; break;
           case 'king': levelGainFromCapture = 1; break;
         }
-        const newLevelWithCapture = promotedPieceBaseLevel + levelGainFromCapture;
-        if (move.promoteTo === 'queen') {
-            finalPromotedLevel = Math.min(6, newLevelWithCapture);
-        } else {
-            finalPromotedLevel = newLevelWithCapture;
-        }
+        promotedPieceBaseLevel += levelGainFromCapture;
       }
+
       pieceNowOnToSquare.type = move.promoteTo;
-      pieceNowOnToSquare.level = finalPromotedLevel;
+      if (move.promoteTo === 'queen') {
+          pieceNowOnToSquare.level = Math.min(6, promotedPieceBaseLevel);
+      } else {
+          pieceNowOnToSquare.level = promotedPieceBaseLevel;
+      }
     }
   }
+
 
   const pieceNowOnToSquareActualLevel = Number(pieceNowOnToSquare.level || 1);
   let pushBackOccurred = false;
@@ -894,6 +902,7 @@ export function processRookResurrectionCheck(
           level: 1,
           id: `${pieceToResurrectOriginal.id}_res_${nextResurrectionIdCounter}_${Date.now()}`,
           hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved,
+          invulnerableTurnsRemaining: 0,
         };
         nextResurrectionIdCounter++;
         boardWithResurrection[resR][resC].piece = resurrectedPieceData;

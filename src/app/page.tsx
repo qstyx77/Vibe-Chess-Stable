@@ -53,12 +53,12 @@ function adaptBoardForAI(
   gameMoveCounter: number
 ): AIGameState {
   const newAiBoard: AIBoardState = [];
-  for (let r = 0; r < 8; r++) {
-    const boardRow = currentBoardState[r];
+  for (let r_idx = 0; r_idx < 8; r_idx++) {
+    const boardRow = currentBoardState[r_idx];
     const newAiRow: AISquareState[] = [];
     if (boardRow) { 
-      for (let c = 0; c < 8; c++) {
-        const squareState = boardRow[c]; 
+      for (let c_idx = 0; c_idx < 8; c_idx++) {
+        const squareState = boardRow[c_idx]; 
         if (squareState && squareState.piece) {
           newAiRow.push({ piece: { ...squareState.piece } });
         } else {
@@ -66,7 +66,7 @@ function adaptBoardForAI(
         }
       }
     } else { 
-      for (let c = 0; c < 8; c++) {
+      for (let c_idx = 0; c_idx < 8; c_idx++) {
         newAiRow.push({ piece: null });
       }
     }
@@ -163,7 +163,7 @@ export default function EvolvingChessPage() {
         if (ActualVibeChessAI && typeof ActualVibeChessAI === 'function') {
           aiInstanceRef.current = new ActualVibeChessAI(2); 
         } else {
-          console.error("Failed to load VibeChessAI constructor dynamically from named export.");
+          console.error("Failed to load VibeChessAI constructor dynamically from named export.", ActualVibeChessAI);
           toast({
             title: "AI Initialization Error",
             description: "Could not load the AI engine (named export not found or not a constructor).",
@@ -845,25 +845,24 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false);
         }, 800);
         return;
-      } else { // Attempted an illegal move
+      } else { 
         setSelectedSquare(null);
         setPossibleMoves([]);
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-
-        const { row: illegalToR, col: illegalToC } = algebraicToCoords(algebraic);
-        const pieceOnIllegalTarget = board[illegalToR]?.[illegalToC]?.piece;
-
-        if (pieceOnIllegalTarget) {
-          if (pieceOnIllegalTarget.color === currentPlayer) {
-            setSelectedSquare(algebraic);
-            const legalMovesForNewSelection = getPossibleMoves(board, algebraic);
-            setPossibleMoves(legalMovesForNewSelection);
-          } else { 
-            setEnemySelectedSquare(algebraic);
-            const enemyMovesForNewSelection = getPossibleMoves(board, algebraic);
-            setEnemyPossibleMoves(enemyMovesForNewSelection);
-          }
+        if (clickedPiece) {
+            if(clickedPiece.color === currentPlayer) {
+                setSelectedSquare(algebraic);
+                const legalMovesForNewSelection = getPossibleMoves(board, algebraic);
+                setPossibleMoves(legalMovesForNewSelection);
+                setEnemySelectedSquare(null);
+                setEnemyPossibleMoves([]);
+            } else {
+                setEnemySelectedSquare(algebraic);
+                const enemyMovesForNewSelection = getPossibleMoves(board, algebraic);
+                setEnemyPossibleMoves(enemyMovesForNewSelection);
+            }
+        } else {
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
         }
         setIsMoveProcessing(false);
         return;
@@ -925,6 +924,7 @@ export default function EvolvingChessPage() {
       level: 1,
       id: isResurrectionPromotionInProgress ? `${originalPieceId}_resPromo_${pieceType}` : `${originalPieceId}_promo_${pieceType}`,
       hasMoved: true,
+      invulnerableTurnsRemaining: 0,
     };
 
     setLastMoveTo(promotionSquare);
@@ -1051,8 +1051,9 @@ export default function EvolvingChessPage() {
                 setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
                 toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 3000 });
             } else {
-                 console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves but is not in checkmate (still in check). This may indicate an issue or a rare position.`);
-                 aiErrorOccurredRef.current = true;
+                 console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves and is in check, but not checkmate. Assuming checkmate.`);
+                 setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins! (AI Forfeit)`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
+                 aiErrorOccurredRef.current = true; 
             }
         } else {
             const isStale = isStalemate(finalBoardStateForAI, currentPlayer);
@@ -1060,7 +1061,8 @@ export default function EvolvingChessPage() {
               setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
               toast({ title: "Stalemate!", description: "It's a draw! AI has no moves.", duration: 3000 });
             } else {
-              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves but is not in checkmate or stalemate.`);
+              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves, not in check, but not stalemate. Assuming stalemate or error.`);
+              setGameInfo(prev => ({ ...prev, message: "Stalemate! (AI Forfeit)", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
               aiErrorOccurredRef.current = true; 
             }
         }
@@ -1125,7 +1127,8 @@ export default function EvolvingChessPage() {
           } else {
             isAiMoveActuallyLegal = legalMovesForAiPieceOnBoard.includes(aiToAlg);
             if (!isAiMoveActuallyLegal) {
-              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Warning: VibeChessAI suggested an illegal move: ${aiFromAlg} to ${aiToAlg}. Valid moves for piece: ${legalMovesForAiPieceOnBoard.join(', ')}. AI Move Type: ${aiMoveType}`);
+              const pieceOnFromSquareForValidation = finalBoardStateForAI[algebraicToCoords(aiFromAlg!).row]?.[algebraicToCoords(aiFromAlg!).col]?.piece;
+              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Warning: VibeChessAI suggested an illegal move: ${aiFromAlg} to ${aiToAlg}. Validator sees piece ${pieceOnFromSquareForValidation?.type} (L${pieceOnFromSquareForValidation?.level}) at ${aiFromAlg}. Valid moves for piece: ${legalMovesForAiPieceOnBoard.join(', ')}. AI Move Type: ${aiMoveType}`);
               aiErrorOccurredRef.current = true;
             }
           }
@@ -1159,13 +1162,10 @@ export default function EvolvingChessPage() {
                     const adjR_AI = knightR_AI + dr;
                     const adjC_AI = knightC_AI + dc;
                     if (isValidSquare(adjR_AI, adjC_AI)) {
-                        const victimPiece_AI = finalBoardStateForAI[adjR_AI][adjC_AI].piece;
-                        if (victimPiece_AI && victimPiece_AI.color !== currentPlayer && victimPiece_AI.type !== 'king') {
-                        if (isPieceInvulnerableToAttack(victimPiece_AI, selfDestructingKnight_AI)) {
-                            toast({ title: "Invulnerable!", description: `AI Knight's self-destruct failed on invulnerable ${victimPiece_AI.type}.`, duration: 2500 });
-                            continue;
-                        }
-                        finalCapturedPiecesForAI[currentPlayer].push({ ...victimPiece_AI });
+                        const victimSquareState = finalBoardStateForAI[adjR_AI]?.[adjC_AI];
+                        const victim = victimSquareState?.piece;
+                        if (victim && victim.color !== currentPlayer && victim.type !== 'king' && !isPieceInvulnerableToAttack(victim, selfDestructingKnight_AI)) {
+                        finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
                         if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
                             finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
                         }
@@ -1830,3 +1830,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
