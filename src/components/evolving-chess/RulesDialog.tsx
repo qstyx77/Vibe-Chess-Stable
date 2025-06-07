@@ -26,7 +26,7 @@ interface RulesDialogProps {
 const PieceRule = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="mb-2">
     <h4 className="font-semibold text-primary">{title}</h4>
-    <p className="text-sm text-foreground/90 pl-2">{children}</p>
+    <div className="text-sm text-foreground/90 pl-2">{children}</div>
   </div>
 );
 
@@ -185,3 +185,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
