@@ -328,16 +328,14 @@ export default function EvolvingChessPage() {
       return;
     }
     
-    const nextPlayerActual = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
-    
-    // If an AI player just completed their turn and it was the one who got First Blood,
-    // they would have already handled their Commander promotion internally.
-    // Reset isAwaitingCommanderPromotion for them.
     const playerIsAI = (playerWhoseTurnCompleted === 'white' && isWhiteAI) || (playerWhoseTurnCompleted === 'black' && isBlackAI);
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === playerWhoseTurnCompleted && playerIsAI) {
+        // AI has handled its promotion internally, clear the flag before next turn logic
         setIsAwaitingCommanderPromotion(false);
     }
-
+    
+    const nextPlayerActual = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
+    
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === nextPlayerActual) {
       setCurrentPlayer(nextPlayerActual);
       setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(nextPlayerActual)}: Select L1 Pawn for Commander!`}));
@@ -358,12 +356,12 @@ export default function EvolvingChessPage() {
       completeTurn(currentBoardState, playerWhoseTurnCompleted);
     }
   }, [
-    positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, setGameInfo, 
-    setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn, getCastlingRightsString, boardToPositionHash, 
-    gameMoveCounter, setBoard, 
-    isAwaitingCommanderPromotion, playerWhoGotFirstBlood, getPlayerDisplayName,
-    setCurrentPlayer, viewMode, isBlackAI, isWhiteAI, boardOrientation, determineBoardOrientation,
-    setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setIsAwaitingCommanderPromotion // Added setIsAwaitingCommanderPromotion
+    positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, 
+    setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn, getCastlingRightsString, 
+    boardToPositionHash, gameMoveCounter, setBoard, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, 
+    getPlayerDisplayName, setCurrentPlayer, viewMode, isBlackAI, isWhiteAI, boardOrientation, determineBoardOrientation,
+    setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setIsAwaitingCommanderPromotion,
+    isWhiteAI, isBlackAI // Ensure AI states are dependencies
   ]);
 
   const saveStateToHistory = useCallback(() => {
@@ -526,10 +524,23 @@ export default function EvolvingChessPage() {
         toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
         
         const playerWhoActed = playerWhoGotFirstBlood;
-        const streakWhenFirstBloodOccurred = historyStack.length > 0 ? historyStack[historyStack.length - 1].killStreaks[playerWhoActed!] : killStreaks[playerWhoActed!];
-        const wasExtraTurnFromStreak = streakWhenFirstBloodOccurred === 6;
+        // Determine if the original First Blood capture resulted in an extra turn (e.g., streak of 6)
+        // This needs to be based on the state *before* this Commander promotion action.
+        // The historyStack.length > 0 ? historyStack[historyStack.length - 1]... is a good way to get this.
+        let wasExtraTurnFromStreak = false;
+        if (historyStack.length > 0) {
+            const previousSnapshot = historyStack[historyStack.length - 1];
+            if (previousSnapshot && previousSnapshot.killStreaks && playerWhoActed) {
+                const streakWhenFirstBloodOccurred = previousSnapshot.killStreaks[playerWhoActed];
+                 wasExtraTurnFromStreak = streakWhenFirstBloodOccurred === 6;
+            }
+        } else { // Fallback if history is empty (e.g., first move is first blood capture)
+            wasExtraTurnFromStreak = killStreaks[playerWhoActed!] === 6;
+        }
         
         setIsAwaitingCommanderPromotion(false);
+        // No longer need playerWhoGotFirstBlood for *this specific* promotion sequence, 
+        // but keep it for game history/record.
         
         processMoveEnd(boardAfterCommanderPromo, playerWhoActed!, wasExtraTurnFromStreak);
         
@@ -537,7 +548,9 @@ export default function EvolvingChessPage() {
         setPossibleMoves([]);
         setEnemySelectedSquare(null);
         setEnemyPossibleMoves([]);
-        setLastMoveFrom(lastMoveFrom); 
+        // lastMoveFrom/To for this Commander selection is less about a board move,
+        // but useful for highlighting the square.
+        setLastMoveFrom(null); // Or keep previous lastMoveFrom if desired for context
         setLastMoveTo(algebraic);     
         return;
 
@@ -721,7 +734,7 @@ export default function EvolvingChessPage() {
             setAnimatedSquareTo(null);
             setSelectedSquare(null);
             setPossibleMoves([]);
-            return; 
+            return;  // PAUSE for Commander selection
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer === 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -855,6 +868,7 @@ export default function EvolvingChessPage() {
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvil) {
           setLastCapturePlayer(capturingPlayer);
+          // Do not add pieceCapturedByAnvil to finalCapturedPiecesStateForTurn
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(capturingPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -878,7 +892,7 @@ export default function EvolvingChessPage() {
           setAnimatedSquareTo(null);
           setSelectedSquare(null);
           setPossibleMoves([]);
-          return; 
+          return; // PAUSE for Commander selection
 
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
@@ -1370,6 +1384,7 @@ export default function EvolvingChessPage() {
 
               if (applyMoveResult.pieceCapturedByAnvil) {
                 pieceCapturedByAnvilAI = true;
+                // Do not add pieceCapturedByAnvil to finalCapturedPiecesForAI
                 toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
               }
               if (aiAnvilPushedOff) {
@@ -1443,10 +1458,11 @@ export default function EvolvingChessPage() {
                 if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
                     if (!firstBloodAchieved) { 
                         setFirstBloodAchieved(true);
-                        setPlayerWhoGotFirstBlood(currentPlayer);
-                        setIsAwaitingCommanderPromotion(true); 
+                        setPlayerWhoGotFirstBlood(currentPlayer); // currentPlayer is AI here
+                        // AI will handle its Commander promotion internally if localAIAwaitingCommanderPromo is set.
+                        // Do NOT set setIsAwaitingCommanderPromotion(true) here for the AI.
                         localAIAwaitingCommanderPromo = true; 
-                        toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+                        toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 4000 });
                     } else if (newStreakForAIPlayer === 3) {
                       const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                       let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
@@ -1485,7 +1501,7 @@ export default function EvolvingChessPage() {
                         if(finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.type === 'pawn' && finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.level === 1) {
                             finalBoardStateForAI[pawnR][pawnC].piece!.type = 'commander';
                             finalBoardStateForAI[pawnR][pawnC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_CMD_AI`;
-                            toast({ title: "AI Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promoted a Pawn to Commander!`, duration: 3000 });
+                           // Toast for AI promoting commander is already handled when localAIAwaitingCommanderPromo is set.
                         }
                     }
                 }
@@ -1651,14 +1667,18 @@ export default function EvolvingChessPage() {
     setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves, isStalemate, isCheckmate,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
+    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, // Removed setIsAwaitingCommanderPromotion for AI internal
   ]);
 
 
   useEffect(() => {
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI);
     if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && aiInstanceRef.current) {
-        if (!(isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== null && playerWhoGotFirstBlood !== currentPlayer)) {
+        // The AI should proceed if it's not awaiting a Commander promotion from *another* player or if it's its turn to promote.
+        // If isAwaitingCommanderPromotion is true, AND playerWhoGotFirstBlood is the current AI, it means the AI needs to handle its promotion.
+        // However, performAiMove already handles this internally if localAIAwaitingCommanderPromo is set.
+        // The main guard for AI turn is isAwaitingCommanderPromotion. If this flag is set because a HUMAN needs to promote, AI should wait.
+        if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
