@@ -1,5 +1,5 @@
 
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
@@ -177,10 +177,6 @@ export function getPossibleMovesInternal(
         }
     }
   } else {
-    // For pawn (h7 issue debug):
-    if (piece.type === 'pawn' && fromSquare === 'h7' && piece.color === 'black') {
-        // console.log(`DEBUG (chess-utils): Pawn at h7 (${piece.color}, L${currentLevel}) pseudo-move generation starting.`);
-    }
     for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
           const toSquare = coordsToAlgebraic(r_idx,c_idx);
@@ -189,9 +185,6 @@ export function getPossibleMovesInternal(
           }
         }
       }
-    if (piece.type === 'pawn' && fromSquare === 'h7' && piece.color === 'black') {
-        // console.log(`DEBUG (chess-utils): Pawn at h7 raw pseudo-moves: ${possible.join(', ')}`);
-    }
   }
 
   const pieceActualLevelForSwap = Number(piece.level || 1);
@@ -529,10 +522,12 @@ export function applyMove(
   let selfCheckByPushBack = false;
   let pieceCapturedByAnvil: Piece | null = null;
   let anvilPushedOffBoard = false;
+  let queenLevelReducedEventsInternal: QueenLevelReducedEvent[] | null = null;
+
 
   const movingPieceOriginalRef = newBoard[fromRow]?.[fromCol]?.piece;
   if (!movingPieceOriginalRef) {
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: 0, selfCheckByPushBack };
+    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null };
   }
 
   const originalPieceLevel = Number(movingPieceOriginalRef.level || 1);
@@ -540,7 +535,7 @@ export function applyMove(
   const targetItemOriginal = newBoard[toRow]?.[toCol]?.item;
 
   if (targetItemOriginal) { 
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack }; 
+    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null }; 
   }
 
   const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level || 1);
@@ -552,7 +547,7 @@ export function applyMove(
     const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true };
     newBoard[toRow][toCol].piece = movingPieceCopy;
     newBoard[fromRow][fromCol].piece = targetPieceCopy;
-    return { newBoard, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack };
+    return { newBoard, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null };
   }
 
   const capturedPiece = (targetPieceOriginal && targetPieceOriginal.color !== movingPieceOriginalRef.color) ? { ...targetPieceOriginal } : null;
@@ -562,7 +557,7 @@ export function applyMove(
 
   const pieceNowOnToSquare = newBoard[toRow]?.[toCol]?.piece;
   if (!pieceNowOnToSquare) {
-    return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack };
+    return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null };
   }
 
 
@@ -596,7 +591,7 @@ export function applyMove(
     if (pieceNowOnToSquare.type === 'queen') {
         pieceNowOnToSquare.level = Math.min(7, newCalculatedLevel); // Queen max level 7
     } else {
-        pieceNowOnToSquare.level = newCalculatedLevel; // No cap for others
+        pieceNowOnToSquare.level = newCalculatedLevel;
     }
   }
 
@@ -621,7 +616,43 @@ export function applyMove(
       if (move.promoteTo === 'queen') {
           pieceNowOnToSquare.level = Math.min(7, promotedPieceBaseLevel); // Queen max level 7
       } else {
-          pieceNowOnToSquare.level = promotedPieceBaseLevel; // No cap for others
+          pieceNowOnToSquare.level = promotedPieceBaseLevel;
+      }
+    }
+  }
+
+  // King's Dominion: Queen level reduction
+  if (
+    pieceNowOnToSquare.type === 'king' &&
+    pieceNowOnToSquare.level > originalPieceLevel 
+  ) {
+    const levelsGainedByKing = pieceNowOnToSquare.level - originalPieceLevel;
+    if (levelsGainedByKing > 0) {
+      queenLevelReducedEventsInternal = [];
+      const kingColor = pieceNowOnToSquare.color;
+      const opponentColor = kingColor === 'white' ? 'black' : 'white';
+
+      for (let r_qlr = 0; r_qlr < 8; r_qlr++) {
+        for (let c_qlr = 0; c_qlr < 8; c_qlr++) {
+          const square_qlr = newBoard[r_qlr]?.[c_qlr];
+          if (square_qlr?.piece && square_qlr.piece.type === 'queen' && square_qlr.piece.color === opponentColor) {
+            const originalQueenLevel = square_qlr.piece.level;
+            const newQueenLevel = Math.max(1, originalQueenLevel - levelsGainedByKing);
+            if (newQueenLevel < originalQueenLevel) {
+              queenLevelReducedEventsInternal.push({
+                queenId: square_qlr.piece.id,
+                originalLevel: originalQueenLevel,
+                newLevel: newQueenLevel,
+                reductionAmount: levelsGainedByKing,
+                reducedByKingOfColor: kingColor,
+              });
+              square_qlr.piece.level = newQueenLevel;
+            }
+          }
+        }
+      }
+      if (queenLevelReducedEventsInternal.length === 0) {
+          queenLevelReducedEventsInternal = null;
       }
     }
   }
@@ -678,9 +709,6 @@ export function applyMove(
                             pushBackOccurredForSelfCheck = true;
                         }
                         
-                    } else { 
-                        
-                        
                     }
                 }
               }
@@ -724,7 +752,7 @@ export function applyMove(
         }
     }
   }
-  return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack };
+  return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: queenLevelReducedEventsInternal };
 }
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolean {

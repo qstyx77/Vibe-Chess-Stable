@@ -32,8 +32,8 @@ export class VibeChessAI {
             'knight': [320, 360, 400, 450, 500, 550, 580, 610, 640, 670],
             'bishop': [330, 370, 420, 470, 520, 570, 600, 630, 660, 690],
             'rook': [500, 520, 580, 620, 660, 700, 730, 760, 790, 820],
-            'queen': [900, 920, 940, 960, 1200, 1250, 1350], // Max level 7
-            'king': [20000, 20000, 20000, 20000, 20000, 20000, 20000] // King values consistent, can add L7 if abilities change
+            'queen': [900, 920, 940, 960, 1200, 1250, 1350], 
+            'king': [20000, 20000, 20000, 20000, 20000, 20000, 20000]
         };
 
         this.captureLevelBonuses = {
@@ -283,9 +283,9 @@ export class VibeChessAI {
             const currentLevel = Number(movingPieceCopy.level || 1);
             const newCalculatedLevel = currentLevel + levelBonus;
             if (movingPieceCopy.type === 'queen') {
-                movingPieceCopy.level = Math.min(7, newCalculatedLevel); // Queen max level 7
+                movingPieceCopy.level = Math.min(7, newCalculatedLevel);
             } else {
-                movingPieceCopy.level = newCalculatedLevel; // No cap for others
+                movingPieceCopy.level = newCalculatedLevel;
             }
 
             newState.board[toRow][toCol].piece = movingPieceCopy;
@@ -310,7 +310,7 @@ export class VibeChessAI {
             }
 
             movingPieceCopy.type = move.promoteTo || 'queen';
-            const newLevelForPromoted = movingPieceCopy.type === 'queen' ? Math.min(7, newPieceLevel) : newPieceLevel; // Queen max level 7
+            const newLevelForPromoted = movingPieceCopy.type === 'queen' ? Math.min(7, newPieceLevel) : newPieceLevel;
             movingPieceCopy.level = newLevelForPromoted;
 
 
@@ -405,6 +405,22 @@ export class VibeChessAI {
                     }
                     if (pawnSacrificed) break;
                 }
+            }
+
+            if (pieceOnToSquare.type === 'king' && pieceOnToSquare.level > originalLevelOfMovingPiece) {
+              const levelsGainedByKing = pieceOnToSquare.level - originalLevelOfMovingPiece;
+              if (levelsGainedByKing > 0) {
+                const kingColor = pieceOnToSquare.color;
+                const opponentColor = kingColor === 'white' ? 'black' : 'white';
+                for (let r_idx = 0; r_idx < 8; r_idx++) {
+                  for (let c_idx = 0; c_idx < 8; c_idx++) {
+                    const squareState = newState.board[r_idx]?.[c_idx];
+                    if (squareState?.piece && squareState.piece.type === 'queen' && squareState.piece.color === opponentColor) {
+                      squareState.piece.level = Math.max(1, squareState.piece.level - levelsGainedByKing);
+                    }
+                  }
+                }
+              }
             }
         }
 
@@ -639,11 +655,17 @@ export class VibeChessAI {
                     const currentPieceLevel = Number(piece.level || 1);
                     const pieceLevelValues = this.pieceValues[piece.type];
                     
-                    const levelForEval = piece.type === 'queen' ? Math.min(currentPieceLevel, 7) : currentPieceLevel; // Queen max level 7
+                    const levelForEval = piece.type === 'queen' ? Math.min(currentPieceLevel, 7) : currentPieceLevel;
                     const effectiveLevelForArrayIndex = Math.max(1, levelForEval);
                     
                     const valueIndex = Math.min(effectiveLevelForArrayIndex - 1, pieceLevelValues.length - 1);
-                    const value = pieceLevelValues[valueIndex] || pieceLevelValues[pieceLevelValues.length -1] || 0; 
+                    let value = pieceLevelValues[valueIndex] || pieceLevelValues[pieceLevelValues.length -1] || 0; 
+
+                    // If level exceeds defined values (for non-Queens), extrapolate or use max defined.
+                    if (piece.type !== 'queen' && effectiveLevelForArrayIndex > pieceLevelValues.length) {
+                        value = pieceLevelValues[pieceLevelValues.length - 1] + (effectiveLevelForArrayIndex - pieceLevelValues.length) * 20; // Add a small bonus for each extra level
+                    }
+
 
                     materialScore += (piece.color === aiColor ? value : -value);
                 }
@@ -767,7 +789,7 @@ export class VibeChessAI {
                     if (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel)) {
                         abilitiesScore += (pieceActualLevel -1) * 15 * multiplier; 
 
-                        if (piece.type === 'queen' && pieceActualLevel === 7) { // Royal Guard at L7
+                        if (piece.type === 'queen' && pieceActualLevel === 7) { 
                             abilitiesScore += 70 * multiplier; 
                         }
                         if (piece.type === 'bishop' && pieceActualLevel >= 3){ 
@@ -814,7 +836,7 @@ export class VibeChessAI {
         const targetActualLevel = Number(targetPiece.level || 1);
         const attackerActualLevel = Number(attackingPiece.level || 1);
 
-        if (targetPiece.type === 'queen' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 7 && (typeof attackerActualLevel !== 'number' || isNaN(attackerActualLevel) || attackerActualLevel < targetActualLevel)) { // Royal Guard at L7
+        if (targetPiece.type === 'queen' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 7 && (typeof attackerActualLevel !== 'number' || isNaN(attackerActualLevel) || attackerActualLevel < targetActualLevel)) {
             return true;
         }
         if (targetPiece.type === 'bishop' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 3 && attackingPiece.type === 'pawn') {
@@ -1213,7 +1235,7 @@ export class VibeChessAI {
         switch (piece.type) {
             case 'pawn':
                 const direction = piece.color === 'white' ? -1 : 1;
-                return deltaRow === direction && Math.abs(deltaCol) === 1; 
+                return deltaRow === direction && Math.abs(deltaCol) === 1 && !targetSquareState.item; 
             case 'knight':
                 const knightActualLevel = Number(piece.level || 1);
                 if ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2)) return !targetSquareState.item;
@@ -1342,7 +1364,7 @@ export class VibeChessAI {
 
         if (targetPiece && targetPiece.color !== playerColor) {
             const targetLevel = Number(targetPiece.level || 1);
-            const effectiveLevel = targetPiece.type === 'queen' ? Math.min(targetLevel, 7) : targetLevel; // Queen max L7
+            const effectiveLevel = targetPiece.type === 'queen' ? Math.min(targetLevel, 7) : targetLevel;
             const levelIndex = Math.min(effectiveLevel -1, this.pieceValues[targetPiece.type].length -1);
             const capturedValue = this.pieceValues[targetPiece.type]?.[levelIndex] || this.pieceValues[targetPiece.type]?.[this.pieceValues[targetPiece.type].length-1] || 0;
             score += capturedValue * 10; 

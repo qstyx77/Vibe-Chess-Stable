@@ -25,7 +25,7 @@ import {
   type RookResurrectionResult,
   spawnAnvil, 
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { RefreshCw, BookOpen, Undo2, View, Bot } from 'lucide-react';
@@ -400,7 +400,7 @@ export default function EvolvingChessPage() {
     const conditionMet = queenAfterLeveling &&
       queenAfterLeveling.type === 'queen' &&
       queenAfterLeveling.color === playerWhoseQueenLeveled &&
-      (Number(queenAfterLeveling.level || 1)) === 7; // Check if new level IS 7
+      (Number(queenAfterLeveling.level || 1)) === 7;
 
     if (conditionMet) {
       let hasPawnsToSacrifice = false;
@@ -582,8 +582,9 @@ export default function EvolvingChessPage() {
             const adjR = fromR_selected + dr;
             const adjC = fromC_selected + dc;
             if (isValidSquare(adjR, adjC)) {
-              const victimPiece = boardAfterDestruct[adjR][adjC].piece;
-              const victimItem = boardAfterDestruct[adjR][adjC].item;
+              const victimSquareState = boardAfterDestruct[adjR][adjC];
+              const victimPiece = victimSquareState.piece;
+              const victimItem = victimSquareState.item;
               if (victimItem?.type === 'anvil') continue; 
 
               if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
@@ -691,8 +692,19 @@ export default function EvolvingChessPage() {
         setAnimatedSquareTo(algebraic);
 
         const moveBeingMade: Move = { from: selectedSquare, to: algebraic };
-        const { newBoard, capturedPiece: captured, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: levelFromApplyMove, selfCheckByPushBack }: ApplyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade);
+        const { newBoard, capturedPiece: captured, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: levelFromApplyMove, selfCheckByPushBack, queenLevelReducedEvents }: ApplyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade);
         finalBoardStateForTurn = newBoard;
+
+        if (queenLevelReducedEvents && queenLevelReducedEvents.length > 0) {
+            queenLevelReducedEvents.forEach(event => {
+                const queenOwner = event.reducedByKingOfColor === 'white' ? 'Black' : 'White';
+                toast({
+                title: "King's Dominion!",
+                description: `${getPlayerDisplayName(event.reducedByKingOfColor)} King leveled up! ${queenOwner}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
+                duration: 3500,
+                });
+            });
+        }
 
 
         if (selfCheckByPushBack) {
@@ -1153,7 +1165,7 @@ export default function EvolvingChessPage() {
             isAiMoveActuallyLegal = legalMovesForAiPieceOnBoard.includes(aiToAlg);
             if (!isAiMoveActuallyLegal) {
               const pieceOnFromSquareForValidation = finalBoardStateForAI[algebraicToCoords(aiFromAlg!).row]?.[algebraicToCoords(aiFromAlg!).col]?.piece;
-              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Warning: VibeChessAI suggested an illegal move: ${aiFromAlg} to ${aiToAlg}. Validator sees piece ${pieceOnFromSquareForValidation?.type} (L${pieceOnFromSquareForValidation?.level}) at ${aiFromAlg}. Valid moves for piece: ${legalMovesForAiPieceOnBoard.join(', ')}. AI Move Type: ${aiMoveType}`);
+              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Warning: VibeChessAI suggested an illegal move: ${aiFromAlg} to ${aiToAlg}. Valid moves for piece ${pieceOnFromSquareForValidation?.type} (L${pieceOnFromSquareForValidation?.level}) at ${aiFromAlg}: ${legalMovesForAiPieceOnBoard.join(', ')}. AI Move Type: ${aiMoveType}`);
               aiErrorOccurredRef.current = true;
             }
           }
@@ -1172,6 +1184,7 @@ export default function EvolvingChessPage() {
             let piecesDestroyedByAICount = 0;
             let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
             let selfCheckByAIPushBack = false;
+            let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | undefined = undefined;
 
             if (moveForApplyMoveAI!.type === 'self-destruct') {
               const { row: knightR_AI, col: knightC_AI } = algebraicToCoords(moveForApplyMoveAI!.from);
@@ -1218,6 +1231,19 @@ export default function EvolvingChessPage() {
               levelFromAIApplyMove = applyMoveResult.originalPieceLevel;
               selfCheckByAIPushBack = applyMoveResult.selfCheckByPushBack;
               aiAnvilPushedOff = applyMoveResult.anvilPushedOffBoard;
+              queenLevelReducedEventsAI = applyMoveResult.queenLevelReducedEvents;
+
+
+              if (queenLevelReducedEventsAI && queenLevelReducedEventsAI.length > 0) {
+                  queenLevelReducedEventsAI.forEach(event => {
+                      const queenOwner = event.reducedByKingOfColor === 'white' ? 'Black' : 'White';
+                      toast({
+                        title: "King's Dominion!",
+                        description: `${getPlayerDisplayName(event.reducedByKingOfColor)} (AI) King leveled up! ${queenOwner}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
+                        duration: 3500,
+                      });
+                  });
+              }
 
               if (applyMoveResult.pieceCapturedByAnvil) {
                 aiPieceCapturedByAnvil = true;

@@ -5,7 +5,6 @@ export type ItemType = 'anvil';
 
 export interface Item {
   type: ItemType;
-  // id?: string; // Future use if items need unique IDs
 }
 
 export interface Piece {
@@ -21,7 +20,7 @@ export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'
 
 export interface SquareState {
   piece: Piece | null;
-  item: Item | null; // Added item property
+  item: Item | null;
   algebraic: AlgebraicSquare;
   rowIndex: number;
   colIndex: number;
@@ -54,20 +53,29 @@ export interface ConversionEvent {
   at: AlgebraicSquare;
 }
 
+export interface QueenLevelReducedEvent {
+  queenId: string;
+  originalLevel: number;
+  newLevel: number;
+  reductionAmount: number;
+  reducedByKingOfColor: PlayerColor;
+}
+
 export interface ApplyMoveResult {
   newBoard: BoardState;
-  capturedPiece: Piece | null; // Piece captured by another piece
-  pieceCapturedByAnvil: Piece | null; // Piece "captured" by a pushed anvil
+  capturedPiece: Piece | null;
+  pieceCapturedByAnvil: Piece | null;
   anvilPushedOffBoard: boolean;
   conversionEvents: ConversionEvent[];
   originalPieceLevel?: number;
   selfCheckByPushBack: boolean;
+  queenLevelReducedEvents?: QueenLevelReducedEvent[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
 
 export interface GameSnapshot {
-  board: BoardState; // Includes items on squares
+  board: BoardState;
   currentPlayer: PlayerColor;
   gameInfo: GameStatus;
   capturedPieces: { white: Piece[], black: Piece[] };
@@ -106,7 +114,7 @@ export interface GameSnapshot {
 // AI-specific types, can be used by both AI and page.tsx for adaptation
 export interface AISquareState {
   piece: Piece | null;
-  item: Item | null; // Added item property
+  item: Item | null;
 }
 export type AIBoardState = AISquareState[][];
 

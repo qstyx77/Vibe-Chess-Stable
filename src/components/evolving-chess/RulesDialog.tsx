@@ -77,17 +77,18 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </PieceRule>
                 <PieceRule title="Interaction">Anvils cannot be captured or destroyed by normal piece moves.</PieceRule>
                 <PieceRule title="Pawn Push-Back (L4+ Pawn)">
-                  A Level 4+ Pawn's Push-Back ability can interact with anvils:
-                  <ul className="list-disc list-inside pl-4 mt-1">
-                    <li className="text-sm">If a pawn pushes an adjacent anvil: The anvil moves one square in the push direction.
-                      <ul className="list-circle list-inside pl-4">
-                        <li>If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game.</li>
-                        <li>If the anvil is pushed off the board, it is removed from the game.</li>
-                        <li>An anvil cannot push another anvil; the push fails.</li>
-                      </ul>
-                    </li>
-                    <li className="text-sm">If a pawn pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
-                  </ul>
+                  <div>A Level 4+ Pawn's Push-Back ability can interact with anvils:
+                    <ul className="list-disc list-inside pl-4 mt-1">
+                      <li className="text-sm">If a pawn pushes an adjacent anvil: The anvil moves one square in the push direction.
+                        <ul className="list-circle list-inside pl-4">
+                          <li>If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game.</li>
+                          <li>If the anvil is pushed off the board, it is removed from the game.</li>
+                          <li>An anvil cannot push another anvil; the push fails.</li>
+                        </ul>
+                      </li>
+                      <li className="text-sm">If a pawn pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
+                    </ul>
+                  </div>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -171,6 +172,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
                   <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty (no piece or item) and not under attack by an opponent's piece." />
                   <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
+                  <LevelRule level="NEW!" description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
