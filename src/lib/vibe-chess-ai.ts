@@ -103,27 +103,27 @@ export class VibeChessAI {
             this.positionCache.clear();
 
             if (!gameState?.board || !color) {
-                console.warn("AI: getBestMove called with invalid gameState or color.", gameState, color);
+                // console.warn("AI: getBestMove called with invalid gameState or color.", gameState, color);
                 return null;
             }
 
             const legalMoves = this.generateAllMoves(gameState, color);
 
             if (legalMoves.length === 0) {
-                console.log(`AI: No legal moves found for ${color}.`);
+                // console.log(`AI: No legal moves found for ${color}.`);
                 return null;
             }
 
             const result = this.minimax(gameState, this.maxDepth, -Infinity, Infinity, true, color);
             
             if (!result.move && legalMoves.length > 0) {
-                console.warn("AI: Minimax returned null move, falling back to first legal move.");
+                // console.warn("AI: Minimax returned null move, falling back to first legal move.");
                 return legalMoves[0];
             }
             return result.move;
 
         } catch (error) {
-            console.error("AI: Error in getBestMove:", error);
+            // console.error("AI: Error in getBestMove:", error);
             try {
                 const fallbackGameState: AIGameState = { // Ensure gameState is well-defined for fallback
                     ...originalGameState,
@@ -137,7 +137,7 @@ export class VibeChessAI {
                 const fallbackMoves = this.generateAllMoves(fallbackGameState, color); 
                 return fallbackMoves.length > 0 ? fallbackMoves[0] : null;
             } catch (fallbackError) {
-                console.error("AI: Error in fallback move generation:", fallbackError);
+                // console.error("AI: Error in fallback move generation:", fallbackError);
                 return null;
             }
         }
@@ -1258,8 +1258,10 @@ export class VibeChessAI {
                         if (maxDist === 2 && (Math.abs(dr_k) === 2 || Math.abs(dc_k) === 2)) {
                             const midR_k = r + Math.sign(dr_k);
                             const midC_k = c + Math.sign(dc_k);
-                            if (this.isValidSquareAI(midR_k, midC_k) && (board[midR_k][midC_k].piece || board[midR_k][midC_k].item )) continue; // Path blocked
-                            if (this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, true)) continue; // Cannot move through attacked square
+                            if (!this.isValidSquareAI(midR_k, midC_k) || board[midR_k][midC_k].piece || board[midR_k][midC_k].item || 
+                                this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, true)) { // Check if path is blocked or attacked
+                                continue; 
+                            }
                         }
                         const target_k = targetSquareKingState.piece;
                          if (!target_k || (target_k.color !== piece.color && !this.isPieceInvulnerableToAttack(target_k, piece))) {
@@ -1687,6 +1689,3 @@ export class VibeChessAI {
         return [availablePawns[0].row, availablePawns[0].col];
     }
 }
-
-
-    
