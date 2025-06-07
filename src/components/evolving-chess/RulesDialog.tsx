@@ -31,7 +31,7 @@ const PieceRule = ({ title, children }: { title: string, children: React.ReactNo
 );
 
 const LevelRule = ({ level, description }: { level: string | number, description: string }) => (
-  <li className="text-sm text-foreground/90 ml-4 list-disc list-inside">{`Level ${level}: ${description}`}</li>
+  <li className="text-sm text-foreground/90 ml-4 list-disc list-inside">{ level ? `Level ${level}: ` : '' }${description}</li>
 );
 
 export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
@@ -68,6 +68,29 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="firstblood">
+              <AccordionTrigger className="text-base hover:text-accent">First Blood & Commander</AccordionTrigger>
+              <AccordionContent>
+                <PieceRule title="First Blood">
+                  The first player to capture an enemy piece during the game achieves "First Blood". This capture can be a standard piece capture or a capture resulting from an Anvil being pushed by a Pawn.
+                </PieceRule>
+                <PieceRule title="Commander Promotion">
+                  The player who achieves First Blood immediately gets to select one of their own Level 1 Pawns currently on the board. This chosen Pawn is instantly promoted to a "Commander".
+                  The Commander is visually distinct (it appears as a Pawn with a star overlay).
+                </PieceRule>
+                <PieceRule title="Commander Abilities">
+                  <ul className="list-none pl-0">
+                    <li className="text-sm text-foreground/90 mb-1">
+                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
+                    </li>
+                    <li className="text-sm text-foreground/90">
+                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
+                    </li>
+                  </ul>
+                </PieceRule>
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value="anvils">
               <AccordionTrigger className="text-base hover:text-accent">Anvil Mechanic</AccordionTrigger>
               <AccordionContent>
@@ -76,17 +99,17 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.
                 </PieceRule>
                 <PieceRule title="Interaction">Anvils cannot be captured or destroyed by normal piece moves.</PieceRule>
-                <PieceRule title="Pawn Push-Back (L4+ Pawn)">
-                  <div>A Level 4+ Pawn's Push-Back ability can interact with anvils:
+                <PieceRule title="Pawn Push-Back (L4+ Pawn/Commander)">
+                  <div>A Level 4+ Pawn or Commander's Push-Back ability can interact with anvils:
                     <ul className="list-disc list-inside pl-4 mt-1">
-                      <li className="text-sm">If a pawn pushes an adjacent anvil: The anvil moves one square in the push direction.
+                      <li className="text-sm">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
                         <ul className="list-circle list-inside pl-4">
-                          <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game (it does not go to the captured pieces display). This still counts towards kill streaks.</li>
+                          <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game (it does not go to the captured pieces display). This still counts towards kill streaks and can trigger First Blood.</li>
                           <li className="text-sm">If the anvil is pushed off the board, it is removed from the game.</li>
                           <li className="text-sm">An anvil cannot push another anvil; the push fails.</li>
                         </ul>
                       </li>
-                      <li className="text-sm">If a pawn pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
+                      <li className="text-sm">If a pawn/commander pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
                     </ul>
                   </div>
                 </PieceRule>
@@ -107,14 +130,15 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="pawn">
-              <AccordionTrigger className="text-base hover:text-accent">Pawn Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Pawn & Commander Abilities</AccordionTrigger>
               <AccordionContent>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
-                  <LevelRule level="4+" description="Push-Back: If the Pawn moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn, if possible. See Anvil Mechanic for details on anvil interaction." />
-                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn is promoted, its player gets an extra turn." />
+                  <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction." />
+                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn is promoted, its player gets an extra turn. (This specific bonus does not apply to Commanders, as they are already promoted)." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -138,7 +162,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <ul>
                   <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
                   <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or items in its path)." />
-                  <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns." />
+                  <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns or Commanders." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight on the board." />
                   <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King, on a square without an item) to convert that piece to its own color (level and type preserved)." />
                 </ul>
@@ -160,7 +184,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard &amp; Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any pawns on the board, they must select and sacrifice one of their pawns. If no pawns are available, no sacrifice is made." />
+                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
