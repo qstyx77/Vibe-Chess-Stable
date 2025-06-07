@@ -149,8 +149,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-base hover:text-accent">Rook Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1-2" description="Standard horizontal/vertical move/capture (blocked by any piece or item in its path)." />
-                  <LevelRule level="3+" description="Resurrection Call: Whenever a Rook's level increases to 3 or higher (from a lower level), it attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square (no piece or item) adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="1-3" description="Standard horizontal/vertical move/capture (blocked by any piece or item in its path)." />
+                  <LevelRule level="4+" description="Resurrection Call: Whenever a Rook's level increases to 4 or higher (from a lower level), it attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square (no piece or item) adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -187,3 +187,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+

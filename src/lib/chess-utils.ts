@@ -584,7 +584,7 @@ export function applyMove(
       case 'bishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
-      case 'king': levelGain = 1; break;
+      case 'king': levelGain = 1; break; // King capture leads to game end, but level up still happens first
       default: levelGain = 0; break;
     }
     const newCalculatedLevel = originalPieceLevel + levelGain;
@@ -839,6 +839,9 @@ export function getPossibleMoves(board: BoardState, fromSquare: AlgebraicSquare)
     if (!squareState || !squareState.piece) return [];
     const piece = squareState.piece;
     const pseudoMoves = getPossibleMovesInternal(board, fromSquare, piece, true);
+    if (piece.type === 'pawn' && fromSquare === 'h7') {
+        console.log(`ChessUtils: Pseudo-moves for h7 pawn: ${pseudoMoves.join(', ')}`);
+    }
     return filterLegalMoves(board, fromSquare, pseudoMoves, piece.color);
 }
 
@@ -956,7 +959,7 @@ export function processRookResurrectionCheck(
     ? 0
     : (Number(originalLevelOfPiece || 0));
 
-  if (typeof newRookLevel === 'number' && !isNaN(newRookLevel) && newRookLevel >= 3 && newRookLevel > oldLevelOfThisPieceType) {
+  if (typeof newRookLevel === 'number' && !isNaN(newRookLevel) && newRookLevel >= 4 && newRookLevel > oldLevelOfThisPieceType) {
     const opponentColor = playerWhosePieceLeveled === 'white' ? 'black' : 'white';
     const piecesToChooseFrom = capturedPiecesAfterResurrection[opponentColor] ? [...capturedPiecesAfterResurrection[opponentColor]] : [];
 
@@ -1030,3 +1033,4 @@ export function spawnAnvil(board: BoardState): BoardState {
   }
   return newBoard;
 }
+

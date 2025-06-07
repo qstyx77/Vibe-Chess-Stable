@@ -380,7 +380,7 @@ export class VibeChessAI {
                 this.handleBishopConversion(newState, toRow, toCol, pieceOnToSquare.color);
             }
             if (pieceOnToSquare.type === 'rook' &&
-                (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 3) &&
+                (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 4) &&
                 pieceOnToSquareActualLevel > originalLevelOfMovingPiece
             ) {
                 this.handleResurrection(newState, currentPlayer);
@@ -1412,3 +1412,4 @@ export class VibeChessAI {
         return key;
     }
 }
+
