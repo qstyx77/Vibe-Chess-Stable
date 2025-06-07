@@ -23,7 +23,7 @@ import {
   isValidSquare,
   processRookResurrectionCheck,
   type RookResurrectionResult,
-  spawnAnvil, 
+  spawnAnvil,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -56,15 +56,15 @@ function adaptBoardForAI(
   for (let r_idx = 0; r_idx < 8; r_idx++) {
     const boardRow = currentBoardState[r_idx];
     const newAiRow: AISquareState[] = [];
-    if (boardRow) { 
+    if (boardRow) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
-        const squareState = boardRow[c_idx]; 
-        newAiRow.push({ 
+        const squareState = boardRow[c_idx];
+        newAiRow.push({
           piece: squareState?.piece ? { ...squareState.piece } : null,
-          item: squareState?.item ? { ...squareState.item } : null, 
+          item: squareState?.item ? { ...squareState.item } : null,
         });
       }
-    } else { 
+    } else {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
         newAiRow.push({ piece: null, item: null });
       }
@@ -83,10 +83,10 @@ function adaptBoardForAI(
       white: currentCapturedPieces?.white?.map(p => ({ ...p })) || [],
       black: currentCapturedPieces?.black?.map(p => ({ ...p })) || [],
     },
-    gameOver: false, 
+    gameOver: false,
     winner: undefined,
-    extraTurn: false, 
-    autoCheckmate: false, 
+    extraTurn: false,
+    autoCheckmate: false,
     gameMoveCounter: gameMoveCounter,
   };
 }
@@ -158,9 +158,9 @@ export default function EvolvingChessPage() {
     const initializeAI = async () => {
       try {
         const VibeChessAIModule = await import('@/lib/vibe-chess-ai');
-        const ActualVibeChessAI = VibeChessAIModule.VibeChessAI; 
+        const ActualVibeChessAI = VibeChessAIModule.VibeChessAI;
         if (ActualVibeChessAI && typeof ActualVibeChessAI === 'function') {
-          aiInstanceRef.current = new ActualVibeChessAI(2); 
+          aiInstanceRef.current = new ActualVibeChessAI(2);
         } else {
           console.error("Failed to load VibeChessAI constructor dynamically from named export.", ActualVibeChessAI);
           toast({
@@ -288,10 +288,10 @@ export default function EvolvingChessPage() {
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
 
-    
+
     if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
       boardForNextStep = spawnAnvil(boardForNextStep);
-      setBoard(boardForNextStep); 
+      setBoard(boardForNextStep);
       toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
     }
 
@@ -312,7 +312,7 @@ export default function EvolvingChessPage() {
         isCheck: false,
         playerWithKingInCheck: null,
         isCheckmate: false,
-        isStalemate: true, 
+        isStalemate: true,
         isThreefoldRepetitionDraw: true,
         gameOver: true,
         winner: 'draw',
@@ -332,7 +332,7 @@ export default function EvolvingChessPage() {
       board: board.map(row => row.map(square => ({
         ...square,
         piece: square.piece ? { ...square.piece } : null,
-        item: square.item ? { ...square.item } : null, 
+        item: square.item ? { ...square.item } : null,
       }))),
       currentPlayer: currentPlayer,
       gameInfo: { ...gameInfo },
@@ -385,7 +385,7 @@ export default function EvolvingChessPage() {
     boardAfterPrimaryMove: BoardState,
     playerWhoseQueenLeveled: PlayerColor,
     queenMovedWithThis: Move | null,
-    originalQueenLevelIfKnown: number | undefined, 
+    originalQueenLevelIfKnown: number | undefined,
     isExtraTurnFromOriginalMove: boolean
   ): boolean => {
 
@@ -396,7 +396,7 @@ export default function EvolvingChessPage() {
 
     const { row: toR, col: toC } = algebraicToCoords(queenMovedWithThis.to);
     const queenAfterLeveling = boardAfterPrimaryMove[toR]?.[toC]?.piece;
-    
+
     const conditionMet = queenAfterLeveling &&
       queenAfterLeveling.type === 'queen' &&
       queenAfterLeveling.color === playerWhoseQueenLeveled &&
@@ -443,7 +443,7 @@ export default function EvolvingChessPage() {
           }
           toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn for L7 Queen!`, duration: 2500 });
           processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
-          return false; 
+          return false;
         } else {
           setIsAwaitingPawnSacrifice(true);
           setPlayerToSacrificePawn(playerWhoseQueenLeveled);
@@ -451,7 +451,7 @@ export default function EvolvingChessPage() {
           setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
           setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select a Pawn to sacrifice for your L7 Queen!` }));
-          return true; 
+          return true;
         }
       }
     }
@@ -504,8 +504,8 @@ export default function EvolvingChessPage() {
       }
       return;
     }
-    
-    if (clickedItem) { 
+
+    if (clickedItem) {
         setSelectedSquare(null);
         setPossibleMoves([]);
         setEnemySelectedSquare(null);
@@ -585,7 +585,7 @@ export default function EvolvingChessPage() {
               const victimSquareState = boardAfterDestruct[adjR][adjC];
               const victimPiece = victimSquareState.piece;
               const victimItem = victimSquareState.item;
-              if (victimItem?.type === 'anvil') continue; 
+              if (victimItem?.type === 'anvil') continue;
 
               if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
                 if (isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected)) {
@@ -761,7 +761,7 @@ export default function EvolvingChessPage() {
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvil) {
           setLastCapturePlayer(capturingPlayer);
-          finalCapturedPiecesStateForTurn[capturingPlayer].push(pieceCapturedByAnvil);
+          // Do NOT add pieceCapturedByAnvil to finalCapturedPiecesStateForTurn
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(capturingPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -882,10 +882,10 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false);
         }, 800);
         return;
-      } else { 
+      } else {
         setSelectedSquare(null);
         setPossibleMoves([]);
-        if (clickedPiece && !clickedItem) { 
+        if (clickedPiece && !clickedItem) {
             if(clickedPiece.color === currentPlayer) {
                 setSelectedSquare(algebraic);
                 const legalMovesForNewSelection = getPossibleMoves(board, algebraic);
@@ -897,26 +897,26 @@ export default function EvolvingChessPage() {
                 const enemyMovesForNewSelection = getPossibleMoves(board, algebraic);
                 setEnemyPossibleMoves(enemyMovesForNewSelection);
             }
-        } else { 
+        } else {
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
         }
         setIsMoveProcessing(false);
         return;
       }
-    } else if (clickedPiece && !clickedItem && clickedPiece.color === currentPlayer) { 
+    } else if (clickedPiece && !clickedItem && clickedPiece.color === currentPlayer) {
       setSelectedSquare(algebraic);
       const legalMovesForPlayer = getPossibleMoves(board, algebraic);
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
-    } else if (clickedPiece && !clickedItem && clickedPiece.color !== currentPlayer) { 
+    } else if (clickedPiece && !clickedItem && clickedPiece.color !== currentPlayer) {
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(algebraic);
       const enemyMoves = getPossibleMoves(board, algebraic);
       setEnemyPossibleMoves(enemyMoves);
-    } else { 
+    } else {
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(null);
@@ -1069,13 +1069,13 @@ export default function EvolvingChessPage() {
     let moveForApplyMoveAI: Move | null = null;
 
     let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? { ...s_fbs.item } : null })));
-    let finalCapturedPiecesForAI = { 
+    let finalCapturedPiecesForAI = {
       white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
       black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
     };
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 50)); 
+      await new Promise(resolve => setTimeout(resolve, 50));
       const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter);
       const aiMoveDataFromVibeAI = aiInstanceRef.current.getBestMove(gameStateForAI, currentPlayer);
 
@@ -1090,7 +1090,7 @@ export default function EvolvingChessPage() {
             } else {
                  console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves and is in check, but not checkmate. Assuming checkmate.`);
                  setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins! (AI Forfeit)`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
-                 aiErrorOccurredRef.current = true; 
+                 aiErrorOccurredRef.current = true;
             }
         } else {
             const isStale = isStalemate(finalBoardStateForAI, currentPlayer);
@@ -1100,7 +1100,7 @@ export default function EvolvingChessPage() {
             } else {
               console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves, not in check, but not stalemate. Assuming stalemate or error.`);
               setGameInfo(prev => ({ ...prev, message: "Stalemate! (AI Forfeit)", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-              aiErrorOccurredRef.current = true; 
+              aiErrorOccurredRef.current = true;
             }
         }
         if(!aiErrorOccurredRef.current) {
@@ -1155,7 +1155,7 @@ export default function EvolvingChessPage() {
                 (pieceOnFromSquareForAI.type === 'knight' && originalPieceLevelForAI >=4 && targetPieceForAISwap?.type === 'bishop' && targetPieceForAISwap.color === pieceOnFromSquareForAI.color ) ||
                 (pieceOnFromSquareForAI.type === 'bishop' && originalPieceLevelForAI >=4 && targetPieceForAISwap?.type === 'knight' && targetPieceForAISwap.color === pieceOnFromSquareForAI.color );
 
-            if (validSwapCondition && !finalBoardStateForAI[algebraicToCoords(aiToAlg).row]?.[algebraicToCoords(aiToAlg).col]?.item) { 
+            if (validSwapCondition && !finalBoardStateForAI[algebraicToCoords(aiToAlg).row]?.[algebraicToCoords(aiToAlg).col]?.item) {
                  isAiMoveActuallyLegal = true;
             } else {
                  console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Validation Error: AI suggested illegal swap: ${aiFromAlg} to ${aiToAlg}. Swap Condition: ${validSwapCondition}. Item on target: ${!!finalBoardStateForAI[algebraicToCoords(aiToAlg).row]?.[algebraicToCoords(aiToAlg).col]?.item}`);
@@ -1165,7 +1165,7 @@ export default function EvolvingChessPage() {
             isAiMoveActuallyLegal = legalMovesForAiPieceOnBoard.includes(aiToAlg);
             if (!isAiMoveActuallyLegal) {
               const pieceOnFromSquareForValidation = finalBoardStateForAI[algebraicToCoords(aiFromAlg!).row]?.[algebraicToCoords(aiFromAlg!).col]?.piece;
-              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Warning: VibeChessAI suggested an illegal move: ${aiFromAlg} to ${aiToAlg}. Valid moves for piece ${pieceOnFromSquareForValidation?.type} (L${pieceOnFromSquareForValidation?.level}) at ${aiFromAlg}: ${legalMovesForAiPieceOnBoard.join(', ')}. AI Move Type: ${aiMoveType}`);
+              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Warning: VibeChessAI suggested an illegal move: ${aiFromAlg} to ${aiToAlg}. Valid moves for piece ${pieceOnFromSquareForValidation?.type} (L${pieceOnFromSquareForValidation?.level}): ${legalMovesForAiPieceOnBoard.join(', ')}. AI Move Type: ${aiMoveType}`);
               aiErrorOccurredRef.current = true;
             }
           }
@@ -1179,7 +1179,7 @@ export default function EvolvingChessPage() {
             moveForApplyMoveAI = { from: aiFromAlg, to: aiToAlg, type: aiMoveType, promoteTo: aiPromoteTo };
 
             let aiMoveCapturedSomething = false;
-            let aiPieceCapturedByAnvil = false;
+            let pieceCapturedByAnvilAI = false;
             let aiAnvilPushedOff = false;
             let piecesDestroyedByAICount = 0;
             let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
@@ -1205,7 +1205,7 @@ export default function EvolvingChessPage() {
                         const victimSquareState = finalBoardStateForAI[adjR_AI]?.[adjC_AI];
                         const victim = victimSquareState?.piece;
                         const victimItem = victimSquareState?.item;
-                        if (victimItem?.type === 'anvil') continue; 
+                        if (victimItem?.type === 'anvil') continue;
 
                         if (victim && victim.color !== currentPlayer && victim.type !== 'king' && !isPieceInvulnerableToAttack(victim, selfDestructingKnight_AI)) {
                         finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
@@ -1246,8 +1246,8 @@ export default function EvolvingChessPage() {
               }
 
               if (applyMoveResult.pieceCapturedByAnvil) {
-                aiPieceCapturedByAnvil = true;
-                finalCapturedPiecesForAI[currentPlayer].push(applyMoveResult.pieceCapturedByAnvil);
+                pieceCapturedByAnvilAI = true;
+                // Do NOT add pieceCapturedByAnvil to finalCapturedPiecesForAI here
                 toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
               }
               if (aiAnvilPushedOff) {
@@ -1295,14 +1295,14 @@ export default function EvolvingChessPage() {
 
             if(!aiErrorOccurredRef.current) {
                 let newStreakForAIPlayer = killStreaks[currentPlayer] || 0;
-                if (aiMoveCapturedSomething || aiPieceCapturedByAnvil) {
+                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
                     newStreakForAIPlayer += (piecesDestroyedByAICount > 0 ? piecesDestroyedByAICount : 1);
                 } else {
                     newStreakForAIPlayer = 0;
                 }
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
 
-                if (aiMoveCapturedSomething || aiPieceCapturedByAnvil) {
+                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
                     const streakMsg = getKillStreakToastMessage(newStreakForAIPlayer);
                     if (streakMsg) {
                         setKillStreakFlashMessage(streakMsg);
@@ -1310,7 +1310,7 @@ export default function EvolvingChessPage() {
                     }
                 }
 
-                if (aiMoveCapturedSomething || aiPieceCapturedByAnvil) {
+                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
                   setLastCapturePlayer(currentPlayer);
                   setShowCaptureFlash(true);
                   setCaptureFlashKey(k => k + 1);
@@ -1318,7 +1318,7 @@ export default function EvolvingChessPage() {
                   if(lastCapturePlayer === currentPlayer) setLastCapturePlayer(null);
                 }
 
-                if ((aiMoveCapturedSomething || aiPieceCapturedByAnvil) && newStreakForAIPlayer === 3) {
+                if ((aiMoveCapturedSomething || pieceCapturedByAnvilAI) && newStreakForAIPlayer === 3) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
@@ -1478,7 +1478,7 @@ export default function EvolvingChessPage() {
       setIsMoveProcessing(false);
       setIsAiThinking(false);
       const boardBeforeAIAttempt = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-      processMoveEnd(boardBeforeAIAttempt, currentPlayer, false); 
+      processMoveEnd(boardBeforeAIAttempt, currentPlayer, false);
     }
   }, [
     board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer,
@@ -1605,7 +1605,7 @@ export default function EvolvingChessPage() {
 
   const resetGame = useCallback(() => {
     globalResurrectionIdCounter = 0;
-    const initialBoardState = initializeBoard(); 
+    const initialBoardState = initializeBoard();
     setBoard(initialBoardState);
     setCurrentPlayer('white');
     setSelectedSquare(null);
@@ -1707,7 +1707,7 @@ export default function EvolvingChessPage() {
     const newHistoryStack = historyStack.slice(0, targetHistoryIndex);
 
     if (stateToRestore) {
-      setBoard(stateToRestore.board); 
+      setBoard(stateToRestore.board);
       setCurrentPlayer(stateToRestore.currentPlayer);
       setGameInfo(stateToRestore.gameInfo);
       setCapturedPieces(stateToRestore.capturedPieces);
