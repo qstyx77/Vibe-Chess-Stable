@@ -34,13 +34,13 @@ export function ChessPieceDisplay({
   const animationOriginClass = "origin-bottom";
 
   return (
-    <div
+    <div // Main container for the piece display
       className={cn(
         "w-full h-full",
         shouldRotateBlackPieceForTabletop && "rotate-180"
       )}
     >
-      <div 
+      <div // Inner container for relative positioning of piece and star
         className={cn(
           "relative flex items-center justify-center w-full h-full",
           pieceColorClass,
@@ -49,21 +49,32 @@ export function ChessPieceDisplay({
           animationOriginClass
         )}
       >
-        <span className={cn("font-pixel select-none", piece.type === 'pawn' || piece.type === 'commander' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl' )}>
+        {/* Pawn/Piece Symbol */}
+        <span className={cn(
+          "font-pixel select-none relative z-[1]", // Ensure pawn symbol has a base z-index
+          piece.type === 'pawn' || piece.type === 'commander' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl'
+        )}>
           {unicode}
         </span>
+
+        {/* Commander Star - positioned absolutely relative to the inner container */}
         {piece.type === 'commander' && (
-          <span 
-            className="absolute -top-1 -right-1 text-base leading-none" 
-            style={{ transform: 'translate(25%, -25%)' }} // Adjust positioning as needed
+          <span
+            className="absolute text-sm leading-none z-[2]" // Star has higher z-index
+            style={{ 
+              top: '-0.1rem',  // Fine-tune positioning
+              right: '-0.1rem', // Fine-tune positioning
+            }}
             aria-label="Commander Star"
           >
             🌟
           </span>
         )}
+        
+        {/* Level Display - should be on top of both pawn and star if they overlap */}
         {(piece.level || 1) > 1 && (
           <span
-            className="absolute inset-0 flex items-center justify-center font-pixel text-sm text-destructive pointer-events-none"
+            className="absolute inset-0 flex items-center justify-center font-pixel text-sm text-destructive pointer-events-none z-[3]" // Level on top
             style={{ textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000' }}
             aria-label={`Level ${piece.level}`}
           >
