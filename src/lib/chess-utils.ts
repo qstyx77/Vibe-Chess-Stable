@@ -38,6 +38,7 @@ function getPieceChar(piece: Piece | null): string {
   let char = '';
   switch (piece.type) {
     case 'pawn': char = 'P'; break;
+    case 'commander': char = 'C'; break; // Or 'P' if you want it to look like a pawn in the hash
     case 'knight': char = 'N'; break;
     case 'bishop': char = 'B'; break;
     case 'rook': char = 'R'; break;
@@ -186,10 +187,6 @@ export function getPossibleMovesInternal(
         }
       }
   }
-   if (piece.type === 'pawn' && fromSquare === 'h7') {
-        // console.log(`ChessUtils (getPossibleMovesInternal): H7 Pawn (${piece.color} L${piece.level}) Pseudo-moves: ${possible.join(', ')}`);
-    }
-
 
   const pieceActualLevelForSwap = Number(piece.level || 1);
   if (typeof pieceActualLevelForSwap === 'number' && !isNaN(pieceActualLevelForSwap)) {
@@ -232,7 +229,7 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
 
             if (attackingPiece && attackingPiece.color === attackerColor) {
                 const pieceOnTargetSq = board[targetR]?.[targetC]?.piece;
-                if (attackingPiece.type === 'pawn') {
+                if (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander') {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
                     if (r + direction === targetR && Math.abs(c - targetC) === 1) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
@@ -342,6 +339,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   switch (piece.type) {
     case 'pawn':
+    case 'commander':
       const direction = piece.color === 'white' ? -1 : 1;
       const levelPawn = Number(piece.level || 1);
       if (fromCol === toCol && toRow === fromRow + direction && !targetSquareState?.piece && !targetSquareState?.item) {
@@ -505,7 +503,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackerLevel < targetLevel ) { // Royal Guard at L7
       return true;
     }
-    if (targetPiece.type === 'bishop' && targetLevel >= 3 && attackingPiece.type === 'pawn') {
+    if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander')) { // Commanders are like pawns for this
       return true;
     }
     if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
@@ -584,6 +582,7 @@ export function applyMove(
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
+      case 'commander': levelGain = 1; break;
       case 'knight': levelGain = 2; break;
       case 'bishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
@@ -591,10 +590,29 @@ export function applyMove(
       case 'king': levelGain = 1; break; 
       default: levelGain = 0; break;
     }
-    pieceNowOnToSquare.level = originalPieceLevel + levelGain;
+    let newLevelForPiece = originalPieceLevel + levelGain;
+    if (pieceNowOnToSquare.type === 'queen') {
+      newLevelForPiece = Math.min(newLevelForPiece, 7); // Queen max level 7
+    }
+    pieceNowOnToSquare.level = newLevelForPiece;
+
+    if (pieceNowOnToSquare.type === 'commander') {
+      const commanderColor = pieceNowOnToSquare.color;
+      for (let r_pawn = 0; r_pawn < 8; r_pawn++) {
+        for (let c_pawn = 0; c_pawn < 8; c_pawn++) {
+          const squarePawn = newBoard[r_pawn][c_pawn];
+          if (squarePawn.piece && squarePawn.piece.color === commanderColor && squarePawn.piece.type === 'pawn' && squarePawn.piece.id !== pieceNowOnToSquare.id) {
+            let newPawnLevel = (squarePawn.piece.level || 1) + 1;
+             // Pawns (non-commander) do not have a level cap mentioned for this ability
+            squarePawn.piece.level = newPawnLevel;
+          }
+        }
+      }
+    }
   }
 
-  if (pieceNowOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7)) {
+
+  if ((pieceNowOnToSquare.type === 'pawn' || pieceNowOnToSquare.type === 'commander') && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
       let promotedPieceBaseLevel = 1; 
       
@@ -602,6 +620,7 @@ export function applyMove(
         let levelGainFromCapture = 0;
         switch (capturedPiece.type) {
           case 'pawn': levelGainFromCapture = 1; break;
+          case 'commander': levelGainFromCapture = 1; break;
           case 'knight': levelGainFromCapture = 2; break;
           case 'bishop': levelGainFromCapture = 2; break;
           case 'rook': levelGainFromCapture = 2; break;
@@ -612,7 +631,11 @@ export function applyMove(
       }
 
       pieceNowOnToSquare.type = move.promoteTo;
-      pieceNowOnToSquare.level = promotedPieceBaseLevel;
+      let finalPromotedLevel = promotedPieceBaseLevel;
+      if (move.promoteTo === 'queen') {
+        finalPromotedLevel = Math.min(promotedPieceBaseLevel, 7);
+      }
+      pieceNowOnToSquare.level = finalPromotedLevel;
     }
   }
 
@@ -656,7 +679,7 @@ export function applyMove(
   let pushBackOccurredForSelfCheck = false;
 
   if (typeof pieceNowOnToSquareActualLevel === 'number' && !isNaN(pieceNowOnToSquareActualLevel)) {
-    if (pieceNowOnToSquare.type === 'pawn' && pieceNowOnToSquareActualLevel >= 4) {
+    if ((pieceNowOnToSquare.type === 'pawn' || pieceNowOnToSquare.type === 'commander') && pieceNowOnToSquareActualLevel >= 4) {
         const pawnNewRow = toRow;
         const pawnNewCol = toCol;
         for (let dr_pb = -1; dr_pb <= 1; dr_pb++) {
@@ -683,8 +706,9 @@ export function applyMove(
                     if (destinationSquareState.item?.type === 'anvil') { 
                       
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type !== 'king') {
-                      pieceCapturedByAnvil = { ...destinationSquareState.piece };
-                      destinationSquareState.piece = null;
+                      // pieceCapturedByAnvil is used for streaks/toast, not for adding to display
+                      pieceCapturedByAnvil = { ...destinationSquareState.piece }; 
+                      destinationSquareState.piece = null; // Piece is removed from board
                       destinationSquareState.item = { type: 'anvil' };
                       newBoard[adjRow_pb][adjCol_pb].item = null;
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type === 'king') {
@@ -874,8 +898,10 @@ export function getPieceUnicode(piece: Piece): string {
     case 'rook': return isWhite ? '♖' : '♜';
     case 'bishop': return isWhite ? '♗' : '♝';
     case 'knight': return isWhite ? '♘' : '♞';
-    case 'pawn': return isWhite ? '♙' : '♟︎';
-    default: return '';
+    case 'pawn': // Fallthrough
+    case 'commander': // Commander uses pawn symbol
+      return isWhite ? '♙' : '♟︎';
+    default: return ''; // Should not be reached if all types handled
   }
 }
 
@@ -956,8 +982,8 @@ export function processRookResurrectionCheck(
 
     if (piecesToChooseFrom.length > 0) {
       piecesToChooseFrom.sort((a, b) => {
-        const valueA = {pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0}[a.type] || 0;
-        const valueB = {pawn: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0}[b.type] || 0;
+        const valueA = {pawn: 1, commander: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0}[a.type] || 0;
+        const valueB = {pawn: 1, commander: 1, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0}[b.type] || 0;
         return valueB - valueA;
       });
       const pieceToResurrectOriginal = piecesToChooseFrom[0];
@@ -1024,3 +1050,6 @@ export function spawnAnvil(board: BoardState): BoardState {
   }
   return newBoard;
 }
+
+
+    
