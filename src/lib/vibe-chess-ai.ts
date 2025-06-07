@@ -440,7 +440,7 @@ export class VibeChessAI {
 
             if (pieceOnToSquare.type === 'queen' &&
                 (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel === 7) && 
-                (move.type === 'capture' || (move.type === 'promotion' && pieceWasCaptured)) // Sacrifice only if it *became* L7 via capture
+                (move.type === 'capture' || (move.type === 'promotion' && pieceWasCaptured)) // Sacrifice only if it *became* L7 via capture or promotion-capture
             ) {
                 let pawnSacrificed = false;
                 for(let r_sac=0; r_sac<8; r_sac++) {
@@ -448,10 +448,10 @@ export class VibeChessAI {
                         const p_square_state = newState.board[r_sac]?.[c_sac];
                         const p = p_square_state?.piece;
                         if (p && (p.type === 'pawn' || p.type === 'commander') && p.color === currentPlayer) {
-                            // AI sacrifices the first available pawn/commander
                             if(p_square_state) p_square_state.piece = null;
                             const opponentColorForSac = currentPlayer === 'white' ? 'black' : 'white';
-                            newState.capturedPieces[opponentColorForSac].push({...p}); // Pawn goes to opponent's captured (sacrificed)
+                            // Ensure unique ID for sacrificed pawn in AI simulation
+                            newState.capturedPieces[opponentColorForSac].push({...p, id: `${p.id}_sac_AI_${Date.now()}`}); 
                             pawnSacrificed = true;
                             break;
                         }
@@ -1687,3 +1687,6 @@ export class VibeChessAI {
         return [availablePawns[0].row, availablePawns[0].col];
     }
 }
+
+
+    
