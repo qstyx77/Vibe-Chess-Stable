@@ -36,15 +36,22 @@ export function coordsToAlgebraic(row: number, col: number): AlgebraicSquare {
 function getPieceChar(piece: Piece | null): string {
   if (!piece) return '--';
   let char = '';
+
+  if (piece.type === 'king') {
+    console.log(`DEBUG getPieceChar: Identifying piece as King. ID: ${piece.id}, Type: ${piece.type}, Color: ${piece.color}, Level: ${piece.level}`);
+  }
+
   switch (piece.type) {
     case 'pawn': char = 'P'; break;
-    case 'commander': char = 'P'; break; // Commander uses Pawn symbol in hash
+    case 'commander': char = 'P'; break;
     case 'knight': char = 'N'; break;
     case 'bishop': char = 'B'; break;
     case 'rook': char = 'R'; break;
     case 'queen': char = 'Q'; break;
     case 'king': char = 'K'; break;
-    default: return '??';
+    default:
+      console.warn(`DEBUG getPieceChar: Encountered unexpected piece type: ${piece.type} for piece ID ${piece.id}`);
+      return '??';
   }
   return piece.color === 'white' ? char.toUpperCase() : char.toLowerCase();
 }
@@ -221,6 +228,10 @@ export function isValidSquare(row: number, col: number): boolean {
 export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSquare, attackerColor: PlayerColor, simplifyKingCheck: boolean = false): boolean {
     const { row: targetR, col: targetC } = algebraicToCoords(squareToAttack);
 
+    if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+      // console.log(`DEBUG isSquareAttacked (chess-utils): Checking if d6 is attacked by black (simplifyKingCheck=true)`);
+    }
+
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const attackingSquareState = board[r]?.[c];
@@ -233,10 +244,10 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
                     if (r + direction === targetR && Math.abs(c - targetC) === 1) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
-                            // if (squareToAttack === 'd6' && attackerColor === 'black' && simplifyKingCheck && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander')) {
-                            //     console.log(`DEBUG CHESS-UTILS: isSquareAttacked('d6', 'black', true) is TRUE due to ${attackingPiece.type} at ${coordsToAlgebraic(r,c)}`);
-                            // }
-                             return true;
+                           if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+                            // console.log(`   DEBUG isSquareAttacked (chess-utils): d6 IS attacked by ${attackingPiece.type} at ${coordsToAlgebraic(r,c)}`);
+                           }
+                           return true;
                         }
                     }
                 } else if (attackingPiece.type === 'king') {
@@ -249,41 +260,41 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                     const dc_king = targetC - kingC_from;
 
                     if (Math.abs(dr_king) <= maxDistance && Math.abs(dc_king) <= maxDistance && (dr_king === 0 || dc_king === 0 || Math.abs(dr_king) === Math.abs(dc_king))) {
-                        if (maxDistance === 2 && (Math.abs(dr_king) === 2 || Math.abs(dc_king) === 2)) { // If it's a 2-square move
+                        if (maxDistance === 2 && (Math.abs(dr_king) === 2 || Math.abs(dc_king) === 2)) {
                             const midR = kingR_from + Math.sign(dr_king);
                             const midC = kingC_from + Math.sign(dc_king);
                             if (board[midR]?.[midC]?.piece || board[midR]?.[midC]?.item) {
-                                // Path blocked for a 2-square attack, continue to next attacker
+                                // Path blocked
                             } else if (board[targetR]?.[targetC]?.item) {
                                 // Target square has item
                             } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
-                                // if (squareToAttack === 'd6' && attackerColor === 'black' && simplifyKingCheck) {
-                                //      console.log(`DEBUG CHESS-UTILS: isSquareAttacked('d6', 'black', true) is TRUE due to King L2+ at ${coordsToAlgebraic(r,c)} attacking target ${squareToAttack} (intermediate clear)`);
-                                // }
-                                return true; // Attack is possible
+                                if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+                                  // console.log(`   DEBUG isSquareAttacked (chess-utils): d6 IS attacked by King L2+ at ${coordsToAlgebraic(r,c)}`);
+                                }
+                                return true;
                             }
                         } else { // 1-square move
                            if (board[targetR]?.[targetC]?.item) {
                                 // Target square has item
                            } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
-                                // if (squareToAttack === 'd6' && attackerColor === 'black' && simplifyKingCheck) {
-                                //     console.log(`DEBUG CHESS-UTILS: isSquareAttacked('d6', 'black', true) is TRUE due to King L1 at ${coordsToAlgebraic(r,c)} attacking target ${squareToAttack}`);
-                                // }
-                                return true; // Attack is possible
+                                if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+                                  // console.log(`   DEBUG isSquareAttacked (chess-utils): d6 IS attacked by King L1 at ${coordsToAlgebraic(r,c)}`);
+                                }
+                                return true;
                            }
                         }
                     }
 
-                    if (canKnightMove) { // Knight move for L5+ king
+                    if (canKnightMove) {
                         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
                         for (const [dr_n, dc_n] of knightDeltas) {
                             if (kingR_from + dr_n === targetR && kingC_from + dc_n === targetC) {
                                 if (board[targetR]?.[targetC]?.item) continue;
                                 if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
-                                    // if (squareToAttack === 'd6' && attackerColor === 'black' && simplifyKingCheck) {
-                                    //     console.log(`DEBUG CHESS-UTILS: isSquareAttacked('d6', 'black', true) is TRUE due to King L5+ Knight move from ${coordsToAlgebraic(r,c)} to target ${squareToAttack}`);
-                                    // }
-                                    return true; // Attack is possible
+                                    if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+                                      // console.log(`   DEBUG isSquareAttacked (chess-utils): d6 IS attacked by King L5+ Knight move from ${coordsToAlgebraic(r,c)}`);
+                                    }
+                                    return true;
                                 }
                             }
                         }
@@ -292,15 +303,18 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                     const pseudoMoves = getPossibleMovesInternal(board, coordsToAlgebraic(r,c), attackingPiece, false);
                     if (pseudoMoves.includes(squareToAttack)) {
                          if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
-                            // if (squareToAttack === 'd6' && attackerColor === 'black' && simplifyKingCheck) {
-                            //     console.log(`DEBUG CHESS-UTILS: isSquareAttacked('d6', 'black', true) is TRUE due to ${attackingPiece.type} at ${coordsToAlgebraic(r,c)}`);
-                            // }
+                            if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+                              // console.log(`   DEBUG isSquareAttacked (chess-utils): d6 IS attacked by ${attackingPiece.type} at ${coordsToAlgebraic(r,c)}`);
+                            }
                             return true;
                         }
                     }
                 }
             }
         }
+    }
+    if (simplifyKingCheck && squareToAttack === 'd6' && attackerColor === 'black') {
+      // console.log(`   DEBUG isSquareAttacked (chess-utils): d6 IS NOT attacked by black.`);
     }
     return false;
 }
@@ -487,7 +501,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         }
       }
       if (dRowKing <= maxKingDistance && dColKing <= maxKingDistance && (dRowKing === 0 || dColKing === 0 || dRowKing === dColKing)) {
-        if (maxKingDistance === 2 && (dRowKing === 2 || dColKing === 2)) {
+        if (maxKingDistance === 2 && (dRowKing === 2 || dColKing === 2)) { // For 2-square moves, intermediate must be empty
             const midRow = fromRow + Math.sign(toRow - fromRow);
             const midCol = fromCol + Math.sign(toCol - fromCol);
             if (board[midRow]?.[midCol]?.piece || board[midRow]?.[midCol]?.item) {
@@ -598,7 +612,7 @@ export function applyMove(
       case 'bishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
-      case 'king': levelGain = 1; break;
+      case 'king': levelGain = 1; break; // Capturing a king shouldn't happen / is game end
       default: levelGain = 0; break;
     }
     let newLevelForPiece = originalPieceLevel + levelGain;
@@ -607,6 +621,7 @@ export function applyMove(
     }
     pieceNowOnToSquare.level = newLevelForPiece;
 
+    // Pawn captures Commander -> Pawn becomes Commander
     if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
         pieceNowOnToSquare.type = 'commander';
         pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
@@ -632,7 +647,7 @@ export function applyMove(
     if (move.promoteTo) {
       let promotedPieceBaseLevel = 1;
 
-      if (capturedPiece) {
+      if (capturedPiece) { // If promotion was also a capture
         let levelGainFromCapture = 0;
         switch (capturedPiece.type) {
           case 'pawn': levelGainFromCapture = 1; break;
@@ -643,11 +658,14 @@ export function applyMove(
           case 'queen': levelGainFromCapture = 3; break;
           case 'king': levelGainFromCapture = 1; break;
         }
-        promotedPieceBaseLevel += levelGainFromCapture;
+        promotedPieceBaseLevel = originalPieceLevel + levelGainFromCapture; // Start from pawn's level pre-capture, add bonus
+      } else { // Promotion without capture
+        promotedPieceBaseLevel = originalPieceLevel; // Start from pawn's current level
       }
 
+
       pieceNowOnToSquare.type = move.promoteTo;
-      let finalPromotedLevel = promotedPieceBaseLevel;
+      let finalPromotedLevel = promotedPieceBaseLevel; // Use the calculated base level
       if (move.promoteTo === 'queen') {
         finalPromotedLevel = Math.min(promotedPieceBaseLevel, 7);
       }
@@ -657,7 +675,7 @@ export function applyMove(
 
   if (
     pieceNowOnToSquare.type === 'king' &&
-    pieceNowOnToSquare.level > originalPieceLevel
+    pieceNowOnToSquare.level > originalPieceLevel // King leveled up
   ) {
     const levelsGainedByKing = pieceNowOnToSquare.level - originalPieceLevel;
     if (levelsGainedByKing > 0) {
@@ -802,7 +820,7 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor): boolea
     if (kingPosAlg) break;
   }
   if (!kingPosAlg) {
-    return true;
+    return true; // If no king, considered in check (or game over)
   }
   const opponentColor = kingColor === 'white' ? 'black' : 'white';
   return isSquareAttacked(board, kingPosAlg, opponentColor);
@@ -928,10 +946,11 @@ export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor): 
             const item = square.item;
             if (piece) {
                 let pieceStr = piece.color === 'white' ? 'w' : 'b';
-                pieceStr += piece.type.charAt(0).toUpperCase();
+                pieceStr += getPieceChar(piece).toUpperCase(); // Use getPieceChar but ensure uppercase for consistency in type
                 pieceStr += `@${square.algebraic}`;
                 pieceStr += `(L${Number(piece.level || 1)}`;
                 if (piece.hasMoved) pieceStr += `,M`;
+                if (piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) pieceStr += `,I${piece.invulnerableTurnsRemaining}`;
                 pieceStr += `)`;
                 boardStr += pieceStr + " ";
             } else if (item) {
