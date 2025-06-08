@@ -114,7 +114,7 @@ export function getPossibleMovesInternal(
 
             const toR = fromRow + dr;
             const toC = fromCol + dc;
-            if (!isValidSquare(toR, toC) || board[toR]?.[toC]?.item) continue; 
+            if (!isValidSquare(toR, toC) || board[toR]?.[toC]?.item) continue;
 
             if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2) ) {
                 const midR = fromRow + Math.sign(dr);
@@ -237,51 +237,50 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                         }
                     }
                 } else if (attackingPiece.type === 'king') {
-                    const { row: kingR, col: kingC } = algebraicToCoords(coordsToAlgebraic(r, c));
+                    const { row: kingR_from, col: kingC_from } = algebraicToCoords(coordsToAlgebraic(r, c)); // kingR_from, kingC_from IS attackingPiece's current location
                     const currentKingActualLevel = Number(attackingPiece.level || 1);
                     let maxDistance = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 2 && !simplifyKingCheck) ? 2 : 1;
                     let canKnightMove = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 5 && !simplifyKingCheck);
 
-                    for (let dr = -maxDistance; dr <= maxDistance; dr++) {
-                        for (let dc = -maxDistance; dc <= maxDistance; dc++) {
-                            if (dr === 0 && dc === 0) continue;
-                            if (!(dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
-                                continue;
-                            }
-                            const newRow = kingR + dr;
-                            const newCol = kingC + dc;
+                    // Check standard king moves (1 or 2 squares)
+                    const dr_king = targetR - kingR_from; // delta from attacking king to target square
+                    const dc_king = targetC - kingC_from;
 
-                            if (newRow === targetR && newCol === targetC) { 
-                                if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
-                                    const midR = kingR + Math.sign(dr);
-                                    const midC = kingC + Math.sign(dc);
-                                    if (board[midR]?.[midC]?.piece || board[midR]?.[midC]?.item ) { 
-                                        continue;
-                                    }
-                                    if (this.isSquareAttackedAI(board, midR, midC, attackingPiece.color === 'white' ? 'black' : 'white', true)) { // Ensure this is correct: isSquareAttackedAI vs isSquareAttacked
-                                        continue;
-                                    }
-                                }
-                                if (board[newRow]?.[newCol]?.item) continue;
-                                if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
-                                    return true;
-                                }
+                    if (Math.abs(dr_king) <= maxDistance && Math.abs(dc_king) <= maxDistance && (dr_king === 0 || dc_king === 0 || Math.abs(dr_king) === Math.abs(dc_king))) {
+                        if (maxDistance === 2 && (Math.abs(dr_king) === 2 || Math.abs(dc_king) === 2)) {
+                            const midR = kingR_from + Math.sign(dr_king);
+                            const midC = kingC_from + Math.sign(dc_king);
+                            if (board[midR]?.[midC]?.piece || board[midR]?.[midC]?.item) {
+                                // Path blocked
+                            } else if (isSquareAttacked(board, coordsToAlgebraic(midR, midC), (attackingPiece.color === 'white' ? 'black' : 'white'), true)) {
+                                // Intermediate square attacked
+                            } else if (board[targetR]?.[targetC]?.item) {
+                                // Target square has item
+                            } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
+                                return true;
                             }
+                        } else { // 1-square move
+                           if (board[targetR]?.[targetC]?.item) {
+                                // Target square has item
+                           } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
+                                return true;
+                           }
                         }
                     }
+
                     if (canKnightMove) {
                         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
                         for (const [dr_n, dc_n] of knightDeltas) {
-                            if (kingR + dr_n === targetR && kingC + dc_n === targetC) {
-                                if (board[targetR]?.[targetC]?.item) continue; 
+                            if (kingR_from + dr_n === targetR && kingC_from + dc_n === targetC) {
+                                if (board[targetR]?.[targetC]?.item) continue;
                                 if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                                     return true;
                                 }
                             }
                         }
                     }
-                } else { 
-                    const pseudoMoves = getPossibleMovesInternal(board, coordsToAlgebraic(r,c), attackingPiece, false);
+                } else {
+                    const pseudoMoves = getPossibleMovesInternal(board, coordsToAlgebraic(r,c), attackingPiece, false); // For non-king pieces, checkKingSafety is false
                     if (pseudoMoves.includes(squareToAttack)) {
                          if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                             return true;
@@ -304,7 +303,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (!isValidSquare(toRow, toCol)) return false;
 
   const targetSquareState = board[toRow]?.[toCol];
-  if (targetSquareState?.item) return false; 
+  if (targetSquareState?.item) return false;
 
   const targetPieceOnSquare = targetSquareState?.piece;
   const pieceActualLevel = Number(piece.level || 1);
@@ -325,7 +324,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     targetPieceOnSquare.color === piece.color;
 
   if (isKnightBishopSwap || isBishopKnightSwap) {
-    return true; 
+    return true;
   }
 
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) {
@@ -382,10 +381,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       if (typeof knightLevel === 'number' && !isNaN(knightLevel) && knightLevel >= 3) {
         if ((dRowKnight === 0 && dColKnight === 3) || (dRowKnight === 3 && dColKnight === 0)) {
-            if (dRowKnight === 3) { 
+            if (dRowKnight === 3) {
                 if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item ||
                     board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece || board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item) return false;
-            } else { 
+            } else {
                 if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item ||
                     board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item) return false;
             }
@@ -418,11 +417,11 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       while (currRBishop !== toRow || currCBishop !== toCol) {
           if (!isValidSquare(currRBishop, currCBishop)) return false;
           const pathSquare = board[currRBishop]?.[currCBishop];
-          if (pathSquare?.item) return false; 
+          if (pathSquare?.item) return false;
           const pathPiece = pathSquare?.piece;
           if (pathPiece) {
             if (typeof bishopLevel === 'number' && !isNaN(bishopLevel) && bishopLevel >= 2 && pathPiece.color === piece.color) {
-                
+                // Phase: can jump friendly pieces
             } else {
               return false;
             }
@@ -448,7 +447,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
             if (board[r_path]?.[fromCol]?.piece || board[r_path]?.[fromCol]?.item) return false;
           }
         }
-      } else {
+      } else { // Bishop-like move for Queen
         const dRowDirQueen = Math.sign(toRow - fromRow);
         const dColDirQueen = Math.sign(toCol - fromCol);
         let currRQueen = fromRow + dRowDirQueen;
@@ -536,8 +535,8 @@ export function applyMove(
   const targetPieceOriginal = newBoard[toRow]?.[toCol]?.piece;
   const targetItemOriginal = newBoard[toRow]?.[toCol]?.item;
 
-  if (targetItemOriginal) { 
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null }; 
+  if (targetItemOriginal) {
+    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null };
   }
 
   const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level || 1);
@@ -582,12 +581,12 @@ export function applyMove(
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
-      case 'commander': levelGain = 1; break; // Standard level gain for capturing a commander
+      case 'commander': levelGain = 1; break;
       case 'knight': levelGain = 2; break;
       case 'bishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
-      case 'king': levelGain = 1; break; 
+      case 'king': levelGain = 1; break;
       default: levelGain = 0; break;
     }
     let newLevelForPiece = originalPieceLevel + levelGain;
@@ -596,14 +595,13 @@ export function applyMove(
     }
     pieceNowOnToSquare.level = newLevelForPiece;
 
-    // Check for Pawn capturing Commander promotion
     if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
         pieceNowOnToSquare.type = 'commander';
         pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
     }
 
 
-    if (pieceNowOnToSquare.type === 'commander') { // This will now also apply if a pawn just became a commander
+    if (pieceNowOnToSquare.type === 'commander') {
       const commanderColor = pieceNowOnToSquare.color;
       for (let r_pawn = 0; r_pawn < 8; r_pawn++) {
         for (let c_pawn = 0; c_pawn < 8; c_pawn++) {
@@ -620,9 +618,9 @@ export function applyMove(
 
   if ((pieceNowOnToSquare.type === 'pawn') && (toRow === 0 || toRow === 7)) { // Commander does not promote by reaching back rank
     if (move.promoteTo) {
-      let promotedPieceBaseLevel = 1; 
-      
-      if (capturedPiece) { 
+      let promotedPieceBaseLevel = 1;
+
+      if (capturedPiece) {
         let levelGainFromCapture = 0;
         switch (capturedPiece.type) {
           case 'pawn': levelGainFromCapture = 1; break;
@@ -647,7 +645,7 @@ export function applyMove(
 
   if (
     pieceNowOnToSquare.type === 'king' &&
-    pieceNowOnToSquare.level > originalPieceLevel 
+    pieceNowOnToSquare.level > originalPieceLevel
   ) {
     const levelsGainedByKing = pieceNowOnToSquare.level - originalPieceLevel;
     if (levelsGainedByKing > 0) {
@@ -703,35 +701,34 @@ export function applyMove(
                 const pushTargetRow_pb = adjRow_pb + dr_pb;
                 const pushTargetCol_pb = adjCol_pb + dc_pb;
 
-                if (isEntityAnvil) { 
-                  if (!isValidSquare(pushTargetRow_pb, pushTargetCol_pb)) { 
+                if (isEntityAnvil) {
+                  if (!isValidSquare(pushTargetRow_pb, pushTargetCol_pb)) {
                     newBoard[adjRow_pb][adjCol_pb].item = null;
                     anvilPushedOffBoard = true;
                   } else {
                     const destinationSquareState = newBoard[pushTargetRow_pb][pushTargetCol_pb];
-                    if (destinationSquareState.item?.type === 'anvil') { 
-                      
+                    if (destinationSquareState.item?.type === 'anvil') {
+                      // Anvil cannot push another anvil
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type !== 'king') {
-                      pieceCapturedByAnvil = { ...destinationSquareState.piece }; 
-                      destinationSquareState.piece = null; 
+                      pieceCapturedByAnvil = { ...destinationSquareState.piece };
+                      destinationSquareState.piece = null;
                       destinationSquareState.item = { type: 'anvil' };
                       newBoard[adjRow_pb][adjCol_pb].item = null;
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type === 'king') {
-                      
-                    } else { 
+                      // Anvil cannot capture king by push
+                    } else {
                       destinationSquareState.item = { type: 'anvil' };
                       newBoard[adjRow_pb][adjCol_pb].item = null;
                     }
                   }
-                } else { 
+                } else { // Pushing a piece
                     if (isValidSquare(pushTargetRow_pb, pushTargetCol_pb)) {
                         const destinationSquareState = newBoard[pushTargetRow_pb][pushTargetCol_pb];
-                        if (!destinationSquareState.piece && !destinationSquareState.item) { 
+                        if (!destinationSquareState.piece && !destinationSquareState.item) {
                             destinationSquareState.piece = { ...adjacentSquareState.piece! };
                             newBoard[adjRow_pb][adjCol_pb].piece = null;
                             pushBackOccurredForSelfCheck = true;
                         }
-                        
                     }
                 }
               }
@@ -815,8 +812,8 @@ export function filterLegalMoves(
     const tempBoardState = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
     const { row: fromR, col: fromC } = algebraicToCoords(pieceOriginalSquare);
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
-    
-    
+
+
     if (tempBoardState[toR]?.[toC]?.item) return false;
 
     const pieceToMoveCopy = { ...originalMovingPiece };
@@ -906,7 +903,7 @@ export function getPieceUnicode(piece: Piece): string {
     case 'pawn': // Fallthrough
     case 'commander': // Commander uses pawn symbol
       return isWhite ? '♙' : '♟︎';
-    default: return ''; 
+    default: return '';
   }
 }
 
@@ -999,7 +996,7 @@ export function processRookResurrectionCheck(
           if (dr === 0 && dc === 0) continue;
           const adjR = rookR + dr;
           const adjC = rookC + dc;
-          if (isValidSquare(adjR, adjC) && !boardWithResurrection[adjR][adjC].piece && !boardWithResurrection[adjR][adjC].item ) { 
+          if (isValidSquare(adjR, adjC) && !boardWithResurrection[adjR][adjC].piece && !boardWithResurrection[adjR][adjC].item ) {
             emptyAdjacentSquares.push(coordsToAlgebraic(adjR, adjC));
           }
         }
@@ -1055,10 +1052,3 @@ export function spawnAnvil(board: BoardState): BoardState {
   }
   return newBoard;
 }
-
-// Helper function for isSquareAttacked, should be defined or imported if used.
-// For now, assuming it's available or will be provided if needed.
-// function isSquareAttackedAI(board: BoardState, row: number, col: number, attackerColor: PlayerColor, simplify: boolean): boolean {
-//   // Placeholder for actual implementation
-//   return false;
-// }
