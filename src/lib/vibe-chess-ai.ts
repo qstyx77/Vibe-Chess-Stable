@@ -275,7 +275,7 @@ export class VibeChessAI {
 
         const targetSquareState = newState.board[toRow]?.[toCol];
         const originalTargetPiece = targetSquareState?.piece ? { ...targetSquareState.piece } : null;
-        const originalTypeOfMovingPiece = movingPieceCopy.type; // Store original type before any promotion
+        const originalTypeOfMovingPiece = movingPieceCopy.type; 
         const originalLevelOfMovingPiece = Number(movingPieceCopy.level || 1);
 
         movingPieceCopy.hasMoved = true;
@@ -382,9 +382,9 @@ export class VibeChessAI {
         if (pieceOnToSquare && pieceOnToSquare.id === movingPieceCopy.id) { 
             
             if (pieceWasCaptured) {
-                // Check for Pawn capturing Commander promotion
+                
                 if (originalTypeOfMovingPiece === 'pawn' && originalTargetPiece && originalTargetPiece.type === 'commander') {
-                    pieceOnToSquare.type = 'commander'; // The pawn that captured becomes a commander
+                    pieceOnToSquare.type = 'commander'; 
                     pieceOnToSquare.id = `${pieceOnToSquare.id}_CmdrByCapture_AI`;
                 }
 
@@ -392,7 +392,7 @@ export class VibeChessAI {
                     newState.firstBloodAchieved = true;
                     newState.playerWhoGotFirstBlood = currentPlayer;
                 }
-                if (pieceOnToSquare.type === 'commander') { // If it's a commander (either original or just promoted)
+                if (pieceOnToSquare.type === 'commander') { 
                     newState.board.forEach(rowSquares => {
                         rowSquares.forEach(sqState => {
                             if (sqState.piece && sqState.piece.color === currentPlayer && sqState.piece.type === 'pawn' && sqState.piece.id !== pieceOnToSquare.id) {
@@ -482,14 +482,14 @@ export class VibeChessAI {
         }
         
         if (newState.firstBloodAchieved && newState.playerWhoGotFirstBlood === currentPlayer && !newState.board.flat().some(sq => sq.piece?.type === 'commander' && sq.piece.color === currentPlayer)) {
-            // Check if the piece that made the move already became a commander (e.g. by capturing enemy commander)
+            
             const pieceThatMovedIsNowCommander = newState.board[toRow]?.[toCol]?.piece?.type === 'commander';
             if (!pieceThatMovedIsNowCommander) {
                 const commanderPawnCoords = this.selectPawnForCommanderPromotion(newState);
                 if (commanderPawnCoords) {
                     const [pawnR, pawnC] = commanderPawnCoords;
                     const pawnToPromoteSquare = newState.board[pawnR]?.[pawnC];
-                    if (pawnToPromoteSquare?.piece && pawnToPromoteSquare.piece.type === 'pawn' && pawnToPromoteSquare.piece.level === 1) { // Only L1 pawns
+                    if (pawnToPromoteSquare?.piece && pawnToPromoteSquare.piece.type === 'pawn' && pawnToPromoteSquare.piece.level === 1) { 
                         pawnToPromoteSquare.piece.type = 'commander';
                         pawnToPromoteSquare.piece.id = `${pawnToPromoteSquare.piece.id}_CMD_AI`;
                     }
@@ -1376,6 +1376,13 @@ export class VibeChessAI {
              return false;
         }
 
+        if (piece.type === 'queen' && piece.color === 'white' && fromRow === 3 && fromCol === 6 && toRow === 1 && toCol === 4) { // wQ@g5 attacking bK@e7
+            const isPathClearResult = this.isPathClear(gameState.board, from, to, piece);
+            console.log(`AI DEBUG: canAttackSquare for wQ@g5 to bK@e7. Path clear? ${isPathClearResult}`);
+            if (!isPathClearResult) return false;
+        }
+
+
         switch (piece.type) {
             case 'pawn':
             case 'commander': 
@@ -1410,7 +1417,7 @@ export class VibeChessAI {
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
                         if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) return false; 
-                        if (this.isSquareAttackedAI(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) { // ALWAYS simplify for path check
+                        if (this.isSquareAttackedAI(gameState, midR, midC, piece.color === 'white' ? 'black' : 'white', true)) { 
                             return false; 
                         }
                     }
@@ -1435,23 +1442,36 @@ export class VibeChessAI {
         let r_path = fromRow + deltaRow;
         let c_path = fromCol + deltaCol;
 
-        while (r_path !== toRow || c_path !== toCol) {
+        // Specific logging for g5 (3,6) to e7 (1,4)
+        const isG5toE7 = fromRow === 3 && fromCol === 6 && toRow === 1 && toCol === 4 && piece.type === 'queen';
+
+
+        while (r_path !== toRow || c_path !== toCol) { 
             if (!this.isValidSquareAI(r_path,c_path)) return false; 
             const pathSquareState = board[r_path]?.[c_path];
             if (!pathSquareState) return false; 
             if (pathSquareState.item) return false; 
             
             const pathPiece = pathSquareState.piece;
+
+            if (isG5toE7 && r_path === 2 && c_path === 5) { // This is square f6
+                console.log(`AI DEBUG: isPathClear (wQ@g5 to bK@e7) checking intermediate f6 (${r_path},${c_path}). Piece on f6:`, pathPiece ? `${pathPiece.color} ${pathPiece.type} L${pathPiece.level}` : 'None', 'Item on f6:', pathSquareState.item);
+            }
+
             if (pathPiece) {
+                
                 if (piece.type === 'bishop' && (Number(piece.level||1)) >= 2 && pathPiece.color === piece.color) {
+                    
                 } else {
+                    if (isG5toE7) console.log(`AI DEBUG: Path for wQ@g5 to bK@e7 BLOCKED at (${r_path},${c_path}) by`, pathPiece);
                     return false; 
                 }
             }
             r_path += deltaRow;
             c_path += deltaCol;
         }
-        return true;
+        if (isG5toE7) console.log(`AI DEBUG: Path for wQ@g5 to bK@e7 determined to be CLEAR.`);
+        return true; 
     }
 
     findKing(gameState: AIGameState, color: PlayerColor): { row: number; col: number; piece: Piece } | null {
@@ -1617,4 +1637,3 @@ export class VibeChessAI {
         return [availablePawns[0].row, availablePawns[0].col];
     }
 }
-
