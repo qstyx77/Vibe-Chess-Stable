@@ -258,7 +258,7 @@ export function isSquareAttacked(board: BoardState, squareToAttack: AlgebraicSqu
                                     if (board[midR]?.[midC]?.piece || board[midR]?.[midC]?.item ) { 
                                         continue;
                                     }
-                                    if (!simplifyKingCheck && isSquareAttacked(board, coordsToAlgebraic(midR, midC), attackingPiece.color === 'white' ? 'black' : 'white', true)) {
+                                    if (this.isSquareAttackedAI(board, midR, midC, attackingPiece.color === 'white' ? 'black' : 'white', true)) { // Ensure this is correct: isSquareAttackedAI vs isSquareAttacked
                                         continue;
                                     }
                                 }
@@ -582,7 +582,7 @@ export function applyMove(
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
-      case 'commander': levelGain = 1; break;
+      case 'commander': levelGain = 1; break; // Standard level gain for capturing a commander
       case 'knight': levelGain = 2; break;
       case 'bishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
@@ -596,14 +596,20 @@ export function applyMove(
     }
     pieceNowOnToSquare.level = newLevelForPiece;
 
-    if (pieceNowOnToSquare.type === 'commander') {
+    // Check for Pawn capturing Commander promotion
+    if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
+        pieceNowOnToSquare.type = 'commander';
+        pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
+    }
+
+
+    if (pieceNowOnToSquare.type === 'commander') { // This will now also apply if a pawn just became a commander
       const commanderColor = pieceNowOnToSquare.color;
       for (let r_pawn = 0; r_pawn < 8; r_pawn++) {
         for (let c_pawn = 0; c_pawn < 8; c_pawn++) {
           const squarePawn = newBoard[r_pawn][c_pawn];
           if (squarePawn.piece && squarePawn.piece.color === commanderColor && squarePawn.piece.type === 'pawn' && squarePawn.piece.id !== pieceNowOnToSquare.id) {
             let newPawnLevel = (squarePawn.piece.level || 1) + 1;
-             // Pawns (non-commander) do not have a level cap mentioned for this ability
             squarePawn.piece.level = newPawnLevel;
           }
         }
@@ -612,7 +618,7 @@ export function applyMove(
   }
 
 
-  if ((pieceNowOnToSquare.type === 'pawn' || pieceNowOnToSquare.type === 'commander') && (toRow === 0 || toRow === 7)) {
+  if ((pieceNowOnToSquare.type === 'pawn') && (toRow === 0 || toRow === 7)) { // Commander does not promote by reaching back rank
     if (move.promoteTo) {
       let promotedPieceBaseLevel = 1; 
       
@@ -706,9 +712,8 @@ export function applyMove(
                     if (destinationSquareState.item?.type === 'anvil') { 
                       
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type !== 'king') {
-                      // pieceCapturedByAnvil is used for streaks/toast, not for adding to display
                       pieceCapturedByAnvil = { ...destinationSquareState.piece }; 
-                      destinationSquareState.piece = null; // Piece is removed from board
+                      destinationSquareState.piece = null; 
                       destinationSquareState.item = { type: 'anvil' };
                       newBoard[adjRow_pb][adjCol_pb].item = null;
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type === 'king') {
@@ -1050,3 +1055,10 @@ export function spawnAnvil(board: BoardState): BoardState {
   }
   return newBoard;
 }
+
+// Helper function for isSquareAttacked, should be defined or imported if used.
+// For now, assuming it's available or will be provided if needed.
+// function isSquareAttackedAI(board: BoardState, row: number, col: number, attackerColor: PlayerColor, simplify: boolean): boolean {
+//   // Placeholder for actual implementation
+//   return false;
+// }

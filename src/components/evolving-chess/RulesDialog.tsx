@@ -30,7 +30,7 @@ const PieceRule = ({ title, children }: { title: string, children: React.ReactNo
   </div>
 );
 
-const LevelRule = ({ level, description }: { level: string | number, description: string }) => (
+const LevelRule = ({ level, description }: { level?: string | number, description: string }) => (
   <li className="text-sm text-foreground/90 ml-4 list-disc list-inside">{ level ? `Level ${level}: ` : '' }${description}</li>
 );
 
@@ -54,8 +54,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Piece Levels">
                   Pieces level up by capturing opponent pieces and do not have a maximum level. Each piece type gains different abilities as it levels up. (See individual piece sections for details).
                 </PieceRule>
-                <PieceRule title="Pawn Promotion">
-                  When a Pawn reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
+                <PieceRule title="Pawn Promotion (Rank)">
+                  When a Pawn (not a Commander) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
@@ -74,14 +74,17 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="First Blood">
                   The first player to capture an enemy piece during the game achieves "First Blood". This capture can be a standard piece capture or a capture resulting from an Anvil being pushed by a Pawn.
                 </PieceRule>
-                <PieceRule title="Commander Promotion">
+                <PieceRule title="Commander Promotion (First Blood)">
                   The player who achieves First Blood immediately gets to select one of their own Level 1 Pawns currently on the board. This chosen Pawn is instantly promoted to a "Commander".
                   The Commander is visually distinct (it appears as a Pawn with a star overlay).
+                </PieceRule>
+                <PieceRule title="Commander Promotion (Pawn Captures Commander)">
+                  If a standard Pawn (not already a Commander) captures an enemy Commander, that Pawn is immediately promoted to a Commander. It retains its current level. This promotion happens automatically and does not use the "First Blood" selection process.
                 </PieceRule>
                 <PieceRule title="Commander Abilities">
                   <ul className="list-none pl-0">
                     <li className="text-sm text-foreground/90 mb-1">
-                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
+                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section). Commanders do not promote further by reaching the opponent's back rank.
                     </li>
                     <li className="text-sm text-foreground/90">
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
@@ -132,13 +135,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="pawn">
               <AccordionTrigger className="text-base hover:text-accent">Pawn & Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns.)</p>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders do not promote further by reaching the back rank.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
                   <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction." />
-                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn is promoted, its player gets an extra turn. (This specific bonus does not apply to Commanders, as they are already promoted)." />
+                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn (not a Commander) is promoted by reaching the back rank, its player gets an extra turn." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -196,7 +199,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
                   <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty (no piece or item) and not under attack by an opponent's piece." />
                   <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
-                  <LevelRule level="" description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
+                  <LevelRule description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -211,3 +214,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
