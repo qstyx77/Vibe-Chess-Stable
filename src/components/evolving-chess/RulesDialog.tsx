@@ -107,7 +107,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <ul className="list-disc list-inside pl-4 mt-1">
                       <li className="text-sm">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
                         <ul className="list-circle list-inside pl-4">
-                          <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game (it does not go to the captured pieces display). This still counts towards kill streaks and can trigger First Blood.</li>
+                          <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game (it does not go to the captured pieces display). This still counts towards kill streaks.</li>
                           <li className="text-sm">If the anvil is pushed off the board, it is removed from the game.</li>
                           <li className="text-sm">An anvil cannot push another anvil; the push fails.</li>
                         </ul>
