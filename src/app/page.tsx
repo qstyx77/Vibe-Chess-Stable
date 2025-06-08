@@ -451,10 +451,8 @@ export default function EvolvingChessPage() {
     let leveledUpToQueenL7 = false;
     if (currentQueenLevel === 7) {
         if (queenMovedWithThis?.type === 'promotion' && queenMovedWithThis.promoteTo === 'queen') {
-            // Promoted to Queen and it's L7 (likely means original pawn was high level or captured a high value piece)
             leveledUpToQueenL7 = true;
         } else if (queenMovedWithThis?.type !== 'promotion' && queenOnSquare.type === 'queen' && previousLevelOfThisPiece < 7) {
-            // Was already a Queen and leveled up from < L7 to L7
             leveledUpToQueenL7 = true;
         }
     }
@@ -711,18 +709,21 @@ export default function EvolvingChessPage() {
         let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
         if (selfDestructCapturedSomething) {
             newStreakForSelfDestructPlayer += piecesDestroyedCount;
+            if (!firstBloodAchieved) { // First Blood is happening on this turn
+                setKillStreakFlashMessage("FIRST BLOOD!");
+                setKillStreakFlashMessageKey(k => k + 1);
+            } else {
+                const streakMsg = getKillStreakToastMessage(newStreakForSelfDestructPlayer);
+                if (streakMsg) {
+                    setKillStreakFlashMessage(streakMsg);
+                    setKillStreakFlashMessageKey(k => k + 1);
+                }
+            }
         } else {
             newStreakForSelfDestructPlayer = 0;
         }
         setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer }));
 
-        if (selfDestructCapturedSomething) {
-            const streakMsg = getKillStreakToastMessage(newStreakForSelfDestructPlayer);
-            if (streakMsg) {
-                setKillStreakFlashMessage(streakMsg);
-                setKillStreakFlashMessageKey(k => k + 1);
-            }
-        }
 
         if (selfDestructCapturedSomething) {
           setLastCapturePlayer(selfDestructPlayer);
@@ -858,18 +859,21 @@ export default function EvolvingChessPage() {
 
         if (pieceWasCapturedThisTurn) {
             newStreakForCapturingPlayer++;
+            if (!firstBloodAchieved) { // First Blood is happening on this turn
+                setKillStreakFlashMessage("FIRST BLOOD!");
+                setKillStreakFlashMessageKey(k => k + 1);
+            } else { // First Blood already achieved, or this capture is not the first blood one
+                const streakMsg = getKillStreakToastMessage(newStreakForCapturingPlayer);
+                if (streakMsg) {
+                    setKillStreakFlashMessage(streakMsg);
+                    setKillStreakFlashMessageKey(k => k + 1);
+                }
+            }
         } else {
-            newStreakForCapturingPlayer = 0;
+            newStreakForCapturingPlayer = 0; // Reset streak if no capture
         }
         setKillStreaks(prev => ({ ...prev, [capturingPlayer]: newStreakForCapturingPlayer }));
 
-        if (pieceWasCapturedThisTurn) {
-            const streakMsg = getKillStreakToastMessage(newStreakForCapturingPlayer);
-            if (streakMsg) {
-                setKillStreakFlashMessage(streakMsg);
-                setKillStreakFlashMessageKey(k => k + 1);
-            }
-        }
 
         if (captured) {
           setLastCapturePlayer(capturingPlayer);
@@ -1288,6 +1292,7 @@ export default function EvolvingChessPage() {
       if (!aiErrorOccurredRef.current && (!aiMoveDataFromVibeAI?.from || !aiMoveDataFromVibeAI?.to ||
         !Array.isArray(aiMoveDataFromVibeAI.from) || aiMoveDataFromVibeAI.from.length !== 2 ||
         !Array.isArray(aiMoveDataFromVibeAI.to) || aiMoveDataFromVibeAI.to.length !== 2)) {
+        console.log("AI ILLEGAL MOVE DEBUG: AI move data from vibe AI is invalid or null.");
         aiErrorOccurredRef.current = true;
       } else if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI) {
         aiFromAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.from[0], aiMoveDataFromVibeAI.from[1]);
@@ -1300,10 +1305,10 @@ export default function EvolvingChessPage() {
         originalPieceLevelForAI = Number(pieceOnFromSquareForAI?.level || 1);
 
         if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) {
+          console.log(`AI ILLEGAL MOVE DEBUG: No piece to move for AI or piece color mismatch. Piece: ${pieceOnFromSquareForAI}, CurrentPlayer: ${currentPlayer}`);
           aiErrorOccurredRef.current = true;
         } else {
-          const pseudoPossibleMovesForAiPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg);
-          const legalMovesForAiPieceOnBoard = pseudoPossibleMovesForAiPiece;
+          const legalMovesForAiPieceOnBoard = getPossibleMoves(finalBoardStateForAI, aiFromAlg);
           let isAiMoveActuallyLegal = false;
 
           if (aiMoveType === 'self-destruct' && pieceOnFromSquareForAI.type === 'knight' && originalPieceLevelForAI >= 5) {
@@ -1476,20 +1481,25 @@ export default function EvolvingChessPage() {
 
             if(!aiErrorOccurredRef.current) {
                 let newStreakForAIPlayer = killStreaks[currentPlayer] || 0;
-                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
+                const aiCaptureOccurredThisTurn = aiMoveCapturedSomething || pieceCapturedByAnvilAI;
+
+                if (aiCaptureOccurredThisTurn) {
                     newStreakForAIPlayer += (piecesDestroyedByAICount > 0 ? piecesDestroyedByAICount : 1);
+                    if (!firstBloodAchieved) { // First Blood is happening on this AI turn
+                        setKillStreakFlashMessage("FIRST BLOOD!");
+                        setKillStreakFlashMessageKey(k => k + 1);
+                    } else { // First Blood already achieved, or this AI capture is not the first blood one
+                        const streakMsg = getKillStreakToastMessage(newStreakForAIPlayer);
+                        if (streakMsg) {
+                            setKillStreakFlashMessage(streakMsg);
+                            setKillStreakFlashMessageKey(k => k + 1);
+                        }
+                    }
                 } else {
-                    newStreakForAIPlayer = 0;
+                    newStreakForAIPlayer = 0; // Reset streak if no capture
                 }
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
 
-                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
-                    const streakMsg = getKillStreakToastMessage(newStreakForAIPlayer);
-                    if (streakMsg) {
-                        setKillStreakFlashMessage(streakMsg);
-                        setKillStreakFlashMessageKey(k => k + 1);
-                    }
-                }
 
                 if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
                   setLastCapturePlayer(currentPlayer);
@@ -1500,7 +1510,7 @@ export default function EvolvingChessPage() {
                 }
 
 
-                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
+                if (aiCaptureOccurredThisTurn) {
                     if (!firstBloodAchieved) { 
                         setFirstBloodAchieved(true);
                         setPlayerWhoGotFirstBlood(currentPlayer); 
@@ -1591,31 +1601,32 @@ export default function EvolvingChessPage() {
                   const promotionRowAI = currentPlayer === 'white' ? 0 : 7;
                   const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === promotionRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
                   
-                  let extraTurnForThisAIMove = newStreakForAIPlayer === 6; // Default to streak
+                  let extraTurnForThisAIMove = newStreakForAIPlayer === 6;
                   let sacrificeNeededForAIQueen = false;
+                  const originalTypeOfAIMovedPiece = pieceOnFromSquareForAI!.type; 
+                  const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
+
 
                   if (isAIPawnPromoting) {
                       const promotedTypeAI = moveForApplyMoveAI!.promoteTo || 'queen';
-                      const pawnLevelBeforeAIPromo = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
                       
                       const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                       if(finalBoardStateForAI[promoR][promoC].piece && finalBoardStateForAI[promoR][promoC].piece!.type === 'pawn') {
                           finalBoardStateForAI[promoR][promoC].piece!.type = promotedTypeAI;
-                          finalBoardStateForAI[promoR][promoC].piece!.level = 1; // Reset to L1 on promo
+                          finalBoardStateForAI[promoR][promoC].piece!.level = 1; 
                           finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
                           setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                       }
                       toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L1)`, duration: 2500 });
 
-                      const aiPawnPromoExtraTurn = pawnLevelBeforeAIPromo >= 5;
-                      extraTurnForThisAIMove = aiPawnPromoExtraTurn || extraTurnForThisAIMove; // Combine with streak
+                      const aiPawnPromoExtraTurn = originalLevelOfAIMovedPieceForPromoCheck >= 5;
+                      extraTurnForThisAIMove = aiPawnPromoExtraTurn || extraTurnForThisAIMove; 
 
                       const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                       if (pieceAfterAIPromo?.type === 'queen') {
                         sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI!, 0, extraTurnForThisAIMove); 
                       } else if (pieceAfterAIPromo?.type === 'rook') {
-                          // Check rook resurrection post-promotion only if AI's rook res data hasn't already covered it this turn
                           if (!aiRookResData || !aiRookResData.resurrectionPerformed) {
                             const { boardWithResurrection, capturedPiecesAfterResurrection: capturedAfterAIRookRes, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                                 finalBoardStateForAI, currentPlayer, moveForApplyMoveAI, aiToAlg as AlgebraicSquare, 0, finalCapturedPiecesForAI, globalResurrectionIdCounter
@@ -1640,12 +1651,12 @@ export default function EvolvingChessPage() {
                             }
                           }
                       }
-                  } else if (pieceAtDestinationAI?.type === 'queen') { // Non-promotion queen move
+                  } else if (pieceAtDestinationAI?.type === 'queen') { 
                      sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI!, levelFromAIApplyMove, extraTurnForThisAIMove);
                   }
-                  // Ensure processMoveEnd is called if not deferred by sacrifice
+                  
                   if (localAIAwaitingCommanderPromo) {
-                    console.log(`AI FIRST BLOOD DEBUG: Player ${currentPlayer}. Extra turn for processMoveEnd: ${extraTurnForThisAIMove}. Streak: ${newStreakForAIPlayer}. Pawn promo L5+ involved: ${isAIPawnPromoting && (levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1) >= 5}`);
+                    console.log(`AI FIRST BLOOD DEBUG: Player ${currentPlayer}. Extra turn for processMoveEnd: ${extraTurnForThisAIMove}. Streak: ${newStreakForAIPlayer}. Pawn promo L5+ involved: ${isAIPawnPromoting && originalLevelOfAIMovedPieceForPromoCheck >= 5}`);
                   }
 
                   if (!sacrificeNeededForAIQueen) {
@@ -1656,10 +1667,10 @@ export default function EvolvingChessPage() {
                   setIsMoveProcessing(false);
                   setIsAiThinking(false);
                 }, 800);
-            } else { // aiErrorOccurredRef is true from the applyMove/conversion block
-              aiErrorOccurredRef.current = true; // Redundant, but clear
+            } else { 
+              aiErrorOccurredRef.current = true; 
             }
-          } else { // isAiMoveActuallyLegal was false
+          } else { 
             aiErrorOccurredRef.current = true;
           }
         }
@@ -1678,13 +1689,12 @@ export default function EvolvingChessPage() {
       });
       if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
       
-      // Ensure turn passes correctly even on AI error, unless game already over
       if (!gameInfo.gameOver) {
           const boardBeforeAIAttempt = board.map(r_err => r_err.map(s_err => ({ ...s_err, piece: s_err.piece ? { ...s_err.piece } : null, item: s_err.item ? {...s_err.item} : null })));
-          processMoveEnd(boardBeforeAIAttempt, currentPlayer, false); // No extra turn on forfeit
+          processMoveEnd(boardBeforeAIAttempt, currentPlayer, false); 
       }
-      setIsMoveProcessing(false); // Must be reset
-      setIsAiThinking(false); // Must be reset
+      setIsMoveProcessing(false); 
+      setIsAiThinking(false); 
       setAnimatedSquareTo(null);
     }
   }, [
@@ -1701,7 +1711,7 @@ export default function EvolvingChessPage() {
     setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves, isStalemate, isCheckmate,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood, 
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, // isAwaitingCommanderPromotion was missing from deps but is used
+    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, 
   ]);
 
 
@@ -2120,6 +2130,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
-
-    
