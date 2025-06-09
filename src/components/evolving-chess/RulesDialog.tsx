@@ -76,7 +76,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-base hover:text-accent">First Blood & Commander</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="First Blood">
-                  The first player to capture an enemy piece during the game achieves "First Blood". This capture can be a standard piece capture or a capture resulting from an Anvil being pushed by a Pawn.
+                  The first player to capture an enemy piece during the game achieves "First Blood".
                 </PieceRule>
                 <PieceRule title="Commander Promotion (First Blood)">
                   The player who achieves First Blood immediately gets to select one of their own Level 1 Pawns currently on the board. This chosen Pawn is instantly promoted to a "Commander".
@@ -201,7 +201,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
-                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). If this 2-square move is linear, the intermediate square must be empty (no piece or item) and not under attack by an opponent's piece." />
+                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). The intermediate square must be empty (no piece or item). If moving 2 squares to capture a piece that is checking the King, the King can pass through an intermediate square even if that intermediate square is attacked *only by the piece being captured*." />
                   <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
                   <LevelRule description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
                 </ul>
@@ -218,5 +218,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
 
 
