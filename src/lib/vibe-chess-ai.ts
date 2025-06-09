@@ -1189,7 +1189,7 @@ export class VibeChessAI {
                             const midR_k = r + Math.sign(dr_k);
                             const midC_k = c + Math.sign(dc_k);
                             if (!this.isValidSquareAI(midR_k, midC_k) || board[midR_k]?.[midC_k]?.piece || board[midR_k]?.[midC_k]?.item ||
-                                this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, true)) { 
+                                this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, true, coordsToAlgebraic(R_k, C_k) )) { // Pass target to ignore
                                 continue; 
                             }
                         }
@@ -1261,8 +1261,10 @@ export class VibeChessAI {
         const resultingState = this.makeMoveOptimized(tempStateForLegalityCheck, move, color);
         return !this.isInCheck(resultingState, color); 
     }
+
     isInCheck(gameState: AIGameState, color: PlayerColor): boolean {
         const kingPos = this.findKing(gameState, color);
+        // console.log(`[AI_IS_IN_CHECK_CALLED] For color: ${color}. King found at: ${kingPos ? coordsToAlgebraic(kingPos.row, kingPos.col) : 'NONE'}`);
         if (!kingPos) return true; 
         const opponentColorForCheck = color === 'white' ? 'black' : 'white';
         for (let r_att = 0; r_att < 8; r_att++) {
@@ -1272,13 +1274,16 @@ export class VibeChessAI {
                 const attackerPiece = attackerSquareState.piece;
                 if (attackerPiece && attackerPiece.color === opponentColorForCheck) {
                     if (this.canAttackSquare(gameState, [r_att,c_att], [kingPos.row, kingPos.col], attackerPiece)) {
+                        // console.log(`    [AI_IS_IN_CHECK_TRUE] King ${color} at ${coordsToAlgebraic(kingPos.row, kingPos.col)} IS attacked by ${attackerPiece.color} ${attackerPiece.type} at ${coordsToAlgebraic(r_att,c_att)}`);
                         return true;
                     }
                 }
             }
         }
+        // console.log(`    [AI_IS_IN_CHECK_FALSE] King ${color} at ${kingPos ? coordsToAlgebraic(kingPos.row, kingPos.col) : 'N/A'} is NOT in check.`);
         return false;
     }
+
     isGameOver(gameState: AIGameState): boolean {
         if(gameState.gameOver) return true; 
         if (!this.findKing(gameState, 'white') || !this.findKing(gameState, 'black')) return true;
@@ -1329,25 +1334,31 @@ export class VibeChessAI {
         }
         return true;
     }
-    isSquareAttackedAI(gameState: AIGameState, r_target: number, c_target: number, attackerColor: PlayerColor, simplifyKingCheck: boolean = false): boolean{
+
+    isSquareAttackedAI(gameState: AIGameState, r_target: number, c_target: number, attackerColor: PlayerColor, simplifyKingCheck: boolean = false, ignoreAttackerAtCoords?: [number, number] | null): boolean {
         const targetAlgForLog = coordsToAlgebraic(r_target, c_target);
-        // console.log(`[AI_IS_SQ_ATTACKED] Target: ${targetAlgForLog} (${r_target},${c_target}) by ${attackerColor}. SimplifyKingCheck: ${simplifyKingCheck}`);
+        // console.log(`[AI_IS_SQ_ATTACKED_AI] Target: ${targetAlgForLog} (${r_target},${c_target}) by ${attackerColor}. SimplifyKingCheck: ${simplifyKingCheck}. IgnoreAttackerAt: ${ignoreAttackerAtCoords ? coordsToAlgebraic(ignoreAttackerAtCoords[0], ignoreAttackerAtCoords[1]) : 'None'}`);
         for (let r_att = 0; r_att < 8; r_att++) {
             for (let c_att = 0; c_att < 8; c_att++) {
+                if (ignoreAttackerAtCoords && r_att === ignoreAttackerAtCoords[0] && c_att === ignoreAttackerAtCoords[1]) {
+                    // console.log(`    [AI_IS_SQ_ATTACKED_AI] Skipping ignored attacker at ${coordsToAlgebraic(r_att,c_att)}`);
+                    continue;
+                }
                 const squareState = gameState.board[r_att]?.[c_att];
                 if(!squareState) continue;
                 const piece = squareState.piece;
                 if(piece && piece.color === attackerColor){
                     if (this.canAttackSquare(gameState, [r_att,c_att], [r_target, c_target], piece, simplifyKingCheck)) {
-                        // console.log(`    [AI_IS_SQ_ATTACKED_TRUE] Target ${targetAlgForLog} IS attacked by ${piece.color} ${piece.type} at ${coordsToAlgebraic(r_att,c_att)}`);
+                        // console.log(`    [AI_IS_SQ_ATTACKED_AI_TRUE] Target ${targetAlgForLog} IS attacked by ${piece.color} ${piece.type} at ${coordsToAlgebraic(r_att,c_att)}`);
                         return true;
                     }
                 }
             }
         }
-        // console.log(`    [AI_IS_SQ_ATTACKED_FALSE] Target ${targetAlgForLog} is NOT attacked by ${attackerColor}`);
+        // console.log(`    [AI_IS_SQ_ATTACKED_AI_FALSE] Target ${targetAlgForLog} is NOT attacked by ${attackerColor}`);
         return false;
     }
+
     canAttackSquare(gameState: AIGameState, from: [number, number], to: [number, number], piece: Piece, simplifyKingCheck: boolean = false): boolean {
         const [fromRow, fromCol] = from;
         const [toRow, toCol] = to;
@@ -1409,6 +1420,7 @@ export class VibeChessAI {
                     if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2)) {
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
+                        // For king's attack, intermediate only needs to be empty. Its safety is irrelevant for *this specific attack check*.
                         if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) { canAttackResult = false; break; } 
                     }
                     canAttackResult = !targetSquareState.item; 
@@ -1421,7 +1433,7 @@ export class VibeChessAI {
             default:
                 canAttackResult = false;
         }
-        // console.log(`    [AI_CAN_ATTACK_SQUARE_RESULT] Path clear result was incorporated. Final Result for ${fromAlgForLog} to ${toAlgForLog}: ${canAttackResult}`);
+        // console.log(`    [AI_CAN_ATTACK_SQUARE_RESULT] Final Result for ${fromAlgForLog} to ${toAlgForLog} (Type: ${piece.type}): ${canAttackResult}`);
         return canAttackResult;
     }
 
@@ -1436,7 +1448,7 @@ export class VibeChessAI {
 
         const fromAlgForLog = coordsToAlgebraic(fromRow, fromCol);
         const toAlgForLog = coordsToAlgebraic(toRow, toCol);
-        // console.log(`[AI_PATH_CLEAR] Checking path for ${piece.color} ${piece.type} L${piece.level} from ${fromAlgForLog} to ${toAlgForLog}`);
+        // console.log(`[AI_PATH_CLEAR_CHECK] Checking path for ${piece.color} ${piece.type} L${piece.level} from ${fromAlgForLog} to ${toAlgForLog}`);
 
         while (r_path !== toRow || c_path !== toCol) { 
             if (!this.isValidSquareAI(r_path,c_path)) {
@@ -1609,11 +1621,11 @@ export class VibeChessAI {
                 const square = gameState.board[r]?.[c];
                 if (square?.piece && square.piece.color === aiColor && square.piece.type === 'pawn' && square.piece.level === 1) {
                     let score = 0;
-                    if (c >=2 && c <= 5) score += 10;
+                    if (c >=2 && c <= 5) score += 10; // Central pawns preferred
                     if (aiColor === 'white') { 
-                        if (r === 5) score += 5; 
+                        if (r === 5) score += 5; // More advanced
                         if (r === 4) score += 8; 
-                    } else { 
+                    } else { // black
                         if (r === 2) score += 5; 
                         if (r === 3) score += 8; 
                     }
@@ -1623,8 +1635,10 @@ export class VibeChessAI {
         }
 
         if (availablePawns.length === 0) return null;
-        availablePawns.sort((a,b) => b.score - a.score);
+        availablePawns.sort((a,b) => b.score - a.score); // Pick the "best" pawn
         return [availablePawns[0].row, availablePawns[0].col]; 
     }
 }
 
+
+    
