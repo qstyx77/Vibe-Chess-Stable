@@ -709,7 +709,7 @@ export default function EvolvingChessPage() {
         let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
         if (selfDestructCapturedSomething) {
             newStreakForSelfDestructPlayer += piecesDestroyedCount;
-            if (!firstBloodAchieved) { // First Blood is happening on this turn
+            if (!firstBloodAchieved) { 
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
             } else {
@@ -741,10 +741,9 @@ export default function EvolvingChessPage() {
                  setPlayerWhoGotFirstBlood(selfDestructPlayer);
                  setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
                  setIsAwaitingCommanderPromotion(true); 
-            } else { // AI got first blood
+            } else { 
                  setFirstBloodAchieved(true);
                  setPlayerWhoGotFirstBlood(selfDestructPlayer);
-                 // AI will handle its own promotion internally, no global setIsAwaitingCommanderPromotion
             }
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer === 3) {
@@ -859,10 +858,10 @@ export default function EvolvingChessPage() {
 
         if (pieceWasCapturedThisTurn) {
             newStreakForCapturingPlayer++;
-            if (!firstBloodAchieved) { // First Blood is happening on this turn
+            if (!firstBloodAchieved) { 
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
-            } else { // First Blood already achieved, or this capture is not the first blood one
+            } else { 
                 const streakMsg = getKillStreakToastMessage(newStreakForCapturingPlayer);
                 if (streakMsg) {
                     setKillStreakFlashMessage(streakMsg);
@@ -870,7 +869,7 @@ export default function EvolvingChessPage() {
                 }
             }
         } else {
-            newStreakForCapturingPlayer = 0; // Reset streak if no capture
+            newStreakForCapturingPlayer = 0; 
         }
         setKillStreaks(prev => ({ ...prev, [capturingPlayer]: newStreakForCapturingPlayer }));
 
@@ -901,10 +900,9 @@ export default function EvolvingChessPage() {
                 setPlayerWhoGotFirstBlood(capturingPlayer);
                 setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
                 setIsAwaitingCommanderPromotion(true);
-            } else { // AI got first blood
+            } else { 
                 setFirstBloodAchieved(true);
                 setPlayerWhoGotFirstBlood(capturingPlayer);
-                 // AI will handle its own promotion internally, no global setIsAwaitingCommanderPromotion
             }
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
@@ -1265,8 +1263,9 @@ export default function EvolvingChessPage() {
                 setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
                 toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 3000 });
             } else {
-                 console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves and is in check, but not checkmate. Assuming checkmate.`);
-                 setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins! (AI Forfeit)`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
+                 console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Malfunction: AI in check, found no moves, but utils indicate not checkmate. Legal moves should exist.`);
+                 setGameInfo(prev => ({ ...prev, message: `Draw! (AI Error/Forfeit)`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: false, isStalemate: true, gameOver: true, winner: "draw" }));
+                 toast({ title: "Draw by AI Error!", description: "The AI encountered an issue and cannot make a legal move.", variant: "destructive" });
                  aiErrorOccurredRef.current = true;
             }
         } else {
@@ -1485,10 +1484,10 @@ export default function EvolvingChessPage() {
 
                 if (aiCaptureOccurredThisTurn) {
                     newStreakForAIPlayer += (piecesDestroyedByAICount > 0 ? piecesDestroyedByAICount : 1);
-                    if (!firstBloodAchieved) { // First Blood is happening on this AI turn
+                    if (!firstBloodAchieved) { 
                         setKillStreakFlashMessage("FIRST BLOOD!");
                         setKillStreakFlashMessageKey(k => k + 1);
-                    } else { // First Blood already achieved, or this AI capture is not the first blood one
+                    } else { 
                         const streakMsg = getKillStreakToastMessage(newStreakForAIPlayer);
                         if (streakMsg) {
                             setKillStreakFlashMessage(streakMsg);
@@ -1496,7 +1495,7 @@ export default function EvolvingChessPage() {
                         }
                     }
                 } else {
-                    newStreakForAIPlayer = 0; // Reset streak if no capture
+                    newStreakForAIPlayer = 0; 
                 }
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
 
