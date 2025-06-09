@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -61,6 +62,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
                   If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
+                </PieceRule>
+                <PieceRule title="Push-Back Self-Check (Auto-Loss)">
+                  If a Level 4+ Pawn or Commander uses its Push-Back ability, and this push directly results in its own King being put into check, it is an immediate loss for the player who made the push. The opponent wins by auto-checkmate.
                 </PieceRule>
                 <PieceRule title="Threefold Repetition">
                   If the same board position (including piece and item locations, current player, and castling rights) occurs three times during a game, the game is a draw.
@@ -140,7 +144,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
-                  <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction." />
+                  <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction and General Gameplay for Push-Back Self-Check." />
                   <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn (not a Commander) is promoted by reaching the back rank, its player gets an extra turn." />
                 </ul>
               </AccordionContent>
@@ -214,4 +218,5 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
 
