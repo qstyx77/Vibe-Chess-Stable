@@ -59,7 +59,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher before promoting to Hero, its player gets an extra turn. See Knight Abilities (for Hero movement) and First Blood & Commander (for Hero special ability).
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher before promoting to Hero, its player gets an extra turn. See Knight & Hero Abilities (for Hero movement) and First Blood & Commander (for Hero special ability).
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -88,11 +88,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If a standard Pawn (not already a Commander) captures an enemy Commander, that Pawn is immediately promoted to a Commander. It retains its current level. This promotion happens automatically and does not use the "First Blood" selection process.
                 </PieceRule>
                 <PieceRule title="Commander Abilities">
-                  <ul className="list-none pl-0">
-                    <li className="text-sm text-foreground/90 mb-1">
-                      <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
+                  <ul className="list-none pl-0 space-y-1">
+                    <li>
+                      <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
                     </li>
-                    <li className="text-sm text-foreground/90">
+                    <li>
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
                     </li>
                   </ul>
@@ -100,10 +100,10 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Hero Origin &amp; Abilities">
                   <p className="text-sm text-foreground/90 mb-1">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</p>
                   <p className="text-sm text-foreground/90 mb-1">A Hero is visually represented as a Knight with a star overlay.</p>
-                  <p className="text-sm text-foreground/90 mb-1"><strong>Movement &amp; Knight Abilities:</strong> A Hero moves, captures, and gains leveled abilities exactly like a Knight of its current level. See the "Knight Abilities" section for details.</p>
                   <p className="text-sm text-foreground/90">
                     <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
                   </p>
+                   <p className="text-sm text-foreground/90 mt-1">For Hero movement and combat abilities, see "Knight & Hero Abilities" section.</p>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -155,7 +155,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
                   <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction and General Gameplay for Push-Back Self-Check." />
-                  <LevelRule level="5+" description="Promotion Bonus (Pawn only): If a Level 5+ Pawn (not a Commander) is promoted by reaching the back rank, its player gets an extra turn." />
+                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn (promoting to Queen, Rook, Bishop, or Knight) or a Level 5+ Commander (promoting to Hero) reaches the opponent's back rank, its player gets an extra turn." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -229,5 +229,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
-    
