@@ -58,7 +58,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level.
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -122,15 +122,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders, Heroes, or Infiltrators) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
                     </li>
                     <li>
-                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level.
+                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn. A Hero is visually represented as a Knight with a star 🌟 overlay.
                     </li>
                   </ul>
                 </PieceRule>
-                 <PieceRule title="Hero Origin">
-                  <p className="text-sm text-foreground/90 mb-1">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</p>
-                  <p className="text-sm text-foreground/90 mb-1">A Hero is visually represented as a Knight with a star 🌟 overlay.</p>
-                </PieceRule>
-                <PieceRule title="Hero's Rallying Cry (Special)">
+                 <PieceRule title="Hero's Rallying Cry (Special)">
                   <p className="text-sm text-foreground/90">
                     When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
                   </p>
@@ -145,7 +141,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Blocking">
                   Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.
                 </PieceRule>
-                <PieceRule title="Interaction">Anvils cannot be captured or destroyed by normal piece moves.</PieceRule>
+                <PieceRule title="Interaction">Anvils cannot be captured or destroyed by normal piece moves, but can be destroyed by a Knight/Hero's self-destruct ability.</PieceRule>
                 <PieceRule title="Pawn Push-Back (L4+ Pawn/Commander)">
                   <div>A Level 4+ Pawn or Commander's Push-Back ability can interact with anvils:
                     <ul className="list-disc list-inside pl-4 mt-1">
@@ -199,7 +195,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
                   <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks. This ability WILL capture enemy Queens regardless of their normal invulnerability or level." />
+                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board. All adjacent enemy pieces (except Kings) and all adjacent anvils are destroyed. This ability WILL capture enemy Queens regardless of their normal invulnerability or level. This counts towards kill streaks for pieces destroyed." />
                 </ul>
               </AccordionContent>
             </AccordionItem>

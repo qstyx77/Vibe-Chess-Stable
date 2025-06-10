@@ -690,6 +690,7 @@ export default function EvolvingChessPage() {
         const opponentOfSelfDestructPlayer = selfDestructPlayer === 'white' ? 'black' : 'white';
         let selfDestructCapturedSomething = false;
         let piecesDestroyedCount = 0;
+        let anvilsDestroyedCount = 0;
         let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
 
         const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
@@ -706,30 +707,36 @@ export default function EvolvingChessPage() {
             const adjC = fromC_selected + dc;
             if (isValidSquare(adjR, adjC)) {
               const victimSquareState = boardAfterDestruct[adjR][adjC];
-              const victimPiece = victimSquareState.piece;
-              const victimItem = victimSquareState.item;
-              if (victimItem?.type === 'anvil') continue;
+              
+              if (victimSquareState.item?.type === 'anvil') {
+                boardAfterDestruct[adjR][adjC].item = null;
+                anvilsDestroyedCount++;
+              }
 
+              const victimPiece = boardAfterDestruct[adjR][adjC].piece;
               if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
                 const isQueenTarget = victimPiece.type === 'queen';
-                const isNormallyInvulnerable = isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected);
+                const isNormallyInvulnerable = !isQueenTarget && isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected);
 
-                if (isQueenTarget || !isNormallyInvulnerable) {
+                if (!isNormallyInvulnerable) { // Captures if not invulnerable OR if it's a Queen (bypassing Queen invulnerability)
                   finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
                   boardAfterDestruct[adjR][adjC].piece = null;
-                  toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget && isNormallyInvulnerable ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
+                  toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
                   selfDestructCapturedSomething = true;
                   piecesDestroyedCount++;
                 } else {
                   toast({ title: "Invulnerable!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type}'s self-destruct failed on invulnerable ${victimPiece.type}.`, duration: 2500 });
-                  continue;
                 }
               }
             }
           }
         }
-        boardAfterDestruct[fromR_selected][fromC_selected].piece = null;
+        boardAfterDestruct[fromR_selected][fromC_selected].piece = null; // Remove the self-destructing piece
         finalBoardStateForTurn = boardAfterDestruct;
+
+        if (anvilsDestroyedCount > 0) {
+            toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} destroyed ${anvilsDestroyedCount} anvil${anvilsDestroyedCount > 1 ? 's' : ''}!`, duration: 2500 });
+        }
 
         let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
         if (selfDestructCapturedSomething) {
@@ -745,12 +752,15 @@ export default function EvolvingChessPage() {
                 }
             }
         } else {
-            newStreakForSelfDestructPlayer = 0;
+            // If only anvils were destroyed, don't reset streak. Only reset if no pieces AND no anvils were destroyed.
+            if (anvilsDestroyedCount === 0) {
+                newStreakForSelfDestructPlayer = 0;
+            }
         }
         setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer }));
 
 
-        if (selfDestructCapturedSomething) {
+        if (selfDestructCapturedSomething) { // Flash only for piece captures
           setLastCapturePlayer(selfDestructPlayer);
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -1341,7 +1351,7 @@ export default function EvolvingChessPage() {
       await new Promise(resolve => setTimeout(resolve, 50));
       const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare);
       const aiResult = aiInstanceRef.current.getBestMove(gameStateForAI, currentPlayer);
-      const aiMoveDataFromVibeAI = aiResult?.move; // This is AIMoveType
+      const aiMoveDataFromVibeAI = aiResult?.move; 
       const aiExtraTurnFromAIMethod = aiResult?.extraTurn || false;
 
 
@@ -1473,6 +1483,7 @@ export default function EvolvingChessPage() {
             let pieceCapturedByAnvilAI = false;
             let aiAnvilPushedOff = false;
             let piecesDestroyedByAICount = 0;
+            let anvilsDestroyedByAICount = 0;
             let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
             let selfCheckByAIPushBack = false;
             let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | undefined = undefined;
@@ -1495,24 +1506,27 @@ export default function EvolvingChessPage() {
                     if (dr === 0 && dc === 0) continue;
                     const adjR_AI = knightR_AI + dr;
                     const adjC_AI = knightC_AI + dc;
-                    if (isValidSquare(adjR_AI, adjC_AI)) {
+                    if (this.isValidSquareAI(adjR_AI, adjC_AI)) {
                         const victimSquareState = finalBoardStateForAI[adjR_AI]?.[adjC_AI];
-                        const victim = victimSquareState?.piece;
-                        const victimItem = victimSquareState?.item;
-                        if (victimItem?.type === 'anvil') continue;
 
+                        if (victimSquareState?.item?.type === 'anvil') {
+                            finalBoardStateForAI[adjR_AI][adjC_AI].item = null;
+                            anvilsDestroyedByAICount++;
+                        }
+                        
+                        const victim = victimSquareState?.piece;
                         if (victim && victim.color !== currentPlayer && victim.type !== 'king') {
                             const isQueenTargetAI = victim.type === 'queen';
-                            const isNormallyInvulnerableAI = aiInstanceRef.current?.isPieceInvulnerableToAttackAI(victim, selfDestructingKnight_AI);
+                            const isNormallyInvulnerableAI = !isQueenTargetAI && this.isPieceInvulnerableToAttackAI(victim, selfDestructingKnight_AI);
 
-                            if (isQueenTargetAI || !isNormallyInvulnerableAI) {
+                            if (!isNormallyInvulnerableAI) { // Captures if not invulnerable OR if it's a Queen
                                 finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
                                 if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
                                     finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
                                 }
                                 aiMoveCapturedSomething = true;
                                 piecesDestroyedByAICount++;
-                                toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Obliterates!`, description: `${victim.color} ${victim.type} destroyed${isQueenTargetAI && isNormallyInvulnerableAI ? ' (bypassing invulnerability!)' : ''}.`, duration: 2500 });
+                                toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Obliterates!`, description: `${victim.color} ${victim.type} destroyed${isQueenTargetAI ? ' (bypassing invulnerability!)' : ''}.`, duration: 2500 });
                             }
                         }
                     }
@@ -1520,6 +1534,9 @@ export default function EvolvingChessPage() {
                 }
                 if(finalBoardStateForAI[knightR_AI]?.[knightC_AI]) {
                     finalBoardStateForAI[knightR_AI][knightC_AI].piece = null;
+                }
+                if (anvilsDestroyedByAICount > 0) {
+                     toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 2500 });
                 }
                  if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
                    toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
@@ -1633,13 +1650,15 @@ export default function EvolvingChessPage() {
                             setKillStreakFlashMessageKey(k => k + 1);
                         }
                     }
+                } else if (moveForApplyMoveAI!.type === 'self-destruct' && anvilsDestroyedByAICount > 0) {
+                    // No piece capture, but anvils destroyed. Don't reset streak.
                 } else {
                     newStreakForAIPlayer = 0;
                 }
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
 
 
-                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
+                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) { // Flash only for piece captures
                   setLastCapturePlayer(currentPlayer);
                   setShowCaptureFlash(true);
                   setCaptureFlashKey(k => k + 1);
