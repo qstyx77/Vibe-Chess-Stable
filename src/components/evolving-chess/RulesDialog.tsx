@@ -56,10 +56,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </PieceRule>
                 <PieceRule title="Pawn Promotion (Rank)">
                   When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
-                  If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher, an extra turn is granted. See "Knight & Hero Abilities" (for Hero movement) and "First Blood, Commander & Hero" (for Hero special ability).
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -88,10 +87,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Infiltrator Abilities">
                   <ul className="list-none pl-0 space-y-1">
                     <li>
-                      <strong>Movement:</strong> An Infiltrator can move one square directly forward OR one square diagonally forward to an empty square.
-                    </li>
-                    <li>
-                      <strong>Capture:</strong> An Infiltrator can capture an opponent's piece one square directly forward OR one square diagonally forward.
+                      <strong>Movement & Capture:</strong> An Infiltrator can move one square directly forward OR one square diagonally forward. It captures in the same manner.
                     </li>
                      <li>
                       <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely and do not go to the captured pieces pile.
@@ -120,23 +116,24 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Commander Abilities">
                   <ul className="list-none pl-0 space-y-1">
                     <li>
-                      <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
+                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
                     </li>
                      <li>
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders, Heroes, or Infiltrators) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
                     </li>
                     <li>
-                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, an extra turn is granted.
+                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level.
                     </li>
                   </ul>
                 </PieceRule>
-                <PieceRule title="Hero Origin &amp; Abilities">
+                 <PieceRule title="Hero Origin">
                   <p className="text-sm text-foreground/90 mb-1">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</p>
                   <p className="text-sm text-foreground/90 mb-1">A Hero is visually represented as a Knight with a star 🌟 overlay.</p>
+                </PieceRule>
+                <PieceRule title="Hero's Rallying Cry (Special)">
                   <p className="text-sm text-foreground/90">
-                    <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
+                    When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
                   </p>
-                   <p className="text-sm text-foreground/90 mt-1">For Hero movement and combat abilities, see "Knight & Hero Abilities" section.</p>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -182,7 +179,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="pawn">
               <AccordionTrigger className="text-base hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank - see "First Blood, Commander & Hero" for Hero details. Pawns can promote to Infiltrator via En Passant - see "En Passant & Infiltrator".)</p>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank. Pawns can promote to Infiltrator via En Passant.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture. Can perform En Passant." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
@@ -202,7 +199,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
                   <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
+                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks. This ability WILL capture enemy Queens regardless of their normal invulnerability or level." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -262,3 +259,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+

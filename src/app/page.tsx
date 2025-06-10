@@ -672,7 +672,12 @@ export default function EvolvingChessPage() {
       originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
 
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, currentEnPassantTargetForThisTurn);
-      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+      let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+      let moveBeingMade: Move | null = null;
+      if (isMoveInFreshList) {
+        moveBeingMade = { from: selectedSquare, to: algebraic };
+      }
+
 
       if (selectedSquare === algebraic && (pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
         saveStateToHistory();
@@ -706,15 +711,19 @@ export default function EvolvingChessPage() {
               if (victimItem?.type === 'anvil') continue;
 
               if (victimPiece && victimPiece.color !== selfDestructPlayer && victimPiece.type !== 'king') {
-                if (isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected)) {
+                const isQueenTarget = victimPiece.type === 'queen';
+                const isNormallyInvulnerable = isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected);
+
+                if (isQueenTarget || !isNormallyInvulnerable) {
+                  finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
+                  boardAfterDestruct[adjR][adjC].piece = null;
+                  toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget && isNormallyInvulnerable ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
+                  selfDestructCapturedSomething = true;
+                  piecesDestroyedCount++;
+                } else {
                   toast({ title: "Invulnerable!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type}'s self-destruct failed on invulnerable ${victimPiece.type}.`, duration: 2500 });
                   continue;
                 }
-                finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
-                boardAfterDestruct[adjR][adjC].piece = null;
-                toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}.`, duration: 2500 });
-                selfDestructCapturedSomething = true;
-                piecesDestroyedCount++;
               }
             }
           }
@@ -819,14 +828,13 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false);
         }, 800);
         return;
-      } else if (isMoveInFreshList) {
+      } else if (isMoveInFreshList && moveBeingMade) {
         saveStateToHistory();
         setLastMoveFrom(selectedSquare);
         setLastMoveTo(algebraic);
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
-        const moveBeingMade: Move = { from: selectedSquare, to: algebraic };
         if (pieceToMoveFromSelected.type === 'pawn' && algebraic === currentEnPassantTargetForThisTurn && !board[row][col].piece) {
             moveBeingMade.type = 'enpassant';
         }
@@ -1134,7 +1142,7 @@ export default function EvolvingChessPage() {
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
     }
-    if (selectedSquare && (!isMoveInFreshList || (clickedPiece && clickedPiece.type !== 'pawn' && moveBeingMade.type !== 'enpassant') ) ) {
+    if (selectedSquare && moveBeingMade && (!isMoveInFreshList || (clickedPiece && clickedPiece.type !== 'pawn' && moveBeingMade.type !== 'enpassant') ) ) {
         setEnPassantTargetSquare(null);
     } else if (!selectedSquare && (!clickedPiece || clickedPiece.type !== 'pawn')) {
         setEnPassantTargetSquare(null);
@@ -1318,7 +1326,7 @@ export default function EvolvingChessPage() {
     let aiFromAlg: AlgebraicSquare | null = null;
     let aiToAlg: AlgebraicSquare | null = null;
     let originalPieceLevelForAI: number | undefined;
-    let moveForApplyMoveAI: Move | null = null; // Changed from AIMoveType to Move
+    let moveForApplyMoveAI: Move | null = null;
     let localAIAwaitingCommanderPromo = false;
     let aiGeneratedEnPassantTarget: AlgebraicSquare | null = null;
 
@@ -1493,13 +1501,19 @@ export default function EvolvingChessPage() {
                         const victimItem = victimSquareState?.item;
                         if (victimItem?.type === 'anvil') continue;
 
-                        if (victim && victim.color !== currentPlayer && victim.type !== 'king' && !isPieceInvulnerableToAttack(victim, selfDestructingKnight_AI)) {
-                        finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
-                        if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
-                            finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
-                        }
-                        aiMoveCapturedSomething = true;
-                        piecesDestroyedByAICount++;
+                        if (victim && victim.color !== currentPlayer && victim.type !== 'king') {
+                            const isQueenTargetAI = victim.type === 'queen';
+                            const isNormallyInvulnerableAI = aiInstanceRef.current?.isPieceInvulnerableToAttackAI(victim, selfDestructingKnight_AI);
+
+                            if (isQueenTargetAI || !isNormallyInvulnerableAI) {
+                                finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
+                                if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
+                                    finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
+                                }
+                                aiMoveCapturedSomething = true;
+                                piecesDestroyedByAICount++;
+                                toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Obliterates!`, description: `${victim.color} ${victim.type} destroyed${isQueenTargetAI && isNormallyInvulnerableAI ? ' (bypassing invulnerability!)' : ''}.`, duration: 2500 });
+                            }
                         }
                     }
                     }
@@ -1507,7 +1521,9 @@ export default function EvolvingChessPage() {
                 if(finalBoardStateForAI[knightR_AI]?.[knightC_AI]) {
                     finalBoardStateForAI[knightR_AI][knightC_AI].piece = null;
                 }
-                toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
+                 if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
+                   toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
+                }
               } else {
                   aiErrorOccurredRef.current = true;
               }
@@ -1865,7 +1881,7 @@ export default function EvolvingChessPage() {
     setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
     setLastMoveFrom, setLastMoveTo,
     processPawnSacrificeCheck,
-    algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isPieceInvulnerableToAttack, isValidSquare, processRookResurrectionCheck,
+    algebraicToCoords, coordsToAlgebraic, applyMove, isKingInCheck, isValidSquare, processRookResurrectionCheck,
     setGameInfoBasedOnExtraTurn, completeTurn, processMoveEnd, getPossibleMoves, isStalemate, isCheckmate,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
@@ -2298,3 +2314,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
