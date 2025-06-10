@@ -24,6 +24,7 @@ import {
   processRookResurrectionCheck,
   type RookResurrectionResult,
   spawnAnvil,
+  spawnShroom, // Added
   boardToSimpleString,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType } from '@/types';
@@ -55,7 +56,9 @@ function adaptBoardForAI(
   gameMoveCounter: number,
   firstBloodAchieved: boolean,
   playerWhoGotFirstBlood: PlayerColor | null,
-  enPassantTargetSquare: AlgebraicSquare | null
+  enPassantTargetSquare: AlgebraicSquare | null,
+  shroomSpawnCounter?: number, // Added
+  nextShroomSpawnTurn?: number // Added
 ): AIGameState {
   const newAiBoard: AIBoardState = [];
   for (let r_idx = 0; r_idx < 8; r_idx++) {
@@ -96,6 +99,8 @@ function adaptBoardForAI(
     firstBloodAchieved: firstBloodAchieved,
     playerWhoGotFirstBlood: playerWhoGotFirstBlood,
     enPassantTargetSquare: enPassantTargetSquare,
+    shroomSpawnCounter: shroomSpawnCounter, // Added
+    nextShroomSpawnTurn: nextShroomSpawnTurn, // Added
   };
 }
 
@@ -162,6 +167,10 @@ export default function EvolvingChessPage() {
   const [firstBloodAchieved, setFirstBloodAchieved] = useState(false);
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
+
+  // Shroom state
+  const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
+  const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5); // 5-10
 
 
   const { toast } = useToast();
@@ -305,11 +314,24 @@ export default function EvolvingChessPage() {
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
 
+    // Anvil spawning
     if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
       currentBoardState = spawnAnvil(currentBoardState);
       setBoard(currentBoardState);
       toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
     }
+
+    // Shroom spawning
+    let currentShroomCounter = shroomSpawnCounter + 1; // Increment for this move
+    setShroomSpawnCounter(currentShroomCounter);
+    if (currentShroomCounter >= nextShroomSpawnTurn) {
+        currentBoardState = spawnShroom(currentBoardState);
+        setBoard(currentBoardState);
+        toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+        setShroomSpawnCounter(0); // Reset counter
+        setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); // New interval 5-10
+    }
+
 
     const nextPlayerForHash = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
     const castlingRights = getCastlingRightsString(currentBoardState);
@@ -368,6 +390,7 @@ export default function EvolvingChessPage() {
     boardToPositionHash, gameMoveCounter, setBoard, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, 
     getPlayerDisplayName, setCurrentPlayer, viewMode, isBlackAI, isWhiteAI, boardOrientation, determineBoardOrientation,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setIsAwaitingCommanderPromotion,
+    shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn // Added Shroom state
   ]);
 
   const saveStateToHistory = useCallback(() => {
@@ -415,6 +438,8 @@ export default function EvolvingChessPage() {
       firstBloodAchieved: firstBloodAchieved,
       playerWhoGotFirstBlood: playerWhoGotFirstBlood,
       isAwaitingCommanderPromotion: isAwaitingCommanderPromotion,
+      shroomSpawnCounter: shroomSpawnCounter, // Save Shroom state
+      nextShroomSpawnTurn: nextShroomSpawnTurn, // Save Shroom state
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -429,6 +454,7 @@ export default function EvolvingChessPage() {
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare,
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
+    shroomSpawnCounter, nextShroomSpawnTurn // Added Shroom state
   ]);
 
   const processPawnSacrificeCheck = useCallback((
@@ -619,7 +645,8 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    if (clickedItem) {
+    // Allow clicking on square with shroom, but not anvil
+    if (clickedItem && clickedItem.type !== 'shroom') {
         setSelectedSquare(null);
         setPossibleMoves([]);
         setEnemySelectedSquare(null);
@@ -757,7 +784,7 @@ export default function EvolvingChessPage() {
                 }
             }
         } else {
-            if (anvilsDestroyedCount === 0) {
+            if (anvilsDestroyedCount === 0) { // Only reset streak if nothing was destroyed (neither pieces nor anvils)
                 newStreakForSelfDestructPlayer = 0;
             }
         }
@@ -853,7 +880,7 @@ export default function EvolvingChessPage() {
             moveBeingMade.type = 'enpassant';
         }
 
-        const { newBoard, capturedPiece: captured, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: levelFromApplyMove, selfCheckByPushBack, queenLevelReducedEvents, isEnPassantCapture: enPassantHappened, promotedToInfiltrator: becameInfiltrator, infiltrationWin: gameWonByInfiltration, enPassantTargetSet } = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
+        const { newBoard, capturedPiece: captured, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: levelFromApplyMove, selfCheckByPushBack, queenLevelReducedEvents, isEnPassantCapture: enPassantHappened, promotedToInfiltrator: becameInfiltrator, infiltrationWin: gameWonByInfiltration, enPassantTargetSet, shroomConsumed } = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
         finalBoardStateForTurn = newBoard;
         newEnPassantTargetForNextTurn = enPassantTargetSet;
 
@@ -871,7 +898,13 @@ export default function EvolvingChessPage() {
             toast({ title: "En Passant!", description: `${getPlayerDisplayName(currentPlayer)} captures En Passant and promotes to Infiltrator!`, duration: 3000 });
         }
         if (becameInfiltrator) {
-           
+           // Toast handled by enPassantHappened
+        }
+        if (shroomConsumed) {
+            const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
+            if(movedPieceData) {
+                toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 3000 });
+            }
         }
 
 
@@ -1118,7 +1151,7 @@ export default function EvolvingChessPage() {
       } else {
         setSelectedSquare(null);
         setPossibleMoves([]);
-        if (clickedPiece && !clickedItem) {
+        if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) { // Allow selecting piece on shroom
             if(clickedPiece.color === currentPlayer) {
                 setSelectedSquare(algebraic);
                 const legalMovesForNewSelection = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
@@ -1138,13 +1171,13 @@ export default function EvolvingChessPage() {
         setEnPassantTargetSquare(currentEnPassantTargetForThisTurn);
         return;
       }
-    } else if (clickedPiece && !clickedItem && clickedPiece.color === currentPlayer) {
+    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom') && clickedPiece.color === currentPlayer) { // Allow selecting piece on shroom
       setSelectedSquare(algebraic);
       const legalMovesForPlayer = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
-    } else if (clickedPiece && !clickedItem && clickedPiece.color !== currentPlayer) {
+    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom') && clickedPiece.color !== currentPlayer) { // Allow selecting enemy piece on shroom
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(algebraic);
@@ -1354,7 +1387,7 @@ export default function EvolvingChessPage() {
 
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
-      const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare);
+      const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
       
       const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
       let aiMoveDataFromVibeAI = aiResult?.move; 
@@ -1522,6 +1555,7 @@ export default function EvolvingChessPage() {
             let aiEnPassantHappened = false;
             let aiBecameInfiltrator = false;
             let aiGameWonByInfiltration = false;
+            let shroomConsumedByAI = false;
 
 
             if (moveForApplyMoveAI!.type === 'self-destruct') {
@@ -1589,6 +1623,7 @@ export default function EvolvingChessPage() {
               aiBecameInfiltrator = applyMoveResult.promotedToInfiltrator || false;
               aiGameWonByInfiltration = applyMoveResult.infiltrationWin || false;
               aiGeneratedEnPassantTarget = applyMoveResult.enPassantTargetSet || null;
+              shroomConsumedByAI = applyMoveResult.shroomConsumed || false;
 
 
               if (aiGameWonByInfiltration) {
@@ -1601,6 +1636,12 @@ export default function EvolvingChessPage() {
               }
               if (aiEnPassantHappened) {
                 toast({ title: "AI En Passant!", description: `${getPlayerDisplayName(currentPlayer)} (AI) captures En Passant and promotes to Infiltrator!`, duration: 3000 });
+              }
+              if (shroomConsumedByAI) {
+                  const movedPieceDataAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
+                   if(movedPieceDataAI) {
+                     toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 3000 });
+                   }
               }
 
 
@@ -1689,7 +1730,7 @@ export default function EvolvingChessPage() {
                         }
                     }
                 } else if (moveForApplyMoveAI!.type === 'self-destruct' && anvilsDestroyedByAICount > 0) {
-                    
+                    // Do not reset streak if only anvils destroyed
                 } else {
                     newStreakForAIPlayer = 0;
                 }
@@ -1748,7 +1789,7 @@ export default function EvolvingChessPage() {
                 }
 
                 if (localAIAwaitingCommanderPromo && currentAiInstance) {
-                    const gameStateForAICmdrSelect = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, true, currentPlayer, null);
+                    const gameStateForAICmdrSelect = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, true, currentPlayer, null, shroomSpawnCounter, nextShroomSpawnTurn);
                     const commanderPawnCoords = currentAiInstance.selectPawnForCommanderPromotion(gameStateForAICmdrSelect);
                     if (commanderPawnCoords) {
                         const [pawnR, pawnC] = commanderPawnCoords;
@@ -1792,12 +1833,12 @@ export default function EvolvingChessPage() {
                           }
                       } else if (aiRookResData.resurrectedPieceData?.type === 'commander') {
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
-                          const {row: resRookAIR, col: resRookAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
-                          if (resRookAIR === promoRowAI) {
+                           const {row: resRookAIR, col: resRookAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
+                           if (resRookAIR === promoRowAI) {
                             finalBoardStateForAI[resRookAIR][resRookAIC].piece!.type = 'hero';
                             finalBoardStateForAI[resRookAIR][resRookAIC].piece!.id = `${aiRookResData.resurrectedPieceData.id}_resPromo_H`;
                             toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
-                          }
+                           }
                       }
                   }
                 }
@@ -1883,7 +1924,7 @@ export default function EvolvingChessPage() {
                   } else if (pieceAtDestinationAI?.type === 'queen') {
                      sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, aiGeneratedEnPassantTarget);
                   } else if (aiBecameInfiltrator) {
-                    
+                    // Toast handled by aiEnPassantHappened
                   }
 
                   if (localAIAwaitingCommanderPromo) {
@@ -1944,6 +1985,7 @@ export default function EvolvingChessPage() {
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
+    shroomSpawnCounter, nextShroomSpawnTurn // Added Shroom state
   ]);
 
 
@@ -2135,6 +2177,9 @@ export default function EvolvingChessPage() {
     setPlayerWhoGotFirstBlood(null);
     setIsAwaitingCommanderPromotion(false);
 
+    setShroomSpawnCounter(0); // Reset Shroom counter
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); // Reset Shroom spawn interval
+
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
   }, [toast, determineBoardOrientation, getCastlingRightsString, boardToPositionHash]);
 
@@ -2227,6 +2272,9 @@ export default function EvolvingChessPage() {
       setFirstBloodAchieved(stateToRestore.firstBloodAchieved);
       setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
       setIsAwaitingCommanderPromotion(stateToRestore.isAwaitingCommanderPromotion);
+      
+      setShroomSpawnCounter(stateToRestore.shroomSpawnCounter || 0);
+      setNextShroomSpawnTurn(stateToRestore.nextShroomSpawnTurn || (Math.floor(Math.random() * 6) + 5));
 
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 2500 });
@@ -2245,7 +2293,8 @@ export default function EvolvingChessPage() {
     setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
     setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, setOriginalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare
+    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare,
+    setShroomSpawnCounter, setNextShroomSpawnTurn // Restore Shroom state
   ]);
 
 

@@ -82,7 +82,10 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       }
       if (item?.type === 'anvil') {
         itemHash += 'A';
-      } else {
+      } else if (item?.type === 'shroom') {
+        itemHash += 'S';
+      }
+      else {
         itemHash += '-';
       }
     }
@@ -119,7 +122,8 @@ export function getPossibleMovesInternal(
 
             const toR = fromRow + dr;
             const toC = fromCol + dc;
-            if (!isValidSquare(toR, toC) || board[toR]?.[toC]?.item) continue;
+            // Item check for king includes Shroom as well.
+            if (!isValidSquare(toR, toC) || (board[toR]?.[toC]?.item && board[toR]?.[toC]?.item?.type !== 'shroom')) continue;
             
             const finalTargetSquareAlgebraic = coordsToAlgebraic(toR, toC);
             const pieceOnFinalTarget = board[toR]?.[toC]?.piece;
@@ -128,8 +132,8 @@ export function getPossibleMovesInternal(
                 const midR = fromRow + Math.sign(dr);
                 const midC = fromCol + Math.sign(dc);
                 const intermediateSquareAlgebraic = coordsToAlgebraic(midR, midC);
-
-                if (!isValidSquare(midR, midC) || board[midR]?.[midC]?.piece || board[midR]?.[midC]?.item ) continue;
+                // Item check for king intermediate square
+                if (!isValidSquare(midR, midC) || board[midR]?.[midC]?.piece || (board[midR]?.[midC]?.item && board[midR]?.[midC]?.item?.type !== 'shroom') ) continue;
                 
                 let isIntermediatePathSafe = true;
                 if (checkKingSafety) {
@@ -155,7 +159,7 @@ export function getPossibleMovesInternal(
         for (const [dr_n, dc_n] of knightDeltas) {
             const toR_n = fromRow + dr_n;
             const toC_n = fromCol + dc_n;
-            if (isValidSquare(toR_n, toC_n) && !board[toR_n]?.[toC_n]?.item) {
+            if (isValidSquare(toR_n, toC_n) && (!board[toR_n]?.[toC_n]?.item || board[toR_n]?.[toC_n]?.item?.type === 'shroom')) {
                 const targetPiece_n = board[toR_n]?.[toC_n]?.piece;
                 if (!targetPiece_n || targetPiece_n.color !== pieceColor) {
                      if (!isPieceInvulnerableToAttack(targetPiece_n, piece)) {
@@ -171,8 +175,8 @@ export function getPossibleMovesInternal(
         if (fromRow === kingRow && fromCol === 4) {
             const krSquare = board[kingRow]?.[7];
             if (krSquare?.piece?.type === 'rook' && !krSquare.piece.hasMoved &&
-                !board[kingRow]?.[5]?.piece && !board[kingRow]?.[5]?.item &&
-                !board[kingRow]?.[6]?.piece && !board[kingRow]?.[6]?.item
+                !board[kingRow]?.[5]?.piece && (!board[kingRow]?.[5]?.item || board[kingRow]?.[5]?.item?.type === 'shroom') &&
+                !board[kingRow]?.[6]?.piece && (!board[kingRow]?.[6]?.item || board[kingRow]?.[6]?.item?.type === 'shroom')
                 ) {
                 if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, true, null, enPassantTargetSquare) &&
                     !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, true, null, enPassantTargetSquare) &&
@@ -182,9 +186,9 @@ export function getPossibleMovesInternal(
             }
             const qrSquare = board[kingRow]?.[0];
             if (qrSquare?.piece?.type === 'rook' && !qrSquare.piece.hasMoved &&
-                !board[kingRow]?.[1]?.piece && !board[kingRow]?.[1]?.item &&
-                !board[kingRow]?.[2]?.piece && !board[kingRow]?.[2]?.item &&
-                !board[kingRow]?.[3]?.piece && !board[kingRow]?.[3]?.item
+                !board[kingRow]?.[1]?.piece && (!board[kingRow]?.[1]?.item || board[kingRow]?.[1]?.item?.type === 'shroom') &&
+                !board[kingRow]?.[2]?.piece && (!board[kingRow]?.[2]?.item || board[kingRow]?.[2]?.item?.type === 'shroom') &&
+                !board[kingRow]?.[3]?.piece && (!board[kingRow]?.[3]?.item || board[kingRow]?.[3]?.item?.type === 'shroom')
                  ) {
                 if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, true, null, enPassantTargetSquare) &&
                     !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, true, null, enPassantTargetSquare) &&
@@ -220,7 +224,7 @@ export function getPossibleMovesInternal(
         for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
             const targetSquareState = board[r_idx]?.[c_idx];
-            if (targetSquareState?.piece && targetSquareState.piece.color === piece.color && targetSquareState.piece.type === 'bishop' && !targetSquareState.item) {
+            if (targetSquareState?.piece && targetSquareState.piece.color === piece.color && targetSquareState.piece.type === 'bishop' && (!targetSquareState.item || targetSquareState.item.type === 'shroom')) {
               possible.push(coordsToAlgebraic(r_idx, c_idx));
             }
         }
@@ -230,7 +234,7 @@ export function getPossibleMovesInternal(
         for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
             const targetSquareState = board[r_idx]?.[c_idx];
-            if (targetSquareState?.piece && targetSquareState.piece.color === piece.color && (targetSquareState.piece.type === 'knight' || targetSquareState.piece.type === 'hero') && !targetSquareState.item) {
+            if (targetSquareState?.piece && targetSquareState.piece.color === piece.color && (targetSquareState.piece.type === 'knight' || targetSquareState.piece.type === 'hero') && (!targetSquareState.item || targetSquareState.item.type === 'shroom')) {
               possible.push(coordsToAlgebraic(r_idx, c_idx));
             }
         }
@@ -296,15 +300,15 @@ export function isSquareAttacked(
                         if (maxDistance === 2 && (Math.abs(dr_king) === 2 || Math.abs(dc_king) === 2)) {
                             const midR = kingR_from + Math.sign(dr_king);
                             const midC = kingC_from + Math.sign(dc_king);
-                            if (board[midR]?.[midC]?.piece || board[midR]?.[midC]?.item) {
+                            if (board[midR]?.[midC]?.piece || (board[midR]?.[midC]?.item && board[midR]?.[midC]?.item?.type !== 'shroom') ) {
                                 // Path blocked
-                            } else if (board[targetR]?.[targetC]?.item) {
+                            } else if (board[targetR]?.[targetC]?.item && board[targetR]?.[targetC]?.item?.type !== 'shroom') {
                                 // Target square has item
                             } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                                 return true;
                             }
                         } else {
-                           if (board[targetR]?.[targetC]?.item) {
+                           if (board[targetR]?.[targetC]?.item && board[targetR]?.[targetC]?.item?.type !== 'shroom') {
                                 // Target square has item
                            } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                                 return true;
@@ -316,7 +320,7 @@ export function isSquareAttacked(
                         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
                         for (const [dr_n, dc_n] of knightDeltas) {
                             if (kingR_from + dr_n === targetR && kingC_from + dc_n === targetC) {
-                                if (board[targetR]?.[targetC]?.item) continue;
+                                if (board[targetR]?.[targetC]?.item && board[targetR]?.[targetC]?.item?.type !== 'shroom') continue;
                                 if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                                     return true;
                                 }
@@ -347,7 +351,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (!isValidSquare(toRow, toCol)) return false;
 
   const targetSquareState = board[toRow]?.[toCol];
-  if (targetSquareState?.item) return false;
+  // Allow moving to a square with a shroom
+  if (targetSquareState?.item && targetSquareState.item.type !== 'shroom') return false;
 
   const targetPieceOnSquare = targetSquareState?.piece;
   const pieceActualLevel = Number(piece.level || 1);
@@ -378,7 +383,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     if (fromCol !== epCol && Math.abs(fromCol - epCol) === 1 && fromRow === capturedPawnRow) {
       const capturedPawnSquareState = board[capturedPawnRow]?.[epCol];
       if (capturedPawnSquareState?.piece?.type === 'pawn' && capturedPawnSquareState.piece.color !== piece.color) {
-         if (!board[toRow]?.[toCol]?.piece) {
+         if (!board[toRow]?.[toCol]?.piece) { // Target square must be empty for EP
             return true;
          }
       }
@@ -400,41 +405,40 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     case 'commander':
       const direction = piece.color === 'white' ? -1 : 1;
       const levelPawn = Number(piece.level || 1);
-      if (fromCol === toCol && toRow === fromRow + direction && !targetSquareState?.piece && !targetSquareState?.item) {
+      // Standard 1-square forward move (to empty square)
+      if (fromCol === toCol && toRow === fromRow + direction && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
         return true;
       }
+      // Initial 2-square forward move (to empty square, intermediate must also be empty)
       if (
-        fromCol === toCol && !targetSquareState?.piece && !targetSquareState?.item && !piece.hasMoved &&
-        ((piece.color === 'white' && fromRow === 6 && toRow === 4 && !board[5]?.[fromCol]?.piece && !board[5]?.[fromCol]?.item) ||
-         (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2]?.[fromCol]?.piece && !board[2]?.[fromCol]?.item))
+        fromCol === toCol && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom') && !piece.hasMoved &&
+        ((piece.color === 'white' && fromRow === 6 && toRow === 4 && !board[5]?.[fromCol]?.piece && (!board[5]?.[fromCol]?.item || board[5]?.[fromCol]?.item?.type === 'shroom')) ||
+         (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2]?.[fromCol]?.piece && (!board[2]?.[fromCol]?.item || board[2]?.[fromCol]?.item?.type === 'shroom')))
       ) {
         return true;
       }
-      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetSquareState?.piece && targetSquareState.piece.color !== piece.color && !targetSquareState?.item) {
+      // Diagonal capture
+      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetSquareState?.piece && targetSquareState.piece.color !== piece.color && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
         return true;
       }
+      // L2+ Backward move
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
         const backwardDirection = direction * -1;
-        if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetSquareState?.piece && !targetSquareState?.item) {
+        if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
           return true;
         }
       }
+      // L3+ Sideways move
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 3) {
-        if (toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetSquareState?.piece && !targetSquareState?.item) {
+        if (toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
           return true;
         }
       }
       return false;
     case 'infiltrator':
       const infiltratorDir = piece.color === 'white' ? -1 : 1;
-      // Move/Capture forward
-      if (fromCol === toCol && toRow === fromRow + infiltratorDir && !targetSquareState.item) {
-        if (!targetSquareState.piece || (targetSquareState.piece.color !== piece.color && !isPieceInvulnerableToAttack(targetSquareState.piece, piece))) {
-          return true;
-        }
-      }
-      // Move/Capture diagonally forward
-      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + infiltratorDir && !targetSquareState.item) {
+      // Move/Capture forward or diagonally forward
+      if (toRow === fromRow + infiltratorDir && (fromCol === toCol || Math.abs(fromCol - toCol) === 1) && (!targetSquareState.item || targetSquareState.item.type === 'shroom')) {
         if (!targetSquareState.piece || (targetSquareState.piece.color !== piece.color && !isPieceInvulnerableToAttack(targetSquareState.piece, piece))) {
           return true;
         }
@@ -447,23 +451,23 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const knightLevel = Number(piece.level || 1);
 
       if ((dRowKnight === 2 && dColKnight === 1) || (dRowKnight === 1 && dColKnight === 2)) {
-        return !targetSquareState?.item;
+        return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
       }
       if (typeof knightLevel === 'number' && !isNaN(knightLevel) && knightLevel >= 2) {
         if ((dRowKnight === 0 && dColKnight === 1) || (dRowKnight === 1 && dColKnight === 0)) {
-          return !targetSquareState?.item;
+          return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
       }
       if (typeof knightLevel === 'number' && !isNaN(knightLevel) && knightLevel >= 3) {
         if ((dRowKnight === 0 && dColKnight === 3) || (dRowKnight === 3 && dColKnight === 0)) {
             if (dRowKnight === 3) {
-                if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item ||
-                    board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece || board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item) return false;
+                if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom') ||
+                    board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
-                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item ||
-                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item) return false;
+                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item?.type !== 'shroom') ||
+                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item?.type !== 'shroom')) return false;
             }
-            return !targetSquareState?.item;
+            return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
       }
       return false;
@@ -472,15 +476,15 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (fromRow === toRow) {
         const step = toCol > fromCol ? 1 : -1;
         for (let c_path = fromCol + step; c_path !== toCol; c_path += step) {
-          if (board[fromRow]?.[c_path]?.piece || board[fromRow]?.[c_path]?.item) return false;
+          if (board[fromRow]?.[c_path]?.piece || (board[fromRow]?.[c_path]?.item && board[fromRow]?.[c_path]?.item?.type !== 'shroom')) return false;
         }
       } else {
         const step = toRow > fromRow ? 1 : -1;
         for (let r_path = fromRow + step; r_path !== toRow; r_path += step) {
-          if (board[r_path]?.[fromCol]?.piece || board[r_path]?.[fromCol]?.item) return false;
+          if (board[r_path]?.[fromCol]?.piece || (board[r_path]?.[fromCol]?.item && board[r_path]?.[fromCol]?.item?.type !== 'shroom')) return false;
         }
       }
-      return !targetSquareState?.item;
+      return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
     case 'bishop':
       const bishopLevel = Number(piece.level || 1);
       if (Math.abs(toRow - fromRow) !== Math.abs(toCol - fromCol)) return false;
@@ -492,7 +496,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       while (currRBishop !== toRow || currCBishop !== toCol) {
           if (!isValidSquare(currRBishop, currCBishop)) return false;
           const pathSquare = board[currRBishop]?.[currCBishop];
-          if (pathSquare?.item) return false;
+          if (pathSquare?.item && pathSquare.item.type !== 'shroom') return false;
           const pathPiece = pathSquare?.piece;
           if (pathPiece) {
             if (typeof bishopLevel === 'number' && !isNaN(bishopLevel) && bishopLevel >= 2 && pathPiece.color === piece.color) {
@@ -504,7 +508,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
           currRBishop += dRowDirBishop;
           currCBishop += dColDirBishop;
       }
-      return !targetSquareState?.item;
+      return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
     case 'queen':
       const isQueenRookMove = fromRow === toRow || fromCol === toCol;
       const isQueenBishopMove = Math.abs(toRow - fromRow) === Math.abs(toCol - fromCol);
@@ -514,15 +518,15 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         if (fromRow === toRow) {
           const step = toCol > fromCol ? 1 : -1;
           for (let c_path = fromCol + step; c_path !== toCol; c_path += step) {
-            if (board[fromRow]?.[c_path]?.piece || board[fromRow]?.[c_path]?.item) return false;
+            if (board[fromRow]?.[c_path]?.piece || (board[fromRow]?.[c_path]?.item && board[fromRow]?.[c_path]?.item?.type !== 'shroom')) return false;
           }
         } else {
           const step = toRow > fromRow ? 1 : -1;
           for (let r_path = fromRow + step; r_path !== toRow; r_path += step) {
-            if (board[r_path]?.[fromCol]?.piece || board[r_path]?.[fromCol]?.item) return false;
+            if (board[r_path]?.[fromCol]?.piece || (board[r_path]?.[fromCol]?.item && board[r_path]?.[fromCol]?.item?.type !== 'shroom')) return false;
           }
         }
-      } else {
+      } else { // Bishop-like move
         const dRowDirQueen = Math.sign(toRow - fromRow);
         const dColDirQueen = Math.sign(toCol - fromCol);
         let currRQueen = fromRow + dRowDirQueen;
@@ -530,14 +534,14 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
         while (currRQueen !== toRow || currCQueen !== toCol) {
             if (!isValidSquare(currRQueen, currCQueen)) return false;
-            if (board[currRQueen]?.[currCQueen]?.piece || board[currRQueen]?.[currCQueen]?.item) {
+            if (board[currRQueen]?.[currCQueen]?.piece || (board[currRQueen]?.[currCQueen]?.item && board[currRQueen]?.[currCQueen]?.item?.type !== 'shroom')) {
                 return false;
             }
             currRQueen += dRowDirQueen;
             currCQueen += dColDirQueen;
         }
       }
-      return !targetSquareState?.item;
+      return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
     case 'king':
       const dRowKing = Math.abs(toRow - fromRow);
       const dColKing = Math.abs(toCol - fromCol);
@@ -546,18 +550,18 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
       if (typeof kingActualLevelForValidity === 'number' && !isNaN(kingActualLevelForValidity) && kingActualLevelForValidity >= 5) {
         if ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2)) {
-          return !targetSquareState?.item;
+          return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
       }
       if (dRowKing <= maxKingDistance && dColKing <= maxKingDistance && (dRowKing === 0 || dColKing === 0 || dRowKing === dColKing)) {
-        if (maxKingDistance === 2 && (dRowKing === 2 || dColKing === 2)) {
+        if (maxKingDistance === 2 && (dRowKing === 2 || dColKing === 2)) { // If moving 2 squares
             const midRow = fromRow + Math.sign(toRow - fromRow);
             const midCol = fromCol + Math.sign(toCol - fromCol);
-            if (board[midRow]?.[midCol]?.piece || board[midRow]?.[midCol]?.item) {
-                return false;
+            if (board[midRow]?.[midCol]?.piece || (board[midRow]?.[midCol]?.item && board[midRow]?.[midCol]?.item?.type !== 'shroom')) {
+                return false; // Intermediate square blocked
             }
         }
-        return !targetSquareState?.item;
+        return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
       }
       return false;
     default:
@@ -604,19 +608,20 @@ export function applyMove(
   let promotedToInfiltrator = false;
   let infiltrationWin = false;
   let newEnPassantTargetSet: AlgebraicSquare | null = null;
+  let shroomConsumedThisMove = false;
 
 
   const movingPieceOriginalRef = newBoard[fromRow]?.[fromCol]?.piece;
   if (!movingPieceOriginalRef) {
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null };
+    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: false };
   }
 
   const originalPieceLevel = Number(movingPieceOriginalRef.level || 1);
   const targetPieceOriginal = newBoard[toRow]?.[toCol]?.piece;
   const targetItemOriginal = newBoard[toRow]?.[toCol]?.item;
 
-  if (targetItemOriginal) {
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null };
+  if (targetItemOriginal && targetItemOriginal.type !== 'shroom') { // Allow moving onto shrooms
+    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: false };
   }
 
   const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level || 1);
@@ -624,11 +629,17 @@ export function applyMove(
     (((movingPieceOriginalRef.type === 'knight' || movingPieceOriginalRef.type === 'hero') && movingPieceActualLevelForSwap >= 4 && targetPieceOriginal?.type === 'bishop' && targetPieceOriginal.color === movingPieceOriginalRef.color) ||
     (movingPieceOriginalRef.type === 'bishop' && movingPieceActualLevelForSwap >= 4 && (targetPieceOriginal?.type === 'knight' || targetPieceOriginal?.type === 'hero') && targetPieceOriginal.color === movingPieceOriginalRef.color))
   ) {
+    // Handle shroom consumption during swap if target square has shroom
+    if (targetItemOriginal?.type === 'shroom') {
+        shroomConsumedThisMove = true;
+        newBoard[toRow][toCol].item = null; // Consume shroom
+        movingPieceOriginalRef.level = Math.min( (movingPieceOriginalRef.type === 'queen' ? 7 : Infinity) , (movingPieceOriginalRef.level || 1) + 1);
+    }
     const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true };
     const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true };
     newBoard[toRow][toCol].piece = movingPieceCopy;
     newBoard[fromRow][fromCol].piece = targetPieceCopy;
-    return { newBoard, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null };
+    return { newBoard, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: shroomConsumedThisMove };
   }
 
   let capturedPiece: Piece | null = null;
@@ -649,9 +660,19 @@ export function applyMove(
   newBoard[toRow][toCol].piece = movingPieceForToSquare;
   newBoard[fromRow][fromCol].piece = null;
 
+  // Handle Shroom consumption after piece has moved
+  if (targetItemOriginal?.type === 'shroom') {
+    shroomConsumedThisMove = true;
+    newBoard[toRow][toCol].item = null; // Consume shroom
+    movingPieceForToSquare.level = (movingPieceForToSquare.level || 1) + 1;
+    if (movingPieceForToSquare.type === 'queen') {
+      movingPieceForToSquare.level = Math.min(movingPieceForToSquare.level, 7);
+    }
+  }
+
   const pieceNowOnToSquare = newBoard[toRow]?.[toCol]?.piece;
-  if (!pieceNowOnToSquare) {
-    return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null };
+  if (!pieceNowOnToSquare) { // Should not happen if piece moved
+    return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: shroomConsumedThisMove };
   }
 
   if (movingPieceOriginalRef.type === 'pawn' && Math.abs(fromRow - toRow) === 2) {
@@ -688,7 +709,8 @@ export function applyMove(
       case 'infiltrator': levelGain = 1; break;
       default: levelGain = 0; break;
     }
-    let newLevelForPiece = originalPieceLevel + levelGain;
+    // Level gain from capture is added to the current level (which might have already been increased by shroom)
+    let newLevelForPiece = (pieceNowOnToSquare.level || 1) + levelGain;
     if (pieceNowOnToSquare.type === 'queen') {
       newLevelForPiece = Math.min(newLevelForPiece, 7);
     }
@@ -734,22 +756,9 @@ export function applyMove(
     promotedToInfiltrator = true;
   } else if ((pieceNowOnToSquare.type === 'pawn') && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
-      let promotedPieceBaseLevel = originalPieceLevel;
-      if (capturedPiece) {
-        let levelGainFromCapture = 0;
-         switch (capturedPiece.type) {
-            case 'pawn': levelGainFromCapture = 1; break;
-            case 'commander': levelGainFromCapture = 1; break;
-            case 'hero': levelGainFromCapture = 2; break;
-            case 'knight': levelGainFromCapture = 2; break;
-            case 'bishop': levelGainFromCapture = 2; break;
-            case 'rook': levelGainFromCapture = 2; break;
-            case 'queen': levelGainFromCapture = 3; break;
-            case 'king': levelGainFromCapture = 1; break;
-            case 'infiltrator': levelGainFromCapture = 1; break;
-        }
-        promotedPieceBaseLevel = originalPieceLevel + levelGainFromCapture;
-      }
+      let promotedPieceBaseLevel = pieceNowOnToSquare.level; // Already includes shroom or capture bonus
+      // if (capturedPiece) { // This logic is now handled above where level is increased from capture
+      // }
 
       pieceNowOnToSquare.type = move.promoteTo;
       let finalPromotedLevel = promotedPieceBaseLevel;
@@ -770,10 +779,16 @@ export function applyMove(
 
   if (
     pieceNowOnToSquare.type === 'king' &&
-    pieceNowOnToSquare.level > originalPieceLevel
+    pieceNowOnToSquare.level > originalPieceLevel // Compare with original level *before* shroom/capture this turn
   ) {
-    const levelsGainedByKing = pieceNowOnToSquare.level - originalPieceLevel;
-    if (levelsGainedByKing > 0) {
+    // Level gain for king must be from capture, not shroom, to trigger queen reduction
+    let kingLevelGainFromCapture = 0;
+    if (capturedPiece) {
+        // simplified: assume king gained 1 level if it captured. More precise would be to track pre-capture level.
+        kingLevelGainFromCapture = (pieceNowOnToSquare.level || 1) - (originalPieceLevel + (shroomConsumedThisMove ? 1:0));
+    }
+
+    if (kingLevelGainFromCapture > 0) {
       queenLevelReducedEventsInternal = [];
       const kingColor = pieceNowOnToSquare.color;
       const opponentColor = kingColor === 'white' ? 'black' : 'white';
@@ -783,13 +798,13 @@ export function applyMove(
           const square_qlr = newBoard[r_qlr]?.[c_qlr];
           if (square_qlr?.piece && square_qlr.piece.type === 'queen' && square_qlr.piece.color === opponentColor) {
             const originalQueenLevel = square_qlr.piece.level;
-            const newQueenLevel = Math.max(1, originalQueenLevel - levelsGainedByKing);
+            const newQueenLevel = Math.max(1, originalQueenLevel - kingLevelGainFromCapture);
             if (newQueenLevel < originalQueenLevel) {
               queenLevelReducedEventsInternal.push({
                 queenId: square_qlr.piece.id,
                 originalLevel: originalQueenLevel,
                 newLevel: newQueenLevel,
-                reductionAmount: levelsGainedByKing,
+                reductionAmount: kingLevelGainFromCapture,
                 reducedByKingOfColor: kingColor,
               });
               square_qlr.piece.level = newQueenLevel;
@@ -846,11 +861,19 @@ export function applyMove(
                       newBoard[adjRow_pb][adjCol_pb].item = null;
                     }
                   }
-                } else {
+                } else { // Pushing a piece
                     if (isValidSquare(pushTargetRow_pb, pushTargetCol_pb)) {
                         const destinationSquareState = newBoard[pushTargetRow_pb][pushTargetCol_pb];
-                        if (!destinationSquareState.piece && !destinationSquareState.item) {
+                        // Cannot push a piece onto a non-shroom item
+                        if (!destinationSquareState.piece && (!destinationSquareState.item || destinationSquareState.item.type === 'shroom')) {
                             destinationSquareState.piece = { ...adjacentSquareState.piece! };
+                            if (destinationSquareState.item?.type === 'shroom') { // Piece pushed onto shroom
+                                destinationSquareState.item = null;
+                                destinationSquareState.piece.level = (destinationSquareState.piece.level || 1) + 1;
+                                if (destinationSquareState.piece.type === 'queen') {
+                                    destinationSquareState.piece.level = Math.min(destinationSquareState.piece.level, 7);
+                                }
+                            }
                             newBoard[adjRow_pb][adjCol_pb].piece = null;
                             pushBackOccurredForSelfCheck = true;
                         }
@@ -875,7 +898,7 @@ export function applyMove(
             if (isValidSquare(adjRow_conv, adjCol_conv)) {
             const adjacentSquareState_conv = newBoard[adjRow_conv]?.[adjCol_conv];
             const pieceOnAdjSquare_conv = adjacentSquareState_conv?.piece;
-            if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && !adjacentSquareState_conv?.item) {
+            if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && (!adjacentSquareState_conv?.item || adjacentSquareState_conv.item.type === 'shroom')) {
                 if (Math.random() < 0.5) {
                 const originalPieceCopy_conv = { ...pieceOnAdjSquare_conv };
                 const convertedPiece_conv: Piece = {
@@ -897,7 +920,7 @@ export function applyMove(
         }
     }
   }
-  return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: queenLevelReducedEventsInternal, isEnPassantCapture, promotedToInfiltrator, infiltrationWin, enPassantTargetSet: newEnPassantTargetSet };
+  return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: queenLevelReducedEventsInternal, isEnPassantCapture, promotedToInfiltrator, infiltrationWin, enPassantTargetSet: newEnPassantTargetSet, shroomConsumed: shroomConsumedThisMove };
 }
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
@@ -938,8 +961,8 @@ export function filterLegalMoves(
     const tempBoardState = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
 
-
-    if (tempBoardState[toR]?.[toC]?.item) return false;
+    // If target square has an item (not a shroom), it's not a legal landing spot unless the item is a shroom.
+    if (tempBoardState[toR]?.[toC]?.item && tempBoardState[toR]?.[toC]?.item?.type !== 'shroom') return false;
 
     const pieceToMoveCopy = { ...originalMovingPiece };
     const targetPieceForSim = tempBoardState[toR]?.[toC]?.piece;
@@ -1185,3 +1208,22 @@ export function spawnAnvil(board: BoardState): BoardState {
   return newBoard;
 }
 
+export function spawnShroom(board: BoardState): BoardState {
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+  const emptySquares: AlgebraicSquare[] = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      if (!newBoard[r][c].piece && !newBoard[r][c].item) { // Only spawn on completely empty squares
+        emptySquares.push(newBoard[r][c].algebraic);
+      }
+    }
+  }
+
+  if (emptySquares.length > 0) {
+    const randomIndex = Math.floor(Math.random() * emptySquares.length);
+    const randomSquareAlg = emptySquares[randomIndex];
+    const { row, col } = algebraicToCoords(randomSquareAlg);
+    newBoard[row][col].item = { type: 'shroom' };
+  }
+  return newBoard;
+}

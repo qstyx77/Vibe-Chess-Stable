@@ -1,7 +1,7 @@
 
 export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator';
-export type ItemType = 'anvil';
+export type ItemType = 'anvil' | 'shroom'; // Added 'shroom'
 
 export interface Item {
   type: ItemType;
@@ -75,6 +75,7 @@ export interface ApplyMoveResult {
   promotedToInfiltrator?: boolean;
   infiltrationWin?: boolean;
   enPassantTargetSet?: AlgebraicSquare | null;
+  shroomConsumed?: boolean; // Added for Shroom
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -96,7 +97,7 @@ export interface GameSnapshot {
   lastMoveFrom: AlgebraicSquare | null;
   lastMoveTo: AlgebraicSquare | null;
   gameMoveCounter: number;
-  enPassantTargetSquare: AlgebraicSquare | null; // Added for en passant
+  enPassantTargetSquare: AlgebraicSquare | null;
 
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
@@ -119,6 +120,10 @@ export interface GameSnapshot {
   firstBloodAchieved: boolean;
   playerWhoGotFirstBlood: PlayerColor | null;
   isAwaitingCommanderPromotion: boolean;
+
+  // Shroom state
+  shroomSpawnCounter?: number;
+  nextShroomSpawnTurn?: number;
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation
@@ -147,5 +152,8 @@ export interface AIGameState {
   autoCheckmate?: boolean;
   firstBloodAchieved?: boolean;
   playerWhoGotFirstBlood?: PlayerColor | null;
-  enPassantTargetSquare?: AlgebraicSquare | null; // Added for AI
+  enPassantTargetSquare?: AlgebraicSquare | null;
+  // AI needs to know about Shrooms for evaluation
+  shroomSpawnCounter?: number;
+  nextShroomSpawnTurn?: number;
 }
