@@ -62,6 +62,7 @@ export class VibeChessAI {
             pawnStructure: 8,
             anvilMalus: -15,
             infiltratorAdvance: 50,
+            shroomValue: 75, // Value for AI consuming a shroom
         };
 
         this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,-2], [1,2], [2,-1], [2,1]];
@@ -302,6 +303,7 @@ export class VibeChessAI {
 
         const targetSquareState = newState.board[toRow]?.[toCol];
         const originalTargetPiece = targetSquareState?.piece ? { ...targetSquareState.piece } : null;
+        const originalTargetItem = targetSquareState?.item ? { ...targetSquareState.item } : null;
         const originalTypeOfMovingPiece = movingPieceCopy.type;
         const originalLevelOfMovingPiece = Number(movingPieceCopy.level || 1);
 
@@ -327,7 +329,7 @@ export class VibeChessAI {
             movingPieceCopy.type = 'infiltrator';
             movingPieceCopy.id = `${movingPieceCopy.id}_infiltrator_AI`;
         } else if (move.type === 'capture') {
-            if (!originalTargetPiece || originalTargetPiece.color === movingPieceCopy.color || this.isPieceInvulnerableToAttackAI(originalTargetPiece, movingPieceCopy) || targetSquareState?.item) {
+            if (!originalTargetPiece || originalTargetPiece.color === movingPieceCopy.color || this.isPieceInvulnerableToAttackAI(originalTargetPiece, movingPieceCopy) || (targetSquareState?.item && targetSquareState.item.type !== 'shroom')) {
                 return newState;
             }
             pieceWasCaptured = true;
@@ -343,11 +345,11 @@ export class VibeChessAI {
             }
             movingPieceCopy.level = newCalculatedLevel;
         } else if (move.type === 'move') {
-            if (originalTargetPiece || targetSquareState?.item) {
+            if (originalTargetPiece || (targetSquareState?.item && targetSquareState.item.type !== 'shroom')) { // Allow moving to shroom
                 return newState;
             }
         } else if (move.type === 'promotion') {
-            if (targetSquareState?.item) {
+             if (targetSquareState?.item && targetSquareState.item.type !== 'shroom') { // Allow promoting onto shroom
                 return newState;
             }
 
@@ -435,22 +437,39 @@ export class VibeChessAI {
         } else if (move.type === 'swap') {
             const targetPieceForSwapSquareState = newState.board[toRow]?.[toCol];
             const targetPieceForSwap = targetPieceForSwapSquareState?.piece;
-            if (targetPieceForSwapSquareState?.item) return newState;
+            if (targetPieceForSwapSquareState?.item && targetPieceForSwapSquareState.item.type !== 'shroom') return newState; // Allow swapping onto shroom
             const movingPieceLevelForSwap = Number(movingPieceCopy.level || 1);
             if (!targetPieceForSwap || targetPieceForSwap.color !== movingPieceCopy.color ||
                 !(((movingPieceCopy.type === 'knight' || movingPieceCopy.type === 'hero') && targetPieceForSwap.type === 'bishop' && (typeof movingPieceLevelForSwap === 'number' && !isNaN(movingPieceLevelForSwap) && movingPieceLevelForSwap >= 4)) ||
                   (movingPieceCopy.type === 'bishop' && (targetPieceForSwap.type === 'knight' || targetPieceForSwap.type === 'hero') && (typeof movingPieceLevelForSwap === 'number' && !isNaN(movingPieceLevelForSwap) && movingPieceLevelForSwap >= 4))) ) {
                 return newState;
             }
+             // Handle shroom for swapping piece
+            if (targetPieceForSwapSquareState?.item?.type === 'shroom') {
+                movingPieceCopy.level = (movingPieceCopy.level || 1) + 1;
+                if (movingPieceCopy.type === 'queen') movingPieceCopy.level = Math.min(movingPieceCopy.level, 7);
+                targetPieceForSwapSquareState.item = null; 
+            }
             newState.board[toRow][toCol].piece = { ...movingPieceCopy, hasMoved: true };
             newState.board[fromRow][fromCol].piece = { ...targetPieceForSwap, hasMoved: targetPieceForSwap.hasMoved || true };
         }
 
-        newState.board[fromRow][fromCol].piece = null;
-        newState.board[toRow][toCol].piece = movingPieceCopy;
+        if (move.type !== 'swap') { // Swap handles its own board update
+            newState.board[fromRow][fromCol].piece = null;
+            newState.board[toRow][toCol].piece = movingPieceCopy;
+        }
+
 
         const pieceOnToSquare = newState.board[toRow]?.[toCol]?.piece;
         if (pieceOnToSquare && pieceOnToSquare.id === movingPieceCopy.id) {
+            // Handle Shroom consumption if the piece landed on one (and wasn't a swap)
+            if (originalTargetItem?.type === 'shroom' && move.type !== 'swap') {
+                 pieceOnToSquare.level = (pieceOnToSquare.level || 1) + 1;
+                 if (pieceOnToSquare.type === 'queen') {
+                     pieceOnToSquare.level = Math.min(pieceOnToSquare.level, 7);
+                 }
+                 newState.board[toRow][toCol].item = null; // Consume shroom
+            }
 
             if (pieceWasCaptured && capturedPieceDataForScoring) {
                 if (originalTypeOfMovingPiece === 'pawn' && capturedPieceDataForScoring.type === 'commander') {
@@ -599,6 +618,30 @@ export class VibeChessAI {
                 }
             }
         }
+
+        // Shroom Spawning (after move is fully processed)
+        let currentShroomCounter = (newState.shroomSpawnCounter || 0) + 1;
+        newState.shroomSpawnCounter = currentShroomCounter;
+        if (currentShroomCounter >= (newState.nextShroomSpawnTurn || 5)) {
+            const emptySquaresForShroom: [number, number][] = [];
+            for (let r_shroom = 0; r_shroom < 8; r_shroom++) {
+                for (let c_shroom = 0; c_shroom < 8; c_shroom++) {
+                    if (newState.board[r_shroom] && !newState.board[r_shroom][c_shroom]?.piece && !newState.board[r_shroom][c_shroom]?.item) {
+                        emptySquaresForShroom.push([r_shroom, c_shroom]);
+                    }
+                }
+            }
+            if (emptySquaresForShroom.length > 0) {
+                const [shroomR, shroomC] = emptySquaresForShroom[Math.floor(Math.random() * emptySquaresForShroom.length)];
+                if(newState.board[shroomR]?.[shroomC]) {
+                    newState.board[shroomR][shroomC].item = { type: 'shroom' };
+                }
+            }
+            newState.shroomSpawnCounter = 0;
+            newState.nextShroomSpawnTurn = Math.floor(Math.random() * 6) + 5; // 5-10
+        }
+
+
         if (!newState.gameOver && !newState.extraTurn) {
             newState.currentPlayer = opponentColor;
         } else if (!newState.gameOver && newState.extraTurn) {
@@ -656,8 +699,15 @@ export class VibeChessAI {
                             if (this.isValidSquareAI(pushToR, pushToC)) {
                                 const destSquareStatePiece = newState.board[pushToR]?.[pushToC];
                                 if (!destSquareStatePiece) continue;
-                                if (!destSquareStatePiece.piece && !destSquareStatePiece.item) {
+                                if (!destSquareStatePiece.piece && (!destSquareStatePiece.item || destSquareStatePiece.item.type === 'shroom')) { // Allow pushing onto shroom
                                     destSquareStatePiece.piece = { ...adjSquareState.piece! };
+                                    if (destSquareStatePiece.item?.type === 'shroom') { // Piece pushed onto shroom
+                                        destSquareStatePiece.item = null;
+                                        destSquareStatePiece.piece.level = (destSquareStatePiece.piece.level || 1) + 1;
+                                        if (destSquareStatePiece.piece.type === 'queen') {
+                                            destSquareStatePiece.piece.level = Math.min(destSquareStatePiece.piece.level, 7);
+                                        }
+                                    }
                                     adjSquareState.piece = null;
                                 }
                             }
@@ -681,7 +731,7 @@ export class VibeChessAI {
                 const adjC = bishopCol + dc;
                 if (this.isValidSquareAI(adjR, adjC)) {
                     const targetSquareState = newState.board[adjR]?.[adjC];
-                    if (!targetSquareState || targetSquareState.item) continue;
+                    if (!targetSquareState || (targetSquareState.item && targetSquareState.item.type !== 'shroom')) continue; // Allow conversion on shroom squares
                     const targetPiece = targetSquareState.piece;
                     if (targetPiece && targetPiece.color !== bishopColor && targetPiece.type !== 'king') {
                          if (Math.random() < 0.5) {
@@ -774,6 +824,7 @@ export class VibeChessAI {
         score += this.evaluateKillStreaks(gameState, aiColor);
         score += this.evaluateSpecialAbilitiesAndLevels(gameState, aiColor);
         score += this.evaluateAnvils(gameState, aiColor);
+        score += this.evaluateShrooms(gameState, aiColor);
         if (gameState.extraTurn && gameState.currentPlayer === aiColor) score += 75;
         return score;
     }
@@ -798,6 +849,42 @@ export class VibeChessAI {
             }
         }
         return anvilScore;
+    }
+
+    evaluateShrooms = (gameState: AIGameState, aiColor: PlayerColor): number => {
+        let shroomScore = 0;
+        const opponentColor = aiColor === 'white' ? 'black' : 'white';
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const square = gameState.board[r]?.[c];
+                if (square && square.item?.type === 'shroom') {
+                    // Check if AI can take it
+                    if (this.canAnyPieceAttackSquare(gameState, r, c, aiColor, true)) {
+                        shroomScore += this.positionalBonuses.shroomValue;
+                    }
+                    // Check if opponent can take it
+                    if (this.canAnyPieceAttackSquare(gameState, r, c, opponentColor, true)) {
+                        shroomScore -= this.positionalBonuses.shroomValue;
+                    }
+                }
+            }
+        }
+        return shroomScore;
+    }
+
+    canAnyPieceAttackSquare = (gameState: AIGameState, targetRow: number, targetCol: number, attackerColor: PlayerColor, isShroomCheck: boolean): boolean => {
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const pieceSquare = gameState.board[r]?.[c];
+                if (pieceSquare?.piece && pieceSquare.piece.color === attackerColor) {
+                    // For shroom check, we only care about *moving* to the square, not capturing a piece on it
+                    if (this.canAttackSquare(gameState, [r, c], [targetRow, targetCol], pieceSquare.piece, false, null, isShroomCheck)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
     }
 
 
@@ -1155,7 +1242,7 @@ export class VibeChessAI {
                     for (let C_idx = 0; C_idx < 8; C_idx++) {
                         const targetSquare = gameState.board[R_idx]?.[C_idx];
                         const canSwapWithTarget = targetTypeForSwap === 'knight' ? (targetSquare?.piece?.type === 'knight' || targetSquare?.piece?.type === 'hero') : targetSquare?.piece?.type === targetTypeForSwap;
-                        if (targetSquare?.piece && targetSquare.piece.color === piece.color && canSwapWithTarget && !targetSquare.item ) {
+                        if (targetSquare?.piece && targetSquare.piece.color === piece.color && canSwapWithTarget && (!targetSquare.item || targetSquare.item.type === 'shroom') ) { // Allow swap onto shroom
                             moves.push({ from: [r, c], to: [R_idx, C_idx], type: 'swap' });
                         }
                     }
@@ -1173,7 +1260,7 @@ export class VibeChessAI {
         const r_plus_dir = r + dir;
         if (this.isValidSquareAI(r_plus_dir, c)) {
             const forwardSquare = board[r_plus_dir]?.[c];
-            if (forwardSquare && !forwardSquare.piece && !forwardSquare.item ) {
+            if (forwardSquare && !forwardSquare.piece && (!forwardSquare.item || forwardSquare.item.type === 'shroom') ) {
                 if (r_plus_dir === promotionRank) {
                     if (piece.type === 'commander') {
                         moves.push({ from: [r,c], to: [r_plus_dir, c], type: 'promotion', promoteTo: 'hero' });
@@ -1186,7 +1273,7 @@ export class VibeChessAI {
                 if (r === startRow && !piece.hasMoved && this.isValidSquareAI(r + 2 * dir, c)) {
                     const intermediateSquare = board[r_plus_dir]?.[c];
                     const doubleForwardSquare = board[r + 2 * dir]?.[c];
-                    if (intermediateSquare && doubleForwardSquare && !intermediateSquare.piece && !intermediateSquare.item && !doubleForwardSquare.piece && !doubleForwardSquare.item ) {
+                    if (intermediateSquare && doubleForwardSquare && !intermediateSquare.piece && (!intermediateSquare.item || intermediateSquare.item.type === 'shroom') && !doubleForwardSquare.piece && (!doubleForwardSquare.item || doubleForwardSquare.item.type === 'shroom') ) {
                         moves.push({ from: [r,c], to: [r + 2 * dir, c], type: 'move' });
                     }
                 }
@@ -1197,7 +1284,7 @@ export class VibeChessAI {
             const capture_c = c + dc_val;
             if (this.isValidSquareAI(capture_r, capture_c)) {
                 const targetSquareState = board[capture_r]?.[capture_c];
-                if (!targetSquareState || targetSquareState.item) return;
+                if (!targetSquareState || (targetSquareState.item && targetSquareState.item.type !== 'shroom')) return;
 
                 const targetPiece = targetSquareState.piece;
                 if (targetPiece && targetPiece.color !== piece.color && !this.isPieceInvulnerableToAttackAI(targetPiece, piece) ) {
@@ -1227,7 +1314,7 @@ export class VibeChessAI {
             const r_minus_dir = r-dir;
             if (this.isValidSquareAI(r_minus_dir, c)) {
                 const backwardSquare = board[r_minus_dir]?.[c];
-                if (backwardSquare && !backwardSquare.piece && !backwardSquare.item ) {
+                if (backwardSquare && !backwardSquare.piece && (!backwardSquare.item || backwardSquare.item.type === 'shroom') ) {
                     moves.push({ from: [r,c], to: [r_minus_dir, c], type: 'move' });
                 }
             }
@@ -1237,7 +1324,7 @@ export class VibeChessAI {
                 const side_c = c + dc_side;
                 if (this.isValidSquareAI(r, side_c)) {
                     const sideSquare = board[r]?.[side_c];
-                    if (sideSquare && !sideSquare.piece && !sideSquare.item ) {
+                    if (sideSquare && !sideSquare.piece && (!sideSquare.item || sideSquare.item.type === 'shroom') ) {
                         moves.push({ from: [r,c], to: [r, side_c], type: 'move' });
                     }
                 }
@@ -1260,7 +1347,7 @@ export class VibeChessAI {
 
             if (this.isValidSquareAI(targetR, targetC)) {
                 const targetSquareState = board[targetR]?.[targetC];
-                if (targetSquareState && !targetSquareState.item) {
+                if (targetSquareState && (!targetSquareState.item || targetSquareState.item.type === 'shroom')) {
                     const targetPiece = targetSquareState.piece;
                     if (!targetPiece) { // Move to empty square
                         moves.push({ from: [r,c], to: [targetR, targetC], type: 'move' });
@@ -1279,7 +1366,7 @@ export class VibeChessAI {
             const R = r + dr; const C = c + dc;
             if (this.isValidSquareAI(R, C)) {
                 const targetSquareState = board[R]?.[C];
-                if (targetSquareState && !targetSquareState.item ) {
+                if (targetSquareState && (!targetSquareState.item || targetSquareState.item.type === 'shroom') ) {
                     const target = targetSquareState.piece;
                     if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttackAI(target, piece))) {
                         moves.push({ from: [r,c], to: [R,C], type: target ? 'capture' : 'move' });
@@ -1292,7 +1379,7 @@ export class VibeChessAI {
                 const R = r + dr; const C = c + dc;
                  if (this.isValidSquareAI(R, C)) {
                     const targetSquareState = board[R]?.[C];
-                    if (targetSquareState && !targetSquareState.item ) {
+                    if (targetSquareState && (!targetSquareState.item || targetSquareState.item.type === 'shroom') ) {
                         const target = targetSquareState.piece;
                         if (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttackAI(target, piece))) {
                             moves.push({ from: [r,c], to: [R,C], type: target ? 'capture' : 'move' });
@@ -1306,14 +1393,14 @@ export class VibeChessAI {
                 const R = r + dr; const C = c + dc;
                  if (this.isValidSquareAI(R, C)) {
                     const targetSquareState = board[R]?.[C];
-                    if (targetSquareState && !targetSquareState.item ) {
+                    if (targetSquareState && (!targetSquareState.item || targetSquareState.item.type === 'shroom') ) {
                         const target = targetSquareState.piece;
                         const mid1R = r + Math.sign(dr); const mid1C = c + Math.sign(dc);
                         const mid2R = r + 2 * Math.sign(dr); const mid2C = c + 2 * Math.sign(dc);
 
                         let pathBlocked = false;
-                        if (this.isValidSquareAI(mid1R, mid1C) && (board[mid1R]?.[mid1C]?.piece || board[mid1R]?.[mid1C]?.item )) pathBlocked = true;
-                        if (!pathBlocked && this.isValidSquareAI(mid2R, mid2C) && (board[mid2R]?.[mid2C]?.piece || board[mid2R]?.[mid2C]?.item )) pathBlocked = true;
+                        if (this.isValidSquareAI(mid1R, mid1C) && (board[mid1R]?.[mid1C]?.piece || (board[mid1R]?.[mid1C]?.item && board[mid1R]?.[mid1C]?.item?.type !== 'shroom') )) pathBlocked = true;
+                        if (!pathBlocked && this.isValidSquareAI(mid2R, mid2C) && (board[mid2R]?.[mid2C]?.piece || (board[mid2R]?.[mid2C]?.item && board[mid2R]?.[mid2C]?.item?.type !== 'shroom') )) pathBlocked = true;
 
                         if (!pathBlocked && (!target || (target.color !== piece.color && !this.isPieceInvulnerableToAttackAI(target, piece)))) {
                             moves.push({ from: [r,c], to: [R,C], type: target ? 'capture' : 'move' });
@@ -1332,7 +1419,7 @@ export class VibeChessAI {
                 const R = r + i * dr; const C = c + i * dc;
                 if (!this.isValidSquareAI(R, C)) break;
                 const targetSquareState = board[R]?.[C];
-                if(!targetSquareState || targetSquareState.item) break;
+                if(!targetSquareState || (targetSquareState.item && targetSquareState.item.type !== 'shroom')) break;
 
                 const targetPiece = targetSquareState.piece;
                 if (!targetPiece) {
@@ -1343,9 +1430,9 @@ export class VibeChessAI {
                            moves.push({ from: [r,c], to: [R,C], type: 'capture' });
                         }
                     } else if (piece.type === 'bishop' && typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >=2 && targetPiece.color === piece.color){
-                        continue;
+                        continue; // Bishop can phase through own piece
                     }
-                    break;
+                    break; // Path blocked by other piece
                 }
             }
         });
@@ -1366,11 +1453,11 @@ export class VibeChessAI {
                 const R_k = r + dr_k; const C_k = c + dc_k;
                 if (this.isValidSquareAI(R_k, C_k)) {
                     const targetSquareKingState = board[R_k]?.[C_k];
-                    if (targetSquareKingState && !targetSquareKingState.item ) {
+                    if (targetSquareKingState && (!targetSquareKingState.item || targetSquareKingState.item.type === 'shroom') ) {
                         if (maxDist === 2 && (Math.abs(dr_k) === 2 || Math.abs(dc_k) === 2)) {
                             const midR_k = r + Math.sign(dr_k);
                             const midC_k = c + Math.sign(dc_k);
-                            if (!this.isValidSquareAI(midR_k, midC_k) || board[midR_k]?.[midC_k]?.piece || board[midR_k]?.[midC_k]?.item ||
+                            if (!this.isValidSquareAI(midR_k, midC_k) || board[midR_k]?.[midC_k]?.piece || (board[midR_k]?.[midC_k]?.item && board[midR_k]?.[midC_k]?.item?.type !== 'shroom') ||
                                 this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, AI_DEBUG_KING_SAFETY_ONLY, null, [R_k, C_k] )) {
                                 continue;
                             }
@@ -1388,7 +1475,7 @@ export class VibeChessAI {
                 const R_n = r + dr_n; const C_n = c + dc_n;
                 if (this.isValidSquareAI(R_n,C_n)){
                     const targetSquareKnightMoveState = board[R_n]?.[C_n];
-                    if (targetSquareKnightMoveState && !targetSquareKnightMoveState.item ){
+                    if (targetSquareKnightMoveState && (!targetSquareKnightMoveState.item || targetSquareKnightMoveState.item.type === 'shroom') ){
                         const target_n = targetSquareKnightMoveState.piece;
                         if (!target_n || (target_n.color !== piece.color && !this.isPieceInvulnerableToAttackAI(target_n, piece))) {
                              moves.push({ from: [r,c], to: [R_n,C_n], type: target_n ? 'capture' : 'move' });
@@ -1522,7 +1609,7 @@ export class VibeChessAI {
         const pathEndCol = kingside ? rookCol -1 : kingCol -1;
 
         for (let c_path = Math.min(pathStartCol, pathEndCol); c_path <= Math.max(pathStartCol, pathEndCol); c_path++) {
-            if (gameState.board[kingRow]?.[c_path]?.piece || gameState.board[kingRow]?.[c_path]?.item ) return false;
+            if (gameState.board[kingRow]?.[c_path]?.piece || (gameState.board[kingRow]?.[c_path]?.item && gameState.board[kingRow]?.[c_path]?.item?.type !== 'shroom') ) return false;
         }
         const opponentColorForCastle = color === 'white' ? 'black' : 'white';
         const squaresToCheck: [number, number][] = [[kingRow, kingCol]];
@@ -1564,7 +1651,7 @@ export class VibeChessAI {
         return false;
     }
 
-    canAttackSquare = (gameState: AIGameState, from: [number, number], to: [number, number], piece: Piece, isKingSafetyCheck: boolean = false, parentCallId?: string | null): boolean => {
+    canAttackSquare = (gameState: AIGameState, from: [number, number], to: [number, number], piece: Piece, isKingSafetyCheck: boolean = false, parentCallId?: string | null, isShroomCheck: boolean = false): boolean => {
         const callId = (parentCallId && isKingSafetyCheck) ? parentCallId : (isKingSafetyCheck ? `KS_CAN_ATT_${Date.now()}_${Math.random().toString(36).substring(7)}` : null);
         const [fromRow, fromCol] = from;
         const [toRow, toCol] = to;
@@ -1581,46 +1668,61 @@ export class VibeChessAI {
             aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT] Target square invalid. Result: false`, isKingSafetyCheck, callId);
             return false;
         }
-
-        const pieceOnAttackedSquare = targetSquareState.piece;
-        if (pieceOnAttackedSquare && this.isPieceInvulnerableToAttackAI(pieceOnAttackedSquare, piece)) {
-             aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT] Target ${pieceOnAttackedSquare.color}${pieceOnAttackedSquare.type} is invulnerable. Result: false`, isKingSafetyCheck, callId);
-             return false;
+        
+        // If it's a shroom check, we only care if the target square has an item that is NOT a shroom (which would block the move)
+        // or if the square has an item that IS a shroom (which is a valid move).
+        // We don't care about invulnerability of pieces on the target square during a shroom check.
+        if (isShroomCheck) {
+            if (targetSquareState.item && targetSquareState.item.type !== 'shroom') {
+                aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT_SHROOM_CHECK] Target has blocking item ${targetSquareState.item.type}. Result: false`, isKingSafetyCheck, callId);
+                return false;
+            }
+        } else {
+            const pieceOnAttackedSquare = targetSquareState.piece;
+            if (pieceOnAttackedSquare && this.isPieceInvulnerableToAttackAI(pieceOnAttackedSquare, piece)) {
+                 aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT] Target ${pieceOnAttackedSquare.color}${pieceOnAttackedSquare.type} is invulnerable. Result: false`, isKingSafetyCheck, callId);
+                 return false;
+            }
+             if (targetSquareState.item && targetSquareState.item.type !== 'shroom') { // Cannot attack a square with a non-shroom item
+                aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT] Target square has blocking item ${targetSquareState.item.type}. Result: false`, isKingSafetyCheck, callId);
+                return false;
+            }
         }
+
 
         let canAttackResult = false;
         switch (piece.type) {
             case 'pawn':
             case 'commander':
                 const direction = piece.color === 'white' ? -1 : 1;
-                canAttackResult = deltaRow === direction && Math.abs(deltaCol) === 1 && !targetSquareState.item;
+                canAttackResult = deltaRow === direction && Math.abs(deltaCol) === 1 && (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 break;
             case 'infiltrator':
                 const infiltratorDir = piece.color === 'white' ? -1 : 1;
-                canAttackResult = deltaRow === infiltratorDir && (deltaCol === 0 || Math.abs(deltaCol) === 1) && !targetSquareState.item;
+                canAttackResult = deltaRow === infiltratorDir && (deltaCol === 0 || Math.abs(deltaCol) === 1) && (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 break;
             case 'knight':
             case 'hero':
                 const knightActualLevel = Number(piece.level || 1);
-                if ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2)) canAttackResult = !targetSquareState.item;
-                else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=2 && ((deltaRow === 0 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && deltaCol === 0))) canAttackResult = !targetSquareState.item;
+                if ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2)) canAttackResult = (!targetSquareState.item || targetSquareState.item.type === 'shroom');
+                else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=2 && ((deltaRow === 0 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && deltaCol === 0))) canAttackResult = (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=3 && ((deltaRow === 0 && Math.abs(deltaCol) === 3) || (Math.abs(deltaRow) === 3 && deltaCol === 0))) {
                     const stepR = Math.sign(deltaRow);
                     const stepC = Math.sign(deltaCol);
                     let pathBlocked = false;
-                    if (this.isValidSquareAI(fromRow + stepR, fromCol + stepC) && (gameState.board[fromRow + stepR]?.[fromCol + stepC]?.piece || gameState.board[fromRow + stepR]?.[fromCol + stepC]?.item )) pathBlocked = true;
-                    if (!pathBlocked && this.isValidSquareAI(fromRow + 2*stepR, fromCol + 2*stepC) && (gameState.board[fromRow + 2*stepR]?.[fromCol + 2*stepC]?.piece || gameState.board[fromRow + 2*stepR]?.[fromCol + 2*stepC]?.item )) pathBlocked = true;
-                    canAttackResult = !pathBlocked && !targetSquareState.item;
+                    if (this.isValidSquareAI(fromRow + stepR, fromCol + stepC) && (gameState.board[fromRow + stepR]?.[fromCol + stepC]?.piece || (gameState.board[fromRow + stepR]?.[fromCol + stepC]?.item && gameState.board[fromRow + stepR]?.[fromCol + stepC]?.item?.type !== 'shroom') )) pathBlocked = true;
+                    if (!pathBlocked && this.isValidSquareAI(fromRow + 2*stepR, fromCol + 2*stepC) && (gameState.board[fromRow + 2*stepR]?.[fromCol + 2*stepC]?.piece || (gameState.board[fromRow + 2*stepR]?.[fromCol + 2*stepC]?.item && gameState.board[fromRow + 2*stepR]?.[fromCol + 2*stepC]?.item?.type !== 'shroom') )) pathBlocked = true;
+                    canAttackResult = !pathBlocked && (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 }
                 break;
             case 'bishop':
-                canAttackResult = Math.abs(deltaRow) === Math.abs(deltaCol) && this.isPathClear(gameState.board, from, to, piece, isKingSafetyCheck, callId) && !targetSquareState.item;
+                canAttackResult = Math.abs(deltaRow) === Math.abs(deltaCol) && this.isPathClear(gameState.board, from, to, piece, isKingSafetyCheck, callId) && (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 break;
             case 'rook':
-                canAttackResult = (deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece, isKingSafetyCheck, callId) && !targetSquareState.item;
+                canAttackResult = (deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece, isKingSafetyCheck, callId) && (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 break;
             case 'queen':
-                canAttackResult = (Math.abs(deltaRow) === Math.abs(deltaCol) || deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece, isKingSafetyCheck, callId) && !targetSquareState.item;
+                canAttackResult = (Math.abs(deltaRow) === Math.abs(deltaCol) || deltaRow === 0 || deltaCol === 0) && this.isPathClear(gameState.board, from, to, piece, isKingSafetyCheck, callId) && (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 break;
             case 'king':
                 const kingActualLevelForAttack = Number(piece.level || 1);
@@ -1631,13 +1733,13 @@ export class VibeChessAI {
                     if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2)) {
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
-                        if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) { canAttackResult = false; break; }
+                        if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || (gameState.board[midR]?.[midC]?.item && gameState.board[midR]?.[midC]?.item?.type !== 'shroom') )) { canAttackResult = false; break; }
                     }
-                    canAttackResult = !targetSquareState.item;
+                    canAttackResult = (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                     break;
                 }
                 if (canUseKnightMove && ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2))) {
-                    canAttackResult = !targetSquareState.item;
+                    canAttackResult = (!targetSquareState.item || targetSquareState.item.type === 'shroom');
                 }
                 break;
             default:
@@ -1672,7 +1774,7 @@ export class VibeChessAI {
                 return false;
             }
 
-            if (pathSquareState.item) {
+            if (pathSquareState.item && pathSquareState.item.type !== 'shroom') { // Allow path through shroom
                 aiLog(`    [AI_DEBUG_PATH_CLEAR_BLOCKED] Item ${pathSquareState.item.type} at intermediate ${coordsToAlgebraic(r_path,c_path)}. Path Clear: false`, isKingSafetyCheck, callId);
                 return false;
             }
@@ -1738,7 +1840,11 @@ export class VibeChessAI {
         let score = 0;
         const [toR, toC] = move.to;
         const targetSquareState = gameState.board[toR]?.[toC];
-        if (!targetSquareState || targetSquareState.item) return -Infinity;
+        if (!targetSquareState || (targetSquareState.item && targetSquareState.item.type !== 'shroom')) return -Infinity; // Allow moving to shroom
+
+        if (targetSquareState.item?.type === 'shroom') {
+            score += this.positionalBonuses.shroomValue;
+        }
 
         const targetPiece = targetSquareState.piece;
         if (targetPiece && targetPiece.color !== playerColor) {
@@ -1779,7 +1885,7 @@ export class VibeChessAI {
                             if (victimSq && victimSq.item?.type === 'anvil') {
                                 score += 10; // Small bonus for clearing an anvil
                             }
-                            if (victimSq && victimSq.piece && victimSq.piece.color !== playerColor && victimSq.piece.type !== 'king' && !victimSq.item) {
+                            if (victimSq && victimSq.piece && victimSq.piece.color !== playerColor && victimSq.piece.type !== 'king' && (!victimSq.item || victimSq.item.type === 'shroom')) {
                                 const isQueenTargetForQuickEval = victimSq.piece.type === 'queen';
                                 if (isQueenTargetForQuickEval || !this.isPieceInvulnerableToAttackAI(victimSq.piece, movingPiece)) {
                                      const victimLevel = Number(victimSq.piece.level || 1);
@@ -1851,6 +1957,7 @@ export class VibeChessAI {
         key += `-g${gameState.gameMoveCounter || 0}`;
         key += `-fb${gameState.firstBloodAchieved ? 'T' : 'F'}${gameState.playerWhoGotFirstBlood ? gameState.playerWhoGotFirstBlood[0] : 'N'}`;
         key += `-ep${gameState.enPassantTargetSquare || '-'}`;
+        key += `-ss${gameState.shroomSpawnCounter || 0}ns${gameState.nextShroomSpawnTurn || 0}`;
         return key;
     }
 
@@ -1880,3 +1987,4 @@ export class VibeChessAI {
         return [availablePawns[0].row, availablePawns[0].col];
     }
 }
+
