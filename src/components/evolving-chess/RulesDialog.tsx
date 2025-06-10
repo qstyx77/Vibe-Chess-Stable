@@ -88,16 +88,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Infiltrator Abilities">
                   <ul className="list-none pl-0 space-y-1">
                     <li>
-                      <strong>Movement:</strong> An Infiltrator can move one square directly forward to an empty square OR one square diagonally forward to an empty square.
+                      <strong>Movement:</strong> An Infiltrator can move one square directly forward OR one square diagonally forward to an empty square.
                     </li>
                     <li>
                       <strong>Capture:</strong> An Infiltrator can capture an opponent's piece one square directly forward OR one square diagonally forward.
                     </li>
                      <li>
                       <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely and do not go to the captured pieces pile.
-                    </li>
-                    <li>
-                      <strong>No Further Promotion:</strong> An Infiltrator cannot promote further if it reaches the back rank (its win condition takes precedence).
                     </li>
                     <li>
                       <strong>Winning Condition - Infiltration:</strong> If an Infiltrator reaches the opponent's back rank, its player immediately wins the game by "Infiltration". This win condition overrides checkmate or stalemate.
@@ -125,7 +122,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <li>
                       <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
                     </li>
-                    <li>
+                     <li>
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders, Heroes, or Infiltrators) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
                     </li>
                     <li>
