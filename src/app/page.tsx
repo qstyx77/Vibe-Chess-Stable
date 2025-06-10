@@ -718,7 +718,7 @@ export default function EvolvingChessPage() {
                 const isQueenTarget = victimPiece.type === 'queen';
                 const isNormallyInvulnerable = !isQueenTarget && isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected);
 
-                if (!isNormallyInvulnerable) { // Captures if not invulnerable OR if it's a Queen (bypassing Queen invulnerability)
+                if (!isNormallyInvulnerable || isQueenTarget) { 
                   finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
                   boardAfterDestruct[adjR][adjC].piece = null;
                   toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
@@ -1305,6 +1305,20 @@ export default function EvolvingChessPage() {
 
 
   const performAiMove = useCallback(async () => {
+    const currentAiInstance = aiInstanceRef.current; // Capture instance at the start
+
+    if (!currentAiInstance) {
+      console.error("AI instance not available for performAiMove (captured check).");
+      toast({
+        title: "AI Error",
+        description: "AI engine is not ready or was lost. Please wait or reset the game.",
+        variant: "destructive",
+      });
+      setIsAiThinking(false);
+      if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
+      return;
+    }
+
     if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice ) {
       setIsAiThinking(false);
       return;
@@ -1312,19 +1326,6 @@ export default function EvolvingChessPage() {
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) {
         setIsAiThinking(false);
         return;
-    }
-
-
-     if (!aiInstanceRef.current) {
-      console.error("AI instance not available for performAiMove.");
-      toast({
-        title: "AI Error",
-        description: "AI engine is not ready. Please wait or reset the game.",
-        variant: "destructive",
-      });
-      setIsAiThinking(false);
-      if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
-      return;
     }
 
     aiErrorOccurredRef.current = false;
@@ -1350,7 +1351,8 @@ export default function EvolvingChessPage() {
     try {
       await new Promise(resolve => setTimeout(resolve, 50));
       const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare);
-      const aiResult = aiInstanceRef.current.getBestMove(gameStateForAI, currentPlayer);
+      
+      const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
       const aiMoveDataFromVibeAI = aiResult?.move; 
       const aiExtraTurnFromAIMethod = aiResult?.extraTurn || false;
 
@@ -1475,7 +1477,7 @@ export default function EvolvingChessPage() {
             moveForApplyMoveAI = {
                 from: aiFromAlg as AlgebraicSquare,
                 to: aiToAlg as AlgebraicSquare,
-                type: aiMoveType,
+                type: aiMoveType as Move['type'],
                 promoteTo: aiPromoteTo
             };
 
@@ -1506,7 +1508,7 @@ export default function EvolvingChessPage() {
                     if (dr === 0 && dc === 0) continue;
                     const adjR_AI = knightR_AI + dr;
                     const adjC_AI = knightC_AI + dc;
-                    if (this.isValidSquareAI(adjR_AI, adjC_AI)) {
+                    if (isValidSquare(adjR_AI, adjC_AI)) {
                         const victimSquareState = finalBoardStateForAI[adjR_AI]?.[adjC_AI];
 
                         if (victimSquareState?.item?.type === 'anvil') {
@@ -1517,10 +1519,12 @@ export default function EvolvingChessPage() {
                         const victim = victimSquareState?.piece;
                         if (victim && victim.color !== currentPlayer && victim.type !== 'king') {
                             const isQueenTargetAI = victim.type === 'queen';
-                            const isNormallyInvulnerableAI = !isQueenTargetAI && this.isPieceInvulnerableToAttackAI(victim, selfDestructingKnight_AI);
+                            const isNormallyInvulnerableAI = !isQueenTargetAI && isPieceInvulnerableToAttack(victim, selfDestructingKnight_AI);
 
-                            if (!isNormallyInvulnerableAI) { // Captures if not invulnerable OR if it's a Queen
-                                finalCapturedPiecesForAI[currentPlayer].push({ ...victim });
+                            if (!isNormallyInvulnerableAI || isQueenTargetAI) { 
+                                if (selfDestructingKnight_AI.type !== 'infiltrator') { 
+                                    finalCapturedPiecesForAI[currentPlayer].push({ ...victim }); 
+                                }
                                 if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
                                     finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
                                 }
@@ -1709,9 +1713,9 @@ export default function EvolvingChessPage() {
                     }
                 }
 
-                if (localAIAwaitingCommanderPromo && aiInstanceRef.current) {
+                if (localAIAwaitingCommanderPromo && currentAiInstance) {
                     const gameStateForAICmdrSelect = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, true, currentPlayer, null);
-                    const commanderPawnCoords = aiInstanceRef.current.selectPawnForCommanderPromotion(gameStateForAICmdrSelect);
+                    const commanderPawnCoords = currentAiInstance.selectPawnForCommanderPromotion(gameStateForAICmdrSelect);
                     if (commanderPawnCoords) {
                         const [pawnR, pawnC] = commanderPawnCoords;
                         if(finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.type === 'pawn' && finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.level === 1) {
