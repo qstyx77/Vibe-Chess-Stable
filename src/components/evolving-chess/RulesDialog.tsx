@@ -44,18 +44,18 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             Understand the special abilities and mechanics.
           </DialogDescription>
         </DialogHeader>
-        
+
         <ScrollArea className="h-[60vh] pr-4">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="general">
               <AccordionTrigger className="text-base hover:text-accent">General Gameplay</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Objective">Checkmate the opponent's King.</PieceRule>
+                <PieceRule title="Objective">Checkmate the opponent's King, or achieve an Infiltration Win.</PieceRule>
                 <PieceRule title="Piece Levels">
-                  Pieces level up by capturing opponent pieces and do not have a maximum level. Each piece type gains different abilities as it levels up. (See individual piece sections for details).
+                  Pieces level up by capturing opponent pieces and do not have a maximum level (except Queens, capped at L7). Each piece type gains different abilities as it levels up. (See individual piece sections for details).
                 </PieceRule>
                 <PieceRule title="Pawn Promotion (Rank)">
-                  When a Pawn (not a Commander or Hero) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
+                  When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
@@ -69,7 +69,37 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If a Level 4+ Pawn or Commander uses its Push-Back ability, and this push directly results in its own King being put into check, it is an immediate loss for the player who made the push. The opponent wins by auto-checkmate.
                 </PieceRule>
                 <PieceRule title="Threefold Repetition">
-                  If the same board position (including piece and item locations, current player, and castling rights) occurs three times during a game, the game is a draw.
+                  If the same board position (including piece and item locations, current player, castling rights, and en passant target square) occurs three times during a game, the game is a draw.
+                </PieceRule>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="enpassant">
+              <AccordionTrigger className="text-base hover:text-accent">En Passant &amp; Infiltrator</AccordionTrigger>
+              <AccordionContent>
+                <PieceRule title="En Passant Capture">
+                  If an opponent's pawn moves two squares forward from its starting position and lands on a square adjacent (same rank, different file) to one of your pawns, your pawn may capture the opponent's pawn "en passant" (in passing).
+                  This capture must be made on the very next turn. Your pawn moves to the square the opponent's pawn *skipped over*. The opponent's pawn is removed from the board.
+                </PieceRule>
+                <PieceRule title="Promotion to Infiltrator">
+                  When one of your pawns successfully captures an opponent's pawn via En Passant, your pawn is immediately promoted to an "Infiltrator". It retains the level it had as a pawn (including any level gained from the en passant capture itself).
+                  The Infiltrator is visually distinct (it appears as a Pawn with a skull 💀 overlay).
+                </PieceRule>
+                <PieceRule title="Infiltrator Abilities">
+                  <ul className="list-none pl-0 space-y-1">
+                    <li>
+                      <strong>Movement:</strong> An Infiltrator can only move one square directly forward to an empty square. It cannot move two squares, even from its "start".
+                    </li>
+                    <li>
+                      <strong>Capture:</strong> An Infiltrator can only capture one square diagonally forward.
+                    </li>
+                    <li>
+                      <strong>No Further Promotion:</strong> An Infiltrator cannot promote further if it reaches the back rank (its win condition takes precedence).
+                    </li>
+                    <li>
+                      <strong>Winning Condition - Infiltration:</strong> If an Infiltrator reaches the opponent's back rank, its player immediately wins the game by "Infiltration". This win condition overrides checkmate or stalemate.
+                    </li>
+                  </ul>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -82,7 +112,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </PieceRule>
                 <PieceRule title="Commander Promotion (First Blood)">
                   The player who achieves First Blood immediately gets to select one of their own Level 1 Pawns currently on the board. This chosen Pawn is instantly promoted to a "Commander".
-                  The Commander is visually distinct (it appears as a Pawn with a star overlay).
+                  The Commander is visually distinct (it appears as a Pawn with a star 🌟 overlay).
                 </PieceRule>
                 <PieceRule title="Commander Promotion (Pawn Captures Commander)">
                   If a standard Pawn (not already a Commander) captures an enemy Commander, that Pawn is immediately promoted to a Commander. It retains its current level. This promotion happens automatically and does not use the "First Blood" selection process.
@@ -93,15 +123,18 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
                     </li>
                     <li>
-                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
+                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders, Heroes, or Infiltrators) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
+                    </li>
+                    <li>
+                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, an extra turn is granted.
                     </li>
                   </ul>
                 </PieceRule>
                 <PieceRule title="Hero Origin &amp; Abilities">
                   <p className="text-sm text-foreground/90 mb-1">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</p>
-                  <p className="text-sm text-foreground/90 mb-1">A Hero is visually represented as a Knight with a star overlay.</p>
+                  <p className="text-sm text-foreground/90 mb-1">A Hero is visually represented as a Knight with a star 🌟 overlay.</p>
                   <p className="text-sm text-foreground/90">
-                    <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
+                    <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
                   </p>
                    <p className="text-sm text-foreground/90 mt-1">For Hero movement and combat abilities, see "Knight & Hero Abilities" section.</p>
                 </PieceRule>
@@ -149,9 +182,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="pawn">
               <AccordionTrigger className="text-base hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank - see "First Blood, Commander &amp; Hero" for Hero details.)</p>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank - see "First Blood, Commander & Hero" for Hero details. Pawns can promote to Infiltrator via En Passant - see "En Passant & Infiltrator".)</p>
                 <ul>
-                  <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
+                  <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture. Can perform En Passant." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
                   <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction and General Gameplay for Push-Back Self-Check." />
@@ -163,7 +196,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="knight">
               <AccordionTrigger className="text-base hover:text-accent">Knight &amp; Hero Abilities</AccordionTrigger>
               <AccordionContent>
-                 <p className="text-xs text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander &amp; Hero" for Hero origin and special Rallying Cry.)</p>
+                 <p className="text-xs text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander & Hero" for Hero origin and special Rallying Cry.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
@@ -180,7 +213,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <ul>
                   <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
                   <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or items in its path)." />
-                  <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns or Commanders." />
+                  <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight or Hero on the board." />
                   <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King, on a square without an item) to convert that piece to its own color (level and type preserved)." />
                 </ul>

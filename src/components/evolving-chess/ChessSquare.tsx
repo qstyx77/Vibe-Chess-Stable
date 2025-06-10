@@ -26,6 +26,7 @@ interface ChessSquareProps {
   isCommanderPromoTarget?: boolean;
   isAwaitingCommanderPromotion?: boolean;
   playerToPromoteCommander?: PlayerColor | null;
+  isEnPassantTarget?: boolean;
 }
 
 export function ChessSquare({
@@ -48,6 +49,7 @@ export function ChessSquare({
   isCommanderPromoTarget = false,
   isAwaitingCommanderPromotion = false,
   playerToPromoteCommander = null,
+  isEnPassantTarget = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -62,9 +64,13 @@ export function ChessSquare({
 
   if (isPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-accent/40';
   if (isPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-destructive/60';
-  
+
   if (isEnemyPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-blue-600/30';
   if (isEnemyPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-yellow-500/50';
+
+  if (isEnPassantTarget && isPossibleMove && !piece) { // Highlight en passant target square if it's a possible move
+    currentBgClass = 'bg-purple-400/50';
+  }
 
 
   let selectionRingClass = '';
@@ -77,7 +83,7 @@ export function ChessSquare({
   } else if (isEnemySelected && !disabled) {
     selectionRingClass = 'ring-2 ring-inset ring-blue-600';
   }
-  
+
   const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget;
 
 
@@ -89,9 +95,9 @@ export function ChessSquare({
         currentBgClass,
         selectionRingClass,
         effectiveDisabled && 'cursor-not-allowed',
-        item && 'cursor-not-allowed' 
+        item && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || item ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}`}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || item ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}`}
       disabled={effectiveDisabled || !!item}
     >
       {item && item.type === 'anvil' && (

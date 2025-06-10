@@ -1,6 +1,6 @@
 
 export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator';
 export type ItemType = 'anvil';
 
 export interface Item {
@@ -31,7 +31,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant';
   promoteTo?: PieceType;
 }
 
@@ -42,6 +42,7 @@ export interface GameStatus {
   isCheckmate: boolean;
   isStalemate: boolean;
   isThreefoldRepetitionDraw?: boolean;
+  isInfiltrationWin?: boolean; // New win condition
   winner?: PlayerColor | 'draw';
   gameOver: boolean;
 }
@@ -70,6 +71,10 @@ export interface ApplyMoveResult {
   originalPieceLevel?: number;
   selfCheckByPushBack: boolean;
   queenLevelReducedEvents?: QueenLevelReducedEvent[];
+  isEnPassantCapture?: boolean;
+  promotedToInfiltrator?: boolean;
+  infiltrationWin?: boolean;
+  enPassantTargetSet?: AlgebraicSquare | null;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -91,6 +96,7 @@ export interface GameSnapshot {
   lastMoveFrom: AlgebraicSquare | null;
   lastMoveTo: AlgebraicSquare | null;
   gameMoveCounter: number;
+  enPassantTargetSquare: AlgebraicSquare | null; // Added for en passant
 
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
@@ -125,7 +131,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number]; // [row, col]
   to: [number, number];   // [row, col]
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant';
   promoteTo?: PieceType;
 }
 
@@ -139,6 +145,7 @@ export interface AIGameState {
   winner?: PlayerColor | 'draw';
   extraTurn?: boolean;
   autoCheckmate?: boolean;
-  firstBloodAchieved?: boolean; // Added for AI context
-  playerWhoGotFirstBlood?: PlayerColor | null; // Added for AI context
+  firstBloodAchieved?: boolean;
+  playerWhoGotFirstBlood?: PlayerColor | null;
+  enPassantTargetSquare?: AlgebraicSquare | null; // Added for AI
 }

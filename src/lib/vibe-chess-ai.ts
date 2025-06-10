@@ -1,14 +1,13 @@
 
-import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item } from '@/types';
-import { coordsToAlgebraic, algebraicToCoords } from '@/lib/chess-utils';
+import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
+import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString } from '@/lib/chess-utils'; // Added getCastlingRightsString
 
 // Helper for console logging with AI prefix, can be enabled/disabled
-const AI_DEBUG_MODE = false; // Set to true to enable detailed AI logs
+const AI_DEBUG_MODE = false;
 
 const aiLog = (message: string, isKingSafetyCheck: boolean | undefined, callId: string | null | undefined, ...args: any[]) => {
     if (AI_DEBUG_MODE && (isKingSafetyCheck || message.startsWith("[AI_DEBUG_IS_IN_CHECK_ENTRY]") || message.startsWith("[AI_DEBUG_IS_SQ_ATTACKED_AI_ENTRY]"))) {
         const idPart = callId ? ` CALLID:${callId}` : '';
-        // console.log(`[VIBE_AI_DEBUG${idPart}] ${message}`, ...args);
     }
 };
 
@@ -18,7 +17,7 @@ export class VibeChessAI {
     positionCache: Map<string, { score: number; move: AIMove | null; depth: number; extraTurn?: boolean }>;
     maxCacheSize: number;
     searchStartTime: number;
-    maxSearchTime: number; // milliseconds
+    maxSearchTime: number;
 
     pieceValues: Record<PieceType, number[]>;
     captureLevelBonuses: Record<PieceType, number>;
@@ -36,30 +35,32 @@ export class VibeChessAI {
         this.positionCache = new Map();
         this.maxCacheSize = 10000;
         this.searchStartTime = 0;
-        this.maxSearchTime = 5000; 
+        this.maxSearchTime = 5000;
 
         this.pieceValues = {
             'pawn': [100, 120, 140, 180, 220, 260, 280, 300, 320, 340],
             'knight': [320, 360, 400, 450, 500, 550, 580, 610, 640, 670],
             'bishop': [330, 370, 420, 470, 520, 570, 600, 630, 660, 690],
             'rook': [500, 520, 580, 620, 660, 700, 730, 760, 790, 820],
-            'queen': [900, 920, 940, 960, 1200, 1250, 1350], // Max L7
+            'queen': [900, 920, 940, 960, 1200, 1250, 1350],
             'king': [20000, 20000, 20000, 20000, 20000, 20000, 20000],
             'commander': [150, 180, 210, 250, 290, 330, 360, 390, 420, 450],
-            'hero': [700, 750, 800, 850, 900, 950, 1000, 1050, 1100, 1150]
+            'hero': [700, 750, 800, 850, 900, 950, 1000, 1050, 1100, 1150],
+            'infiltrator': [250, 270, 290, 310, 330, 350, 370, 390, 410, 430] // Infiltrator scoring
         };
 
         this.captureLevelBonuses = {
-            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2
+            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1
         };
 
         this.positionalBonuses = {
             center: 10,
             nearCenter: 5,
-            development: 15, 
-            kingSafety: 25,  
-            pawnStructure: 8, 
-            anvilMalus: -15 
+            development: 15,
+            kingSafety: 25,
+            pawnStructure: 8,
+            anvilMalus: -15,
+            infiltratorAdvance: 50, // Bonus for infiltrator near back rank
         };
 
         this.knightMoves = [[-2,-1], [-2,1], [-1,-2], [-1,2], [1,-2], [1,2], [2,-1], [2,1]];
@@ -70,7 +71,7 @@ export class VibeChessAI {
             queen: [[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]]
         };
 
-        this.centerSquares = new Set(['33', '34', '43', '44']); 
+        this.centerSquares = new Set(['33', '34', '43', '44']);
         this.nearCenterSquares = new Set(['22', '23', '24', '25', '32', '35', '42', '45', '52', '53', '54', '55']);
     }
 
@@ -111,7 +112,7 @@ export class VibeChessAI {
 
         try {
             this.searchStartTime = Date.now();
-            this.positionCache.clear(); 
+            this.positionCache.clear();
 
             if (!gameState?.board || !color) {
                 console.error("[AI_ERROR] getBestMove: Invalid gameState or color provided.");
@@ -128,7 +129,6 @@ export class VibeChessAI {
 
             if (!finalMove && legalMoves.length > 0) {
                 finalMove = legalMoves[0];
-                // Re-evaluate extraTurn potential for this fallback move
                 const tempState = this.makeMoveOptimized(gameState, finalMove, color);
                 finalExtraTurn = tempState.extraTurn || false;
             }
@@ -137,9 +137,9 @@ export class VibeChessAI {
         } catch (error) {
             console.error("[AI_ERROR] Error in getBestMove:", error);
             try {
-                const fallbackGameState: AIGameState = { 
+                const fallbackGameState: AIGameState = {
                     ...originalGameState,
-                    board: localBoardCopy, 
+                    board: localBoardCopy,
                     capturedPieces: {
                         white: originalGameState.capturedPieces?.white?.map(p => ({ ...p })) || [],
                         black: originalGameState.capturedPieces?.black?.map(p => ({ ...p })) || [],
@@ -167,7 +167,7 @@ export class VibeChessAI {
 
             if (this.isGameOver(gameState)) {
                 return {
-                    score: this.evaluatePosition(gameState, aiColor), 
+                    score: this.evaluatePosition(gameState, aiColor),
                     move: null,
                     extraTurn: gameState.extraTurn
                 };
@@ -185,9 +185,9 @@ export class VibeChessAI {
             const currentPlayerForNode = isMaximizingPlayer ? aiColor : (aiColor === 'white' ? 'black' : 'white');
             const moves = this.generateAllMoves(gameState, currentPlayerForNode);
 
-            if (moves.length === 0) { 
+            if (moves.length === 0) {
                 return {
-                    score: this.evaluatePosition(gameState, aiColor), 
+                    score: this.evaluatePosition(gameState, aiColor),
                     move: null,
                     extraTurn: gameState.extraTurn
                 };
@@ -195,7 +195,7 @@ export class VibeChessAI {
             moves.sort((a, b) => this.quickEvaluateMove(gameState, b, currentPlayerForNode) -
                                 this.quickEvaluateMove(gameState, a, currentPlayerForNode));
 
-            let bestMove : AIMove | null = moves[0]; 
+            let bestMove : AIMove | null = moves[0];
             let bestExtraTurn = false;
 
             if (isMaximizingPlayer) {
@@ -210,12 +210,12 @@ export class VibeChessAI {
                         bestExtraTurn = newGameState.extraTurn || false;
                     }
                     alpha = Math.max(alpha, evaluation.score);
-                    if (beta <= alpha) break; 
+                    if (beta <= alpha) break;
                 }
                 const result = { score: maxEval, move: bestMove, depth, extraTurn: bestExtraTurn };
                 if (this.positionCache.size < this.maxCacheSize) this.positionCache.set(positionKey, result);
                 return result;
-            } else { 
+            } else {
                 let minEval = Infinity;
                 for (const move of moves) {
                     const newGameState = this.makeMoveOptimized(gameState, move, currentPlayerForNode);
@@ -227,7 +227,7 @@ export class VibeChessAI {
                         bestExtraTurn = newGameState.extraTurn || false;
                     }
                     beta = Math.min(beta, evaluation.score);
-                    if (beta <= alpha) break; 
+                    if (beta <= alpha) break;
                 }
                 const result = { score: minEval, move: bestMove, depth, extraTurn: bestExtraTurn };
                 if (this.positionCache.size < this.maxCacheSize) this.positionCache.set(positionKey, result);
@@ -235,7 +235,7 @@ export class VibeChessAI {
             }
         } catch (error) {
             console.error("[AI_ERROR] Minimax error:", error, "Depth:", depth, "Maximizing:", isMaximizingPlayer);
-            return { score: isMaximizingPlayer ? -Infinity : Infinity, move: null, extraTurn: false }; 
+            return { score: isMaximizingPlayer ? -Infinity : Infinity, move: null, extraTurn: false };
         }
     }
 
@@ -274,10 +274,11 @@ export class VibeChessAI {
 
         const newState: AIGameState = {
             ...baseStateCopy,
-            board: newBoardForOptimizedMove, 
-            currentPlayer: currentPlayer, 
-            extraTurn: false, 
-            gameMoveCounter: (baseStateCopy.gameMoveCounter || 0) + 1
+            board: newBoardForOptimizedMove,
+            currentPlayer: currentPlayer,
+            extraTurn: false,
+            gameMoveCounter: (baseStateCopy.gameMoveCounter || 0) + 1,
+            enPassantTargetSquare: null, // Will be set if applicable
         };
 
         if (!newState.killStreaks) newState.killStreaks = {white:0, black:0};
@@ -289,50 +290,64 @@ export class VibeChessAI {
 
         const movingPieceSourceSquare = newState.board[fromRow]?.[fromCol];
         if (!movingPieceSourceSquare || !movingPieceSourceSquare.piece) {
-            return newState; 
+            return newState;
         }
-        const movingPieceCopy = { ...movingPieceSourceSquare.piece! }; 
+        const movingPieceCopy = { ...movingPieceSourceSquare.piece! };
 
         let pieceWasCaptured = false;
-        let pieceCapturedByAnvil = false; 
+        let pieceCapturedByAnvil = false;
 
         const targetSquareState = newState.board[toRow]?.[toCol];
         const originalTargetPiece = targetSquareState?.piece ? { ...targetSquareState.piece } : null;
-        const originalTypeOfMovingPiece = movingPieceCopy.type; 
+        const originalTypeOfMovingPiece = movingPieceCopy.type;
         const originalLevelOfMovingPiece = Number(movingPieceCopy.level || 1);
 
-        movingPieceCopy.hasMoved = true; 
+        movingPieceCopy.hasMoved = true;
+
+        // En Passant Target Setting
+        if (movingPieceCopy.type === 'pawn' && Math.abs(fromRow - toRow) === 2) {
+            newState.enPassantTargetSquare = coordsToAlgebraic(fromRow + (movingPieceCopy.color === 'white' ? -1 : 1), fromCol);
+        }
 
 
-        if (move.type === 'capture') {
+        if (move.type === 'enpassant') {
+            if (!originalGameState.enPassantTargetSquare || coordsToAlgebraic(toRow, toCol) !== originalGameState.enPassantTargetSquare) {
+                return newState; // Invalid EP
+            }
+            const capturedPawnRow = movingPieceCopy.color === 'white' ? toRow + 1 : toRow - 1;
+            const capturedPawn = newState.board[capturedPawnRow]?.[toCol]?.piece;
+            if (!capturedPawn || capturedPawn.type !== 'pawn' || capturedPawn.color === movingPieceCopy.color) {
+                return newState; // Invalid EP target
+            }
+            newState.capturedPieces[currentPlayer].push({ ...capturedPawn });
+            newState.board[capturedPawnRow][toCol].piece = null;
+            pieceWasCaptured = true;
+            movingPieceCopy.type = 'infiltrator'; // Promote to infiltrator
+            movingPieceCopy.id = `${movingPieceCopy.id}_infiltrator_AI`;
+            // Level is retained + bonus from capture below
+        } else if (move.type === 'capture') {
             if (!originalTargetPiece || originalTargetPiece.color === movingPieceCopy.color || this.isPieceInvulnerableToAttack(originalTargetPiece, movingPieceCopy) || targetSquareState?.item) {
-                return newState; 
+                return newState;
             }
             pieceWasCaptured = true;
             newState.capturedPieces[currentPlayer].push(originalTargetPiece);
             const levelBonus = this.captureLevelBonuses[originalTargetPiece.type as PieceType] || 1;
             const currentLevel = Number(movingPieceCopy.level || 1);
             let newCalculatedLevel = currentLevel + levelBonus;
-            if (movingPieceCopy.type === 'queen') { 
+            if (movingPieceCopy.type === 'queen') {
                  newCalculatedLevel = Math.min(newCalculatedLevel, 7);
             }
             movingPieceCopy.level = newCalculatedLevel;
-
-
-            newState.board[toRow][toCol].piece = movingPieceCopy;
-            newState.board[fromRow][fromCol].piece = null;
         } else if (move.type === 'move') {
-            if (originalTargetPiece || targetSquareState?.item) { 
+            if (originalTargetPiece || targetSquareState?.item) {
                 return newState;
             }
-            newState.board[toRow][toCol].piece = movingPieceCopy;
-            newState.board[fromRow][fromCol].piece = null;
         } else if (move.type === 'promotion') {
-            if (targetSquareState?.item) { 
+            if (targetSquareState?.item) {
                 return newState;
             }
- 
-            let newPieceLevel = 1; 
+
+            let newPieceLevel = 1;
             if (originalTypeOfMovingPiece === 'pawn' || originalTypeOfMovingPiece === 'commander') {
                  newPieceLevel = originalLevelOfMovingPiece;
             }
@@ -346,43 +361,39 @@ export class VibeChessAI {
             } else if (originalTargetPiece && originalTargetPiece.color === movingPieceCopy.color) {
                 return newState;
             }
-            if (movingPieceCopy.type === 'commander') { 
+            if (movingPieceCopy.type === 'commander') {
                 movingPieceCopy.type = 'hero';
                 movingPieceCopy.id = `${movingPieceCopy.id}_HeroPromo_AI`;
-                movingPieceCopy.level = newPieceLevel; 
+                movingPieceCopy.level = newPieceLevel;
                 if (originalLevelOfMovingPiece >= 5) {
                     newState.extraTurn = true;
                 }
-            } else { 
-                movingPieceCopy.type = move.promoteTo || 'queen'; 
-                movingPieceCopy.level = (movingPieceCopy.type === 'queen') ? Math.min(newPieceLevel, 7) : newPieceLevel; 
+            } else {
+                movingPieceCopy.type = move.promoteTo || 'queen';
+                movingPieceCopy.level = (movingPieceCopy.type === 'queen') ? Math.min(newPieceLevel, 7) : newPieceLevel;
                 if (originalLevelOfMovingPiece >= 5) {
                     newState.extraTurn = true;
                 }
             }
-
-
-            newState.board[toRow][toCol].piece = movingPieceCopy;
-            newState.board[fromRow][fromCol].piece = null;
         } else if (move.type === 'castle') {
             const isKingside = toCol > fromCol;
             const rookFromColCastle = isKingside ? 7 : 0;
-            const rookToColCastle = isKingside ? toCol - 1 : toCol + 1; 
+            const rookToColCastle = isKingside ? toCol - 1 : toCol + 1;
             const rookSourceSquareState = newState.board[fromRow]?.[rookFromColCastle];
             const rook = rookSourceSquareState?.piece;
             if (!rook || rook.type !== 'rook' || rook.hasMoved || movingPieceCopy.hasMoved) {
-                 return newState; 
+                 return newState;
             }
 
             newState.board[toRow][toCol].piece = { ...movingPieceCopy, hasMoved: true };
             if (newState.board[fromRow]?.[rookToColCastle]) {
                 newState.board[fromRow][rookToColCastle].piece = { ...rook, hasMoved: true };
             }
-            newState.board[fromRow][fromCol].piece = null; 
+            newState.board[fromRow][fromCol].piece = null;
             if(newState.board[fromRow]?.[rookFromColCastle]) {
-                newState.board[fromRow][rookFromColCastle].piece = null; 
+                newState.board[fromRow][rookFromColCastle].piece = null;
             }
-        } else if (move.type === 'self-destruct' && (movingPieceCopy.type === 'knight' || movingPieceCopy.type === 'hero') && (Number(movingPieceCopy.level || 1)) >= 5) { 
+        } else if (move.type === 'self-destruct' && (movingPieceCopy.type === 'knight' || movingPieceCopy.type === 'hero') && (Number(movingPieceCopy.level || 1)) >= 5) {
             let destroyedCount = 0;
             for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                 if (dr === 0 && dc === 0) continue;
@@ -390,7 +401,7 @@ export class VibeChessAI {
                 if (this.isValidSquareAI(adjR, adjC)) {
                     const victimSquareState = newState.board[adjR]?.[adjC];
                     const victim = victimSquareState?.piece;
-                    if (victimSquareState?.item?.type === 'anvil') continue; 
+                    if (victimSquareState?.item?.type === 'anvil') continue;
 
                     if (victim && victim.color !== currentPlayer && victim.type !== 'king' && !this.isPieceInvulnerableToAttack(victim, movingPieceCopy)) {
                         newState.capturedPieces[currentPlayer].push({ ...victim });
@@ -399,12 +410,12 @@ export class VibeChessAI {
                     }
                 }
             }
-            newState.board[fromRow][fromCol].piece = null; 
-            if (destroyedCount > 0) pieceWasCaptured = true; 
+            newState.board[fromRow][fromCol].piece = null;
+            if (destroyedCount > 0) pieceWasCaptured = true;
         } else if (move.type === 'swap') {
             const targetPieceForSwapSquareState = newState.board[toRow]?.[toCol];
             const targetPieceForSwap = targetPieceForSwapSquareState?.piece;
-            if (targetPieceForSwapSquareState?.item) return newState; 
+            if (targetPieceForSwapSquareState?.item) return newState;
             const movingPieceLevelForSwap = Number(movingPieceCopy.level || 1);
             if (!targetPieceForSwap || targetPieceForSwap.color !== movingPieceCopy.color ||
                 !(((movingPieceCopy.type === 'knight' || movingPieceCopy.type === 'hero') && targetPieceForSwap.type === 'bishop' && (typeof movingPieceLevelForSwap === 'number' && !isNaN(movingPieceLevelForSwap) && movingPieceLevelForSwap >= 4)) ||
@@ -412,17 +423,21 @@ export class VibeChessAI {
                 return newState;
             }
             newState.board[toRow][toCol].piece = { ...movingPieceCopy, hasMoved: true };
-            newState.board[fromRow][fromCol].piece = { ...targetPieceForSwap, hasMoved: targetPieceForSwap.hasMoved || true }; 
+            newState.board[fromRow][fromCol].piece = { ...targetPieceForSwap, hasMoved: targetPieceForSwap.hasMoved || true };
         }
+
+        newState.board[fromRow][fromCol].piece = null; // Clear original square
+        newState.board[toRow][toCol].piece = movingPieceCopy; // Place moved/promoted piece
+
         const pieceOnToSquare = newState.board[toRow]?.[toCol]?.piece;
-        if (pieceOnToSquare && pieceOnToSquare.id === movingPieceCopy.id) { 
+        if (pieceOnToSquare && pieceOnToSquare.id === movingPieceCopy.id) {
 
             if (pieceWasCaptured) {
                 if (originalTypeOfMovingPiece === 'pawn' && originalTargetPiece && originalTargetPiece.type === 'commander') {
                     pieceOnToSquare.type = 'commander';
                     pieceOnToSquare.id = `${pieceOnToSquare.id}_CmdrByCapture_AI`;
                 }
-                if (newState.killStreaks && !originalGameState.firstBloodAchieved) { 
+                if (newState.killStreaks && !originalGameState.firstBloodAchieved) {
                     newState.firstBloodAchieved = true;
                     newState.playerWhoGotFirstBlood = currentPlayer;
                 }
@@ -453,7 +468,7 @@ export class VibeChessAI {
             if ((pieceOnToSquare.type === 'pawn' || pieceOnToSquare.type === 'commander') && (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 4) && (move.type === 'move' || move.type === 'capture')) {
                 const pushResult = this.handlePawnPushBack(newState, toRow, toCol, pieceOnToSquare.color);
                 if (pushResult.pieceCrushedByAnvil) {
-                    pieceCapturedByAnvil = true; 
+                    pieceCapturedByAnvil = true;
                 }
             }
             if (pieceOnToSquare.type === 'bishop' && (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 5) && (move.type === 'move' || move.type === 'capture')) {
@@ -461,7 +476,7 @@ export class VibeChessAI {
             }
             if (pieceOnToSquare.type === 'rook' &&
                 (typeof pieceOnToSquareActualLevel === 'number' && !isNaN(pieceOnToSquareActualLevel) && pieceOnToSquareActualLevel >= 4) &&
-                pieceOnToSquareActualLevel > originalLevelOfMovingPiece 
+                pieceOnToSquareActualLevel > originalLevelOfMovingPiece
             ) {
                 this.handleResurrection(newState, currentPlayer);
             }
@@ -470,9 +485,9 @@ export class VibeChessAI {
                 const queenCurrentLevelAI = Number(pieceOnToSquare.level || 1);
                 let triggerAISacrifice = false;
                 if (queenCurrentLevelAI === 7) {
-                    if (move.type === 'promotion' && (move.promoteTo === 'queen' || (originalTypeOfMovingPiece === 'commander' && pieceOnToSquare.type === 'queen'))) { 
+                    if (move.type === 'promotion' && (move.promoteTo === 'queen' || (originalTypeOfMovingPiece === 'commander' && pieceOnToSquare.type === 'queen'))) {
                         triggerAISacrifice = true;
-                    } else if (move.type !== 'promotion' && originalTypeOfMovingPiece === 'queen' && originalLevelOfMovingPiece < 7) { 
+                    } else if (move.type !== 'promotion' && originalTypeOfMovingPiece === 'queen' && originalLevelOfMovingPiece < 7) {
                         triggerAISacrifice = true;
                     }
                 }
@@ -484,9 +499,9 @@ export class VibeChessAI {
                             const p_square_state = newState.board[r_sac]?.[c_sac];
                             const p = p_square_state?.piece;
                             if (p && (p.type === 'pawn' || p.type === 'commander') && p.color === currentPlayer) {
-                                if(p_square_state) p_square_state.piece = null; 
+                                if(p_square_state) p_square_state.piece = null;
                                 const opponentColorForSac = currentPlayer === 'white' ? 'black' : 'white';
-                                newState.capturedPieces[opponentColorForSac].push({...p, id: `${p.id}_sac_AI_${Date.now()}`}); 
+                                newState.capturedPieces[opponentColorForSac].push({...p, id: `${p.id}_sac_AI_${Date.now()}`});
                                 pawnSacrificed = true;
                                 break;
                             }
@@ -495,7 +510,7 @@ export class VibeChessAI {
                     }
                 }
             }
-             if (pieceOnToSquare.type === 'king' && pieceOnToSquare.level > originalLevelOfMovingPiece) { 
+             if (pieceOnToSquare.type === 'king' && pieceOnToSquare.level > originalLevelOfMovingPiece) {
               const levelsGainedByKing = pieceOnToSquare.level - originalLevelOfMovingPiece;
               if (levelsGainedByKing > 0) {
                 const kingColor = pieceOnToSquare.color;
@@ -511,20 +526,31 @@ export class VibeChessAI {
               }
             }
         }
+        // Infiltration Win Check for AI
+        if (pieceOnToSquare?.type === 'infiltrator') {
+            const backRank = pieceOnToSquare.color === 'white' ? 0 : 7;
+            if (toRow === backRank) {
+                newState.gameOver = true;
+                newState.winner = currentPlayer;
+                // No extraTurn for infiltration win
+            }
+        }
+
+
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
-        if (pieceWasCaptured || pieceCapturedByAnvil) { 
+        if (pieceWasCaptured || pieceCapturedByAnvil) {
             newState.killStreaks[currentPlayer] = (newState.killStreaks[currentPlayer] || 0) + (move.type === 'self-destruct' ? (newState.capturedPieces[currentPlayer].length - (originalGameState.capturedPieces[currentPlayer]?.length || 0)) : 1);
-            newState.killStreaks[opponentColor] = 0; 
-             if (newState.killStreaks[currentPlayer] === 3) { 
+            newState.killStreaks[opponentColor] = 0;
+             if (newState.killStreaks[currentPlayer] === 3) {
                  this.handleResurrection(newState, currentPlayer);
             }
             if (newState.killStreaks[currentPlayer] === 6) newState.extraTurn = true;
-        } else { 
+        } else {
             newState.killStreaks[currentPlayer] = 0;
         }
         if (newState.firstBloodAchieved && newState.playerWhoGotFirstBlood === currentPlayer && !newState.board.flat().some(sq => sq.piece?.type === 'commander' && sq.piece.color === currentPlayer)) {
             const pieceThatMovedIsNowCommander = newState.board[toRow]?.[toCol]?.piece?.type === 'commander';
-            if (!pieceThatMovedIsNowCommander) { 
+            if (!pieceThatMovedIsNowCommander) {
                 const commanderPawnCoords = this.selectPawnForCommanderPromotion(newState);
                 if (commanderPawnCoords) {
                     const [pawnR, pawnC] = commanderPawnCoords;
@@ -547,21 +573,21 @@ export class VibeChessAI {
             }
             if (emptySquaresForAnvil.length > 0) {
                 const [anvilR, anvilC] = emptySquaresForAnvil[Math.floor(Math.random() * emptySquaresForAnvil.length)];
-                if(newState.board[anvilR]?.[anvilC]) { 
+                if(newState.board[anvilR]?.[anvilC]) {
                     newState.board[anvilR][anvilC].item = { type: 'anvil' };
                 }
             }
         }
-        if (!newState.extraTurn) {
+        if (!newState.gameOver && !newState.extraTurn) { // Check gameOver before switching player
             newState.currentPlayer = opponentColor;
-        } else {
-            newState.currentPlayer = currentPlayer; 
-            if (this.isInCheck(newState, opponentColor)) { 
+        } else if (!newState.gameOver && newState.extraTurn) {
+            newState.currentPlayer = currentPlayer;
+            if (this.isInCheck(newState, opponentColor, true)) {
                 const opponentMoves = this.generateAllMoves(newState, opponentColor);
-                if (opponentMoves.length === 0) { 
+                if (opponentMoves.length === 0) {
                     newState.gameOver = true;
                     newState.winner = currentPlayer;
-                    newState.autoCheckmate = true; 
+                    newState.autoCheckmate = true;
                 }
             }
         }
@@ -585,29 +611,29 @@ export class VibeChessAI {
                         const pushToC = adjC + dc;
 
                         if (isEntityAnvil) {
-                            if (!this.isValidSquareAI(pushToR, pushToC)) { 
+                            if (!this.isValidSquareAI(pushToR, pushToC)) {
                                 adjSquareState.item = null;
                             } else {
                                 const destSquareStateAnvil = newState.board[pushToR]?.[pushToC];
                                 if (!destSquareStateAnvil) continue;
                                 if (destSquareStateAnvil.item?.type === 'anvil') {  }
                                 else if (destSquareStateAnvil.piece && destSquareStateAnvil.piece.type !== 'king') {
-                                    newState.capturedPieces[pawnColor].push({...destSquareStateAnvil.piece, id: `${destSquareStateAnvil.piece.id}_anvilcrush_${Date.now()}`}); 
+                                    newState.capturedPieces[pawnColor].push({...destSquareStateAnvil.piece, id: `${destSquareStateAnvil.piece.id}_anvilcrush_${Date.now()}`});
                                     destSquareStateAnvil.piece = null;
                                     destSquareStateAnvil.item = { type: 'anvil' };
                                     adjSquareState.item = null;
                                     pieceCrushed = true;
                                 } else if (destSquareStateAnvil.piece && destSquareStateAnvil.piece.type === 'king') {  }
-                                else { 
+                                else {
                                     destSquareStateAnvil.item = { type: 'anvil' };
                                     adjSquareState.item = null;
                                 }
                             }
-                        } else { 
+                        } else {
                             if (this.isValidSquareAI(pushToR, pushToC)) {
                                 const destSquareStatePiece = newState.board[pushToR]?.[pushToC];
                                 if (!destSquareStatePiece) continue;
-                                if (!destSquareStatePiece.piece && !destSquareStatePiece.item) { 
+                                if (!destSquareStatePiece.piece && !destSquareStatePiece.item) {
                                     destSquareStatePiece.piece = { ...adjSquareState.piece! };
                                     adjSquareState.piece = null;
                                 }
@@ -622,7 +648,7 @@ export class VibeChessAI {
     handleBishopConversion(newState: AIGameState, bishopRow: number, bishopCol: number, bishopColor: PlayerColor) {
         const bishopSquareState = newState.board[bishopRow]?.[bishopCol];
         const bishop = bishopSquareState?.piece;
-        if(!bishop || (bishop.type !== 'bishop' && bishop.type !== 'commander') || bishop.color !== bishopColor) return; 
+        if(!bishop || (bishop.type !== 'bishop' && bishop.type !== 'hero') || bishop.color !== bishopColor) return; // Hero can also convert
 
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
@@ -631,10 +657,10 @@ export class VibeChessAI {
                 const adjC = bishopCol + dc;
                 if (this.isValidSquareAI(adjR, adjC)) {
                     const targetSquareState = newState.board[adjR]?.[adjC];
-                    if (!targetSquareState || targetSquareState.item) continue; 
+                    if (!targetSquareState || targetSquareState.item) continue;
                     const targetPiece = targetSquareState.piece;
-                    if (targetPiece && targetPiece.color !== bishopColor && targetPiece.type !== 'king') { 
-                         if (Math.random() < 0.5) { 
+                    if (targetPiece && targetPiece.color !== bishopColor && targetPiece.type !== 'king') {
+                         if (Math.random() < 0.5) {
                             targetSquareState.piece = { ...targetPiece, color: bishopColor, id: `conv_${targetPiece.id}_${Date.now()}` };
                          }
                     }
@@ -643,7 +669,7 @@ export class VibeChessAI {
         }
     }
     shouldConvertPiece(row: number, col: number): boolean {
-        return true; 
+        return true;
     }
     handleResurrection(newState: AIGameState, currentPlayer: PlayerColor) {
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
@@ -659,12 +685,11 @@ export class VibeChessAI {
         }
 
         if (emptySquares.length > 0) {
-            const backRank = currentPlayer === 'white' ? 7 : 0;
             let preferredResSquares = emptySquares.filter(([r_sq,c_sq]) => {
-                 if (currentPlayer === 'white') return r_sq >= 4 && r_sq < 7; 
-                 return r_sq <= 3 && r_sq > 0; 
+                 if (currentPlayer === 'white') return r_sq >= 4 && r_sq < 7;
+                 return r_sq <= 3 && r_sq > 0;
             });
-            if (preferredResSquares.length === 0) preferredResSquares = emptySquares; 
+            if (preferredResSquares.length === 0) preferredResSquares = emptySquares;
 
             let resRow, resCol;
             if (preferredResSquares.length > 2) {
@@ -682,13 +707,15 @@ export class VibeChessAI {
                 const promotionRank = currentPlayer === 'white' ? 0 : 7;
                 const resurrectedPieceOnBoardSquareState = newState.board[resRow]?.[resCol];
                 if (resurrectedPieceOnBoardSquareState?.piece?.type === 'pawn' && resRow === promotionRank) {
-                    resurrectedPieceOnBoardSquareState.piece.type = 'queen'; 
-                    resurrectedPieceOnBoardSquareState.piece.level = 1; 
+                    resurrectedPieceOnBoardSquareState.piece.type = 'queen';
+                    resurrectedPieceOnBoardSquareState.piece.level = 1;
                     resurrectedPieceOnBoardSquareState.piece.id = `${resurrectedPiece.id}_resPromo_Q`;
                 } else if (resurrectedPieceOnBoardSquareState?.piece?.type === 'commander' && resRow === promotionRank) {
                     resurrectedPieceOnBoardSquareState.piece.type = 'hero';
                     resurrectedPieceOnBoardSquareState.piece.id = `${resurrectedPiece.id}_resPromo_H`;
-                    // Level is retained from original resurrected piece (which was set to 1)
+                } else if (resurrectedPieceOnBoardSquareState?.piece?.type === 'infiltrator' && resRow === promotionRank) {
+                    newState.gameOver = true; // Infiltration win for AI
+                    newState.winner = currentPlayer;
                 }
             }
         }
@@ -702,12 +729,17 @@ export class VibeChessAI {
 
     evaluatePosition(gameState: AIGameState, aiColor: PlayerColor): number {
         let score = 0;
-        if (!gameState || !gameState.board) return 0; 
+        if (!gameState || !gameState.board) return 0;
 
-        if (this.isGameOver(gameState)) { 
-            if (gameState.winner === aiColor) return gameState.autoCheckmate ? 250000 : 200000; 
+        if (this.isGameOver(gameState)) {
+            if (gameState.winner === aiColor) {
+                if (gameState.board.some(row => row.some(sq => sq.piece?.type === 'infiltrator' && sq.piece.color === aiColor && ( (aiColor === 'white' && sq.rowIndex === 0) || (aiColor === 'black' && sq.rowIndex === 7) ) ))) {
+                    return 500000; // Infiltration win is very high score
+                }
+                return gameState.autoCheckmate ? 250000 : 200000;
+            }
             if (gameState.winner === (aiColor === 'white' ? 'black' : 'white')) return gameState.autoCheckmate ? -250000 : -200000;
-            return 0; 
+            return 0;
         }
 
         score += this.evaluateMaterial(gameState, aiColor);
@@ -715,8 +747,8 @@ export class VibeChessAI {
         score += this.evaluateKingSafety(gameState, aiColor);
         score += this.evaluateKillStreaks(gameState, aiColor);
         score += this.evaluateSpecialAbilitiesAndLevels(gameState, aiColor);
-        score += this.evaluateAnvils(gameState, aiColor); 
-        if (gameState.extraTurn && gameState.currentPlayer === aiColor) score += 75; 
+        score += this.evaluateAnvils(gameState, aiColor);
+        if (gameState.extraTurn && gameState.currentPlayer === aiColor) score += 75;
         return score;
     }
 
@@ -731,10 +763,10 @@ export class VibeChessAI {
                 const square = gameState.board[r]?.[c];
                 if (square && square.item?.type === 'anvil') {
                     if (aiKingPos && Math.abs(r - aiKingPos.row) <= 2 && Math.abs(c - aiKingPos.col) <= 2) {
-                        anvilScore += this.positionalBonuses.anvilMalus; 
+                        anvilScore += this.positionalBonuses.anvilMalus;
                     }
                     if (oppKingPos && Math.abs(r - oppKingPos.row) <= 2 && Math.abs(c - oppKingPos.col) <= 2) {
-                        anvilScore -= this.positionalBonuses.anvilMalus; 
+                        anvilScore -= this.positionalBonuses.anvilMalus;
                     }
                 }
             }
@@ -748,7 +780,7 @@ export class VibeChessAI {
         if (!squareState) return false;
         const piece = squareState.piece;
         if(piece && piece.color === aiColor) {
-            if((piece.type === 'pawn' || piece.type === 'commander') && ((aiColor === 'white' && r < 6) || (aiColor === 'black' && r > 1))) return true;
+            if((piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') && ((aiColor === 'white' && r < 6) || (aiColor === 'black' && r > 1))) return true;
             if((piece.type === 'knight' || piece.type === 'bishop' || piece.type === 'hero') && !piece.hasMoved) return true;
         }
         return false;
@@ -764,13 +796,13 @@ export class VibeChessAI {
                 if (piece) {
                     const currentPieceLevel = Number(piece.level || 1);
                     const pieceLevelValues = this.pieceValues[piece.type];
-                    if (!pieceLevelValues) continue; 
+                    if (!pieceLevelValues) continue;
                     const levelForEval = piece.type === 'queen' ? Math.min(currentPieceLevel, 7) : currentPieceLevel;
-                    const effectiveLevelForArrayIndex = Math.max(1, levelForEval); 
+                    const effectiveLevelForArrayIndex = Math.max(1, levelForEval);
                     const valueIndex = Math.min(effectiveLevelForArrayIndex - 1, pieceLevelValues.length - 1);
                     let value = pieceLevelValues[valueIndex] || 0;
                     if ((piece.type !== 'queen' && piece.type !== 'king') && effectiveLevelForArrayIndex > pieceLevelValues.length) {
-                        value = pieceLevelValues[pieceLevelValues.length - 1] + (effectiveLevelForArrayIndex - pieceLevelValues.length) * 20; 
+                        value = pieceLevelValues[pieceLevelValues.length - 1] + (effectiveLevelForArrayIndex - pieceLevelValues.length) * 20;
                     }
                     materialScore += (piece.color === aiColor ? value : -value);
                 }
@@ -788,7 +820,7 @@ export class VibeChessAI {
                 const piece = squareState.piece;
                 if (piece) {
                     const multiplier = piece.color === aiColor ? 1 : -1;
-                    const rcKey = `${r}${c}`; 
+                    const rcKey = `${r}${c}`;
                     if (this.centerSquares.has(rcKey)) {
                         positionalScore += this.positionalBonuses.center * multiplier;
                     } else if (this.nearCenterSquares.has(rcKey)) {
@@ -796,7 +828,7 @@ export class VibeChessAI {
                     }
                     if ((piece.type === 'knight' || piece.type === 'bishop' || piece.type === 'hero') && !piece.hasMoved) {
                         if ((gameState.gameMoveCounter || 0) > 4 && ((piece.color === 'white' && r === 7) || (piece.color === 'black' && r === 0))) {
-                           positionalScore -= this.positionalBonuses.development * multiplier * 0.5; 
+                           positionalScore -= this.positionalBonuses.development * multiplier * 0.5;
                         } else if (!((piece.color === 'white' && r === 7) || (piece.color === 'black' && r === 0))) {
                            positionalScore += this.positionalBonuses.development * multiplier;
                         }
@@ -804,7 +836,7 @@ export class VibeChessAI {
                     if (piece.type === 'pawn' || piece.type === 'commander') {
                         const promotionRank = piece.color === 'white' ? 0 : 7;
                         const distanceToPromotion = Math.abs(r - promotionRank);
-                        positionalScore += (6 - distanceToPromotion) * this.positionalBonuses.pawnStructure * multiplier; 
+                        positionalScore += (6 - distanceToPromotion) * this.positionalBonuses.pawnStructure * multiplier;
                         let isIsolated = true;
                         let isDoubled = false;
                         for(let dr_pawn = -1; dr_pawn <=1; dr_pawn++){
@@ -812,7 +844,7 @@ export class VibeChessAI {
                             const row_pawn_check = gameState.board[r+dr_pawn]?.[c];
                             if(row_pawn_check && row_pawn_check.piece?.type === piece.type && row_pawn_check.piece?.color === piece.color) isDoubled = true;
                         }
-                        for(let dc_pawn = -1; dc_pawn <=1; dc_pawn+=2){ 
+                        for(let dc_pawn = -1; dc_pawn <=1; dc_pawn+=2){
                              for(let r_check_pawn = 0; r_check_pawn<8; r_check_pawn++){
                                 const adjacent_file_pawn_check = gameState.board[r_check_pawn]?.[c+dc_pawn];
                                 if(adjacent_file_pawn_check && adjacent_file_pawn_check.piece?.type === piece.type && adjacent_file_pawn_check.piece?.color === piece.color){
@@ -821,8 +853,13 @@ export class VibeChessAI {
                              }
                              if(!isIsolated) break;
                         }
-                        if(isIsolated) positionalScore -= 3 * multiplier; 
-                        if(isDoubled) positionalScore -= 2 * multiplier; 
+                        if(isIsolated) positionalScore -= 3 * multiplier;
+                        if(isDoubled) positionalScore -= 2 * multiplier;
+                    }
+                    if (piece.type === 'infiltrator') {
+                        const backRank = piece.color === 'white' ? 0 : 7;
+                        const distanceToBackRank = Math.abs(r - backRank);
+                        positionalScore += (7 - distanceToBackRank) * this.positionalBonuses.infiltratorAdvance * multiplier;
                     }
                 }
             }
@@ -836,11 +873,11 @@ export class VibeChessAI {
         const opponentColor = aiColor === 'white' ? 'black' : 'white';
 
         if (kingPos) {
-            if (this.isInCheck(gameState, aiColor, true)) { 
-                safetyScore -= 200; 
+            if (this.isInCheck(gameState, aiColor, true)) {
+                safetyScore -= 200;
             }
             let pawnShields = 0;
-            const shieldDeltas = aiColor === 'white' ? [[-1,-1],[-1,0],[-1,1]] : [[1,-1],[1,0],[1,1]]; 
+            const shieldDeltas = aiColor === 'white' ? [[-1,-1],[-1,0],[-1,1]] : [[1,-1],[1,0],[1,1]];
             for(const [dr_s, dc_s] of shieldDeltas) {
                 const shieldR = kingPos.row + dr_s;
                 const shieldC = kingPos.col + dc_s;
@@ -856,10 +893,10 @@ export class VibeChessAI {
         }
         const opponentKingPos = this.findKing(gameState, opponentColor);
         if (opponentKingPos) {
-            if (this.isInCheck(gameState, opponentColor, true)) { 
-                safetyScore += 100; 
+            if (this.isInCheck(gameState, opponentColor, true)) {
+                safetyScore += 100;
             }
-             safetyScore += this.countDirectThreats(gameState, opponentKingPos.row, opponentKingPos.col, aiColor, true) * 10; 
+             safetyScore += this.countDirectThreats(gameState, opponentKingPos.row, opponentKingPos.col, aiColor, true) * 10;
         }
         return safetyScore;
     }
@@ -877,7 +914,7 @@ export class VibeChessAI {
                     if (piece.type === 'queen' || piece.type === 'bishop') {
                         if (Math.abs(r - kingRow) === Math.abs(c - kingCol)) threats++;
                     }
-                    if (piece.type === 'knight' || piece.type === 'hero') { 
+                    if (piece.type === 'knight' || piece.type === 'hero') {
                         if ((Math.abs(r - kingRow) === 2 && Math.abs(c - kingCol) === 1) || (Math.abs(r - kingRow) === 1 && Math.abs(c - kingCol) === 2)) threats++;
                     }
                 }
@@ -888,14 +925,14 @@ export class VibeChessAI {
 
     evaluateKillStreaks(gameState: AIGameState, aiColor: PlayerColor): number {
         let streakScore = 0;
-        const ks = gameState.killStreaks || {white:0, black:0}; 
+        const ks = gameState.killStreaks || {white:0, black:0};
         const aiPlayerStreak = ks[aiColor] || 0;
         const opponentColor = aiColor === 'white' ? 'black' : 'white';
         const opponentPlayerStreak = ks[opponentColor] || 0;
         if (aiPlayerStreak >= 2) streakScore += 10 * aiPlayerStreak;
-        if (aiPlayerStreak === 3) streakScore += 50; 
-        if (aiPlayerStreak >= 5) streakScore += 25; 
-        if (aiPlayerStreak === 6) streakScore += 150; 
+        if (aiPlayerStreak === 3) streakScore += 50;
+        if (aiPlayerStreak >= 5) streakScore += 25;
+        if (aiPlayerStreak === 6) streakScore += 150;
         if (opponentPlayerStreak >= 2) streakScore -= 10 * opponentPlayerStreak;
         if (opponentPlayerStreak === 3) streakScore -= 50;
         if (opponentPlayerStreak >= 5) streakScore -= 25;
@@ -914,24 +951,30 @@ export class VibeChessAI {
                     const multiplier = piece.color === aiColor ? 1 : -1;
                     const pieceActualLevel = Number(piece.level || 1);
                     if (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel)) {
-                        abilitiesScore += (pieceActualLevel -1) * 15 * multiplier; 
-                        if (piece.type === 'queen' && pieceActualLevel === 7) { 
+                        abilitiesScore += (pieceActualLevel -1) * 15 * multiplier;
+                        if (piece.type === 'queen' && pieceActualLevel === 7) {
                             abilitiesScore += 70 * multiplier;
                         }
-                        if (piece.type === 'bishop' && pieceActualLevel >= 3){ 
+                        if (piece.type === 'bishop' && pieceActualLevel >= 3){
                             abilitiesScore += 25 * multiplier;
                         }
                          if (piece.type === 'pawn' || piece.type === 'commander') {
                             const promotionRank = piece.color === 'white' ? 0 : 7;
                             const distanceToPromotion = Math.abs(r - promotionRank);
-                             abilitiesScore += (7 - distanceToPromotion) * 8 * multiplier; 
-                             if (pieceActualLevel >= 5) abilitiesScore += 30 * multiplier; 
+                             abilitiesScore += (7 - distanceToPromotion) * 8 * multiplier;
+                             if (pieceActualLevel >= 5) abilitiesScore += 30 * multiplier;
                          }
                          if (piece.type === 'commander') {
-                            abilitiesScore += 40 * multiplier; 
+                            abilitiesScore += 40 * multiplier;
                          }
                          if (piece.type === 'hero') {
-                             abilitiesScore += 100 * multiplier; 
+                             abilitiesScore += 100 * multiplier;
+                         }
+                         if (piece.type === 'infiltrator') {
+                            const backRank = piece.color === 'white' ? 0 : 7;
+                            if (Math.abs(r - backRank) <= 1) { // Very close to win
+                                abilitiesScore += 200 * multiplier;
+                            }
                          }
                     }
                 }
@@ -947,7 +990,7 @@ export class VibeChessAI {
         if (targetPiece.type === 'queen' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 7 && (typeof attackerActualLevel !== 'number' || isNaN(attackerActualLevel) || attackerActualLevel < targetActualLevel)) {
             return true;
         }
-        if (targetPiece.type === 'bishop' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander')) {
+        if (targetPiece.type === 'bishop' && typeof targetActualLevel === 'number' && !isNaN(targetActualLevel) && targetActualLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander' || attackingPiece.type === 'infiltrator')) {
             return true;
         }
         if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
@@ -1007,7 +1050,7 @@ export class VibeChessAI {
         for (let r = 0; r < 8; r++) {
             const currentRow = gameState.board[r];
             if (!currentRow || !Array.isArray(currentRow)) {
-                continue; 
+                continue;
             }
             for (let c = 0; c < 8; c++) {
                 const squareCell = currentRow[c];
@@ -1023,34 +1066,34 @@ export class VibeChessAI {
             }
         }
         const localGameStateCopyForFilter: AIGameState = {
-            ...originalGameState, 
-            board: newBoardState, 
+            ...originalGameState,
+            board: newBoardState,
             capturedPieces: {
                 white: originalGameState.capturedPieces?.white?.map(p => ({ ...p })) || [],
                 black: originalGameState.capturedPieces?.black?.map(p => ({ ...p })) || [],
             },
-            killStreaks: originalGameState.killStreaks ? { ...originalGameState.killStreaks } : { white: 0, black: 0 } 
+            killStreaks: originalGameState.killStreaks ? { ...originalGameState.killStreaks } : { white: 0, black: 0 }
         };
         const legalMoves = allPossibleMoves.filter(move => {
             try {
                 const tempStateValidationCopy: AIGameState = {
-                    ...localGameStateCopyForFilter, 
-                    board: localGameStateCopyForFilter.board.map(row => row.map(square => ({ 
+                    ...localGameStateCopyForFilter,
+                    board: localGameStateCopyForFilter.board.map(row => row.map(square => ({
                         piece: square.piece ? { ...square.piece } : null,
                         item: square.item ? { ...square.item } : null,
                     }))),
-                    capturedPieces: { 
+                    capturedPieces: {
                         white: localGameStateCopyForFilter.capturedPieces?.white?.map(p => ({ ...p })) || [],
                         black: localGameStateCopyForFilter.capturedPieces?.black?.map(p => ({ ...p })) || [],
                     },
                     killStreaks: localGameStateCopyForFilter.killStreaks ? { ...localGameStateCopyForFilter.killStreaks } : { white: 0, black: 0 },
-                    currentPlayer: color 
+                    currentPlayer: color
                 };
                 const tempState = this.makeMoveOptimized(tempStateValidationCopy, move, color);
-                return !this.isInCheck(tempState, color, true); 
+                return !this.isInCheck(tempState, color, true);
             } catch (e) {
                 aiLog("Error during legal move filtering:", undefined, null, e, move);
-                return false; 
+                return false;
             }
         });
         return legalMoves;
@@ -1059,9 +1102,10 @@ export class VibeChessAI {
         const moves: AIMove[] = [];
         switch (piece.type) {
             case 'pawn':      this.addPawnMoves(moves, gameState, row, col, piece);   break;
-            case 'commander': this.addPawnMoves(moves, gameState, row, col, piece);   break; 
+            case 'commander': this.addPawnMoves(moves, gameState, row, col, piece);   break;
+            case 'infiltrator':this.addInfiltratorMoves(moves, gameState, row, col, piece); break;
             case 'knight':    this.addKnightMoves(moves, gameState, row, col, piece); break;
-            case 'hero':      this.addKnightMoves(moves, gameState, row, col, piece); break; 
+            case 'hero':      this.addKnightMoves(moves, gameState, row, col, piece); break;
             case 'bishop':    this.addSlidingMoves(moves, gameState, row, col, piece, this.directions.bishop); break;
             case 'rook':      this.addSlidingMoves(moves, gameState, row, col, piece, this.directions.rook);   break;
             case 'queen':     this.addSlidingMoves(moves, gameState, row, col, piece, this.directions.queen);  break;
@@ -1078,7 +1122,7 @@ export class VibeChessAI {
         }
         if (((piece.type === 'knight' || piece.type === 'hero') && typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >= 4) ||
             (piece.type === 'bishop' && typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >= 4)) {
-            const targetTypeForSwap = (piece.type === 'knight' || piece.type === 'hero') ? 'bishop' : (piece.type === 'bishop' ? 'knight' : null); 
+            const targetTypeForSwap = (piece.type === 'knight' || piece.type === 'hero') ? 'bishop' : (piece.type === 'bishop' ? 'knight' : null);
             if (targetTypeForSwap) {
                 for (let R_idx = 0; R_idx < 8; R_idx++) {
                     for (let C_idx = 0; C_idx < 8; C_idx++) {
@@ -1094,7 +1138,7 @@ export class VibeChessAI {
     }
 
     addPawnMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
-        const dir = piece.color === 'white' ? -1 : 1; 
+        const dir = piece.color === 'white' ? -1 : 1;
         const startRow = piece.color === 'white' ? 6 : 1;
         const promotionRank = piece.color === 'white' ? 0 : 7;
         const levelPawn = Number(piece.level || 1);
@@ -1102,18 +1146,18 @@ export class VibeChessAI {
         const r_plus_dir = r + dir;
         if (this.isValidSquareAI(r_plus_dir, c)) {
             const forwardSquare = board[r_plus_dir]?.[c];
-            if (forwardSquare && !forwardSquare.piece && !forwardSquare.item ) { 
-                if (r_plus_dir === promotionRank) { 
-                    if (piece.type === 'commander') { 
+            if (forwardSquare && !forwardSquare.piece && !forwardSquare.item ) {
+                if (r_plus_dir === promotionRank) {
+                    if (piece.type === 'commander') {
                         moves.push({ from: [r,c], to: [r_plus_dir, c], type: 'promotion', promoteTo: 'hero' });
-                    } else { 
+                    } else {
                         ['queen', 'rook', 'bishop', 'knight'].forEach(pt => moves.push({ from: [r,c], to: [r_plus_dir, c], type: 'promotion', promoteTo: pt as PieceType }));
                     }
                 } else {
                     moves.push({ from: [r,c], to: [r_plus_dir, c], type: 'move' });
                 }
-                if (r === startRow && !piece.hasMoved && this.isValidSquareAI(r + 2 * dir, c)) { 
-                    const intermediateSquare = board[r_plus_dir]?.[c]; 
+                if (r === startRow && !piece.hasMoved && this.isValidSquareAI(r + 2 * dir, c)) {
+                    const intermediateSquare = board[r_plus_dir]?.[c];
                     const doubleForwardSquare = board[r + 2 * dir]?.[c];
                     if (intermediateSquare && doubleForwardSquare && !intermediateSquare.piece && !intermediateSquare.item && !doubleForwardSquare.piece && !doubleForwardSquare.item ) {
                         moves.push({ from: [r,c], to: [r + 2 * dir, c], type: 'move' });
@@ -1126,14 +1170,14 @@ export class VibeChessAI {
             const capture_c = c + dc_val;
             if (this.isValidSquareAI(capture_r, capture_c)) {
                 const targetSquareState = board[capture_r]?.[capture_c];
-                if (!targetSquareState || targetSquareState.item) return; 
+                if (!targetSquareState || targetSquareState.item) return;
 
                 const targetPiece = targetSquareState.piece;
                 if (targetPiece && targetPiece.color !== piece.color && !this.isPieceInvulnerableToAttack(targetPiece, piece) ) {
                      if (capture_r === promotionRank) {
-                        if (piece.type === 'commander') { 
+                        if (piece.type === 'commander') {
                             moves.push({ from: [r,c], to: [capture_r, capture_c], type: 'promotion', promoteTo: 'hero' });
-                        } else { 
+                        } else {
                             ['queen', 'rook', 'bishop', 'knight'].forEach(pt => moves.push({ from: [r,c], to: [capture_r, capture_c], type: 'promotion', promoteTo: pt as PieceType }));
                         }
                      } else {
@@ -1142,8 +1186,19 @@ export class VibeChessAI {
                 }
             }
         });
+        // En Passant for AI
+        if (gameState.enPassantTargetSquare) {
+            const {row: epR, col: epC} = algebraicToCoords(gameState.enPassantTargetSquare);
+            if (Math.abs(c - epC) === 1 && r + dir === epR) { // Pawn is adjacent to where EP capture would happen
+                const capturedPawnActualRow = piece.color === 'white' ? epR + 1 : epR - 1;
+                if (gameState.board[capturedPawnActualRow]?.[epC]?.piece?.type === 'pawn') {
+                    moves.push({ from: [r,c], to: [epR, epC], type: 'enpassant'});
+                }
+            }
+        }
+
         if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
-            const r_minus_dir = r-dir; 
+            const r_minus_dir = r-dir;
             if (this.isValidSquareAI(r_minus_dir, c)) {
                 const backwardSquare = board[r_minus_dir]?.[c];
                 if (backwardSquare && !backwardSquare.piece && !backwardSquare.item ) {
@@ -1154,7 +1209,7 @@ export class VibeChessAI {
         if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 3) {
             [-1, 1].forEach(dc_side => {
                 const side_c = c + dc_side;
-                if (this.isValidSquareAI(r, side_c)) { 
+                if (this.isValidSquareAI(r, side_c)) {
                     const sideSquare = board[r]?.[side_c];
                     if (sideSquare && !sideSquare.piece && !sideSquare.item ) {
                         moves.push({ from: [r,c], to: [r, side_c], type: 'move' });
@@ -1163,7 +1218,37 @@ export class VibeChessAI {
             });
         }
     }
-    addKnightMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) { 
+
+    addInfiltratorMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
+        const dir = piece.color === 'white' ? -1 : 1;
+        const board = gameState.board;
+
+        // Move forward one square
+        const forwardR = r + dir;
+        if (this.isValidSquareAI(forwardR, c)) {
+            const targetSquareState = board[forwardR]?.[c];
+            if (targetSquareState && !targetSquareState.piece && !targetSquareState.item) {
+                moves.push({ from: [r,c], to: [forwardR, c], type: 'move' });
+            }
+        }
+
+        // Capture diagonally forward one square
+        [-1, 1].forEach(dc_val => {
+            const captureR = r + dir;
+            const captureC = c + dc_val;
+            if (this.isValidSquareAI(captureR, captureC)) {
+                const targetSquareState = board[captureR]?.[captureC];
+                if (targetSquareState && !targetSquareState.item) {
+                    const targetPiece = targetSquareState.piece;
+                    if (targetPiece && targetPiece.color !== piece.color && !this.isPieceInvulnerableToAttack(targetPiece, piece)) {
+                        moves.push({ from: [r,c], to: [captureR, captureC], type: 'capture' });
+                    }
+                }
+            }
+        });
+    }
+
+    addKnightMoves(moves: AIMove[], gameState: AIGameState, r: number, c: number, piece: Piece) {
         const level = Number(piece.level || 1);
         const board = gameState.board;
         this.knightMoves.forEach(([dr, dc]) => {
@@ -1197,7 +1282,7 @@ export class VibeChessAI {
                 const R = r + dr; const C = c + dc;
                  if (this.isValidSquareAI(R, C)) {
                     const targetSquareState = board[R]?.[C];
-                    if (targetSquareState && !targetSquareState.item ) { 
+                    if (targetSquareState && !targetSquareState.item ) {
                         const target = targetSquareState.piece;
                         const mid1R = r + Math.sign(dr); const mid1C = c + Math.sign(dc);
                         const mid2R = r + 2 * Math.sign(dr); const mid2C = c + 2 * Math.sign(dc);
@@ -1221,15 +1306,15 @@ export class VibeChessAI {
         directions.forEach(([dr, dc]) => {
             for (let i = 1; i < 8; i++) {
                 const R = r + i * dr; const C = c + i * dc;
-                if (!this.isValidSquareAI(R, C)) break; 
+                if (!this.isValidSquareAI(R, C)) break;
                 const targetSquareState = board[R]?.[C];
-                if(!targetSquareState || targetSquareState.item) break; 
+                if(!targetSquareState || targetSquareState.item) break;
 
                 const targetPiece = targetSquareState.piece;
-                if (!targetPiece) { 
+                if (!targetPiece) {
                      moves.push({ from: [r,c], to: [R,C], type: 'move' });
-                } else { 
-                    if (targetPiece.color !== piece.color) { 
+                } else {
+                    if (targetPiece.color !== piece.color) {
                         if (!this.isPieceInvulnerableToAttack(targetPiece, piece) ) {
                            moves.push({ from: [r,c], to: [R,C], type: 'capture' });
                         }
@@ -1249,7 +1334,7 @@ export class VibeChessAI {
         const opponentColor = piece.color === 'white' ? 'black' : 'white';
         for (let dr_k = -maxDist; dr_k <= maxDist; dr_k++) {
             for (let dc_k = -maxDist; dc_k <= maxDist; dc_k++) {
-                if (dr_k === 0 && dc_k === 0) continue; 
+                if (dr_k === 0 && dc_k === 0) continue;
                  if (!(dr_k === 0 || dc_k === 0 || Math.abs(dr_k) === Math.abs(dc_k))) {
                     continue;
                 }
@@ -1257,13 +1342,13 @@ export class VibeChessAI {
                 const R_k = r + dr_k; const C_k = c + dc_k;
                 if (this.isValidSquareAI(R_k, C_k)) {
                     const targetSquareKingState = board[R_k]?.[C_k];
-                    if (targetSquareKingState && !targetSquareKingState.item ) { 
+                    if (targetSquareKingState && !targetSquareKingState.item ) {
                         if (maxDist === 2 && (Math.abs(dr_k) === 2 || Math.abs(dc_k) === 2)) {
                             const midR_k = r + Math.sign(dr_k);
                             const midC_k = c + Math.sign(dc_k);
                             if (!this.isValidSquareAI(midR_k, midC_k) || board[midR_k]?.[midC_k]?.piece || board[midR_k]?.[midC_k]?.item ||
-                                this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, true, null, [R_k, C_k] )) { 
-                                continue; 
+                                this.isSquareAttackedAI(gameState, midR_k, midC_k, opponentColor, true, null, [R_k, C_k] )) {
+                                continue;
                             }
                         }
                         const target_k = targetSquareKingState.piece;
@@ -1279,7 +1364,7 @@ export class VibeChessAI {
                 const R_n = r + dr_n; const C_n = c + dc_n;
                 if (this.isValidSquareAI(R_n,C_n)){
                     const targetSquareKnightMoveState = board[R_n]?.[C_n];
-                    if (targetSquareKnightMoveState && !targetSquareKnightMoveState.item ){ 
+                    if (targetSquareKnightMoveState && !targetSquareKnightMoveState.item ){
                         const target_n = targetSquareKnightMoveState.piece;
                         if (!target_n || (target_n.color !== piece.color && !this.isPieceInvulnerableToAttack(target_n, piece))) {
                              moves.push({ from: [r,c], to: [R_n,C_n], type: target_n ? 'capture' : 'move' });
@@ -1288,7 +1373,7 @@ export class VibeChessAI {
                 }
             });
         }
-        if (!piece.hasMoved && !this.isInCheck(gameState, piece.color, true)) { 
+        if (!piece.hasMoved && !this.isInCheck(gameState, piece.color, true)) {
             if (this.canCastle(gameState, piece.color, true, r, c)) {
                 moves.push({ from: [r,c], to: [r, c + 2], type: 'castle' });
             }
@@ -1324,15 +1409,15 @@ export class VibeChessAI {
         const tempStateForLegalityCheck: AIGameState = {
             ...originalGameState,
             board: tempBoardState,
-             capturedPieces: { 
+             capturedPieces: {
                 white: originalGameState.capturedPieces?.white?.map(p => ({ ...p })) || [],
                 black: originalGameState.capturedPieces?.black?.map(p => ({ ...p })) || [],
             },
-            killStreaks: originalGameState.killStreaks ? { ...originalGameState.killStreaks } : { white: 0, black: 0 } 
+            killStreaks: originalGameState.killStreaks ? { ...originalGameState.killStreaks } : { white: 0, black: 0 }
         };
 
         const resultingState = this.makeMoveOptimized(tempStateForLegalityCheck, move, color);
-        return !this.isInCheck(resultingState, color, true); 
+        return !this.isInCheck(resultingState, color, true);
     }
 
     isInCheck(gameState: AIGameState, color: PlayerColor, isKingSafetyCheck: boolean = false): boolean {
@@ -1342,7 +1427,7 @@ export class VibeChessAI {
         const kingPos = this.findKing(gameState, color);
         aiLog(`[AI_DEBUG_IS_IN_CHECK_KING_POS] King for ${color} found at: ${kingPos ? `${coordsToAlgebraic(kingPos.row, kingPos.col)} (${kingPos.row},${kingPos.col})` : 'NONE'}`, isKingSafetyCheck, callId);
 
-        if (!kingPos) return true; 
+        if (!kingPos) return true;
         const opponentColorForCheck = color === 'white' ? 'black' : 'white';
         for (let r_att = 0; r_att < 8; r_att++) {
             for (let c_att = 0; c_att < 8; c_att++) {
@@ -1362,22 +1447,38 @@ export class VibeChessAI {
     }
 
     isGameOver(gameState: AIGameState): boolean {
-        if(gameState.gameOver) return true; 
+        if(gameState.gameOver) return true;
         if (!this.findKing(gameState, 'white') || !this.findKing(gameState, 'black')) return true;
+
+        // Check for Infiltration Win
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const piece = gameState.board[r]?.[c]?.piece;
+                if (piece?.type === 'infiltrator') {
+                    const backRank = piece.color === 'white' ? 0 : 7;
+                    if (r === backRank) {
+                        gameState.winner = piece.color;
+                        gameState.gameOver = true;
+                        return true;
+                    }
+                }
+            }
+        }
+
 
         const playerToMove = gameState.currentPlayer;
         if (!playerToMove) {
-            return false; 
+            return false;
         }
 
-        const tempGameStateForMoveGen: AIGameState = {...gameState, currentPlayer: playerToMove}; 
+        const tempGameStateForMoveGen: AIGameState = {...gameState, currentPlayer: playerToMove};
         const legalMoves = this.generateAllMoves(tempGameStateForMoveGen, playerToMove);
 
         if (legalMoves.length === 0) {
-            if (this.isInCheck(gameState, playerToMove, true)) { 
-                gameState.winner = playerToMove === 'white' ? 'black' : 'white'; 
+            if (this.isInCheck(gameState, playerToMove, true)) {
+                gameState.winner = playerToMove === 'white' ? 'black' : 'white';
             } else {
-                gameState.winner = 'draw'; 
+                gameState.winner = 'draw';
             }
             gameState.gameOver = true;
             return true;
@@ -1386,20 +1487,20 @@ export class VibeChessAI {
     }
     canCastle(gameState: AIGameState, color: PlayerColor, kingside: boolean, kingRow: number, kingCol: number): boolean {
         const kingSquareState = gameState.board[kingRow]?.[kingCol];
-        if (!kingSquareState || !kingSquareState.piece || kingSquareState.piece.hasMoved) return false; 
+        if (!kingSquareState || !kingSquareState.piece || kingSquareState.piece.hasMoved) return false;
 
         const rookCol = kingside ? 7 : 0;
         const rookSquareState = gameState.board[kingRow]?.[rookCol];
-        if (!rookSquareState || !rookSquareState.piece || rookSquareState.piece.type !== 'rook' || rookSquareState.piece.hasMoved) return false; 
+        if (!rookSquareState || !rookSquareState.piece || rookSquareState.piece.type !== 'rook' || rookSquareState.piece.hasMoved) return false;
 
         const pathStartCol = kingside ? kingCol + 1 : rookCol + 1;
-        const pathEndCol = kingside ? rookCol -1 : kingCol -1; 
+        const pathEndCol = kingside ? rookCol -1 : kingCol -1;
 
         for (let c_path = Math.min(pathStartCol, pathEndCol); c_path <= Math.max(pathStartCol, pathEndCol); c_path++) {
-            if (gameState.board[kingRow]?.[c_path]?.piece || gameState.board[kingRow]?.[c_path]?.item ) return false; 
+            if (gameState.board[kingRow]?.[c_path]?.piece || gameState.board[kingRow]?.[c_path]?.item ) return false;
         }
         const opponentColorForCastle = color === 'white' ? 'black' : 'white';
-        const squaresToCheck: [number, number][] = [[kingRow, kingCol]]; 
+        const squaresToCheck: [number, number][] = [[kingRow, kingCol]];
         if (kingside) {
             squaresToCheck.push([kingRow, kingCol + 1], [kingRow, kingCol + 2]);
         } else {
@@ -1407,7 +1508,7 @@ export class VibeChessAI {
         }
 
         for (const [r_check, c_check] of squaresToCheck) {
-             if (this.isSquareAttackedAI(gameState, r_check, c_check, opponentColorForCastle, true)) return false; 
+             if (this.isSquareAttackedAI(gameState, r_check, c_check, opponentColorForCastle, true)) return false;
         }
         return true;
     }
@@ -1453,10 +1554,10 @@ export class VibeChessAI {
         const targetSquareState = gameState.board[toRow]?.[toCol];
         if (!targetSquareState) {
             aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT] Target square invalid. Result: false`, isKingSafetyCheck, callId);
-            return false; 
+            return false;
         }
 
-        const pieceOnAttackedSquare = targetSquareState.piece; 
+        const pieceOnAttackedSquare = targetSquareState.piece;
         if (pieceOnAttackedSquare && this.isPieceInvulnerableToAttack(pieceOnAttackedSquare, piece)) {
              aiLog(`    [AI_DEBUG_CAN_ATTACK_SQUARE_RESULT] Target ${pieceOnAttackedSquare.color}${pieceOnAttackedSquare.type} is invulnerable. Result: false`, isKingSafetyCheck, callId);
              return false;
@@ -1467,14 +1568,18 @@ export class VibeChessAI {
             case 'pawn':
             case 'commander':
                 const direction = piece.color === 'white' ? -1 : 1;
-                canAttackResult = deltaRow === direction && Math.abs(deltaCol) === 1 && !targetSquareState.item; 
+                canAttackResult = deltaRow === direction && Math.abs(deltaCol) === 1 && !targetSquareState.item;
+                break;
+            case 'infiltrator':
+                const infiltratorDir = piece.color === 'white' ? -1 : 1;
+                canAttackResult = deltaRow === infiltratorDir && Math.abs(deltaCol) === 1 && !targetSquareState.item;
                 break;
             case 'knight':
-            case 'hero': 
+            case 'hero':
                 const knightActualLevel = Number(piece.level || 1);
                 if ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2)) canAttackResult = !targetSquareState.item;
-                else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=2 && ((deltaRow === 0 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && deltaCol === 0))) canAttackResult = !targetSquareState.item; 
-                else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=3 && ((deltaRow === 0 && Math.abs(deltaCol) === 3) || (Math.abs(deltaRow) === 3 && deltaCol === 0))) { 
+                else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=2 && ((deltaRow === 0 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && deltaCol === 0))) canAttackResult = !targetSquareState.item;
+                else if (typeof knightActualLevel === 'number' && !isNaN(knightActualLevel) && knightActualLevel >=3 && ((deltaRow === 0 && Math.abs(deltaCol) === 3) || (Math.abs(deltaRow) === 3 && deltaCol === 0))) {
                     const stepR = Math.sign(deltaRow);
                     const stepC = Math.sign(deltaCol);
                     let pathBlocked = false;
@@ -1501,9 +1606,9 @@ export class VibeChessAI {
                     if (effectiveMaxDist === 2 && (Math.abs(deltaRow) === 2 || Math.abs(deltaCol) === 2)) {
                         const midR = fromRow + Math.sign(deltaRow);
                         const midC = fromCol + Math.sign(deltaCol);
-                        if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) { canAttackResult = false; break; } 
+                        if (this.isValidSquareAI(midR, midC) && (gameState.board[midR]?.[midC]?.piece || gameState.board[midR]?.[midC]?.item )) { canAttackResult = false; break; }
                     }
-                    canAttackResult = !targetSquareState.item; 
+                    canAttackResult = !targetSquareState.item;
                     break;
                 }
                 if (canUseKnightMove && ((Math.abs(deltaRow) === 2 && Math.abs(deltaCol) === 1) || (Math.abs(deltaRow) === 1 && Math.abs(deltaCol) === 2))) {
@@ -1531,20 +1636,20 @@ export class VibeChessAI {
         const toAlgForLog = coordsToAlgebraic(toRow, toCol);
         aiLog(`[AI_DEBUG_PATH_CLEAR_ENTRY] Path for ${piece.color} ${piece.type} L${piece.level} from ${fromAlgForLog} to ${toAlgForLog}. IsKingSafetyCheck: ${isKingSafetyCheck}`, isKingSafetyCheck, callId);
 
-        while (r_path !== toRow || c_path !== toCol) { 
+        while (r_path !== toRow || c_path !== toCol) {
             if (!this.isValidSquareAI(r_path,c_path)) {
                 aiLog(`    [AI_DEBUG_PATH_CLEAR_BLOCKED] Invalid intermediate square: ${coordsToAlgebraic(r_path,c_path)}. Path Clear: false`, isKingSafetyCheck, callId);
-                return false; 
+                return false;
             }
             const pathSquareState = board[r_path]?.[c_path];
-            if (!pathSquareState) { 
+            if (!pathSquareState) {
                  aiLog(`    [AI_DEBUG_PATH_CLEAR_BLOCKED] Undefined pathSquareState at ${coordsToAlgebraic(r_path,c_path)}. Path Clear: false`, isKingSafetyCheck, callId);
                 return false;
             }
 
             if (pathSquareState.item) {
                 aiLog(`    [AI_DEBUG_PATH_CLEAR_BLOCKED] Item ${pathSquareState.item.type} at intermediate ${coordsToAlgebraic(r_path,c_path)}. Path Clear: false`, isKingSafetyCheck, callId);
-                return false; 
+                return false;
             }
 
             const pathPiece = pathSquareState.piece;
@@ -1562,7 +1667,7 @@ export class VibeChessAI {
             c_path += deltaCol;
         }
         aiLog(`[AI_DEBUG_PATH_CLEAR_SUCCESS] Path Clear for ${piece.color} ${piece.type} from ${fromAlgForLog} to ${toAlgForLog}: true`, isKingSafetyCheck, callId);
-        return true; 
+        return true;
     }
     findKing(gameState: AIGameState, color: PlayerColor): { row: number; col: number; piece: Piece } | null {
         if (!gameState || !gameState.board) return null;
@@ -1576,7 +1681,7 @@ export class VibeChessAI {
                 }
             }
         }
-        return null; 
+        return null;
     }
 
     isValidSquareAI(row: number, col: number): boolean {
@@ -1594,7 +1699,7 @@ export class VibeChessAI {
                     const squareState = gameState.board[newRow]?.[newCol];
                     if (!squareState) continue;
                     const piece = squareState.piece;
-                    if (piece && piece.color !== color && piece.type !== 'king') { 
+                    if (piece && piece.color !== color && piece.type !== 'king') {
                         count++;
                     }
                 }
@@ -1605,11 +1710,11 @@ export class VibeChessAI {
     quickEvaluateMove(gameState: AIGameState, move: AIMove, playerColor: PlayerColor): number {
         let score = 0;
         const [toR, toC] = move.to;
-        const targetSquareState = gameState.board[toR]?.[toC]; 
-        if (!targetSquareState || targetSquareState.item) return -Infinity; 
+        const targetSquareState = gameState.board[toR]?.[toC];
+        if (!targetSquareState || targetSquareState.item) return -Infinity;
 
-        const targetPiece = targetSquareState.piece; 
-        if (targetPiece && targetPiece.color !== playerColor) { 
+        const targetPiece = targetSquareState.piece;
+        if (targetPiece && targetPiece.color !== playerColor) {
             const targetLevel = Number(targetPiece.level || 1);
             const pieceLevelValues = this.pieceValues[targetPiece.type];
             if (pieceLevelValues) {
@@ -1620,15 +1725,18 @@ export class VibeChessAI {
                  if ((targetPiece.type !== 'queen' && targetPiece.type !== 'king') && effectiveLevelForArrayIndex > pieceLevelValues.length) {
                     capturedValue = pieceLevelValues[pieceLevelValues.length - 1] + (effectiveLevelForArrayIndex - pieceLevelValues.length) * 20;
                 }
-                score += capturedValue * 10; 
+                score += capturedValue * 10;
             }
         }
         if (move.type === 'promotion') {
-            const promoValue = this.pieceValues[move.promoteTo || 'queen']?.[0] || 0; 
+            const promoValue = this.pieceValues[move.promoteTo || 'queen']?.[0] || 0;
             score += promoValue;
         }
+        if (move.type === 'enpassant') {
+            score += this.pieceValues['pawn'][0] * 10 + 50; // Value of pawn + bonus for EP and Infiltrator
+        }
         if (move.type === 'castle') {
-            score += 25; 
+            score += 25;
         }
         if (move.type === 'self-destruct') {
             const [fromR_sd, fromC_sd] = move.from;
@@ -1652,7 +1760,7 @@ export class VibeChessAI {
                                     if((victimSq.piece.type !== 'queen' && victimSq.piece.type !== 'king') && elai > pLv.length){
                                         vVal = pLv[pLv.length-1] + (elai - pLv.length)*20;
                                     }
-                                    score += vVal; 
+                                    score += vVal;
                                  }
                             }
                         }
@@ -1685,8 +1793,9 @@ export class VibeChessAI {
                             case 'rook': pieceChar = 'R'; break;
                             case 'queen': pieceChar = 'Q'; break;
                             case 'king': pieceChar = 'K'; break;
-                            case 'commander': pieceChar = 'C'; break; 
-                            case 'hero': pieceChar = 'H'; break; 
+                            case 'commander': pieceChar = 'C'; break;
+                            case 'hero': pieceChar = 'H'; break;
+                            case 'infiltrator': pieceChar = 'I'; break;
                             default: pieceChar = 'X';
                         }
                         key += `${p_piece.color[0]}${pieceChar}${Number(p_piece.level || 1)}`;
@@ -1695,35 +1804,36 @@ export class VibeChessAI {
                     } else if (i_item) {
                         key += `I${i_item.type[0]}`;
                     } else {
-                        key += '--'; 
+                        key += '--';
                     }
                 } else {
-                    key += 'XX'; 
+                    key += 'XX';
                 }
             }
         }
-        key += `-${gameState.currentPlayer ? gameState.currentPlayer[0] : 'X'}`; 
-        key += `-${isMaximizingPlayer ? 'M' : 'm'}`; 
+        key += `-${gameState.currentPlayer ? gameState.currentPlayer[0] : 'X'}`;
+        key += `-${isMaximizingPlayer ? 'M' : 'm'}`;
         key += `-w${gameState.killStreaks?.white || 0}b${gameState.killStreaks?.black || 0}`;
         key += `-g${gameState.gameMoveCounter || 0}`;
         key += `-fb${gameState.firstBloodAchieved ? 'T' : 'F'}${gameState.playerWhoGotFirstBlood ? gameState.playerWhoGotFirstBlood[0] : 'N'}`;
+        key += `-ep${gameState.enPassantTargetSquare || '-'}`; // Add EP to hash
         return key;
     }
     selectPawnForCommanderPromotion(gameState: AIGameState): [number, number] | null {
         const availablePawns: {row: number, col: number, score: number}[] = [];
-        const aiColor = gameState.currentPlayer; 
+        const aiColor = gameState.currentPlayer;
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const square = gameState.board[r]?.[c];
                 if (square?.piece && square.piece.color === aiColor && square.piece.type === 'pawn' && square.piece.level === 1) {
                     let score = 0;
-                    if (c >=2 && c <= 5) score += 10; 
-                    if (aiColor === 'white') { 
-                        if (r === 5) score += 5; 
-                        if (r === 4) score += 8; 
-                    } else { 
-                        if (r === 2) score += 5; 
-                        if (r === 3) score += 8; 
+                    if (c >=2 && c <= 5) score += 10;
+                    if (aiColor === 'white') {
+                        if (r === 5) score += 5;
+                        if (r === 4) score += 8;
+                    } else {
+                        if (r === 2) score += 5;
+                        if (r === 3) score += 8;
                     }
                     availablePawns.push({row: r, col: c, score});
                 }
@@ -1731,8 +1841,8 @@ export class VibeChessAI {
         }
 
         if (availablePawns.length === 0) return null;
-        availablePawns.sort((a,b) => b.score - a.score); 
-        return [availablePawns[0].row, availablePawns[0].col]; 
+        availablePawns.sort((a,b) => b.score - a.score);
+        return [availablePawns[0].row, availablePawns[0].col];
     }
 }
 
