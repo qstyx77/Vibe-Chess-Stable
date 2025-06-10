@@ -59,11 +59,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. See Hero Abilities for more details.
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher before promoting to Hero, its player gets an extra turn immediately after promotion. See Hero Abilities for more details.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
-                  If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
+                  If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn/commander promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
                 <PieceRule title="Push-Back Self-Check (Auto-Loss)">
                   If a Level 4+ Pawn or Commander uses its Push-Back ability, and this push directly results in its own King being put into check, it is an immediate loss for the player who made the push. The opponent wins by auto-checkmate.
@@ -93,7 +93,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
                     </li>
                     <li className="text-sm text-foreground/90 mb-1">
-                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it promotes to a Hero, retaining its level. See Hero Abilities.
+                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it promotes to a Hero, retaining its level. If the Commander is Level 5 or higher when promoting, its player gets an extra turn. See Hero Abilities.
                     </li>
                     <li className="text-sm text-foreground/90">
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
@@ -106,7 +106,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="hero">
               <AccordionTrigger className="text-base hover:text-accent">Hero Abilities</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Origin">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion.</PieceRule>
+                <PieceRule title="Origin">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</PieceRule>
                 <PieceRule title="Appearance">A Hero is visually represented as a Knight with a star overlay (similar to a Commander).</PieceRule>
                 <PieceRule title="Movement & Knight Abilities">
                   A Hero moves, captures, and gains leveled abilities exactly like a Knight of its current level. This includes:
