@@ -59,7 +59,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher before promoting to Hero, its player gets an extra turn. See Knight & Hero Abilities (for Hero movement) and First Blood & Commander (for Hero special ability).
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher, an extra turn is granted. See "Knight & Hero Abilities" (for Hero movement) and "First Blood, Commander & Hero" (for Hero special ability).
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -88,10 +88,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Infiltrator Abilities">
                   <ul className="list-none pl-0 space-y-1">
                     <li>
-                      <strong>Movement:</strong> An Infiltrator can only move one square directly forward to an empty square. It cannot move two squares, even from its "start".
+                      <strong>Movement:</strong> An Infiltrator can move one square directly forward to an empty square OR one square diagonally forward to an empty square.
                     </li>
                     <li>
-                      <strong>Capture:</strong> An Infiltrator can only capture one square diagonally forward.
+                      <strong>Capture:</strong> An Infiltrator can capture an opponent's piece one square directly forward OR one square diagonally forward.
+                    </li>
+                     <li>
+                      <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely and do not go to the captured pieces pile.
                     </li>
                     <li>
                       <strong>No Further Promotion:</strong> An Infiltrator cannot promote further if it reaches the back rank (its win condition takes precedence).

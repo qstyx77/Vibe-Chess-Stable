@@ -45,7 +45,7 @@ function getPieceChar(piece: Piece | null): string {
     case 'queen': char = 'Q'; break;
     case 'king': char = 'K'; break;
     case 'hero': char = 'H'; break;
-    case 'infiltrator': char = 'I'; break; // Added for Infiltrator
+    case 'infiltrator': char = 'I'; break;
     default:
       return '??';
   }
@@ -194,7 +194,7 @@ export function getPossibleMovesInternal(
             }
         }
     }
-  } else if (piece.type === 'pawn') { // En Passant logic
+  } else if (piece.type === 'pawn' || piece.type === 'infiltrator') {
       for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
           const toSquare = coordsToAlgebraic(r_idx,c_idx);
@@ -276,7 +276,9 @@ export function isSquareAttacked(
                     }
                 } else if (attackingPiece.type === 'infiltrator') {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
-                     if (r + direction === targetR && Math.abs(c - targetC) === 1) { // Can only capture diagonally forward
+                     if ( (r + direction === targetR && c === targetC) || // Can attack directly forward
+                          (r + direction === targetR && Math.abs(c - targetC) === 1) // Can attack diagonally forward
+                        ) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                            return true;
                         }
@@ -370,14 +372,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     return true;
   }
 
-  // En Passant specific check
   if (piece.type === 'pawn' && to === enPassantTargetSquare) {
     const { row: epRow, col: epCol } = algebraicToCoords(enPassantTargetSquare);
-    const capturedPawnRow = piece.color === 'white' ? epRow + 1 : epRow - 1; // Row of the pawn being captured
-    if (fromCol !== epCol && Math.abs(fromCol - epCol) === 1 && fromRow === capturedPawnRow) { // Capturing pawn must be adjacent to the *captured* pawn's original double move square
+    const capturedPawnRow = piece.color === 'white' ? epRow + 1 : epRow - 1;
+    if (fromCol !== epCol && Math.abs(fromCol - epCol) === 1 && fromRow === capturedPawnRow) {
       const capturedPawnSquareState = board[capturedPawnRow]?.[epCol];
       if (capturedPawnSquareState?.piece?.type === 'pawn' && capturedPawnSquareState.piece.color !== piece.color) {
-         // Additional check: the 'to' square for EP must be empty
          if (!board[toRow]?.[toCol]?.piece) {
             return true;
          }
@@ -427,13 +427,17 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       return false;
     case 'infiltrator':
       const infiltratorDir = piece.color === 'white' ? -1 : 1;
-      // Move forward
-      if (fromCol === toCol && toRow === fromRow + infiltratorDir && !targetSquareState?.piece && !targetSquareState.item) {
-        return true;
+      // Move/Capture forward
+      if (fromCol === toCol && toRow === fromRow + infiltratorDir && !targetSquareState.item) {
+        if (!targetSquareState.piece || (targetSquareState.piece.color !== piece.color && !isPieceInvulnerableToAttack(targetSquareState.piece, piece))) {
+          return true;
+        }
       }
-      // Capture diagonally forward
-      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + infiltratorDir && targetSquareState?.piece && targetSquareState.piece.color !== piece.color && !targetSquareState.item) {
-        return true;
+      // Move/Capture diagonally forward
+      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + infiltratorDir && !targetSquareState.item) {
+        if (!targetSquareState.piece || (targetSquareState.piece.color !== piece.color && !isPieceInvulnerableToAttack(targetSquareState.piece, piece))) {
+          return true;
+        }
       }
       return false;
     case 'knight':
@@ -573,7 +577,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackerLevel < targetLevel ) {
       return true;
     }
-    if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander')) {
+    if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander' || attackingPiece.type === 'infiltrator')) {
       return true;
     }
     if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
@@ -650,7 +654,6 @@ export function applyMove(
     return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null };
   }
 
-  // Set En Passant Target
   if (movingPieceOriginalRef.type === 'pawn' && Math.abs(fromRow - toRow) === 2) {
     newEnPassantTargetSet = coordsToAlgebraic(fromRow + (movingPieceOriginalRef.color === 'white' ? -1 : 1), fromCol);
   }
@@ -682,7 +685,7 @@ export function applyMove(
       case 'rook': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
       case 'king': levelGain = 1; break;
-      case 'infiltrator': levelGain = 1; break; // Capturing an Infiltrator
+      case 'infiltrator': levelGain = 1; break;
       default: levelGain = 0; break;
     }
     let newLevelForPiece = originalPieceLevel + levelGain;
@@ -725,16 +728,14 @@ export function applyMove(
     }
   }
 
-  // Promotion logic
   if (isEnPassantCapture && movingPieceOriginalRef.type === 'pawn') {
     pieceNowOnToSquare.type = 'infiltrator';
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_infiltrator`;
-    // Level is retained from original pawn + gain from capture
     promotedToInfiltrator = true;
   } else if ((pieceNowOnToSquare.type === 'pawn') && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
       let promotedPieceBaseLevel = originalPieceLevel;
-      if (capturedPiece) { // If capture happened during promotion
+      if (capturedPiece) {
         let levelGainFromCapture = 0;
          switch (capturedPiece.type) {
             case 'pawn': levelGainFromCapture = 1; break;
@@ -762,7 +763,6 @@ export function applyMove(
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_HeroPromo`;
   }
 
-  // Infiltration Win Condition
   if (pieceNowOnToSquare.type === 'infiltrator' && ( (pieceNowOnToSquare.color === 'white' && toRow === 0) || (pieceNowOnToSquare.color === 'black' && toRow === 7) ) ) {
     infiltrationWin = true;
   }
@@ -860,7 +860,7 @@ export function applyMove(
             }
         }
         }
-        if (pushBackOccurredForSelfCheck && isKingInCheck(newBoard, pieceNowOnToSquare.color, enPassantTargetSquare)) { // Pass enPassantTargetSquare
+        if (pushBackOccurredForSelfCheck && isKingInCheck(newBoard, pieceNowOnToSquare.color, newEnPassantTargetSet)) {
             selfCheckByPushBack = true;
         }
     }
@@ -950,7 +950,6 @@ export function filterLegalMoves(
         moveTypeForApply = 'capture';
     }
 
-    // Check for en passant specifically for type setting
     if (originalMovingPiece.type === 'pawn' && targetSquare === enPassantTargetSquare && !targetPieceForSim) {
         moveTypeForApply = 'enpassant';
     }
@@ -975,9 +974,9 @@ export function filterLegalMoves(
       promoteTo: (moveTypeForApply === 'promotion' && pieceToMoveCopy.type === 'pawn') ? 'queen' : undefined
     };
 
-    const { newBoard: boardAfterSimulatedMove } = applyMove(tempBoardState, simulatedMove, enPassantTargetSquare);
+    const { newBoard: boardAfterSimulatedMove, enPassantTargetSet: newEpTargetAfterSim } = applyMove(tempBoardState, simulatedMove, enPassantTargetSquare);
 
-    return !isKingInCheck(boardAfterSimulatedMove, playerColor, null); // Pass null for enPassantTarget for this check, as it's for post-move state
+    return !isKingInCheck(boardAfterSimulatedMove, playerColor, newEpTargetAfterSim);
   });
 }
 
@@ -1032,7 +1031,7 @@ export function getPieceUnicode(piece: Piece): string {
     case 'hero': return isWhite ? '♘' : '♞';
     case 'pawn':
     case 'commander':
-    case 'infiltrator': // Infiltrator uses Pawn symbol
+    case 'infiltrator':
       return isWhite ? '♙' : '♟︎';
     default: return '';
   }
