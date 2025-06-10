@@ -24,7 +24,7 @@ import {
   processRookResurrectionCheck,
   type RookResurrectionResult,
   spawnAnvil,
-  spawnShroom, // Added
+  spawnShroom,
   boardToSimpleString,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType } from '@/types';
@@ -57,8 +57,8 @@ function adaptBoardForAI(
   firstBloodAchieved: boolean,
   playerWhoGotFirstBlood: PlayerColor | null,
   enPassantTargetSquare: AlgebraicSquare | null,
-  shroomSpawnCounter?: number, // Added
-  nextShroomSpawnTurn?: number // Added
+  shroomSpawnCounter?: number,
+  nextShroomSpawnTurn?: number
 ): AIGameState {
   const newAiBoard: AIBoardState = [];
   for (let r_idx = 0; r_idx < 8; r_idx++) {
@@ -99,8 +99,8 @@ function adaptBoardForAI(
     firstBloodAchieved: firstBloodAchieved,
     playerWhoGotFirstBlood: playerWhoGotFirstBlood,
     enPassantTargetSquare: enPassantTargetSquare,
-    shroomSpawnCounter: shroomSpawnCounter, // Added
-    nextShroomSpawnTurn: nextShroomSpawnTurn, // Added
+    shroomSpawnCounter: shroomSpawnCounter,
+    nextShroomSpawnTurn: nextShroomSpawnTurn,
   };
 }
 
@@ -168,9 +168,8 @@ export default function EvolvingChessPage() {
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
 
-  // Shroom state
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
-  const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5); // 5-10
+  const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
 
 
   const { toast } = useToast();
@@ -322,13 +321,13 @@ export default function EvolvingChessPage() {
     }
 
     // Shroom spawning
-    let currentShroomCounter = shroomSpawnCounter + 1; // Increment for this move
+    let currentShroomCounter = shroomSpawnCounter + 1;
     setShroomSpawnCounter(currentShroomCounter);
     if (currentShroomCounter >= nextShroomSpawnTurn) {
         currentBoardState = spawnShroom(currentBoardState);
         setBoard(currentBoardState);
         toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
-        setShroomSpawnCounter(0); // Reset counter
+        setShroomSpawnCounter(0);
         setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); // New interval 5-10
     }
 
@@ -390,7 +389,7 @@ export default function EvolvingChessPage() {
     boardToPositionHash, gameMoveCounter, setBoard, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, 
     getPlayerDisplayName, setCurrentPlayer, viewMode, isBlackAI, isWhiteAI, boardOrientation, determineBoardOrientation,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn // Added Shroom state
+    shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn
   ]);
 
   const saveStateToHistory = useCallback(() => {
@@ -438,8 +437,8 @@ export default function EvolvingChessPage() {
       firstBloodAchieved: firstBloodAchieved,
       playerWhoGotFirstBlood: playerWhoGotFirstBlood,
       isAwaitingCommanderPromotion: isAwaitingCommanderPromotion,
-      shroomSpawnCounter: shroomSpawnCounter, // Save Shroom state
-      nextShroomSpawnTurn: nextShroomSpawnTurn, // Save Shroom state
+      shroomSpawnCounter: shroomSpawnCounter,
+      nextShroomSpawnTurn: nextShroomSpawnTurn,
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -454,7 +453,7 @@ export default function EvolvingChessPage() {
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare,
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn // Added Shroom state
+    shroomSpawnCounter, nextShroomSpawnTurn
   ]);
 
   const processPawnSacrificeCheck = useCallback((
@@ -645,7 +644,6 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    // Allow clicking on square with shroom, but not anvil
     if (clickedItem && clickedItem.type !== 'shroom') {
         setSelectedSquare(null);
         setPossibleMoves([]);
@@ -763,7 +761,7 @@ export default function EvolvingChessPage() {
             }
           }
         }
-        boardAfterDestruct[fromR_selected][fromC_selected].piece = null; // Remove the self-destructing piece
+        boardAfterDestruct[fromR_selected][fromC_selected].piece = null;
         finalBoardStateForTurn = boardAfterDestruct;
 
         if (anvilsDestroyedCount > 0) {
@@ -784,7 +782,7 @@ export default function EvolvingChessPage() {
                 }
             }
         } else {
-            if (anvilsDestroyedCount === 0) { // Only reset streak if nothing was destroyed (neither pieces nor anvils)
+            if (anvilsDestroyedCount === 0) { 
                 newStreakForSelfDestructPlayer = 0;
             }
         }
@@ -1151,7 +1149,7 @@ export default function EvolvingChessPage() {
       } else {
         setSelectedSquare(null);
         setPossibleMoves([]);
-        if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) { // Allow selecting piece on shroom
+        if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
             if(clickedPiece.color === currentPlayer) {
                 setSelectedSquare(algebraic);
                 const legalMovesForNewSelection = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
@@ -1171,13 +1169,13 @@ export default function EvolvingChessPage() {
         setEnPassantTargetSquare(currentEnPassantTargetForThisTurn);
         return;
       }
-    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom') && clickedPiece.color === currentPlayer) { // Allow selecting piece on shroom
+    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom') && clickedPiece.color === currentPlayer) {
       setSelectedSquare(algebraic);
       const legalMovesForPlayer = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
       setPossibleMoves(legalMovesForPlayer);
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
-    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom') && clickedPiece.color !== currentPlayer) { // Allow selecting enemy piece on shroom
+    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom') && clickedPiece.color !== currentPlayer) {
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(algebraic);
@@ -1456,7 +1454,7 @@ export default function EvolvingChessPage() {
             const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
             tempStateAfterSelfDestruct[aiMoveDataFromVibeAI.from[0]][aiMoveDataFromVibeAI.from[1]].piece = null;
             if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer, null)) {
-              isAiMoveActuallyLegal = true; // Self-destruct not resulting in check is legal
+              isAiMoveActuallyLegal = true;
             }
           }
 
@@ -1487,7 +1485,6 @@ export default function EvolvingChessPage() {
                 const chosenDefinitiveMoveAlg = definitiveLegalMovesForPiece[0];
                 const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
 
-                // Determine the type of the overridden move
                 let overrideMoveType: AIMoveType['type'] = 'move';
                 const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
                 if (targetSquareForOverride?.piece) {
@@ -1504,7 +1501,7 @@ export default function EvolvingChessPage() {
                 } else if (pieceOnFromSquareForAI.type === 'king' && Math.abs(aiMoveDataFromVibeAI.from[1] - newToCoords.col) === 2) {
                     overrideMoveType = 'castle';
                 } else if (pieceOnFromSquareForAI.type === 'knight' || pieceOnFromSquareForAI.type === 'hero') {
-                    if ((Number(pieceOnFromSquareForAI.level || 1) >= 5) && chosenDefinitiveMoveAlg === aiFromAlg) { // Self-destruct for Knight/Hero L5+
+                    if ((Number(pieceOnFromSquareForAI.level || 1) >= 5) && chosenDefinitiveMoveAlg === aiFromAlg) { 
                         overrideMoveType = 'self-destruct';
                     } else if (Number(pieceOnFromSquareForAI.level || 1) >= 4 && targetSquareForOverride?.piece?.type === 'bishop' && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
                         overrideMoveType = 'swap';
@@ -1518,10 +1515,10 @@ export default function EvolvingChessPage() {
                 aiMoveDataFromVibeAI.to = [newToCoords.row, newToCoords.col];
                 aiMoveDataFromVibeAI.type = overrideMoveType;
                 aiMoveDataFromVibeAI.promoteTo = promoteToOverrideType;
-                aiToAlg = chosenDefinitiveMoveAlg; // Update algebraic target
+                aiToAlg = chosenDefinitiveMoveAlg; 
                 isAiMoveActuallyLegal = true;
-                aiMoveType = overrideMoveType; // Update local aiMoveType for further processing
-                aiPromoteTo = promoteToOverrideType; // Update local aiPromoteTo
+                aiMoveType = overrideMoveType; 
+                aiPromoteTo = promoteToOverrideType; 
                 console.log("AI overridden move:", aiMoveDataFromVibeAI);
             } else {
                 aiErrorOccurredRef.current = true;
@@ -1730,7 +1727,6 @@ export default function EvolvingChessPage() {
                         }
                     }
                 } else if (moveForApplyMoveAI!.type === 'self-destruct' && anvilsDestroyedByAICount > 0) {
-                    // Do not reset streak if only anvils destroyed
                 } else {
                     newStreakForAIPlayer = 0;
                 }
@@ -1985,13 +1981,14 @@ export default function EvolvingChessPage() {
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn // Added Shroom state
+    shroomSpawnCounter, nextShroomSpawnTurn
   ]);
 
 
   useEffect(() => {
+    const currentAiInstance = aiInstanceRef.current;
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI);
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && aiInstanceRef.current) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && currentAiInstance) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
@@ -2177,8 +2174,8 @@ export default function EvolvingChessPage() {
     setPlayerWhoGotFirstBlood(null);
     setIsAwaitingCommanderPromotion(false);
 
-    setShroomSpawnCounter(0); // Reset Shroom counter
-    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); // Reset Shroom spawn interval
+    setShroomSpawnCounter(0);
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
 
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
   }, [toast, determineBoardOrientation, getCastlingRightsString, boardToPositionHash]);
@@ -2294,7 +2291,7 @@ export default function EvolvingChessPage() {
     setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, setOriginalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare,
-    setShroomSpawnCounter, setNextShroomSpawnTurn // Restore Shroom state
+    setShroomSpawnCounter, setNextShroomSpawnTurn
   ]);
 
 

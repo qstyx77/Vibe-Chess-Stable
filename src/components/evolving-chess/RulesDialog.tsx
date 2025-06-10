@@ -52,7 +52,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King, or achieve an Infiltration Win.</PieceRule>
                 <PieceRule title="Piece Levels">
-                  Pieces level up by capturing opponent pieces and do not have a maximum level (except Queens, capped at L7). Each piece type gains different abilities as it levels up. (See individual piece sections for details).
+                  Pieces level up by capturing opponent pieces or consuming Shrooms 🍄 and do not have a maximum level (except Queens, capped at L7). Each piece type gains different abilities as it levels up. (See individual piece sections for details).
                 </PieceRule>
                 <PieceRule title="Pawn Promotion (Rank)">
                   When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
@@ -87,7 +87,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Infiltrator Abilities">
                   <ul className="list-none pl-0 space-y-1">
                     <li>
-                      <strong>Movement & Capture:</strong> An Infiltrator can move one square directly forward OR one square diagonally forward. It captures in the same manner.
+                      <strong>Movement & Capture:</strong> An Infiltrator can move one square directly forward OR one square diagonally forward. It captures in the same manner (one square forward or one square diagonally forward).
                     </li>
                      <li>
                       <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely and do not go to the captured pieces pile.
@@ -134,27 +134,33 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            <AccordionItem value="anvils">
-              <AccordionTrigger className="text-base hover:text-accent">Anvil Mechanic</AccordionTrigger>
+            <AccordionItem value="items">
+              <AccordionTrigger className="text-base hover:text-accent">Board Items: Anvils &amp; Shrooms</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Spawning">Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil 🧱 drops onto a random empty square on the board.</PieceRule>
-                <PieceRule title="Blocking">
-                  Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.
+                <PieceRule title="Anvil 🧱">
+                  <ul className="list-none pl-0 space-y-1">
+                    <li><strong>Spawning:</strong> Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil drops onto a random empty square on the board.</li>
+                    <li><strong>Blocking:</strong> Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.</li>
+                    <li><strong>Interaction:</strong> Anvils cannot be captured or destroyed by normal piece moves, but can be destroyed by a Knight/Hero's self-destruct ability.</li>
+                    <li><strong>Pawn Push-Back (L4+ Pawn/Commander):</strong>
+                      <ul className="list-disc list-inside pl-4 mt-1">
+                        <li className="text-sm">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
+                          <ul className="list-circle list-inside pl-4">
+                            <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game. This still counts towards kill streaks.</li>
+                            <li className="text-sm">If the anvil is pushed off the board, it is removed from the game.</li>
+                            <li className="text-sm">An anvil cannot push another anvil; the push fails.</li>
+                          </ul>
+                        </li>
+                        <li className="text-sm">If a pawn/commander pushes an adjacent piece towards a square occupied by an anvil, the push fails.</li>
+                      </ul>
+                    </li>
+                  </ul>
                 </PieceRule>
-                <PieceRule title="Interaction">Anvils cannot be captured or destroyed by normal piece moves, but can be destroyed by a Knight/Hero's self-destruct ability.</PieceRule>
-                <PieceRule title="Pawn Push-Back (L4+ Pawn/Commander)">
-                  <div>A Level 4+ Pawn or Commander's Push-Back ability can interact with anvils:
-                    <ul className="list-disc list-inside pl-4 mt-1">
-                      <li className="text-sm">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
-                        <ul className="list-circle list-inside pl-4">
-                          <li className="text-sm">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game (it does not go to the captured pieces display). This still counts towards kill streaks.</li>
-                          <li className="text-sm">If the anvil is pushed off the board, it is removed from the game.</li>
-                          <li className="text-sm">An anvil cannot push another anvil; the push fails.</li>
-                        </ul>
-                      </li>
-                      <li className="text-sm">If a pawn/commander pushes an adjacent piece towards a square occupied by an anvil, the push fails (a piece cannot push an anvil).</li>
-                    </ul>
-                  </div>
+                 <PieceRule title="Shroom 🍄">
+                  <ul className="list-none pl-0 space-y-1">
+                    <li><strong>Spawning:</strong> Every 5 to 10 game moves (randomly determined), a Shroom 🍄 appears on a random empty square (no piece or other item).</li>
+                    <li><strong>Consumption:</strong> If any piece (friendly or enemy) moves onto a square containing a Shroom, the Shroom disappears, and that piece immediately gains 1 level. A Queen's level is still capped at 7.</li>
+                  </ul>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
