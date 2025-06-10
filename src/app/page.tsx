@@ -539,6 +539,7 @@ export default function EvolvingChessPage() {
     const clickedItem = clickedSquareState?.item;
     let originalPieceLevelBeforeMove: number | undefined;
     let currentEnPassantTargetForThisTurn = enPassantTargetSquare;
+    let moveBeingMade: Move | null = null;
 
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
       if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
@@ -661,7 +662,7 @@ export default function EvolvingChessPage() {
         return;
       }
 
-       if (selectedSquare === algebraic && !(pieceToMoveFromSelected.type === 'knight' && (Number(pieceToMoveFromSelected.level || 1)) >= 5) ) {
+       if (selectedSquare === algebraic && !(pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
         setSelectedSquare(null);
         setPossibleMoves([]);
         setEnemySelectedSquare(null);
@@ -673,7 +674,7 @@ export default function EvolvingChessPage() {
 
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, currentEnPassantTargetForThisTurn);
       let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
-      let moveBeingMade: Move | null = null;
+      
       if (isMoveInFreshList) {
         moveBeingMade = { from: selectedSquare, to: algebraic };
       }
@@ -685,6 +686,8 @@ export default function EvolvingChessPage() {
         setLastMoveTo(selectedSquare);
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
+        moveBeingMade = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
+
 
         const selfDestructPlayer = currentPlayer;
         const opponentOfSelfDestructPlayer = selfDestructPlayer === 'white' ? 'black' : 'white';
@@ -719,7 +722,9 @@ export default function EvolvingChessPage() {
                 const isNormallyInvulnerable = !isQueenTarget && isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected);
 
                 if (!isNormallyInvulnerable || isQueenTarget) { 
-                  finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
+                  if (pieceToMoveFromSelected.type !== 'infiltrator') {
+                    finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
+                  }
                   boardAfterDestruct[adjR][adjC].piece = null;
                   toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
                   selfDestructCapturedSomething = true;
@@ -752,7 +757,6 @@ export default function EvolvingChessPage() {
                 }
             }
         } else {
-            // If only anvils were destroyed, don't reset streak. Only reset if no pieces AND no anvils were destroyed.
             if (anvilsDestroyedCount === 0) {
                 newStreakForSelfDestructPlayer = 0;
             }
@@ -760,7 +764,7 @@ export default function EvolvingChessPage() {
         setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer }));
 
 
-        if (selfDestructCapturedSomething) { // Flash only for piece captures
+        if (selfDestructCapturedSomething) { 
           setLastCapturePlayer(selfDestructPlayer);
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -867,7 +871,7 @@ export default function EvolvingChessPage() {
             toast({ title: "En Passant!", description: `${getPlayerDisplayName(currentPlayer)} captures En Passant and promotes to Infiltrator!`, duration: 3000 });
         }
         if (becameInfiltrator) {
-            // Toast handled if enPassantHappened, or by promotion logic if direct (though direct Infiltrator promo isn't a thing)
+           
         }
 
 
@@ -1305,7 +1309,7 @@ export default function EvolvingChessPage() {
 
 
   const performAiMove = useCallback(async () => {
-    const currentAiInstance = aiInstanceRef.current; // Capture instance at the start
+    const currentAiInstance = aiInstanceRef.current;
 
     if (!currentAiInstance) {
       console.error("AI instance not available for performAiMove (captured check).");
@@ -1353,7 +1357,7 @@ export default function EvolvingChessPage() {
       const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare);
       
       const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
-      const aiMoveDataFromVibeAI = aiResult?.move; 
+      let aiMoveDataFromVibeAI = aiResult?.move; 
       const aiExtraTurnFromAIMethod = aiResult?.extraTurn || false;
 
 
@@ -1400,8 +1404,9 @@ export default function EvolvingChessPage() {
       } else if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI) {
         aiFromAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.from[0], aiMoveDataFromVibeAI.from[1]);
         aiToAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.to[0], aiMoveDataFromVibeAI.to[1]);
-        const aiMoveType = (aiMoveDataFromVibeAI.type || 'move') as Move['type'];
-        const aiPromoteTo = aiMoveDataFromVibeAI.promoteTo as PieceType | undefined;
+        
+        let aiMoveType = (aiMoveDataFromVibeAI.type || 'move') as Move['type'];
+        let aiPromoteTo = aiMoveDataFromVibeAI.promoteTo as PieceType | undefined;
 
         const pieceDataAtFromAI = finalBoardStateForAI[aiMoveDataFromVibeAI.from[0]]?.[aiMoveDataFromVibeAI.from[1]];
         const pieceOnFromSquareForAI = pieceDataAtFromAI?.piece;
@@ -1411,61 +1416,86 @@ export default function EvolvingChessPage() {
           console.log(`AI ILLEGAL MOVE DEBUG: No piece to move for AI or piece color mismatch. Piece: ${pieceOnFromSquareForAI}, CurrentPlayer: ${currentPlayer}`);
           aiErrorOccurredRef.current = true;
         } else {
-          const legalMovesForAiPieceOnBoard = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
-          let isAiMoveActuallyLegal = false;
+          const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
+          let isAiMoveActuallyLegal = definitiveLegalMovesForPiece.includes(aiToAlg as AlgebraicSquare);
 
-          if (aiMoveType === 'self-destruct' && (pieceOnFromSquareForAI.type === 'knight' || pieceOnFromSquareForAI.type === 'hero') && originalPieceLevelForAI >= 5) {
-            if (aiFromAlg === aiToAlg) {
-              const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
-              tempStateAfterSelfDestruct[aiMoveDataFromVibeAI.from[0]][aiMoveDataFromVibeAI.from[1]].piece = null;
-              if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer, null)) {
-                isAiMoveActuallyLegal = true;
-              } else {
-                aiErrorOccurredRef.current = true;
-              }
-            } else {
-              aiErrorOccurredRef.current = true;
-            }
-          } else if (aiMoveType === 'swap') {
-             const targetPieceForAISwap = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
-            const validSwapCondition =
-                ((pieceOnFromSquareForAI.type === 'knight' || pieceOnFromSquareForAI.type === 'hero') && originalPieceLevelForAI >=4 && targetPieceForAISwap?.type === 'bishop' && targetPieceForAISwap.color === pieceOnFromSquareForAI.color ) ||
-                (pieceOnFromSquareForAI.type === 'bishop' && originalPieceLevelForAI >=4 && (targetPieceForAISwap?.type === 'knight' || targetPieceForAISwap?.type === 'hero') && targetPieceForAISwap.color === pieceOnFromSquareForAI.color );
-
-            if (validSwapCondition && !finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.item) {
-                 isAiMoveActuallyLegal = true;
-            } else {
-                 aiErrorOccurredRef.current = true;
-            }
-          } else {
-            isAiMoveActuallyLegal = legalMovesForAiPieceOnBoard.includes(aiToAlg as AlgebraicSquare);
-            if (!isAiMoveActuallyLegal) {
-              console.log("=== AI ILLEGAL MOVE DEBUG INFO START ===");
-              console.log(`Player: ${getPlayerDisplayName(currentPlayer)} (AI)`);
-              console.log(`Board state BEFORE AI's illegal move attempt (Player to move: ${currentPlayer}):`);
-              console.log(boardToSimpleString(finalBoardStateForAI, currentPlayer, enPassantTargetSquare));
-              console.log(`AI suggested move: ${aiFromAlg} to ${aiToAlg} (Type: ${aiMoveType}, PromoteTo: ${aiPromoteTo || 'N/A'})`);
-              console.log(`Piece AI wants to move: ${pieceOnFromSquareForAI?.type} L${originalPieceLevelForAI} at ${aiFromAlg}`);
-              console.log(`Valid moves for this piece (from chess-utils): [${legalMovesForAiPieceOnBoard.join(', ')}]`);
-
-              const tempBoardForIllegalMoveCheck = finalBoardStateForAI.map(r_val => r_val.map(s_val => ({ ...s_val, piece: s_val.piece ? { ...s_val.piece } : null, item: s_val.item ? { ...s_val.item } : null })));
-              
-              const tempMoveForUtil: Move = {
-                from: aiFromAlg as AlgebraicSquare,
-                to: aiToAlg as AlgebraicSquare,
-                type: aiMoveType as Move['type'],
-                promoteTo: aiPromoteTo
-              };
-              const { newBoard: boardAfterIllegalAIMove } = applyMove(tempBoardForIllegalMoveCheck, tempMoveForUtil, enPassantTargetSquare);
-
-              console.log(`Board state AFTER AI's illegal move was simulated (Player to move: ${currentPlayer}):`);
-              console.log(boardToSimpleString(boardAfterIllegalAIMove, currentPlayer, enPassantTargetSquare));
-              const isKingInCheckAfterIllegalMove = isKingInCheck(boardAfterIllegalAIMove, currentPlayer, null);
-              console.log(`Is ${getPlayerDisplayName(currentPlayer)}'s King in check AFTER this illegal move (according to chess-utils)? ${isKingInCheckAfterIllegalMove}`);
-              console.log("=== AI ILLEGAL MOVE DEBUG INFO END ===");
-              aiErrorOccurredRef.current = true;
+          if (!isAiMoveActuallyLegal && aiMoveDataFromVibeAI.type === 'self-destruct' && aiFromAlg === aiToAlg) {
+            const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+            tempStateAfterSelfDestruct[aiMoveDataFromVibeAI.from[0]][aiMoveDataFromVibeAI.from[1]].piece = null;
+            if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer, null)) {
+              isAiMoveActuallyLegal = true; // Self-destruct not resulting in check is legal
             }
           }
+
+
+          if (!isAiMoveActuallyLegal) {
+            console.log("=== AI ILLEGAL MOVE DEBUG INFO START ===");
+            console.log(`Player: ${getPlayerDisplayName(currentPlayer)} (AI)`);
+            console.log(`Board state BEFORE AI's illegal move attempt (Player to move: ${currentPlayer}):`);
+            console.log(boardToSimpleString(finalBoardStateForAI, currentPlayer, enPassantTargetSquare));
+            console.log(`AI suggested move: ${aiFromAlg} to ${aiToAlg} (Type: ${aiMoveType}, PromoteTo: ${aiPromoteTo || 'N/A'})`);
+            console.log(`Piece AI wants to move: ${pieceOnFromSquareForAI?.type} L${originalPieceLevelForAI} at ${aiFromAlg}`);
+            console.log(`Valid moves for this piece (from chess-utils): [${definitiveLegalMovesForPiece.join(', ')}]`);
+            
+            const tempBoardForIllegalMoveCheck = finalBoardStateForAI.map(r_val => r_val.map(s_val => ({ ...s_val, piece: s_val.piece ? { ...s_val.piece } : null, item: s_val.item ? { ...s_val.item } : null })));
+            const tempMoveForUtil: Move = { from: aiFromAlg as AlgebraicSquare, to: aiToAlg as AlgebraicSquare, type: aiMoveType as Move['type'], promoteTo: aiPromoteTo };
+            const { newBoard: boardAfterIllegalAIMove } = applyMove(tempBoardForIllegalMoveCheck, tempMoveForUtil, enPassantTargetSquare);
+            console.log(`Board state AFTER AI's illegal move was simulated (Player to move: ${currentPlayer}):`);
+            console.log(boardToSimpleString(boardAfterIllegalAIMove, currentPlayer, enPassantTargetSquare));
+            const isKingInCheckAfterIllegalMove = isKingInCheck(boardAfterIllegalAIMove, currentPlayer, null);
+            console.log(`Is ${getPlayerDisplayName(currentPlayer)}'s King in check AFTER this illegal move (according to chess-utils)? ${isKingInCheckAfterIllegalMove}`);
+            console.log("AI proposed move is NOT in chess-utils definitive legal moves.");
+            console.log("Definitive legal moves by chess-utils:", definitiveLegalMovesForPiece);
+            console.log("=== AI ILLEGAL MOVE DEBUG INFO END ===");
+
+
+            if (definitiveLegalMovesForPiece.length > 0) {
+                toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking a valid one.", duration: 2000 });
+                const chosenDefinitiveMoveAlg = definitiveLegalMovesForPiece[0];
+                const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
+
+                // Determine the type of the overridden move
+                let overrideMoveType: AIMoveType['type'] = 'move';
+                const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
+                if (targetSquareForOverride?.piece) {
+                    overrideMoveType = 'capture';
+                } else if (pieceOnFromSquareForAI.type === 'pawn' && chosenDefinitiveMoveAlg === enPassantTargetSquare) {
+                    overrideMoveType = 'enpassant';
+                }
+                
+                const promotionRankOverride = currentPlayer === 'white' ? 0 : 7;
+                let promoteToOverrideType: PieceType | undefined = undefined;
+                if ((pieceOnFromSquareForAI.type === 'pawn' || pieceOnFromSquareForAI.type === 'commander') && newToCoords.row === promotionRankOverride && overrideMoveType !== 'enpassant') {
+                     overrideMoveType = 'promotion';
+                     promoteToOverrideType = pieceOnFromSquareForAI.type === 'commander' ? 'hero' : 'queen';
+                } else if (pieceOnFromSquareForAI.type === 'king' && Math.abs(aiMoveDataFromVibeAI.from[1] - newToCoords.col) === 2) {
+                    overrideMoveType = 'castle';
+                } else if (pieceOnFromSquareForAI.type === 'knight' || pieceOnFromSquareForAI.type === 'hero') {
+                    if ((Number(pieceOnFromSquareForAI.level || 1) >= 5) && chosenDefinitiveMoveAlg === aiFromAlg) { // Self-destruct for Knight/Hero L5+
+                        overrideMoveType = 'self-destruct';
+                    } else if (Number(pieceOnFromSquareForAI.level || 1) >= 4 && targetSquareForOverride?.piece?.type === 'bishop' && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
+                        overrideMoveType = 'swap';
+                    }
+                } else if (pieceOnFromSquareForAI.type === 'bishop' && Number(pieceOnFromSquareForAI.level || 1) >= 4) {
+                     if (targetSquareForOverride?.piece?.type === 'knight' || targetSquareForOverride?.piece?.type === 'hero' && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
+                        overrideMoveType = 'swap';
+                    }
+                }
+
+                aiMoveDataFromVibeAI.to = [newToCoords.row, newToCoords.col];
+                aiMoveDataFromVibeAI.type = overrideMoveType;
+                aiMoveDataFromVibeAI.promoteTo = promoteToOverrideType;
+                aiToAlg = chosenDefinitiveMoveAlg; // Update algebraic target
+                isAiMoveActuallyLegal = true;
+                aiMoveType = overrideMoveType; // Update local aiMoveType for further processing
+                aiPromoteTo = promoteToOverrideType; // Update local aiPromoteTo
+                console.log("AI overridden move:", aiMoveDataFromVibeAI);
+            } else {
+                aiErrorOccurredRef.current = true;
+                console.log("chess-utils also confirms no legal moves for AI. Proceeding with forfeit.");
+            }
+          }
+
 
           if (!aiErrorOccurredRef.current && isAiMoveActuallyLegal) {
             saveStateToHistory();
@@ -1587,7 +1617,11 @@ export default function EvolvingChessPage() {
 
               if (applyMoveResult.pieceCapturedByAnvil) {
                 pieceCapturedByAnvilAI = true;
-                finalCapturedPiecesForAI[currentPlayer].push(applyMoveResult.pieceCapturedByAnvil);
+                if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
+                    finalCapturedPiecesForAI[currentPlayer].push(applyMoveResult.pieceCapturedByAnvil);
+                } else {
+                    toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
+                }
                 toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
               }
               if (aiAnvilPushedOff) {
@@ -1655,14 +1689,14 @@ export default function EvolvingChessPage() {
                         }
                     }
                 } else if (moveForApplyMoveAI!.type === 'self-destruct' && anvilsDestroyedByAICount > 0) {
-                    // No piece capture, but anvils destroyed. Don't reset streak.
+                    
                 } else {
                     newStreakForAIPlayer = 0;
                 }
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
 
 
-                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) { // Flash only for piece captures
+                if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) { 
                   setLastCapturePlayer(currentPlayer);
                   setShowCaptureFlash(true);
                   setCaptureFlashKey(k => k + 1);
@@ -1780,6 +1814,7 @@ export default function EvolvingChessPage() {
 
                   let extraTurnForThisAIMove = aiExtraTurnFromAIMethod || newStreakForAIPlayer === 6;
                   let sacrificeNeededForAIQueen = false;
+                  
                   const pieceOnFromSquareForAILevelCheck = finalBoardStateForAI[algebraicToCoords(aiFromAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiFromAlg as AlgebraicSquare).col]?.piece || pieceOnFromSquareForAI;
                   const originalTypeOfAIMovedPiece = pieceOnFromSquareForAILevelCheck!.type;
                   const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
@@ -1848,7 +1883,7 @@ export default function EvolvingChessPage() {
                   } else if (pieceAtDestinationAI?.type === 'queen') {
                      sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, aiGeneratedEnPassantTarget);
                   } else if (aiBecameInfiltrator) {
-                    // Infiltrator already handled
+                    
                   }
 
                   if (localAIAwaitingCommanderPromo) {
