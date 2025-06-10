@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import {
@@ -56,8 +55,11 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   Pieces level up by capturing opponent pieces and do not have a maximum level. Each piece type gains different abilities as it levels up. (See individual piece sections for details).
                 </PieceRule>
                 <PieceRule title="Pawn Promotion (Rank)">
-                  When a Pawn (not a Commander) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
+                  When a Pawn (not a Commander or Hero) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
+                </PieceRule>
+                 <PieceRule title="Commander Promotion to Hero (Rank)">
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. See Hero Abilities for more details.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -88,12 +90,36 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Commander Abilities">
                   <ul className="list-none pl-0">
                     <li className="text-sm text-foreground/90 mb-1">
-                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section). Commanders do not promote further by reaching the opponent's back rank.
+                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
+                    </li>
+                    <li className="text-sm text-foreground/90 mb-1">
+                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it promotes to a Hero, retaining its level. See Hero Abilities.
                     </li>
                     <li className="text-sm text-foreground/90">
-                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
+                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
                     </li>
                   </ul>
+                </PieceRule>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="hero">
+              <AccordionTrigger className="text-base hover:text-accent">Hero Abilities</AccordionTrigger>
+              <AccordionContent>
+                <PieceRule title="Origin">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion.</PieceRule>
+                <PieceRule title="Appearance">A Hero is visually represented as a Knight with a star overlay (similar to a Commander).</PieceRule>
+                <PieceRule title="Movement & Knight Abilities">
+                  A Hero moves, captures, and gains leveled abilities exactly like a Knight of its current level. This includes:
+                  <ul className="list-none pl-0 mt-1">
+                    <LevelRule level="1" description="Standard L-shape move/capture." />
+                    <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
+                    <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
+                    <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
+                    <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Hero can be re-selected to self-destruct. The Hero is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
+                  </ul>
+                </PieceRule>
+                <PieceRule title="Hero's Rallying Cry (Special)">
+                  When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -139,13 +165,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="pawn">
               <AccordionTrigger className="text-base hover:text-accent">Pawn & Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders do not promote further by reaching the back rank.)</p>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
                   <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
                   <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction and General Gameplay for Push-Back Self-Check." />
-                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn (not a Commander) is promoted by reaching the back rank, its player gets an extra turn." />
+                  <LevelRule level="5+" description="Promotion Bonus (Pawn only): If a Level 5+ Pawn (not a Commander) is promoted by reaching the back rank, its player gets an extra turn." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -153,12 +179,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="knight">
               <AccordionTrigger className="text-base hover:text-accent">Knight Abilities</AccordionTrigger>
               <AccordionContent>
+                 <p className="text-xs text-muted-foreground mb-2">(Heroes also gain these abilities as they level up.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
                   <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight can be re-selected to self-destruct. The Knight is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
+                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -170,7 +197,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
                   <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or items in its path)." />
                   <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns or Commanders." />
-                  <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight on the board." />
+                  <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight or Hero on the board." />
                   <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King, on a square without an item) to convert that piece to its own color (level and type preserved)." />
                 </ul>
               </AccordionContent>
@@ -218,6 +245,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
-
-
