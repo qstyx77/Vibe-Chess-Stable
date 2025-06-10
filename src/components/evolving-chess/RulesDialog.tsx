@@ -93,7 +93,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
                     </li>
                     <li>
-                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
+                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
                     </li>
                   </ul>
                 </PieceRule>
