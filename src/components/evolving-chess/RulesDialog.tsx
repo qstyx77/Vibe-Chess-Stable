@@ -59,7 +59,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   If the Pawn was Level 5 or higher before promoting, its player gets an extra turn immediately after promotion.
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher before promoting to Hero, its player gets an extra turn immediately after promotion. See Hero Abilities for more details.
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher before promoting to Hero, its player gets an extra turn. See Knight Abilities (for Hero movement) and First Blood & Commander (for Hero special ability).
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -75,7 +75,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="firstblood">
-              <AccordionTrigger className="text-base hover:text-accent">First Blood & Commander</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">First Blood, Commander &amp; Hero</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="First Blood">
                   The first player to capture an enemy piece during the game achieves "First Blood".
@@ -90,36 +90,20 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Commander Abilities">
                   <ul className="list-none pl-0">
                     <li className="text-sm text-foreground/90 mb-1">
-                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
-                    </li>
-                    <li className="text-sm text-foreground/90 mb-1">
-                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it promotes to a Hero, retaining its level. If the Commander is Level 5 or higher when promoting, its player gets an extra turn. See Hero Abilities.
+                      <strong>Movement &amp; Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn Abilities section).
                     </li>
                     <li className="text-sm text-foreground/90">
                       <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders or Heroes) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn promoted from this ability becomes a Queen, its level is still capped at 7.
                     </li>
                   </ul>
                 </PieceRule>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="hero">
-              <AccordionTrigger className="text-base hover:text-accent">Hero Abilities</AccordionTrigger>
-              <AccordionContent>
-                <PieceRule title="Origin">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</PieceRule>
-                <PieceRule title="Appearance">A Hero is visually represented as a Knight with a star overlay (similar to a Commander).</PieceRule>
-                <PieceRule title="Movement & Knight Abilities">
-                  A Hero moves, captures, and gains leveled abilities exactly like a Knight of its current level. This includes:
-                  <ul className="list-none pl-0 mt-1">
-                    <LevelRule level="1" description="Standard L-shape move/capture." />
-                    <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
-                    <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
-                    <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                    <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Hero can be re-selected to self-destruct. The Hero is removed from the board, and all adjacent enemy pieces (except Kings) are captured. This counts towards kill streaks." />
-                  </ul>
-                </PieceRule>
-                <PieceRule title="Hero's Rallying Cry (Special)">
-                  When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
+                <PieceRule title="Hero Origin &amp; Abilities">
+                  <p className="text-sm text-foreground/90 mb-1">A Hero is created when a Commander reaches the opponent's back rank. It retains the Commander's level at the time of promotion. If the Commander was Level 5 or higher, an extra turn is granted.</p>
+                  <p className="text-sm text-foreground/90 mb-1">A Hero is visually represented as a Knight with a star overlay.</p>
+                  <p className="text-sm text-foreground/90 mb-1"><strong>Movement &amp; Knight Abilities:</strong> A Hero moves, captures, and gains leveled abilities exactly like a Knight of its current level. See the "Knight Abilities" section for details.</p>
+                  <p className="text-sm text-foreground/90">
+                    <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
+                  </p>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -163,9 +147,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="pawn">
-              <AccordionTrigger className="text-base hover:text-accent">Pawn & Commander Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank.)</p>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank - see "First Blood, Commander &amp; Hero" for Hero details.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
@@ -177,9 +161,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="knight">
-              <AccordionTrigger className="text-base hover:text-accent">Knight Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-base hover:text-accent">Knight &amp; Hero Abilities</AccordionTrigger>
               <AccordionContent>
-                 <p className="text-xs text-muted-foreground mb-2">(Heroes also gain these abilities as they level up.)</p>
+                 <p className="text-xs text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander &amp; Hero" for Hero origin and special Rallying Cry.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
@@ -218,7 +202,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
+                  <LevelRule level="7" description="Royal Guard &amp; Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -245,3 +229,5 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
+    
