@@ -397,6 +397,14 @@ export class VibeChessAI {
             newState.board[toRow][toCol].piece = { ...movingPieceCopy, hasMoved: true };
             if (newState.board[fromRow]?.[rookToColCastle]) {
                 newState.board[fromRow][rookToColCastle].piece = { ...rook, hasMoved: true };
+                 // Handle Shroom for Rook in castling
+                const rookLandingSquare = newState.board[fromRow]?.[rookToColCastle];
+                if(rookLandingSquare?.item?.type === 'shroom') {
+                    if(rookLandingSquare.piece) {
+                        rookLandingSquare.piece.level = (rookLandingSquare.piece.level || 1) + 1;
+                    }
+                    rookLandingSquare.item = null;
+                }
             }
             newState.board[fromRow][fromCol].piece = null;
             if(newState.board[fromRow]?.[rookFromColCastle]) {
@@ -462,8 +470,8 @@ export class VibeChessAI {
 
         const pieceOnToSquare = newState.board[toRow]?.[toCol]?.piece;
         if (pieceOnToSquare && pieceOnToSquare.id === movingPieceCopy.id) {
-            // Handle Shroom consumption if the piece landed on one (and wasn't a swap)
-            if (originalTargetItem?.type === 'shroom' && move.type !== 'swap') {
+            // Handle Shroom consumption if the piece landed on one (and wasn't a swap or castle)
+            if (originalTargetItem?.type === 'shroom' && move.type !== 'swap' && move.type !== 'castle') {
                  pieceOnToSquare.level = (pieceOnToSquare.level || 1) + 1;
                  if (pieceOnToSquare.type === 'queen') {
                      pieceOnToSquare.level = Math.min(pieceOnToSquare.level, 7);
@@ -778,21 +786,19 @@ export class VibeChessAI {
             const resSquareState = newState.board[resRow]?.[resCol];
             if (resSquareState) {
                 const resurrectedPiece: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res${Date.now()}`, hasMoved: (pieceToResurrect.type === 'king' || pieceToResurrect.type === 'rook') ? false : true, invulnerableTurnsRemaining: 0 };
-                resSquareState.piece = resurrectedPiece;
-                newState.capturedPieces[opponentColor] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
                 const promotionRank = currentPlayer === 'white' ? 0 : 7;
-                const resurrectedPieceOnBoardSquareState = newState.board[resRow]?.[resCol];
-                if (resurrectedPieceOnBoardSquareState?.piece?.type === 'pawn' && resRow === promotionRank) {
-                    resurrectedPieceOnBoardSquareState.piece.type = 'queen';
-                    resurrectedPieceOnBoardSquareState.piece.level = 1;
-                    resurrectedPieceOnBoardSquareState.piece.id = `${resurrectedPiece.id}_resPromo_Q`;
-                } else if (resurrectedPieceOnBoardSquareState?.piece?.type === 'commander' && resRow === promotionRank) {
-                    resurrectedPieceOnBoardSquareState.piece.type = 'hero';
-                    resurrectedPieceOnBoardSquareState.piece.id = `${resurrectedPiece.id}_resPromo_H`;
-                } else if (resurrectedPieceOnBoardSquareState?.piece?.type === 'infiltrator' && resRow === promotionRank) {
-                    newState.gameOver = true;
+                if (resurrectedPiece.type === 'commander' && resRow === promotionRank) {
+                    resurrectedPiece.type = 'hero';
+                    resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res_AI`;
+                } else if (resurrectedPiece.type === 'pawn' && resRow === promotionRank) {
+                    resurrectedPiece.type = 'queen'; // AI defaults pawn resurrection promo to Queen
+                    resurrectedPiece.id = `${resurrectedPiece.id}_QueenPromo_Res_AI`;
+                } else if (resurrectedPiece.type === 'infiltrator' && resRow === promotionRank) {
+                    newState.gameOver = true; // AI Infiltration win
                     newState.winner = currentPlayer;
                 }
+                resSquareState.piece = resurrectedPiece;
+                newState.capturedPieces[opponentColor] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
             }
         }
     }

@@ -826,11 +826,19 @@ export default function EvolvingChessPage() {
                     const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
                     const newUniqueSuffix = globalResurrectionIdCounter++;
                     const resurrectedPiece: Piece = { ...pieceToResOriginal, level: 1, id: `${pieceToResOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResOriginal.type === 'king' || pieceToResOriginal.type === 'rook' ? false : pieceToResOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
+                    
+                    const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
+                    if (resurrectedPiece.type === 'commander' && resR === promoRow) {
+                        resurrectedPiece.type = 'hero';
+                        resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
+                        toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                    } else {
+                         toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+                    }
                     finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                     finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResOriginal.id);
-                    toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
 
-                    const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
+
                     if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                         setPlayerForPostResurrectionPromotion(selfDestructPlayer);
                         setIsExtraTurnForPostResurrectionPromotion(newStreakForSelfDestructPlayer === 6);
@@ -1030,11 +1038,19 @@ export default function EvolvingChessPage() {
                     const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
                     const newUniqueSuffix = globalResurrectionIdCounter++;
                     const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}_${Date.now()}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
-                    finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                    finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
-                    toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
 
                     const promoRow = capturingPlayer === 'white' ? 0 : 7;
+                     if (resurrectedPiece.type === 'commander' && resR === promoRow) {
+                        resurrectedPiece.type = 'hero';
+                        resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
+                        toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                    } else {
+                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+                    }
+                    finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                    finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
+
+
                     if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                         setPlayerForPostResurrectionPromotion(capturingPlayer);
                         setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6);
@@ -1078,11 +1094,11 @@ export default function EvolvingChessPage() {
                 duration: 3000,
             });
 
-            if (humanRookResData.resurrectedPieceData?.type === 'pawn'){
+            if (humanRookResData.resurrectedPieceData?.type === 'pawn' || humanRookResData.resurrectedPieceData?.type === 'commander'){
                 const promoRow = currentPlayer === 'white' ? 0 : 7;
                 if (algebraicToCoords(humanRookResData.resurrectedSquareAlg!).row === promoRow) {
                     setPlayerForPostResurrectionPromotion(currentPlayer);
-                    setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6);
+                    setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6); // Or other extra turn logic
                     setIsResurrectionPromotionInProgress(true);
                     setIsPromotingPawn(true);
                     setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
@@ -1232,7 +1248,7 @@ export default function EvolvingChessPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
 
-    if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && !isResurrectionPromotionInProgress) ) {
+    if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && pieceBeingPromoted.type !== 'commander' && !isResurrectionPromotionInProgress) ) {
       setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false);
       setIsResurrectionPromotionInProgress(false);
       return;
@@ -1243,6 +1259,7 @@ export default function EvolvingChessPage() {
     const originalPawnLevel = Number(pieceBeingPromoted.level || 1);
     const pawnColor = pieceBeingPromoted.color;
     const originalPieceId = pieceBeingPromoted.id;
+    const promotingFromType = pieceBeingPromoted.type; // 'pawn' or 'commander' or original type if resurrection
 
     const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
     const currentLevelOfPieceOnSquare = Number(boardToUpdate[row][col].piece!.level || 1);
@@ -1266,7 +1283,7 @@ export default function EvolvingChessPage() {
                 capturedOnThisPromotingMove = true;
             }
         }
-        if (!isResurrectionPromotionInProgress && !capturedOnThisPromotingMove) {
+        if (!isResurrectionPromotionInProgress && !capturedOnThisPromotingMove && promotingFromType === 'pawn') { // Only reset level if it was a standard pawn promo without capture
              boardToUpdate[row][col].piece!.level = 1;
         }
     }
@@ -1285,14 +1302,14 @@ export default function EvolvingChessPage() {
       let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
 
       if (isResurrectionPromotionInProgress) {
-        toast({ title: "Resurrected Pawn Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s Pawn on ${promotionSquare} promoted to ${pieceType}! (L1)`, duration: 2500 });
+        toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
         processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer === 6, null);
         setIsResurrectionPromotionInProgress(false);
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
       } else {
-        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L1)`, duration: 2500 });
+        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
         const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5;
         const streakGrantsExtraTurn = currentStreakForPromotingPlayer === 6;
         const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
@@ -1315,7 +1332,7 @@ export default function EvolvingChessPage() {
             globalResurrectionIdCounter = newResurrectionIdCounter!;
             toast({ title: "Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${resurrectedPieceData!.type} to ${resurrectedSquareAlg!}! (L1)`, duration: 3000 });
 
-            if (resurrectedPieceData?.type === 'pawn'){
+            if (resurrectedPieceData?.type === 'pawn' || resurrectedPieceData?.type === 'commander'){
                 const promoR = pawnColor === 'white' ? 0 : 7;
                 if (algebraicToCoords(resurrectedSquareAlg!).row === promoR) {
                     setPlayerForPostResurrectionPromotion(pawnColor);
@@ -1779,20 +1796,23 @@ export default function EvolvingChessPage() {
                               const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
                               const newUniqueSuffixAI = globalResurrectionIdCounter++;
                               const resurrectedAI: Piece = { ...pieceToResOriginalAI, level: 1, id: `${pieceToResOriginalAI.id}_res_${newUniqueSuffixAI}_${Date.now()}`, hasMoved: pieceToResOriginalAI.type === 'king' || pieceToResOriginalAI.type === 'rook' ? false : pieceToResOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
+                              
+                              const promoRowAI = currentPlayer === 'white' ? 0 : 7;
+                              if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
+                                  resurrectedAI.type = 'hero';
+                                  resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res`;
+                                  toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                              } else {
+                                   toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
+                              }
                               finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                               finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
-                              toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
 
-                              const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                               if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                                   finalBoardStateForAI[resRAI][resCAI].piece!.type = 'queen';
                                   finalBoardStateForAI[resRAI][resCAI].piece!.level = 1;
                                   finalBoardStateForAI[resRAI][resCAI].piece!.id = `${resurrectedAI.id}_resPromo_Q`;
                                   toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
-                              } else if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
-                                  finalBoardStateForAI[resRAI][resCAI].piece!.type = 'hero';
-                                  finalBoardStateForAI[resRAI][resCAI].piece!.id = `${resurrectedAI.id}_resPromo_H`;
-                                  toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
                               } else if (resurrectedAI.type === 'infiltrator' && resRAI === promoRowAI) {
                                   setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
                               }
@@ -1836,23 +1856,24 @@ export default function EvolvingChessPage() {
                       globalResurrectionIdCounter = aiRookResData.newResurrectionIdCounter!;
                       toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 3000 });
 
-                      if (aiRookResData.resurrectedPieceData?.type === 'pawn') {
+                      if (aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander') {
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           const {row: resRookAIR, col: resRookAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
                           if (resRookAIR === promoRowAI) {
-                              finalBoardStateForAI[resRookAIR][resRookAIC].piece!.type = 'queen';
-                              finalBoardStateForAI[resRookAIR][resRookAIC].piece!.level = 1;
-                              finalBoardStateForAI[resRookAIR][resRookAIC].piece!.id = `${aiRookResData.resurrectedPieceData.id}_resPromo_Q`;
-                              toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                              const resurrectedPieceOnBoard = finalBoardStateForAI[resRookAIR]?.[resRookAIC]?.piece;
+                              if(resurrectedPieceOnBoard) {
+                                if (resurrectedPieceOnBoard.type === 'pawn') {
+                                    resurrectedPieceOnBoard.type = 'queen';
+                                    resurrectedPieceOnBoard.level = 1;
+                                    resurrectedPieceOnBoard.id = `${aiRookResData.resurrectedPieceData!.id}_resPromo_Q`;
+                                    toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                } else if (resurrectedPieceOnBoard.type === 'commander') {
+                                    resurrectedPieceOnBoard.type = 'hero';
+                                    resurrectedPieceOnBoard.id = `${aiRookResData.resurrectedPieceData!.id}_resPromo_H`;
+                                    toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
+                                }
+                              }
                           }
-                      } else if (aiRookResData.resurrectedPieceData?.type === 'commander') {
-                          const promoRowAI = currentPlayer === 'white' ? 0 : 7;
-                           const {row: resRookAIR, col: resRookAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
-                           if (resRookAIR === promoRowAI) {
-                            finalBoardStateForAI[resRookAIR][resRookAIC].piece!.type = 'hero';
-                            finalBoardStateForAI[resRookAIR][resRookAIC].piece!.id = `${aiRookResData.resurrectedPieceData.id}_resPromo_H`;
-                            toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
-                           }
                       }
                   }
                 }
@@ -1905,23 +1926,24 @@ export default function EvolvingChessPage() {
                                 setBoard(finalBoardStateForAI);
                                 setCapturedPieces(finalCapturedPiecesForAI);
                                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
-                                if(aiPromoRookPieceData?.type === 'pawn'){
+                                if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
                                     const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                                     const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
                                     if (resRookPromoAIR === promoR_AI) {
-                                        finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.type = 'queen';
-                                        finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.level = 1;
-                                        finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.id = `${aiPromoRookPieceData.id}_resPromo_Q`;
-                                        toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                        const resurrectedPieceOnBoardAI = finalBoardStateForAI[resRookPromoAIR]?.[resRookPromoAIC]?.piece;
+                                        if (resurrectedPieceOnBoardAI) {
+                                            if (resurrectedPieceOnBoardAI.type === 'pawn') {
+                                                resurrectedPieceOnBoardAI.type = 'queen';
+                                                resurrectedPieceOnBoardAI.level = 1;
+                                                resurrectedPieceOnBoardAI.id = `${aiPromoRookPieceData!.id}_resPromo_Q`;
+                                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                            } else if (resurrectedPieceOnBoardAI.type === 'commander') {
+                                                resurrectedPieceOnBoardAI.type = 'hero';
+                                                resurrectedPieceOnBoardAI.id = `${aiPromoRookPieceData!.id}_resPromo_H`;
+                                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
+                                            }
+                                        }
                                     }
-                                } else if (aiPromoRookPieceData?.type === 'commander') {
-                                    const promoR_AI = currentPlayer === 'white' ? 0 : 7;
-                                     const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
-                                     if (resRookPromoAIR === promoR_AI) {
-                                        finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.type = 'hero';
-                                        finalBoardStateForAI[resRookPromoAIR][resRookPromoAIC].piece!.id = `${aiPromoRookPieceData.id}_resPromo_H`;
-                                        toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
-                                     }
                                 }
                             }
                           }
@@ -2385,7 +2407,7 @@ export default function EvolvingChessPage() {
               currentPlayer={currentPlayer}
               gameStatusMessage={
                 isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
-                  isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting Pawn!` :
+                  isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
                     isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
                       isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
                         gameInfo.message || "\u00A0"

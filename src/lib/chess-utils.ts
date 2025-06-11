@@ -579,6 +579,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     }
 
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackerLevel < targetLevel ) {
+      // Exception for Knight/Hero self-destruct will be handled by calling code, not here
       return true;
     }
     if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander' || attackingPiece.type === 'infiltrator')) {
@@ -686,7 +687,7 @@ export function applyMove(
       const kingRow = fromRow;
       const rookOriginalCol = toCol > fromCol ? 7 : 0;
       const rookTargetCol = toCol > fromCol ? 5 : 3;
-      const rookSquareData = board[kingRow]?.[rookOriginalCol];
+      const rookSquareData = board[kingRow]?.[rookOriginalCol]; // Check original board for rook
       if (rookSquareData?.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === pieceNowOnToSquare.color) {
         const movedRookPiece = { ...rookSquareData.piece, hasMoved: true };
         newBoard[kingRow][rookTargetCol].piece = movedRookPiece;
@@ -1176,6 +1177,20 @@ export function processRookResurrectionCheck(
           invulnerableTurnsRemaining: 0,
         };
         nextResurrectionIdCounter++;
+
+        // Check for promotion if resurrected onto back rank
+        const promotionRank = playerWhosePieceLeveled === 'white' ? 0 : 7;
+        if (resurrectedPieceData.type === 'pawn' && resR === promotionRank) {
+          resurrectedPieceData.type = 'queen'; // Default to Queen
+          resurrectedPieceData.id = `${resurrectedPieceData.id}_resPromo_Q`;
+        } else if (resurrectedPieceData.type === 'commander' && resR === promotionRank) {
+          resurrectedPieceData.type = 'hero';
+          resurrectedPieceData.id = `${resurrectedPieceData.id}_resPromo_H`;
+        } else if (resurrectedPieceData.type === 'infiltrator' && resR === promotionRank) {
+          // This would be an infiltration win, but this function doesn't handle game over.
+          // The main game loop should check for this after the resurrection.
+        }
+
         boardWithResurrection[resR][resC].piece = resurrectedPieceData;
         capturedPiecesAfterResurrection[opponentColor] = capturedPiecesAfterResurrection[opponentColor].filter(p => p.id !== pieceToResurrectOriginal.id);
 
