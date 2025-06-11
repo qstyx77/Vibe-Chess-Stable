@@ -702,6 +702,10 @@ export default function EvolvingChessPage() {
       
       if (isMoveInFreshList) {
         moveBeingMade = { from: selectedSquare, to: algebraic };
+        // Set type for castling for human players
+        if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
+            moveBeingMade.type = 'castle';
+        }
       }
 
 
@@ -877,6 +881,15 @@ export default function EvolvingChessPage() {
         if (pieceToMoveFromSelected.type === 'pawn' && algebraic === currentEnPassantTargetForThisTurn && !board[row][col].piece) {
             moveBeingMade.type = 'enpassant';
         }
+        // Ensure move type is set for castling for human players
+        if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2 && moveBeingMade.type !== 'self-destruct') {
+             // Check if this king move is actually a castle by verifying it's in possible moves
+             // (which implicitly checks castling rights and path safety via getPossibleMoves)
+             if (freshlyCalculatedMovesForThisPiece.includes(algebraic)) {
+                 moveBeingMade.type = 'castle';
+             }
+        }
+
 
         const { newBoard, capturedPiece: captured, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel: levelFromApplyMove, selfCheckByPushBack, queenLevelReducedEvents, isEnPassantCapture: enPassantHappened, promotedToInfiltrator: becameInfiltrator, infiltrationWin: gameWonByInfiltration, enPassantTargetSet, shroomConsumed } = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
         finalBoardStateForTurn = newBoard;
@@ -1534,6 +1547,11 @@ export default function EvolvingChessPage() {
             setIsMoveProcessing(true);
             setAnimatedSquareTo(aiMoveType === 'self-destruct' ? (aiFromAlg as AlgebraicSquare) : (aiToAlg as AlgebraicSquare));
             
+            // Ensure type is set for castling for AI path too
+            if (pieceOnFromSquareForAI?.type === 'king' && aiFromAlg && aiToAlg && Math.abs(algebraicToCoords(aiFromAlg).col - algebraicToCoords(aiToAlg).col) === 2 && aiMoveType !== 'self-destruct') {
+                aiMoveType = 'castle';
+            }
+
             moveForApplyMoveAI = {
                 from: aiFromAlg as AlgebraicSquare,
                 to: aiToAlg as AlgebraicSquare,
