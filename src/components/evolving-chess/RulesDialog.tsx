@@ -95,6 +95,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <li>
                       <strong>Winning Condition - Infiltration:</strong> If an Infiltrator reaches the opponent's back rank, its player immediately wins the game by "Infiltration". This win condition overrides checkmate or stalemate.
                     </li>
+                     <li>
+                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of the Queen's level or L7 invulnerability.
+                    </li>
                   </ul>
                 </PieceRule>
               </AccordionContent>
@@ -124,12 +127,21 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <li>
                       <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn. A Hero is visually represented as a Knight with a star 🌟 overlay.
                     </li>
+                     <li>
+                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of the Queen's level or L7 invulnerability.
+                    </li>
                   </ul>
                 </PieceRule>
-                 <PieceRule title="Hero's Rallying Cry (Special)">
-                  <p className="text-sm text-foreground/90">
-                    When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
-                  </p>
+                 <PieceRule title="Hero Abilities">
+                   <p className="text-sm text-foreground/90">A Hero moves and gains leveled abilities identically to Knights (see Knight & Hero Abilities). Heroes also have the following special abilities:</p>
+                  <ul className="list-none pl-0 space-y-1 mt-1">
+                    <li>
+                      <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
+                    </li>
+                    <li>
+                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of the Queen's level or L7 invulnerability.
+                    </li>
+                  </ul>
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -181,7 +193,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="pawn">
               <AccordionTrigger className="text-base hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank. Pawns can promote to Infiltrator via En Passant.)</p>
+                <p className="text-xs text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank. Pawns can promote to Infiltrator via En Passant. Both Commanders and Infiltrators can capture L7 Queens.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture. Can perform En Passant." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
@@ -195,7 +207,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="knight">
               <AccordionTrigger className="text-base hover:text-accent">Knight &amp; Hero Abilities</AccordionTrigger>
               <AccordionContent>
-                 <p className="text-xs text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander & Hero" for Hero origin and special Rallying Cry.)</p>
+                 <p className="text-xs text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander & Hero" for Hero origin, special Rallying Cry, and their Queen Hunter ability.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
@@ -234,7 +246,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard &amp; Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
+                  <LevelRule level="7" description="Royal Guard &amp; Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level, *except* for Commanders, Heroes, and Infiltrators, which can capture her regardless of their level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
