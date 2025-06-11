@@ -621,7 +621,7 @@ export function applyMove(
   const targetItemOriginal = newBoard[toRow]?.[toCol]?.item;
 
   if (targetItemOriginal && targetItemOriginal.type !== 'shroom') { // Allow moving onto shrooms
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: false };
+    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: shroomConsumedThisMove };
   }
 
   const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level || 1);
@@ -680,16 +680,28 @@ export function applyMove(
   }
 
 
-  if (pieceNowOnToSquare.type === 'king' && !movingPieceOriginalRef.hasMoved) {
+  if (pieceNowOnToSquare.type === 'king' && !movingPieceOriginalRef.hasMoved && move.type === 'castle') { // Ensure it's actually a castle move type
     const kingStartCol = 4;
-    if (fromCol === kingStartCol && Math.abs(fromCol - toCol) === 2) { // Castle
+    if (fromCol === kingStartCol && Math.abs(fromCol - toCol) === 2) { // King moved 2 squares
       const kingRow = fromRow;
       const rookOriginalCol = toCol > fromCol ? 7 : 0;
       const rookTargetCol = toCol > fromCol ? 5 : 3;
       const rookSquareData = board[kingRow]?.[rookOriginalCol];
       if (rookSquareData?.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === pieceNowOnToSquare.color) {
-        newBoard[kingRow][rookTargetCol].piece = { ...rookSquareData.piece, hasMoved: true };
+        const movedRookPiece = { ...rookSquareData.piece, hasMoved: true };
+        newBoard[kingRow][rookTargetCol].piece = movedRookPiece;
         newBoard[kingRow][rookOriginalCol].piece = null;
+
+        // Check for Shroom consumption by the Rook during castling
+        const rookLandingSquareState = newBoard[kingRow]?.[rookTargetCol];
+        if (rookLandingSquareState?.item?.type === 'shroom') {
+          shroomConsumedThisMove = true;
+          rookLandingSquareState.item = null; // Consume shroom
+          if (rookLandingSquareState.piece) { // Rook should be here
+            rookLandingSquareState.piece.level = (rookLandingSquareState.piece.level || 1) + 1;
+            // Queen level cap is not relevant for Rooks
+          }
+        }
       }
     }
   }
@@ -757,9 +769,6 @@ export function applyMove(
   } else if ((pieceNowOnToSquare.type === 'pawn') && (toRow === 0 || toRow === 7)) {
     if (move.promoteTo) {
       let promotedPieceBaseLevel = pieceNowOnToSquare.level; // Already includes shroom or capture bonus
-      // if (capturedPiece) { // This logic is now handled above where level is increased from capture
-      // }
-
       pieceNowOnToSquare.type = move.promoteTo;
       let finalPromotedLevel = promotedPieceBaseLevel;
       if (move.promoteTo === 'queen') {
@@ -781,10 +790,8 @@ export function applyMove(
     pieceNowOnToSquare.type === 'king' &&
     pieceNowOnToSquare.level > originalPieceLevel // Compare with original level *before* shroom/capture this turn
   ) {
-    // Level gain for king must be from capture, not shroom, to trigger queen reduction
     let kingLevelGainFromCapture = 0;
     if (capturedPiece) {
-        // simplified: assume king gained 1 level if it captured. More precise would be to track pre-capture level.
         kingLevelGainFromCapture = (pieceNowOnToSquare.level || 1) - (originalPieceLevel + (shroomConsumedThisMove ? 1:0));
     }
 
@@ -1227,3 +1234,4 @@ export function spawnShroom(board: BoardState): BoardState {
   }
   return newBoard;
 }
+
