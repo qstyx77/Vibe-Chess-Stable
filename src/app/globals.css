@@ -8,6 +8,8 @@ html {
   image-rendering: -webkit-optimize-contrast; /* Webkit (Chrome, Safari) */
   image-rendering: pixelated; /* General */
   -ms-interpolation-mode: nearest-neighbor; /* IE */
+  -webkit-text-size-adjust: 100%; /* Prevent font scaling in Safari */
+  text-size-adjust: 100%; /* Prevent font scaling in other browsers */
 }
 
 body {
