@@ -25,6 +25,7 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: 'VIBE CHESS - 8 Bit Edition',
   description: 'An online multiplayer chess game with leveling pieces, in glorious 8-bit style.',
+  viewport: 'width=device-width, initial-scale=1.0', // Added viewport meta tag
 };
 
 export default function RootLayout({
