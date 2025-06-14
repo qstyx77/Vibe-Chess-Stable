@@ -55,10 +55,21 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   Pieces level up by capturing opponent pieces or consuming Shrooms 🍄 and do not have a maximum level (except Queens, capped at L7). Each piece type gains different abilities as it levels up. (See individual piece sections for details).
                 </PieceRule>
                 <PieceRule title="Pawn Promotion (Rank)">
-                  When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color. The promoted piece starts at Level 1. If the promotion move also captured an opponent's piece, the promoted piece gains levels accordingly.
+                  When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color.
+                  <ul className="list-none pl-0 space-y-1 mt-1">
+                    <li className="text-[10px] text-foreground/90 ml-2">&bull; If the promotion move does NOT involve a capture, the promoted piece starts at Level 1.</li>
+                    <li className="text-[10px] text-foreground/90 ml-2">&bull; If the promotion move INVOLVES capturing an opponent's piece on the promotion square:
+                      <ul className="list-disc list-inside pl-4">
+                        <li className="text-[10px]">If a Pawn was captured: Promoted piece starts at Level 2.</li>
+                        <li className="text-[10px]">If a Queen was captured: Promoted piece starts at Level 4.</li>
+                        <li className="text-[10px]">If any other piece type (Knight, Bishop, Rook, Commander, Hero, Infiltrator) was captured: Promoted piece starts at Level 3.</li>
+                      </ul>
+                    </li>
+                     <li className="text-[10px] text-foreground/90 ml-2">&bull; A Queen promoted this way is still capped at Level 7.</li>
+                  </ul>
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a Hero. The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn.
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -246,7 +257,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard &amp; Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level, *except* for Commanders, Heroes, and Infiltrators, which can capture her regardless of their level. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
+                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level, *except* for Commanders, Heroes, and Infiltrators, which can capture her regardless of their level or her L7 invulnerability. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>

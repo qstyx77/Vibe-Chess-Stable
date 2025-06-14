@@ -697,7 +697,8 @@ export function applyMove(
   }
   pieceNowOnToSquare.hasMoved = true;
 
-  if (capturedPiece) {
+  if (capturedPiece && !(movingPieceOriginalRef.type === 'pawn' && (toRow === 0 || toRow === 7) && !isEnPassantCapture)) {
+    // General capture leveling, unless it's a pawn promotion-capture (handled separately)
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
@@ -721,7 +722,6 @@ export function applyMove(
         pieceNowOnToSquare.type = 'commander';
         pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
     }
-
 
     if (pieceNowOnToSquare.type === 'commander') {
       const commanderColor = pieceNowOnToSquare.color;
@@ -751,24 +751,49 @@ export function applyMove(
     }
   }
 
+
+  // Promotion-specific leveling and typing
   if (isEnPassantCapture && movingPieceOriginalRef.type === 'pawn') {
+    // pieceNowOnToSquare.level is already set by general capture logic for en passant
     pieceNowOnToSquare.type = 'infiltrator';
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_infiltrator`;
     promotedToInfiltrator = true;
-  } else if ((pieceNowOnToSquare.type === 'pawn') && (toRow === 0 || toRow === 7)) {
-    if (move.promoteTo) {
-      let promotedPieceBaseLevel = pieceNowOnToSquare.level; 
-      pieceNowOnToSquare.type = move.promoteTo;
-      let finalPromotedLevel = promotedPieceBaseLevel;
-      if (move.promoteTo === 'queen') {
-        finalPromotedLevel = Math.min(promotedPieceBaseLevel, 7);
-      }
-      pieceNowOnToSquare.level = finalPromotedLevel;
+  } else if (movingPieceOriginalRef.type === 'pawn' && (toRow === 0 || toRow === 7) && !promotedToInfiltrator) {
+    // Standard pawn promotion (or promotion with capture on this move)
+    let finalPromotionLevel = 1; // Default for non-capture promotion
+
+    if (capturedPiece && capturedPiece.id === targetPieceOriginal?.id) {
+        // Promotion WITH capture on this specific move
+        switch (capturedPiece.type) {
+            case 'pawn':
+                finalPromotionLevel = 2;
+                break;
+            case 'queen':
+                finalPromotionLevel = 4;
+                break;
+            default: // Knight, Bishop, Rook, Commander, Hero, Infiltrator
+                finalPromotionLevel = 3;
+                break;
+        }
     }
-  } else if ((pieceNowOnToSquare.type === 'commander') && (toRow === 0 || toRow === 7)) {
+    // If capturedPiece is null, or it wasn't the piece on the 'to' square, finalPromotionLevel remains 1.
+    
+    pieceNowOnToSquare.level = finalPromotionLevel;
+
+    if (move.promoteTo) { // AI promotion or pre-set promotion
+        pieceNowOnToSquare.type = move.promoteTo;
+        if (move.promoteTo === 'queen') {
+            pieceNowOnToSquare.level = Math.min(pieceNowOnToSquare.level, 7); // Cap queen level
+        }
+    }
+    // For human players, the type will be set later in handlePromotionSelect.
+    // The level is now correctly set here based on whether it was a promotion-capture or simple promotion.
+  } else if (movingPieceOriginalRef.type === 'commander' && (toRow === 0 || toRow === 7)) {
+    // Commander to Hero promotion, level is retained (already correctly set by previous captures or shrooms)
     pieceNowOnToSquare.type = 'hero';
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_HeroPromo`;
   }
+
 
   if (pieceNowOnToSquare.type === 'infiltrator' && ( (pieceNowOnToSquare.color === 'white' && toRow === 0) || (pieceNowOnToSquare.color === 'black' && toRow === 7) ) ) {
     infiltrationWin = true;
@@ -1168,8 +1193,9 @@ export function processRookResurrectionCheck(
           resurrectedPieceData.id = `${resurrectedPieceData.id}_resPromo_Q`;
         } else if (resurrectedPieceData.type === 'commander' && resR === promotionRank) {
           resurrectedPieceData.type = 'hero';
-          resurrectedPieceData.id = `${resurrectedPieceData.id}_resPromo_H`;
+          resurrectedPieceData.id = `${resurrectedPieceData.id}_HeroPromo_Res`;
         } else if (resurrectedPieceData.type === 'infiltrator' && resR === promotionRank) {
+           // Infiltration win if an infiltrator is resurrected onto the back rank
         }
 
         boardWithResurrection[resR][resC].piece = resurrectedPieceData;
