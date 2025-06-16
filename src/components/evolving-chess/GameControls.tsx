@@ -14,8 +14,11 @@ interface GameControlsProps {
   isCheck: boolean;
   isGameOver: boolean;
   killStreaks: { white: number, black: number };
-  isWhiteAI: boolean; // New prop
-  isBlackAI: boolean; // New prop
+  isWhiteAI: boolean;
+  isBlackAI: boolean;
+  activeTimerPlayer: PlayerColor | null;
+  remainingTime: number | null;
+  turnTimeouts: { white: number, black: number };
 }
 
 export function GameControls({
@@ -25,8 +28,11 @@ export function GameControls({
   isCheck,
   isGameOver,
   killStreaks,
-  isWhiteAI, // Destructure new prop
-  isBlackAI, // Destructure new prop
+  isWhiteAI,
+  isBlackAI,
+  activeTimerPlayer,
+  remainingTime,
+  turnTimeouts,
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
@@ -54,8 +60,15 @@ export function GameControls({
 
   let currentTurnMessage = gameStatusMessage;
    if (!currentTurnMessage && !isGameOver) {
-    currentTurnMessage = "\u00A0"; 
+    currentTurnMessage = "\u00A0";
   }
+
+  const formatTime = (seconds: number | null): string => {
+    if (seconds === null) return "--:--";
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   return (
     <Card className="w-full shadow-lg">
@@ -83,12 +96,20 @@ export function GameControls({
           </p>
         </div>
 
+        {activeTimerPlayer === currentPlayer && remainingTime !== null && !isGameOver && (
+          <div className="text-center mt-2">
+            <p className="text-lg font-semibold font-pixel text-accent">
+              Time: {formatTime(remainingTime)}
+            </p>
+          </div>
+        )}
+
         <div className="text-center mt-2 space-y-1">
           <p className="text-sm font-medium text-destructive font-pixel">
-            White's Streak: {killStreaks.white}
+            White's Streak: {killStreaks.white} | Timeouts: {turnTimeouts.white}
           </p>
           <p className="text-sm font-medium text-destructive font-pixel">
-            Black's Streak: {killStreaks.black}
+            Black's Streak: {killStreaks.black} | Timeouts: {turnTimeouts.black}
           </p>
         </div>
 

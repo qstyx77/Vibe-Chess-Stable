@@ -121,9 +121,13 @@ export interface GameSnapshot {
   playerWhoGotFirstBlood: PlayerColor | null;
   isAwaitingCommanderPromotion: boolean;
 
-  // Shroom state
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
+
+  // Timer state
+  activeTimerPlayer: PlayerColor | null;
+  remainingTime: number | null;
+  turnTimeouts: { white: number, black: number };
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation
@@ -153,7 +157,6 @@ export interface AIGameState {
   firstBloodAchieved?: boolean;
   playerWhoGotFirstBlood?: PlayerColor | null;
   enPassantTargetSquare?: AlgebraicSquare | null;
-  // AI needs to know about Shrooms for evaluation
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
 }
