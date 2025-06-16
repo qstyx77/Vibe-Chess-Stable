@@ -33,31 +33,36 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   });
 
   const createRoom = useCallback(async (): Promise<string | null> => {
-    // Placeholder for actual WebRTC room creation logic
-    // This would involve a signaling server
     console.log('Attempting to create WebRTC room...');
-    setState(prev => ({ ...prev, isConnecting: true, error: null }));
-    // Simulate async operation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const newRoomId = `room_${Math.random().toString(36).substring(2, 7)}`;
-    setState(prev => ({ ...prev, isConnected: true, isConnecting: false, roomId: newRoomId }));
-    console.log(`Room created: ${newRoomId}`);
-    // In a real scenario, you'd return the room ID from the signaling server
-    return newRoomId;
+    setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: null, isConnected: false }));
+    
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        const newRoomId = `room_${Math.random().toString(36).substring(2, 7)}`;
+        setState(prev => ({ ...prev, isConnected: true, isConnecting: false, roomId: newRoomId }));
+        console.log(`Room created: ${newRoomId}`);
+        resolve(newRoomId);
+      }, 1000);
+    });
   }, []);
 
   const joinRoom = useCallback(async (roomIdToJoin: string): Promise<boolean> => {
-    // Placeholder for actual WebRTC room joining logic
-    // This would involve a signaling server
     console.log(`Attempting to join WebRTC room: ${roomIdToJoin}...`);
-    setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin }));
-     // Simulate async operation
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    // Simulate successful connection
-    setState(prev => ({ ...prev, isConnected: true, isConnecting: false }));
-    console.log(`Joined room: ${roomIdToJoin}`);
-    return true;
-    // In a real scenario, handle connection failures and set error accordingly
+    setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isConnected: false }));
+
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        if (roomIdToJoin === "fail") { // Simple way to test error
+          setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: "Failed to join room (simulated)." }));
+          console.error(`Failed to join room: ${roomIdToJoin}`);
+          resolve(false);
+        } else {
+          setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
+          console.log(`Joined room: ${roomIdToJoin}`);
+          resolve(true);
+        }
+      }, 1000);
+    });
   }, []);
 
   const sendMove = useCallback((move: GameMove) => {
@@ -71,7 +76,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, [state.isConnected, state.roomId]);
 
   const disconnect = useCallback(() => {
-    // Placeholder for disconnecting logic (closing peer connections, notifying signaling server)
     console.log('Disconnecting from WebRTC room...');
     setState({
       isConnected: false,
