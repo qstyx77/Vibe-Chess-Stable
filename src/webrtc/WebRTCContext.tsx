@@ -34,10 +34,14 @@ const ICE_SERVERS = {
 // Dynamically determine SIGNALING_SERVER_URL
 let SIGNALING_SERVER_URL = 'ws://localhost:8080'; // Default for true local development
 if (typeof window !== 'undefined') {
-  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const hostname = window.location.hostname;
-  // Assume port 8080 is exposed on the same hostname by the cloud IDE
-  SIGNALING_SERVER_URL = `${protocol}//${hostname}:8080`; 
+  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
+    // For cloud IDEs or deployed environments, assume ws for now.
+    // The cloud environment typically handles SSL termination for the main app,
+    // and the internal WebSocket server on 8080 might be expecting unencrypted ws.
+    SIGNALING_SERVER_URL = `ws://${hostname}:8080`;
+  }
+  // If it IS localhost, keep the default ws://localhost:8080
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
@@ -248,11 +252,11 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Guard against re-creating if already connected/connecting
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-      console.log("WebRTC: WebSocket connection already active or attempting. Skipping new setup.");
+      console.log("WebRTC: WebSocket connection setup skipped (already active or attempting).");
       return;
     }
 
-    console.log("WebRTC: Attempting new WebSocket connection to signaling server...");
+    console.log(`WebRTC: Attempting new WebSocket connection to signaling server: ${SIGNALING_SERVER_URL}`);
     const ws = new WebSocket(SIGNALING_SERVER_URL);
     wsRef.current = ws; // Assign immediately
 
