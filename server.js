@@ -1,7 +1,7 @@
 
 const WebSocket = require('ws');
 
-const wss = new WebSocket.Server({ port: 8080 });
+const wss = new WebSocket.Server({ port: 8081 }); // Changed port to 8081
 
 const rooms = {}; // Stores room data, e.g., { roomId: { creator: ws, joiner: ws } }
 const clients = new Map(); // Stores ws -> clientId mapping
@@ -10,7 +10,7 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
-console.log('Signaling server started on ws://localhost:8080');
+console.log('Signaling server started on ws://localhost:8081'); // Updated log message
 
 wss.on('connection', (ws) => {
   const clientId = generateId();
@@ -162,4 +162,12 @@ wss.on('connection', (ws) => {
     console.error(`Error from client ${errorClientId}:`, error);
     // ws.close() will be called automatically, triggering the 'close' event
   });
+});
+
+wss.on('listening', () => {
+  console.log('WebSocketServer is listening on port 8081');
+});
+
+wss.on('error', (error) => {
+  console.error('WebSocketServer failed to start:', error);
 });

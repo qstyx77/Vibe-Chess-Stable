@@ -37,14 +37,13 @@ if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
   const protocol = window.location.protocol;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    SIGNALING_SERVER_URL = 'ws://localhost:8080';
+    SIGNALING_SERVER_URL = 'ws://localhost:8081'; // Changed port to 8081
   } else {
-    // Use wss if the main page is https, otherwise ws
-    SIGNALING_SERVER_URL = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:8080`;
+    SIGNALING_SERVER_URL = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:8081`; // Changed port to 8081
   }
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 } else {
-  SIGNALING_SERVER_URL = 'ws://localhost:8080'; // Fallback for non-browser
+  SIGNALING_SERVER_URL = 'ws://localhost:8081'; // Fallback for non-browser, changed port to 8081
   console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
