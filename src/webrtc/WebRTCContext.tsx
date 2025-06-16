@@ -37,7 +37,7 @@ let SIGNALING_SERVER_URL: string;
 // Determine SIGNALING_SERVER_URL
 if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
-  const pageProtocol = window.location.protocol; // This will be 'https:' or 'http:'
+  const pageProtocol = window.location.protocol;
   
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`;
@@ -50,7 +50,7 @@ if (typeof window !== 'undefined') {
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 } else {
   // Fallback for non-browser environments (e.g., server-side during build)
-  SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`;
+  SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`; // Default to non-secure for server-side/unknown
   console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
