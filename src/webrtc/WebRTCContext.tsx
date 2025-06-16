@@ -315,7 +315,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       };
 
       ws.onerror = (event) => {
-        console.error('WebRTC: Signaling server connection error. Check if the signaling server (server.js) is running and accessible.');
+        console.warn('WebRTC: Signaling server connection error. Check if the signaling server (server.js) is running and accessible.');
         setState(prev => ({ ...prev, error: 'Signaling server connection error.', isConnected: false, isConnecting: false }));
         cleanupConnection(false);
       };
