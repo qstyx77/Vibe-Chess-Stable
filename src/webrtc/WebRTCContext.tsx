@@ -31,21 +31,22 @@ const ICE_SERVERS = {
   ],
 };
 
-const WSS_PORT = 8082; // Port for the WebSocket signaling server
-let SIGNALING_SERVER_URL: string;
+// !!! IMPORTANT: REPLACE THE LINE BELOW WITH THE EXACT URL PROVIDED BY FIREBASE STUDIO !!!
+// After you "Make public" port 8082 (or whichever port server.js is using) in Firebase Studio,
+// copy the public URL it provides and paste it here, ensuring it starts with 'ws://' or 'wss://'.
+// Example: const SIGNALING_SERVER_URL = 'wss://your-studio-provided-proxy-url.com/socket';
+const SIGNALING_SERVER_URL = 'wss://REPLACE_WITH_YOUR_FIREBASE_STUDIO_PUBLIC_URL_FOR_PORT_8082';
 
-// Determine SIGNALING_SERVER_URL
-if (typeof window !== 'undefined') {
-  const hostname = window.location.hostname;
-  const pageProtocol = window.location.protocol;
-  
-  const wsProtocol = pageProtocol === 'https:' ? 'wss' : 'ws';
-  SIGNALING_SERVER_URL = `${wsProtocol}://${hostname}:${WSS_PORT}`;
-  console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
+if (SIGNALING_SERVER_URL.includes('REPLACE_WITH_YOUR_FIREBASE_STUDIO_PUBLIC_URL')) {
+  if (typeof window !== 'undefined') {
+    console.warn(
+      "WebRTC: SIGNALING_SERVER_URL is a placeholder. " +
+      "Please update it in src/webrtc/WebRTCContext.tsx with the public URL " +
+      "provided by Firebase Studio for your signaling server's port (e.g., 8082)."
+    );
+  }
 } else {
-  // Fallback for server-side rendering or environments where window is not defined
-  SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`; // Or some other sensible default
-  console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
+   console.log(`WebRTC: Using configured SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
 
@@ -257,6 +258,12 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       console.log("WebRTC: WebSocket connection setup skipped (already active or attempting).");
       return;
     }
+    
+    if (SIGNALING_SERVER_URL.includes('REPLACE_WITH_YOUR_FIREBASE_STUDIO_PUBLIC_URL')) {
+        console.warn("WebRTC: WebSocket connection attempt skipped because SIGNALING_SERVER_URL is a placeholder.");
+        setState(prev => ({ ...prev, error: "WebSocket URL not configured."}));
+        return;
+    }
 
     console.log("WebRTC: Attempting new WebSocket connection to signaling server...");
     const ws = new WebSocket(SIGNALING_SERVER_URL);
@@ -367,6 +374,10 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
 
   const createRoom = useCallback(async () => {
+    if (SIGNALING_SERVER_URL.includes('REPLACE_WITH_YOUR_FIREBASE_STUDIO_PUBLIC_URL')) {
+        setState(prev => ({ ...prev, error: "Cannot create room: WebSocket URL not configured."}));
+        return;
+    }
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         console.error("WebRTC: Signaling server not connected. Cannot create room.");
         setState(prev => ({ ...prev, error: "Signaling server not connected."}));
@@ -379,6 +390,10 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
 
   const joinRoom = useCallback(async (roomIdToJoin: string) => {
+     if (SIGNALING_SERVER_URL.includes('REPLACE_WITH_YOUR_FIREBASE_STUDIO_PUBLIC_URL')) {
+        setState(prev => ({ ...prev, error: "Cannot join room: WebSocket URL not configured."}));
+        return;
+    }
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         console.error("WebRTC: Signaling server not connected. Cannot join room.");
         setState(prev => ({ ...prev, error: "Signaling server not connected."}));
@@ -450,3 +465,4 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
+
