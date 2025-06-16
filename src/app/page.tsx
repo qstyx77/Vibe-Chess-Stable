@@ -724,7 +724,7 @@ export default function EvolvingChessPage() {
         let anvilsDestroyedCount = 0;
         let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
 
-        const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+        const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
         if (isKingInCheck(tempBoardForCheck, selfDestructPlayer, null)) {
           toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 2500 });
@@ -1291,7 +1291,9 @@ export default function EvolvingChessPage() {
         setIsExtraTurnForPostResurrectionPromotion(false);
       } else {
         toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
-        const pawnLevelGrantsExtraTurn = originalPawnLevel >= 5; // This originalPawnLevel might need to be the level *before* promotion, if promotion itself changes level
+        
+        const pieceLevelForExtraTurnCheck = currentLevelOfPieceOnSquare;
+        const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
         const streakGrantsExtraTurn = currentStreakForPromotingPlayer === 6;
         const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
@@ -1782,20 +1784,15 @@ export default function EvolvingChessPage() {
                                   resurrectedAI.type = 'hero';
                                   resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
                                   toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                              } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
+                                  resurrectedAI.type = 'queen'; 
+                                  resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
+                                   toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Pawn resurrected and promoted to Queen! (L1)`, duration: 3000 });
                               } else {
                                    toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
                               }
                               finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                               finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
-
-                              if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
-                                  finalBoardStateForAI[resRAI][resCAI].piece!.type = 'queen';
-                                  finalBoardStateForAI[resRAI][resCAI].piece!.level = 1;
-                                  finalBoardStateForAI[resRAI][resCAI].piece!.id = `${resurrectedAI.id}_resPromo_Q`;
-                                  toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
-                              } else if (resurrectedAI.type === 'infiltrator' && resRAI === promoRowAI) {
-                                  setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
-                              }
                           }
                           }
                       }
@@ -2438,4 +2435,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-

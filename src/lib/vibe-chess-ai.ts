@@ -1108,12 +1108,13 @@ export class VibeChessAI {
         if (typeof targetLevel !== 'number' || isNaN(targetLevel) || typeof attackerLevel !== 'number' || isNaN(attackerLevel)) {
             return false;
         }
+        
+        const specialQueenHunters: PieceType[] = ['commander', 'hero', 'infiltrator'];
+        if (targetPiece.type === 'queen' && specialQueenHunters.includes(attackingPiece.type)) {
+            return false; 
+        }
 
         if (targetPiece.type === 'queen' && targetLevel >= 7) {
-            const specialAttackers: PieceType[] = ['commander', 'hero', 'infiltrator'];
-            if (specialAttackers.includes(attackingPiece.type)) {
-                return false; 
-            }
             if (attackerLevel < targetLevel) {
                 return true;
             }
@@ -2002,4 +2003,3 @@ export class VibeChessAI {
         return [availablePawns[0].row, availablePawns[0].col];
     }
 }
-

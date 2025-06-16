@@ -563,13 +563,13 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (typeof targetLevel !== 'number' || isNaN(targetLevel) || typeof attackerLevel !== 'number' || isNaN(attackerLevel)) {
         return false;
     }
+    
+    const specialQueenHunters: PieceType[] = ['commander', 'hero', 'infiltrator'];
+    if (targetPiece.type === 'queen' && specialQueenHunters.includes(attackingPiece.type)) {
+        return false; // These units can capture queens regardless of L7 or level diff
+    }
 
     if (targetPiece.type === 'queen' && targetLevel >= 7) {
-        const specialAttackers: PieceType[] = ['commander', 'hero', 'infiltrator'];
-        if (specialAttackers.includes(attackingPiece.type)) {
-            return false; // Special units bypass Queen L7 invulnerability
-        }
-        // Standard invulnerability: L7 Queen invulnerable to lower-level attackers
         if (attackerLevel < targetLevel) {
             return true;
         }
@@ -625,7 +625,7 @@ export function applyMove(
   ) {
     if (targetItemOriginal?.type === 'shroom') {
         shroomConsumedThisMove = true;
-        newBoard[toRow][toCol].item = null; 
+        newBoard[toRow][col].item = null; 
         movingPieceOriginalRef.level = Math.min( (movingPieceOriginalRef.type === 'queen' ? 7 : Infinity) , (movingPieceOriginalRef.level || 1) + 1);
     }
     const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true };
@@ -678,7 +678,7 @@ export function applyMove(
       const kingRow = fromRow;
       const rookOriginalCol = toCol > fromCol ? 7 : 0;
       const rookTargetCol = toCol > fromCol ? 5 : 3;
-      const rookSquareData = board[kingRow]?.[rookOriginalCol]; 
+      const rookSquareData = newBoard[kingRow]?.[rookOriginalCol]; // Use newBoard here
       if (rookSquareData?.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === pieceNowOnToSquare.color) {
         const movedRookPiece = { ...rookSquareData.piece, hasMoved: true };
         newBoard[kingRow][rookTargetCol].piece = movedRookPiece;
@@ -698,7 +698,6 @@ export function applyMove(
   pieceNowOnToSquare.hasMoved = true;
 
   if (capturedPiece && !(movingPieceOriginalRef.type === 'pawn' && (toRow === 0 || toRow === 7) && !isEnPassantCapture)) {
-    // General capture leveling, unless it's a pawn promotion-capture (handled separately)
     let levelGain = 0;
     switch (capturedPiece.type) {
       case 'pawn': levelGain = 1; break;
@@ -759,37 +758,22 @@ export function applyMove(
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_infiltrator`;
     promotedToInfiltrator = true;
   } else if (movingPieceOriginalRef.type === 'pawn' && (toRow === 0 || toRow === 7) && !promotedToInfiltrator) {
-    // Standard pawn promotion (or promotion with capture on this move)
-    let finalPromotionLevel = 1; // Default for non-capture promotion
-
+    let finalPromotionLevel = 1; 
     if (capturedPiece && capturedPiece.id === targetPieceOriginal?.id) {
-        // Promotion WITH capture on this specific move
         switch (capturedPiece.type) {
-            case 'pawn':
-                finalPromotionLevel = 2;
-                break;
-            case 'queen':
-                finalPromotionLevel = 4;
-                break;
-            default: // Knight, Bishop, Rook, Commander, Hero, Infiltrator
-                finalPromotionLevel = 3;
-                break;
+            case 'pawn': finalPromotionLevel = 2; break;
+            case 'queen': finalPromotionLevel = 4; break;
+            default: finalPromotionLevel = 3; break;
         }
     }
-    // If capturedPiece is null, or it wasn't the piece on the 'to' square, finalPromotionLevel remains 1.
-    
     pieceNowOnToSquare.level = finalPromotionLevel;
-
-    if (move.promoteTo) { // AI promotion or pre-set promotion
+    if (move.promoteTo) {
         pieceNowOnToSquare.type = move.promoteTo;
         if (move.promoteTo === 'queen') {
-            pieceNowOnToSquare.level = Math.min(pieceNowOnToSquare.level, 7); // Cap queen level
+            pieceNowOnToSquare.level = Math.min(pieceNowOnToSquare.level, 7);
         }
     }
-    // For human players, the type will be set later in handlePromotionSelect.
-    // The level is now correctly set here based on whether it was a promotion-capture or simple promotion.
   } else if (movingPieceOriginalRef.type === 'commander' && (toRow === 0 || toRow === 7)) {
-    // Commander to Hero promotion, level is retained (already correctly set by previous captures or shrooms)
     pieceNowOnToSquare.type = 'hero';
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_HeroPromo`;
   }
@@ -1256,4 +1240,3 @@ export function spawnShroom(board: BoardState): BoardState {
   }
   return newBoard;
 }
-

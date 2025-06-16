@@ -62,8 +62,12 @@ export function ChessSquare({
       currentBgClass = 'bg-yellow-300/40';
   }
 
-  if (isPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-accent/40';
-  if (isPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-destructive/60';
+  if (isPossibleMove && (!piece || item?.type === 'shroom') && !disabled) {
+    currentBgClass = 'bg-accent/40';
+  }
+  if (isPossibleMove && piece && item?.type !== 'shroom' && !disabled) {
+    currentBgClass = 'bg-destructive/60';
+  }
 
   if (isEnemyPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-blue-600/30';
   if (isEnemyPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-yellow-500/50';
@@ -131,4 +135,3 @@ export function ChessSquare({
     </button>
   );
 }
-
