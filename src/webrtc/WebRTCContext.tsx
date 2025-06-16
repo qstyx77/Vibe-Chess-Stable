@@ -38,9 +38,9 @@ if (typeof window !== 'undefined') {
   // Using port 8082 as designated for server.js
   const signalingPort = '8082'; 
   const webHost = window.location.hostname;
-  // Constructing URL in the format: [port]-$WEB_HOST
+  // Constructing URL in the format: wss://[port]-$WEB_HOST/ws
   const hostnameForSignaling = `${signalingPort}-${webHost}`;
-  determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}`;
+  determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}/ws`; // Append /ws path
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${determinedSignalingServerUrl}`);
 }
 

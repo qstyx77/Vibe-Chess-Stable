@@ -3,7 +3,8 @@ const WebSocket = require('ws');
 
 const WSS_PORT = 8082; // Define the port
 
-const wss = new WebSocket.Server({ port: WSS_PORT, host: '0.0.0.0' });
+// Explicitly listen on all network interfaces within the container, and on path /ws
+const wss = new WebSocket.Server({ port: WSS_PORT, host: '0.0.0.0', path: '/ws' });
 
 const rooms = {}; // Stores room data, e.g., { roomId: { creator: ws, joiner: ws } }
 const clients = new Map(); // Stores ws -> clientId mapping
@@ -12,7 +13,7 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
-console.log(`Signaling server starting, attempting to listen on ws://0.0.0.0:${WSS_PORT}`);
+console.log(`Signaling server starting, attempting to listen on ws://0.0.0.0:${WSS_PORT}/ws`);
 
 wss.on('headers', (headers, req) => {
     const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
@@ -24,7 +25,7 @@ wss.on('connection', (ws, req) => {
   const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
   const clientId = generateId();
   clients.set(ws, clientId);
-  console.log(`Client ${clientId} (IP: ${clientIp}) connected`);
+  console.log(`Client ${clientId} (IP: ${clientIp}) connected to path ${req.url}`);
 
   ws.on('message', (message) => {
     let data;
@@ -177,7 +178,7 @@ wss.on('connection', (ws, req) => {
 });
 
 wss.on('listening', () => {
-  console.log(`WebSocketServer is listening on port ${WSS_PORT}. Ready for connections.`);
+  console.log(`WebSocketServer is listening on port ${WSS_PORT} on path /ws. Ready for connections.`);
 });
 
 wss.on('error', (error) => {
@@ -194,3 +195,4 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   // Optionally, attempt a graceful shutdown or other cleanup here
 });
+
