@@ -1,7 +1,9 @@
 
 const WebSocket = require('ws');
 
-const wss = new WebSocket.Server({ port: 8081 }); // Changed port to 8081
+const WSS_PORT = 8081; // Define the port
+
+const wss = new WebSocket.Server({ port: WSS_PORT });
 
 const rooms = {}; // Stores room data, e.g., { roomId: { creator: ws, joiner: ws } }
 const clients = new Map(); // Stores ws -> clientId mapping
@@ -10,12 +12,19 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
-console.log('Signaling server started on ws://localhost:8081'); // Updated log message
+console.log(`Signaling server starting on ws://localhost:${WSS_PORT}`);
 
-wss.on('connection', (ws) => {
+wss.on('headers', (headers, req) => {
+    const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
+    console.log(`WebSocketServer: Received headers for an incoming connection attempt from IP: ${clientIp}. Path: ${req.url}`);
+    // You can inspect headers here if needed: console.log('Headers:', headers);
+});
+
+wss.on('connection', (ws, req) => {
+  const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
   const clientId = generateId();
   clients.set(ws, clientId);
-  console.log(`Client ${clientId} connected`);
+  console.log(`Client ${clientId} (IP: ${clientIp}) connected`);
 
   ws.on('message', (message) => {
     let data;
@@ -75,7 +84,9 @@ wss.on('connection', (ws) => {
           rooms[currentRoomId].creator.send(JSON.stringify({ type: 'answer', payload: data.payload, roomId: currentRoomId }));
            // Send queued candidates from joiner to creator
           rooms[currentRoomId].joinerCandidates.forEach(candidate => {
-            rooms[currentRoomId].creator.send(JSON.stringify({ type: 'candidate', payload: candidate, roomId: currentRoomId }));
+            if (rooms[currentRoomId].creator) { // Check if creator still exists
+                rooms[currentRoomId].creator.send(JSON.stringify({ type: 'candidate', payload: candidate, roomId: currentRoomId }));
+            }
           });
           rooms[currentRoomId].joinerCandidates = []; // Clear queue
         }
@@ -140,11 +151,12 @@ wss.on('connection', (ws) => {
         remainingPeer.send(JSON.stringify({ type: 'peer-disconnected', roomId: currentRoomId }));
         // Optionally, reset the room for the remaining peer or clean it up
         if (remainingPeer === room.creator) {
+            console.log(`Joiner left room ${currentRoomId}. Resetting joiner-specific parts.`);
             rooms[currentRoomId].joiner = null;
             rooms[currentRoomId].answer = null;
             rooms[currentRoomId].joinerCandidates = [];
         } else { // remainingPeer is joiner, creator disconnected
-            // If creator disconnects, the room might be considered defunct
+            console.log(`Creator left room ${currentRoomId}. Closing room.`);
              delete rooms[currentRoomId];
              console.log(`Room ${currentRoomId} closed as creator disconnected.`);
         }
@@ -165,9 +177,9 @@ wss.on('connection', (ws) => {
 });
 
 wss.on('listening', () => {
-  console.log('WebSocketServer is listening on port 8081');
+  console.log(`WebSocketServer is listening on port ${WSS_PORT}. Ready for connections.`);
 });
 
 wss.on('error', (error) => {
-  console.error('WebSocketServer failed to start:', error);
+  console.error('WebSocketServer failed to start or encountered an error:', error);
 });
