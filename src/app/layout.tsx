@@ -1,5 +1,5 @@
 
-import type {Metadata} from 'next';
+import type {Metadata, Viewport} from 'next';
 import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
 import { Press_Start_2P } from 'next/font/google';
 import './globals.css';
@@ -26,7 +26,11 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: 'VIBE CHESS - 8 Bit Edition',
   description: 'An online multiplayer chess game with leveling pieces, in glorious 8-bit style.',
-  viewport: 'width=device-width, initial-scale=1.0',
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1.0,
 };
 
 export default function RootLayout({
