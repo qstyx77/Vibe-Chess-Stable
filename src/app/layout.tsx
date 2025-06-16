@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
 import { Press_Start_2P } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Added Toaster
+import { WebRTCProvider } from '@/webrtc/WebRTCContext';
 
 const geistSans = Geist({ // Corrected function name
   variable: '--font-geist-sans',
@@ -25,7 +26,7 @@ const pressStart2P = Press_Start_2P({
 export const metadata: Metadata = {
   title: 'VIBE CHESS - 8 Bit Edition',
   description: 'An online multiplayer chess game with leveling pieces, in glorious 8-bit style.',
-  viewport: 'width=device-width, initial-scale=1.0', // Added viewport meta tag
+  viewport: 'width=device-width, initial-scale=1.0',
 };
 
 export default function RootLayout({
@@ -36,13 +37,15 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${pressStart2P.variable}`}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
-        <main className="flex-grow">
-          {children}
-        </main>
-        <Toaster />
-        <footer className="py-4 text-center text-xs text-muted-foreground font-pixel">
-          Made By Sugga
-        </footer>
+        <WebRTCProvider>
+          <main className="flex-grow">
+            {children}
+          </main>
+          <Toaster />
+          <footer className="py-4 text-center text-xs text-muted-foreground font-pixel">
+            Made By Sugga
+          </footer>
+        </WebRTCProvider>
       </body>
     </html>
   );

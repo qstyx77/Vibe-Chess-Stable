@@ -30,8 +30,10 @@ import {
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, BookOpen, Undo2, View, Bot } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe } from 'lucide-react';
 import type { VibeChessAI as VibeChessAIClassType } from '@/lib/vibe-chess-ai';
+import { useWebRTC } from '@/webrtc/WebRTCContext';
 
 
 let globalResurrectionIdCounter = 0;
@@ -171,10 +173,21 @@ export default function EvolvingChessPage() {
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
 
-
   const { toast } = useToast();
   const mainContentRef = useRef<HTMLDivElement>(null);
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
+
+  const { 
+    isConnected: isWebRTCConnected, 
+    isConnecting: isWebRTCConnecting, 
+    roomId: webRTCRoomId, 
+    error: webRTCError, 
+    createRoom, 
+    joinRoom, 
+    disconnect: disconnectWebRTC 
+  } = useWebRTC();
+  const [inputRoomId, setInputRoomId] = useState('');
+
 
   useEffect(() => {
     const initializeAI = async () => {
@@ -704,6 +717,8 @@ export default function EvolvingChessPage() {
         moveBeingMade = { from: selectedSquare, to: algebraic };
         if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
             moveBeingMade.type = 'castle';
+        } else if (pieceToMoveFromSelected.type === 'pawn' && algebraic === currentEnPassantTargetForThisTurn && !board[row][col].piece) {
+           moveBeingMade.type = 'enpassant';
         }
       }
 
@@ -1252,13 +1267,12 @@ export default function EvolvingChessPage() {
 
     saveStateToHistory();
 
-    const originalPawnLevel = Number(pieceBeingPromoted.level || 1);
     const pawnColor = pieceBeingPromoted.color;
     const originalPieceId = pieceBeingPromoted.id;
     const promotingFromType = pieceBeingPromoted.type; 
-
-    const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
     const currentLevelOfPieceOnSquare = Number(boardToUpdate[row][col].piece!.level || 1);
+    
+    const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
 
 
     boardToUpdate[row][col].piece = {
@@ -1302,7 +1316,7 @@ export default function EvolvingChessPage() {
 
 
         if (pieceType === 'queen') {
-          sacrificeNeededForQueen = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, originalLevelForQueenCheck, combinedExtraTurn, null);
+          sacrificeNeededForQueen = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, 0 /* For promotion, original level before promo is not relevant for queen sacrifice check, level is already set based on capture */, combinedExtraTurn, null);
         } else if (pieceType === 'rook') {
           const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, resurrectedPieceData, resurrectedSquareAlg, newResurrectionIdCounter } = processRookResurrectionCheck(
             boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 0,
@@ -1890,7 +1904,7 @@ export default function EvolvingChessPage() {
                       const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                       if (pieceAfterAIPromo?.type === 'queen') {
-                        sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, 0, extraTurnForThisAIMove, aiGeneratedEnPassantTarget);
+                        sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, 0 /* For AI promo, assume original level of pawn was not L7 queen target */, extraTurnForThisAIMove, aiGeneratedEnPassantTarget);
                       } else if (pieceAfterAIPromo?.type === 'rook') {
                           if (!aiRookResData || !aiRookResData.resurrectionPerformed) {
                             const { boardWithResurrection, capturedPiecesAfterResurrection: capturedAfterAIRookRes, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
@@ -2357,7 +2371,7 @@ export default function EvolvingChessPage() {
 
         <div className="w-full flex flex-col items-center mb-6 space-y-3">
           <h1 className="text-4xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
-          <div className="flex flex-wrap justify-center gap-2">
+          <div className="flex flex-wrap justify-center items-center gap-2">
             <Button variant="outline" onClick={resetGame} aria-label="Reset Game" className="h-8 px-2 text-xs">
               <RefreshCw className="mr-1" /> Reset
             </Button>
@@ -2376,6 +2390,48 @@ export default function EvolvingChessPage() {
             <Button variant="outline" onClick={handleToggleViewMode} aria-label="Toggle Board View" className="h-8 px-2 text-xs">
               <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
             </Button>
+          </div>
+          <div className="flex flex-wrap justify-center items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (isWebRTCConnected) {
+                  disconnectWebRTC();
+                } else {
+                  await createRoom();
+                }
+              }}
+              disabled={isWebRTCConnecting}
+              className="h-8 px-2 text-xs"
+              aria-label={isWebRTCConnected ? "Disconnect from Online Game" : "Create Online Game"}
+            >
+              <Globe className="mr-1" />
+              {isWebRTCConnecting ? 'Connecting...' : isWebRTCConnected ? `Room: ${webRTCRoomId} (Disconnect)` : 'Create Online Game'}
+            </Button>
+            <div className="flex gap-1 items-center">
+              <Input
+                type="text"
+                placeholder="Room ID"
+                value={inputRoomId}
+                onChange={(e) => setInputRoomId(e.target.value)}
+                className="h-8 px-2 text-xs w-24"
+                disabled={isWebRTCConnected || isWebRTCConnecting}
+              />
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (inputRoomId) {
+                    await joinRoom(inputRoomId);
+                  }
+                }}
+                disabled={isWebRTCConnected || isWebRTCConnecting || !inputRoomId}
+                className="h-8 px-2 text-xs"
+                aria-label="Join Online Game"
+              >
+                Join
+              </Button>
+            </div>
+            {webRTCError && <p className="text-xs text-destructive font-pixel">WebRTC Error: {webRTCError}</p>}
           </div>
         </div>
         <div className="flex flex-col md:flex-row gap-6 w-full max-w-6xl">
