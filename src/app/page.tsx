@@ -184,9 +184,29 @@ export default function EvolvingChessPage() {
     error: webRTCError, 
     createRoom, 
     joinRoom, 
-    disconnect: disconnectWebRTC 
+    disconnect: disconnectWebRTC,
+    sendMove: sendWebRTCMove,
+    setOnMoveReceivedCallback
   } = useWebRTC();
   const [inputRoomId, setInputRoomId] = useState('');
+
+  // WebRTC move handling
+  useEffect(() => {
+    const handleIncomingMove = (move: Move) => {
+        // TODO: Validate move based on current game state
+        // TODO: Ensure it's the opponent's turn
+        // TODO: Apply the move to the local board
+        console.log("Page received move from WebRTC:", move);
+        // For now, just log it. Implementation will be complex.
+        toast({ title: "Opponent Move Received (WebRTC)", description: `From: ${move.from}, To: ${move.to}`});
+        // This is where you would call a modified handleSquareClick or similar logic
+        // to apply the opponent's move.
+    };
+    setOnMoveReceivedCallback(handleIncomingMove);
+    return () => {
+        setOnMoveReceivedCallback(null); // Cleanup
+    };
+  }, [setOnMoveReceivedCallback, toast]);
 
 
   useEffect(() => {
@@ -243,9 +263,20 @@ export default function EvolvingChessPage() {
     if (whiteIsCurrentlyAI && !blackIsCurrentlyAI) return 'black';
     if (!whiteIsCurrentlyAI && blackIsCurrentlyAI) return 'white';
 
+    // For WebRTC games, if the local player is black, orient to black
+    if (isWebRTCConnected && webRTCRoomId && !isWhiteAI && !isBlackAI) {
+        // This is a placeholder. We'll need a way to determine if this client is 'black'
+        // For now, let's assume if a room is joined, the joiner is black. If created, creator is white.
+        // This needs proper logic based on signaling negotiation.
+        // If 'this' client IS the one who joined the 'webRTCRoomId' and didn't create it, they are black.
+        // This is a heuristic and needs to be improved.
+        // For now, if viewMode is flipping and player for turn is black, it will flip.
+    }
+
+
     if (currentViewMode === 'flipping') return playerForTurn;
     return 'white';
-  }, []);
+  }, [isWebRTCConnected, webRTCRoomId]); // Added dependencies
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
@@ -570,6 +601,17 @@ export default function EvolvingChessPage() {
           return;
       }
     }
+    
+    // If WebRTC is connected, only allow moves for the current player IF this client controls that player
+    // This logic needs to be refined once player color assignment in WebRTC is solid
+    if (isWebRTCConnected && !isWhiteAI && !isBlackAI) {
+        // Crude check: if a room ID exists and it wasn't created by this client, assume this client is black.
+        // This needs a proper "myColor" state variable set during WebRTC handshake.
+        // For now, this check might be overly simplistic or incorrect.
+        // Let's assume player can only move if it's their turn (currentPlayer === myColor)
+        // For this placeholder, we'll allow if !isWhiteAI && !isBlackAI
+    }
+
 
     const { row, col } = algebraicToCoords(algebraic);
     const clickedSquareState = board[row]?.[col];
@@ -877,6 +919,10 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
         setEnPassantTargetSquare(null);
 
+        if (isWebRTCConnected) {
+            sendWebRTCMove(moveBeingMade);
+        }
+
         setTimeout(() => {
           setAnimatedSquareTo(null);
           setSelectedSquare(null); setPossibleMoves([]);
@@ -1125,6 +1171,10 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
 
+        if (isWebRTCConnected) {
+            sendWebRTCMove(moveBeingMade);
+        }
+
 
         setTimeout(() => {
           setAnimatedSquareTo(null);
@@ -1242,7 +1292,8 @@ export default function EvolvingChessPage() {
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey,
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
-    determineBoardOrientation, viewMode, boardOrientation, setBoardOrientation, setEnPassantTargetSquare
+    determineBoardOrientation, viewMode, boardOrientation, setBoardOrientation, setEnPassantTargetSquare,
+    isWebRTCConnected, sendWebRTCMove // Added WebRTC dependencies
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -1287,6 +1338,15 @@ export default function EvolvingChessPage() {
     setBoard(boardToUpdate);
     const currentEnPassantTarget = enPassantTargetSquare;
     setEnPassantTargetSquare(null);
+
+    if (isWebRTCConnected) {
+        sendWebRTCMove({
+            from: lastMoveFrom!,
+            to: promotionSquare,
+            type: 'promotion',
+            promoteTo: pieceType
+        } as Move);
+    }
 
     setTimeout(() => {
       setAnimatedSquareTo(null);
@@ -1359,7 +1419,8 @@ export default function EvolvingChessPage() {
     setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, algebraicToCoords, capturedPieces, setCapturedPieces,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
-    isAwaitingCommanderPromotion, historyStack, enPassantTargetSquare, setEnPassantTargetSquare
+    isAwaitingCommanderPromotion, historyStack, enPassantTargetSquare, setEnPassantTargetSquare,
+    isWebRTCConnected, sendWebRTCMove // Added WebRTC dependencies
   ]);
 
 
@@ -2488,3 +2549,5 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
