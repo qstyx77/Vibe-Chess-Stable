@@ -211,6 +211,74 @@ export default function EvolvingChessPage() {
     }
   }, [webRTC.isConnected, isWhiteAI, isBlackAI, gameInfo.gameOver]);
 
+  const saveStateToHistory = useCallback(() => {
+    const snapshot: GameSnapshot = {
+      board: board.map(row => row.map(square => ({
+        ...square,
+        piece: square.piece ? { ...square.piece } : null,
+        item: square.item ? { ...square.item } : null,
+      }))),
+      currentPlayer: currentPlayer,
+      gameInfo: { ...gameInfo },
+      capturedPieces: {
+        white: capturedPieces.white.map(p => ({ ...p })),
+        black: capturedPieces.black.map(p => ({ ...p })),
+      },
+      killStreaks: { ...killStreaks },
+      lastCapturePlayer: lastCapturePlayer,
+      boardOrientation: boardOrientation,
+      viewMode: viewMode,
+      isWhiteAI: isWhiteAI,
+      isBlackAI: isBlackAI,
+      enemySelectedSquare: enemySelectedSquare,
+      enemyPossibleMoves: [...enemyPossibleMoves],
+      positionHistory: [...positionHistory],
+      lastMoveFrom: lastMoveFrom,
+      lastMoveTo: lastMoveTo,
+      gameMoveCounter: gameMoveCounter,
+      enPassantTargetSquare: enPassantTargetSquare,
+
+      isAwaitingPawnSacrifice: isAwaitingPawnSacrifice,
+      playerToSacrificePawn: playerToSacrificePawn,
+      boardForPostSacrifice: boardForPostSacrifice ? boardForPostSacrifice.map(row => row.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))) : null,
+      playerWhoMadeQueenMove: playerWhoMadeQueenMove,
+      isExtraTurnFromQueenMove: isExtraTurnFromQueenMove,
+      isAwaitingRookSacrifice: isAwaitingRookSacrifice,
+      playerToSacrificeForRook: playerToSacrificeForRook,
+      rookToMakeInvulnerable: rookToMakeInvulnerable,
+      boardForRookSacrifice: boardForRookSacrifice ? boardForRookSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))) : null,
+      originalTurnPlayerForRookSacrifice: originalTurnPlayerForRookSacrifice,
+      isExtraTurnFromRookLevelUp: isExtraTurnFromRookLevelUp,
+      isResurrectionPromotionInProgress: isResurrectionPromotionInProgress,
+      playerForPostResurrectionPromotion: playerForPostResurrectionPromotion,
+      isExtraTurnForPostResurrectionPromotion: isExtraTurnForPostResurrectionPromotion,
+      promotionSquare: promotionSquare,
+      firstBloodAchieved: firstBloodAchieved,
+      playerWhoGotFirstBlood: playerWhoGotFirstBlood,
+      isAwaitingCommanderPromotion: isAwaitingCommanderPromotion,
+      shroomSpawnCounter: shroomSpawnCounter,
+      nextShroomSpawnTurn: nextShroomSpawnTurn,
+      activeTimerPlayer: activeTimerPlayer,
+      remainingTime: remainingTime,
+      turnTimeouts: { ...turnTimeouts },
+    };
+    setHistoryStack(prevHistory => {
+      const newHistory = [...prevHistory, snapshot];
+      if (newHistory.length > 20) return newHistory.slice(-20);
+      return newHistory;
+    });
+  }, [
+    board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode,
+    isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter,
+    enPassantTargetSquare,
+    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
+    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
+    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare,
+    firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
+    shroomSpawnCounter, nextShroomSpawnTurn,
+    activeTimerPlayer, remainingTime, turnTimeouts 
+  ]);
+
 
   useEffect(() => {
     if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && webRTC.isConnected && !isWhiteAI && !isBlackAI) {
@@ -290,7 +358,7 @@ export default function EvolvingChessPage() {
             toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(moveData.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(moveData.nextPlayer)}'s turn.`, duration: 3000});
             setCurrentPlayer(moveData.nextPlayer);
             if (moveData.nextPlayer === localPlayerColor) { // If it's now the local player's turn
-                startOrResetTurnTimer(localPlayerColor);
+                startOrResetTurnTimer(localPlayerColor!);
             } else {
                 setActiveTimerPlayer(null); // Ensure local timer is off if it's opponent's turn
                 setRemainingTime(null);
@@ -356,7 +424,7 @@ export default function EvolvingChessPage() {
     return () => {
         webRTC.setOnMoveReceivedCallback(null);
     };
-  }, [webRTC, toast, startOrResetTurnTimer, currentPlayer, isWhiteAI, isBlackAI, setCurrentPlayer, localPlayerColor, board, enPassantTargetSquare, saveStateToHistory, setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, gameInfo.gameOver, setLastCapturePlayer]);
+  }, [webRTC, toast, startOrResetTurnTimer, currentPlayer, isWhiteAI, isBlackAI, setCurrentPlayer, localPlayerColor, board, enPassantTargetSquare, saveStateToHistory, setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, gameInfo.gameOver, setLastCapturePlayer, getPlayerDisplayName]);
 
 
   useEffect(() => {
@@ -576,74 +644,6 @@ export default function EvolvingChessPage() {
     getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setIsAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn, startOrResetTurnTimer, webRTC
-  ]);
-
-  const saveStateToHistory = useCallback(() => {
-    const snapshot: GameSnapshot = {
-      board: board.map(row => row.map(square => ({
-        ...square,
-        piece: square.piece ? { ...square.piece } : null,
-        item: square.item ? { ...square.item } : null,
-      }))),
-      currentPlayer: currentPlayer,
-      gameInfo: { ...gameInfo },
-      capturedPieces: {
-        white: capturedPieces.white.map(p => ({ ...p })),
-        black: capturedPieces.black.map(p => ({ ...p })),
-      },
-      killStreaks: { ...killStreaks },
-      lastCapturePlayer: lastCapturePlayer,
-      boardOrientation: boardOrientation,
-      viewMode: viewMode,
-      isWhiteAI: isWhiteAI,
-      isBlackAI: isBlackAI,
-      enemySelectedSquare: enemySelectedSquare,
-      enemyPossibleMoves: [...enemyPossibleMoves],
-      positionHistory: [...positionHistory],
-      lastMoveFrom: lastMoveFrom,
-      lastMoveTo: lastMoveTo,
-      gameMoveCounter: gameMoveCounter,
-      enPassantTargetSquare: enPassantTargetSquare,
-
-      isAwaitingPawnSacrifice: isAwaitingPawnSacrifice,
-      playerToSacrificePawn: playerToSacrificePawn,
-      boardForPostSacrifice: boardForPostSacrifice ? boardForPostSacrifice.map(row => row.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))) : null,
-      playerWhoMadeQueenMove: playerWhoMadeQueenMove,
-      isExtraTurnFromQueenMove: isExtraTurnFromQueenMove,
-      isAwaitingRookSacrifice: isAwaitingRookSacrifice,
-      playerToSacrificeForRook: playerToSacrificeForRook,
-      rookToMakeInvulnerable: rookToMakeInvulnerable,
-      boardForRookSacrifice: boardForRookSacrifice ? boardForRookSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))) : null,
-      originalTurnPlayerForRookSacrifice: originalTurnPlayerForRookSacrifice,
-      isExtraTurnFromRookLevelUp: isExtraTurnFromRookLevelUp,
-      isResurrectionPromotionInProgress: isResurrectionPromotionInProgress,
-      playerForPostResurrectionPromotion: playerForPostResurrectionPromotion,
-      isExtraTurnForPostResurrectionPromotion: isExtraTurnForPostResurrectionPromotion,
-      promotionSquare: promotionSquare,
-      firstBloodAchieved: firstBloodAchieved,
-      playerWhoGotFirstBlood: playerWhoGotFirstBlood,
-      isAwaitingCommanderPromotion: isAwaitingCommanderPromotion,
-      shroomSpawnCounter: shroomSpawnCounter,
-      nextShroomSpawnTurn: nextShroomSpawnTurn,
-      activeTimerPlayer: activeTimerPlayer,
-      remainingTime: remainingTime,
-      turnTimeouts: { ...turnTimeouts },
-    };
-    setHistoryStack(prevHistory => {
-      const newHistory = [...prevHistory, snapshot];
-      if (newHistory.length > 20) return newHistory.slice(-20);
-      return newHistory;
-    });
-  }, [
-    board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode,
-    isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter,
-    enPassantTargetSquare,
-    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
-    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
-    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare,
-    firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn,
-    activeTimerPlayer, remainingTime, turnTimeouts 
   ]);
 
   const processPawnSacrificeCheck = useCallback((
