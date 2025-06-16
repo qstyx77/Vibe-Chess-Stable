@@ -39,15 +39,12 @@ if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
   const pageProtocol = window.location.protocol;
   
-  if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`;
-  } else {
-    const wsProtocol = pageProtocol === 'https:' ? 'wss' : 'ws';
-    SIGNALING_SERVER_URL = `${wsProtocol}://${hostname}:${WSS_PORT}`;
-  }
+  const wsProtocol = pageProtocol === 'https:' ? 'wss' : 'ws';
+  SIGNALING_SERVER_URL = `${wsProtocol}://${hostname}:${WSS_PORT}`;
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 } else {
-  SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`; 
+  // Fallback for server-side rendering or environments where window is not defined
+  SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`; // Or some other sensible default
   console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
