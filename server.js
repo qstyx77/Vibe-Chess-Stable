@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const WSS_PORT = 8082; // Define the port
 
 // Explicitly listen on all network interfaces within the container, on any path for the port.
-const wss = new WebSocket.Server({ port: WSS_PORT, host: '0.0.0.0' });
+const wss = new WebSocket.Server({ port: WSS_PORT, host: '0.0.0.0', path: '/' });
 
 const rooms = {}; // Stores room data, e.g., { roomId: { creator: ws, joiner: ws } }
 const clients = new Map(); // Stores ws -> clientId mapping
@@ -13,7 +13,7 @@ function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
-console.log(`Signaling server starting, attempting to listen on ws://0.0.0.0:${WSS_PORT}`);
+console.log(`Signaling server starting, attempting to listen on ws://0.0.0.0:${WSS_PORT}${wss.options.path || ''}`);
 
 wss.on('headers', (headers, req) => {
     const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
@@ -178,7 +178,7 @@ wss.on('connection', (ws, req) => {
 });
 
 wss.on('listening', () => {
-  console.log(`WebSocketServer is listening on port ${WSS_PORT}. Ready for connections.`);
+  console.log(`WebSocketServer is listening on port ${WSS_PORT}${wss.options.path || ''}. Ready for connections.`);
 });
 
 wss.on('error', (error) => {
