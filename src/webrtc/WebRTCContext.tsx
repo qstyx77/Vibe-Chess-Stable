@@ -37,13 +37,15 @@ let SIGNALING_SERVER_URL: string;
 // Determine SIGNALING_SERVER_URL
 if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
-  const protocol = window.location.protocol; // This will be 'https:' or 'http:'
+  const pageProtocol = window.location.protocol; // This will be 'https:' or 'http:'
+  
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
     SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`;
   } else {
     // For cloud IDEs or other deployments, use current hostname
     // Use wss if page is https, ws if page is http
-    SIGNALING_SERVER_URL = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:${WSS_PORT}`;
+    const wsProtocol = pageProtocol === 'https:' ? 'wss' : 'ws';
+    SIGNALING_SERVER_URL = `${wsProtocol}://${hostname}:${WSS_PORT}`;
   }
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 } else {
@@ -149,7 +151,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     };
     
     return newPc;
-  }, [cleanupConnection, state.roomId]);
+  }, [cleanupConnection, state.roomId]); // Added state.roomId dependency
 
   const setupDataChannelEvents = useCallback((channel: RTCDataChannel) => {
     channel.onopen = () => {
@@ -464,4 +466,3 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
-
