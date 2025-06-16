@@ -35,19 +35,16 @@ let SIGNALING_SERVER_URL: string;
 
 if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    // For true local development
     SIGNALING_SERVER_URL = 'ws://localhost:8080';
   } else {
-    // For cloud IDEs or deployed environments, explicitly use ws.
-    // This assumes the cloud environment handles SSL termination for the main app,
-    // and the internal WebSocket server on 8080 expects unencrypted ws.
-    SIGNALING_SERVER_URL = `ws://${hostname}:8080`;
+    // Use wss if the main page is https, otherwise ws
+    SIGNALING_SERVER_URL = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:8080`;
   }
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 } else {
-  // Fallback for non-browser environments (e.g., server-side during build)
-  SIGNALING_SERVER_URL = 'ws://localhost:8080';
+  SIGNALING_SERVER_URL = 'ws://localhost:8080'; // Fallback for non-browser
   console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
@@ -463,3 +460,4 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
+
