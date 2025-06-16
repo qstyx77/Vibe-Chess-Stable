@@ -31,7 +31,16 @@ const ICE_SERVERS = {
   ],
 };
 
-const SIGNALING_SERVER_URL = 'ws://localhost:8080';
+// Dynamically determine SIGNALING_SERVER_URL
+let SIGNALING_SERVER_URL = 'ws://localhost:8080'; // Default for true local development
+if (typeof window !== 'undefined') {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const hostname = window.location.hostname;
+  // Assume port 8080 is exposed on the same hostname by the cloud IDE
+  SIGNALING_SERVER_URL = `${protocol}//${hostname}:8080`; 
+  console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
+}
+
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   const [state, setState] = useState<WebRTCState>({
