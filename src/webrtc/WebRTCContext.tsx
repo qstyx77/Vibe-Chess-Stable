@@ -31,19 +31,24 @@ const ICE_SERVERS = {
   ],
 };
 
+const WSS_PORT = 8082; // Port for the WebSocket signaling server
 let SIGNALING_SERVER_URL: string;
 
+// Determine SIGNALING_SERVER_URL
 if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
-  const protocol = window.location.protocol;
+  const protocol = window.location.protocol; // This will be 'https:' or 'http:'
   if (hostname === 'localhost' || hostname === '127.0.0.1') {
-    SIGNALING_SERVER_URL = 'ws://localhost:8082'; // Changed port
+    SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`;
   } else {
-    SIGNALING_SERVER_URL = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:8082`; // Changed port
+    // For cloud IDEs or other deployments, use current hostname
+    // Use wss if page is https, ws if page is http
+    SIGNALING_SERVER_URL = `${protocol === 'https:' ? 'wss' : 'ws'}://${hostname}:${WSS_PORT}`;
   }
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 } else {
-  SIGNALING_SERVER_URL = 'ws://localhost:8082'; // Fallback for non-browser, changed port
+  // Fallback for non-browser environments (e.g., server-side during build)
+  SIGNALING_SERVER_URL = `ws://localhost:${WSS_PORT}`;
   console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
