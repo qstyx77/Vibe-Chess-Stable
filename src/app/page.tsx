@@ -188,6 +188,23 @@ export default function EvolvingChessPage() {
   const [inputRoomId, setInputRoomId] = useState('');
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
 
+  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    let name = player.charAt(0).toUpperCase() + player.slice(1);
+    if (player === 'white' && isWhiteAI && !webRTC.isConnected) name += " (AI)";
+    if (player === 'black' && isBlackAI && !webRTC.isConnected) name += " (AI)";
+    if (webRTC.isConnected && player === localPlayerColor) name += " (You)";
+    return name;
+  }, [isWhiteAI, isBlackAI, webRTC.isConnected, localPlayerColor]);
+  
+  const getKillStreakToastMessage = useCallback((streak: number): string | null => {
+    if (streak === 1) return "KILL STREAK!";
+    if (streak === 2) return "DOUBLE KILL!";
+    if (streak === 3) return "TRIPLE KILL!";
+    if (streak === 4) return "ULTRA KILL!";
+    if (streak === 5) return "MONSTER KILL!";
+    if (streak >= 6) return "RAMPAGE!";
+    return null;
+  }, []);
 
   const saveStateToHistory = useCallback(() => {
     const snapshot: GameSnapshot = {
@@ -256,14 +273,6 @@ export default function EvolvingChessPage() {
     shroomSpawnCounter, nextShroomSpawnTurn,
     activeTimerPlayer, remainingTime, turnTimeouts 
   ]);
-
-  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    let name = player.charAt(0).toUpperCase() + player.slice(1);
-    if (player === 'white' && isWhiteAI && !webRTC.isConnected) name += " (AI)";
-    if (player === 'black' && isBlackAI && !webRTC.isConnected) name += " (AI)";
-    if (webRTC.isConnected && player === localPlayerColor) name += " (You)";
-    return name;
-  }, [isWhiteAI, isBlackAI, webRTC.isConnected, localPlayerColor]);
 
   const startOrResetTurnTimer = useCallback((player: PlayerColor) => {
     if (webRTC.isConnected && !isWhiteAI && !isBlackAI && !gameInfo.gameOver) {
@@ -562,16 +571,48 @@ export default function EvolvingChessPage() {
         setBoard(newBoard);
         setEnPassantTargetSquare(enPassantTargetSet);
 
+        const playerWhoseTurnCompleted = currentPlayer; // This should be the opponent's color (the actual current player before this move)
+        let opponentCapturedSomething = false;
+
         if (capturedPiece) {
-          const opponentColor = localPlayerColor === 'white' ? 'black' : 'white';
+          const opponentColor = localPlayerColor === 'white' ? 'black' : 'white'; // This is actually the player who made the move (the opponent)
           setCapturedPieces(prev => ({
             ...prev,
             [opponentColor]: [...(prev[opponentColor] || []), capturedPiece]
           }));
            setLastCapturePlayer(opponentColor);
+           opponentCapturedSomething = true;
+        }
+        if (pieceCapturedByAnvil) {
+            const opponentColor = localPlayerColor === 'white' ? 'black' : 'white';
+            setCapturedPieces(prev => ({
+              ...prev,
+              [opponentColor]: [...(prev[opponentColor] || []), pieceCapturedByAnvil]
+            }));
+            setLastCapturePlayer(opponentColor);
+            opponentCapturedSomething = true;
+            toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(opponentColor)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
         }
 
-        const playerWhoseTurnCompleted = currentPlayer; // This should be the opponent's color
+        let newOpponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
+        if (opponentCapturedSomething) {
+            newOpponentKillStreak++;
+            if (!firstBloodAchieved) {
+                setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood(playerWhoseTurnCompleted);
+                toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)} drew first blood!`, duration: 4000});
+            }
+            const opponentStreakMsg = getKillStreakToastMessage(newOpponentKillStreak);
+            if(opponentStreakMsg) {
+                setKillStreakFlashMessage(`OPPONENT: ${opponentStreakMsg}`);
+                setKillStreakFlashMessageKey(k => k + 1);
+            }
+        } else {
+            newOpponentKillStreak = 0;
+        }
+        setKillStreaks(prev => ({ ...prev, [playerWhoseTurnCompleted]: newOpponentKillStreak }));
+
+
         let extraTurnForOpponent = false; 
         
         if (shroomConsumed) {
@@ -588,8 +629,7 @@ export default function EvolvingChessPage() {
         if (opponentOriginalPiece?.type === 'commander' && (originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
             extraTurnForOpponent = true;
         }
-         const opponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
-         if (capturedPiece && (opponentKillStreak + 1) === 6) {
+         if ((capturedPiece || pieceCapturedByAnvil) && newOpponentKillStreak === 6) {
              extraTurnForOpponent = true;
          }
 
@@ -606,7 +646,7 @@ export default function EvolvingChessPage() {
     return () => {
         webRTC.setOnMoveReceivedCallback(null);
     };
-  }, [webRTC, toast, startOrResetTurnTimer, currentPlayer, isWhiteAI, isBlackAI, setCurrentPlayer, localPlayerColor, board, enPassantTargetSquare, saveStateToHistory, setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, gameInfo.gameOver, setLastCapturePlayer, getPlayerDisplayName, processMoveEnd, killStreaks]);
+  }, [webRTC, toast, startOrResetTurnTimer, currentPlayer, isWhiteAI, isBlackAI, setCurrentPlayer, localPlayerColor, board, enPassantTargetSquare, saveStateToHistory, setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, gameInfo.gameOver, setLastCapturePlayer, getPlayerDisplayName, processMoveEnd, killStreaks, firstBloodAchieved, getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, setFirstBloodAchieved, setPlayerWhoGotFirstBlood]);
 
 
   useEffect(() => {
@@ -636,16 +676,6 @@ export default function EvolvingChessPage() {
     initializeAI();
   }, [toast]);
 
-
-  const getKillStreakToastMessage = useCallback((streak: number): string | null => {
-    if (streak === 1) return "KILL STREAK!";
-    if (streak === 2) return "DOUBLE KILL!";
-    if (streak === 3) return "TRIPLE KILL!";
-    if (streak === 4) return "ULTRA KILL!";
-    if (streak === 5) return "MONSTER KILL!";
-    if (streak >= 6) return "RAMPAGE!";
-    return null;
-  }, []);
 
   const determineBoardOrientation = useCallback((): PlayerColor => {
     if (isWhiteAI && isBlackAI && !webRTC.isConnected) return 'white';
@@ -956,7 +986,7 @@ export default function EvolvingChessPage() {
         let selfDestructCapturedSomething = false;
         let piecesDestroyedCount = 0;
         let anvilsDestroyedCount = 0;
-        let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+        let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
 
         const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
@@ -1855,7 +1885,7 @@ export default function EvolvingChessPage() {
                             const isQueenTargetAI = victimPieceAI.type === 'queen';
                             const isNormallyInvulnerableAI = !isQueenTargetAI && isPieceInvulnerableToAttack(victimPieceAI, selfDestructingKnight_AI);
 
-                            if (!isNormallyInvulnerableAI || (isQueenTargetAI && ['commander', 'hero', 'infiltrator'].includes(selfDestructingKnight_AI.type)) ) {
+                            if (!isNormallyInvulnerableAI || (isQueenTargetAI )) {
                                 if (selfDestructingKnight_AI.type !== 'infiltrator') {
                                     finalCapturedPiecesForAI[currentPlayer].push({ ...victimPieceAI });
                                 }
@@ -2387,10 +2417,8 @@ export default function EvolvingChessPage() {
       toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 3000});
       setActiveTimerPlayer(null);
       setRemainingTime(null);
-      if (webRTC.isConnected) {
-        webRTC.disconnect(); 
-      }
-      return;
+      // Do not disconnect or reset localPlayerColor here yet, let the peer-disconnected or error handle it.
+      return; // Game over, but connection remains until explicit disconnect or server error
     }
 
     globalResurrectionIdCounter = 0;
