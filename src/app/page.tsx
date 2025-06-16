@@ -185,17 +185,7 @@ export default function EvolvingChessPage() {
   const mainContentRef = useRef<HTMLDivElement>(null);
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
 
-  const {
-    isConnected: isWebRTCConnected,
-    isConnecting: isWebRTCConnecting,
-    roomId: webRTCRoomId,
-    error: webRTCError,
-    createRoom,
-    joinRoom,
-    disconnect: disconnectWebRTC,
-    sendMove: sendWebRTCMove,
-    setOnMoveReceivedCallback
-  } = useWebRTC();
+  const webRTC = useWebRTC(); // Use the hook directly
   const [inputRoomId, setInputRoomId] = useState('');
 
 
@@ -207,7 +197,7 @@ export default function EvolvingChessPage() {
   }, [isWhiteAI, isBlackAI]);
 
     const startOrResetTurnTimer = useCallback((player: PlayerColor) => {
-    if (isWebRTCConnected && !isWhiteAI && !isBlackAI && !gameInfo.gameOver) {
+    if (webRTC.isConnected && !isWhiteAI && !isBlackAI && !gameInfo.gameOver) {
       setActiveTimerPlayer(player);
       setRemainingTime(TURN_DURATION_SECONDS);
     } else {
@@ -218,11 +208,11 @@ export default function EvolvingChessPage() {
         timerIntervalRef.current = null;
       }
     }
-  }, [isWebRTCConnected, isWhiteAI, isBlackAI, gameInfo.gameOver]);
+  }, [webRTC.isConnected, isWhiteAI, isBlackAI, gameInfo.gameOver]);
 
 
   useEffect(() => {
-    if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && isWebRTCConnected && !isWhiteAI && !isBlackAI) {
+    if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && webRTC.isConnected && !isWhiteAI && !isBlackAI) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); // Clear existing timer before starting a new one
       timerIntervalRef.current = setInterval(() => {
         setRemainingTime(prevTime => {
@@ -271,7 +261,7 @@ export default function EvolvingChessPage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, isWebRTCConnected, isWhiteAI, isBlackAI, startOrResetTurnTimer]);
+  }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, webRTC.isConnected, isWhiteAI, isBlackAI, startOrResetTurnTimer]);
 
 
   // WebRTC move handling
@@ -292,7 +282,7 @@ export default function EvolvingChessPage() {
         //   startOrResetTurnTimer(localPlayerColor);
         // }
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white'; // Assuming current player is whose turn it was
-        if (isWebRTCConnected && !isWhiteAI && !isBlackAI) {
+        if (webRTC.isConnected && !isWhiteAI && !isBlackAI) {
           // Extremely simplified: Just switch player and start timer for the (assumed) local player.
           // THIS NEEDS PROPER VALIDATION AND STATE UPDATE.
           // It should also check if the received move is from the current opponent.
@@ -305,11 +295,11 @@ export default function EvolvingChessPage() {
            startOrResetTurnTimer(localPlayerIsNow);
         }
     };
-    setOnMoveReceivedCallback(handleIncomingMove);
+    webRTC.setOnMoveReceivedCallback(handleIncomingMove);
     return () => {
-        setOnMoveReceivedCallback(null);
+        webRTC.setOnMoveReceivedCallback(null);
     };
-  }, [setOnMoveReceivedCallback, toast, startOrResetTurnTimer, currentPlayer, isWebRTCConnected, isWhiteAI, isBlackAI, setCurrentPlayer]);
+  }, [webRTC, toast, startOrResetTurnTimer, currentPlayer, isWhiteAI, isBlackAI, setCurrentPlayer]); // webRTC is now a stable object from context
 
 
   useEffect(() => {
@@ -360,7 +350,7 @@ export default function EvolvingChessPage() {
     if (whiteIsCurrentlyAI && !blackIsCurrentlyAI) return 'black';
     if (!whiteIsCurrentlyAI && blackIsCurrentlyAI) return 'white';
 
-    if (isWebRTCConnected && webRTCRoomId && !isWhiteAI && !isBlackAI) {
+    if (webRTC.isConnected && webRTC.roomId && !isWhiteAI && !isBlackAI) {
         // This needs a proper way to determine if the current client is 'black'.
         // For example, if this client joined a room (didn't create it), they might be black.
         // This is a placeholder; actual color assignment would happen during WebRTC setup.
@@ -369,7 +359,7 @@ export default function EvolvingChessPage() {
 
     if (currentViewMode === 'flipping') return playerForTurn;
     return 'white';
-  }, [isWebRTCConnected, webRTCRoomId]);
+  }, [webRTC.isConnected, webRTC.roomId, isWhiteAI, isBlackAI]); // Added webRTC dependencies
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
@@ -713,7 +703,7 @@ export default function EvolvingChessPage() {
       }
     }
 
-    if (isWebRTCConnected && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
+    if (webRTC.isConnected && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
       // Stop current player's timer when they make a move
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
@@ -1029,8 +1019,8 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
         setEnPassantTargetSquare(null);
 
-        if (isWebRTCConnected) {
-            sendWebRTCMove(moveBeingMade);
+        if (webRTC.isConnected) {
+            webRTC.sendMove(moveBeingMade);
         }
 
         setTimeout(() => {
@@ -1285,8 +1275,8 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
 
-        if (isWebRTCConnected) {
-            sendWebRTCMove(moveBeingMade);
+        if (webRTC.isConnected && moveBeingMade) { // Check moveBeingMade is not null
+            webRTC.sendMove(moveBeingMade);
         }
 
 
@@ -1386,9 +1376,22 @@ export default function EvolvingChessPage() {
       setEnemySelectedSquare(null);
       setEnemyPossibleMoves([]);
     }
-    if (selectedSquare && moveBeingMade && (!isMoveInFreshList || (clickedPiece && clickedPiece.type !== 'pawn' && moveBeingMade.type !== 'enpassant') ) ) {
-        setEnPassantTargetSquare(null);
-    } else if (!selectedSquare && (!clickedPiece || clickedPiece.type !== 'pawn')) {
+    // if (selectedSquare && moveBeingMade && (!isMoveInFreshList || (clickedPiece && clickedPiece.type !== 'pawn' && moveBeingMade.type !== 'enpassant') ) ) {
+    //     setEnPassantTargetSquare(null);
+    // } else if (!selectedSquare && (!clickedPiece || clickedPiece.type !== 'pawn')) {
+    //     setEnPassantTargetSquare(null);
+    // }
+    // Simpler logic: always reset EP target if the move wasn't an EP capture itself or a pawn double move
+    let resetEP = true;
+    if (moveBeingMade) {
+        const pieceMakingMove = board[algebraicToCoords(moveBeingMade.from).row]?.[algebraicToCoords(moveBeingMade.from).col]?.piece;
+        if (pieceMakingMove?.type === 'pawn' && Math.abs(algebraicToCoords(moveBeingMade.from).row - algebraicToCoords(moveBeingMade.to).row) === 2) {
+            resetEP = false; // EP target will be set by applyMove
+        } else if (moveBeingMade.type === 'enpassant') {
+            resetEP = false; // EP capture uses current target, next target will be null
+        }
+    }
+    if (resetEP) {
         setEnPassantTargetSquare(null);
     }
 
@@ -1409,14 +1412,14 @@ export default function EvolvingChessPage() {
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     determineBoardOrientation, viewMode, boardOrientation, setBoardOrientation, setEnPassantTargetSquare,
-    isWebRTCConnected, sendWebRTCMove, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime // Added timer dependencies
+    webRTC, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime // Added timer dependencies and webRTC
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion ) return;
 
     // Stop timer for current player as they made a selection
-    if (isWebRTCConnected && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
+    if (webRTC.isConnected && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
       // setActiveTimerPlayer(null); // Will be set for next player in processMoveEnd
@@ -1463,8 +1466,8 @@ export default function EvolvingChessPage() {
     const currentEnPassantTarget = enPassantTargetSquare;
     setEnPassantTargetSquare(null);
 
-    if (isWebRTCConnected) {
-        sendWebRTCMove({
+    if (webRTC.isConnected) {
+        webRTC.sendMove({
             from: lastMoveFrom!,
             to: promotionSquare,
             type: 'promotion',
@@ -1544,7 +1547,7 @@ export default function EvolvingChessPage() {
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, historyStack, enPassantTargetSquare, setEnPassantTargetSquare,
-    isWebRTCConnected, sendWebRTCMove, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI // Added timer dependencies
+    webRTC, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI // Added timer dependencies and webRTC
   ]);
 
 
@@ -2547,10 +2550,10 @@ export default function EvolvingChessPage() {
       setActiveTimerPlayer(null); setRemainingTime(null);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
-    } else if (!newIsWhiteAI && currentPlayer === 'white' && !gameInfo.gameOver && isWebRTCConnected && !isBlackAI) {
+    } else if (!newIsWhiteAI && currentPlayer === 'white' && !gameInfo.gameOver && webRTC.isConnected && !isBlackAI) {
       startOrResetTurnTimer('white'); // Human takes over, start their timer if online game
     }
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, viewMode, isBlackAI, toast, determineBoardOrientation, setIsWhiteAI, setBoardOrientation, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, gameInfo.gameOver, startOrResetTurnTimer, isWebRTCConnected]);
+  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, viewMode, isBlackAI, toast, determineBoardOrientation, setIsWhiteAI, setBoardOrientation, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, gameInfo.gameOver, startOrResetTurnTimer, webRTC.isConnected]); // webRTC added
 
   const handleToggleBlackAI = useCallback(() => {
     if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing) return;
@@ -2564,10 +2567,10 @@ export default function EvolvingChessPage() {
       setActiveTimerPlayer(null); setRemainingTime(null);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
-    } else if (!newIsBlackAI && currentPlayer === 'black' && !gameInfo.gameOver && isWebRTCConnected && !isWhiteAI) {
+    } else if (!newIsBlackAI && currentPlayer === 'black' && !gameInfo.gameOver && webRTC.isConnected && !isWhiteAI) {
       startOrResetTurnTimer('black');
     }
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, viewMode, isWhiteAI, toast, determineBoardOrientation, setIsBlackAI, setBoardOrientation, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, gameInfo.gameOver, startOrResetTurnTimer, isWebRTCConnected]);
+  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, viewMode, isWhiteAI, toast, determineBoardOrientation, setIsBlackAI, setBoardOrientation, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, gameInfo.gameOver, startOrResetTurnTimer, webRTC.isConnected]); // webRTC added
 
   const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer);
 
@@ -2607,23 +2610,30 @@ export default function EvolvingChessPage() {
             <Button
               variant="outline"
               onClick={async () => {
-                if (isWebRTCConnected) {
-                  disconnectWebRTC();
-                  setActiveTimerPlayer(null); setRemainingTime(null); // Stop timer on disconnect
+                if (webRTC.isConnected) {
+                  webRTC.disconnect();
+                  setActiveTimerPlayer(null); setRemainingTime(null);
                 } else {
-                  const newRoomId = await createRoom();
-                  if (newRoomId) {
-                    // For the host, timer starts for white (assuming host is white)
-                     startOrResetTurnTimer('white');
+                  const roomDetails = await webRTC.createRoom();
+                  if (roomDetails) {
+                    // TODO: Send roomDetails.offer via signaling server
+                    // For now, maybe display it or copy to clipboard if desired for manual testing
+                    console.log("Room created. Room ID:", roomDetails.roomId, "Offer:", roomDetails.offer);
+                    toast({ title: "Room Created!", description: `Room ID: ${roomDetails.roomId}. Share this ID and the offer (see console) with your opponent.`, duration: 10000 });
+                    // Timer for host starts after opponent joins and signals readiness (or after first move)
+                    // For now, let's assume white (host) starts timer if they are to move and no AI
+                    if (currentPlayer === 'white' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('white');
+                  } else {
+                    toast({ title: "Error", description: "Could not create room.", variant: "destructive" });
                   }
                 }
               }}
-              disabled={isWebRTCConnecting}
+              disabled={webRTC.isConnecting}
               className="h-8 px-2 text-xs"
-              aria-label={isWebRTCConnected ? "Disconnect from Online Game" : "Create Online Game"}
+              aria-label={webRTC.isConnected ? "Disconnect from Online Game" : "Create Online Game"}
             >
-              {isWebRTCConnected ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
-              {isWebRTCConnecting ? 'Connecting...' : isWebRTCConnected ? `Room: ${webRTCRoomId} (Disconnect)` : 'Create Online Game'}
+              {webRTC.isConnected ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
+              {webRTC.isConnecting ? 'Connecting...' : webRTC.isConnected ? `Room: ${webRTC.roomId} (Disconnect)` : 'Create Online Game'}
             </Button>
             <div className="flex gap-1 items-center">
               <Input
@@ -2632,28 +2642,32 @@ export default function EvolvingChessPage() {
                 value={inputRoomId}
                 onChange={(e) => setInputRoomId(e.target.value)}
                 className="h-8 px-2 text-xs w-24"
-                disabled={isWebRTCConnected || isWebRTCConnecting}
+                disabled={webRTC.isConnected || webRTC.isConnecting}
               />
               <Button
                 variant="outline"
                 onClick={async () => {
                   if (inputRoomId) {
-                    const joined = await joinRoom(inputRoomId);
+                    const joined = await webRTC.joinRoom(inputRoomId);
                     if (joined) {
-                      // For the joiner, timer starts for white (assuming host is white and joiner is black, and it's white's turn)
-                      // This needs proper turn/color sync. For now, start for white if it's their turn.
-                      if (currentPlayer === 'white') startOrResetTurnTimer('white');
+                       toast({ title: "Joining Room", description: `Attempting to join ${inputRoomId}. Waiting for offer.`, duration: 5000 });
+                      // TODO: Logic to receive offer via signaling, then call webRTC.handleIncomingOffer(offer)
+                      // Then, get the answer from handleIncomingOffer and send it back via signaling.
+                      // For now, assume if joinRoom is called, the player is ready for an offer.
+                      // Timer logic for joiner will start when it's their turn after connection is fully established.
+                    } else {
+                      toast({ title: "Error", description: `Could not initialize join for room ${inputRoomId}.`, variant: "destructive" });
                     }
                   }
                 }}
-                disabled={isWebRTCConnected || isWebRTCConnecting || !inputRoomId}
+                disabled={webRTC.isConnected || webRTC.isConnecting || !inputRoomId}
                 className="h-8 px-2 text-xs"
                 aria-label="Join Online Game"
               >
                 Join
               </Button>
             </div>
-            {webRTCError && <p className="text-xs text-destructive font-pixel">WebRTC Error: {webRTCError}</p>}
+            {webRTC.error && <p className="text-xs text-destructive font-pixel">WebRTC Error: {webRTC.error}</p>}
           </div>
         </div>
         <div className="flex flex-col md:flex-row gap-6 w-full max-w-6xl">
@@ -2716,3 +2730,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
