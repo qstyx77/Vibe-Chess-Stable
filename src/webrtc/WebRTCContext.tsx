@@ -31,18 +31,24 @@ const ICE_SERVERS = {
   ],
 };
 
-// Dynamically determine SIGNALING_SERVER_URL
-let SIGNALING_SERVER_URL = 'ws://localhost:8080'; // Default for true local development
+let SIGNALING_SERVER_URL: string;
+
 if (typeof window !== 'undefined') {
   const hostname = window.location.hostname;
-  if (hostname !== 'localhost' && hostname !== '127.0.0.1') {
-    // For cloud IDEs or deployed environments, assume ws for now.
-    // The cloud environment typically handles SSL termination for the main app,
-    // and the internal WebSocket server on 8080 might be expecting unencrypted ws.
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    // For true local development
+    SIGNALING_SERVER_URL = 'ws://localhost:8080';
+  } else {
+    // For cloud IDEs or deployed environments, explicitly use ws.
+    // This assumes the cloud environment handles SSL termination for the main app,
+    // and the internal WebSocket server on 8080 expects unencrypted ws.
     SIGNALING_SERVER_URL = `ws://${hostname}:8080`;
   }
-  // If it IS localhost, keep the default ws://localhost:8080
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
+} else {
+  // Fallback for non-browser environments (e.g., server-side during build)
+  SIGNALING_SERVER_URL = 'ws://localhost:8080';
+  console.log(`WebRTC: Window not available, defaulting SIGNALING_SERVER_URL: ${SIGNALING_SERVER_URL}`);
 }
 
 
@@ -256,7 +262,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    console.log(`WebRTC: Attempting new WebSocket connection to signaling server: ${SIGNALING_SERVER_URL}`);
+    console.log("WebRTC: Attempting new WebSocket connection to signaling server...");
     const ws = new WebSocket(SIGNALING_SERVER_URL);
     wsRef.current = ws; // Assign immediately
 
@@ -457,4 +463,3 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
-
