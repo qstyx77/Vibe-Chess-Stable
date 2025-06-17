@@ -38,9 +38,9 @@ if (typeof window !== 'undefined') {
   const signalingPort = '8082'; // The internal port your server.js listens on
   const webHost = window.location.hostname; // e.g., 9000-firebase-studio-....cloudworkstations.dev
 
-  // Constructing URL in the format: wss://[port]-$WEB_HOST (no trailing port number in the URL itself)
+  // Constructing URL in the format: wss://[port]-$WEB_HOST (no trailing port number or path in the URL itself)
   const hostnameForSignaling = `${signalingPort}-${webHost}`;
-  determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}`; // Connect to root path
+  determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}/`; // Connect to root path
   
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${determinedSignalingServerUrl}`);
 }
@@ -270,7 +270,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
 
     console.log("WebRTC: Attempting new WebSocket connection to signaling server...");
-    const ws = new WebSocket(SIGNALING_SERVER_URL); // This URL now connects to the root of the subdomain
+    const ws = new WebSocket(SIGNALING_SERVER_URL); 
     wsRef.current = ws; 
 
     ws.onopen = () => {
@@ -469,4 +469,3 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
-
