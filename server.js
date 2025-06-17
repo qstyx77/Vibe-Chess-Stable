@@ -1,7 +1,7 @@
 
 const http = require('http');
 const WebSocket = require('ws');
-const cors = require('cors');
+const cors =require('cors');
 
 const WSS_PORT = 8082;
 
