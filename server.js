@@ -4,7 +4,7 @@ const WebSocket = require('ws');
 const WSS_PORT = 8082; // Define the port
 
 // Explicitly listen on all network interfaces within the container, on the root path for the port.
-const wss = new WebSocket.Server({ port: WSS_PORT, host: '0.0.0.0' }); // Removed explicit path: '/'
+const wss = new WebSocket.Server({ port: WSS_PORT, host: '0.0.0.0' }); 
 
 const rooms = {}; // Stores room data, e.g., { roomId: { creator: ws, joiner: ws } }
 const clients = new Map(); // Stores ws -> clientId mapping

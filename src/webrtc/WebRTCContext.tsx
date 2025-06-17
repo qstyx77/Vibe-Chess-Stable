@@ -39,8 +39,9 @@ if (typeof window !== 'undefined') {
   const webHost = window.location.hostname; // e.g., 9000-firebase-studio-....cloudworkstations.dev
 
   // Constructing URL in the format: wss://[port]-$WEB_HOST (no trailing port number or path in the URL itself)
+  // Connect to the root path '/'
   const hostnameForSignaling = `${signalingPort}-${webHost}`;
-  determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}/`; // Connect to root path
+  determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}/`; 
   
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${determinedSignalingServerUrl}`);
 }
