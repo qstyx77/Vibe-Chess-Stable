@@ -25,22 +25,22 @@ interface RulesDialogProps {
 
 const PieceRule = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="mb-2">
-    <h4 className="font-semibold text-primary text-xs">{title}</h4>
-    <div className="text-[10px] text-foreground/90 pl-2">{children}</div>
+    <h4 className="font-semibold text-primary text-sm font-medium">{title}</h4>
+    <div className="text-sm font-medium text-foreground/90 pl-2">{children}</div>
   </div>
 );
 
 const LevelRule = ({ level, description }: { level?: string | number, description: string }) => (
-  <li className="text-[10px] text-foreground/90 ml-4 list-disc list-inside">{ level ? `Level ${level}: ` : '' }${description}</li>
+  <li className="text-sm font-medium text-foreground/90 ml-4 list-disc list-inside">{ level ? `Level ${level}: ` : '' }${description}</li>
 );
 
 export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border font-pixel text-foreground max-h-[80vh]">
+      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border font-sans text-foreground max-h-[80vh]">
         <DialogHeader>
           <DialogTitle className="text-primary text-center text-base">VIBE CHESS - Game Rules</DialogTitle>
-          <DialogDescription className="text-center text-xs text-muted-foreground">
+          <DialogDescription className="text-center text-sm font-medium text-muted-foreground">
             Understand the special abilities and mechanics.
           </DialogDescription>
         </DialogHeader>
@@ -48,7 +48,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
         <ScrollArea className="h-[60vh] pr-4">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="general">
-              <AccordionTrigger className="text-xs hover:text-accent">General Gameplay</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">General Gameplay</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King, or achieve an Infiltration Win.</PieceRule>
                 <PieceRule title="Piece Levels">
@@ -57,15 +57,15 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Pawn Promotion (Rank)">
                   When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color.
                   <ul className="list-none pl-0 space-y-1 mt-1">
-                    <li className="text-[10px] text-foreground/90 ml-2">&bull; If the promotion move does NOT involve a capture, the promoted piece starts at Level 1.</li>
-                    <li className="text-[10px] text-foreground/90 ml-2">&bull; If the promotion move INVOLVES capturing an opponent's piece on the promotion square:
+                    <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move does NOT involve a capture, the promoted piece starts at Level 1.</li>
+                    <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move INVOLVES capturing an opponent's piece on the promotion square:
                       <ul className="list-disc list-inside pl-4">
-                        <li className="text-[10px]">If a Pawn was captured: Promoted piece starts at Level 2.</li>
-                        <li className="text-[10px]">If a Queen was captured: Promoted piece starts at Level 4.</li>
-                        <li className="text-[10px]">If any other piece type (Knight, Bishop, Rook, Commander, Hero, Infiltrator) was captured: Promoted piece starts at Level 3.</li>
+                        <li className="text-sm font-medium">If a Pawn was captured: Promoted piece starts at Level 2.</li>
+                        <li className="text-sm font-medium">If a Queen was captured: Promoted piece starts at Level 4.</li>
+                        <li className="text-sm font-medium">If any other piece type (Knight, Bishop, Rook, Commander, Hero, Infiltrator) was captured: Promoted piece starts at Level 3.</li>
                       </ul>
                     </li>
-                     <li className="text-[10px] text-foreground/90 ml-2">&bull; A Queen promoted this way is still capped at Level 7.</li>
+                     <li className="text-sm font-medium text-foreground/90 ml-2">&bull; A Queen promoted this way is still capped at Level 7.</li>
                   </ul>
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
@@ -85,7 +85,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="enpassant">
-              <AccordionTrigger className="text-xs hover:text-accent">En Passant &amp; Infiltrator</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">En Passant &amp; Infiltrator</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="En Passant Capture">
                   If an opponent's pawn moves two squares forward from its starting position and lands on a square adjacent (same rank, different file) to one of your pawns, your pawn may capture the opponent's pawn "en passant" (in passing).
@@ -115,7 +115,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="firstblood">
-              <AccordionTrigger className="text-xs hover:text-accent">First Blood, Commander &amp; Hero</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">First Blood, Commander &amp; Hero</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="First Blood">
                   The first player to capture an enemy piece during the game achieves "First Blood".
@@ -144,7 +144,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   </ul>
                 </PieceRule>
                  <PieceRule title="Hero Abilities">
-                   <p className="text-[9px] text-foreground/90">A Hero moves and gains leveled abilities identically to Knights (see Knight & Hero Abilities). Heroes also have the following special abilities:</p>
+                   <p className="text-sm font-medium text-foreground/90">A Hero moves and gains leveled abilities identically to Knights (see Knight & Hero Abilities). Heroes also have the following special abilities:</p>
                   <ul className="list-none pl-0 space-y-1 mt-1">
                     <li>
                       <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
@@ -158,7 +158,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="items">
-              <AccordionTrigger className="text-xs hover:text-accent">Board Items: Anvils &amp; Shrooms</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Board Items: Anvils &amp; Shrooms</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Anvil 🧱">
                   <ul className="list-none pl-0 space-y-1">
@@ -167,14 +167,14 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <li><strong>Interaction:</strong> Anvils cannot be captured or destroyed by normal piece moves, but can be destroyed by a Knight/Hero's self-destruct ability.</li>
                     <li><strong>Pawn Push-Back (L4+ Pawn/Commander):</strong>
                       <ul className="list-disc list-inside pl-4 mt-1">
-                        <li className="text-[10px]">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
+                        <li className="text-sm font-medium">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
                           <ul className="list-circle list-inside pl-4">
-                            <li className="text-[10px]">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game. This still counts towards kill streaks.</li>
-                            <li className="text-[10px]">If the anvil is pushed off the board, it is removed from the game.</li>
-                            <li className="text-[10px]">An anvil cannot push another anvil; the push fails.</li>
+                            <li className="text-sm font-medium">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game. This still counts towards kill streaks.</li>
+                            <li className="text-sm font-medium">If the anvil is pushed off the board, it is removed from the game.</li>
+                            <li className="text-sm font-medium">An anvil cannot push another anvil; the push fails.</li>
                           </ul>
                         </li>
-                        <li className="text-[10px]">If a pawn/commander pushes an adjacent piece towards a square occupied by an anvil, the push fails.</li>
+                        <li className="text-sm font-medium">If a pawn/commander pushes an adjacent piece towards a square occupied by an anvil, the push fails.</li>
                       </ul>
                     </li>
                   </ul>
@@ -189,7 +189,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="killstreaks">
-              <AccordionTrigger className="text-xs hover:text-accent">Kill Streaks</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Activation">Achieved by capturing enemy pieces (including anvil captures). A player's streak only resets if that player makes a non-capturing move.</PieceRule>
                 <PieceRule title="Streak of 3 (Resurrection)">
@@ -202,9 +202,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="pawn">
-              <AccordionTrigger className="text-xs hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
               <AccordionContent>
-                <p className="text-[9px] text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank. Pawns can promote to Infiltrator via En Passant. Both Commanders and Infiltrators can capture L7 Queens.)</p>
+                <p className="text-sm font-medium text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank. Pawns can promote to Infiltrator via En Passant. Both Commanders and Infiltrators can capture L7 Queens.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture. Can perform En Passant." />
                   <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
@@ -216,9 +216,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="knight">
-              <AccordionTrigger className="text-xs hover:text-accent">Knight &amp; Hero Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Knight &amp; Hero Abilities</AccordionTrigger>
               <AccordionContent>
-                 <p className="text-[9px] text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander & Hero" for Hero origin, special Rallying Cry, and their Queen Hunter ability.)</p>
+                 <p className="text-sm font-medium text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander & Hero" for Hero origin, special Rallying Cry, and their Queen Hunter ability.)</p>
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
@@ -230,7 +230,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="bishop">
-              <AccordionTrigger className="text-xs hover:text-accent">Bishop Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Bishop Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
@@ -243,7 +243,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="rook">
-              <AccordionTrigger className="text-xs hover:text-accent">Rook Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Rook Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-3" description="Standard horizontal/vertical move/capture (blocked by any piece or item in its path)." />
@@ -253,7 +253,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="queen">
-              <AccordionTrigger className="text-xs hover:text-accent">Queen Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Queen Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
@@ -263,7 +263,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             </AccordionItem>
 
             <AccordionItem value="king">
-              <AccordionTrigger className="text-xs hover:text-accent">King Abilities</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">King Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />

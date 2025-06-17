@@ -53,7 +53,7 @@ export function ChessPieceDisplay({
         )}
       >
         <span className={cn(
-          "font-pixel select-none relative z-[1]",
+          "font-sans select-none relative z-[1]",
           piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl'
         )}>
           {unicode}
@@ -87,7 +87,7 @@ export function ChessPieceDisplay({
 
         {(piece.level || 1) > 1 && (
           <span
-            className="absolute inset-0 flex items-center justify-center font-pixel text-sm text-destructive pointer-events-none z-[3]"
+            className="absolute inset-0 flex items-center justify-center text-sm font-medium text-destructive pointer-events-none z-[3]"
             style={{ textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000' }}
             aria-label={`Level ${piece.level}`}
           >

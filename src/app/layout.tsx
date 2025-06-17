@@ -46,7 +46,7 @@ export default function RootLayout({
             {children}
           </main>
           <Toaster />
-          <footer className="py-4 text-center text-xs text-muted-foreground font-pixel">
+          <footer className="py-4 text-center text-sm font-medium text-muted-foreground">
             Made By Sugga
           </footer>
         </WebRTCProvider>

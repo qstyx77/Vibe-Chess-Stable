@@ -26,7 +26,7 @@ export function PromotionDialog({ isOpen, onSelectPiece, pawnColor }: PromotionD
 
   return (
     <Dialog open={isOpen} onOpenChange={() => { /* Controlled externally */ }}>
-      <DialogContent className="sm:max-w-[425px] bg-card border-border font-pixel">
+      <DialogContent className="sm:max-w-[425px] bg-card border-border font-sans">
         <DialogHeader>
           <DialogTitle className="text-primary text-center">Promote Pawn</DialogTitle>
           <DialogDescription className="text-center text-muted-foreground">
@@ -44,7 +44,7 @@ export function PromotionDialog({ isOpen, onSelectPiece, pawnColor }: PromotionD
               <div className="w-10 h-10">
                 <ChessPieceDisplay piece={{ id: `promo-${type}`, type, color: pawnColor, level: 1 }} />
               </div>
-              <span className="capitalize">{type}</span>
+              <span className="capitalize text-sm font-medium">{type}</span>
             </Button>
           ))}
         </div>

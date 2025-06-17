@@ -40,7 +40,7 @@ export function GameControls({
     return (
       <div>
         <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
-          {actualCaptured.length === 0 && <span className="text-xs text-muted-foreground font-pixel">None</span>}
+          {actualCaptured.length === 0 && <span className="text-sm font-medium text-muted-foreground">None</span>}
           {actualCaptured.map(p => (
             <div key={p.id} className="w-6 h-6 relative">
               <ChessPieceDisplay piece={p} />
@@ -75,7 +75,7 @@ export function GameControls({
       <CardHeader className="pb-2">
         <CardDescription
           className={cn(
-            "text-center font-pixel min-h-[1.5em]",
+            "text-center text-sm font-medium min-h-[1.5em]",
              isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
              (gameStatusMessage.includes("(AI) is thinking...") && "text-primary font-bold")
           )}
@@ -85,9 +85,9 @@ export function GameControls({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-center">
-          <p className="text-sm font-medium text-muted-foreground font-pixel">Current Player</p>
+          <p className="text-sm font-medium text-muted-foreground">Current Player</p>
           <p className={cn(
-              "text-xl font-semibold font-pixel",
+              "text-xl font-semibold font-sans",
               currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
               isGameOver && "opacity-50"
             )}
@@ -98,17 +98,17 @@ export function GameControls({
 
         {activeTimerPlayer === currentPlayer && remainingTime !== null && !isGameOver && (
           <div className="text-center mt-2">
-            <p className="text-lg font-semibold font-pixel text-accent">
+            <p className="text-lg font-semibold font-sans text-accent">
               Time: {formatTime(remainingTime)}
             </p>
           </div>
         )}
 
         <div className="text-center mt-2 space-y-1">
-          <p className="text-sm font-medium text-destructive font-pixel">
+          <p className="text-sm font-medium text-destructive">
             White's Streak: {killStreaks.white} | Timeouts: {turnTimeouts.white}
           </p>
-          <p className="text-sm font-medium text-destructive font-pixel">
+          <p className="text-sm font-medium text-destructive">
             Black's Streak: {killStreaks.black} | Timeouts: {turnTimeouts.black}
           </p>
         </div>
@@ -116,11 +116,11 @@ export function GameControls({
         <Separator />
 
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured Black Pieces:</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured Black Pieces:</h3>
           {renderCapturedPieces('black')}
         </div>
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1 font-pixel">Captured White Pieces:</h3>
+          <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
           {renderCapturedPieces('white')}
         </div>
 
