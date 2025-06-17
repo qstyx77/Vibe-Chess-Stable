@@ -31,7 +31,6 @@ const ICE_SERVERS = {
   ],
 };
 
-// Signaling server URL construction
 let determinedSignalingServerUrl = '';
 if (typeof window !== 'undefined') {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -39,6 +38,7 @@ if (typeof window !== 'undefined') {
   const webHost = window.location.hostname; // e.g., 9000-firebase-studio-....cloudworkstations.dev
 
   // Constructing URL in the format: wss://[port]-$WEB_HOST/
+  // This connects to the standard WSS port (443), which the proxy then routes.
   const hostnameForSignaling = `${signalingPort}-${webHost}`;
   determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}/`; // Connect to the root path '/'
   
@@ -221,7 +221,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
         console.log('WebRTC: Remote description (answer) set.');
-        // Send any queued ICE candidates now that the remote description (answer) is set
         iceCandidateQueueRef.current.forEach(candidate => {
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && state.roomId) {
                  wsRef.current.send(JSON.stringify({ type: 'candidate', payload: candidate, roomId: state.roomId }));
@@ -243,7 +242,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         return;
     }
     try {
-      // Only add candidate if remote description is set.
       if (pc.remoteDescription) {
         await pc.addIceCandidate(new RTCIceCandidate(candidatePayload));
         console.log('WebRTC: ICE candidate added successfully.');
@@ -469,5 +467,3 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
-
-    

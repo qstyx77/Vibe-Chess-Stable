@@ -1,32 +1,28 @@
 
 const http = require('http');
 const WebSocket = require('ws');
-const cors = require('cors'); // Import the cors package
+const cors =require('cors');
 
-const WSS_PORT = 8082; // Define the port
+const WSS_PORT = 8082;
 
-const rooms = {}; // Stores room data, e.g., { roomId: { creator: ws, joiner: ws } }
-const clients = new Map(); // Stores ws -> clientId mapping
+const rooms = {};
+const clients = new Map();
 
 function generateId() {
   return Math.random().toString(36).substring(2, 15);
 }
 
-// Create an HTTP server
 const httpServer = http.createServer((req, res) => {
   console.log(`HTTP Server: Received request for ${req.url}`);
   console.log('HTTP Server: Request Headers:', JSON.stringify(req.headers, null, 2));
 
   cors()(req, res, () => {
-    // Check if it's a WebSocket upgrade request AFTER CORS has processed
     if (req.headers.upgrade && req.headers.upgrade.toLowerCase() === 'websocket') {
-      // Let the WebSocket server handle it by not ending the response here.
-      // The 'upgrade' event on httpServer will be triggered.
       console.log(`HTTP Server: Request for ${req.url} is a WebSocket upgrade. Passing to WebSocket server.`);
+      // Let the WebSocket server handle it by not ending the response here.
       return;
     }
 
-    // If it's not a WebSocket upgrade and CORS didn't end the response, then it's a plain HTTP request.
     if (!res.writableEnded) {
       console.log(`HTTP Server: Request for ${req.url} is a non-WebSocket HTTP request. Sending 404.`);
       res.writeHead(404);
@@ -35,15 +31,12 @@ const httpServer = http.createServer((req, res) => {
   });
 });
 
-
-// Create a WebSocket server and attach it to the HTTP server
 const wss = new WebSocket.Server({ server: httpServer });
-
 console.log(`Signaling server (HTTP with WebSocket upgrade) starting, attempting to listen on http://0.0.0.0:${WSS_PORT}`);
+
 
 wss.on('headers', (headers, req) => {
     const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
-    // The req.url here will be the path the client requested for the WebSocket connection.
     console.log(`WebSocketServer: Received headers for an incoming connection attempt from IP: ${clientIp}. Path: ${req.url}`);
 });
 
@@ -51,7 +44,6 @@ wss.on('connection', (ws, req) => {
   const clientIp = req.socket.remoteAddress || req.headers['x-forwarded-for'] || 'unknown';
   const clientId = generateId();
   clients.set(ws, clientId);
-  // req.url will give the path the WebSocket connection was established on.
   console.log(`Client ${clientId} (IP: ${clientIp}) connected to path ${req.url}`);
 
   ws.on('message', (message) => {
@@ -200,7 +192,6 @@ wss.on('connection', (ws, req) => {
 });
 
 httpServer.listen(WSS_PORT, '0.0.0.0', () => {
-  // This confirms the HTTP server is listening, which is what the WebSocket server is attached to.
   console.log(`HTTP server with WebSocket support is listening on port ${WSS_PORT}. Ready for connections on any path.`);
 });
 
@@ -208,7 +199,6 @@ httpServer.on('error', (error) => {
   console.error('HTTP Server encountered an error:', error);
   if (error.code === 'EADDRINUSE') {
     console.error(`Port ${WSS_PORT} is already in use. Ensure no other process (like a previous server.js) is using it.`);
-    // process.exit(1); // Optional: exit if port is in use
   }
 });
 
@@ -219,5 +209,3 @@ process.on('uncaughtException', (error) => {
 process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
-
-    
