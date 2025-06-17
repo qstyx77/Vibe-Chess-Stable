@@ -1,7 +1,7 @@
 
 const http = require('http');
 const WebSocket = require('ws');
-const cors =require('cors');
+const cors = require('cors');
 
 const WSS_PORT = 8082;
 
@@ -20,9 +20,12 @@ const httpServer = http.createServer((req, res) => {
     if (req.headers.upgrade && req.headers.upgrade.toLowerCase() === 'websocket') {
       console.log(`HTTP Server: Request for ${req.url} is a WebSocket upgrade. Passing to WebSocket server.`);
       // Let the WebSocket server handle it by not ending the response here.
+      // The 'upgrade' event on httpServer will be emitted.
       return;
     }
 
+    // For any other HTTP request that is not a WebSocket upgrade, send 404.
+    // This part is reached if cors() calls next() and it's not an upgrade.
     if (!res.writableEnded) {
       console.log(`HTTP Server: Request for ${req.url} is a non-WebSocket HTTP request. Sending 404.`);
       res.writeHead(404);
@@ -31,6 +34,8 @@ const httpServer = http.createServer((req, res) => {
   });
 });
 
+// Attach WebSocket server to the HTTP server.
+// No 'path' option means it will handle upgrade requests for any path on this server.
 const wss = new WebSocket.Server({ server: httpServer });
 console.log(`Signaling server (HTTP with WebSocket upgrade) starting, attempting to listen on http://0.0.0.0:${WSS_PORT}`);
 
