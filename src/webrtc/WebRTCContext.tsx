@@ -38,7 +38,7 @@ if (typeof window !== 'undefined') {
   const signalingPort = '8082'; // The internal port your server.js listens on
   const webHost = window.location.hostname; // e.g., 9000-firebase-studio-....cloudworkstations.dev
 
-  // Constructing URL in the format: wss://[port]-$WEB_HOST/ (no trailing port number or path in the URL itself)
+  // Constructing URL in the format: wss://[port]-$WEB_HOST/
   const hostnameForSignaling = `${signalingPort}-${webHost}`;
   determinedSignalingServerUrl = `${wsProtocol}://${hostnameForSignaling}/`; // Connect to the root path '/'
   
@@ -469,3 +469,5 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
+
+    
