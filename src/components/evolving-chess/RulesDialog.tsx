@@ -233,8 +233,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Bishop Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1" description="Standard diagonal move/capture (blocked by any piece or item in its path)." />
-                  <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or items in its path)." />
+                  <LevelRule level="1" description="Standard diagonal move/capture (needs line of sight)." />
+                  <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or anvils in its path)." />
                   <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight or Hero on the board." />
                   <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King) to convert that piece to its own color (level and type preserved)." />
@@ -284,3 +284,5 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
+    
