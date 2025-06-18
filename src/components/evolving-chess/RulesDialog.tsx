@@ -107,7 +107,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Winning Condition - Infiltration:</strong> If an Infiltrator reaches the opponent's back rank, its player immediately wins the game by "Infiltration". This win condition overrides checkmate or stalemate.
                     </li>
                      <li>
-                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of the Queen's level or L7 invulnerability.
+                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of its own level or the Queen's Level 7 invulnerability.
                     </li>
                   </ul>
                 </PieceRule>
@@ -139,7 +139,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn. A Hero is visually represented as a Knight with a star 🌟 overlay.
                     </li>
                      <li>
-                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of the Queen's level or L7 invulnerability.
+                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of its own level or the Queen's Level 7 invulnerability.
                     </li>
                   </ul>
                 </PieceRule>
@@ -150,7 +150,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                       <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
                     </li>
                     <li>
-                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of the Queen's level or L7 invulnerability.
+                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of its own level or the Queen's Level 7 invulnerability.
                     </li>
                   </ul>
                 </PieceRule>
