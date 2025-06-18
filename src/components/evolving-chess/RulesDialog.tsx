@@ -37,7 +37,7 @@ const LevelRule = ({ level, description }: { level?: string | number, descriptio
 export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border font-sans text-foreground max-h-[80vh]">
+      <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[80vh] font-sans">
         <DialogHeader>
           <DialogTitle className="text-primary text-center text-base font-medium">VIBE CHESS - Game Rules</DialogTitle>
           <DialogDescription className="text-center text-sm font-medium text-muted-foreground">
@@ -266,17 +266,17 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-medium hover:text-accent">King Abilities</AccordionTrigger>
               <AccordionContent>
                 <ul>
-                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square or square with an item)." />
-                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). The intermediate square must be empty (no piece or item). If moving 2 squares to capture a piece that is checking the King, the King can pass through an intermediate square even if that intermediate square is attacked *only by the piece being captured*." />
+                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square)." />
+                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). The intermediate square must be empty (needs line of sight). If moving 2 squares to capture a piece that is checking the King, the King can pass through an intermediate square even if that intermediate square is attacked *only by the piece being captured*." />
                   <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
-                  <LevelRule description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained (minimum level 1)." />
+                  <LevelRule description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
         </ScrollArea>
         <DialogClose asChild>
-            <Button type="button" variant="secondary" className="mt-4 w-full">
+            <Button type="button" variant="secondary" className="mt-4 w-full text-sm font-medium">
                 Close
             </Button>
         </DialogClose>
