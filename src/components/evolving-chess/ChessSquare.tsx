@@ -4,6 +4,7 @@
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
 interface ChessSquareProps {
   squareData: SquareState;
@@ -72,7 +73,7 @@ export function ChessSquare({
   if (isEnemyPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-blue-600/30';
   if (isEnemyPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-yellow-500/50';
 
-  if (isEnPassantTarget && isPossibleMove && !piece) { 
+  if (isEnPassantTarget && isPossibleMove && !piece) {
     currentBgClass = 'bg-purple-400/50';
   }
 
@@ -99,14 +100,21 @@ export function ChessSquare({
         currentBgClass,
         selectionRingClass,
         effectiveDisabled && 'cursor-not-allowed',
-        item && item.type !== 'shroom' && 'cursor-not-allowed' 
+        item && item.type !== 'shroom' && 'cursor-not-allowed'
       )}
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
       {item && item.type === 'anvil' && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
-          <span className="text-4xl md:text-5xl opacity-50" role="img" aria-label="anvil">🧱</span>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-1">
+          <Image
+            src="https://placehold.co/64x64.png"
+            alt="Anvil item"
+            width={40}
+            height={40}
+            className="object-contain opacity-75"
+            data-ai-hint="anvil icon"
+          />
         </div>
       )}
       {item && item.type === 'shroom' && (
@@ -126,10 +134,10 @@ export function ChessSquare({
           />
         </div>
       )}
-      <span className="absolute bottom-0.5 left-0.5 text-sm font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20">
+      <span className="absolute bottom-0.5 left-0.5 text-xs font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20">
         {squareData.algebraic}
       </span>
-       <span className="absolute top-0.5 right-0.5 text-sm font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20">
+       <span className="absolute top-0.5 right-0.5 text-xs font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20">
         {squareData.algebraic}
       </span>
     </button>
