@@ -96,7 +96,7 @@ export function ChessSquare({
     <button
       onClick={() => !effectiveDisabled && onClick(squareData.algebraic)}
       className={cn(
-        'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu',
+        'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu font-sans text-sm font-medium',
         currentBgClass,
         selectionRingClass,
         effectiveDisabled && 'cursor-not-allowed',
@@ -108,7 +108,7 @@ export function ChessSquare({
       {item && item.type === 'anvil' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-1">
           <Image
-            src="https://placehold.co/64x64.png"
+            src="/images/Anvil.png"
             alt="Anvil item"
             width={40}
             height={40}
