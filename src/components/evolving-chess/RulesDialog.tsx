@@ -222,7 +222,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
-                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares)." />
+                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares. Needs line of sight.)" />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
                   <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board. All adjacent enemy pieces (except Kings) and all adjacent anvils are destroyed. This ability WILL capture enemy Queens regardless of their normal invulnerability or level. This counts towards kill streaks for pieces destroyed." />
                 </ul>
