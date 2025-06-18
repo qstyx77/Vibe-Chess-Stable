@@ -39,7 +39,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border font-sans text-foreground max-h-[80vh]">
         <DialogHeader>
-          <DialogTitle className="text-primary text-center text-base">VIBE CHESS - Game Rules</DialogTitle>
+          <DialogTitle className="text-primary text-center text-base font-medium">VIBE CHESS - Game Rules</DialogTitle>
           <DialogDescription className="text-center text-sm font-medium text-muted-foreground">
             Understand the special abilities and mechanics.
           </DialogDescription>
@@ -222,7 +222,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <ul>
                   <LevelRule level="1" description="Standard L-shape move/capture." />
                   <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
-                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares. Needs line of sight.)" />
+                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares. Needs line of sight)." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
                   <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board. All adjacent enemy pieces (except Kings) and all adjacent anvils are destroyed. This ability WILL capture enemy Queens regardless of their normal invulnerability or level. This counts towards kill streaks for pieces destroyed." />
                 </ul>
@@ -237,7 +237,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or items in its path)." />
                   <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators." />
                   <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight or Hero on the board." />
-                  <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King, on a square without an item) to convert that piece to its own color (level and type preserved)." />
+                  <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King) to convert that piece to its own color (level and type preserved)." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
