@@ -257,7 +257,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level, *except* for Commanders, Heroes, and Infiltrators, which can capture her regardless of their level or her L7 invulnerability. Additionally, every time a Queen's level becomes 7 due to a leveling event (capture or promotion-capture), if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
+                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level, *except* for Commanders, Heroes, and Infiltrators, which can capture her regardless of their level or her L7 invulnerability. Additionally, every time a Queen's level becomes 7, if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -284,5 +284,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
+    
 
     
