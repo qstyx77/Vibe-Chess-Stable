@@ -761,9 +761,17 @@ export function applyMove(
     let finalPromotionLevel = 1; 
     if (capturedPiece && capturedPiece.id === targetPieceOriginal?.id) {
         switch (capturedPiece.type) {
-            case 'pawn': finalPromotionLevel = 2; break;
-            case 'queen': finalPromotionLevel = 4; break;
-            default: finalPromotionLevel = 3; break;
+            case 'pawn':
+            case 'commander':
+            case 'infiltrator':
+                finalPromotionLevel = 2; break;
+            case 'queen':
+                finalPromotionLevel = 4; break;
+            case 'knight':
+            case 'bishop':
+            case 'rook':
+            case 'hero':
+                finalPromotionLevel = 3; break;
         }
     }
     pieceNowOnToSquare.level = finalPromotionLevel;
@@ -1240,3 +1248,4 @@ export function spawnShroom(board: BoardState): BoardState {
   }
   return newBoard;
 }
+

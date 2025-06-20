@@ -60,9 +60,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move does NOT involve a capture, the promoted piece starts at Level 1.</li>
                     <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move INVOLVES capturing an opponent's piece on the promotion square:
                       <ul className="list-disc list-inside pl-4">
-                        <li className="text-sm font-medium">If a Pawn was captured: Promoted piece starts at Level 2.</li>
+                        <li className="text-sm font-medium">If a Pawn, Commander, or Infiltrator was captured: Promoted piece starts at Level 2.</li>
                         <li className="text-sm font-medium">If a Queen was captured: Promoted piece starts at Level 4.</li>
-                        <li className="text-sm font-medium">If any other piece type (Knight, Bishop, Rook, Commander, Hero, Infiltrator) was captured: Promoted piece starts at Level 3.</li>
+                        <li className="text-sm font-medium">If a Knight, Bishop, Rook, or Hero was captured: Promoted piece starts at Level 3.</li>
                       </ul>
                     </li>
                      <li className="text-sm font-medium text-foreground/90 ml-2">&bull; A Queen promoted this way is still capped at Level 7.</li>
