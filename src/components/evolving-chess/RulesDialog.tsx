@@ -17,15 +17,16 @@ import {
 } from '@/components/ui/accordion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
+import Image from 'next/image';
 
 interface RulesDialogProps {
   isOpen: boolean;
   onOpenChange: (isOpen: boolean) => void;
 }
 
-const PieceRule = ({ title, children }: { title: string, children: React.ReactNode }) => (
+const PieceRule = ({ title, children }: { title: React.ReactNode, children: React.ReactNode }) => (
   <div className="mb-2">
-    <h4 className="font-semibold text-primary text-sm font-medium">{title}</h4>
+    <h4 className="font-semibold text-primary text-sm font-medium flex items-center gap-2">{title}</h4>
     <div className="text-sm font-medium text-foreground/90 pl-2">{children}</div>
   </div>
 );
@@ -60,7 +61,8 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move does NOT involve a capture, the promoted piece starts at Level 1.</li>
                     <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move INVOLVES capturing an opponent's piece on the promotion square:
                       <ul className="list-disc list-inside pl-4">
-                        <li className="text-sm font-medium">If a Pawn, Commander, or Infiltrator was captured: Promoted piece starts at Level 2.</li>
+                        <li className="text-sm font-medium">If a Pawn was captured: Promoted piece starts at Level 2.</li>
+                        <li className="text-sm font-medium">If a Commander or Infiltrator was captured: Promoted piece starts at Level 2.</li>
                         <li className="text-sm font-medium">If a Queen was captured: Promoted piece starts at Level 4.</li>
                         <li className="text-sm font-medium">If a Knight, Bishop, Rook, or Hero was captured: Promoted piece starts at Level 3.</li>
                       </ul>
@@ -160,7 +162,12 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="items">
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Board Items: Anvils &amp; Shrooms</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Anvil">
+                <PieceRule title={
+                  <>
+                    <Image src="/images/Anvil.png" alt="Anvil" width={24} height={24} data-ai-hint="anvil icon" />
+                    <span>Anvil</span>
+                  </>
+                }>
                   <ul className="list-none pl-0 space-y-1">
                     <li><strong>Spawning:</strong> Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil drops onto a random empty square on the board.</li>
                     <li><strong>Blocking:</strong> Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.</li>
@@ -284,9 +291,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-
+    
     
 
     
 
-
+    
