@@ -160,7 +160,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="items">
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Board Items: Anvils &amp; Shrooms</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Anvil 🧱">
+                <PieceRule title="Anvil">
                   <ul className="list-none pl-0 space-y-1">
                     <li><strong>Spawning:</strong> Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil drops onto a random empty square on the board.</li>
                     <li><strong>Blocking:</strong> Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.</li>
@@ -288,4 +288,5 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     
 
     
+
 
