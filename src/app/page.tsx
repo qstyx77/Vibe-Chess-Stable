@@ -134,6 +134,7 @@ export default function EvolvingChessPage() {
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
   const [promotionMoveWasCapture, setPromotionMoveWasCapture] = useState(false);
+  const [promotionPawnOriginalLevel, setPromotionPawnOriginalLevel] = useState<number | null>(null);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
@@ -250,6 +251,7 @@ export default function EvolvingChessPage() {
       isExtraTurnForPostResurrectionPromotion: isExtraTurnForPostResurrectionPromotion,
       promotionSquare: promotionSquare,
       promotionMoveWasCapture: promotionMoveWasCapture,
+      promotionPawnOriginalLevel: promotionPawnOriginalLevel,
       firstBloodAchieved: firstBloodAchieved,
       playerWhoGotFirstBlood: playerWhoGotFirstBlood,
       isAwaitingCommanderPromotion: isAwaitingCommanderPromotion,
@@ -270,7 +272,7 @@ export default function EvolvingChessPage() {
     enPassantTargetSquare,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
-    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare, promotionMoveWasCapture,
+    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare, promotionMoveWasCapture, promotionPawnOriginalLevel,
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn,
     activeTimerPlayer, remainingTime, turnTimeouts 
@@ -1432,6 +1434,7 @@ export default function EvolvingChessPage() {
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
+            setPromotionPawnOriginalLevel(originalPieceLevelBeforeMove);
             setPromotionMoveWasCapture(!!capturedPieceFromApply);
             setIsPromotingPawn(true); setPromotionSquare(algebraic);
             setActiveTimerPlayer(null); setRemainingTime(null); 
@@ -1517,7 +1520,7 @@ export default function EvolvingChessPage() {
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     setEnPassantTargetSquare,
-    webRTC, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime, localPlayerColor, setPromotionMoveWasCapture
+    webRTC, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime, localPlayerColor, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -1535,6 +1538,7 @@ export default function EvolvingChessPage() {
     if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && pieceBeingPromoted.type !== 'commander' && !isResurrectionPromotionInProgress) ) {
       setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false);
       setPromotionMoveWasCapture(false);
+      setPromotionPawnOriginalLevel(null);
       setIsResurrectionPromotionInProgress(false);
       return;
     }
@@ -1592,7 +1596,7 @@ export default function EvolvingChessPage() {
       } else {
         toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
 
-        const pieceLevelForExtraTurnCheck = currentLevelOfPieceOnSquare;
+        const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
         const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
         const streakGrantsExtraTurn = currentStreakForPromotingPlayer === 6;
         const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
@@ -1646,6 +1650,7 @@ export default function EvolvingChessPage() {
       setIsPromotingPawn(false);
       setPromotionSquare(null);
       setPromotionMoveWasCapture(false);
+      setPromotionPawnOriginalLevel(null);
       setIsMoveProcessing(false);
     }, 800);
   }, [
@@ -1655,7 +1660,7 @@ export default function EvolvingChessPage() {
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, historyStack, enPassantTargetSquare, setEnPassantTargetSquare,
-    webRTC, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture
+    webRTC, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel
   ]);
 
 
@@ -2481,6 +2486,7 @@ export default function EvolvingChessPage() {
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setPromotionMoveWasCapture(false);
+    setPromotionPawnOriginalLevel(null);
     setKillStreaks({ white: 0, black: 0 });
     setLastCapturePlayer(null);
     setHistoryStack([]);
@@ -2596,6 +2602,7 @@ export default function EvolvingChessPage() {
       setIsPromotingPawn(false);
       setPromotionSquare(stateToRestore.promotionSquare || null);
       setPromotionMoveWasCapture(stateToRestore.promotionMoveWasCapture || false);
+      setPromotionPawnOriginalLevel(stateToRestore.promotionPawnOriginalLevel || null);
       setAnimatedSquareTo(null);
       setIsMoveProcessing(false);
       aiErrorOccurredRef.current = false;
@@ -2650,7 +2657,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
-    setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, webRTC.isConnected, setPromotionMoveWasCapture
+    setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, webRTC.isConnected, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel
   ]);
 
 

@@ -116,6 +116,8 @@ export interface GameSnapshot {
   playerForPostResurrectionPromotion: PlayerColor | null;
   isExtraTurnForPostResurrectionPromotion: boolean;
   promotionSquare: AlgebraicSquare | null;
+  promotionMoveWasCapture: boolean;
+  promotionPawnOriginalLevel: number | null;
 
   firstBloodAchieved: boolean;
   playerWhoGotFirstBlood: PlayerColor | null;
