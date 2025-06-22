@@ -1088,7 +1088,13 @@ export default function EvolvingChessPage() {
                 const pieceToResOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
                 if (pieceToResOriginal) {
                   const emptySquares: AlgebraicSquare[] = [];
-                  for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                  for (let r_idx = 0; r_idx < 8; r_idx++) {
+                    for (let c_idx = 0; c_idx < 8; c_idx++) {
+                      if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) {
+                        emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                      }
+                    }
+                  }
                   if (emptySquares.length > 0) {
                     const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                     const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
@@ -2719,17 +2725,26 @@ export default function EvolvingChessPage() {
         {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
 
         <div className="w-full flex flex-col items-center mb-6 space-y-3">
-          <div className="flex items-center justify-center gap-2 md:gap-4">
+          <div className="flex items-center justify-center gap-2">
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={36}
-              height={36}
+              width={54}
+              height={54}
               unoptimized
-              className="md:w-12 md:h-12"
+              className="md:w-[72px] md:h-[72px]"
               data-ai-hint="chess rook"
             />
             <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
+            <Image
+              src="/images/rook-title.gif"
+              alt="Vibe Chess Rook"
+              width={54}
+              height={54}
+              unoptimized
+              className="md:w-[72px] md:h-[72px] transform scale-x-[-1]"
+              data-ai-hint="chess rook"
+            />
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
             <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
