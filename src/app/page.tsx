@@ -2725,24 +2725,24 @@ export default function EvolvingChessPage() {
         {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
 
         <div className="w-full flex flex-col items-center mb-6 space-y-3">
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-1">
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={54}
-              height={54}
+              width={108}
+              height={108}
               unoptimized
-              className="md:w-[72px] md:h-[72px]"
+              className="md:w-[144px] md:h-[144px]"
               data-ai-hint="chess rook"
             />
             <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={54}
-              height={54}
+              width={108}
+              height={108}
               unoptimized
-              className="md:w-[72px] md:h-[72px] transform scale-x-[-1]"
+              className="md:w-[144px] md:h-[144px] transform scale-x-[-1]"
               data-ai-hint="chess rook"
             />
           </div>
