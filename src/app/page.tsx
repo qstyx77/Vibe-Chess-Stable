@@ -2779,9 +2779,9 @@ export default function EvolvingChessPage() {
                   if (currentPlayer === 'white' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('white');
                 }
               }}
-              disabled={webRTC.isConnecting || (!webRTC.isConnected && webRTC.roomId === null && (isWhiteAI || isBlackAI))}
+              disabled={webRTC.isConnecting || (isWhiteAI || isBlackAI)}
               className="h-8 px-2 text-sm font-medium"
-              aria-label={webRTC.roomId ? "Disconnect from Online Game" : "Create Online Game"}
+              aria-label={webRTC.roomId ? "Disconnect or Cancel" : "Create Online Game"}
             >
               {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
               {(() => {
@@ -2798,7 +2798,7 @@ export default function EvolvingChessPage() {
                 value={inputRoomId}
                 onChange={(e) => setInputRoomId(e.target.value)}
                 className="h-8 px-2 text-xs font-medium w-24"
-                disabled={webRTC.isConnected || webRTC.isConnecting || !!webRTC.roomId || isWhiteAI || isBlackAI}
+                disabled={webRTC.isConnecting || !!webRTC.roomId || isWhiteAI || isBlackAI}
               />
               <Button
                 variant="outline"
@@ -2809,14 +2809,24 @@ export default function EvolvingChessPage() {
                      if (currentPlayer === 'black' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('black');
                   }
                 }}
-                disabled={webRTC.isConnected || webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
+                disabled={webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
                 className="h-8 px-2 text-sm font-medium"
                 aria-label="Join Online Game"
               >
                 Join
               </Button>
             </div>
+          </div>
+          <div className="w-full text-center">
             {webRTC.error && <p className="text-sm font-medium text-destructive">{webRTC.error}</p>}
+            {webRTC.roomId && webRTC.isCreator && !webRTC.isConnected && (
+              <p className="text-sm font-medium text-primary mt-2">
+                Room Created! Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId}</span>
+              </p>
+            )}
+            {webRTC.roomId && !webRTC.isCreator && !webRTC.isConnected && (
+              <p className="text-sm font-medium text-primary mt-2">Joining room...</p>
+            )}
              {webRTC.isConnected && localPlayerColor && <p className="text-sm font-medium text-primary">You are playing as {localPlayerColor}.</p>}
           </div>
         </div>
