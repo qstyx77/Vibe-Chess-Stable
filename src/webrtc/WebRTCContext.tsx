@@ -74,11 +74,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     onMoveReceivedCallbackRef.current = callback;
   }, []);
 
-  const cleanupConnection = useCallback((notifyServer = true) => {
-    if (notifyServer && wsRef.current && wsRef.current.readyState === WebSocket.OPEN && state.roomId) {
-        // wsRef.current.send(JSON.stringify({ type: 'disconnecting', roomId: state.roomId }));
-    }
-
+  const cleanupConnection = useCallback(() => {
     if (dcRef.current) {
       dcRef.current.onopen = null;
       dcRef.current.onclose = null;
@@ -107,50 +103,8 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     wsRef.current = null;
     iceCandidateQueueRef.current = [];
     console.log("WebRTC: Connections cleaned up.");
-  }, [state.roomId]); 
+  }, []); 
 
-
-  const createPeerConnection = useCallback(() => {
-    if (pcRef.current && pcRef.current.signalingState !== 'closed') {
-        console.log("WebRTC: PeerConnection already exists and not closed. Cleaning up before creating new one.");
-        cleanupConnection(false); 
-    }
-    
-    const newPc = new RTCPeerConnection(ICE_SERVERS);
-    pcRef.current = newPc;
-    console.log("WebRTC: PeerConnection created.");
-
-    newPc.onicecandidate = (event) => {
-      if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN && state.roomId) {
-        console.log('WebRTC: New ICE candidate generated. Sending to signaling server:', event.candidate);
-        wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: state.roomId }));
-      } else if (event.candidate) {
-        console.log('WebRTC: ICE candidate generated but WebSocket not ready or no room ID. Queuing:', event.candidate);
-        iceCandidateQueueRef.current.push(event.candidate);
-      }
-    };
-
-    newPc.onconnectionstatechange = () => {
-      if (!pcRef.current) return;
-      console.log('WebRTC: Connection state change:', pcRef.current.connectionState);
-      if (pcRef.current.connectionState === 'connected') {
-        setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
-        console.log("WebRTC: Successfully connected to peer.");
-      } else if (pcRef.current.connectionState === 'failed' || pcRef.current.connectionState === 'disconnected' || pcRef.current.connectionState === 'closed') {
-        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: `Connection ${pcRef.current?.connectionState}` }));
-        cleanupConnection(); 
-      }
-    };
-
-    newPc.ondatachannel = (event) => {
-      console.log('WebRTC: Data channel received by remote peer');
-      const receiveChannel = event.channel;
-      dcRef.current = receiveChannel;
-      setupDataChannelEvents(receiveChannel);
-    };
-    
-    return newPc;
-  }, [cleanupConnection, state.roomId]); 
 
   const setupDataChannelEvents = useCallback((channel: RTCDataChannel) => {
     channel.onopen = () => {
@@ -180,12 +134,53 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
+  const createPeerConnection = useCallback((roomIdForCallback: string) => {
+    if (pcRef.current && pcRef.current.signalingState !== 'closed') {
+        console.log("WebRTC: PeerConnection already exists and not closed. Cleaning up before creating new one.");
+        cleanupConnection(); 
+    }
+    
+    const newPc = new RTCPeerConnection(ICE_SERVERS);
+    pcRef.current = newPc;
+    console.log("WebRTC: PeerConnection created.");
+
+    newPc.onicecandidate = (event) => {
+      if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN && roomIdForCallback) {
+        console.log('WebRTC: New ICE candidate generated. Sending to signaling server:', event.candidate);
+        wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: roomIdForCallback }));
+      } else if (event.candidate) {
+        console.log('WebRTC: ICE candidate generated but WebSocket not ready or no room ID. Queuing:', event.candidate);
+        iceCandidateQueueRef.current.push(event.candidate);
+      }
+    };
+
+    newPc.onconnectionstatechange = () => {
+      if (!pcRef.current) return;
+      console.log('WebRTC: Connection state change:', pcRef.current.connectionState);
+      if (pcRef.current.connectionState === 'connected') {
+        setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
+        console.log("WebRTC: Successfully connected to peer.");
+      } else if (pcRef.current.connectionState === 'failed' || pcRef.current.connectionState === 'disconnected' || pcRef.current.connectionState === 'closed') {
+        setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: `Connection ${pcRef.current?.connectionState}` }));
+        cleanupConnection(); 
+      }
+    };
+
+    newPc.ondatachannel = (event) => {
+      console.log('WebRTC: Data channel received by remote peer');
+      const receiveChannel = event.channel;
+      dcRef.current = receiveChannel;
+      setupDataChannelEvents(receiveChannel);
+    };
+    
+    return newPc;
+  }, [cleanupConnection, setupDataChannelEvents]); 
 
   const handleIncomingOffer = useCallback(async (offer: RTCSessionDescriptionInit, receivedRoomId: string) => {
     let pc = pcRef.current;
     if (!pc || pc.signalingState === 'closed') {
         console.log("WebRTC: PeerConnection not ready for offer or closed, creating one for joining.");
-        pc = createPeerConnection(); 
+        pc = createPeerConnection(receivedRoomId); 
     }
     if (!pc) {
         console.error("WebRTC: PeerConnection not initialized for handleIncomingOffer.");
@@ -283,7 +278,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       switch (data.type) {
         case 'room-created':
           setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: true, isCreator: true, error: null }));
-          const pcCreator = createPeerConnection(); 
+          const pcCreator = createPeerConnection(data.roomId); 
           if (!pcCreator) {
               console.error("Failed to create peer connection for creator");
               setState(prev => ({ ...prev, error: "Failed to create PC for creator", isConnecting: false }));
@@ -340,7 +335,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         case 'peer-disconnected':
           console.log("WebRTC: Peer disconnected.");
           setState(prev => ({ ...prev, error: "Opponent disconnected.", isConnected: false, isConnecting: false }));
-          cleanupConnection(false); 
+          cleanupConnection(); 
           break;
         case 'error':
           console.error('WebRTC: Error from signaling server:', data.message);
@@ -358,18 +353,18 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       } else if (state.isConnected || state.isConnecting) {
         setState(prev => ({ ...prev, isConnected: false, isConnecting: false, error: prev.error === 'Signaling server connection error.' ? null : prev.error }));
       }
-      cleanupConnection(false);
+      cleanupConnection();
     };
 
     ws.onerror = (event) => {
       console.warn('WebRTC: Signaling server connection error. Check if the signaling server (server.js) is running and accessible.');
       setState(prev => ({ ...prev, error: 'Signaling server connection error.', isConnected: false, isConnecting: false }));
-      cleanupConnection(false);
+      cleanupConnection();
     };
 
     return () => {
       console.log("WebRTC: useEffect cleanup for WebSocket.");
-      cleanupConnection(false);
+      cleanupConnection();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
@@ -403,7 +398,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
     console.log(`WebRTC: Requesting to join room: ${roomIdToJoin}`);
     setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isCreator: false }));
-    createPeerConnection();
+    createPeerConnection(roomIdToJoin);
     wsRef.current.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
   }, [createPeerConnection]);
   
@@ -436,7 +431,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
   const disconnect = useCallback(() => {
     console.log('WebRTC: Disconnecting locally and notifying server...');
-    cleanupConnection(true); 
+    cleanupConnection(); 
     setState({ 
       isConnected: false,
       isConnecting: false,
