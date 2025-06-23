@@ -2770,23 +2770,26 @@ export default function EvolvingChessPage() {
             <Button
               variant="outline"
               onClick={async () => {
-                if (webRTC.isConnected) {
+                if (webRTC.roomId) {
                   webRTC.disconnect();
-                  setLocalPlayerColor(null);
-                  setActiveTimerPlayer(null); setRemainingTime(null);
-                  resetGame(); 
+                  resetGame();
                 } else {
                   await webRTC.createRoom();
                   setLocalPlayerColor('white');
                   if (currentPlayer === 'white' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('white');
                 }
               }}
-              disabled={webRTC.isConnecting || (!webRTC.isConnected && (isWhiteAI || isBlackAI))}
+              disabled={webRTC.isConnecting || (!webRTC.isConnected && webRTC.roomId === null && (isWhiteAI || isBlackAI))}
               className="h-8 px-2 text-sm font-medium"
-              aria-label={webRTC.isConnected ? "Disconnect from Online Game" : "Create Online Game"}
+              aria-label={webRTC.roomId ? "Disconnect from Online Game" : "Create Online Game"}
             >
-              {webRTC.isConnected ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
-              {webRTC.isConnecting ? 'Connecting...' : webRTC.isConnected ? `Room: ${webRTC.roomId} (Disconnect)` : 'Create Online Game'}
+              {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
+              {(() => {
+                if (webRTC.isConnecting) return 'Connecting...';
+                if (webRTC.isConnected) return `Room: ${webRTC.roomId} (Disconnect)`;
+                if (webRTC.roomId) return `Room: ${webRTC.roomId} (Cancel)`;
+                return 'Create Online Game';
+              })()}
             </Button>
             <div className="flex gap-1 items-center">
               <Input
@@ -2795,7 +2798,7 @@ export default function EvolvingChessPage() {
                 value={inputRoomId}
                 onChange={(e) => setInputRoomId(e.target.value)}
                 className="h-8 px-2 text-xs font-medium w-24"
-                disabled={webRTC.isConnected || webRTC.isConnecting || isWhiteAI || isBlackAI}
+                disabled={webRTC.isConnected || webRTC.isConnecting || !!webRTC.roomId || isWhiteAI || isBlackAI}
               />
               <Button
                 variant="outline"
@@ -2806,7 +2809,7 @@ export default function EvolvingChessPage() {
                      if (currentPlayer === 'black' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('black');
                   }
                 }}
-                disabled={webRTC.isConnected || webRTC.isConnecting || !inputRoomId || isWhiteAI || isBlackAI}
+                disabled={webRTC.isConnected || webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
                 className="h-8 px-2 text-sm font-medium"
                 aria-label="Join Online Game"
               >

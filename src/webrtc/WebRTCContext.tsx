@@ -277,7 +277,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
       switch (data.type) {
         case 'room-created':
-          setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: true, isCreator: true, error: null }));
+          setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: false, isCreator: true, error: null }));
           const pcCreator = createPeerConnection(data.roomId); 
           if (!pcCreator) {
               console.error("Failed to create peer connection for creator");
@@ -298,7 +298,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           }
           break;
         case 'room-joined': 
-          setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: true, isCreator: false, error: null }));
+          setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: false, isCreator: false, error: null }));
           if (data.offer) {
                await handleIncomingOffer(data.offer, data.roomId);
           }
