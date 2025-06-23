@@ -34,14 +34,13 @@ const ICE_SERVERS = {
 let determinedSignalingServerUrl = '';
 if (typeof window !== 'undefined') {
   const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-  // The port your server.js listens on. We will connect to the main host,
-  // assuming the environment proxy routes a path or the main port correctly.
-  const signalingPort = '8082'; 
-  const webHost = window.location.host; // Use window.location.host directly
+  const webHost = window.location.host; 
 
-  // Change: Connect to the main host, not a port-prefixed one.
-  // The proxy is expected to handle routing to the correct internal port.
-  determinedSignalingServerUrl = `${wsProtocol}://${webHost}/`;
+  // In environments like Firebase Studio, ports are often exposed as prefixed hostnames.
+  // We'll replace the main app's port prefix (e.g., '9000-') with the signaling server's port ('8082-').
+  const signalingHost = webHost.replace(/^[0-9]+-/, '8082-');
+
+  determinedSignalingServerUrl = `${wsProtocol}://${signalingHost}/`;
   
   console.log(`WebRTC: Determined SIGNALING_SERVER_URL: ${determinedSignalingServerUrl}`);
 }
