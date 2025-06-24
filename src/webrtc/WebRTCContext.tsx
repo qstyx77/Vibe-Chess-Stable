@@ -327,11 +327,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         case 'candidate':
           await handleIncomingCandidate(data.payload);
           break;
-        case 'move': 
-          if (onMoveReceivedCallbackRef.current) {
-            onMoveReceivedCallbackRef.current(data.payload);
-          }
-          break;
         case 'peer-disconnected':
           console.log("WebRTC: Peer disconnected.");
           setState(prev => ({ ...prev, error: "Opponent disconnected.", isConnected: false, isConnecting: false }));
@@ -404,30 +399,19 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   
   const sendMove = useCallback((move: GameMove) => {
     const dc = dcRef.current;
-    if (!dc || dc.readyState !== 'open') {
-      console.error('WebRTC: Data channel not open. Cannot send move directly to peer. Attempting via signaling server.');
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && state.roomId) {
-        console.log('WebRTC: Sending move via WebSocket to signaling server (DC not open):', move);
-        wsRef.current.send(JSON.stringify({ type: 'move', payload: move, roomId: state.roomId }));
-      } else {
-        setState(prev => ({ ...prev, error: 'Data channel and WebSocket not ready to send move.' }));
-      }
-      return;
-    }
-    try {
+    if (dc && dc.readyState === 'open') {
+      try {
         console.log('WebRTC: Sending move via DataChannel:', move);
         dc.send(JSON.stringify(move));
-
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && state.roomId) {
-            console.log('WebRTC: Sending move via WebSocket to signaling server for relay:', move);
-            wsRef.current.send(JSON.stringify({ type: 'move', payload: move, roomId: state.roomId }));
-        }
-
-    } catch (e: any) {
+      } catch (e: any) {
         console.error("WebRTC: Error sending move via DataChannel", e);
         setState(prev => ({ ...prev, error: `Error sending move: ${e.message}` }));
+      }
+    } else {
+      console.error('WebRTC: Data channel not open. Cannot send move.');
+      setState(prev => ({ ...prev, error: 'Cannot send move: connection not established.' }));
     }
-  }, [state.roomId]);
+  }, []);
 
   const disconnect = useCallback(() => {
     console.log('WebRTC: Disconnecting locally and notifying server...');

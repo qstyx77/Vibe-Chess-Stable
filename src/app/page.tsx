@@ -1430,7 +1430,7 @@ export default function EvolvingChessPage() {
 
 
           const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
-          const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
+          const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn;
 
 
           let isPendingHumanResurrectionPromotion = isResurrectionPromotionInProgress;
