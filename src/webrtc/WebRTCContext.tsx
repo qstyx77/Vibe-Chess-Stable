@@ -190,7 +190,14 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     
     try {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
-        console.log('WebRTC: Remote description (offer) set.');
+        console.log('WebRTC: Remote description (offer) set. Processing ICE candidate queue.');
+
+        // Process any candidates that were received before the offer was set.
+        iceCandidateQueueRef.current.forEach(candidate => {
+            pc!.addIceCandidate(candidate).catch(e => console.error("Error adding queued ICE candidate:", e));
+        });
+        iceCandidateQueueRef.current = [];
+
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         console.log('WebRTC: Answer created. Sending to signaling server:', answer);
