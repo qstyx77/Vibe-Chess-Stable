@@ -48,7 +48,7 @@ wss.on('connection', (ws, req) => {
     switch (data.type) {
       case 'create-room':
         const newRoomId = `room_${generateId()}`;
-        rooms[newRoomId] = { creator: ws, joiner: null, offer: null, creatorCandidates: [] };
+        rooms[newRoomId] = { creator: ws, joiner: null };
         ws.roomId = newRoomId;
         ws.isCreator = true;
         console.log(`Room ${newRoomId} created by ${clientId}`);
@@ -62,30 +62,32 @@ wss.on('connection', (ws, req) => {
           ws.roomId = data.roomId;
           ws.isCreator = false;
           console.log(`Client ${clientId} joined room ${data.roomId}`);
-          ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, offer: roomToJoin.offer, candidates: roomToJoin.creatorCandidates }));
-          roomToJoin.creator.send(JSON.stringify({ type: 'peer-joined', roomId: data.roomId }));
+          
+          // Notify the creator that a peer has joined so they can initiate the offer
+          if (roomToJoin.creator && roomToJoin.creator.readyState === WebSocket.OPEN) {
+            roomToJoin.creator.send(JSON.stringify({ type: 'peer-joined', roomId: data.roomId }));
+          }
+          // Notify the joiner that they have successfully joined the room
+          ws.send(JSON.stringify({ type: 'room-joined-success', roomId: data.roomId }));
         } else {
           ws.send(JSON.stringify({ type: 'error', message: 'Room not found or full' }));
         }
         break;
 
       case 'offer':
-        if (currentRoomId && rooms[currentRoomId]) {
-          rooms[currentRoomId].offer = data.payload;
-        }
-        break;
-
       case 'answer':
       case 'candidate':
         if (currentRoomId && rooms[currentRoomId]) {
-          const targetPeer = ws.isCreator ? rooms[currentRoomId].joiner : rooms[currentRoomId].creator;
+          const room = rooms[currentRoomId];
+          const targetPeer = ws === room.creator ? room.joiner : room.creator;
           if (targetPeer && targetPeer.readyState === WebSocket.OPEN) {
-            targetPeer.send(JSON.stringify({ type: data.type, payload: data.payload, roomId: currentRoomId }));
+            // Forward the raw message to the other peer
+            targetPeer.send(message.toString());
           }
         }
         break;
 
-      // Keep game-specific moves separate for clarity
+      // Game-specific moves are forwarded directly
       case 'move':
       case 'forfeit-timeout':
       case 'turn-pass-timeout':

@@ -687,13 +687,13 @@ export default function EvolvingChessPage() {
     if (isWhiteAI && !isBlackAI && !webRTC.isConnected) return 'black';
     if (!isWhiteAI && isBlackAI && !webRTC.isConnected) return 'white';
 
-    if (webRTC.isConnected) {
+    if (webRTC.isConnected || webRTC.peerPresent) {
         return localPlayerColor || 'white';
     }
 
     if (viewMode === 'flipping') return currentPlayer;
     return 'white';
-  }, [isWhiteAI, isBlackAI, webRTC.isConnected, localPlayerColor, viewMode, currentPlayer]);
+  }, [isWhiteAI, isBlackAI, webRTC.isConnected, webRTC.peerPresent, localPlayerColor, viewMode, currentPlayer]);
 
   useEffect(() => {
     setBoardOrientation(determineBoardOrientation());
@@ -2679,8 +2679,8 @@ export default function EvolvingChessPage() {
 
 
   const handleToggleWhiteAI = useCallback(() => {
-    if ((isAiThinking && currentPlayer === 'white') || isMoveProcessing || webRTC.isConnected) {
-      if(webRTC.isConnected) toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
+    if ((isAiThinking && currentPlayer === 'white') || isMoveProcessing || webRTC.isConnected || webRTC.peerPresent) {
+      if(webRTC.isConnected || webRTC.peerPresent) toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
       return;
     }
     const newIsWhiteAI = !isWhiteAI;
@@ -2693,11 +2693,11 @@ export default function EvolvingChessPage() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, toast, gameInfo.gameOver, webRTC.isConnected]); 
+  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, toast, gameInfo.gameOver, webRTC.isConnected, webRTC.peerPresent]); 
 
   const handleToggleBlackAI = useCallback(() => {
-     if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing || webRTC.isConnected) {
-      if(webRTC.isConnected) toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
+     if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing || webRTC.isConnected || webRTC.peerPresent) {
+      if(webRTC.isConnected || webRTC.peerPresent) toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
       return;
     }
     const newIsBlackAI = !isBlackAI;
@@ -2710,7 +2710,7 @@ export default function EvolvingChessPage() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, webRTC.isConnected]);
+  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, webRTC.isConnected, webRTC.peerPresent]);
 
   const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (webRTC.isConnected && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) );
 
@@ -2729,20 +2729,20 @@ export default function EvolvingChessPage() {
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={108}
-              height={108}
+              width={216}
+              height={216}
               unoptimized
-              className="md:w-[144px] md:h-[144px]"
+              className="md:w-[288px] md:h-[288px]"
               data-ai-hint="chess rook"
             />
             <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={108}
-              height={108}
+              width={216}
+              height={216}
               unoptimized
-              className="md:w-[144px] md:h-[144px] transform scale-x-[-1]"
+              className="md:w-[288px] md:h-[288px] transform scale-x-[-1]"
               data-ai-hint="chess rook"
             />
           </div>
@@ -2756,10 +2756,10 @@ export default function EvolvingChessPage() {
             <Button variant="outline" onClick={handleUndo} disabled={webRTC.isConnected || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
               <Undo2 className="mr-1" /> Undo
             </Button>
-            <Button variant="outline" onClick={handleToggleWhiteAI} disabled={webRTC.isConnected || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
+            <Button variant="outline" onClick={handleToggleWhiteAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
               <Bot className="mr-1" /> White AI: {isWhiteAI ? 'On' : 'Off'}
             </Button>
-            <Button variant="outline" onClick={handleToggleBlackAI} disabled={webRTC.isConnected || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
+            <Button variant="outline" onClick={handleToggleBlackAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
               <Bot className="mr-1" /> Black AI: {isBlackAI ? 'On' : 'Off'}
             </Button>
             <Button variant="outline" onClick={handleToggleViewMode} disabled={webRTC.isConnected} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
@@ -2776,7 +2776,6 @@ export default function EvolvingChessPage() {
                 } else {
                   await webRTC.createRoom();
                   setLocalPlayerColor('white');
-                  if (currentPlayer === 'white' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('white');
                 }
               }}
               disabled={webRTC.isConnecting || (isWhiteAI || isBlackAI)}
@@ -2785,9 +2784,9 @@ export default function EvolvingChessPage() {
             >
               {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
               {(() => {
-                if (webRTC.isConnecting) return 'Connecting...';
-                if (webRTC.isConnected) return `Room: ${webRTC.roomId} (Disconnect)`;
-                if (webRTC.roomId) return `Room: ${webRTC.roomId} (Cancel)`;
+                if (webRTC.isConnecting) return 'Starting...';
+                if (webRTC.isConnected) return `Connected! (Disconnect)`;
+                if (webRTC.roomId) return `Room: ${webRTC.roomId.replace('room_','')} (Cancel)`;
                 return 'Create Online Game';
               })()}
             </Button>
@@ -2806,7 +2805,6 @@ export default function EvolvingChessPage() {
                   if (inputRoomId) {
                     await webRTC.joinRoom(inputRoomId);
                     setLocalPlayerColor('black');
-                     if (currentPlayer === 'black' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer('black');
                   }
                 }}
                 disabled={webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
@@ -2819,15 +2817,15 @@ export default function EvolvingChessPage() {
           </div>
           <div className="w-full text-center">
             {webRTC.error && <p className="text-sm font-medium text-destructive">{webRTC.error}</p>}
-            {webRTC.roomId && webRTC.isCreator && !webRTC.isConnected && (
+            {webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent && !webRTC.isConnected &&(
               <p className="text-sm font-medium text-primary mt-2">
-                Room Created! Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId}</span>
+                Waiting for opponent... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
               </p>
             )}
-            {webRTC.roomId && !webRTC.isCreator && !webRTC.isConnected && (
-              <p className="text-sm font-medium text-primary mt-2">Joining room...</p>
+             {webRTC.peerPresent && !webRTC.isConnected && (
+              <p className="text-sm font-medium text-primary mt-2">Opponent found! Establishing secure connection...</p>
             )}
-             {webRTC.isConnected && localPlayerColor && <p className="text-sm font-medium text-primary">You are playing as {localPlayerColor}.</p>}
+             {webRTC.isConnected && localPlayerColor && <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>}
           </div>
         </div>
         <div className="flex flex-col md:flex-row gap-6 w-full max-w-6xl">
