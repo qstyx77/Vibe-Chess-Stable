@@ -2720,7 +2720,7 @@ export default function EvolvingChessPage() {
       if (webRTC.isCreator) {
         return `Room: ${webRTC.roomId.replace('room_', '')} (Cancel)`;
       }
-       return `Joining room...`;
+       return `Joining...`;
     }
     return 'Create Online Game';
   };
@@ -2732,15 +2732,18 @@ export default function EvolvingChessPage() {
      if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
-          Waiting for opponent... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
+          Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
         </p>
       );
     }
-    if (webRTC.peerPresent && !webRTC.isConnected) {
+    if (webRTC.peerPresent && !webRTC.isConnected && webRTC.isConnecting) {
        return <p className="text-sm font-medium text-primary mt-2">Opponent found! Establishing secure connection...</p>;
     }
     if (webRTC.isConnected && localPlayerColor) {
       return <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>;
+    }
+    if (!webRTC.isConnected && webRTC.isConnecting && !webRTC.isCreator) {
+        return <p className="text-sm font-medium text-primary mt-2">Joining room...</p>;
     }
     return null;
   };
