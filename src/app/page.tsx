@@ -2761,8 +2761,8 @@ export default function EvolvingChessPage() {
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={48}
-              height={48}
+              width={72}
+              height={72}
               unoptimized
               className=""
               data-ai-hint="chess rook"
@@ -2771,8 +2771,8 @@ export default function EvolvingChessPage() {
             <Image
               src="/images/rook-title.gif"
               alt="Vibe Chess Rook"
-              width={48}
-              height={48}
+              width={72}
+              height={72}
               unoptimized
               className="transform scale-x-[-1]"
               data-ai-hint="chess rook"
@@ -2853,7 +2853,7 @@ export default function EvolvingChessPage() {
       </div>
       
       {/* Main Game Area */}
-      <div className="w-full flex flex-col-reverse md:flex-row items-start justify-center gap-8">
+      <div className="w-full flex flex-col md:flex-row-reverse items-start justify-center gap-8">
         {/* Chessboard */}
         <div className="w-full md:flex-grow flex justify-center">
             <ChessBoard
