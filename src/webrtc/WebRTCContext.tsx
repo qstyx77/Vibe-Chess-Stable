@@ -148,10 +148,8 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
     newPc.onicecandidate = (event) => {
       if (event.candidate && wsRef.current && wsRef.current.readyState === WebSocket.OPEN && roomIdForCallback) {
-        console.log('WebRTC: New ICE candidate generated. Sending to signaling server:', event.candidate);
+        console.log('WebRTC: New ICE candidate generated. Sending to signaling server:', event.candidate.candidate.substring(0, 30) + '...');
         wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: roomIdForCallback }));
-      } else if (event.candidate) {
-        console.log('WebRTC: ICE candidate generated but WebSocket not ready or no room ID. DROPPING CANDIDATE:', event.candidate);
       }
     };
 
@@ -218,7 +216,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             }
         }
         
-        console.log('WebRTC: Processing separately queued candidates.');
+        console.log('WebRTC: Processing separately queued candidates that may have arrived early.');
         while(iceCandidateQueueRef.current.length > 0) {
             const candidate = iceCandidateQueueRef.current.shift();
             if (candidate) {
@@ -233,7 +231,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        console.log('WebRTC: Answer created. Sending to signaling server:', answer);
+        console.log('WebRTC: Answer created. Sending to signaling server.');
 
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'answer', payload: answer, roomId: receivedRoomId }));
@@ -277,9 +275,9 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const connectToSignaling = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log("WebRTC: WebSocket connection already open.");
-      return;
+    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+        console.log("WebRTC: WebSocket connection already open or connecting.");
+        return;
     }
     
     if (!SIGNALING_SERVER_URL) {
@@ -316,7 +314,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 pcCreator.createOffer()
                     .then(offer => pcCreator.setLocalDescription(offer))
                     .then(() => {
-                        console.log('WebRTC: Offer created. Sending to signaling server:', pcCreator.localDescription);
+                        console.log('WebRTC: Offer created. Sending to signaling server.');
                         ws.send(JSON.stringify({ type: 'offer', payload: pcCreator.localDescription, roomId: data.roomId }));
                     })
                     .catch(e => {
@@ -344,7 +342,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 console.log("WebRTC: Peer disconnected.");
                 setState(prev => ({ ...prev, error: "Opponent disconnected.", isConnected: false, isConnecting: false }));
                 cleanupConnection();
-                // After cleanup, try to reconnect to signaling to be ready for another game
                 connectToSignaling();
                 break;
             case 'error':
@@ -383,9 +380,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
   const createRoom = useCallback(async () => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        console.log("WebRTC: Signaling server not connected, attempting to connect before creating room.");
         connectToSignaling();
-        // Give it a moment to connect
         setTimeout(() => {
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                 console.log('WebRTC: Requesting to create room...');
@@ -405,7 +400,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
   const joinRoom = useCallback(async (roomIdToJoin: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        console.log("WebRTC: Signaling server not connected, attempting to connect before joining room.");
         connectToSignaling();
         setTimeout(() => {
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {

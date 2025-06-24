@@ -82,6 +82,7 @@ wss.on('connection', (ws, req) => {
           ws.roomId = data.roomId;
           ws.isCreator = false;
           console.log(`Client ${clientId} joined room ${data.roomId}`);
+          // Send offer and any already-queued candidates from the creator
           ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, offer: roomToJoin.offer, candidates: roomToJoin.creatorCandidates }));
           if (roomToJoin.creator) {
             roomToJoin.creator.send(JSON.stringify({ type: 'peer-joined', roomId: data.roomId }));
@@ -107,12 +108,8 @@ wss.on('connection', (ws, req) => {
           rooms[currentRoomId].answer = data.payload;
           console.log(`Answer from ${clientId} for room ${currentRoomId}`);
           rooms[currentRoomId].creator.send(JSON.stringify({ type: 'answer', payload: data.payload, roomId: currentRoomId }));
-          rooms[currentRoomId].joinerCandidates.forEach(candidate => {
-            if (rooms[currentRoomId].creator) {
-                rooms[currentRoomId].creator.send(JSON.stringify({ type: 'candidate', payload: candidate, roomId: currentRoomId }));
-            }
-          });
-          rooms[currentRoomId].joinerCandidates = [];
+          // Note: We no longer send queued joiner candidates here to prevent race conditions.
+          // They will be sent when the creator sends its first candidate back.
         }
         break;
 
@@ -124,7 +121,19 @@ wss.on('connection', (ws, req) => {
 
           if (targetPeer) {
             targetPeer.send(JSON.stringify({ type: 'candidate', payload: data.payload, roomId: currentRoomId }));
+
+            // If the creator sends a candidate, it means they have processed the answer.
+            // Now it's safe to send any candidates we queued from the joiner.
+            if (ws.isCreator && room.joinerCandidates.length > 0) {
+              console.log(`Creator sent a candidate; flushing ${room.joinerCandidates.length} queued candidates from joiner.`);
+              room.joinerCandidates.forEach(candidate => {
+                  room.creator.send(JSON.stringify({ type: 'candidate', payload: candidate, roomId: currentRoomId }));
+              });
+              room.joinerCandidates = []; // Clear the queue
+            }
+            
           } else {
+            // Queue the candidate if the peer hasn't joined or isn't ready yet.
             if(ws.isCreator) {
                 room.creatorCandidates.push(data.payload);
             } else {
