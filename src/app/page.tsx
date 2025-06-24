@@ -2755,20 +2755,21 @@ export default function EvolvingChessPage() {
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
       
-      {/* Main Game Area */}
-      <div className="w-full flex flex-col md:flex-row-reverse items-start justify-center gap-8">
-        
-        {/* Controls Column */}
-        <div className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-4">
-
-          {/* Top Controls Area */}
-          <div className="w-full flex flex-col items-center space-y-3">
+       {/* Main Layout Container */}
+      <div className="flex-grow w-full flex flex-col items-center">
+        {/* Responsive Flex Container for Controls and Board */}
+        <div className="w-full md:max-w-4xl lg:max-w-5xl flex flex-col md:flex-row items-start justify-center gap-8">
+            
+          {/* Controls Column (Right on Desktop, Top on Mobile) */}
+          <div className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-4 order-1 md:order-2">
+            {/* Header and Buttons */}
+            <div className="w-full flex flex-col items-center space-y-3">
               <div className="flex items-center justify-center gap-1">
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
-                  width={48}
-                  height={48}
+                  width={72}
+                  height={72}
                   unoptimized
                   className=""
                   data-ai-hint="chess rook"
@@ -2777,14 +2778,13 @@ export default function EvolvingChessPage() {
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
-                  width={48}
-                  height={48}
+                  width={72}
+                  height={72}
                   unoptimized
                   className="transform scale-x-[-1]"
                   data-ai-hint="chess rook"
                 />
               </div>
-              
               <div className="flex flex-wrap justify-center items-center gap-2">
                  <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
                   {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
@@ -2809,7 +2809,6 @@ export default function EvolvingChessPage() {
                   <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
                 </Button>
               </div>
-              
               <div className="flex flex-wrap justify-center items-center gap-2">
                 <Button
                   variant="outline"
@@ -2856,54 +2855,54 @@ export default function EvolvingChessPage() {
               <div className="w-full text-center h-6">
                 {getStatusMessage()}
               </div>
+            </div>
+            {/* Game Controls Panel */}
+            <GameControls
+                currentPlayer={currentPlayer}
+                gameStatusMessage={
+                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
+                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
+                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
+                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
+                          gameInfo.message || "\u00A0"
+                }
+                capturedPieces={capturedPieces}
+                isCheck={gameInfo.isCheck}
+                isGameOver={gameInfo.gameOver}
+                killStreaks={killStreaks}
+                isWhiteAI={isWhiteAI && !webRTC.isConnected}
+                isBlackAI={isBlackAI && !webRTC.isConnected}
+                activeTimerPlayer={activeTimerPlayer}
+                remainingTime={remainingTime}
+                turnTimeouts={turnTimeouts}
+              />
           </div>
 
-          {/* Game Controls Panel */}
-          <GameControls
-              currentPlayer={currentPlayer}
-              gameStatusMessage={
-                isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
-                  isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
-                    isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
-                      isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                        gameInfo.message || "\u00A0"
-              }
-              capturedPieces={capturedPieces}
-              isCheck={gameInfo.isCheck}
-              isGameOver={gameInfo.gameOver}
-              killStreaks={killStreaks}
-              isWhiteAI={isWhiteAI && !webRTC.isConnected}
-              isBlackAI={isBlackAI && !webRTC.isConnected}
-              activeTimerPlayer={activeTimerPlayer}
-              remainingTime={remainingTime}
-              turnTimeouts={turnTimeouts}
-            />
-        </div>
-
-        {/* Chessboard Column */}
-        <div className="w-full md:flex-grow flex justify-center">
-            <ChessBoard
-                boardState={board}
-                selectedSquare={selectedSquare}
-                possibleMoves={possibleMoves}
-                enemySelectedSquare={enemySelectedSquare}
-                enemyPossibleMoves={enemyPossibleMoves}
-                onSquareClick={handleSquareClick}
-                playerColor={boardOrientation}
-                currentPlayerColor={currentPlayer}
-                isInteractionDisabled={isInteractionDisabled}
-                applyBoardOpacityEffect={applyBoardOpacityEffect}
-                playerInCheck={gameInfo.playerWithKingInCheck}
-                viewMode={viewMode}
-                animatedSquareTo={animatedSquareTo}
-                lastMoveFrom={lastMoveFrom}
-                lastMoveTo={lastMoveTo}
-                isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
-                playerToSacrificePawn={playerToSacrificePawn}
-                isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
-                playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
-                enPassantTargetSquare={enPassantTargetSquare}
-            />
+          {/* Chessboard Column (Left on Desktop, Bottom on Mobile) */}
+          <div className="w-full md:flex-grow flex justify-center order-2 md:order-1">
+              <ChessBoard
+                  boardState={board}
+                  selectedSquare={selectedSquare}
+                  possibleMoves={possibleMoves}
+                  enemySelectedSquare={enemySelectedSquare}
+                  enemyPossibleMoves={enemyPossibleMoves}
+                  onSquareClick={handleSquareClick}
+                  playerColor={boardOrientation}
+                  currentPlayerColor={currentPlayer}
+                  isInteractionDisabled={isInteractionDisabled}
+                  applyBoardOpacityEffect={applyBoardOpacityEffect}
+                  playerInCheck={gameInfo.playerWithKingInCheck}
+                  viewMode={viewMode}
+                  animatedSquareTo={animatedSquareTo}
+                  lastMoveFrom={lastMoveFrom}
+                  lastMoveTo={lastMoveTo}
+                  isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+                  playerToSacrificePawn={playerToSacrificePawn}
+                  isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
+                  playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
+                  enPassantTargetSquare={enPassantTargetSquare}
+              />
+          </div>
         </div>
       </div>
 
