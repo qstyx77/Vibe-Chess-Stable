@@ -2729,7 +2729,7 @@ export default function EvolvingChessPage() {
     if (webRTC.error) {
       return <p className="text-sm font-medium text-destructive">{webRTC.error}</p>;
     }
-     if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
+    if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
           Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
@@ -2758,8 +2758,7 @@ export default function EvolvingChessPage() {
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
       
-      <div className="flex-grow w-full flex flex-col items-center">
-        
+      <div className="w-full flex flex-col items-center">
         {/* Header Section */}
         <div className="w-full flex flex-col items-center space-y-4 mb-4">
           <div className="flex items-center justify-center gap-1">
@@ -2852,8 +2851,8 @@ export default function EvolvingChessPage() {
         </div>
 
         {/* Main Content: Board and Controls Panel */}
-        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-3 items-start gap-8">
-          <div className="md:col-span-2 flex justify-center order-2 md:order-1">
+        <div className="w-full max-w-6xl flex flex-col md:flex-row items-start gap-8">
+          <div className="w-full md:w-2/3 flex justify-center order-2 md:order-1">
               <ChessBoard
                   boardState={board}
                   selectedSquare={selectedSquare}
@@ -2877,7 +2876,7 @@ export default function EvolvingChessPage() {
                   enPassantTargetSquare={enPassantTargetSquare}
               />
           </div>
-          <div className="w-full md:col-span-1 order-1 md:order-2">
+          <div className="w-full md:w-1/3 order-1 md:order-2">
             <GameControls
                 currentPlayer={currentPlayer}
                 gameStatusMessage={
