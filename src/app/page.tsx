@@ -2742,7 +2742,7 @@ export default function EvolvingChessPage() {
     if (webRTC.isConnected && localPlayerColor) {
       return <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>;
     }
-    if (!webRTC.isConnected && webRTC.isConnecting && !webRTC.isCreator) {
+    if (!webRTC.isConnected && webRTC.isConnecting && !webRTC.isCreator && inputRoomId) {
         return <p className="text-sm font-medium text-primary mt-2">Joining room...</p>;
     }
     return null;
@@ -2852,33 +2852,8 @@ export default function EvolvingChessPage() {
         </div>
 
         {/* Main Content: Board and Controls Panel */}
-        <div className="w-full max-w-6xl flex flex-col md:flex-row items-start justify-center gap-8">
-            
-          {/* Right Column (Desktop) / Top Column (Mobile) */}
-          <div className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-4 order-1 md:order-2">
-            <GameControls
-                currentPlayer={currentPlayer}
-                gameStatusMessage={
-                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
-                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
-                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
-                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                          gameInfo.message || "\u00A0"
-                }
-                capturedPieces={capturedPieces}
-                isCheck={gameInfo.isCheck}
-                isGameOver={gameInfo.gameOver}
-                killStreaks={killStreaks}
-                isWhiteAI={isWhiteAI && !webRTC.isConnected}
-                isBlackAI={isBlackAI && !webRTC.isConnected}
-                activeTimerPlayer={activeTimerPlayer}
-                remainingTime={remainingTime}
-                turnTimeouts={turnTimeouts}
-              />
-          </div>
-
-          {/* Left Column (Desktop) / Bottom Column (Mobile) */}
-          <div className="w-full md:flex-grow flex justify-center order-2 md:order-1">
+        <div className="w-full max-w-6xl grid grid-cols-1 md:grid-cols-3 items-start gap-8">
+          <div className="md:col-span-2 flex justify-center order-2 md:order-1">
               <ChessBoard
                   boardState={board}
                   selectedSquare={selectedSquare}
@@ -2900,6 +2875,27 @@ export default function EvolvingChessPage() {
                   isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
                   playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
                   enPassantTargetSquare={enPassantTargetSquare}
+              />
+          </div>
+          <div className="w-full md:col-span-1 order-1 md:order-2">
+            <GameControls
+                currentPlayer={currentPlayer}
+                gameStatusMessage={
+                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
+                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
+                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
+                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
+                          gameInfo.message || "\u00A0"
+                }
+                capturedPieces={capturedPieces}
+                isCheck={gameInfo.isCheck}
+                isGameOver={gameInfo.gameOver}
+                killStreaks={killStreaks}
+                isWhiteAI={isWhiteAI && !webRTC.isConnected}
+                isBlackAI={isBlackAI && !webRTC.isConnected}
+                activeTimerPlayer={activeTimerPlayer}
+                remainingTime={remainingTime}
+                turnTimeouts={turnTimeouts}
               />
           </div>
         </div>
