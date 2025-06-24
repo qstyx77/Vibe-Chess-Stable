@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -2720,7 +2721,7 @@ export default function EvolvingChessPage() {
       if (webRTC.isCreator) {
         return `Room: ${webRTC.roomId.replace('room_', '')} (Cancel)`;
       }
-      return `Joining room...`;
+       return `Joining room...`;
     }
     return 'Create Online Game';
   };
@@ -2729,7 +2730,7 @@ export default function EvolvingChessPage() {
     if (webRTC.error) {
       return <p className="text-sm font-medium text-destructive">{webRTC.error}</p>;
     }
-    if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
+     if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
           Waiting for opponent... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
@@ -2754,31 +2755,9 @@ export default function EvolvingChessPage() {
 
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
-
-      <div ref={mainContentRef} className="relative z-20 w-full flex flex-col md:flex-row items-start md:justify-center md:gap-6">
-        <div className="md:w-1/3 lg:w-1/4 order-2 md:order-1 mt-6 md:mt-0">
-          <GameControls
-            currentPlayer={currentPlayer}
-            gameStatusMessage={
-              isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
-                isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
-                  isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
-                    isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                      gameInfo.message || "\u00A0"
-            }
-            capturedPieces={capturedPieces}
-            isCheck={gameInfo.isCheck}
-            isGameOver={gameInfo.gameOver}
-            killStreaks={killStreaks}
-            isWhiteAI={isWhiteAI && !webRTC.isConnected}
-            isBlackAI={isBlackAI && !webRTC.isConnected}
-            activeTimerPlayer={activeTimerPlayer}
-            remainingTime={remainingTime}
-            turnTimeouts={turnTimeouts}
-          />
-        </div>
-        <div className="w-full md:w-2/3 lg:w-3/4 order-1 md:order-2 flex flex-col items-center">
-          <div className="w-full flex flex-col items-center mb-4 space-y-3">
+      
+      <div ref={mainContentRef} className="relative z-20 w-full flex flex-col items-center">
+        <div className="w-full flex flex-col items-center mb-4 space-y-3">
             <div className="flex items-center justify-center gap-1">
               <Image
                 src="/images/rook-title.gif"
@@ -2800,8 +2779,9 @@ export default function EvolvingChessPage() {
                 data-ai-hint="chess rook"
               />
             </div>
+            
             <div className="flex flex-wrap justify-center items-center gap-2">
-              <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
+               <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
                 {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
               </Button>
               <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
@@ -2810,16 +2790,21 @@ export default function EvolvingChessPage() {
               <Button variant="outline" onClick={handleUndo} disabled={webRTC.isConnected || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
                 <Undo2 className="mr-1" /> Undo
               </Button>
+            </div>
+            <div className="flex flex-wrap justify-center items-center gap-2">
               <Button variant="outline" onClick={handleToggleWhiteAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
                 <Bot className="mr-1" /> White AI: {isWhiteAI ? 'On' : 'Off'}
               </Button>
               <Button variant="outline" onClick={handleToggleBlackAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
                 <Bot className="mr-1" /> Black AI: {isBlackAI ? 'On' : 'Off'}
               </Button>
-              <Button variant="outline" onClick={handleToggleViewMode} disabled={webRTC.isConnected} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
+            </div>
+            <div className="flex flex-wrap justify-center items-center gap-2">
+               <Button variant="outline" onClick={handleToggleViewMode} disabled={webRTC.isConnected} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
                 <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
               </Button>
             </div>
+            
             <div className="flex flex-wrap justify-center items-center gap-2">
               <Button
                 variant="outline"
@@ -2867,7 +2852,7 @@ export default function EvolvingChessPage() {
               {getStatusMessage()}
             </div>
           </div>
-
+          
           <div className="w-full flex justify-center">
             <ChessBoard
               boardState={board}
@@ -2892,7 +2877,28 @@ export default function EvolvingChessPage() {
               enPassantTargetSquare={enPassantTargetSquare}
             />
           </div>
-        </div>
+
+          <div className="mt-6 w-full max-w-md md:max-w-xl">
+             <GameControls
+                currentPlayer={currentPlayer}
+                gameStatusMessage={
+                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
+                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
+                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
+                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
+                          gameInfo.message || "\u00A0"
+                }
+                capturedPieces={capturedPieces}
+                isCheck={gameInfo.isCheck}
+                isGameOver={gameInfo.gameOver}
+                killStreaks={killStreaks}
+                isWhiteAI={isWhiteAI && !webRTC.isConnected}
+                isBlackAI={isBlackAI && !webRTC.isConnected}
+                activeTimerPlayer={activeTimerPlayer}
+                remainingTime={remainingTime}
+                turnTimeouts={turnTimeouts}
+              />
+          </div>
       </div>
       <PromotionDialog
         isOpen={isPromotingPawn}
@@ -2906,3 +2912,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
