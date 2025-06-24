@@ -2714,6 +2714,39 @@ export default function EvolvingChessPage() {
 
   const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (webRTC.isConnected && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) );
 
+  const getButtonText = () => {
+    if (webRTC.isConnecting) return 'Connecting...';
+    if (webRTC.isConnected) return `Disconnect`;
+    if (webRTC.roomId) {
+      if (webRTC.isCreator) {
+        return `Room: ${webRTC.roomId.replace('room_', '')} (Cancel)`;
+      }
+      return `Joining...`; 
+    }
+    return 'Create Online Game';
+  };
+
+  const getStatusMessage = () => {
+    if (webRTC.error) {
+      return <p className="text-sm font-medium text-destructive">{webRTC.error}</p>;
+    }
+    if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
+      return (
+        <p className="text-sm font-medium text-primary mt-2">
+          Waiting for opponent... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
+        </p>
+      );
+    }
+    if (webRTC.peerPresent && !webRTC.isConnected) {
+       return <p className="text-sm font-medium text-primary mt-2">Opponent found! Establishing secure connection...</p>;
+    }
+    if (webRTC.isConnected && localPlayerColor) {
+      return <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>;
+    }
+    return null;
+  };
+
+
   return (
     <div className="container mx-auto p-4 min-h-screen flex flex-col items-center">
       {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash" />}
@@ -2783,12 +2816,7 @@ export default function EvolvingChessPage() {
               aria-label={webRTC.roomId ? "Disconnect or Cancel" : "Create Online Game"}
             >
               {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
-              {(() => {
-                if (webRTC.isConnecting) return 'Starting...';
-                if (webRTC.isConnected) return `Connected! (Disconnect)`;
-                if (webRTC.roomId) return `Room: ${webRTC.roomId.replace('room_','')} (Cancel)`;
-                return 'Create Online Game';
-              })()}
+              {getButtonText()}
             </Button>
             <div className="flex gap-1 items-center">
               <Input
@@ -2815,17 +2843,8 @@ export default function EvolvingChessPage() {
               </Button>
             </div>
           </div>
-          <div className="w-full text-center">
-            {webRTC.error && <p className="text-sm font-medium text-destructive">{webRTC.error}</p>}
-            {webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent && !webRTC.isConnected &&(
-              <p className="text-sm font-medium text-primary mt-2">
-                Waiting for opponent... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
-              </p>
-            )}
-             {webRTC.peerPresent && !webRTC.isConnected && (
-              <p className="text-sm font-medium text-primary mt-2">Opponent found! Establishing secure connection...</p>
-            )}
-             {webRTC.isConnected && localPlayerColor && <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>}
+          <div className="w-full text-center h-6">
+            {getStatusMessage()}
           </div>
         </div>
         <div className="flex flex-col md:flex-row gap-6 w-full max-w-6xl">

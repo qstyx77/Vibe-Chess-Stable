@@ -203,7 +203,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                     setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: false, isCreator: true, error: null }));
                     break;
 
-                case 'room-joined-success': // For joiner
+                case 'room-joined': // For joiner
                     setState(prev => ({ ...prev, roomId: data.roomId, isConnecting: false, isCreator: false, peerPresent: true, error: null }));
                     break;
                 
@@ -222,6 +222,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                     break;
                 
                 case 'offer': // For joiner
+                    setState(prev => ({ ...prev, peerPresent: true }));
                     const pc_joiner = createPeerConnection(data.roomId);
                     pc_joiner.ondatachannel = (e) => {
                       console.log('WebRTC: Data channel received.');

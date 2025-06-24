@@ -68,7 +68,7 @@ wss.on('connection', (ws, req) => {
             roomToJoin.creator.send(JSON.stringify({ type: 'peer-joined', roomId: data.roomId }));
           }
           // Notify the joiner that they have successfully joined the room
-          ws.send(JSON.stringify({ type: 'room-joined-success', roomId: data.roomId }));
+          ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId }));
         } else {
           ws.send(JSON.stringify({ type: 'error', message: 'Room not found or full' }));
         }
