@@ -2850,8 +2850,8 @@ export default function EvolvingChessPage() {
       </div>
 
       {/* Main Content Area */}
-      <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row items-start gap-8 flex-grow">
-        {/* Board */}
+      <div className="w-full max-w-6xl mx-auto flex flex-col md:flex-row gap-8 mt-8">
+        {/* Board Container */}
         <div className="w-full md:w-2/3 flex justify-center order-2 md:order-1">
             <ChessBoard
                 boardState={board}
@@ -2876,7 +2876,7 @@ export default function EvolvingChessPage() {
                 enPassantTargetSquare={enPassantTargetSquare}
             />
         </div>
-        {/* Controls */}
+        {/* Controls Container */}
         <div className="w-full md:w-1/3 order-1 md:order-2">
           <GameControls
               currentPlayer={currentPlayer}
