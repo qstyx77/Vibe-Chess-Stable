@@ -2758,108 +2758,104 @@ export default function EvolvingChessPage() {
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
       
-       {/* Main Layout Container */}
       <div className="flex-grow w-full flex flex-col items-center">
-        {/* Responsive Flex Container for Controls and Board */}
-        <div className="w-full md:max-w-4xl lg:max-w-5xl flex flex-col md:flex-row items-start justify-center gap-8">
-            
-          {/* Controls Column (Right on Desktop, Top on Mobile) */}
-          <div className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-4 order-1 md:order-2">
-            {/* Header and Buttons */}
-            <div className="w-full flex flex-col items-center space-y-3">
-              <div className="flex items-center justify-center gap-1">
-                <Image
-                  src="/images/rook-title.gif"
-                  alt="Vibe Chess Rook"
-                  width={72}
-                  height={72}
-                  unoptimized
-                  className=""
-                  data-ai-hint="chess rook"
-                />
-                <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
-                <Image
-                  src="/images/rook-title.gif"
-                  alt="Vibe Chess Rook"
-                  width={72}
-                  height={72}
-                  unoptimized
-                  className="transform scale-x-[-1]"
-                  data-ai-hint="chess rook"
-                />
-              </div>
-              <div className="flex flex-wrap justify-center items-center gap-2">
-                 <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
-                  {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
-                </Button>
-                <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
-                  <BookOpen className="mr-1" /> Rules
-                </Button>
-                <Button variant="outline" onClick={handleUndo} disabled={webRTC.isConnected || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
-                  <Undo2 className="mr-1" /> Undo
-                </Button>
-              </div>
-              <div className="flex flex-wrap justify-center items-center gap-2">
-                <Button variant="outline" onClick={handleToggleWhiteAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
-                  <Bot className="mr-1" /> White AI: {isWhiteAI ? 'On' : 'Off'}
-                </Button>
-                <Button variant="outline" onClick={handleToggleBlackAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
-                  <Bot className="mr-1" /> Black AI: {isBlackAI ? 'On' : 'Off'}
-                </Button>
-              </div>
-              <div className="flex flex-wrap justify-center items-center gap-2">
-                 <Button variant="outline" onClick={handleToggleViewMode} disabled={webRTC.isConnected} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
-                  <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
-                </Button>
-              </div>
-              <div className="flex flex-wrap justify-center items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={async () => {
-                    if (webRTC.roomId) {
-                      webRTC.disconnect();
-                    } else {
-                      await webRTC.createRoom();
-                      setLocalPlayerColor('white');
-                    }
-                  }}
-                  disabled={webRTC.isConnecting || (isWhiteAI || isBlackAI)}
-                  className="h-8 px-2 text-sm font-medium"
-                  aria-label={webRTC.roomId ? "Disconnect or Cancel" : "Create Online Game"}
-                >
-                  {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
-                  {getButtonText()}
-                </Button>
-                <div className="flex gap-1 items-center">
-                  <Input
-                    type="text"
-                    placeholder="Room ID"
-                    value={inputRoomId}
-                    onChange={(e) => setInputRoomId(e.target.value)}
-                    className="h-8 px-2 text-xs font-medium w-24"
-                    disabled={webRTC.isConnecting || !!webRTC.roomId || isWhiteAI || isBlackAI}
-                  />
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      if (inputRoomId) {
-                        await webRTC.joinRoom(inputRoomId);
-                        setLocalPlayerColor('black');
-                      }
-                    }}
-                    disabled={webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
-                    className="h-8 px-2 text-sm font-medium"
-                    aria-label="Join Online Game"
-                  >
-                    Join
-                  </Button>
-                </div>
-              </div>
-              <div className="w-full text-center h-6">
-                {getStatusMessage()}
-              </div>
+        
+        {/* Header Section */}
+        <div className="w-full flex flex-col items-center space-y-4 mb-4">
+          <div className="flex items-center justify-center gap-1">
+            <Image
+              src="/images/rook-title.gif"
+              alt="Vibe Chess Rook"
+              width={72}
+              height={72}
+              unoptimized
+              className=""
+              data-ai-hint="chess rook"
+            />
+            <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
+            <Image
+              src="/images/rook-title.gif"
+              alt="Vibe Chess Rook"
+              width={72}
+              height={72}
+              unoptimized
+              className="transform scale-x-[-1]"
+              data-ai-hint="chess rook"
+            />
+          </div>
+          <div className="flex flex-wrap justify-center items-center gap-2">
+            <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
+              {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
+            </Button>
+            <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
+              <BookOpen className="mr-1" /> Rules
+            </Button>
+            <Button variant="outline" onClick={handleUndo} disabled={webRTC.isConnected || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
+              <Undo2 className="mr-1" /> Undo
+            </Button>
+            <Button variant="outline" onClick={handleToggleWhiteAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
+              <Bot className="mr-1" /> White AI: {isWhiteAI ? 'On' : 'Off'}
+            </Button>
+            <Button variant="outline" onClick={handleToggleBlackAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
+              <Bot className="mr-1" /> Black AI: {isBlackAI ? 'On' : 'Off'}
+            </Button>
+             <Button variant="outline" onClick={handleToggleViewMode} disabled={webRTC.isConnected} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
+              <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
+            </Button>
+          </div>
+          <div className="flex flex-wrap justify-center items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={async () => {
+                if (webRTC.roomId) {
+                  webRTC.disconnect();
+                } else {
+                  await webRTC.createRoom();
+                  setLocalPlayerColor('white');
+                }
+              }}
+              disabled={webRTC.isConnecting || (isWhiteAI || isBlackAI)}
+              className="h-8 px-2 text-sm font-medium"
+              aria-label={webRTC.roomId ? "Disconnect or Cancel" : "Create Online Game"}
+            >
+              {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
+              {getButtonText()}
+            </Button>
+            <div className="flex gap-1 items-center">
+              <Input
+                type="text"
+                placeholder="Room ID"
+                value={inputRoomId}
+                onChange={(e) => setInputRoomId(e.target.value)}
+                className="h-8 px-2 text-xs font-medium w-24"
+                disabled={webRTC.isConnecting || !!webRTC.roomId || isWhiteAI || isBlackAI}
+              />
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  if (inputRoomId) {
+                    await webRTC.joinRoom(inputRoomId);
+                    setLocalPlayerColor('black');
+                  }
+                }}
+                disabled={webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
+                className="h-8 px-2 text-sm font-medium"
+                aria-label="Join Online Game"
+              >
+                Join
+              </Button>
             </div>
-            {/* Game Controls Panel */}
+          </div>
+          <div className="w-full text-center h-6">
+            {getStatusMessage()}
+          </div>
+        </div>
+
+        {/* Main Content: Board and Controls Panel */}
+        <div className="w-full max-w-6xl flex flex-col md:flex-row items-start justify-center gap-8">
+            
+          {/* Right Column (Desktop) / Top Column (Mobile) */}
+          <div className="w-full md:w-80 lg:w-96 flex-shrink-0 flex flex-col gap-4 order-1 md:order-2">
             <GameControls
                 currentPlayer={currentPlayer}
                 gameStatusMessage={
@@ -2881,7 +2877,7 @@ export default function EvolvingChessPage() {
               />
           </div>
 
-          {/* Chessboard Column (Left on Desktop, Bottom on Mobile) */}
+          {/* Left Column (Desktop) / Bottom Column (Mobile) */}
           <div className="w-full md:flex-grow flex justify-center order-2 md:order-1">
               <ChessBoard
                   boardState={board}
