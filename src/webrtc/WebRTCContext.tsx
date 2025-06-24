@@ -149,8 +149,9 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         console.log('WebRTC: New ICE candidate generated. Sending to signaling server:', event.candidate);
         wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: roomIdForCallback }));
       } else if (event.candidate) {
-        console.log('WebRTC: ICE candidate generated but WebSocket not ready or no room ID. Queuing:', event.candidate);
-        iceCandidateQueueRef.current.push(event.candidate);
+        // This is a fail-safe log. In a correct flow, the websocket should be ready.
+        // We no longer queue outgoing candidates to avoid confusion with the incoming queue.
+        console.log('WebRTC: ICE candidate generated but WebSocket not ready or no room ID. DROPPING CANDIDATE:', event.candidate);
       }
     };
 
@@ -176,6 +177,27 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     return newPc;
   }, [cleanupConnection, setupDataChannelEvents]); 
 
+  const handleIncomingCandidate = useCallback(async (candidatePayload: RTCIceCandidateInit) => {
+    const pc = pcRef.current;
+    if (!pc) {
+        console.log("WebRTC: PeerConnection not initialized for addIceCandidate. Queuing candidate.");
+        iceCandidateQueueRef.current.push(new RTCIceCandidate(candidatePayload)); 
+        return;
+    }
+    try {
+      if (pc.remoteDescription) {
+        await pc.addIceCandidate(new RTCIceCandidate(candidatePayload));
+        console.log('WebRTC: ICE candidate added successfully.');
+      } else {
+        console.log('WebRTC: Remote description not set, queueing ICE candidate.');
+        iceCandidateQueueRef.current.push(new RTCIceCandidate(candidatePayload));
+      }
+    } catch (e: any) {
+        console.error('WebRTC: Error adding received ICE candidate:', e);
+        setState(prev => ({ ...prev, error: `Error adding ICE candidate: ${e.message}` }));
+    }
+  }, []);
+
   const handleIncomingOffer = useCallback(async (offer: RTCSessionDescriptionInit, receivedRoomId: string) => {
     let pc = pcRef.current;
     if (!pc || pc.signalingState === 'closed') {
@@ -192,7 +214,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         console.log('WebRTC: Remote description (offer) set. Processing ICE candidate queue.');
 
-        // Process any candidates that were received before the offer was set.
+        // Process any candidates that were received from the CREATOR before the offer was set.
         iceCandidateQueueRef.current.forEach(candidate => {
             pc!.addIceCandidate(candidate).catch(e => console.error("Error adding queued ICE candidate:", e));
         });
@@ -201,6 +223,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         console.log('WebRTC: Answer created. Sending to signaling server:', answer);
+
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'answer', payload: answer, roomId: receivedRoomId }));
         } else {
@@ -222,38 +245,17 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
     try {
         await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        console.log('WebRTC: Remote description (answer) set.');
+        console.log('WebRTC: Remote description (answer) set. Processing ICE candidate queue.');
+
+        // Process any candidates from the JOINER that arrived before the answer was set.
         iceCandidateQueueRef.current.forEach(candidate => {
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && state.roomId) {
-                 wsRef.current.send(JSON.stringify({ type: 'candidate', payload: candidate, roomId: state.roomId }));
-            }
+            pc.addIceCandidate(candidate).catch(e => console.error("Error adding queued ICE candidate from answer handler:", e));
         });
         iceCandidateQueueRef.current = [];
 
     } catch (e: any) {
         console.error('WebRTC: Error in handleIncomingAnswer:', e);
         setState(prev => ({ ...prev, error: `Error processing answer: ${e.message}` }));
-    }
-  }, [state.roomId]);
-
-  const handleIncomingCandidate = useCallback(async (candidatePayload: RTCIceCandidateInit) => {
-    const pc = pcRef.current;
-    if (!pc) {
-        console.log("WebRTC: PeerConnection not initialized for addIceCandidate. Queuing candidate.");
-        iceCandidateQueueRef.current.push(new RTCIceCandidate(candidatePayload)); 
-        return;
-    }
-    try {
-      if (pc.remoteDescription) {
-        await pc.addIceCandidate(new RTCIceCandidate(candidatePayload));
-        console.log('WebRTC: ICE candidate added successfully.');
-      } else {
-        console.log('WebRTC: Remote description not set, queueing ICE candidate.');
-        iceCandidateQueueRef.current.push(new RTCIceCandidate(candidatePayload));
-      }
-    } catch (e: any) {
-        console.error('WebRTC: Error adding received ICE candidate:', e);
-        setState(prev => ({ ...prev, error: `Error adding ICE candidate: ${e.message}` }));
     }
   }, []);
 
@@ -317,12 +319,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           break;
         case 'peer-joined': 
           console.log("WebRTC: Peer has joined the room. Creator is already set up.");
-          iceCandidateQueueRef.current.forEach(async (candidate) => {
-            if (pcRef.current && pcRef.current.remoteDescription) { 
-                await handleIncomingCandidate(candidate);
-            }
-          });
-          iceCandidateQueueRef.current = [];
           setState(prev => ({ ...prev, isConnecting: false })); 
           break;
         case 'offer': 
