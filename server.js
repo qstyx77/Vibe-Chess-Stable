@@ -45,7 +45,7 @@ wss.on('connection', (ws, req) => {
 
     console.log(`Received message from ${clientId}:`, data.type, data.roomId || '');
     
-    // Find the room the sender is in for game moves
+    // Find the room the sender is in. This is the source of truth.
     const currentRoomId = Object.keys(rooms).find(roomId => {
         const room = rooms[roomId];
         return room.creator === clientId || room.joiner === clientId;
@@ -85,10 +85,9 @@ wss.on('connection', (ws, req) => {
       case 'commander-promo':
       case 'pawn-sacrifice':
       case 'game-over':
-        // Use a unified forwarding logic for all peer-to-peer messages
-        const targetRoomId = data.roomId || currentRoomId; // Prefer roomId from payload, but fall back to lookup
-        if (targetRoomId && rooms[targetRoomId]) {
-          const room = rooms[targetRoomId];
+        // Rely *only* on the server's knowledge of which room the sender is in.
+        if (currentRoomId && rooms[currentRoomId]) {
+          const room = rooms[currentRoomId];
           const isSenderCreator = room.creator === clientId;
           const targetClientId = isSenderCreator ? room.joiner : room.creator;
           
@@ -101,7 +100,7 @@ wss.on('connection', (ws, req) => {
             }
           }
         } else {
-          console.error(`Cannot forward ${data.type}: room not found for sender ${clientId} or roomId ${targetRoomId}`);
+          console.error(`Cannot forward ${data.type}: room not found for sender ${clientId}`);
         }
         break;
 
