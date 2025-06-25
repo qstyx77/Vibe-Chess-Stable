@@ -13,6 +13,8 @@ const rooms = {};
 
 wss.on('connection', ws => {
     console.log('Client connected.');
+    
+    let myRoomId = null;
 
     ws.on('message', message => {
         const msgStr = message.toString();
@@ -24,60 +26,55 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId } = data;
+        const { type, roomId: msgRoomId } = data;
 
         if (type === 'create-room') {
             const newRoomId = Math.random().toString(36).substring(2, 9);
-            ws.roomId = newRoomId;
+            myRoomId = newRoomId; // Set for this connection
             rooms[newRoomId] = [ws];
             ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
             console.log(`Room created: ${newRoomId}`);
-            return; 
+            return;
         }
 
         if (type === 'join-room') {
-            if (rooms[roomId] && rooms[roomId].length === 1) {
-                ws.roomId = roomId;
-                rooms[roomId].push(ws);
+            if (rooms[msgRoomId] && rooms[msgRoomId].length === 1) {
+                myRoomId = msgRoomId; // Set for this connection
+                rooms[myRoomId].push(ws);
                 
-                const creator = rooms[roomId][0];
-                creator.send(JSON.stringify({ type: 'peer-joined', roomId }));
-                ws.send(JSON.stringify({ type: 'room-joined', roomId }));
-                console.log(`Client joined room ${roomId}`);
+                const creator = rooms[myRoomId][0];
+                creator.send(JSON.stringify({ type: 'peer-joined', roomId: myRoomId }));
+                ws.send(JSON.stringify({ type: 'room-joined', roomId: myRoomId }));
+                console.log(`Client joined room ${myRoomId}`);
             } else {
                 ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
             }
             return;
         }
 
-        // For ALL other message types (offer, answer, candidate, game moves, etc.)
-        // just relay them to the other peer in the room.
-        if (ws.roomId && rooms[ws.roomId]) {
-            const otherPeer = rooms[ws.roomId].find(peer => peer !== ws);
+        // For all other messages, use myRoomId from the closure.
+        if (myRoomId && rooms[myRoomId]) {
+            const otherPeer = rooms[myRoomId].find(peer => peer !== ws);
             if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
-                console.log(`Relaying '${type}' to peer in room ${ws.roomId}`);
-                otherPeer.send(msgStr); // Forward the original message string
-            } else if (otherPeer) {
-                 console.warn(`Could not relay '${type}' to peer in room ${ws.roomId}, peer state is ${otherPeer.readyState}`);
-            }
-             else {
-                console.error(`Could not find peer to relay '${type}' in room ${ws.roomId}`);
+                console.log(`Relaying '${type}' to peer in room ${myRoomId}`);
+                otherPeer.send(msgStr);
+            } else {
+                 console.warn(`Could not relay '${type}' to peer in room ${myRoomId}, peer state is ${otherPeer?.readyState}`);
             }
         } else {
-            console.error(`Could not find room for client sending message type '${type}'. ws.roomId is ${ws.roomId}.`);
+            console.error(`Could not find room for client sending message type '${type}'. myRoomId is ${myRoomId}.`);
         }
     });
 
     ws.on('close', () => {
         console.log('Client disconnected.');
-        const roomId = ws.roomId;
-        if (roomId && rooms[roomId]) {
-            const otherPeer = rooms[roomId].find(peer => peer !== ws);
+        if (myRoomId && rooms[myRoomId]) {
+            const otherPeer = rooms[myRoomId].find(peer => peer !== ws);
             if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
                 otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
             }
-            delete rooms[roomId];
-            console.log(`Room ${roomId} cleaned up.`);
+            delete rooms[myRoomId];
+            console.log(`Room ${myRoomId} cleaned up.`);
         }
     });
 
@@ -85,6 +82,7 @@ wss.on('connection', ws => {
         console.error('WebSocket error:', err);
     });
 });
+
 
 const PORT = 8082;
 server.listen(PORT, '0.0.0.0', () => {
