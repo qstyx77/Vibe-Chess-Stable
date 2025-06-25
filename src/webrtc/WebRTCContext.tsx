@@ -16,8 +16,8 @@ interface WebRTCState {
 }
 
 interface WebRTCContextType extends WebRTCState {
-  createRoom: () => void;
-  joinRoom: (roomId: string) => void;
+  createRoom: () => Promise<void>;
+  joinRoom: (roomId: string) => Promise<void>;
   sendMove: (move: GameMove) => void;
   disconnect: () => void;
   setOnMoveReceivedCallback: (callback: ((move: GameMove) => void) | null) => void;
@@ -63,31 +63,23 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const disconnect = useCallback(() => {
-    console.log('[WebRTC Client] Disconnect called. Cleaning up connections.');
+    console.log('[WebRTC] Disconnect called. Cleaning up...');
     if (dcRef.current) {
-        dcRef.current.onopen = null;
-        dcRef.current.onclose = null;
-        dcRef.current.onerror = null;
-        dcRef.current.onmessage = null;
-        dcRef.current.close();
-        dcRef.current = null;
+      dcRef.current.close();
+      dcRef.current = null;
     }
     if (pcRef.current) {
-        pcRef.current.onicecandidate = null;
-        pcRef.current.onconnectionstatechange = null;
-        pcRef.current.ondatachannel = null;
-        pcRef.current.close();
-        pcRef.current = null;
+      pcRef.current.close();
+      pcRef.current = null;
     }
     if (wsRef.current) {
-        wsRef.current.onopen = null;
-        wsRef.current.onmessage = null;
-        wsRef.current.onclose = null;
-        wsRef.current.onerror = null;
-        if (wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.close();
-        }
-        wsRef.current = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onerror = null;
+      if (wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.close();
+      }
+      wsRef.current = null;
     }
     iceCandidateQueueRef.current = [];
     onOpenQueueRef.current = [];
@@ -102,72 +94,62 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const setupDataChannelEvents = useCallback((channel: RTCDataChannel) => {
-      console.log('[WebRTC Client] Setting up data channel events.');
       channel.onopen = () => {
-          console.log('[WebRTC Client] Data channel OPEN.');
+          console.log('[WebRTC] Data channel is open');
           setState(prev => ({ ...prev, isConnected: true, isConnecting: false, error: null }));
       };
       channel.onclose = () => {
-          console.log('[WebRTC Client] Data channel CLOSED.');
+          console.log('[WebRTC] Data channel is closed');
           disconnect();
       };
-      channel.onerror = (errorEvent) => {
-          const error = (errorEvent as RTCErrorEvent).error;
-          console.error('[WebRTC Client] Data channel error:', error);
-          setState(prev => ({ ...prev, error: `Data channel error: ${error?.message || 'Unknown error'}` }));
-      };
+      channel.onerror = (err) => console.error('[WebRTC] Data channel error:', err);
       channel.onmessage = (event) => {
-          console.log('[WebRTC Client] Received message on data channel:', event.data);
           try {
               const move = JSON.parse(event.data);
               onMoveReceivedCallbackRef.current?.(move);
           } catch (e) {
-              console.error('[WebRTC Client] Error parsing received move:', e);
+              console.error('[WebRTC] Error parsing received move:', e);
           }
       };
   }, [disconnect]);
 
   const processIceCandidateQueue = useCallback(async () => {
       if (!pcRef.current || !pcRef.current.remoteDescription) {
-          console.warn(`[WebRTC Client] Cannot process ICE queue. Peer connection not ready. Queue size: ${iceCandidateQueueRef.current.length}`);
+          console.log(`[WebRTC] Cannot process ICE queue yet. Peer connection remote description not set. Queue size: ${iceCandidateQueueRef.current.length}`);
           return;
       }
-      console.log(`[WebRTC Client] Processing ${iceCandidateQueueRef.current.length} queued ICE candidates.`);
+      console.log(`[WebRTC] Processing ${iceCandidateQueueRef.current.length} queued ICE candidates.`);
       while (iceCandidateQueueRef.current.length > 0) {
           const candidate = iceCandidateQueueRef.current.shift();
           if (candidate) {
               try {
                   await pcRef.current.addIceCandidate(candidate);
-                  console.log('[WebRTC Client] Successfully added queued ICE candidate.');
+                  console.log('[WebRTC] Successfully added queued ICE candidate.');
               } catch (e) {
-                  console.error("[WebRTC Client] Error adding queued ICE candidate:", e);
+                  console.error("[WebRTC] Error adding queued ICE candidate:", e);
               }
           }
       }
   }, []);
 
   const createPeerConnection = useCallback((currentRoomId: string) => {
-    console.log('[WebRTC Client] Creating new RTCPeerConnection.');
-    if (pcRef.current) {
-        pcRef.current.close();
-    }
+    console.log('[WebRTC] Creating new PeerConnection.');
+    if (pcRef.current) pcRef.current.close();
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     pcRef.current = pc;
 
     pc.onicecandidate = (event) => {
       if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
-        console.log('[WebRTC Client] Sending ICE candidate to server.');
         wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: currentRoomId }));
       }
     };
 
     pc.onconnectionstatechange = () => {
-      if (!pcRef.current) return;
-      const connectionState = pcRef.current.connectionState;
-      console.log(`[WebRTC Client] Connection state changed: ${connectionState}`);
+      const connectionState = pcRef.current?.connectionState;
+      console.log(`[WebRTC] Connection state changed: ${connectionState}`);
       if (connectionState === 'failed' || connectionState === 'disconnected' || connectionState === 'closed') {
-        setState(prev => ({ ...prev, error: 'Opponent disconnected.'}));
+        setState(prev => ({ ...prev, error: 'Opponent has disconnected.'}));
         disconnect();
       } else if (connectionState === 'connected') {
         setState(prev => ({...prev, isConnected: true, isConnecting: false, error: null }));
@@ -178,42 +160,41 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, [disconnect]);
 
 
-  const connectWebSocket = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
-        console.log('[WebRTC Client] WebSocket connection already exists or is connecting.');
-        return wsRef.current;
+  const connectWebSocket = useCallback((onOpenAction: () => void) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+        onOpenAction();
+        return;
     }
-    
-    console.log('[WebRTC Client] WebSocket connection attempt initiated.');
+
+    if (wsRef.current?.readyState === WebSocket.CONNECTING) {
+        onOpenQueueRef.current.push(onOpenAction);
+        return;
+    }
+
+    console.log('[WebRTC] Attempting to connect to WebSocket signaling server...');
     const ws = new WebSocket(SIGNALING_SERVER_URL);
     wsRef.current = ws;
+    onOpenQueueRef.current.push(onOpenAction);
 
     ws.onopen = () => {
-        console.log('[WebRTC Client] WebSocket connected to signaling server.');
+        console.log('[WebRTC] WebSocket connected to signaling server.');
         while(onOpenQueueRef.current.length > 0) {
-            const action = onOpenQueueRef.current.shift();
-            action?.();
+            onOpenQueueRef.current.shift()?.();
         }
     };
     ws.onclose = () => {
-        console.log('[WebRTC Client] WebSocket disconnected.');
+        console.log('[WebRTC] WebSocket disconnected.');
         if (state.isConnected) {
             disconnect();
         }
     };
-    ws.onerror = (err) => console.error('[WebRTC Client] WebSocket signaling error:', err);
+    ws.onerror = (err) => console.error('[WebRTC] WebSocket signaling error:', err);
 
     ws.onmessage = async (event: MessageEvent) => {
       try {
-        const data = JSON.parse(event.data as string);
-        console.log('[WebRTC Client] Received message from signaling server:', data);
+        const data = JSON.parse(event.data);
+        const currentRoomId = data.roomId || state.roomId; // Prioritize roomId from message
         
-        const currentRoomId = data.roomId || state.roomId;
-        if (!currentRoomId) {
-            console.error("Cannot process message without a roomId.", data);
-            return;
-        }
-
         switch (data.type) {
           case 'room-created':
             setState(prev => ({ ...prev, roomId: data.roomId, isCreator: true, isConnecting: false, error: null }));
@@ -223,7 +204,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             break;
           case 'peer-joined':
             setState(prev => ({ ...prev, peerPresent: true, isConnecting: true }));
-            console.log('[WebRTC Client] Peer joined. Creator is creating peer connection and offer.');
             const pc_creator = createPeerConnection(currentRoomId);
             const dc = pc_creator.createDataChannel('gameMoves');
             dcRef.current = dc;
@@ -236,7 +216,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             break;
           case 'offer':
             setState(prev => ({ ...prev, peerPresent: true, isConnecting: true }));
-            console.log('[WebRTC Client] Received offer. Joiner creating peer connection and answer.');
             const pc_joiner = createPeerConnection(currentRoomId);
             pc_joiner.ondatachannel = (e) => {
               dcRef.current = e.channel;
@@ -252,49 +231,32 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             break;
           case 'answer':
             if (pcRef.current) {
-              console.log('[WebRTC Client] Received answer. Setting remote description.');
               await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.payload));
               await processIceCandidateQueue();
             }
             break;
           case 'candidate':
-            if (!data.payload) {
-                console.warn('[WebRTC Client] Received candidate message with null payload.');
-                break;
-            }
             if (pcRef.current) {
                 const candidate = new RTCIceCandidate(data.payload);
                 if (pcRef.current.remoteDescription) {
-                    try {
-                        await pcRef.current.addIceCandidate(candidate);
-                        console.log('[WebRTC Client] Successfully added ICE candidate.');
-                    } catch (e) {
-                        console.error("[WebRTC Client] Error adding received ICE candidate:", e);
-                    }
+                    await pcRef.current.addIceCandidate(candidate);
                 } else {
-                    console.log('[WebRTC Client] Queuing received ICE candidate because remote description is not set.');
                     iceCandidateQueueRef.current.push(candidate);
                 }
-            } else {
-                console.warn('[WebRTC Client] Received candidate but peer connection is not ready. Queuing.');
-                iceCandidateQueueRef.current.push(new RTCIceCandidate(data.payload));
             }
             break;
           case 'peer-disconnected':
-            setState(prev => ({ ...prev, error: "Opponent disconnected."}));
+            setState(prev => ({ ...prev, error: "Opponent has disconnected."}));
             disconnect();
             break;
           case 'error':
             setState(prev => ({ ...prev, error: `Signaling error: ${data.message}`, isConnecting: false }));
             break;
         }
-
       } catch (e) {
-        console.error("[WebRTC Client] Error processing message from signaling server", e);
+        console.error("[WebRTC] Error processing message from signaling server", e);
       }
     };
-
-    return ws;
   }, [createPeerConnection, disconnect, processIceCandidateQueue, setupDataChannelEvents, state.roomId, state.isConnected]);
 
   useEffect(() => {
@@ -302,51 +264,31 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       disconnect();
     };
   }, [disconnect]);
-
-  const executeWhenConnected = useCallback((action: () => void) => {
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-          action();
-      } else {
-          onOpenQueueRef.current.push(action);
-          if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
-              connectWebSocket();
-          }
-      }
-  }, [connectWebSocket]);
   
-  const createRoom = useCallback(() => {
-    executeWhenConnected(() => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          console.log('[WebRTC Client] Sending create-room request.');
-          setState(prev => ({ ...prev, isConnecting: true, error: null, isCreator: true }));
+  const createRoom = useCallback(async () => {
+    setState(prev => ({ ...prev, isConnecting: true, error: null, isCreator: true }));
+    connectWebSocket(() => {
+        if (wsRef.current) {
           wsRef.current.send(JSON.stringify({ type: 'create-room' }));
-        } else {
-            console.error('[WebRTC Client] Cannot create room, WebSocket not open.');
-            setState(prev => ({ ...prev, error: "Failed to connect to signaling server." }));
         }
     });
-  }, [executeWhenConnected]);
+  }, [connectWebSocket]);
 
-  const joinRoom = useCallback((roomIdToJoin: string) => {
-    executeWhenConnected(() => {
-        if (wsRef.current?.readyState === WebSocket.OPEN) {
-          console.log(`[WebRTC Client] Sending join-room request for room: ${roomIdToJoin}`);
-          setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isCreator: false }));
+  const joinRoom = useCallback(async (roomIdToJoin: string) => {
+    setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isCreator: false }));
+    connectWebSocket(() => {
+        if (wsRef.current) {
           wsRef.current.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
-        } else {
-            console.error('[WebRTC Client] Cannot join room, WebSocket not open.');
-            setState(prev => ({ ...prev, error: "Failed to connect to signaling server." }));
         }
     });
-  }, [executeWhenConnected]);
+  }, [connectWebSocket]);
   
   const sendMove = useCallback((move: GameMove) => {
     const dc = dcRef.current;
     if (dc?.readyState === 'open') {
-      console.log('[WebRTC Client] Sending move:', move);
       dc.send(JSON.stringify(move));
     } else {
-      console.error('[WebRTC Client] sendMove: Data channel not open. Cannot send move.');
+      console.error('[WebRTC] sendMove failed: Data channel not open.');
     }
   }, []);
 

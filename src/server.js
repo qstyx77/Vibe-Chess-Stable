@@ -12,7 +12,7 @@ const rooms = {};
 
 wss.on('connection', ws => {
     console.log('[Server] Client connected.');
-    let currentRoomId = null;
+    let currentRoomId = null; // Use a local variable to track this connection's room
 
     ws.on('message', message => {
         const msgStr = message.toString();
