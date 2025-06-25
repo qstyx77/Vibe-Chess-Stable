@@ -30,6 +30,9 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
+    { urls: 'stun:stun3.l.google.com:19302' },
+    { urls: 'stun:stun4.l.google.com:19302' },
   ],
 };
 
@@ -75,19 +78,37 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     onMoveReceivedCallbackRef.current = callback;
   }, []);
 
+  const disconnect = useCallback(() => {
+    cleanupConnection(true);
+    setState({ 
+      isConnected: false,
+      isConnecting: false,
+      peerPresent: false,
+      roomId: null,
+      error: null,
+      isCreator: false,
+    });
+    // The connectToSignaling call is moved inside an effect to prevent multiple connections
+  }, []); // cleanupConnection dependency removed to avoid re-creating disconnect function
+
   const cleanupConnection = useCallback((notifyServer = false) => {
     if (dcRef.current) {
       dcRef.current.onopen = null;
       dcRef.current.onclose = null;
       dcRef.current.onerror = null;
       dcRef.current.onmessage = null;
-      dcRef.current.close();
+      if (dcRef.current.readyState !== 'closed') {
+        dcRef.current.close();
+      }
       dcRef.current = null;
     }
     if (pcRef.current) {
       pcRef.current.onicecandidate = null;
       pcRef.current.ondatachannel = null;
-      pcRef.current.close();
+      pcRef.current.onconnectionstatechange = null;
+      if (pcRef.current.signalingState !== 'closed') {
+        pcRef.current.close();
+      }
       pcRef.current = null;
     }
     iceCandidateQueueRef.current = [];
@@ -130,6 +151,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       const candidate = iceCandidateQueueRef.current.shift();
       if (candidate) {
         try {
+          console.log("WebRTC: Processing a queued ICE candidate...");
           await pcRef.current.addIceCandidate(candidate);
           console.log("WebRTC: Successfully added queued ICE candidate.");
         } catch (e) {
@@ -148,6 +170,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
 
     try {
+        console.log("WebRTC: Adding received ICE candidate directly...");
         await pc.addIceCandidate(new RTCIceCandidate(candidatePayload));
     } catch (e) {
         console.error('WebRTC: Error adding received ICE candidate:', e);
@@ -165,12 +188,25 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   
     pc.onicecandidate = (event) => {
       if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
+        console.log("WebRTC: Sending ICE candidate.");
         wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: currentRoomId }));
       }
     };
 
+    pc.onconnectionstatechange = () => {
+        console.log(`WebRTC: Connection state changed to: ${pc.connectionState}`);
+        if (pc.connectionState === 'failed') {
+            setState(prev => ({ ...prev, error: 'WebRTC connection failed. Please try again.', isConnecting: false, isConnected: false }));
+            disconnect();
+        }
+        if (pc.connectionState === 'disconnected') {
+            setState(prev => ({ ...prev, error: 'Opponent disconnected.', isConnecting: false, isConnected: false, peerPresent: false }));
+            cleanupConnection();
+        }
+    };
+
     return pc;
-  }, [cleanupConnection]);
+  }, [cleanupConnection, disconnect]);
 
 
   const connectToSignaling = useCallback(() => {
@@ -300,28 +336,17 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const disconnect = useCallback(() => {
-    cleanupConnection(true);
-    setState({ 
-      isConnected: false,
-      isConnecting: false,
-      peerPresent: false,
-      roomId: null,
-      error: null,
-      isCreator: false,
-    });
-    setTimeout(connectToSignaling, 100);
-  }, [cleanupConnection, connectToSignaling]);
+  const providerValue = {
+    ...state,
+    createRoom,
+    joinRoom,
+    sendMove,
+    disconnect,
+    setOnMoveReceivedCallback
+  };
 
   return (
-    <WebRTCContext.Provider value={{ 
-        ...state, 
-        createRoom, 
-        joinRoom, 
-        sendMove, 
-        disconnect,
-        setOnMoveReceivedCallback
-    }}>
+    <WebRTCContext.Provider value={providerValue}>
       {children}
     </WebRTCContext.Provider>
   );
@@ -334,3 +359,5 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
+
+    
