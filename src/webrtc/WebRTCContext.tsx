@@ -250,8 +250,12 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             break;
           case 'candidate':
             if (pcRef.current && pcRef.current.remoteDescription) {
-              await pcRef.current.addIceCandidate(new RTCIceCandidate(data.payload));
-              console.log('[WebRTC Client] Added received ICE candidate.');
+              try {
+                await pcRef.current.addIceCandidate(new RTCIceCandidate(data.payload));
+                console.log('[WebRTC Client] Added received ICE candidate.');
+              } catch (e) {
+                console.error("[WebRTC Client] Error adding received ICE candidate:", e);
+              }
             } else {
               console.log('[WebRTC Client] Queuing received ICE candidate because remote description is not set.');
               iceCandidateQueueRef.current.push(new RTCIceCandidate(data.payload));
