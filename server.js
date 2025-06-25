@@ -35,10 +35,11 @@ wss.on('connection', (ws, req) => {
 
   ws.on('message', (message) => {
     let data;
+    const messageString = message.toString();
     try {
-      data = JSON.parse(message);
+      data = JSON.parse(messageString);
     } catch (e) {
-      console.error('Failed to parse message:', message, e);
+      console.error('Failed to parse message:', messageString, e);
       return;
     }
 
@@ -82,7 +83,7 @@ wss.on('connection', (ws, req) => {
           const targetPeer = ws === room.creator ? room.joiner : room.creator;
           if (targetPeer && targetPeer.readyState === WebSocket.OPEN) {
             // Forward the raw message to the other peer
-            targetPeer.send(message.toString());
+            targetPeer.send(messageString);
           }
         }
         break;
@@ -99,7 +100,7 @@ wss.on('connection', (ws, req) => {
           const room = rooms[currentRoomId];
           const targetPeer = ws === room.creator ? room.joiner : room.creator;
           if (targetPeer && targetPeer.readyState === WebSocket.OPEN) {
-            targetPeer.send(message.toString()); // Forward the raw message
+            targetPeer.send(messageString); // Forward the raw message
           }
         }
         break;
