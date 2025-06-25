@@ -169,14 +169,15 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       const connectionState = pcRef.current.connectionState;
       console.log(`[WebRTC Client] Connection state changed: ${connectionState}`);
       if (connectionState === 'failed' || connectionState === 'disconnected' || connectionState === 'closed') {
-        setState(prev => ({ ...prev, error: 'Opponent disconnected.', isConnecting: false, isConnected: false, peerPresent: false }));
+        setState(prev => ({ ...prev, error: 'Opponent disconnected.'}));
+        disconnect();
       } else if (connectionState === 'connected') {
         setState(prev => ({...prev, isConnected: true, isConnecting: false, error: null }));
       }
     };
     
     return pc;
-  }, []);
+  }, [disconnect]);
 
 
   const connectWebSocket = useCallback(() => {
@@ -262,7 +263,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             }
             break;
           case 'peer-disconnected':
-            setState(prev => ({ ...prev, error: "Opponent disconnected.", isConnected: false, isConnecting: false, peerPresent: false }));
+            setState(prev => ({ ...prev, error: "Opponent disconnected."}));
             disconnect();
             break;
           case 'error':
@@ -294,7 +295,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           setState(prev => ({ ...prev, isConnecting: true, error: null, isCreator: true }));
           wsRef.current.send(JSON.stringify({ type: 'create-room' }));
         } else {
-            console.error('[WebRTC Client] Cannot create room, WebSocket not open even after queue.');
+            console.error('[WebRTC Client] Cannot create room, WebSocket not open.');
             setState(prev => ({ ...prev, error: "Failed to connect to signaling server." }));
         }
     });
@@ -307,7 +308,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isCreator: false }));
           wsRef.current.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
         } else {
-            console.error('[WebRTC Client] Cannot join room, WebSocket not open even after queue.');
+            console.error('[WebRTC Client] Cannot join room, WebSocket not open.');
             setState(prev => ({ ...prev, error: "Failed to connect to signaling server." }));
         }
     });
