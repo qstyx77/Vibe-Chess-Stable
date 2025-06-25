@@ -2,42 +2,43 @@
 const WebSocket = require('ws');
 const http = require('http');
 
-// Simple in-memory store for rooms
+const server = http.createServer((req, res) => {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('Signaling Server is running');
+});
+
+const wss = new WebSocket.Server({ server });
+
+// Key: roomId, Value: Array of two WebSocket connections
 const rooms = {};
+
+// Key: WebSocket connection, Value: roomId
+const wsToRoomMap = new Map();
 
 function generateId() {
   return Math.random().toString(36).substring(2, 9);
 }
 
-const server = http.createServer((req, res) => {
-    // Basic HTTP server to respond to health checks or other requests if needed
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Signaling Server is running');
-});
-
-
-const wss = new WebSocket.Server({ server });
-
 wss.on('connection', (ws) => {
     console.log('Client connected');
 
     ws.on('message', (message) => {
-        let data;
         const messageString = message.toString();
+        let data;
         try {
             data = JSON.parse(messageString);
         } catch (e) {
-            console.error('Failed to parse message:', e);
+            console.error('Failed to parse message:', messageString, e);
             return;
         }
 
-        const { type, roomId, payload } = data;
+        const { type, roomId } = data;
 
         switch (type) {
             case 'create-room': {
                 const newRoomId = generateId();
                 rooms[newRoomId] = [ws];
-                ws.roomId = newRoomId; // Attach roomId to the WebSocket object
+                wsToRoomMap.set(ws, newRoomId);
                 ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
                 console.log(`Room created: ${newRoomId}`);
                 break;
@@ -46,10 +47,12 @@ wss.on('connection', (ws) => {
             case 'join-room': {
                 if (rooms[roomId] && rooms[roomId].length === 1) {
                     rooms[roomId].push(ws);
-                    ws.roomId = roomId; // Attach roomId to the WebSocket object
+                    wsToRoomMap.set(ws, roomId);
                     
                     const creator = rooms[roomId][0];
-                    creator.send(JSON.stringify({ type: 'peer-joined', roomId: roomId }));
+                    if (creator && creator.readyState === WebSocket.OPEN) {
+                        creator.send(JSON.stringify({ type: 'peer-joined', roomId: roomId }));
+                    }
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
                     console.log(`Client joined room: ${roomId}`);
                 } else {
@@ -60,20 +63,19 @@ wss.on('connection', (ws) => {
 
             // All other message types are for relaying
             default: {
-                const currentRoomId = ws.roomId;
+                const currentRoomId = wsToRoomMap.get(ws);
                 if (currentRoomId && rooms[currentRoomId]) {
-                    const room = rooms[currentRoomId];
-                    const otherPeer = room.find(peer => peer !== ws);
+                    const roomPeers = rooms[currentRoomId];
+                    const otherPeer = roomPeers.find(peer => peer !== ws);
+                    
                     if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
-                         if (type === 'candidate') console.log(`Relaying candidate for room ${currentRoomId}`);
-                         if (type === 'offer') console.log(`Relaying offer for room ${currentRoomId}`);
-                         if (type === 'answer') console.log(`Relaying answer for room ${currentRoomId}`);
+                        console.log(`Relaying message of type '${type}' to other peer in room ${currentRoomId}`);
                         otherPeer.send(messageString); // Forward the original message string
                     } else {
-                        console.log(`Could not find other peer or other peer not ready in room ${currentRoomId}`);
+                        console.log(`Could not find or send to other peer in room ${currentRoomId}. Other peer readyState: ${otherPeer?.readyState}`);
                     }
                 } else {
-                     console.log(`Could not find room for client with roomId ${currentRoomId}`);
+                     console.log(`Could not find room for sending client. Room map lookup failed for this ws connection.`);
                 }
                 break;
             }
@@ -82,22 +84,20 @@ wss.on('connection', (ws) => {
 
     ws.on('close', () => {
         console.log('Client disconnected');
-        const roomId = ws.roomId;
+        const roomId = wsToRoomMap.get(ws);
         if (roomId && rooms[roomId]) {
-            // Remove the disconnected client
-            rooms[roomId] = rooms[roomId].filter(peer => peer !== ws);
-
-            if (rooms[roomId].length > 0) {
-                // Notify the remaining peer
-                const otherPeer = rooms[roomId][0];
-                 if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
-                    otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
-                 }
-            } else {
-                // If room is empty, delete it
-                delete rooms[roomId];
-                console.log(`Room closed and deleted: ${roomId}`);
+            const otherPeer = rooms[roomId].find(peer => peer !== ws);
+            if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
+                otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
             }
+            
+            // Clean up
+            delete rooms[roomId];
+            wsToRoomMap.delete(ws);
+            if (otherPeer) {
+                wsToRoomMap.delete(otherPeer);
+            }
+            console.log(`Room ${roomId} closed and deleted.`);
         }
     });
 
