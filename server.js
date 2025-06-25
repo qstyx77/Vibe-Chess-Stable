@@ -13,8 +13,6 @@ const rooms = {};
 wss.on('connection', ws => {
     console.log('[Server] Client connected.');
 
-    ws.roomId = null;
-
     ws.on('message', message => {
         const msgStr = message.toString();
         let data;
@@ -58,7 +56,8 @@ wss.on('connection', ws => {
                 break;
             }
             default: {
-                const relayRoomId = ws.roomId || roomId;
+                // The roomId on the ws object is the source of truth for relaying
+                const relayRoomId = ws.roomId; 
                 if (relayRoomId && rooms[relayRoomId]) {
                     const otherPeer = rooms[relayRoomId].find(peer => peer !== ws);
                     if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
@@ -68,7 +67,7 @@ wss.on('connection', ws => {
                         console.warn(`[Server] Could not relay message type '${type}' in room ${relayRoomId}. Peer not found or not open.`);
                     }
                 } else {
-                    console.error(`[Server] Could not find room to relay message type '${type}' for roomId '${relayRoomId}'.`);
+                    console.error(`[Server] Could not find room to relay message type '${type}' for client. ws.roomId is '${relayRoomId}'.`);
                 }
                 break;
             }
