@@ -87,7 +87,8 @@ wss.on('connection', (ws, req) => {
           if (targetClientId) {
             const targetPeerWs = clients.get(targetClientId);
             if (targetPeerWs && targetPeerWs.readyState === WebSocket.OPEN) {
-              targetPeerWs.send(messageString);
+              // Re-stringify the parsed data object to ensure a clean payload
+              targetPeerWs.send(JSON.stringify(data));
             } else {
               console.error(`Cannot forward ${data.type}: target peer ${targetClientId} not found or connection not open.`);
             }
