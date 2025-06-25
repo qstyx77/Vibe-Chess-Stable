@@ -27,8 +27,7 @@ const wss = new WebSocket.Server({ server: httpServer });
 console.log(`Signaling server starting on port ${WSS_PORT}`);
 
 wss.on('connection', (ws) => {
-  let currentRoomId = null;
-
+  // We will attach roomId to `ws` itself instead of using a closure variable.
   console.log('Client connected');
 
   ws.on('message', (message) => {
@@ -41,28 +40,27 @@ wss.on('connection', (ws) => {
         return;
     }
 
-
     switch (data.type) {
       case 'create-room':
-        currentRoomId = `room_${generateId()}`;
-        rooms[currentRoomId] = [ws];
-        console.log(`Room ${currentRoomId} created.`);
-        ws.send(JSON.stringify({ type: 'room-created', roomId: currentRoomId }));
+        ws.roomId = `room_${generateId()}`;
+        rooms[ws.roomId] = [ws];
+        console.log(`Room ${ws.roomId} created.`);
+        ws.send(JSON.stringify({ type: 'room-created', roomId: ws.roomId }));
         break;
 
       case 'join-room':
         const roomToJoin = rooms[data.roomId];
         if (roomToJoin && roomToJoin.length === 1) {
-          currentRoomId = data.roomId;
+          ws.roomId = data.roomId;
           roomToJoin.push(ws);
-          console.log(`Client joined room ${currentRoomId}`);
+          console.log(`Client joined room ${ws.roomId}`);
           
           const creatorWs = roomToJoin[0];
           if (creatorWs && creatorWs.readyState === WebSocket.OPEN) {
-            creatorWs.send(JSON.stringify({ type: 'peer-joined', roomId: currentRoomId }));
+            creatorWs.send(JSON.stringify({ type: 'peer-joined', roomId: ws.roomId }));
           }
           if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'room-joined', roomId: currentRoomId }));
+            ws.send(JSON.stringify({ type: 'room-joined', roomId: ws.roomId }));
           }
         } else {
           ws.send(JSON.stringify({ type: 'error', message: 'Room not found or full' }));
@@ -71,7 +69,6 @@ wss.on('connection', (ws) => {
 
       case 'offer':
       case 'answer':
-      case 'candidate':
       case 'move':
       case 'forfeit-timeout':
       case 'turn-pass-timeout':
@@ -79,8 +76,19 @@ wss.on('connection', (ws) => {
       case 'commander-promo':
       case 'pawn-sacrifice':
       case 'game-over':
-        if (currentRoomId && rooms[currentRoomId]) {
-          const room = rooms[currentRoomId];
+        if (ws.roomId && rooms[ws.roomId]) {
+          const room = rooms[ws.roomId];
+          const otherPeer = room.find(peer => peer !== ws);
+          if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
+            otherPeer.send(messageString);
+          }
+        }
+        break;
+      
+      case 'candidate':
+        console.log(`Server: Relaying candidate for room ${ws.roomId || 'UNKNOWN'}`);
+        if (ws.roomId && rooms[ws.roomId]) {
+          const room = rooms[ws.roomId];
           const otherPeer = room.find(peer => peer !== ws);
           if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
             otherPeer.send(messageString);
@@ -95,14 +103,14 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     console.log('Client disconnected');
-    if (currentRoomId && rooms[currentRoomId]) {
-      const room = rooms[currentRoomId];
+    if (ws.roomId && rooms[ws.roomId]) {
+      const room = rooms[ws.roomId];
       const otherPeer = room.find(peer => peer !== ws);
       if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
         otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
       }
-      delete rooms[currentRoomId];
-      console.log(`Room ${currentRoomId} closed.`);
+      delete rooms[ws.roomId];
+      console.log(`Room ${ws.roomId} closed.`);
     }
   });
 
