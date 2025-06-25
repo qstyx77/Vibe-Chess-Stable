@@ -7,15 +7,14 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocket.Server({ server });
-
-// Simple object to store rooms. Key is roomId, value is an array of ws connections.
 const rooms = {};
 
 wss.on('connection', ws => {
     console.log('Client connected.');
 
-    // We need to associate a connection with a room. Let's do it on the ws object itself.
-    let currentRoomId = null;
+    // Each ws connection will have its roomId attached directly
+    // This is more reliable than relying on a variable in the closure
+    ws.roomId = null;
 
     ws.on('message', message => {
         const msgStr = message.toString();
@@ -32,19 +31,17 @@ wss.on('connection', ws => {
         switch (type) {
             case 'create-room': {
                 const newRoomId = Math.random().toString(36).substring(2, 9);
+                ws.roomId = newRoomId; // Attach roomId to the connection object
                 rooms[newRoomId] = [ws];
-                currentRoomId = newRoomId; // Store it for this connection
                 ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
                 console.log(`Room created: ${newRoomId}`);
                 break;
             }
-
             case 'join-room': {
                 if (rooms[roomId] && rooms[roomId].length === 1) {
+                    ws.roomId = roomId; // Attach roomId to the connection object
                     rooms[roomId].push(ws);
-                    currentRoomId = roomId; // Store it for this connection
                     const creator = rooms[roomId][0];
-                    // Notify both players
                     creator.send(JSON.stringify({ type: 'peer-joined', roomId: roomId }));
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
                     console.log(`Client joined room ${roomId}`);
@@ -53,21 +50,21 @@ wss.on('connection', ws => {
                 }
                 break;
             }
-            
-            // For all other message types (offer, answer, candidate), just relay them.
             default: {
-                if (roomId && rooms[roomId]) {
-                    const otherPeer = rooms[roomId].find(peer => peer !== ws);
+                // For relaying, trust the roomId on the connection object first,
+                // then fallback to the one in the message.
+                const relayRoomId = ws.roomId || roomId;
+                if (relayRoomId && rooms[relayRoomId]) {
+                    const otherPeer = rooms[relayRoomId].find(peer => peer !== ws);
                     if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
-                        // Forward the original message string
                         otherPeer.send(msgStr);
-                         // Add explicit logging for candidates to be sure
+                         // Explicitly log candidate relaying to be sure
                         if (type === 'candidate') {
-                            console.log(`Relayed candidate from a client in room ${roomId}`);
+                            console.log(`Relayed candidate from a client in room ${relayRoomId}`);
                         }
                     }
                 } else {
-                    console.error(`Could not find room ${roomId} to relay message type '${type}'`);
+                    console.error(`Could not find room to relay message type '${type}' for roomId '${relayRoomId}'`);
                 }
                 break;
             }
@@ -76,22 +73,21 @@ wss.on('connection', ws => {
 
     ws.on('close', () => {
         console.log('Client disconnected.');
-        if (currentRoomId && rooms[currentRoomId]) {
-            // Remove the disconnected client from the room
-            rooms[currentRoomId] = rooms[currentRoomId].filter(peer => peer !== ws);
+        // Use the attached roomId for cleanup
+        const roomIdToClean = ws.roomId;
+        if (roomIdToClean && rooms[roomIdToClean]) {
+            rooms[roomIdToClean] = rooms[roomIdToClean].filter(peer => peer !== ws);
             
-            if (rooms[currentRoomId].length > 0) {
-                // Notify the remaining peer
-                const otherPeer = rooms[currentRoomId][0];
+            if (rooms[roomIdToClean].length > 0) {
+                const otherPeer = rooms[roomIdToClean][0];
                 if(otherPeer && otherPeer.readyState === WebSocket.OPEN) {
                     otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
                 }
             } 
             
-            // If room is empty, delete it
-            if (rooms[currentRoomId].length === 0) {
-                delete rooms[currentRoomId];
-                console.log(`Room ${currentRoomId} cleaned up.`);
+            if (rooms[roomIdToClean].length === 0) {
+                delete rooms[roomIdToClean];
+                console.log(`Room ${roomIdToClean} cleaned up.`);
             }
         }
     });
