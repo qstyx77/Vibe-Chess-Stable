@@ -2718,7 +2718,7 @@ export default function EvolvingChessPage() {
     if (webRTC.isConnected) return `Disconnect`;
     if (webRTC.roomId) {
       if (webRTC.isCreator) {
-        return `Room: ${webRTC.roomId.replace('room_', '')} (Cancel)`;
+        return `Room: ${webRTC.roomId} (Cancel)`;
       }
        return `Joining...`;
     }
@@ -2732,7 +2732,7 @@ export default function EvolvingChessPage() {
     if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
-          Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId.replace('room_','')}</span>
+          Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId}</span>
         </p>
       );
     }

@@ -324,8 +324,8 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
 
   const joinRoom = useCallback(async (roomIdToJoin: string) => {
-    setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: `room_${roomIdToJoin}`, isCreator: false }));
-    wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: `room_${roomIdToJoin}` }));
+    setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isCreator: false }));
+    wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
   }, []);
   
   const sendMove = useCallback((move: GameMove) => {
@@ -360,5 +360,3 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
-
-    
