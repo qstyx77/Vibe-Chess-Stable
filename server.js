@@ -78,13 +78,17 @@ wss.on('connection', (ws, req) => {
       case 'offer':
       case 'answer':
       case 'candidate':
-        if (currentRoomId && rooms[currentRoomId]) {
-          const room = rooms[currentRoomId];
+        const targetRoomId = data.roomId; // Use roomId from message payload for forwarding
+        if (targetRoomId && rooms[targetRoomId]) {
+          const room = rooms[targetRoomId];
           const targetPeer = ws === room.creator ? room.joiner : room.creator;
           if (targetPeer && targetPeer.readyState === WebSocket.OPEN) {
-            // Forward the raw message to the other peer
-            targetPeer.send(messageString);
+            targetPeer.send(messageString); // Forward the raw message
+          } else {
+            console.error(`Cannot forward ${data.type}: target peer not found or connection not open.`);
           }
+        } else {
+          console.error(`Cannot forward ${data.type}: room not found for roomId: ${targetRoomId}`);
         }
         break;
 
