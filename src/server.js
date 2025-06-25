@@ -26,7 +26,7 @@ wss.on('connection', ws => {
         }
 
         const { type, roomId } = data;
-        console.log(`[Server] Received message type '${type}' for roomId '${roomId || 'N/A'}'`);
+        console.log(`[Server] Received message type '${type}' from client with current ws.roomId: '${ws.roomId || 'N/A'}' for message roomId: '${roomId || 'N/A'}'`);
 
         switch (type) {
             case 'create-room': {
@@ -58,7 +58,7 @@ wss.on('connection', ws => {
                 break;
             }
             default: {
-                const relayRoomId = ws.roomId || roomId;
+                const relayRoomId = ws.roomId;
                 if (relayRoomId && rooms[relayRoomId]) {
                     const otherPeer = rooms[relayRoomId].find(peer => peer !== ws);
                     if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
@@ -68,7 +68,7 @@ wss.on('connection', ws => {
                         console.warn(`[Server] Could not relay message type '${type}' in room ${relayRoomId}. Peer not found or not open.`);
                     }
                 } else {
-                    console.error(`[Server] Could not find room to relay message type '${type}' for roomId '${relayRoomId}'.`);
+                    console.error(`[Server] Could not find room to relay message type '${type}' for client with ws.roomId '${relayRoomId}'.`);
                 }
                 break;
             }
@@ -80,10 +80,8 @@ wss.on('connection', ws => {
         console.log(`[Server] Client disconnected. Cleaning up room: ${roomIdToClean || 'N/A'}`);
         
         if (roomIdToClean && rooms[roomIdToClean]) {
-            // Remove the disconnected peer
             rooms[roomIdToClean] = rooms[roomIdToClean].filter(peer => peer !== ws);
             
-            // If there's still a peer left, notify them
             if (rooms[roomIdToClean].length > 0) {
                 const otherPeer = rooms[roomIdToClean][0];
                 if(otherPeer && otherPeer.readyState === WebSocket.OPEN) {
@@ -92,7 +90,6 @@ wss.on('connection', ws => {
                 }
             } 
             
-            // If the room is now empty, delete it
             if (rooms[roomIdToClean].length === 0) {
                 delete rooms[roomIdToClean];
                 console.log(`[Server] Room ${roomIdToClean} is now empty and has been deleted.`);
