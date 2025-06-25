@@ -13,7 +13,15 @@ const rooms = {};
 
 wss.on('connection', ws => {
     console.log('Client connected.');
-    let myRoomId = null;
+
+    const findRoomByClient = (client) => {
+        for (const roomId in rooms) {
+            if (rooms[roomId].includes(client)) {
+                return roomId;
+            }
+        }
+        return null;
+    };
 
     ws.on('message', message => {
         const msgStr = message.toString();
@@ -29,7 +37,6 @@ wss.on('connection', ws => {
             case 'create-room': {
                 const roomId = Math.random().toString(36).substring(2, 9);
                 rooms[roomId] = [ws];
-                myRoomId = roomId;
                 ws.send(JSON.stringify({ type: 'room-created', roomId }));
                 console.log(`Room created: ${roomId}`);
                 break;
@@ -37,13 +44,10 @@ wss.on('connection', ws => {
             case 'join-room': {
                 const { roomId } = data;
                 if (rooms[roomId] && rooms[roomId].length === 1) {
-                    myRoomId = roomId;
                     rooms[roomId].push(ws);
                     
                     const creator = rooms[roomId][0];
-                    // Notify creator that peer joined
                     creator.send(JSON.stringify({ type: 'peer-joined', roomId }));
-                    // Notify joiner that room was joined successfully
                     ws.send(JSON.stringify({ type: 'room-joined', roomId }));
                     console.log(`Client joined room ${roomId}`);
                 } else {
@@ -51,19 +55,26 @@ wss.on('connection', ws => {
                 }
                 break;
             }
-            default: { // Relay all other messages like offer, answer, candidate
-                const { roomId } = data;
+            case 'offer':
+            case 'answer':
+            case 'candidate': {
+                const roomId = findRoomByClient(ws);
                 if (roomId && rooms[roomId]) {
-                    const peers = rooms[roomId];
-                    const otherPeer = peers.find(peer => peer !== ws);
+                    const otherPeer = rooms[roomId].find(peer => peer !== ws);
                     if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
                         console.log(`Relaying '${data.type}' to peer in room ${roomId}`);
                         otherPeer.send(msgStr);
-                    } else {
-                        console.log(`Could not find or send to other peer in room ${roomId}. Other peer readyState: ${otherPeer?.readyState}`);
                     }
-                } else {
-                     console.log(`Could not find room for sending client for message type ${data.type}.`);
+                }
+                break;
+            }
+            default: { // All other game-specific messages
+                const roomId = findRoomByClient(ws);
+                if (roomId && rooms[roomId]) {
+                    const otherPeer = rooms[roomId].find(peer => peer !== ws);
+                    if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
+                        otherPeer.send(msgStr);
+                    }
                 }
                 break;
             }
@@ -72,14 +83,14 @@ wss.on('connection', ws => {
 
     ws.on('close', () => {
         console.log('Client disconnected.');
-        if (myRoomId && rooms[myRoomId]) {
-            const peers = rooms[myRoomId];
-            const otherPeer = peers.find(peer => peer !== ws);
+        const roomId = findRoomByClient(ws);
+        if (roomId && rooms[roomId]) {
+            const otherPeer = rooms[roomId].find(peer => peer !== ws);
             if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
                 otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
             }
-            delete rooms[myRoomId];
-             console.log(`Room ${myRoomId} cleaned up.`);
+            delete rooms[roomId];
+            console.log(`Room ${roomId} cleaned up.`);
         }
     });
 
@@ -90,5 +101,8 @@ wss.on('connection', ws => {
 
 const PORT = 8082;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`Signaling server started on port ${PORT}`);
+    // This log is critical for confirming the server started.
+    console.log(`================================================`);
+    console.log(`  SIGNALING SERVER IS UP AND LISTENING ON PORT ${PORT}`);
+    console.log(`================================================`);
 });
