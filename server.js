@@ -78,7 +78,15 @@ wss.on('connection', (ws, req) => {
       case 'offer':
       case 'answer':
       case 'candidate':
-        const targetRoomId = data.roomId;
+      case 'move':
+      case 'forfeit-timeout':
+      case 'turn-pass-timeout':
+      case 'resign':
+      case 'commander-promo':
+      case 'pawn-sacrifice':
+      case 'game-over':
+        // Use a unified forwarding logic for all peer-to-peer messages
+        const targetRoomId = data.roomId || currentRoomId; // Prefer roomId from payload, but fall back to lookup
         if (targetRoomId && rooms[targetRoomId]) {
           const room = rooms[targetRoomId];
           const isSenderCreator = room.creator === clientId;
@@ -87,34 +95,13 @@ wss.on('connection', (ws, req) => {
           if (targetClientId) {
             const targetPeerWs = clients.get(targetClientId);
             if (targetPeerWs && targetPeerWs.readyState === WebSocket.OPEN) {
-              // Forward the raw message string to avoid any parsing/re-stringifying issues.
               targetPeerWs.send(messageString);
             } else {
-              console.error(`Cannot forward ${data.type}: target peer ${targetClientId} not found or connection not open.`);
+               console.error(`Cannot forward ${data.type}: target peer ${targetClientId} not found or connection not open.`);
             }
           }
         } else {
-          console.error(`Cannot forward ${data.type}: room not found for roomId: ${targetRoomId}`);
-        }
-        break;
-
-      case 'move':
-      case 'forfeit-timeout':
-      case 'turn-pass-timeout':
-      case 'resign':
-      case 'commander-promo':
-      case 'pawn-sacrifice':
-      case 'game-over':
-        if (currentRoomId && rooms[currentRoomId]) {
-          const room = rooms[currentRoomId];
-          const isSenderCreator = room.creator === clientId;
-          const targetClientId = isSenderCreator ? room.joiner : room.creator;
-          if (targetClientId) {
-            const targetPeerWs = clients.get(targetClientId);
-            if (targetPeerWs && targetPeerWs.readyState === WebSocket.OPEN) {
-              targetPeerWs.send(messageString);
-            }
-          }
+          console.error(`Cannot forward ${data.type}: room not found for sender ${clientId} or roomId ${targetRoomId}`);
         }
         break;
 
