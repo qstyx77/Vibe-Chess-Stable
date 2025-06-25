@@ -2852,6 +2852,28 @@ export default function EvolvingChessPage() {
 
         {/* Main Content Area */}
         <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 mt-4">
+          {/* Controls Container */}
+          <div className="w-full lg:w-1/3 order-1 lg:order-2">
+            <GameControls
+                currentPlayer={currentPlayer}
+                gameStatusMessage={
+                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
+                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
+                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
+                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
+                          gameInfo.message || "\u00A0"
+                }
+                capturedPieces={capturedPieces}
+                isCheck={gameInfo.isCheck}
+                isGameOver={gameInfo.gameOver}
+                killStreaks={killStreaks}
+                isWhiteAI={isWhiteAI && !webRTC.isConnected}
+                isBlackAI={isBlackAI && !webRTC.isConnected}
+                activeTimerPlayer={activeTimerPlayer}
+                remainingTime={remainingTime}
+                turnTimeouts={turnTimeouts}
+              />
+          </div>
           {/* Board Container */}
           <div className="w-full lg:w-2/3 flex justify-center order-2 lg:order-1">
               <ChessBoard
@@ -2875,28 +2897,6 @@ export default function EvolvingChessPage() {
                   isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
                   playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
                   enPassantTargetSquare={enPassantTargetSquare}
-              />
-          </div>
-          {/* Controls Container */}
-          <div className="w-full lg:w-1/3 order-1 lg:order-2">
-            <GameControls
-                currentPlayer={currentPlayer}
-                gameStatusMessage={
-                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
-                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
-                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
-                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                          gameInfo.message || "\u00A0"
-                }
-                capturedPieces={capturedPieces}
-                isCheck={gameInfo.isCheck}
-                isGameOver={gameInfo.gameOver}
-                killStreaks={killStreaks}
-                isWhiteAI={isWhiteAI && !webRTC.isConnected}
-                isBlackAI={isBlackAI && !webRTC.isConnected}
-                activeTimerPlayer={activeTimerPlayer}
-                remainingTime={remainingTime}
-                turnTimeouts={turnTimeouts}
               />
           </div>
         </div>
