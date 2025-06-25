@@ -78,19 +78,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     onMoveReceivedCallbackRef.current = callback;
   }, []);
 
-  const disconnect = useCallback(() => {
-    cleanupConnection(true);
-    setState({ 
-      isConnected: false,
-      isConnecting: false,
-      peerPresent: false,
-      roomId: null,
-      error: null,
-      isCreator: false,
-    });
-    // The connectToSignaling call is moved inside an effect to prevent multiple connections
-  }, []); // cleanupConnection dependency removed to avoid re-creating disconnect function
-
   const cleanupConnection = useCallback((notifyServer = false) => {
     if (dcRef.current) {
       dcRef.current.onopen = null;
@@ -119,6 +106,18 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       wsRef.current = null;
     }
   }, []); 
+
+  const disconnect = useCallback(() => {
+    cleanupConnection(true);
+    setState({ 
+      isConnected: false,
+      isConnecting: false,
+      peerPresent: false,
+      roomId: null,
+      error: null,
+      isCreator: false,
+    });
+  }, [cleanupConnection]);
 
   const setupDataChannelEvents = useCallback((channel: RTCDataChannel) => {
     channel.onopen = () => {
@@ -164,7 +163,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   const handleIncomingCandidate = useCallback(async (candidatePayload: RTCIceCandidateInit) => {
     const pc = pcRef.current;
     if (!pc || !pc.remoteDescription || pc.signalingState === 'closed') {
-      console.log("WebRTC: PeerConnection not ready or remote description not set, queueing candidate.");
+      console.log("WebRTC: PeerConnection not ready or remote description not set, QUEUEING candidate.");
       iceCandidateQueueRef.current.push(new RTCIceCandidate(candidatePayload));
       return;
     }
@@ -286,7 +285,9 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                       console.log("WebRTC Creator: Received answer. Setting remote description...");
                       await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.payload));
                       console.log("WebRTC Creator: Remote description set. Processing ICE queue...");
-                      await processIceCandidateQueue();
+                      setTimeout(() => {
+                        processIceCandidateQueue();
+                      }, 100);
                     }
                     break;
                 
