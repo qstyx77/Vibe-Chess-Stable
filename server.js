@@ -43,27 +43,27 @@ wss.on('connection', (ws, req) => {
       return;
     }
 
-    console.log(`Received message from ${clientId}:`, data.type, data.roomId || '');
+    console.log(`Received message from ${ws.clientId}:`, data.type, data.roomId || '');
     
     // Find the room the sender is in. This is the source of truth.
     const currentRoomId = Object.keys(rooms).find(roomId => {
         const room = rooms[roomId];
-        return room.creator === clientId || room.joiner === clientId;
+        return room.creator === ws.clientId || room.joiner === ws.clientId;
     });
 
     switch (data.type) {
       case 'create-room':
         const newRoomId = `room_${generateId()}`;
-        rooms[newRoomId] = { creator: clientId, joiner: null };
-        console.log(`Room ${newRoomId} created by ${clientId}`);
+        rooms[newRoomId] = { creator: ws.clientId, joiner: null };
+        console.log(`Room ${newRoomId} created by ${ws.clientId}`);
         ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
         break;
 
       case 'join-room':
         const roomToJoin = rooms[data.roomId];
         if (roomToJoin && !roomToJoin.joiner) {
-          roomToJoin.joiner = clientId;
-          console.log(`Client ${clientId} joined room ${data.roomId}`);
+          roomToJoin.joiner = ws.clientId;
+          console.log(`Client ${ws.clientId} joined room ${data.roomId}`);
           
           const creatorWs = clients.get(roomToJoin.creator);
           if (creatorWs && creatorWs.readyState === WebSocket.OPEN) {
@@ -88,7 +88,7 @@ wss.on('connection', (ws, req) => {
         // Rely *only* on the server's knowledge of which room the sender is in.
         if (currentRoomId && rooms[currentRoomId]) {
           const room = rooms[currentRoomId];
-          const isSenderCreator = room.creator === clientId;
+          const isSenderCreator = room.creator === ws.clientId;
           const targetClientId = isSenderCreator ? room.joiner : room.creator;
           
           if (targetClientId) {
@@ -100,12 +100,12 @@ wss.on('connection', (ws, req) => {
             }
           }
         } else {
-          console.error(`Cannot forward ${data.type}: room not found for sender ${clientId}`);
+          console.error(`Cannot forward ${data.type}: room not found for sender ${ws.clientId}`);
         }
         break;
 
       default:
-        console.log(`Unknown message type from ${clientId}: ${data.type}`);
+        console.log(`Unknown message type from ${ws.clientId}: ${data.type}`);
     }
   });
 
