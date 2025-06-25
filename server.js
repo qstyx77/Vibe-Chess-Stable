@@ -6,16 +6,15 @@ const cors = require('cors');
 const WSS_PORT = 8082;
 
 const rooms = {};
-const clients = new Map(); // Map clientId to WebSocket
 
 function generateId() {
-  return Math.random().toString(36).substring(2, 15);
+  return Math.random().toString(36).substring(2, 9);
 }
 
 const httpServer = http.createServer((req, res) => {
   cors()(req, res, () => {
     if (req.headers.upgrade && req.headers.upgrade.toLowerCase() === 'websocket') {
-      return; // Let WebSocket server handle it
+      return;
     }
     if (!res.writableEnded) {
       res.writeHead(404);
@@ -27,49 +26,44 @@ const httpServer = http.createServer((req, res) => {
 const wss = new WebSocket.Server({ server: httpServer });
 console.log(`Signaling server starting on port ${WSS_PORT}`);
 
-wss.on('connection', (ws, req) => {
-  const clientId = generateId();
-  clients.set(clientId, ws);
-  ws.clientId = clientId; // Attach clientId to ws for easy lookup
-  console.log(`Client ${clientId} connected.`);
+wss.on('connection', (ws) => {
+  let currentRoomId = null;
+
+  console.log('Client connected');
 
   ws.on('message', (message) => {
-    let data;
     const messageString = message.toString();
+    let data;
     try {
-      data = JSON.parse(messageString);
-    } catch (e) {
-      console.error('Failed to parse message:', messageString, e);
-      return;
+        data = JSON.parse(messageString);
+    } catch(e) {
+        console.error("Failed to parse message", e);
+        return;
     }
 
-    console.log(`Received message from ${ws.clientId}:`, data.type, data.roomId || '');
-    
-    // Find the room the sender is in. This is the source of truth.
-    const currentRoomId = Object.keys(rooms).find(roomId => {
-        const room = rooms[roomId];
-        return room.creator === ws.clientId || room.joiner === ws.clientId;
-    });
 
     switch (data.type) {
       case 'create-room':
-        const newRoomId = `room_${generateId()}`;
-        rooms[newRoomId] = { creator: ws.clientId, joiner: null };
-        console.log(`Room ${newRoomId} created by ${ws.clientId}`);
-        ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
+        currentRoomId = `room_${generateId()}`;
+        rooms[currentRoomId] = [ws];
+        console.log(`Room ${currentRoomId} created.`);
+        ws.send(JSON.stringify({ type: 'room-created', roomId: currentRoomId }));
         break;
 
       case 'join-room':
         const roomToJoin = rooms[data.roomId];
-        if (roomToJoin && !roomToJoin.joiner) {
-          roomToJoin.joiner = ws.clientId;
-          console.log(`Client ${ws.clientId} joined room ${data.roomId}`);
+        if (roomToJoin && roomToJoin.length === 1) {
+          currentRoomId = data.roomId;
+          roomToJoin.push(ws);
+          console.log(`Client joined room ${currentRoomId}`);
           
-          const creatorWs = clients.get(roomToJoin.creator);
+          const creatorWs = roomToJoin[0];
           if (creatorWs && creatorWs.readyState === WebSocket.OPEN) {
-            creatorWs.send(JSON.stringify({ type: 'peer-joined', roomId: data.roomId }));
+            creatorWs.send(JSON.stringify({ type: 'peer-joined', roomId: currentRoomId }));
           }
-          ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId }));
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'room-joined', roomId: currentRoomId }));
+          }
         } else {
           ws.send(JSON.stringify({ type: 'error', message: 'Room not found or full' }));
         }
@@ -85,58 +79,35 @@ wss.on('connection', (ws, req) => {
       case 'commander-promo':
       case 'pawn-sacrifice':
       case 'game-over':
-        // Rely *only* on the server's knowledge of which room the sender is in.
         if (currentRoomId && rooms[currentRoomId]) {
           const room = rooms[currentRoomId];
-          const isSenderCreator = room.creator === ws.clientId;
-          const targetClientId = isSenderCreator ? room.joiner : room.creator;
-          
-          if (targetClientId) {
-            const targetPeerWs = clients.get(targetClientId);
-            if (targetPeerWs && targetPeerWs.readyState === WebSocket.OPEN) {
-              targetPeerWs.send(messageString);
-            } else {
-               console.error(`Cannot forward ${data.type}: target peer ${targetClientId} not found or connection not open.`);
-            }
+          const otherPeer = room.find(peer => peer !== ws);
+          if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
+            otherPeer.send(messageString);
           }
-        } else {
-          console.error(`Cannot forward ${data.type}: room not found for sender ${ws.clientId}`);
         }
         break;
-
+      
       default:
-        console.log(`Unknown message type from ${ws.clientId}: ${data.type}`);
+        console.log(`Unknown message type: ${data.type}`);
     }
   });
 
   ws.on('close', () => {
-    const closedClientId = ws.clientId;
-    if (!closedClientId) return;
-
-    console.log(`Client ${closedClientId} disconnected`);
-    const currentRoomId = Object.keys(rooms).find(roomId => {
-        const room = rooms[roomId];
-        return room.creator === closedClientId || room.joiner === closedClientId;
-    });
-
+    console.log('Client disconnected');
     if (currentRoomId && rooms[currentRoomId]) {
       const room = rooms[currentRoomId];
-      const remainingClientId = room.creator === closedClientId ? room.joiner : room.creator;
-      
-      if (remainingClientId) {
-        const remainingPeerWs = clients.get(remainingClientId);
-        if (remainingPeerWs && remainingPeerWs.readyState === WebSocket.OPEN) {
-            remainingPeerWs.send(JSON.stringify({ type: 'peer-disconnected', roomId: currentRoomId }));
-        }
+      const otherPeer = room.find(peer => peer !== ws);
+      if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
+        otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
       }
       delete rooms[currentRoomId];
       console.log(`Room ${currentRoomId} closed.`);
     }
-    clients.delete(closedClientId);
   });
 
   ws.on('error', (error) => {
-    console.error(`Error from client ${ws.clientId}:`, error);
+    console.error(`WebSocket error:`, error);
   });
 });
 
