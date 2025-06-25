@@ -310,7 +310,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         }
         cleanupConnection();
     }
-  }, []); // Empty dependency array ensures this runs only once.
+  }, [disconnect, cleanupConnection, state.roomId]); // Added state.roomId to dependencies
 
 
   const createRoom = useCallback(() => {
