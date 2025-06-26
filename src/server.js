@@ -44,6 +44,7 @@ wss.on('connection', ws => {
                     const creator = rooms[roomId][0];
                     if (creator && creator.readyState === WebSocket.OPEN) {
                       creator.send(JSON.stringify({ type: 'peer-joined', roomId: roomId }));
+                      console.log(`[Server] Sent 'peer-joined' to creator in room ${roomId}.`);
                     }
 
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
@@ -63,7 +64,7 @@ wss.on('connection', ws => {
                         console.warn(`[Server] Could not relay message type '${type}' in room ${roomId}. Peer not found or not open.`);
                     }
                 } else {
-                  console.error(`[Server] Could not find room to relay message type '${type}'. Provided roomId: '${roomId}'.`);
+                  console.error(`[Server] Cannot relay message. Room '${roomId}' not found.`);
                 }
                 break;
             }
@@ -74,14 +75,20 @@ wss.on('connection', ws => {
         console.log(`[Server] Client disconnected. Cleaning up room: ${currentRoomId || 'N/A'}`);
         if (currentRoomId && rooms[currentRoomId]) {
             rooms[currentRoomId] = rooms[currentRoomId].filter(peer => peer !== ws);
-            if (rooms[currentRoomId].length === 0) {
-                delete rooms[currentRoomId];
-                console.log(`[Server] Room ${currentRoomId} is empty and has been deleted.`);
-            } else {
+
+            // Notify remaining peer if they exist
+            if (rooms[currentRoomId].length > 0) {
                 const remainingPeer = rooms[currentRoomId][0];
                 if (remainingPeer && remainingPeer.readyState === WebSocket.OPEN) {
                     remainingPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
+                    console.log(`[Server] Notified peer in room ${currentRoomId} of disconnection.`);
                 }
+            }
+            
+            // Delete room if now empty
+            if (rooms[currentRoomId].length === 0) {
+                delete rooms[currentRoomId];
+                console.log(`[Server] Room ${currentRoomId} is empty and has been deleted.`);
             }
         }
     });
