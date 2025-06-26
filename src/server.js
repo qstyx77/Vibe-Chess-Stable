@@ -12,7 +12,7 @@ const rooms = {};
 
 wss.on('connection', ws => {
     console.log('[Server] Client connected.');
-    let currentRoomId = null; // Use a local variable to track this connection's room
+    ws.roomId = null; // Attach roomId to ws connection for cleanup
 
     ws.on('message', message => {
         const msgStr = message.toString();
@@ -25,20 +25,20 @@ wss.on('connection', ws => {
         }
 
         const { type, roomId } = data;
-        console.log(`[Server] Received message type '${type}' for roomId '${roomId || 'N/A'}'`);
+        console.log(`[Server] Received message type '${type}' for room '${roomId || 'N/A'}'`);
 
         switch (type) {
             case 'create-room': {
                 const newRoomId = Math.random().toString(36).substring(2, 9);
-                currentRoomId = newRoomId;
+                ws.roomId = newRoomId; // Tag the connection
                 rooms[newRoomId] = [ws];
                 ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
-                console.log(`[Server] Room created: ${newRoomId}.`);
+                console.log(`[Server] Room created: ${newRoomId}`);
                 break;
             }
             case 'join-room': {
                 if (rooms[roomId] && rooms[roomId].length === 1) {
-                    currentRoomId = roomId;
+                    ws.roomId = roomId; // Tag the connection
                     rooms[roomId].push(ws);
                     
                     const creator = rooms[roomId][0];
@@ -56,13 +56,13 @@ wss.on('connection', ws => {
             }
             default: { // Relaying offers, answers, candidates
                 if (roomId && rooms[roomId]) {
-                    const otherPeer = rooms[roomId].find(peer => peer !== ws);
-                    if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
-                        console.log(`[Server] Relaying message type '${type}' to peer in room ${roomId}.`);
-                        otherPeer.send(msgStr);
-                    } else {
-                        console.warn(`[Server] Could not relay message type '${type}' in room ${roomId}. Peer not found or not open.`);
-                    }
+                    // Forward the message to all OTHER clients in the room.
+                    rooms[roomId].forEach(client => {
+                        if (client !== ws && client.readyState === WebSocket.OPEN) {
+                            console.log(`[Server] Relaying message type '${type}' to peer in room ${roomId}.`);
+                            client.send(msgStr);
+                        }
+                    });
                 } else {
                   console.error(`[Server] Cannot relay message. Room '${roomId}' not found.`);
                 }
@@ -72,23 +72,23 @@ wss.on('connection', ws => {
     });
 
     ws.on('close', () => {
-        console.log(`[Server] Client disconnected. Cleaning up room: ${currentRoomId || 'N/A'}`);
-        if (currentRoomId && rooms[currentRoomId]) {
-            rooms[currentRoomId] = rooms[currentRoomId].filter(peer => peer !== ws);
+        const roomIdToClean = ws.roomId; // Use tagged ID for cleanup
+        if (roomIdToClean && rooms[roomIdToClean]) {
+            rooms[roomIdToClean] = rooms[roomIdToClean].filter(p => p !== ws);
 
             // Notify remaining peer if they exist
-            if (rooms[currentRoomId].length > 0) {
-                const remainingPeer = rooms[currentRoomId][0];
-                if (remainingPeer && remainingPeer.readyState === WebSocket.OPEN) {
-                    remainingPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
-                    console.log(`[Server] Notified peer in room ${currentRoomId} of disconnection.`);
+            if (rooms[roomIdToClean].length > 0) {
+                const otherPeer = rooms[roomIdToClean][0];
+                if (otherPeer && otherPeer.readyState === WebSocket.OPEN) {
+                    otherPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
+                    console.log(`[Server] Notified peer in room ${roomIdToClean} of disconnection.`);
                 }
             }
             
             // Delete room if now empty
-            if (rooms[currentRoomId].length === 0) {
-                delete rooms[currentRoomId];
-                console.log(`[Server] Room ${currentRoomId} is empty and has been deleted.`);
+            if (rooms[roomIdToClean].length === 0) {
+                delete rooms[roomIdToClean];
+                console.log(`[Server] Room ${roomIdToClean} is empty and has been deleted.`);
             }
         }
     });

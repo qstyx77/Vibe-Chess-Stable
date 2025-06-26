@@ -224,13 +224,24 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             }
             break;
           case 'candidate':
+            console.log('[WebRTC] Received candidate message from server.');
             if (pcRef.current) {
                 const candidate = new RTCIceCandidate(data.payload);
-                if (pcRef.current.remoteDescription) {
-                    await pcRef.current.addIceCandidate(candidate);
-                } else {
-                    iceCandidateQueueRef.current.push(candidate);
+                console.log('[WebRTC] Created ICE candidate object:', candidate.candidate ? candidate.candidate.substring(0, 40) + '...' : 'null candidate');
+                try {
+                    if (pcRef.current.remoteDescription) {
+                        console.log('[WebRTC] Remote description is set. Attempting to add ICE candidate.');
+                        await pcRef.current.addIceCandidate(candidate);
+                        console.log('[WebRTC] Successfully added ICE candidate.');
+                    } else {
+                        console.log('[WebRTC] Remote description not set yet. Pushing candidate to queue.');
+                        iceCandidateQueueRef.current.push(candidate);
+                    }
+                } catch (e) {
+                    console.error("[WebRTC] Error adding received ICE candidate:", e);
                 }
+            } else {
+                console.error('[WebRTC] PeerConnection is null, cannot process candidate.');
             }
             break;
           case 'peer-disconnected':
