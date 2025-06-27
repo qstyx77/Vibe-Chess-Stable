@@ -200,7 +200,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <PieceRule title="Activation">Achieved by capturing enemy pieces (including anvil captures). A player's streak only resets if that player makes a non-capturing move.</PieceRule>
                 <PieceRule title="Streak of 3 (Resurrection)">
-                  One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1.
+                  One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn.
                 </PieceRule>
                 <PieceRule title="Streak of 6 (Extra Turn)">
                   You gain an extra turn immediately.
@@ -254,7 +254,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-3" description="Standard horizontal/vertical move/capture (needs line of sight)." />
-                  <LevelRule level="4+" description="Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square (no piece or item) adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="4+" description="Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square (no piece or item) adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>

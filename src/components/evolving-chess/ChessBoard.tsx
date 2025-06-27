@@ -26,6 +26,7 @@ interface ChessBoardProps {
   isAwaitingCommanderPromotion?: boolean;
   playerToPromoteCommander?: PlayerColor | null;
   enPassantTargetSquare: AlgebraicSquare | null;
+  resurrectedSquares: AlgebraicSquare[];
 }
 
 export function ChessBoard({
@@ -49,6 +50,7 @@ export function ChessBoard({
   isAwaitingCommanderPromotion,
   playerToPromoteCommander,
   enPassantTargetSquare,
+  resurrectedSquares,
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -97,6 +99,8 @@ export function ChessBoard({
                                                currentSquareData.piece?.color === playerToPromoteCommander;
 
           const isEnPassantTargetDisplay = currentSquareData.algebraic === enPassantTargetSquare;
+          
+          const isResurrectedSquare = resurrectedSquares.includes(currentSquareData.algebraic);
 
 
           return (
@@ -123,6 +127,7 @@ export function ChessBoard({
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
               playerToPromoteCommander={playerToPromoteCommander}
               isEnPassantTarget={isEnPassantTargetDisplay}
+              isResurrectedSquare={isResurrectedSquare}
             />
           );
         })

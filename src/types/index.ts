@@ -80,6 +80,11 @@ export interface ApplyMoveResult {
 
 export type ViewMode = 'flipping' | 'tabletop';
 
+export interface ResurrectedSquareInfo {
+  square: AlgebraicSquare;
+  player: PlayerColor;
+}
+
 export interface GameSnapshot {
   board: BoardState;
   currentPlayer: PlayerColor;
@@ -130,6 +135,7 @@ export interface GameSnapshot {
   activeTimerPlayer: PlayerColor | null;
   remainingTime: number | null;
   turnTimeouts: { white: number, black: number };
+  resurrectedSquares: ResurrectedSquareInfo[];
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation

@@ -28,7 +28,7 @@ import {
   spawnShroom,
   boardToSimpleString,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -182,6 +182,8 @@ export default function EvolvingChessPage() {
   const [turnTimeouts, setTurnTimeouts] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  const [resurrectedSquares, setResurrectedSquares] = useState<ResurrectedSquareInfo[]>([]);
+
 
   const { toast } = useToast();
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
@@ -189,6 +191,13 @@ export default function EvolvingChessPage() {
   const webRTC = useWebRTC(); 
   const [inputRoomId, setInputRoomId] = useState('');
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
+
+  useEffect(() => {
+    // Clear resurrection highlights for the player whose turn it now is.
+    if (resurrectedSquares.length > 0) {
+      setResurrectedSquares(prev => prev.filter(rs => rs.player !== currentPlayer));
+    }
+  }, [currentPlayer]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -260,6 +269,7 @@ export default function EvolvingChessPage() {
       activeTimerPlayer: activeTimerPlayer,
       remainingTime: remainingTime,
       turnTimeouts: { ...turnTimeouts },
+      resurrectedSquares: [...resurrectedSquares],
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -275,7 +285,8 @@ export default function EvolvingChessPage() {
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare, promotionMoveWasCapture, promotionPawnOriginalLevel,
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn,
-    activeTimerPlayer, remainingTime, turnTimeouts 
+    activeTimerPlayer, remainingTime, turnTimeouts,
+    resurrectedSquares,
   ]);
 
   const startOrResetTurnTimer = useCallback((player: PlayerColor) => {
@@ -1109,6 +1120,7 @@ export default function EvolvingChessPage() {
                          toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
                     }
                     finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                    setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
                     finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResOriginal.id);
 
 
@@ -1323,6 +1335,7 @@ export default function EvolvingChessPage() {
                         toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
                     }
                     finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                    setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
                     finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
 
@@ -1364,6 +1377,7 @@ export default function EvolvingChessPage() {
               finalBoardStateForTurn = humanRookResData.boardWithResurrection;
               finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
               globalResurrectionIdCounter = humanRookResData.newResurrectionIdCounter!;
+              setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
               toast({
                   title: "Rook's Call!",
                   description: `${getPlayerDisplayName(currentPlayer)}'s Rook resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L1)`,
@@ -1526,7 +1540,8 @@ export default function EvolvingChessPage() {
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     setEnPassantTargetSquare,
-    webRTC, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime, localPlayerColor, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel
+    webRTC, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime, localPlayerColor, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
+    setResurrectedSquares
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -1625,6 +1640,7 @@ export default function EvolvingChessPage() {
                 setCapturedPieces(capturedPiecesAfterResurrection);
                 setBoard(boardToUpdate);
                 globalResurrectionIdCounter = newResurrectionIdCounter!;
+                setResurrectedSquares(prev => [...prev, { square: resurrectedSquareAlg!, player: pawnColor }]);
                 toast({ title: "Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${resurrectedPieceData!.type} to ${resurrectedSquareAlg!}! (L1)`, duration: 3000 });
 
                 if(resurrectedPieceData?.type === 'pawn' || resurrectedPieceData?.type === 'commander'){
@@ -1666,7 +1682,8 @@ export default function EvolvingChessPage() {
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, historyStack, enPassantTargetSquare, setEnPassantTargetSquare,
-    webRTC, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel
+    webRTC, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
+    setResurrectedSquares
   ]);
 
 
@@ -2105,6 +2122,7 @@ export default function EvolvingChessPage() {
                                toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
                           }
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
+                          setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
                           finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
                       }
                       }
@@ -2148,6 +2166,7 @@ export default function EvolvingChessPage() {
                   finalBoardStateForAI = aiRookResData.boardWithResurrection;
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
                   globalResurrectionIdCounter = aiRookResData.newResurrectionIdCounter!;
+                  setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 3000 });
 
                   if (aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander') {
@@ -2223,6 +2242,7 @@ export default function EvolvingChessPage() {
                                 globalResurrectionIdCounter = aiPromoRookIdCounter!;
                                 setBoard(finalBoardStateForAI);
                                 setCapturedPieces(finalCapturedPiecesForAI);
+                                setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
                                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
                                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
                                     const promoR_AI = currentPlayer === 'white' ? 0 : 7;
@@ -2317,7 +2337,7 @@ export default function EvolvingChessPage() {
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, webRTC.isConnected
+    shroomSpawnCounter, nextShroomSpawnTurn, webRTC.isConnected, setResurrectedSquares,
   ]);
 
 
@@ -2536,6 +2556,7 @@ export default function EvolvingChessPage() {
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     timerIntervalRef.current = null;
     setLocalPlayerColor(null);
+    setResurrectedSquares([]);
 
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
     if (webRTC.isConnected) {
@@ -2641,6 +2662,7 @@ export default function EvolvingChessPage() {
       setActiveTimerPlayer(stateToRestore.activeTimerPlayer || null);
       setRemainingTime(stateToRestore.remainingTime || null);
       setTurnTimeouts(stateToRestore.turnTimeouts || { white: 0, black: 0 });
+      setResurrectedSquares(stateToRestore.resurrectedSquares || []);
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
       
@@ -2663,7 +2685,8 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
-    setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, webRTC.isConnected, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel
+    setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, webRTC.isConnected, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
+    setResurrectedSquares,
   ]);
 
 
@@ -2897,6 +2920,7 @@ export default function EvolvingChessPage() {
                   isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
                   playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
                   enPassantTargetSquare={enPassantTargetSquare}
+                  resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
               />
           </div>
         </div>

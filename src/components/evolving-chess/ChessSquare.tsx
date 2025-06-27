@@ -28,6 +28,7 @@ interface ChessSquareProps {
   isAwaitingCommanderPromotion?: boolean;
   playerToPromoteCommander?: PlayerColor | null;
   isEnPassantTarget?: boolean;
+  isResurrectedSquare?: boolean;
 }
 
 export function ChessSquare({
@@ -51,6 +52,7 @@ export function ChessSquare({
   isAwaitingCommanderPromotion = false,
   playerToPromoteCommander = null,
   isEnPassantTarget = false,
+  isResurrectedSquare = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -75,6 +77,10 @@ export function ChessSquare({
 
   if (isEnPassantTarget && isPossibleMove && !piece) {
     currentBgClass = 'bg-purple-400/50';
+  }
+
+  if (isResurrectedSquare) {
+    currentBgClass = 'bg-cyan-400/50 animate-pulse';
   }
 
 
@@ -102,7 +108,7 @@ export function ChessSquare({
         effectiveDisabled && 'cursor-not-allowed',
         item && item.type !== 'shroom' && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}`}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}${isResurrectedSquare ? ' (Resurrected piece)' : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
       {item && item.type === 'anvil' && (
