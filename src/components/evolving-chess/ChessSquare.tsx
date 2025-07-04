@@ -58,6 +58,8 @@ export function ChessSquare({
   const item = squareData.item;
 
   const isJustMoved = !!(animatedSquareTo && squareData.algebraic === animatedSquareTo && piece);
+  
+  const shouldRotateItemForTabletop = viewMode === 'tabletop' && squareData.rowIndex <= 3;
 
   let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted';
 
@@ -112,7 +114,10 @@ export function ChessSquare({
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
       {item && item.type === 'anvil' && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-1">
+        <div className={cn(
+          "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-1",
+          shouldRotateItemForTabletop && "rotate-180"
+        )}>
           <Image
             src="/images/Anvil.png"
             alt="Anvil item"
@@ -124,7 +129,10 @@ export function ChessSquare({
         </div>
       )}
       {item && item.type === 'shroom' && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
+        <div className={cn(
+          "absolute inset-0 flex items-center justify-center pointer-events-none z-0",
+          shouldRotateItemForTabletop && "rotate-180"
+        )}>
           <span className="text-4xl md:text-5xl opacity-70" role="img" aria-label="shroom">🍄</span>
         </div>
       )}
