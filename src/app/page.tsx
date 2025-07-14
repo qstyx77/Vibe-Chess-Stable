@@ -2577,14 +2577,37 @@ export default function EvolvingChessPage() {
       return;
     }
 
+    const isAIGame = isWhiteAI || isBlackAI;
     let targetIndex = -1;
-    for (let i = historyStack.length - 1; i >= 0; i--) {
-      const state = historyStack[i];
-      if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice) {
-        targetIndex = i;
-        break;
-      }
+    let turnsToUndo = 1;
+
+    if (isAIGame) {
+        turnsToUndo = 2;
     }
+
+    let playableStatesFound = 0;
+    for (let i = historyStack.length - 1; i >= 0; i--) {
+        const state = historyStack[i];
+        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice) {
+            playableStatesFound++;
+            if (playableStatesFound >= turnsToUndo) {
+                targetIndex = i;
+                break;
+            }
+        }
+    }
+    
+    // If we want to undo 2 turns in an AI game but only found 1 playable state, undo just that 1.
+    if (targetIndex === -1 && playableStatesFound > 0) {
+        for (let i = historyStack.length - 1; i >= 0; i--) {
+            const state = historyStack[i];
+            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice) {
+                targetIndex = i;
+                break;
+            }
+        }
+    }
+
 
     if (targetIndex === -1) {
       toast({ title: "Undo Failed", description: "No playable state to undo to.", duration: 2500 });
