@@ -877,6 +877,7 @@ export default function EvolvingChessPage() {
 
     if (isAwaitingPawnSacrifice && playerToSacrificePawn === currentPlayer) {
       if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
+        saveStateToHistory();
         let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
         const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalResurrectionIdCounter++}`};
@@ -2576,26 +2577,22 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    const playerWhoseTurnItIsNow = currentPlayer;
-    const lastMovePlayer = playerWhoseTurnItIsNow === 'white' ? 'black' : 'white';
-
-    let aiMadeTheActualLastMove = false;
-    if (lastMovePlayer === 'white' && isWhiteAI) aiMadeTheActualLastMove = true;
-    else if (lastMovePlayer === 'black' && isBlackAI) aiMadeTheActualLastMove = true;
-
-    const isHumanVsAiGame = (isWhiteAI && !isBlackAI) || (!isWhiteAI && isBlackAI);
-    let statesToPop = 1;
-    if (isHumanVsAiGame && aiMadeTheActualLastMove && historyStack.length >= 2) {
-      statesToPop = 2;
+    let targetIndex = -1;
+    for (let i = historyStack.length - 1; i >= 0; i--) {
+      const state = historyStack[i];
+      if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice) {
+        targetIndex = i;
+        break;
+      }
     }
 
-    const targetHistoryIndex = historyStack.length - statesToPop;
-    if (targetHistoryIndex < 0) {
-      toast({ title: "Undo Error", description: "Not enough history.", duration: 2500 });
+    if (targetIndex === -1) {
+      toast({ title: "Undo Failed", description: "No playable state to undo to.", duration: 2500 });
       return;
     }
-    const stateToRestore = historyStack[targetHistoryIndex];
-    const newHistoryStack = historyStack.slice(0, targetHistoryIndex);
+
+    const stateToRestore = historyStack[targetIndex];
+    const newHistoryStack = historyStack.slice(0, targetIndex);
 
     if (stateToRestore) {
       setBoard(stateToRestore.board);
