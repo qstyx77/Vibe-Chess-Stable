@@ -1043,7 +1043,10 @@ function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor, enPassant
 
 
 export function isCheckmate(board: BoardState, kingInCheckColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
-  return isKingInCheck(board, kingInCheckColor, enPassantTargetSquare) && !hasAnyLegalMoves(board, kingInCheckColor, enPassantTargetSquare);
+  if (!isKingInCheck(board, kingInCheckColor, enPassantTargetSquare)) {
+    return false;
+  }
+  return !hasAnyLegalMoves(board, kingInCheckColor, enPassantTargetSquare);
 }
 
 export function isStalemate(board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
@@ -1248,4 +1251,3 @@ export function spawnShroom(board: BoardState): BoardState {
   }
   return newBoard;
 }
-
