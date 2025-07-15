@@ -53,7 +53,9 @@ const leaveRoom = (ws) => {
 wss.on('connection', ws => {
     console.log('[Server] Client connected.');
 
-    ws.on('message', messageStr => {
+    ws.on('message', message => {
+        // IMPORTANT: Ensure the message is treated as a string before parsing/relaying.
+        const messageStr = message.toString();
         let data;
         try {
             data = JSON.parse(messageStr);
@@ -76,7 +78,7 @@ wss.on('connection', ws => {
                 break;
             }
             case 'join-room': {
-                if (rooms[roomId] && rooms[roomId].length === 1) {
+                if (rooms[roomId] && rooms[roomId].length < 2) {
                     leaveRoom(ws); // Ensure client isn't in another room
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
@@ -99,6 +101,7 @@ wss.on('connection', ws => {
                 const currentRoomId = clientToRoom.get(ws);
                 if (currentRoomId) {
                   console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
+                  // Always send the string version of the message
                   broadcastToRoom(currentRoomId, messageStr, ws);
                 } else {
                   console.error(`[Server] Cannot relay message. Client not in a room.`);
