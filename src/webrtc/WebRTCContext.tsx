@@ -173,8 +173,21 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const handleSignalingMessage = useCallback(async (event: MessageEvent) => {
+      let messageData;
+      // FIX: Handle incoming data that might be a Blob
+      if (event.data instanceof Blob) {
+          try {
+            messageData = await event.data.text();
+          } catch(e) {
+            console.error('[WebRTC] Could not read blob data as text.', e);
+            return;
+          }
+      } else {
+          messageData = event.data;
+      }
+      
       try {
-        const data = JSON.parse(event.data);
+        const data = JSON.parse(messageData);
         const currentRoomId = data.roomId;
         
         console.log(`[WebRTC] Received message from server: ${data.type}`);
@@ -261,6 +274,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         }
       } catch (e) {
         console.error("[WebRTC] Error processing message from signaling server", e);
+        console.error("Original message data:", messageData);
       }
   }, [createPeerConnection, disconnect, setupDataChannelEvents, processIceCandidateQueue]);
   
