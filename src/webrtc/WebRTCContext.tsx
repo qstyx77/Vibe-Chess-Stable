@@ -124,7 +124,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           console.log('[WebRTC] Sending ICE candidate to peer.');
           wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: currentRoomId }));
         } else {
-          console.warn('[WebRTC] WebSocket not open when trying to send candidate. This should be rare.');
+          console.warn('[WebRTC] onicecandidate event fired but WebSocket is not open.');
         }
       } else {
         console.log('[WebRTC] onicecandidate event: All candidates have been gathered.');
@@ -206,6 +206,16 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.payload));
           console.log('[WebRTC] [ANSWER] Remote description set from offer.');
 
+          console.log('[WebRTC] [ANSWER] Creating answer...');
+          const answer = await pcRef.current.createAnswer();
+          await pcRef.current.setLocalDescription(answer);
+          console.log('[WebRTC] [ANSWER] Local description set from answer.');
+          
+          if(wsRef.current?.readyState === WebSocket.OPEN) {
+            console.log('[WebRTC] [SEND] Sending answer to peer.');
+            wsRef.current.send(JSON.stringify({ type: 'answer', payload: answer, roomId: currentRoomId }));
+          }
+          
           // Now that remote description is set, process any queued candidates
           while(candidateQueueRef.current.length > 0) {
             const candidate = candidateQueueRef.current.shift();
@@ -215,15 +225,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             }
           }
           
-          console.log('[WebRTC] [ANSWER] Creating answer...');
-          const answer = await pcRef.current.createAnswer();
-          await pcRef.current.setLocalDescription(answer);
-          console.log('[WebRTC] [ANSWER] Local description set from answer.');
-
-          if(wsRef.current?.readyState === WebSocket.OPEN) {
-            console.log('[WebRTC] [SEND] Sending answer to peer.');
-            wsRef.current.send(JSON.stringify({ type: 'answer', payload: answer, roomId: currentRoomId }));
-          }
           break;
         case 'answer':
           if (pcRef.current && pcRef.current.signalingState === 'have-local-offer') {
