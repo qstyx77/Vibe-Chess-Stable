@@ -218,7 +218,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             await processIceCandidateQueue();
             break;
           case 'answer':
-            if (pcRef.current) {
+            if (pcRef.current && pcRef.current.signalingState !== "stable") {
               await pcRef.current.setRemoteDescription(new RTCSessionDescription(data.payload));
               await processIceCandidateQueue();
             }
