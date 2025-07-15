@@ -131,8 +131,10 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
         console.log('[WebRTC] Sending ICE candidate to peer.');
         wsRef.current.send(JSON.stringify({ type: 'candidate', payload: event.candidate, roomId: currentRoomId }));
+      } else if (!event.candidate) {
+        console.log('[WebRTC] onicecandidate event: All candidates have been sent.');
       } else {
-        console.log('[WebRTC] onicecandidate event without candidate or WS not open.');
+        console.error('[WebRTC] onicecandidate event without candidate or WS not open.');
       }
     };
 
@@ -298,14 +300,18 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   const createRoom = useCallback(async () => {
     setState(prev => ({ ...prev, isConnecting: true, error: null, isCreator: true }));
     connectWebSocket(() => {
-        wsRef.current?.send(JSON.stringify({ type: 'create-room' }));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current?.send(JSON.stringify({ type: 'create-room' }));
+        }
     });
   }, [connectWebSocket]);
 
   const joinRoom = useCallback(async (roomIdToJoin: string) => {
     setState(prev => ({ ...prev, isConnecting: true, error: null, roomId: roomIdToJoin, isCreator: false }));
     connectWebSocket(() => {
-        wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
+        if (wsRef.current?.readyState === WebSocket.OPEN) {
+          wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
+        }
     });
   }, [connectWebSocket]);
   
