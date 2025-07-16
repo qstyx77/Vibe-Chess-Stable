@@ -29,6 +29,12 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    // Adding a public TURN server for NAT traversal
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
 };
 
@@ -156,7 +162,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             disconnect();
         }
         if (connectionState === 'connected') {
-            setState(prev => ({ ...prev, peerPresent: true, isConnecting: false, error: null }));
+            setState(prev => ({ ...prev, peerPresent: true, isConnecting: false, error: null, isConnected: true }));
         }
     };
     
