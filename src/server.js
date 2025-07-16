@@ -9,7 +9,9 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
+// Map from a roomId to an array of ws clients in that room.
 const rooms = {};
+// Map from a ws client to the roomId it's in.
 const clientToRoom = new Map();
 
 const broadcastToRoom = (roomId, message, sender) => {
@@ -39,6 +41,7 @@ const leaveRoom = (ws) => {
         delete rooms[roomId];
     } else {
         rooms[roomId] = remainingClients;
+        // Notify remaining peers that the other has disconnected
         broadcastToRoom(roomId, JSON.stringify({ type: 'peer-disconnected' }), ws);
         console.log(`[Server] Notified remaining peers in room ${roomId} of disconnection.`);
     }
@@ -48,6 +51,7 @@ wss.on('connection', ws => {
     console.log('[Server] Client connected.');
 
     ws.on('message', message => {
+        // IMPORTANT: Ensure the message is treated as a string before parsing/relaying.
         const messageStr = message.toString();
         let data;
         try {
@@ -61,7 +65,8 @@ wss.on('connection', ws => {
         
         switch (type) {
             case 'create-room':
-                leaveRoom(ws);
+                // A client can only be in one room at a time. Leave any existing room.
+                leaveRoom(ws); 
                 const newRoomId = Math.random().toString(36).substring(2, 9);
                 rooms[newRoomId] = [ws];
                 clientToRoom.set(ws, newRoomId);
@@ -71,10 +76,13 @@ wss.on('connection', ws => {
             
             case 'join-room':
                 if (rooms[roomId] && rooms[roomId].length < 2) {
-                    leaveRoom(ws);
+                    // A client can only be in one room at a time.
+                    leaveRoom(ws); 
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
+                    // Notify the new client they've joined
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
+                    // Notify the other client in the room that a peer has joined
                     broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
                     console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
@@ -82,10 +90,12 @@ wss.on('connection', ws => {
                 }
                 break;
 
+            // For all other messages (offer, answer, candidate), just relay them.
             default:
                 const currentRoomId = clientToRoom.get(ws);
                 if (currentRoomId) {
                   console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
+                  // Always send the string version of the message
                   broadcastToRoom(currentRoomId, messageStr, ws);
                 } else {
                   console.error(`[Server] Cannot relay message. Client not in a room.`);
