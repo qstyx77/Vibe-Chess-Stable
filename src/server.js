@@ -9,9 +9,7 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-// Map from a roomId to an array of ws clients in that room.
 const rooms = {};
-// Map from a ws client to the roomId it's in.
 const clientToRoom = new Map();
 
 const broadcastToRoom = (roomId, message, sender) => {
@@ -35,18 +33,14 @@ const leaveRoom = (ws) => {
     const room = rooms[roomId];
     if (!room) return;
 
-    const newRoom = room.filter(client => client !== ws);
-    if (newRoom.length === 0) {
+    const remainingClients = room.filter(client => client !== ws);
+    if (remainingClients.length === 0) {
         console.log(`[Server] Room ${roomId} is empty, deleting.`);
         delete rooms[roomId];
     } else {
-        rooms[roomId] = newRoom;
-        // Notify remaining peer
-        const remainingPeer = newRoom[0];
-        if (remainingPeer && remainingPeer.readyState === WebSocket.OPEN) {
-            remainingPeer.send(JSON.stringify({ type: 'peer-disconnected' }));
-            console.log(`[Server] Notified peer in room ${roomId} of disconnection.`);
-        }
+        rooms[roomId] = remainingClients;
+        broadcastToRoom(roomId, JSON.stringify({ type: 'peer-disconnected' }), ws);
+        console.log(`[Server] Notified remaining peers in room ${roomId} of disconnection.`);
     }
 };
 
@@ -54,7 +48,6 @@ wss.on('connection', ws => {
     console.log('[Server] Client connected.');
 
     ws.on('message', message => {
-        // IMPORTANT: Ensure the message is treated as a string before parsing/relaying.
         const messageStr = message.toString();
         let data;
         try {
@@ -65,49 +58,39 @@ wss.on('connection', ws => {
         }
 
         const { type, roomId } = data;
-        console.log(`[Server] Received message type '${type}' for room '${roomId || 'N/A'}'`);
-
+        
         switch (type) {
-            case 'create-room': {
-                leaveRoom(ws); // Ensure client isn't in another room
+            case 'create-room':
+                leaveRoom(ws);
                 const newRoomId = Math.random().toString(36).substring(2, 9);
                 rooms[newRoomId] = [ws];
                 clientToRoom.set(ws, newRoomId);
                 ws.send(JSON.stringify({ type: 'room-created', roomId: newRoomId }));
                 console.log(`[Server] Room created: ${newRoomId}`);
                 break;
-            }
-            case 'join-room': {
+            
+            case 'join-room':
                 if (rooms[roomId] && rooms[roomId].length < 2) {
-                    leaveRoom(ws); // Ensure client isn't in another room
+                    leaveRoom(ws);
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
-                    
-                    const creator = rooms[roomId][0];
-                    if (creator && creator.readyState === WebSocket.OPEN) {
-                      creator.send(JSON.stringify({ type: 'peer-joined', roomId }));
-                      console.log(`[Server] Sent 'peer-joined' to creator in room ${roomId}.`);
-                    }
-
-                    ws.send(JSON.stringify({ type: 'room-joined', roomId }));
-                    console.log(`[Server] Client joined room ${roomId}.`);
+                    ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
+                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
+                    console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
-            }
-            default: {
-                // For all other messages, just relay them to the other person in the room.
+
+            default:
                 const currentRoomId = clientToRoom.get(ws);
                 if (currentRoomId) {
                   console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
-                  // Always send the string version of the message
                   broadcastToRoom(currentRoomId, messageStr, ws);
                 } else {
                   console.error(`[Server] Cannot relay message. Client not in a room.`);
                 }
                 break;
-            }
         }
     });
 
