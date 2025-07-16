@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -261,6 +260,8 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
                 console.log('[WebRTC] [ANSWER] Remote description set from offer.');
                 
+                await processCandidateQueue(); // Process any candidates that arrived early
+
                 console.log('[WebRTC] [ANSWER] Creating answer...');
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
@@ -270,14 +271,13 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                     console.log('[WebRTC] [SEND] Sending answer to peer.');
                     wsRef.current.send(JSON.stringify({ type: 'answer', payload: answer, roomId: currentRoomId }));
                 }
-                await processCandidateQueue();
                 break;
             case 'answer':
                  if (pc.signalingState !== 'stable') {
                     console.log('[WebRTC] [OFFER] Setting remote description from answer...');
                     await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
                     console.log('[WebRTC] [OFFER] Remote description set from answer.');
-                    await processCandidateQueue();
+                    await processCandidateQueue(); // Process candidates now that we have the answer
                  }
                 break;
             case 'candidate':
