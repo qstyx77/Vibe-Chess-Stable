@@ -37,9 +37,8 @@ const getSignalingServerUrl = () => {
       return '';
     }
     const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const host = window.location.host;
-    // For cloud environments, the proxy handles routing, so we don't need to specify the port.
-    return `${wsProtocol}://${host}/`;
+    // Connect to the same hostname, but on port 8082 where the signaling server runs.
+    return `${wsProtocol}://${window.location.hostname}:8082`;
 };
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
@@ -66,7 +65,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   const disconnect = useCallback(() => {
     console.log('[WebRTC] Disconnect called. Cleaning up...');
     if (wsRef.current) {
-        if(wsRef.current.readyState === WebSocket.OPEN) {
+        if(wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
             wsRef.current.close();
         }
         wsRef.current = null;
@@ -121,8 +120,11 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
   const createPeerConnection = useCallback((currentRoomId: string) => {
     if (pcRef.current) {
-      console.log('[WebRTC] PeerConnection already exists. Ignoring request.');
-      return pcRef.current;
+      console.log('[WebRTC] PeerConnection already exists. Closing old one before creating new.');
+      if(pcRef.current.signalingState !== 'closed') {
+        pcRef.current.close();
+      }
+      pcRef.current = null;
     }
 
     console.log('[WebRTC] Creating new PeerConnection...');
@@ -150,8 +152,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             disconnect();
         }
         if (connectionState === 'connected') {
-            // Data channel may not be open yet, so we don't set isConnected here.
-            // That's handled by the data channel 'onopen' event.
             setState(prev => ({ ...prev, peerPresent: true, isConnecting: false, error: null }));
         }
     };
@@ -162,7 +162,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   const processCandidateQueue = useCallback(async () => {
     const pc = pcRef.current;
     if (!pc || !pc.remoteDescription || pc.signalingState !== 'stable') {
-      console.log('[WebRTC] Cannot process candidate queue yet. PC not ready.');
+      console.log(`[WebRTC] Cannot process candidate queue yet. PC not ready (remoteDescription: ${!!pc?.remoteDescription}, signalingState: ${pc?.signalingState}).`);
       return;
     }
     console.log(`[WebRTC] Processing ${candidateQueueRef.current.length} queued candidates.`);
