@@ -3,8 +3,15 @@ const WebSocket = require('ws');
 const http = require('http');
 
 const server = http.createServer((req, res) => {
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('Signaling Server is running');
+    const url = new URL(req.url, `http://${req.headers.host}`);
+    // Basic health check for the server itself
+    if (url.pathname === '/healthz') {
+        res.writeHead(200, { 'Content-Type': 'text/plain' });
+        res.end('OK');
+        return;
+    }
+    res.writeHead(404);
+    res.end();
 });
 
 const wss = new WebSocket.Server({ server });
@@ -51,7 +58,6 @@ wss.on('connection', ws => {
     console.log('[Server] Client connected.');
 
     ws.on('message', message => {
-        // IMPORTANT: Ensure the message is treated as a string before parsing/relaying.
         const messageStr = message.toString();
         let data;
         try {
@@ -65,7 +71,6 @@ wss.on('connection', ws => {
         
         switch (type) {
             case 'create-room':
-                // A client can only be in one room at a time. Leave any existing room.
                 leaveRoom(ws); 
                 const newRoomId = Math.random().toString(36).substring(2, 9);
                 rooms[newRoomId] = [ws];
@@ -76,13 +81,10 @@ wss.on('connection', ws => {
             
             case 'join-room':
                 if (rooms[roomId] && rooms[roomId].length < 2) {
-                    // A client can only be in one room at a time.
                     leaveRoom(ws); 
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
-                    // Notify the new client they've joined
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
-                    // Notify the other client in the room that a peer has joined
                     broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
                     console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
@@ -90,12 +92,9 @@ wss.on('connection', ws => {
                 }
                 break;
 
-            // For all other messages (offer, answer, candidate), just relay them.
             default:
                 const currentRoomId = clientToRoom.get(ws);
                 if (currentRoomId) {
-                  // The message already includes the roomId, but we use the one we have stored for the sender
-                  // to ensure it goes to the right place.
                   console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
                   broadcastToRoom(currentRoomId, messageStr, ws);
                 } else {
@@ -116,7 +115,7 @@ wss.on('connection', ws => {
     });
 });
 
-const PORT = 8082;
+const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`================================================`);
     console.log(`  SIGNALING SERVER IS UP AND LISTENING ON PORT ${PORT}`);
