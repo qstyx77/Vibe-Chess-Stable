@@ -197,7 +197,21 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         const currentRoomId = state.roomId || data.roomId;
         
         console.log(`[WebRTC] [RECV] Received message type '${data.type}' from signaling server for room '${currentRoomId}'.`);
+        
+        // Handle messages that don't require a PeerConnection first
+        switch(data.type) {
+            case 'room-created':
+                setState(prev => ({ ...prev, roomId: data.roomId, isCreator: true, isConnecting: false, error: null }));
+                return; // End processing here
+            case 'room-joined':
+                setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false, error: null, isConnecting: false }));
+                return; // End processing here
+            case 'error':
+                setState(prev => ({ ...prev, error: `Signaling error: ${data.message}`, isConnecting: false }));
+                return; // End processing here
+        }
 
+        // For all other messages, a PeerConnection is required. Create it if it doesn't exist.
         if (!pcRef.current && (data.type === 'offer' || data.type === 'peer-joined')) {
             createPeerConnection(currentRoomId);
         }
@@ -209,12 +223,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         }
 
         switch (data.type) {
-            case 'room-created':
-                setState(prev => ({ ...prev, roomId: data.roomId, isCreator: true, isConnecting: false, error: null }));
-                break;
-            case 'room-joined':
-                setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false, error: null, isConnecting: false }));
-                break;
             case 'peer-joined':
                 setState(prev => ({ ...prev, peerPresent: true, isConnecting: true }));
                 console.log('[WebRTC] Peer joined. Creating data channel.');
@@ -276,9 +284,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             case 'peer-disconnected':
                 setState(prev => ({ ...prev, error: "Opponent has disconnected."}));
                 disconnect();
-                break;
-            case 'error':
-                setState(prev => ({ ...prev, error: `Signaling error: ${data.message}`, isConnecting: false }));
                 break;
         }
     } catch (e) {
