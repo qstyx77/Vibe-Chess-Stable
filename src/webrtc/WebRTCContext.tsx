@@ -37,9 +37,12 @@ const getSignalingServerUrl = () => {
       return '';
     }
     // Standard approach for proxied environments: use the same origin, change protocol.
-    // The environment's proxy is expected to route the /ws path to the correct backend port.
+    // The environment's proxy is expected to route to the correct backend port (now 8080).
     const origin = window.location.origin;
-    return origin.replace(/^http/, 'ws');
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:${window.location.port}`;
+    console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
+    return wsUrl;
 };
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
