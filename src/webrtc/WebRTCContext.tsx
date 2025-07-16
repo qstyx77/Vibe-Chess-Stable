@@ -34,6 +34,16 @@ const ICE_SERVERS = {
       username: "openrelayproject",
       credential: "openrelayproject",
     },
+     {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
 };
 
@@ -42,9 +52,8 @@ const getSignalingServerUrl = () => {
       return '';
     }
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Remove the client-side port prefix (e.g., '3000-') from the hostname
+    // Remove client port (e.g., '3000-') and construct server URL with port 8080
     const cleanHostname = window.location.hostname.replace(/^\d+-/, '');
-    // Construct the URL to point to the mapped port for our server.js instance
     const wsUrl = `${wsProtocol}//8080-${cleanHostname}`;
     console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
     return wsUrl;
@@ -129,8 +138,8 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
   const processCandidateQueue = useCallback(async () => {
     const pc = pcRef.current;
-    if (!pc || !pc.remoteDescription || pc.signalingState !== 'stable') {
-      console.log(`[WebRTC] Cannot process candidate queue yet. PC not ready (remoteDescription: ${!!pc?.remoteDescription}, signalingState: ${pc?.signalingState}).`);
+    if (!pc || !pc.remoteDescription || candidateQueueRef.current.length === 0) {
+      console.log(`[WebRTC] Cannot process candidate queue. PC not ready or queue empty (remoteDescription: ${!!pc?.remoteDescription}, queue size: ${candidateQueueRef.current.length}).`);
       return;
     }
     console.log(`[WebRTC] Processing ${candidateQueueRef.current.length} queued candidates.`);
@@ -264,20 +273,20 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 await processCandidateQueue();
                 break;
             case 'answer':
-                if (pc.signalingState !== 'stable') {
+                 if (pc.signalingState !== 'stable') {
                     console.log('[WebRTC] [OFFER] Setting remote description from answer...');
                     await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
                     console.log('[WebRTC] [OFFER] Remote description set from answer.');
                     await processCandidateQueue();
-                }
+                 }
                 break;
             case 'candidate':
                  const candidate = new RTCIceCandidate(data.payload);
-                 if (pc.remoteDescription && pc.signalingState === 'stable') {
+                 if (pc.remoteDescription) {
                      console.log('[WebRTC] [CANDIDATE] Adding received ICE candidate directly.');
                      await pc.addIceCandidate(candidate);
                  } else {
-                     console.log('[WebRTC] [CANDIDATE] Remote description not set or not stable. Queuing candidate.');
+                     console.log('[WebRTC] [CANDIDATE] Remote description not set. Queuing candidate.');
                      candidateQueueRef.current.push(candidate);
                  }
                 break;
