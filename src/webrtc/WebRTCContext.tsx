@@ -36,9 +36,10 @@ const getSignalingServerUrl = () => {
     if (typeof window === 'undefined') {
       return '';
     }
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    // Connect to the same hostname, but on port 8082 where the signaling server runs.
-    return `${wsProtocol}://${window.location.hostname}:8082`;
+    // Standard approach for proxied environments: use the same origin, change protocol.
+    // The environment's proxy is expected to route the /ws path to the correct backend port.
+    const origin = window.location.origin;
+    return origin.replace(/^http/, 'ws');
 };
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {

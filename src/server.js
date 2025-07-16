@@ -115,7 +115,7 @@ wss.on('connection', ws => {
     });
 });
 
-const PORT = 8082;
+const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`================================================`);
     console.log(`  SIGNALING SERVER IS UP AND LISTENING ON PORT ${PORT}`);
