@@ -37,8 +37,10 @@ const getSignalingServerUrl = () => {
       return '';
     }
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Remove the client-side port prefix (e.g., '3000-') from the hostname
+    const cleanHostname = window.location.hostname.replace(/^\d+-/, '');
     // Construct the URL to point to the mapped port for our server.js instance
-    const wsUrl = `${wsProtocol}//8080-${window.location.hostname}`;
+    const wsUrl = `${wsProtocol}//8080-${cleanHostname}`;
     console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
     return wsUrl;
 };
