@@ -36,10 +36,9 @@ const getSignalingServerUrl = () => {
     if (typeof window === 'undefined') {
       return '';
     }
-    const origin = window.location.origin;
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Connect to the same origin, letting the proxy handle the port.
-    const wsUrl = `${wsProtocol}//${window.location.hostname}${window.location.port ? `:${window.location.port}` : ''}`;
+    // Construct the URL to point to the mapped port for our server.js instance
+    const wsUrl = `${wsProtocol}//8080-${window.location.hostname}`;
     console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
     return wsUrl;
 };
