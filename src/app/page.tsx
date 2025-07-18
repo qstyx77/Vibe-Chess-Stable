@@ -1444,7 +1444,7 @@ export default function EvolvingChessPage() {
 
 
           const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
-          const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn;
+          const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
 
           let isPendingHumanResurrectionPromotion = isResurrectionPromotionInProgress;
