@@ -35,6 +35,17 @@ import { Input } from '@/components/ui/input';
 import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag } from 'lucide-react';
 import type { VibeChessAI as VibeChessAIClassType } from '@/lib/vibe-chess-ai';
 import { useWebRTC } from '@/webrtc/WebRTCContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 
 let globalResurrectionIdCounter = 0;
@@ -2826,9 +2837,27 @@ export default function EvolvingChessPage() {
             />
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
-            <Button variant="outline" onClick={resetGame} aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
-              {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
+                  {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {webRTC.isConnected ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetGame}>
+                    {webRTC.isConnected ? 'Yes, Resign' : 'Yes, Reset'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
             <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
               <BookOpen className="mr-1" /> Rules
             </Button>
