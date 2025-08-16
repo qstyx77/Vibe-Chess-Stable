@@ -75,7 +75,7 @@ export function GameControls({
 
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 min-h-[140px]">
         {pieceForInfoDisplay ? (
             <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
         ) : (
