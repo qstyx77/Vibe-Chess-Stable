@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode } from '@/types';
+import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 
@@ -27,6 +27,7 @@ interface ChessBoardProps {
   playerToPromoteCommander?: PlayerColor | null;
   enPassantTargetSquare: AlgebraicSquare | null;
   resurrectedSquares: AlgebraicSquare[];
+  onPieceHover: (piece: Piece | null) => void;
 }
 
 export function ChessBoard({
@@ -51,6 +52,7 @@ export function ChessBoard({
   playerToPromoteCommander,
   enPassantTargetSquare,
   resurrectedSquares,
+  onPieceHover,
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -67,6 +69,7 @@ export function ChessBoard({
         isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
+      onMouseLeave={() => onPieceHover(null)}
     >
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
@@ -128,6 +131,7 @@ export function ChessBoard({
               playerToPromoteCommander={playerToPromoteCommander}
               isEnPassantTarget={isEnPassantTargetDisplay}
               isResurrectedSquare={isResurrectedSquare}
+              onPieceHover={onPieceHover}
             />
           );
         })

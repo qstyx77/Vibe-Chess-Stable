@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item } from '@/types';
+import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -29,6 +29,7 @@ interface ChessSquareProps {
   playerToPromoteCommander?: PlayerColor | null;
   isEnPassantTarget?: boolean;
   isResurrectedSquare?: boolean;
+  onPieceHover: (piece: Piece | null) => void;
 }
 
 export function ChessSquare({
@@ -53,6 +54,7 @@ export function ChessSquare({
   playerToPromoteCommander = null,
   isEnPassantTarget = false,
   isResurrectedSquare = false,
+  onPieceHover,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -103,6 +105,8 @@ export function ChessSquare({
   return (
     <button
       onClick={() => !effectiveDisabled && onClick(squareData.algebraic)}
+      onMouseEnter={() => onPieceHover(squareData.piece)}
+      onMouseLeave={() => onPieceHover(null)}
       className={cn(
         'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu font-sans text-sm font-medium',
         currentBgClass,

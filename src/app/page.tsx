@@ -195,6 +195,8 @@ export default function EvolvingChessPage() {
 
   const [resurrectedSquares, setResurrectedSquares] = useState<ResurrectedSquareInfo[]>([]);
 
+  const [pieceForInfoDisplay, setPieceForInfoDisplay] = useState<Piece | null>(null);
+
 
   const { toast } = useToast();
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
@@ -815,6 +817,11 @@ export default function EvolvingChessPage() {
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
+    const { row, col } = algebraicToCoords(algebraic);
+    const clickedSquareState = board[row]?.[col];
+    const clickedPiece = clickedSquareState?.piece;
+    setPieceForInfoDisplay(clickedPiece || null);
+
     let humanPlayerAchievedFirstBloodThisTurn = false;
 
     if (webRTC.isConnected && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) ) {
@@ -834,9 +841,7 @@ export default function EvolvingChessPage() {
     }
 
 
-    const { row, col } = algebraicToCoords(algebraic);
-    const clickedSquareState = board[row]?.[col];
-    const clickedPiece = clickedSquareState?.piece;
+    
     const clickedItem = clickedSquareState?.item;
     let originalPieceLevelBeforeMove: number | undefined;
     let currentEnPassantTargetForThisTurn = enPassantTargetSquare;
@@ -2569,6 +2574,8 @@ export default function EvolvingChessPage() {
     timerIntervalRef.current = null;
     setLocalPlayerColor(null);
     setResurrectedSquares([]);
+    setPieceForInfoDisplay(null);
+
 
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
     if (webRTC.isConnected) {
@@ -2665,6 +2672,7 @@ export default function EvolvingChessPage() {
       setIsMoveProcessing(false);
       aiErrorOccurredRef.current = false;
       setHistoryStack(newHistoryStack);
+      setPieceForInfoDisplay(null);
 
       setIsAwaitingPawnSacrifice(stateToRestore.isAwaitingPawnSacrifice);
       setPlayerToSacrificePawn(stateToRestore.playerToSacrificePawn);
@@ -2801,6 +2809,10 @@ export default function EvolvingChessPage() {
     }
     return null;
   };
+
+  const handlePieceHover = useCallback((piece: Piece | null) => {
+    setPieceForInfoDisplay(piece);
+  }, []);
 
 
   return (
@@ -2944,6 +2956,7 @@ export default function EvolvingChessPage() {
                 activeTimerPlayer={activeTimerPlayer}
                 remainingTime={remainingTime}
                 turnTimeouts={turnTimeouts}
+                pieceForInfoDisplay={pieceForInfoDisplay}
               />
           </div>
           {/* Board Container */}
@@ -2970,6 +2983,7 @@ export default function EvolvingChessPage() {
                   playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
                   enPassantTargetSquare={enPassantTargetSquare}
                   resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
+                  onPieceHover={handlePieceHover}
               />
           </div>
         </div>

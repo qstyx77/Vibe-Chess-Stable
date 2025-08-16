@@ -5,6 +5,7 @@ import type { PlayerColor, Piece } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '../ui/separator';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
+import { PieceAbilitiesInfo } from './PieceAbilitiesInfo';
 import { cn } from '@/lib/utils';
 
 interface GameControlsProps {
@@ -19,6 +20,7 @@ interface GameControlsProps {
   activeTimerPlayer: PlayerColor | null;
   remainingTime: number | null;
   turnTimeouts: { white: number, black: number };
+  pieceForInfoDisplay: Piece | null;
 }
 
 export function GameControls({
@@ -33,6 +35,7 @@ export function GameControls({
   activeTimerPlayer,
   remainingTime,
   turnTimeouts,
+  pieceForInfoDisplay,
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
@@ -73,15 +76,19 @@ export function GameControls({
   return (
     <Card className="w-full shadow-lg">
       <CardHeader className="pb-2">
-        <CardDescription
-          className={cn(
-            "text-center text-sm font-medium min-h-[1.5em]",
-             isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
-             (gameStatusMessage.includes("(AI) is thinking...") && "text-primary font-bold")
-          )}
-        >
-          {currentTurnMessage}
-        </CardDescription>
+        {pieceForInfoDisplay ? (
+            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+        ) : (
+          <CardDescription
+            className={cn(
+              "text-center text-sm font-medium min-h-[1.5em]",
+              isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
+              (gameStatusMessage.includes("(AI) is thinking...") && "text-primary font-bold")
+            )}
+          >
+            {currentTurnMessage}
+          </CardDescription>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-center">
