@@ -75,10 +75,7 @@ export function GameControls({
 
   return (
     <Card className="w-full shadow-lg">
-      <CardHeader className="pb-2 min-h-[140px]">
-        {pieceForInfoDisplay ? (
-            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
-        ) : (
+      <CardHeader className="pb-2">
           <CardDescription
             className={cn(
               "text-center text-sm font-medium min-h-[1.5em]",
@@ -86,9 +83,8 @@ export function GameControls({
               (gameStatusMessage.includes("(AI) is thinking...") && "text-primary font-bold")
             )}
           >
-            {currentTurnMessage}
+           {currentTurnMessage}
           </CardDescription>
-        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="text-center">
@@ -132,6 +128,17 @@ export function GameControls({
         </div>
 
         <Separator />
+        
+        <div className="min-h-[140px]">
+          {pieceForInfoDisplay ? (
+            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+          ) : (
+             <div className="text-center text-sm font-medium text-muted-foreground pt-2">
+                Hover over a piece to see its abilities.
+            </div>
+          )}
+        </div>
+
       </CardContent>
     </Card>
   );
