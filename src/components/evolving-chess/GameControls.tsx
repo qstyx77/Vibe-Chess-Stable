@@ -134,7 +134,7 @@ export function GameControls({
             <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
           ) : (
              <div className="text-center text-sm font-medium text-muted-foreground pt-2">
-                Hover over a piece to see its abilities.
+                Select or hover over a piece to see its abilities.
             </div>
           )}
         </div>
