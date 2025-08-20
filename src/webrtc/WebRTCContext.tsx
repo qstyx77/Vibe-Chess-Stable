@@ -29,21 +29,6 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-     {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
   ],
 };
 
@@ -52,9 +37,8 @@ const getSignalingServerUrl = () => {
       return '';
     }
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Remove client port (e.g., '3000-') and construct server URL with port 8080
-    const cleanHostname = window.location.hostname.replace(/^\d+-/, '');
-    const wsUrl = `${wsProtocol}//8080-${cleanHostname}`;
+    // Use the same hostname, but target port 8080 for the signaling server
+    const wsUrl = `${wsProtocol}//${window.location.hostname}:8080`;
     console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
     return wsUrl;
 };
