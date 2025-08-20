@@ -36,11 +36,12 @@ const getSignalingServerUrl = () => {
     if (typeof window === 'undefined') {
       return '';
     }
-    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const host = window.location.hostname;
-    const wsUrl = `${wsProtocol}//${host}:8080`;
-    console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
-    return wsUrl;
+    // Construct the URL from the page's origin to handle proxies and environments correctly.
+    const url = new URL(window.location.origin);
+    url.protocol = url.protocol.replace('http', 'ws'); // Change http to ws or https to wss
+    url.port = '8080'; // The signaling server is always on port 8080
+    console.log(`[WebRTC] Constructed Signaling Server URL: ${url.href}`);
+    return url.href;
 };
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
@@ -308,24 +309,29 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
 
     console.log(`[WebRTC] Attempting to connect to WebSocket signaling server at ${SIGNALING_SERVER_URL}...`);
-    const ws = new WebSocket(SIGNALING_SERVER_URL);
-    wsRef.current = ws;
-    
-    ws.onopen = () => {
-      console.log('[WebRTC] WebSocket connected to signaling server.');
-      onOpenAction();
-    };
-    ws.onclose = () => {
-      console.log(`[WebRTC] WebSocket disconnected.`);
-      if (state.isConnected || state.isConnecting) {
-        disconnect();
-      }
-    };
-    ws.onerror = (err) => {
-      console.error('[WebRTC] WebSocket signaling error:', err);
-      setState(prev => ({...prev, error: "Signaling server connection failed.", isConnecting: false}));
-    };
-    ws.onmessage = handleSignalingMessage;
+    try {
+        const ws = new WebSocket(SIGNALING_SERVER_URL);
+        wsRef.current = ws;
+        
+        ws.onopen = () => {
+          console.log('[WebRTC] WebSocket connected to signaling server.');
+          onOpenAction();
+        };
+        ws.onclose = () => {
+          console.log(`[WebRTC] WebSocket disconnected.`);
+          if (state.isConnected || state.isConnecting) {
+            disconnect();
+          }
+        };
+        ws.onerror = (err) => {
+          console.error('[WebRTC] WebSocket signaling error:', err);
+          setState(prev => ({...prev, error: "Signaling server connection failed.", isConnecting: false}));
+        };
+        ws.onmessage = handleSignalingMessage;
+    } catch (error) {
+        console.error('[WebRTC] Failed to create WebSocket:', error);
+        setState(prev => ({...prev, error: 'Failed to establish signaling connection.', isConnecting: false}));
+    }
 
   }, [disconnect, handleSignalingMessage, state.isConnected, state.isConnecting]);
 
@@ -387,3 +393,5 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
+
+    
