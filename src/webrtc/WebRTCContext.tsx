@@ -36,10 +36,11 @@ const getSignalingServerUrl = () => {
     if (typeof window === 'undefined') {
       return '';
     }
+    // The signaling server is hosted on the same domain, but on port 8080.
+    // We construct the URL by taking the current hostname and replacing the port.
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // The signaling server is hosted on the same domain, but on port 8080
-    // We construct the URL dynamically based on the current window location.
-    const wsUrl = `${wsProtocol}//${window.location.hostname}:8080`;
+    const currentHost = window.location.hostname;
+    const wsUrl = `${wsProtocol}//${currentHost}:8080`;
     console.log(`[WebRTC] Constructed Signaling Server URL: ${wsUrl}`);
     return wsUrl;
 };
