@@ -36,12 +36,14 @@ const getSignalingServerUrl = () => {
     if (typeof window === 'undefined') {
       return '';
     }
-    // Construct the URL from the page's origin to handle proxies and environments correctly.
-    const url = new URL(window.location.origin);
-    url.protocol = url.protocol.replace('http', 'ws'); // Change http to ws or https to wss
-    url.port = '8080'; // The signaling server is always on port 8080
-    console.log(`[WebRTC] Constructed Signaling Server URL: ${url.href}`);
-    return url.href;
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Use window.location.hostname to avoid including the client port,
+    // which may be different from the signaling server port in some dev environments.
+    const hostname = window.location.hostname;
+    const port = '8080';
+    const url = `${protocol}//${hostname}:${port}`;
+    console.log(`[WebRTC] Constructed Signaling Server URL: ${url}`);
+    return url;
 };
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
@@ -393,5 +395,3 @@ export const useWebRTC = (): WebRTCContextType => {
   }
   return context;
 };
-
-    
