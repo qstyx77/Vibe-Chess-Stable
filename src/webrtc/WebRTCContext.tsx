@@ -37,8 +37,6 @@ const getSignalingServerUrl = () => {
       return '';
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    // Use window.location.hostname to avoid including the client port,
-    // which may be different from the signaling server port in some dev environments.
     const hostname = window.location.hostname;
     const port = '8080';
     const url = `${protocol}//${hostname}:${port}`;
@@ -198,6 +196,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         switch(data.type) {
             case 'room-created':
                 setState(prev => ({ ...prev, roomId: data.roomId, isCreator: true, isConnecting: false, error: null }));
+                createPeerConnection(data.roomId); // Create PC when room is created
                 return; // End processing here
             case 'room-joined':
                 setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false, error: null, isConnecting: false }));
@@ -208,7 +207,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         }
 
         // For all other messages, a PeerConnection is required. Create it if it doesn't exist.
-        if (!pcRef.current && (data.type === 'offer' || data.type === 'peer-joined')) {
+        if (!pcRef.current) {
             createPeerConnection(currentRoomId);
         }
 

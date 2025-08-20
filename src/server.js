@@ -67,7 +67,7 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId } = data;
+        const { type, payload, roomId } = data;
         
         switch (type) {
             case 'create-room':
@@ -91,15 +91,21 @@ wss.on('connection', ws => {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
-
-            default:
-                const currentRoomId = clientToRoom.get(ws);
-                if (currentRoomId) {
-                  console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
-                  broadcastToRoom(currentRoomId, messageStr, ws);
+            
+            case 'offer':
+            case 'answer':
+            case 'candidate':
+                const targetRoomId = clientToRoom.get(ws);
+                if (targetRoomId) {
+                  console.log(`[Server] Relaying message type '${type}' to peer in room ${targetRoomId}.`);
+                  broadcastToRoom(targetRoomId, messageStr, ws);
                 } else {
                   console.error(`[Server] Cannot relay message. Client not in a room.`);
                 }
+                break;
+
+            default:
+                console.warn(`[Server] Unhandled message type: ${type}`);
                 break;
         }
     });
