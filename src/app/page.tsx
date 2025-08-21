@@ -2890,14 +2890,14 @@ export default function EvolvingChessPage() {
             <Button
               variant="outline"
               onClick={async () => {
-                if (webRTC.roomId) {
+                if (webRTC.roomId || webRTC.isConnecting) {
                   webRTC.disconnect();
                 } else {
                   await webRTC.createRoom();
                   setLocalPlayerColor('white');
                 }
               }}
-              disabled={webRTC.isConnecting || (isWhiteAI || isBlackAI)}
+              disabled={(webRTC.isConnecting && !webRTC.roomId) || (isWhiteAI || isBlackAI)}
               className="h-8 px-2 text-sm font-medium"
               aria-label={webRTC.roomId ? "Disconnect or Cancel" : "Create Online Game"}
             >

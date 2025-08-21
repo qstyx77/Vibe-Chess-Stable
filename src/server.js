@@ -4,7 +4,6 @@ const http = require('http');
 
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
-    // Basic health check for the server itself
     if (url.pathname === '/healthz') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('OK');
@@ -16,19 +15,18 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-// Map from a roomId to an array of ws clients in that room.
 const rooms = {};
-// Map from a ws client to the roomId it's in.
 const clientToRoom = new Map();
 
-const broadcastToRoom = (roomId, message, sender) => {
+const sendToPeer = (roomId, message, sender) => {
   const clients = rooms[roomId];
-  if (clients) {
-    clients.forEach(client => {
-      if (client !== sender && client.readyState === WebSocket.OPEN) {
-        client.send(message);
-      }
-    });
+  if (clients && clients.length === 2) {
+    const peer = clients.find(client => client !== sender);
+    if (peer && peer.readyState === WebSocket.OPEN) {
+      peer.send(message);
+    } else {
+        console.log(`[Server] Peer not found or not open in room ${roomId}.`);
+    }
   }
 };
 
@@ -43,14 +41,13 @@ const leaveRoom = (ws) => {
     if (!room) return;
 
     const remainingClients = room.filter(client => client !== ws);
-    if (remainingClients.length === 0) {
+    if (remainingClients.length > 0) {
+        rooms[roomId] = remainingClients;
+        sendToPeer(roomId, JSON.stringify({ type: 'peer-disconnected' }), ws);
+        console.log(`[Server] Notified remaining peer in room ${roomId} of disconnection.`);
+    } else {
         console.log(`[Server] Room ${roomId} is empty, deleting.`);
         delete rooms[roomId];
-    } else {
-        rooms[roomId] = remainingClients;
-        // Notify remaining peers that the other has disconnected
-        broadcastToRoom(roomId, JSON.stringify({ type: 'peer-disconnected' }), ws);
-        console.log(`[Server] Notified remaining peers in room ${roomId} of disconnection.`);
     }
 };
 
@@ -67,11 +64,12 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId, payload } = data;
-        
+        const { type, roomId } = data;
+        const currentRoomId = clientToRoom.get(ws);
+
         switch (type) {
             case 'create-room':
-                leaveRoom(ws); 
+                if (currentRoomId) leaveRoom(ws);
                 const newRoomId = Math.random().toString(36).substring(2, 9);
                 rooms[newRoomId] = [ws];
                 clientToRoom.set(ws, newRoomId);
@@ -81,11 +79,11 @@ wss.on('connection', ws => {
             
             case 'join-room':
                 if (rooms[roomId] && rooms[roomId].length < 2) {
-                    leaveRoom(ws); 
+                    if (currentRoomId) leaveRoom(ws);
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
-                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
+                    sendToPeer(roomId, JSON.stringify({ type: 'peer-joined' }), ws);
                     console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
@@ -95,17 +93,13 @@ wss.on('connection', ws => {
             case 'offer':
             case 'answer':
             case 'candidate':
-                 const currentRoomIdForRelay = clientToRoom.get(ws);
-                 if (currentRoomIdForRelay) {
-                   console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomIdForRelay}.`);
-                   broadcastToRoom(currentRoomIdForRelay, messageStr, ws);
-                 } else if (roomId) { // Fallback for joiner before map is set
-                   console.log(`[Server] Relaying message type '${type}' to peer in room ${roomId} (using provided roomId).`);
-                   broadcastToRoom(roomId, messageStr, ws);
-                 } else {
-                   console.error(`[Server] Cannot relay message. Client not in a room and no roomId provided.`);
-                 }
-                 break;
+            case 'game-move':
+                if (currentRoomId) {
+                  sendToPeer(currentRoomId, messageStr, ws);
+                } else {
+                  console.error(`[Server] Cannot relay '${type}'. Client not in a room.`);
+                }
+                break;
 
             default:
                 console.warn(`[Server] Received unhandled message type: ${type}`);
