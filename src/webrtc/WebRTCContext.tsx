@@ -192,21 +192,24 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
         
         console.log(`[WebRTC] [RECV] Received message type '${data.type}' from signaling server for room '${currentRoomId}'.`);
         
-        // Handle messages that don't require a PeerConnection first
         switch(data.type) {
             case 'room-created':
                 setState(prev => ({ ...prev, roomId: data.roomId, isCreator: true, isConnecting: false, error: null }));
-                createPeerConnection(data.roomId); // Create PC when room is created
-                return; // End processing here
+                createPeerConnection(data.roomId);
+                return;
             case 'room-joined':
-                setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false, error: null, isConnecting: false }));
-                return; // End processing here
+                 setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false, error: null, isConnecting: false }));
+                return;
             case 'error':
                 setState(prev => ({ ...prev, error: `Signaling error: ${data.message}`, isConnecting: false }));
-                return; // End processing here
+                disconnect();
+                return;
+            case 'peer-disconnected':
+                setState(prev => ({ ...prev, error: "Opponent has disconnected."}));
+                disconnect();
+                return;
         }
 
-        // For all other messages, a PeerConnection is required. Create it if it doesn't exist.
         if (!pcRef.current) {
             createPeerConnection(currentRoomId);
         }
@@ -247,7 +250,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
                 console.log('[WebRTC] [ANSWER] Remote description set from offer.');
                 
-                await processCandidateQueue(); // Process any candidates that arrived early
+                await processCandidateQueue();
 
                 console.log('[WebRTC] [ANSWER] Creating answer...');
                 const answer = await pc.createAnswer();
@@ -264,7 +267,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                     console.log('[WebRTC] [OFFER] Setting remote description from answer...');
                     await pc.setRemoteDescription(new RTCSessionDescription(data.payload));
                     console.log('[WebRTC] [OFFER] Remote description set from answer.');
-                    await processCandidateQueue(); // Process candidates now that we have the answer
+                    await processCandidateQueue();
                  }
                 break;
             case 'candidate':
@@ -276,10 +279,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                      console.log('[WebRTC] [CANDIDATE] Remote description not set. Queuing candidate.');
                      candidateQueueRef.current.push(candidate);
                  }
-                break;
-            case 'peer-disconnected':
-                setState(prev => ({ ...prev, error: "Opponent has disconnected."}));
-                disconnect();
                 break;
         }
     } catch (e) {
