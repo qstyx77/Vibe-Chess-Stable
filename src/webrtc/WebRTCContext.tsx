@@ -37,11 +37,7 @@ const getSignalingServerUrl = () => {
       return '';
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const hostname = window.location.hostname;
-    const port = '8080';
-    const url = `${protocol}//${hostname}:${port}`;
-    console.log(`[WebRTC] Constructed Signaling Server URL: ${url}`);
-    return url;
+    return `${protocol}//${window.location.hostname}:8080`;
 };
 
 export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
@@ -188,7 +184,8 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
         const data = JSON.parse(messageStr);
-        const currentRoomId = state.roomId || data.roomId;
+        // Use a ref to get the most current roomId, avoiding stale state in closure
+        const currentRoomId = wsRef.current?.url.split('roomId=')[1] || state.roomId || data.roomId;
         
         console.log(`[WebRTC] [RECV] Received message type '${data.type}' from signaling server for room '${currentRoomId}'.`);
         
@@ -199,6 +196,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 return;
             case 'room-joined':
                  setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false, error: null, isConnecting: false }));
+                 createPeerConnection(data.roomId); // Joiner also needs a peer connection
                 return;
             case 'error':
                 setState(prev => ({ ...prev, error: `Signaling error: ${data.message}`, isConnecting: false }));
@@ -210,7 +208,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
                 return;
         }
 
-        if (!pcRef.current) {
+        if (!pcRef.current && currentRoomId) {
             createPeerConnection(currentRoomId);
         }
 
@@ -286,16 +284,13 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [createPeerConnection, disconnect, setupDataChannelEvents, state.roomId, processCandidateQueue]);
   
-  const connectWebSocket = useCallback((onOpenAction: () => void) => {
+  const connectWebSocket = useCallback((onOpenAction: () => void, roomId?: string) => {
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
-        console.log('[WebRTC] WebSocket already open or connecting. Performing action on open.');
+        console.log('[WebRTC] WebSocket already open or connecting.');
         if (wsRef.current.readyState === WebSocket.OPEN) {
           onOpenAction();
         } else {
-          wsRef.current.onopen = () => {
-            console.log('[WebRTC] WebSocket connected to signaling server (queued action).');
-            onOpenAction();
-          };
+          wsRef.current.addEventListener('open', onOpenAction, { once: true });
         }
         return;
     }
@@ -307,10 +302,13 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       setState(prev => ({...prev, error: "Cannot determine signaling server.", isConnecting: false}));
       return;
     }
+    
+    // Pass room ID in query for stateful server association if needed
+    const url = roomId ? `${SIGNALING_SERVER_URL}?roomId=${roomId}` : SIGNALING_SERVER_URL;
 
-    console.log(`[WebRTC] Attempting to connect to WebSocket signaling server at ${SIGNALING_SERVER_URL}...`);
+    console.log(`[WebRTC] Attempting to connect to WebSocket signaling server at ${url}...`);
     try {
-        const ws = new WebSocket(SIGNALING_SERVER_URL);
+        const ws = new WebSocket(url);
         wsRef.current = ws;
         
         ws.onopen = () => {
@@ -358,7 +356,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
           console.log('[WebRTC] [SEND] Sending join-room message.');
           wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
         }
-    });
+    }, roomIdToJoin);
   }, [connectWebSocket]);
   
   const sendMove = useCallback((move: GameMove) => {

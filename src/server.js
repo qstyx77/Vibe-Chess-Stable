@@ -67,7 +67,7 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId } = data;
+        const { type, roomId, payload } = data;
         
         switch (type) {
             case 'create-room':
@@ -92,14 +92,23 @@ wss.on('connection', ws => {
                 }
                 break;
 
+            case 'offer':
+            case 'answer':
+            case 'candidate':
+                 const currentRoomIdForRelay = clientToRoom.get(ws);
+                 if (currentRoomIdForRelay) {
+                   console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomIdForRelay}.`);
+                   broadcastToRoom(currentRoomIdForRelay, messageStr, ws);
+                 } else if (roomId) { // Fallback for joiner before map is set
+                   console.log(`[Server] Relaying message type '${type}' to peer in room ${roomId} (using provided roomId).`);
+                   broadcastToRoom(roomId, messageStr, ws);
+                 } else {
+                   console.error(`[Server] Cannot relay message. Client not in a room and no roomId provided.`);
+                 }
+                 break;
+
             default:
-                const currentRoomId = clientToRoom.get(ws);
-                if (currentRoomId) {
-                  console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
-                  broadcastToRoom(currentRoomId, messageStr, ws);
-                } else {
-                  console.error(`[Server] Cannot relay message. Client not in a room.`);
-                }
+                console.warn(`[Server] Received unhandled message type: ${type}`);
                 break;
         }
     });
