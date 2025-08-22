@@ -4,6 +4,7 @@ const http = require('http');
 
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
+    // Basic health check for the server itself
     if (url.pathname === '/healthz') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('OK');
@@ -15,18 +16,19 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
+// Map from a roomId to an array of ws clients in that room.
 const rooms = {};
+// Map from a ws client to the roomId it's in.
 const clientToRoom = new Map();
 
-const sendToPeer = (roomId, message, sender) => {
+const broadcastToRoom = (roomId, message, sender) => {
   const clients = rooms[roomId];
-  if (clients && clients.length === 2) {
-    const peer = clients.find(client => client !== sender);
-    if (peer && peer.readyState === WebSocket.OPEN) {
-      peer.send(message);
-    } else {
-        console.log(`[Server] Peer not found or not open in room ${roomId}.`);
-    }
+  if (clients) {
+    clients.forEach(client => {
+      if (client !== sender && client.readyState === WebSocket.OPEN) {
+        client.send(message);
+      }
+    });
   }
 };
 
@@ -41,13 +43,14 @@ const leaveRoom = (ws) => {
     if (!room) return;
 
     const remainingClients = room.filter(client => client !== ws);
-    if (remainingClients.length > 0) {
-        rooms[roomId] = remainingClients;
-        sendToPeer(roomId, JSON.stringify({ type: 'peer-disconnected' }), ws);
-        console.log(`[Server] Notified remaining peer in room ${roomId} of disconnection.`);
-    } else {
+    if (remainingClients.length === 0) {
         console.log(`[Server] Room ${roomId} is empty, deleting.`);
         delete rooms[roomId];
+    } else {
+        rooms[roomId] = remainingClients;
+        // Notify remaining peers that the other has disconnected
+        broadcastToRoom(roomId, JSON.stringify({ type: 'peer-disconnected' }), ws);
+        console.log(`[Server] Notified remaining peers in room ${roomId} of disconnection.`);
     }
 };
 
@@ -65,11 +68,10 @@ wss.on('connection', ws => {
         }
 
         const { type, roomId } = data;
-        const currentRoomId = clientToRoom.get(ws);
-
+        
         switch (type) {
             case 'create-room':
-                if (currentRoomId) leaveRoom(ws);
+                leaveRoom(ws); 
                 const newRoomId = Math.random().toString(36).substring(2, 9);
                 rooms[newRoomId] = [ws];
                 clientToRoom.set(ws, newRoomId);
@@ -79,30 +81,25 @@ wss.on('connection', ws => {
             
             case 'join-room':
                 if (rooms[roomId] && rooms[roomId].length < 2) {
-                    if (currentRoomId) leaveRoom(ws);
+                    leaveRoom(ws); 
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
-                    sendToPeer(roomId, JSON.stringify({ type: 'peer-joined' }), ws);
+                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
                     console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
 
-            case 'offer':
-            case 'answer':
-            case 'candidate':
-            case 'game-move':
-                if (currentRoomId) {
-                  sendToPeer(currentRoomId, messageStr, ws);
-                } else {
-                  console.error(`[Server] Cannot relay '${type}'. Client not in a room.`);
-                }
-                break;
-
             default:
-                console.warn(`[Server] Received unhandled message type: ${type}`);
+                const currentRoomId = clientToRoom.get(ws);
+                if (currentRoomId) {
+                  // This is a generic relay for WebRTC signaling (offer, answer, candidate)
+                  broadcastToRoom(currentRoomId, messageStr, ws);
+                } else {
+                  console.error(`[Server] Cannot relay message. Client not in a room.`);
+                }
                 break;
         }
     });

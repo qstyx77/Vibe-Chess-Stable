@@ -474,6 +474,144 @@ export default function EvolvingChessPage() {
     shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn, startOrResetTurnTimer, webRTC
   ]);
 
+  const handleIncomingData = useCallback((data: any) => {
+    console.log("Page received data from WebRTC:", data);
+    switch (data.type) {
+      case 'game-move': {
+        if (currentPlayer === localPlayerColor) {
+          console.warn("WebRTC: Received move but it's local player's turn. Ignoring.");
+          toast({ title: "Move Error", description: "Received opponent's move out of turn.", variant: "destructive" });
+          return;
+        }
+
+        const move = data.payload as Move;
+        const { row: fromR, col: fromC } = algebraicToCoords(move.from);
+        const piece = board[fromR]?.[fromC]?.piece;
+
+        if (!piece || piece.color === localPlayerColor) {
+            console.error("WebRTC: Invalid move received - no piece or wrong color.", move);
+            toast({ title: "Invalid Move", description: "Opponent sent an invalid move.", variant: "destructive"});
+            return;
+        }
+        
+        saveStateToHistory();
+        setLastMoveFrom(move.from);
+        setLastMoveTo(move.to);
+        
+        const { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, isEnPassantCapture, promotedToInfiltrator, infiltrationWin, enPassantTargetSet, shroomConsumed } = applyMove(board, move, enPassantTargetSquare);
+        
+        setBoard(newBoard);
+        setEnPassantTargetSquare(enPassantTargetSet);
+
+        const playerWhoseTurnCompleted = currentPlayer;
+        let opponentCapturedSomething = false;
+
+        if (capturedPiece) {
+          setCapturedPieces(prev => ({
+            ...prev,
+            [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), capturedPiece]
+          }));
+          setLastCapturePlayer(playerWhoseTurnCompleted);
+          opponentCapturedSomething = true;
+        }
+        if (pieceCapturedByAnvil) {
+            setCapturedPieces(prev => ({
+              ...prev,
+              [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), pieceCapturedByAnvil]
+            }));
+            setLastCapturePlayer(playerWhoseTurnCompleted);
+            opponentCapturedSomething = true;
+            toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
+        }
+
+        let newOpponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
+        if (opponentCapturedSomething) {
+            newOpponentKillStreak++;
+            if (!firstBloodAchieved) {
+                setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood(playerWhoseTurnCompleted);
+                toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)} drew first blood!`, duration: 4000});
+            }
+            const opponentStreakMsg = getKillStreakToastMessage(newOpponentKillStreak);
+            if(opponentStreakMsg) {
+                setKillStreakFlashMessage(`OPPONENT: ${opponentStreakMsg}`);
+                setKillStreakFlashMessageKey(k => k + 1);
+            }
+        } else {
+            newOpponentKillStreak = 0;
+        }
+        setKillStreaks(prev => ({ ...prev, [playerWhoseTurnCompleted]: newOpponentKillStreak }));
+
+        let extraTurnForOpponent = false; 
+        
+        if (shroomConsumed) {
+            const movedPieceDataOpp = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
+            if(movedPieceDataOpp) {
+                toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s ${movedPieceDataOpp.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataOpp.level}!`, duration: 3000 });
+            }
+        }
+
+        const opponentOriginalPiece = board[fromR]?.[fromC]?.piece;
+        if (opponentOriginalPiece?.type === 'pawn' && (originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
+            extraTurnForOpponent = true;
+        }
+        if (opponentOriginalPiece?.type === 'commander' && (originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
+            extraTurnForOpponent = true;
+        }
+        if ((capturedPiece || pieceCapturedByAnvil) && newOpponentKillStreak === 6) {
+            extraTurnForOpponent = true;
+        }
+
+        if (!gameInfo.gameOver && !isWhiteAI && !isBlackAI) {
+            startOrResetTurnTimer(extraTurnForOpponent ? playerWhoseTurnCompleted : localPlayerColor!);
+        }
+        processMoveEnd(newBoard, playerWhoseTurnCompleted, extraTurnForOpponent, enPassantTargetSet);
+        toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+        break;
+      }
+      case 'forfeit-timeout':
+        toast({ title: "Game Over!", description: `${getPlayerDisplayName(data.timedOutPlayer)} forfeited due to timeouts. ${getPlayerDisplayName(data.winner)} wins!`, duration: 5000 });
+        setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(data.timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(data.winner)} wins!`, gameOver: true, winner: data.winner }));
+        setActiveTimerPlayer(null);
+        setRemainingTime(null);
+        break;
+      case 'turn-pass-timeout':
+        toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(data.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(data.nextPlayer)}'s turn.`, duration: 3000});
+        setCurrentPlayer(data.nextPlayer);
+        if (data.nextPlayer === localPlayerColor) {
+            startOrResetTurnTimer(localPlayerColor!);
+        } else {
+            setActiveTimerPlayer(null);
+            setRemainingTime(null);
+        }
+        break;
+      case 'resign':
+        const resigningPlayer = data.resigningPlayer;
+        const winner = resigningPlayer === 'white' ? 'black' : 'white';
+        toast({ title: "Opponent Resigned!", description: `${getPlayerDisplayName(resigningPlayer)} has resigned. ${getPlayerDisplayName(winner)} wins!`, duration: 5000 });
+        setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`, gameOver: true, winner: winner }));
+        setActiveTimerPlayer(null);
+        setRemainingTime(null);
+        break;
+    }
+  }, [
+    currentPlayer, localPlayerColor, toast, board, enPassantTargetSquare, saveStateToHistory, 
+    setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, 
+    setLastCapturePlayer, getPlayerDisplayName, setKillStreakFlashMessage, 
+    setKillStreakFlashMessageKey, killStreaks, firstBloodAchieved, getKillStreakToastMessage, 
+    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, gameInfo.gameOver, isWhiteAI, isBlackAI, 
+    startOrResetTurnTimer, processMoveEnd, setKillStreaks, setGameInfo, setCurrentPlayer, 
+    setActiveTimerPlayer, setRemainingTime
+  ]);
+
+  useEffect(() => {
+    webRTC.setOnMoveReceivedCallback(handleIncomingData);
+    return () => {
+        webRTC.setOnMoveReceivedCallback(null);
+    };
+  }, [webRTC, handleIncomingData]);
+
+
   useEffect(() => {
     if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && webRTC.isConnected && !isWhiteAI && !isBlackAI) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); 
@@ -531,151 +669,6 @@ export default function EvolvingChessPage() {
       }
     };
   }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, webRTC, isWhiteAI, isBlackAI, startOrResetTurnTimer]);
-
-  useEffect(() => {
-    const handleIncomingMove = (moveData: any) => {
-        console.log("Page received data from WebRTC:", moveData);
-        if (moveData.type === 'forfeit-timeout') {
-            toast({ title: "Game Over!", description: `${getPlayerDisplayName(moveData.timedOutPlayer)} forfeited due to timeouts. ${getPlayerDisplayName(moveData.winner)} wins!`, duration: 5000 });
-            setGameInfo(prev => ({
-                ...prev,
-                message: `${getPlayerDisplayName(moveData.timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(moveData.winner)} wins!`,
-                gameOver: true,
-                winner: moveData.winner
-            }));
-            setActiveTimerPlayer(null);
-            setRemainingTime(null);
-            return;
-        }
-        if (moveData.type === 'turn-pass-timeout') {
-            toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(moveData.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(moveData.nextPlayer)}'s turn.`, duration: 3000});
-            setCurrentPlayer(moveData.nextPlayer);
-            if (moveData.nextPlayer === localPlayerColor) {
-                startOrResetTurnTimer(localPlayerColor!);
-            } else {
-                setActiveTimerPlayer(null);
-                setRemainingTime(null);
-            }
-            return;
-        }
-        if (moveData.type === 'resign') {
-            const resigningPlayer = moveData.resigningPlayer;
-            const winner = resigningPlayer === 'white' ? 'black' : 'white';
-            toast({ title: "Opponent Resigned!", description: `${getPlayerDisplayName(resigningPlayer)} has resigned. ${getPlayerDisplayName(winner)} wins!`, duration: 5000 });
-            setGameInfo(prev => ({
-                ...prev,
-                message: `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`,
-                gameOver: true,
-                winner: winner
-            }));
-            setActiveTimerPlayer(null);
-            setRemainingTime(null);
-            return;
-        }
-
-
-        const move = moveData as Move;
-
-        if (currentPlayer === localPlayerColor) {
-          console.warn("WebRTC: Received move but it's local player's turn. Ignoring.");
-          toast({ title: "Move Error", description: "Received opponent's move out of turn.", variant: "destructive" });
-          return;
-        }
-
-        const { row: fromR, col: fromC } = algebraicToCoords(move.from);
-        const piece = board[fromR]?.[fromC]?.piece;
-        if (!piece || piece.color === localPlayerColor) {
-            console.error("WebRTC: Invalid move received - no piece or wrong color.", move);
-            toast({ title: "Invalid Move", description: "Opponent sent an invalid move.", variant: "destructive"});
-            return;
-        }
-        
-        saveStateToHistory();
-        setLastMoveFrom(move.from);
-        setLastMoveTo(move.to);
-        
-        const { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, isEnPassantCapture, promotedToInfiltrator, infiltrationWin, enPassantTargetSet, shroomConsumed } = applyMove(board, move, enPassantTargetSquare);
-        
-        setBoard(newBoard);
-        setEnPassantTargetSquare(enPassantTargetSet);
-
-        const playerWhoseTurnCompleted = currentPlayer; // This should be the opponent's color (the actual current player before this move)
-        let opponentCapturedSomething = false;
-
-        if (capturedPiece) {
-          const opponentColor = localPlayerColor === 'white' ? 'black' : 'white'; // This is actually the player who made the move (the opponent)
-          setCapturedPieces(prev => ({
-            ...prev,
-            [opponentColor]: [...(prev[opponentColor] || []), capturedPiece]
-          }));
-           setLastCapturePlayer(opponentColor);
-           opponentCapturedSomething = true;
-        }
-        if (pieceCapturedByAnvil) {
-            const opponentColor = localPlayerColor === 'white' ? 'black' : 'white';
-            setCapturedPieces(prev => ({
-              ...prev,
-              [opponentColor]: [...(prev[opponentColor] || []), pieceCapturedByAnvil]
-            }));
-            setLastCapturePlayer(opponentColor);
-            opponentCapturedSomething = true;
-            toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(opponentColor)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
-        }
-
-        let newOpponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
-        if (opponentCapturedSomething) {
-            newOpponentKillStreak++;
-            if (!firstBloodAchieved) {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(playerWhoseTurnCompleted);
-                toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)} drew first blood!`, duration: 4000});
-            }
-            const opponentStreakMsg = getKillStreakToastMessage(newOpponentKillStreak);
-            if(opponentStreakMsg) {
-                setKillStreakFlashMessage(`OPPONENT: ${opponentStreakMsg}`);
-                setKillStreakFlashMessageKey(k => k + 1);
-            }
-        } else {
-            newOpponentKillStreak = 0;
-        }
-        setKillStreaks(prev => ({ ...prev, [playerWhoseTurnCompleted]: newOpponentKillStreak }));
-
-
-        let extraTurnForOpponent = false; 
-        
-        if (shroomConsumed) {
-             const movedPieceDataOpp = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
-            if(movedPieceDataOpp) {
-                toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s ${movedPieceDataOpp.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataOpp.level}!`, duration: 3000 });
-            }
-        }
-
-        const opponentOriginalPiece = board[fromR]?.[fromC]?.piece;
-        if (opponentOriginalPiece?.type === 'pawn' && (originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
-            extraTurnForOpponent = true;
-        }
-        if (opponentOriginalPiece?.type === 'commander' && (originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
-            extraTurnForOpponent = true;
-        }
-         if ((capturedPiece || pieceCapturedByAnvil) && newOpponentKillStreak === 6) {
-             extraTurnForOpponent = true;
-         }
-
-
-        setCurrentPlayer(extraTurnForOpponent ? playerWhoseTurnCompleted : localPlayerColor!);
-        if (!gameInfo.gameOver && !isWhiteAI && !isBlackAI) {
-             startOrResetTurnTimer(extraTurnForOpponent ? playerWhoseTurnCompleted : localPlayerColor!);
-        }
-        processMoveEnd(newBoard, playerWhoseTurnCompleted, extraTurnForOpponent, enPassantTargetSet);
-        toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
-    };
-
-    webRTC.setOnMoveReceivedCallback(handleIncomingMove);
-    return () => {
-        webRTC.setOnMoveReceivedCallback(null);
-    };
-  }, [webRTC, toast, startOrResetTurnTimer, currentPlayer, isWhiteAI, isBlackAI, setCurrentPlayer, localPlayerColor, board, enPassantTargetSquare, saveStateToHistory, setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, gameInfo.gameOver, setLastCapturePlayer, getPlayerDisplayName, processMoveEnd, killStreaks, firstBloodAchieved, getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, setFirstBloodAchieved, setPlayerWhoGotFirstBlood]);
-
 
   useEffect(() => {
     const initializeAI = async () => {
@@ -857,7 +850,7 @@ export default function EvolvingChessPage() {
         toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
         
         if (webRTC.isConnected) {
-            webRTC.sendMove({ type: 'commander-promo', player: currentPlayer, square: algebraic });
+            webRTC.sendMove({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic } });
         }
 
         const playerWhoActed = playerWhoGotFirstBlood;
@@ -910,7 +903,7 @@ export default function EvolvingChessPage() {
 
         toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 2500 });
         if (webRTC.isConnected) {
-            webRTC.sendMove({ type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic });
+            webRTC.sendMove({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic } });
         }
 
 
@@ -1163,7 +1156,7 @@ export default function EvolvingChessPage() {
         setEnPassantTargetSquare(null);
 
         if (webRTC.isConnected && moveBeingMade) {
-            webRTC.sendMove(moveBeingMade);
+            webRTC.sendMove({ type: 'game-move', payload: moveBeingMade });
         }
 
         setTimeout(() => {
@@ -1430,7 +1423,7 @@ export default function EvolvingChessPage() {
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
 
         if (webRTC.isConnected && moveBeingMade) { 
-            webRTC.sendMove(moveBeingMade);
+            webRTC.sendMove({ type: 'game-move', payload: moveBeingMade });
         }
 
 
@@ -1611,12 +1604,12 @@ export default function EvolvingChessPage() {
     setEnPassantTargetSquare(null);
 
     if (webRTC.isConnected && localPlayerColor === pawnColor) {
-        webRTC.sendMove({
+        webRTC.sendMove({ type: 'game-move', payload: {
             from: lastMoveFrom!,
             to: promotionSquare,
             type: 'promotion',
             promoteTo: pieceType
-        } as Move);
+        } as Move});
     }
 
     setTimeout(() => {
@@ -1919,7 +1912,7 @@ export default function EvolvingChessPage() {
           const { row: knightR_AI, col: knightC_AI } = algebraicToCoords(moveForApplyMoveAI!.from as AlgebraicSquare);
           const selfDestructingKnight_AI = finalBoardStateForAI[knightR_AI]?.[knightC_AI]?.piece;
 
-          const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+          const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? { ...s.item } : null })));
           tempBoardForCheckAI[knightR_AI][knightC_AI].piece = null;
           if (isKingInCheck(tempBoardForCheckAI, currentPlayer, null)) {
               aiErrorOccurredRef.current = true;
@@ -2488,8 +2481,7 @@ export default function EvolvingChessPage() {
       toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 3000});
       setActiveTimerPlayer(null);
       setRemainingTime(null);
-      // Do not disconnect or reset localPlayerColor here yet, let the peer-disconnected or error handle it.
-      return; // Game over, but connection remains until explicit disconnect or server error
+      return;
     }
 
     globalResurrectionIdCounter = 0;
