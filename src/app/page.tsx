@@ -34,7 +34,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag } from 'lucide-react';
 import type { VibeChessAI as VibeChessAIClassType } from '@/lib/vibe-chess-ai';
-import { useWebRTC } from '@/webrtc/WebRTCContext';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -201,10 +200,20 @@ export default function EvolvingChessPage() {
   const { toast } = useToast();
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
 
-  const webRTC = useWebRTC(); 
   const [inputRoomId, setInputRoomId] = useState('');
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
+  const [roomId, setRoomId] = useState<string | null>(null);
+  const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
+  const wsRef = useRef<WebSocket | null>(null);
 
+  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    let name = player.charAt(0).toUpperCase() + player.slice(1);
+    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') name += " (AI)";
+    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') name += " (AI)";
+    if (onlineStatus === 'connected' && player === localPlayerColor) name += " (You)";
+    return name;
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor]);
+  
   useEffect(() => {
     // Clear resurrection highlights for the player whose turn it now is.
     if (resurrectedSquares.length > 0) {
@@ -212,14 +221,6 @@ export default function EvolvingChessPage() {
     }
   }, [currentPlayer]);
 
-  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    let name = player.charAt(0).toUpperCase() + player.slice(1);
-    if (player === 'white' && isWhiteAI && !webRTC.isConnected) name += " (AI)";
-    if (player === 'black' && isBlackAI && !webRTC.isConnected) name += " (AI)";
-    if (webRTC.isConnected && player === localPlayerColor) name += " (You)";
-    return name;
-  }, [isWhiteAI, isBlackAI, webRTC.isConnected, localPlayerColor]);
-  
   const getKillStreakToastMessage = useCallback((streak: number): string | null => {
     if (streak === 1) return "KILL STREAK!";
     if (streak === 2) return "DOUBLE KILL!";
@@ -303,7 +304,7 @@ export default function EvolvingChessPage() {
   ]);
 
   const startOrResetTurnTimer = useCallback((player: PlayerColor) => {
-    if (webRTC.isConnected && !isWhiteAI && !isBlackAI && !gameInfo.gameOver) {
+    if (onlineStatus === 'connected' && !isWhiteAI && !isBlackAI && !gameInfo.gameOver) {
       setActiveTimerPlayer(player);
       setRemainingTime(TURN_DURATION_SECONDS);
     } else {
@@ -314,7 +315,7 @@ export default function EvolvingChessPage() {
         timerIntervalRef.current = null;
       }
     }
-  }, [webRTC.isConnected, isWhiteAI, isBlackAI, gameInfo.gameOver]);
+  }, [onlineStatus, isWhiteAI, isBlackAI, gameInfo.gameOver]);
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
@@ -332,7 +333,12 @@ export default function EvolvingChessPage() {
       toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 2500 });
       setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingExtraTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
       setActiveTimerPlayer(null); setRemainingTime(null); 
-      if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'auto-checkmate', winner: playerTakingExtraTurn });
+      if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'game-over', reason: 'auto-checkmate', winner: playerTakingExtraTurn }));
+        }
+      }
       return;
     }
 
@@ -342,11 +348,16 @@ export default function EvolvingChessPage() {
     if (opponentIsStalemated) {
       setGameInfo(prev => ({ ...prev, message: `Stalemate! It's a draw.`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
       setActiveTimerPlayer(null); setRemainingTime(null); 
-      if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'stalemate', winner: 'draw' });
+      if (onlineStatus === 'connected') {
+         const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'game-over', reason: 'stalemate', winner: 'draw' }));
+        }
+      }
     } else {
       setGameInfo(prev => ({ ...prev, message, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false }));
     }
-  }, [toast, getPlayerDisplayName, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setGameInfo, setCurrentPlayer, webRTC]);
+  }, [toast, getPlayerDisplayName, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setGameInfo, setCurrentPlayer, onlineStatus]);
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, currentEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
@@ -367,7 +378,12 @@ export default function EvolvingChessPage() {
         currentMessage = `Checkmate! ${getPlayerDisplayName(playerWhoseTurnEnded)} wins!`;
         setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: true, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoseTurnEnded }));
         setActiveTimerPlayer(null); setRemainingTime(null); 
-        if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'checkmate', winner: playerWhoseTurnEnded });
+         if (onlineStatus === 'connected') {
+          const ws = wsRef.current;
+          if(ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'game-over', reason: 'checkmate', winner: playerWhoseTurnEnded }));
+          }
+        }
         return;
       } else {
         currentMessage = "Check!";
@@ -378,13 +394,18 @@ export default function EvolvingChessPage() {
         currentMessage = `Stalemate! It's a draw.`;
         setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
         setActiveTimerPlayer(null); setRemainingTime(null); 
-        if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'stalemate', winner: 'draw' });
+         if (onlineStatus === 'connected') {
+          const ws = wsRef.current;
+          if(ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'game-over', reason: 'stalemate', winner: 'draw' }));
+          }
+        }
         return;
       }
     }
      setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: inCheck, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: false, isStalemate: false, gameOver: false }));
 
-  }, [getPlayerDisplayName, setGameInfo, setCurrentPlayer, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, webRTC]);
+  }, [getPlayerDisplayName, setGameInfo, setCurrentPlayer, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, onlineStatus]);
 
   const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, finalEnPassantTarget: AlgebraicSquare | null) => {
     let currentBoardState = boardForNextStep;
@@ -431,18 +452,23 @@ export default function EvolvingChessPage() {
         winner: 'draw',
       }));
       setActiveTimerPlayer(null); setRemainingTime(null); 
-      if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'threefold-repetition', winner: 'draw' });
+      if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'game-over', reason: 'threefold-repetition', winner: 'draw' }));
+        }
+      }
       return;
     }
 
-    const playerIsAI = (playerWhoseTurnCompleted === 'white' && isWhiteAI && !webRTC.isConnected) || (playerWhoseTurnCompleted === 'black' && isBlackAI && !webRTC.isConnected);
+    const playerIsAI = (playerWhoseTurnCompleted === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (playerWhoseTurnCompleted === 'black' && isBlackAI && onlineStatus === 'disconnected');
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === playerWhoseTurnCompleted && playerIsAI) {
         setIsAwaitingCommanderPromotion(false);
     }
 
     const nextPlayerActual = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
 
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === nextPlayerActual && !((nextPlayerActual === 'white' && isWhiteAI && !webRTC.isConnected) || (nextPlayerActual === 'black' && isBlackAI && !webRTC.isConnected))) {
+    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === nextPlayerActual && !((nextPlayerActual === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (nextPlayerActual === 'black' && isBlackAI && onlineStatus === 'disconnected'))) {
       setCurrentPlayer(nextPlayerActual);
       setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(nextPlayerActual)}: Select L1 Pawn for Commander!`}));
       setSelectedSquare(null);
@@ -460,10 +486,10 @@ export default function EvolvingChessPage() {
 
     if (isExtraTurn) {
       setGameInfoBasedOnExtraTurn(currentBoardState, playerWhoseTurnCompleted);
-      if (!gameInfo.gameOver && webRTC.isConnected && !isWhiteAI && !isBlackAI) startOrResetTurnTimer(playerWhoseTurnCompleted);
+      if (!gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer(playerWhoseTurnCompleted);
     } else {
       completeTurn(currentBoardState, playerWhoseTurnCompleted, finalEnPassantTarget);
-      if (!gameInfo.gameOver && webRTC.isConnected && !isWhiteAI && !isBlackAI) startOrResetTurnTimer(nextPlayerActual);
+      if (!gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer(nextPlayerActual);
     }
   }, [
     positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver,
@@ -471,15 +497,13 @@ export default function EvolvingChessPage() {
     boardToPositionHash, gameMoveCounter, setBoard, isAwaitingCommanderPromotion, playerWhoGotFirstBlood,
     getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn, startOrResetTurnTimer, webRTC
+    shroomSpawnCounter, nextShroomSpawnTurn, setShroomSpawnCounter, setNextShroomSpawnTurn, startOrResetTurnTimer, onlineStatus
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-    console.log("Page received data from WebRTC:", data);
     switch (data.type) {
       case 'game-move': {
         if (currentPlayer === localPlayerColor) {
-          console.warn("WebRTC: Received move but it's local player's turn. Ignoring.");
           toast({ title: "Move Error", description: "Received opponent's move out of turn.", variant: "destructive" });
           return;
         }
@@ -489,7 +513,6 @@ export default function EvolvingChessPage() {
         const piece = board[fromR]?.[fromC]?.piece;
 
         if (!piece || piece.color === localPlayerColor) {
-            console.error("WebRTC: Invalid move received - no piece or wrong color.", move);
             toast({ title: "Invalid Move", description: "Opponent sent an invalid move.", variant: "destructive"});
             return;
         }
@@ -604,16 +627,9 @@ export default function EvolvingChessPage() {
     setActiveTimerPlayer, setRemainingTime
   ]);
 
-  useEffect(() => {
-    webRTC.setOnMoveReceivedCallback(handleIncomingData);
-    return () => {
-        webRTC.setOnMoveReceivedCallback(null);
-    };
-  }, [webRTC, handleIncomingData]);
-
 
   useEffect(() => {
-    if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && webRTC.isConnected && !isWhiteAI && !isBlackAI) {
+    if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current); 
       timerIntervalRef.current = setInterval(() => {
         setRemainingTime(prevTime => {
@@ -638,16 +654,22 @@ export default function EvolvingChessPage() {
                   gameOver: true,
                   winner: winner
                 }));
-                 if (webRTC.isConnected) {
-                    webRTC.sendMove({ type: 'forfeit-timeout', winner: winner, timedOutPlayer: timedOutPlayer });
+                 if (onlineStatus === 'connected') {
+                    const ws = wsRef.current;
+                    if(ws && ws.readyState === WebSocket.OPEN) {
+                      ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: winner, timedOutPlayer: timedOutPlayer }));
+                    }
                  }
               } else {
                 const nextPlayerAfterTimeout = timedOutPlayer === 'white' ? 'black' : 'white';
                 setCurrentPlayer(nextPlayerAfterTimeout);
                 setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(nextPlayerAfterTimeout)}'s turn.` }));
                 startOrResetTurnTimer(nextPlayerAfterTimeout);
-                 if (webRTC.isConnected) {
-                    webRTC.sendMove({ type: 'turn-pass-timeout', nextPlayer: nextPlayerAfterTimeout, timedOutPlayer: timedOutPlayer });
+                 if (onlineStatus === 'connected') {
+                    const ws = wsRef.current;
+                    if(ws && ws.readyState === WebSocket.OPEN) {
+                      ws.send(JSON.stringify({ type: 'turn-pass-timeout', nextPlayer: nextPlayerAfterTimeout, timedOutPlayer: timedOutPlayer }));
+                    }
                  }
               }
             }
@@ -668,7 +690,7 @@ export default function EvolvingChessPage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, webRTC, isWhiteAI, isBlackAI, startOrResetTurnTimer]);
+  }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, onlineStatus, isWhiteAI, isBlackAI, startOrResetTurnTimer]);
 
   useEffect(() => {
     const initializeAI = async () => {
@@ -699,17 +721,17 @@ export default function EvolvingChessPage() {
 
 
   const determineBoardOrientation = useCallback((): PlayerColor => {
-    if (isWhiteAI && isBlackAI && !webRTC.isConnected) return 'white';
-    if (isWhiteAI && !isBlackAI && !webRTC.isConnected) return 'black';
-    if (!isWhiteAI && isBlackAI && !webRTC.isConnected) return 'white';
+    if (isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
+    if (isWhiteAI && !isBlackAI && onlineStatus === 'disconnected') return 'black';
+    if (!isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
 
-    if (webRTC.isConnected || webRTC.peerPresent) {
+    if (onlineStatus === 'connected') {
         return localPlayerColor || 'white';
     }
 
     if (viewMode === 'flipping') return currentPlayer;
     return 'white';
-  }, [isWhiteAI, isBlackAI, webRTC.isConnected, webRTC.peerPresent, localPlayerColor, viewMode, currentPlayer]);
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, viewMode, currentPlayer]);
 
   useEffect(() => {
     setBoardOrientation(determineBoardOrientation());
@@ -763,7 +785,7 @@ export default function EvolvingChessPage() {
       }
 
       if (hasPawnsToSacrifice) {
-        const isCurrentPlayerAI = (playerWhoseQueenLeveled === 'white' && isWhiteAI && !webRTC.isConnected) || (playerWhoseQueenLeveled === 'black' && isBlackAI && !webRTC.isConnected);
+        const isCurrentPlayerAI = (playerWhoseQueenLeveled === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (playerWhoseQueenLeveled === 'black' && isBlackAI && onlineStatus === 'disconnected');
         if (isCurrentPlayerAI) {
           let pawnSacrificed = false;
           const boardCopyForAISacrifice = boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
@@ -806,7 +828,7 @@ export default function EvolvingChessPage() {
     }
     processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, currentEnPassantTarget);
     return false;
-  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, algebraicToCoords, setActiveTimerPlayer, setRemainingTime, webRTC.isConnected]);
+  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, algebraicToCoords, setActiveTimerPlayer, setRemainingTime, onlineStatus]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -817,7 +839,7 @@ export default function EvolvingChessPage() {
 
     let humanPlayerAchievedFirstBloodThisTurn = false;
 
-    if (webRTC.isConnected && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) ) {
+    if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) ) {
         toast({ title: "Not Your Turn", description: "Wait for your opponent to move.", duration: 2000 });
         return;
     }
@@ -828,7 +850,7 @@ export default function EvolvingChessPage() {
       }
     }
 
-    if (webRTC.isConnected && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
+    if (onlineStatus === 'connected' && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
@@ -849,8 +871,11 @@ export default function EvolvingChessPage() {
         setBoard(boardAfterCommanderPromo);
         toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
         
-        if (webRTC.isConnected) {
-            webRTC.sendMove({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic } });
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic } }));
+            }
         }
 
         const playerWhoActed = playerWhoGotFirstBlood;
@@ -902,8 +927,11 @@ export default function EvolvingChessPage() {
         });
 
         toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 2500 });
-        if (webRTC.isConnected) {
-            webRTC.sendMove({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic } });
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic } }));
+            }
         }
 
 
@@ -1090,7 +1118,7 @@ export default function EvolvingChessPage() {
         }
 
         if (selfDestructCapturedSomething && !firstBloodAchieved) {
-            const isCurrentPlayerHuman = !((selfDestructPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (selfDestructPlayer === 'black' && isBlackAI && !webRTC.isConnected));
+            const isCurrentPlayerHuman = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
             if (isCurrentPlayerHuman) {
                 humanPlayerAchievedFirstBloodThisTurn = true;
                  setFirstBloodAchieved(true);
@@ -1155,8 +1183,11 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
         setEnPassantTargetSquare(null);
 
-        if (webRTC.isConnected && moveBeingMade) {
-            webRTC.sendMove({ type: 'game-move', payload: moveBeingMade });
+        if (onlineStatus === 'connected' && moveBeingMade) {
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+            }
         }
 
         setTimeout(() => {
@@ -1205,7 +1236,12 @@ export default function EvolvingChessPage() {
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
           setIsMoveProcessing(false); setAnimatedSquareTo(null);
           setActiveTimerPlayer(null); setRemainingTime(null); 
-           if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'infiltration', winner: currentPlayer });
+           if (onlineStatus === 'connected') {
+             const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'game-over', reason: 'infiltration', winner: currentPlayer }));
+            }
+           }
           return;
         }
 
@@ -1259,7 +1295,12 @@ export default function EvolvingChessPage() {
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
           setActiveTimerPlayer(null); setRemainingTime(null); 
-          if (webRTC.isConnected) webRTC.sendMove({ type: 'game-over', reason: 'self-check', winner: opponentPlayer, byPlayer: currentPlayer });
+          if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'game-over', reason: 'self-check', winner: opponentPlayer, byPlayer: currentPlayer }));
+            }
+          }
           return;
         }
 
@@ -1311,7 +1352,7 @@ export default function EvolvingChessPage() {
         }
 
         if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
-            const isCurrentPlayerHuman = !((capturingPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (capturingPlayer === 'black' && isBlackAI && !webRTC.isConnected));
+            const isCurrentPlayerHuman = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
             if (isCurrentPlayerHuman) {
                 humanPlayerAchievedFirstBloodThisTurn = true;
                 setFirstBloodAchieved(true);
@@ -1422,8 +1463,11 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
 
-        if (webRTC.isConnected && moveBeingMade) { 
-            webRTC.sendMove({ type: 'game-move', payload: moveBeingMade });
+        if (onlineStatus === 'connected' && moveBeingMade) { 
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+            }
         }
 
 
@@ -1550,14 +1594,14 @@ export default function EvolvingChessPage() {
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     setEnPassantTargetSquare,
-    webRTC, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime, localPlayerColor, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
+    onlineStatus, activeTimerPlayer, setActiveTimerPlayer, setRemainingTime, localPlayerColor, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
     setResurrectedSquares
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion ) return;
 
-    if (webRTC.isConnected && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
+    if (onlineStatus === 'connected' && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
@@ -1603,13 +1647,16 @@ export default function EvolvingChessPage() {
     setBoard(boardToUpdate);
     setEnPassantTargetSquare(null);
 
-    if (webRTC.isConnected && localPlayerColor === pawnColor) {
-        webRTC.sendMove({ type: 'game-move', payload: {
-            from: lastMoveFrom!,
-            to: promotionSquare,
-            type: 'promotion',
-            promoteTo: pieceType
-        } as Move});
+    if (onlineStatus === 'connected' && localPlayerColor === pawnColor) {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'game-move', payload: {
+              from: lastMoveFrom!,
+              to: promotionSquare,
+              type: 'promotion',
+              promoteTo: pieceType
+          } as Move}));
+        }
     }
 
     setTimeout(() => {
@@ -1692,7 +1739,7 @@ export default function EvolvingChessPage() {
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, historyStack, enPassantTargetSquare, setEnPassantTargetSquare,
-    webRTC, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
+    onlineStatus, activeTimerPlayer, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
     setResurrectedSquares
   ]);
 
@@ -2347,19 +2394,19 @@ export default function EvolvingChessPage() {
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, webRTC.isConnected, setResurrectedSquares,
+    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares,
   ]);
 
 
   useEffect(() => {
     const currentAiInstance = aiInstanceRef.current;
-    const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected);
+    const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
     if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && currentAiInstance) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, webRTC.isConnected]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -2468,22 +2515,7 @@ export default function EvolvingChessPage() {
   }, [showCheckmatePatternFlash, checkmatePatternFlashKey]);
 
 
-  const resetGame = useCallback(() => {
-    if (webRTC.isConnected && localPlayerColor) {
-      const opponent = localPlayerColor === 'white' ? 'black' : 'white';
-      webRTC.sendMove({ type: 'resign', resigningPlayer: localPlayerColor });
-      setGameInfo(prev => ({
-        ...prev,
-        message: `${getPlayerDisplayName(localPlayerColor)} resigned. ${getPlayerDisplayName(opponent)} wins!`,
-        gameOver: true,
-        winner: opponent,
-      }));
-      toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 3000});
-      setActiveTimerPlayer(null);
-      setRemainingTime(null);
-      return;
-    }
-
+  const fullGameReset = useCallback(() => {
     globalResurrectionIdCounter = 0;
     const initialBoardState = initializeBoard();
     setBoard(initialBoardState);
@@ -2564,19 +2596,131 @@ export default function EvolvingChessPage() {
     setTurnTimeouts({ white: 0, black: 0 });
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     timerIntervalRef.current = null;
+    
     setLocalPlayerColor(null);
+    setRoomId(null);
+    setOnlineStatus('disconnected');
+
     setResurrectedSquares([]);
     setPieceForInfoDisplay(null);
+  }, [determineBoardOrientation, getCastlingRightsString, boardToPositionHash]);
 
-
-    toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
-    if (webRTC.isConnected) {
-      webRTC.disconnect();
+  const disconnectAndReset = useCallback(() => {
+    if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
     }
-  }, [toast, determineBoardOrientation, getCastlingRightsString, boardToPositionHash, webRTC, localPlayerColor, getPlayerDisplayName]);
+    fullGameReset();
+    toast({ title: "Disconnected", description: "You have left the online game." });
+  }, [fullGameReset, toast]);
+
+  const resetGame = useCallback(() => {
+    if (onlineStatus === 'connected') {
+      const opponent = localPlayerColor === 'white' ? 'black' : 'white';
+      
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor }));
+      }
+      
+      setGameInfo(prev => ({
+        ...prev,
+        message: `${getPlayerDisplayName(localPlayerColor!)} resigned. ${getPlayerDisplayName(opponent)} wins!`,
+        gameOver: true,
+        winner: opponent,
+      }));
+      toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 3000});
+      setActiveTimerPlayer(null);
+      setRemainingTime(null);
+      return;
+    }
+    fullGameReset();
+    toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
+  }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset]);
+
+  useEffect(() => {
+    const ws = wsRef.current;
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, []);
+
+  const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
+    if (onlineStatus !== 'disconnected') {
+      disconnectAndReset();
+      return;
+    }
+    setOnlineStatus('connecting');
+
+    const getWebSocketUrl = () => `wss://${window.location.host.replace(/:\d+$/, '')}:8080`;
+    const ws = new WebSocket(getWebSocketUrl());
+    
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (action === 'create') {
+        ws.send(JSON.stringify({ type: 'create-room' }));
+      } else if (action === 'join' && id) {
+        ws.send(JSON.stringify({ type: 'join-room', roomId: id }));
+      }
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      switch(data.type) {
+        case 'room-created':
+          setRoomId(data.roomId);
+          setLocalPlayerColor('white');
+          setOnlineStatus('waiting');
+          toast({title: "Room Created!", description: `Share Room ID: ${data.roomId}`});
+          break;
+        case 'player-joined':
+          setOnlineStatus('connected');
+          toast({title: "Player Joined!", description: "Your game is starting."});
+          break;
+        case 'room-joined':
+          setRoomId(data.roomId);
+          setLocalPlayerColor('black');
+          setOnlineStatus('connected');
+          toast({title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`});
+          break;
+        case 'game-move':
+          handleIncomingData(data);
+          break;
+        case 'opponent-disconnected':
+          toast({title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000});
+          setGameInfo(prev => ({...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!"}));
+          disconnectAndReset();
+          break;
+        case 'error':
+          toast({ title: "Connection Error", description: data.message, variant: 'destructive'});
+          setOnlineStatus('disconnected');
+          wsRef.current = null;
+          break;
+        default:
+          handleIncomingData(data); // Also handle resign, timeout etc
+          break;
+      }
+    };
+
+    ws.onerror = () => {
+      toast({ title: "Connection Error", description: "Could not connect to the game server.", variant: 'destructive'});
+      setOnlineStatus('disconnected');
+      wsRef.current = null;
+    };
+
+    ws.onclose = () => {
+      if (onlineStatus !== 'disconnected') {
+          disconnectAndReset();
+      }
+    };
+  }, [onlineStatus, toast, disconnectAndReset, handleIncomingData, localPlayerColor]);
+
 
   const handleUndo = useCallback(() => {
-    if (webRTC.isConnected || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingCommanderPromotion) {
+    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingCommanderPromotion) {
       toast({ title: "Undo Failed", description: "Cannot undo during AI turn, processing, or pending actions. Undo is disabled in online games.", duration: 2500 });
       return;
     }
@@ -2716,7 +2860,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
-    setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, webRTC.isConnected, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
+    setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
     setResurrectedSquares,
   ]);
 
@@ -2732,8 +2876,8 @@ export default function EvolvingChessPage() {
 
 
   const handleToggleWhiteAI = useCallback(() => {
-    if ((isAiThinking && currentPlayer === 'white') || isMoveProcessing || webRTC.isConnected || webRTC.peerPresent) {
-      if(webRTC.isConnected || webRTC.peerPresent) toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
+    if ((isAiThinking && currentPlayer === 'white') || isMoveProcessing || onlineStatus !== 'disconnected') {
+      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
       return;
     }
     const newIsWhiteAI = !isWhiteAI;
@@ -2746,11 +2890,11 @@ export default function EvolvingChessPage() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, toast, gameInfo.gameOver, webRTC.isConnected, webRTC.peerPresent]); 
+  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, toast, gameInfo.gameOver, onlineStatus]); 
 
   const handleToggleBlackAI = useCallback(() => {
-     if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing || webRTC.isConnected || webRTC.peerPresent) {
-      if(webRTC.isConnected || webRTC.peerPresent) toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
+     if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing || onlineStatus !== 'disconnected') {
+      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
       return;
     }
     const newIsBlackAI = !isBlackAI;
@@ -2763,40 +2907,28 @@ export default function EvolvingChessPage() {
       if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
       timerIntervalRef.current = null;
     }
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, webRTC.isConnected, webRTC.peerPresent]);
+  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, onlineStatus]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (webRTC.isConnected && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) );
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (onlineStatus === 'connected' && localPlayerColor !== currentPlayer && !((currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected')) );
 
   const getButtonText = () => {
-    if (webRTC.isConnecting) return 'Connecting...';
-    if (webRTC.isConnected) return `Disconnect`;
-    if (webRTC.roomId) {
-      if (webRTC.isCreator) {
-        return `Room: ${webRTC.roomId} (Cancel)`;
-      }
-       return `Joining...`;
-    }
+    if (onlineStatus === 'connecting') return 'Connecting...';
+    if (onlineStatus === 'connected' || onlineStatus === 'waiting') return `Disconnect`;
     return 'Create Online Game';
   };
 
   const getStatusMessage = () => {
-    if (webRTC.error) {
-      return <p className="text-sm font-medium text-destructive">{webRTC.error}</p>;
-    }
-    if (webRTC.isCreator && webRTC.roomId && !webRTC.peerPresent) {
+    if (onlineStatus === 'waiting' && roomId) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
-          Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{webRTC.roomId}</span>
+          Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
         </p>
       );
     }
-    if (webRTC.peerPresent && !webRTC.isConnected && webRTC.isConnecting) {
-       return <p className="text-sm font-medium text-primary mt-2">Opponent found! Establishing secure connection...</p>;
-    }
-    if (webRTC.isConnected && localPlayerColor) {
+    if (onlineStatus === 'connected' && localPlayerColor) {
       return <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>;
     }
-    if (!webRTC.isConnected && webRTC.isConnecting && !webRTC.isCreator && inputRoomId) {
+    if (onlineStatus === 'connecting' && !roomId) {
         return <p className="text-sm font-medium text-primary mt-2">Joining room...</p>;
     }
     return null;
@@ -2843,21 +2975,21 @@ export default function EvolvingChessPage() {
           <div className="flex flex-wrap justify-center items-center gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" aria-label={webRTC.isConnected ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
-                  {webRTC.isConnected ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {webRTC.isConnected ? 'Resign' : 'Reset'}
+                <Button variant="outline" aria-label={onlineStatus !== 'disconnected' ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
+                  {onlineStatus !== 'disconnected' ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {onlineStatus !== 'disconnected' ? 'Resign' : 'Reset'}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {webRTC.isConnected ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
+                    {onlineStatus !== 'disconnected' ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={resetGame}>
-                    {webRTC.isConnected ? 'Yes, Resign' : 'Yes, Reset'}
+                    {onlineStatus !== 'disconnected' ? 'Yes, Resign' : 'Yes, Reset'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
@@ -2865,35 +2997,28 @@ export default function EvolvingChessPage() {
             <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
               <BookOpen className="mr-1" /> Rules
             </Button>
-            <Button variant="outline" onClick={handleUndo} disabled={webRTC.isConnected || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
+            <Button variant="outline" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
               <Undo2 className="mr-1" /> Undo
             </Button>
-            <Button variant="outline" onClick={handleToggleWhiteAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
+            <Button variant="outline" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
               <Bot className="mr-1" /> White AI: {isWhiteAI ? 'On' : 'Off'}
             </Button>
-            <Button variant="outline" onClick={handleToggleBlackAI} disabled={webRTC.isConnected || webRTC.peerPresent || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
+            <Button variant="outline" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
               <Bot className="mr-1" /> Black AI: {isBlackAI ? 'On' : 'Off'}
             </Button>
-              <Button variant="outline" onClick={handleToggleViewMode} disabled={webRTC.isConnected} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
+              <Button variant="outline" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
               <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
             </Button>
           </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
             <Button
               variant="outline"
-              onClick={async () => {
-                if (webRTC.roomId || webRTC.isConnecting) {
-                  webRTC.disconnect();
-                } else {
-                  await webRTC.createRoom();
-                  setLocalPlayerColor('white');
-                }
-              }}
-              disabled={(webRTC.isConnecting && !webRTC.roomId) || (isWhiteAI || isBlackAI)}
+              onClick={() => handleOnlinePlay('create')}
+              disabled={onlineStatus === 'connecting' || (isWhiteAI || isBlackAI)}
               className="h-8 px-2 text-sm font-medium"
-              aria-label={webRTC.roomId ? "Disconnect or Cancel" : "Create Online Game"}
+              aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
             >
-              {webRTC.roomId ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
+              {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
               {getButtonText()}
             </Button>
             <div className="flex gap-1 items-center">
@@ -2903,17 +3028,12 @@ export default function EvolvingChessPage() {
                 value={inputRoomId}
                 onChange={(e) => setInputRoomId(e.target.value)}
                 className="h-8 px-2 text-xs font-medium w-24"
-                disabled={webRTC.isConnecting || !!webRTC.roomId || isWhiteAI || isBlackAI}
+                disabled={onlineStatus !== 'disconnected' || isWhiteAI || isBlackAI}
               />
               <Button
                 variant="outline"
-                onClick={async () => {
-                  if (inputRoomId) {
-                    await webRTC.joinRoom(inputRoomId);
-                    setLocalPlayerColor('black');
-                  }
-                }}
-                disabled={webRTC.isConnecting || !inputRoomId || !!webRTC.roomId || isWhiteAI || isBlackAI}
+                onClick={() => handleOnlinePlay('join', inputRoomId)}
+                disabled={onlineStatus !== 'disconnected' || !inputRoomId || isWhiteAI || isBlackAI}
                 className="h-8 px-2 text-sm font-medium"
                 aria-label="Join Online Game"
               >
@@ -2933,7 +3053,7 @@ export default function EvolvingChessPage() {
             <GameControls
                 currentPlayer={currentPlayer}
                 gameStatusMessage={
-                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && !webRTC.isConnected) || (currentPlayer === 'black' && isBlackAI && !webRTC.isConnected)) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
+                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected')) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
                     isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
                       isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
                         isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
@@ -2943,8 +3063,8 @@ export default function EvolvingChessPage() {
                 isCheck={gameInfo.isCheck}
                 isGameOver={gameInfo.gameOver}
                 killStreaks={killStreaks}
-                isWhiteAI={isWhiteAI && !webRTC.isConnected}
-                isBlackAI={isBlackAI && !webRTC.isConnected}
+                isWhiteAI={isWhiteAI && onlineStatus === 'disconnected'}
+                isBlackAI={isBlackAI && onlineStatus === 'disconnected'}
                 activeTimerPlayer={activeTimerPlayer}
                 remainingTime={remainingTime}
                 turnTimeouts={turnTimeouts}
