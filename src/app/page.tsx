@@ -2676,7 +2676,7 @@ export default function EvolvingChessPage() {
           setOnlineStatus('waiting');
           toast({title: "Room Created!", description: `Share Room ID: ${data.roomId}`});
           break;
-        case 'player-joined':
+        case 'peer-joined':
           setOnlineStatus('connected');
           toast({title: "Player Joined!", description: "Your game is starting."});
           break;
@@ -2689,6 +2689,7 @@ export default function EvolvingChessPage() {
         case 'game-move':
           handleIncomingData(data);
           break;
+        case 'peer-disconnected':
         case 'opponent-disconnected':
           toast({title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000});
           setGameInfo(prev => ({...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!"}));
@@ -2928,8 +2929,8 @@ export default function EvolvingChessPage() {
     if (onlineStatus === 'connected' && localPlayerColor) {
       return <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>;
     }
-    if (onlineStatus === 'connecting' && !roomId) {
-        return <p className="text-sm font-medium text-primary mt-2">Joining room...</p>;
+    if (onlineStatus === 'connecting') {
+        return <p className="text-sm font-medium text-primary mt-2">Connecting...</p>;
     }
     return null;
   };

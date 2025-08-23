@@ -81,7 +81,7 @@ wss.on('connection', ws => {
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
-                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
+                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined' }), ws);
                     console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
