@@ -206,19 +206,6 @@ export default function EvolvingChessPage() {
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
 
-  const determineBoardOrientation = useCallback((): PlayerColor => {
-    if (isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
-    if (isWhiteAI && !isBlackAI && onlineStatus === 'disconnected') return 'black';
-    if (!isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
-
-    if (onlineStatus === 'connected') {
-        return localPlayerColor || 'white';
-    }
-
-    if (viewMode === 'flipping') return currentPlayer;
-    return 'white';
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, viewMode, currentPlayer]);
-
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
     if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') name += " (AI)";
@@ -275,7 +262,7 @@ export default function EvolvingChessPage() {
     setIsAiThinking(false);
     aiErrorOccurredRef.current = false;
 
-    setBoardOrientation(determineBoardOrientation());
+    setBoardOrientation('white');
     setAnimatedSquareTo(null);
     setIsMoveProcessing(false);
 
@@ -315,7 +302,7 @@ export default function EvolvingChessPage() {
 
     setResurrectedSquares([]);
     setPieceForInfoDisplay(null);
-  }, [determineBoardOrientation]);
+  }, []);
 
   const disconnectAndReset = useCallback(() => {
     if (wsRef.current) {
@@ -325,6 +312,20 @@ export default function EvolvingChessPage() {
     fullGameReset();
     toast({ title: "Disconnected", description: "You have left the online game." });
   }, [fullGameReset, toast]);
+
+  const determineBoardOrientation = useCallback((): PlayerColor => {
+    if (isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
+    if (isWhiteAI && !isBlackAI && onlineStatus === 'disconnected') return 'black';
+    if (!isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
+
+    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
+        return localPlayerColor || 'white';
+    }
+
+    if (viewMode === 'flipping') return currentPlayer;
+    return 'white';
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, viewMode, currentPlayer]);
+
 
   useEffect(() => {
     // Clear resurrection highlights for the player whose turn it now is.
@@ -2647,7 +2648,7 @@ export default function EvolvingChessPage() {
   }, [showCheckmatePatternFlash, checkmatePatternFlashKey]);
 
   const resetGame = useCallback(() => {
-    if (onlineStatus === 'connected') {
+    if (onlineStatus === 'connected' && !gameInfo.gameOver) {
       const opponent = localPlayerColor === 'white' ? 'black' : 'white';
       
       const ws = wsRef.current;
@@ -2668,7 +2669,7 @@ export default function EvolvingChessPage() {
     }
     fullGameReset();
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
-  }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset]);
+  }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset, gameInfo.gameOver]);
 
   useEffect(() => {
     const ws = wsRef.current;
@@ -2836,7 +2837,7 @@ export default function EvolvingChessPage() {
 
       setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
       setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnFromPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
 
       setFirstBloodAchieved(stateToRestore.firstBloodAchieved);
       setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
@@ -2949,6 +2950,7 @@ export default function EvolvingChessPage() {
     setPieceForInfoDisplay(piece);
   }, []);
 
+  const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
   return (
     <div className="container mx-auto p-4 flex flex-col">
@@ -2986,21 +2988,21 @@ export default function EvolvingChessPage() {
           <div className="flex flex-wrap justify-center items-center gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" aria-label={onlineStatus !== 'disconnected' ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
-                  {onlineStatus !== 'disconnected' ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {onlineStatus !== 'disconnected' ? 'Resign' : 'Reset'}
+                <Button variant="outline" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
+                  {isOnlineGameInProgress ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    {onlineStatus !== 'disconnected' ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
+                    {isOnlineGameInProgress ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>Cancel</AlertDialogCancel>
                   <AlertDialogAction onClick={resetGame}>
-                    {onlineStatus !== 'disconnected' ? 'Yes, Resign' : 'Yes, Reset'}
+                    {isOnlineGameInProgress ? 'Yes, Resign' : 'Yes, Reset'}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
