@@ -95,7 +95,7 @@ wss.on('connection', ws => {
             default:
                 const currentRoomId = clientToRoom.get(ws);
                 if (currentRoomId) {
-                  // This is a generic relay for WebRTC signaling (offer, answer, candidate)
+                  console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomId}.`);
                   broadcastToRoom(currentRoomId, messageStr, ws);
                 } else {
                   console.error(`[Server] Cannot relay message. Client not in a room.`);

@@ -34,9 +34,10 @@ const ICE_SERVERS = {
 
 const getSignalingServerUrl = () => {
     if (typeof window === 'undefined') {
-      return '';
+        return '';
     }
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    // Construct URL using hostname and explicit port to avoid proxy issues.
     return `${protocol}//${window.location.hostname}:8080`;
 };
 
