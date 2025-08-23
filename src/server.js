@@ -63,7 +63,7 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId } = data;
+        const { type, roomId, payload } = data;
         
         switch (type) {
             case 'create-room':
@@ -81,7 +81,7 @@ wss.on('connection', ws => {
                     rooms[roomId].push(ws);
                     clientToRoom.set(ws, roomId);
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId }));
-                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined', roomId: roomId }), ws);
+                    broadcastToRoom(roomId, JSON.stringify({ type: 'peer-joined' }), ws);
                     console.log(`[Server] Client joined room ${roomId}. Notifying peer.`);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
@@ -94,7 +94,7 @@ wss.on('connection', ws => {
             case 'game-move':
             case 'resign':
             case 'forfeit-timeout':
-            case 'turn-pass-timeout': {
+            case 'turn-pass-timeout':
                  const currentRoomIdForRelay = clientToRoom.get(ws);
                  if (currentRoomIdForRelay) {
                    console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomIdForRelay}.`);
@@ -103,7 +103,7 @@ wss.on('connection', ws => {
                    console.error(`[Server] Cannot relay message. Client not in a room.`);
                  }
                  break;
-            }
+
             default:
                 console.log(`[Server] Received unhandled message type: ${type}`);
                 break;
