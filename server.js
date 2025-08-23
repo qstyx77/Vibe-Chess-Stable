@@ -87,7 +87,8 @@ wss.on('connection', ws => {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
-
+            
+            // These messages are intended to be relayed to the other peer in the room.
             case 'offer':
             case 'answer':
             case 'candidate':
@@ -103,6 +104,7 @@ wss.on('connection', ws => {
                    console.error(`[Server] Cannot relay message. Client not in a room.`);
                  }
                  break;
+
             default:
                 console.log(`[Server] Received unhandled message type: ${type}`);
                 break;
