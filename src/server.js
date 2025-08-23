@@ -46,7 +46,6 @@ wss.on('connection', ws => {
                 ws.roomId = roomId;
                 rooms[roomId] = {
                     clients: [ws],
-                    players: { 'white': ws }
                 };
                 ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
                 console.log(`[Server] Room created: ${roomId}, player1 (white) joined.`);
@@ -58,7 +57,6 @@ wss.on('connection', ws => {
                 if (room && room.clients.length < 2) {
                     ws.roomId = roomId;
                     room.clients.push(ws);
-                    room.players['black'] = ws;
                     
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId, color: 'black' }));
                     

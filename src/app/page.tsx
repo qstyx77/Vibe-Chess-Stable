@@ -2654,7 +2654,14 @@ export default function EvolvingChessPage() {
     }
     setOnlineStatus('connecting');
 
-    const getWebSocketUrl = () => `wss://${window.location.host.replace(/:\d+$/, '')}:8080`;
+    const getWebSocketUrl = () => {
+        const url = new URL(window.location.href);
+        url.protocol = 'wss';
+        url.port = '8080';
+        url.pathname = '';
+        return url.toString();
+    }
+    
     const ws = new WebSocket(getWebSocketUrl());
     
     wsRef.current = ws;
@@ -2672,24 +2679,23 @@ export default function EvolvingChessPage() {
       switch(data.type) {
         case 'room-created':
           setRoomId(data.roomId);
-          setLocalPlayerColor('white');
+          setLocalPlayerColor(data.color);
           setOnlineStatus('waiting');
           toast({title: "Room Created!", description: `Share Room ID: ${data.roomId}`});
           break;
-        case 'peer-joined':
+        case 'player-joined':
           setOnlineStatus('connected');
           toast({title: "Player Joined!", description: "Your game is starting."});
           break;
         case 'room-joined':
           setRoomId(data.roomId);
-          setLocalPlayerColor('black');
+          setLocalPlayerColor(data.color);
           setOnlineStatus('connected');
           toast({title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`});
           break;
         case 'game-move':
           handleIncomingData(data);
           break;
-        case 'peer-disconnected':
         case 'opponent-disconnected':
           toast({title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000});
           setGameInfo(prev => ({...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!"}));
@@ -2706,7 +2712,8 @@ export default function EvolvingChessPage() {
       }
     };
 
-    ws.onerror = () => {
+    ws.onerror = (err) => {
+      console.error("[WebRTC] WebSocket error:", err);
       toast({ title: "Connection Error", description: "Could not connect to the game server.", variant: 'destructive'});
       setOnlineStatus('disconnected');
       wsRef.current = null;
@@ -2927,7 +2934,7 @@ export default function EvolvingChessPage() {
       );
     }
     if (onlineStatus === 'connected' && localPlayerColor) {
-      return <p className="text-sm font-medium text-primary">Connection established! You are playing as {localPlayerColor}.</p>;
+      return <p className="text-sm font-medium text-primary mt-2">Connection established! You are playing as {localPlayerColor}.</p>;
     }
     if (onlineStatus === 'connecting') {
         return <p className="text-sm font-medium text-primary mt-2">Connecting...</p>;
