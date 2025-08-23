@@ -2649,26 +2649,16 @@ export default function EvolvingChessPage() {
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
     if (onlineStatus !== 'disconnected') {
-      console.log('[CLIENT] Disconnecting from existing game...');
       disconnectAndReset();
       return;
     }
 
-    console.log(`[CLIENT] Attempting to ${action} a game.`);
     setOnlineStatus('connecting');
 
     const getWebSocketUrl = () => {
-      try {
         const url = new URL(window.location.href);
-        url.protocol = 'wss';
-        url.port = '8080';
-        url.pathname = '';
-        console.log('[CLIENT] Generated WebSocket URL:', url.toString());
-        return url.toString();
-      } catch (e) {
-        console.error('[CLIENT] Error creating WebSocket URL:', e);
-        return ''; // Return empty string to prevent connection attempt
-      }
+        // Replace the port with 8080 for the WebSocket server
+        return `wss://${url.hostname.replace(/-\d+$/, '-8080')}`;
     };
     
     const wsUrl = getWebSocketUrl();
@@ -2682,18 +2672,14 @@ export default function EvolvingChessPage() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      console.log('[CLIENT] WebSocket connection opened.');
       if (action === 'create') {
-        console.log('[CLIENT] Sending "create-room" message...');
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && id) {
-        console.log(`[CLIENT] Sending "join-room" message for room: ${id}`);
         ws.send(JSON.stringify({ type: 'join-room', roomId: id }));
       }
     };
 
     ws.onmessage = (event) => {
-      console.log('[CLIENT] Received message from server:', event.data);
       const data = JSON.parse(event.data);
       switch(data.type) {
         case 'room-created':
@@ -2738,7 +2724,6 @@ export default function EvolvingChessPage() {
     };
 
     ws.onclose = (event) => {
-      console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
       if (onlineStatus !== 'disconnected') {
           // Only show toast if it was an unexpected closure
           toast({ title: "Connection Closed", description: "Disconnected from the game server."});
