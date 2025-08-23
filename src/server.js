@@ -63,7 +63,7 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId } = data;
+        const { type, roomId, payload } = data;
         
         switch (type) {
             case 'create-room':
@@ -87,7 +87,7 @@ wss.on('connection', ws => {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
-
+            
             case 'offer':
             case 'answer':
             case 'candidate':
@@ -103,6 +103,7 @@ wss.on('connection', ws => {
                    console.error(`[Server] Cannot relay message. Client not in a room.`);
                  }
                  break;
+
             default:
                 console.log(`[Server] Received unhandled message type: ${type}`);
                 break;

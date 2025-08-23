@@ -36,8 +36,6 @@ const getSignalingServerUrl = () => {
   if (typeof window === 'undefined') {
     return '';
   }
-  // Revert to simple, robust string construction that is known to work.
-  // This avoids potential issues with the URL constructor in specific proxy/browser environments.
   return `wss://${window.location.hostname}:8080`;
 };
 
@@ -262,15 +260,25 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   }, [cleanup, handleSignalingMessage, disconnect]);
 
   const createRoom = useCallback(async () => {
-      await connectWebSocket((ws) => {
-          ws.send(JSON.stringify({ type: 'create-room' }));
-      });
+    try {
+        await connectWebSocket((ws) => {
+            ws.send(JSON.stringify({ type: 'create-room' }));
+        });
+    } catch (error) {
+        console.error("Failed to create room due to WebSocket connection error.", error);
+        setState(prev => ({ ...prev, error: "Failed to connect to server.", isConnecting: false }));
+    }
   }, [connectWebSocket]);
 
   const joinRoom = useCallback(async (roomIdToJoin: string) => {
-    await connectWebSocket((ws) => {
-        ws.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
-    });
+    try {
+        await connectWebSocket((ws) => {
+            ws.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
+        });
+    } catch (error) {
+        console.error("Failed to join room due to WebSocket connection error.", error);
+        setState(prev => ({ ...prev, error: "Failed to join room.", isConnecting: false }));
+    }
   }, [connectWebSocket]);
   
   const sendMove = useCallback((move: GameMove) => {
