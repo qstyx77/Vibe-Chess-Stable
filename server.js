@@ -36,7 +36,6 @@ wss.on('connection', ws => {
         try {
             data = JSON.parse(message.toString());
         } catch (e) {
-            console.error('[Server] Failed to parse message:', message.toString(), e);
             return;
         }
 
@@ -76,7 +75,7 @@ wss.on('connection', ws => {
                 break;
             }
             default:
-                console.log(`[Server] Received unhandled message type: ${data.type}`);
+                break;
         }
     });
 

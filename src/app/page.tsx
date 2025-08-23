@@ -2656,9 +2656,11 @@ export default function EvolvingChessPage() {
     setOnlineStatus('connecting');
 
     const getWebSocketUrl = () => {
-        const url = new URL(window.location.href);
-        // Replace the port with 8080 for the WebSocket server
-        return `wss://${url.hostname.replace(/-\d+$/, '-8080')}`;
+        const hostname = window.location.hostname;
+        // In environments like Gitpod or Cloud Workstations, the hostname for a forwarded port
+        // often contains the port number. We need to replace it.
+        const websocketHostname = hostname.replace(/^9000-/, '8080-');
+        return `wss://${websocketHostname}`;
     };
     
     const wsUrl = getWebSocketUrl();
