@@ -1212,7 +1212,7 @@ export function processRookResurrectionCheck(
   };
 }
 
-export function spawnAnvil(board: BoardState): BoardState {
+export function spawnAnvil(board: BoardState): { newBoard: BoardState; spawnedAt: AlgebraicSquare | null } {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
   const emptySquares: AlgebraicSquare[] = [];
   for (let r = 0; r < 8; r++) {
@@ -1228,11 +1228,12 @@ export function spawnAnvil(board: BoardState): BoardState {
     const randomSquareAlg = emptySquares[randomIndex];
     const { row, col } = algebraicToCoords(randomSquareAlg);
     newBoard[row][col].item = { type: 'anvil' };
+    return { newBoard, spawnedAt: randomSquareAlg };
   }
-  return newBoard;
+  return { newBoard, spawnedAt: null };
 }
 
-export function spawnShroom(board: BoardState): BoardState {
+export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedAt: AlgebraicSquare | null } {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
   const emptySquares: AlgebraicSquare[] = [];
   for (let r = 0; r < 8; r++) {
@@ -1248,6 +1249,7 @@ export function spawnShroom(board: BoardState): BoardState {
     const randomSquareAlg = emptySquares[randomIndex];
     const { row, col } = algebraicToCoords(randomSquareAlg);
     newBoard[row][col].item = { type: 'shroom' };
+    return { newBoard, spawnedAt: randomSquareAlg };
   }
-  return newBoard;
+  return { newBoard, spawnedAt: null };
 }

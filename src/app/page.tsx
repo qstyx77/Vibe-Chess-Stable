@@ -524,21 +524,38 @@ export default function EvolvingChessPage() {
     let currentBoardState = boardForNextStep;
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
-
+    
+    // Anvil Spawn Logic
     if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
-      currentBoardState = spawnAnvil(currentBoardState);
+      const { newBoard, spawnedAt } = spawnAnvil(currentBoardState);
+      currentBoardState = newBoard;
       setBoard(currentBoardState);
       toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+      if (onlineStatus === 'connected' && spawnedAt) {
+          const ws = wsRef.current;
+          if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'anvil-spawn', square: spawnedAt }));
+          }
+      }
     }
 
+    // Shroom Spawn Logic
     let currentShroomCounter = shroomSpawnCounter + 1;
     setShroomSpawnCounter(currentShroomCounter);
     if (currentShroomCounter >= nextShroomSpawnTurn) {
-        currentBoardState = spawnShroom(currentBoardState);
+        const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
+        currentBoardState = newBoard;
         setBoard(currentBoardState);
         toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+        const newNextTurn = Math.floor(Math.random() * 6) + 5;
+        if (onlineStatus === 'connected' && spawnedAt) {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn }));
+            }
+        }
         setShroomSpawnCounter(0);
-        setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+        setNextShroomSpawnTurn(newNextTurn);
     }
 
 
@@ -691,6 +708,26 @@ export default function EvolvingChessPage() {
         }
         processMoveEnd(newBoard, playerWhoseTurnCompleted, extraTurnForOpponent, enPassantTargetSet);
         toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+        break;
+      }
+      case 'anvil-spawn': {
+        const { square } = data;
+        const { row, col } = algebraicToCoords(square);
+        const newBoard = board.map(r => r.map(s => ({...s})));
+        newBoard[row][col].item = { type: 'anvil' };
+        setBoard(newBoard);
+        toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+        break;
+      }
+      case 'shroom-spawn': {
+        const { square, nextTurn } = data;
+        const { row, col } = algebraicToCoords(square);
+        const newBoard = board.map(r => r.map(s => ({...s})));
+        newBoard[row][col].item = { type: 'shroom' };
+        setBoard(newBoard);
+        setShroomSpawnCounter(0);
+        setNextShroomSpawnTurn(nextTurn);
+        toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
         break;
       }
       case 'forfeit-timeout':
@@ -1172,7 +1209,7 @@ export default function EvolvingChessPage() {
         let anvilsDestroyedCount = 0;
         let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
 
-        const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+        const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
         if (isKingInCheck(tempBoardForCheck, selfDestructPlayer, null)) {
           toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 2500 });

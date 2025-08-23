@@ -36,7 +36,6 @@ wss.on('connection', ws => {
         try {
             data = JSON.parse(message.toString());
         } catch (e) {
-            console.error('[Server] Failed to parse message:', message.toString(), e);
             return;
         }
 
@@ -48,7 +47,6 @@ wss.on('connection', ws => {
                     clients: [ws],
                 };
                 ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
-                console.log(`[Server] Room created: ${roomId}, player1 (white) joined.`);
                 break;
             }
             case 'join-room': {
@@ -61,7 +59,6 @@ wss.on('connection', ws => {
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId, color: 'black' }));
                     
                     broadcastToRoom(roomId, { type: 'player-joined' }, ws);
-                    console.log(`[Server] Player 2 (black) joined room ${roomId}.`);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
@@ -71,6 +68,8 @@ wss.on('connection', ws => {
             case 'resign':
             case 'forfeit-timeout':
             case 'turn-pass-timeout':
+            case 'anvil-spawn':
+            case 'shroom-spawn':
             {
                 if (ws.roomId) {
                     broadcastToRoom(ws.roomId, data, ws);
@@ -78,21 +77,16 @@ wss.on('connection', ws => {
                 break;
             }
             default:
-                console.log(`[Server] Received unhandled message type: ${data.type}`);
+                break;
         }
     });
 
     ws.on('close', () => {
-        console.log('[Server] Client disconnected.');
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room) {
-                // Notify remaining player
                 broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' }, ws);
-                
-                // Clean up the room
                 delete rooms[ws.roomId];
-                console.log(`[Server] Room ${ws.roomId} closed.`);
             }
         }
     });
