@@ -2649,32 +2649,51 @@ export default function EvolvingChessPage() {
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
     if (onlineStatus !== 'disconnected') {
+      console.log('[CLIENT] Disconnecting from existing game...');
       disconnectAndReset();
       return;
     }
+
+    console.log(`[CLIENT] Attempting to ${action} a game.`);
     setOnlineStatus('connecting');
 
     const getWebSocketUrl = () => {
+      try {
         const url = new URL(window.location.href);
         url.protocol = 'wss';
         url.port = '8080';
         url.pathname = '';
+        console.log('[CLIENT] Generated WebSocket URL:', url.toString());
         return url.toString();
+      } catch (e) {
+        console.error('[CLIENT] Error creating WebSocket URL:', e);
+        return ''; // Return empty string to prevent connection attempt
+      }
+    };
+    
+    const wsUrl = getWebSocketUrl();
+    if (!wsUrl) {
+      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive'});
+      setOnlineStatus('disconnected');
+      return;
     }
     
-    const ws = new WebSocket(getWebSocketUrl());
-    
+    const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
     ws.onopen = () => {
+      console.log('[CLIENT] WebSocket connection opened.');
       if (action === 'create') {
+        console.log('[CLIENT] Sending "create-room" message...');
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && id) {
+        console.log(`[CLIENT] Sending "join-room" message for room: ${id}`);
         ws.send(JSON.stringify({ type: 'join-room', roomId: id }));
       }
     };
 
     ws.onmessage = (event) => {
+      console.log('[CLIENT] Received message from server:', event.data);
       const data = JSON.parse(event.data);
       switch(data.type) {
         case 'room-created':
@@ -2686,15 +2705,14 @@ export default function EvolvingChessPage() {
         case 'player-joined':
           setOnlineStatus('connected');
           toast({title: "Player Joined!", description: "Your game is starting."});
+          startOrResetTurnTimer(currentPlayer);
           break;
         case 'room-joined':
           setRoomId(data.roomId);
           setLocalPlayerColor(data.color);
           setOnlineStatus('connected');
           toast({title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`});
-          break;
-        case 'game-move':
-          handleIncomingData(data);
+          startOrResetTurnTimer(currentPlayer);
           break;
         case 'opponent-disconnected':
           toast({title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000});
@@ -2713,18 +2731,21 @@ export default function EvolvingChessPage() {
     };
 
     ws.onerror = (err) => {
-      console.error("[WebRTC] WebSocket error:", err);
-      toast({ title: "Connection Error", description: "Could not connect to the game server.", variant: 'destructive'});
+      console.error("[CLIENT] WebSocket error:", err);
+      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive'});
       setOnlineStatus('disconnected');
       wsRef.current = null;
     };
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
       if (onlineStatus !== 'disconnected') {
+          // Only show toast if it was an unexpected closure
+          toast({ title: "Connection Closed", description: "Disconnected from the game server."});
           disconnectAndReset();
       }
     };
-  }, [onlineStatus, toast, disconnectAndReset, handleIncomingData, localPlayerColor]);
+  }, [onlineStatus, toast, disconnectAndReset, handleIncomingData, localPlayerColor, startOrResetTurnTimer, currentPlayer]);
 
 
   const handleUndo = useCallback(() => {
