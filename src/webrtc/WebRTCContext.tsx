@@ -33,10 +33,8 @@ const ICE_SERVERS = {
 };
 
 const getSignalingServerUrl = () => {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-  return `wss://${window.location.hostname}:8080`;
+    // Using 0.0.0.0 is a robust way to connect to the local machine in many containerized/forwarded port environments.
+    return 'wss://0.0.0.0:8080';
 };
 
 

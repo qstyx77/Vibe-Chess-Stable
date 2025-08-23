@@ -63,7 +63,7 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId, payload } = data;
+        const { type, roomId } = data;
         
         switch (type) {
             case 'create-room':
@@ -94,7 +94,7 @@ wss.on('connection', ws => {
             case 'game-move':
             case 'resign':
             case 'forfeit-timeout':
-            case 'turn-pass-timeout':
+            case 'turn-pass-timeout': {
                  const currentRoomIdForRelay = clientToRoom.get(ws);
                  if (currentRoomIdForRelay) {
                    console.log(`[Server] Relaying message type '${type}' to peer in room ${currentRoomIdForRelay}.`);
@@ -103,7 +103,7 @@ wss.on('connection', ws => {
                    console.error(`[Server] Cannot relay message. Client not in a room.`);
                  }
                  break;
-
+            }
             default:
                 console.log(`[Server] Received unhandled message type: ${type}`);
                 break;
