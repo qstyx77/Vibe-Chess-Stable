@@ -36,18 +36,9 @@ const getSignalingServerUrl = () => {
   if (typeof window === 'undefined') {
     return '';
   }
-  // This robustly constructs the URL by taking the current location's origin
-  // and only replacing the protocol and port.
-  try {
-    const url = new URL(window.location.href);
-    url.protocol = 'wss:';
-    url.port = '8080';
-    url.pathname = ''; // Ensure no path is carried over
-    return url.href;
-  } catch (error) {
-    console.error("Error creating signaling server URL:", error);
-    return ''; // Fallback
-  }
+  // Revert to simple, robust string construction that is known to work.
+  // This avoids potential issues with the URL constructor in specific proxy/browser environments.
+  return `wss://${window.location.hostname}:8080`;
 };
 
 
@@ -65,7 +56,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
   const dcRef = useRef<RTCDataChannel | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const onMoveReceivedCallbackRef = useRef<((move: GameMove) => void) | null>(null);
-  const roomIdRef = useRef<string | null>(null);
 
   const setOnMoveReceivedCallback = useCallback((callback: ((move: GameMove) => void) | null) => {
     onMoveReceivedCallbackRef.current = callback;
@@ -88,7 +78,6 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     wsRef.current = null;
     pcRef.current = null;
     dcRef.current = null;
-    roomIdRef.current = null;
   }, []);
   
   const disconnect = useCallback(() => {
@@ -129,54 +118,48 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
       };
   }, [disconnect]);
 
-  const handleSignalingMessage = useCallback(async (data: any) => {
-    const currentRoomId = roomIdRef.current;
-    
+  const handleSignalingMessage = useCallback(async (data: any, currentRoomId: string | null) => {
     switch(data.type) {
         case 'room-created':
-            roomIdRef.current = data.roomId;
             setState(prev => ({ ...prev, roomId: data.roomId, isCreator: true, isConnecting: false }));
             pcRef.current = createPeerConnection(data.roomId);
             break;
         case 'room-joined':
-            roomIdRef.current = data.roomId;
             setState(prev => ({ ...prev, roomId: data.roomId, isCreator: false }));
             pcRef.current = createPeerConnection(data.roomId);
-            // The peer that joins will initiate the connection by sending an offer
             if (pcRef.current) {
               dcRef.current = pcRef.current.createDataChannel('gameData');
               setupDataChannelEvents(dcRef.current);
               const offer = await pcRef.current.createOffer();
               await pcRef.current.setLocalDescription(offer);
               if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: 'offer', roomId: data.roomId, sdp: offer }));
+                wsRef.current.send(JSON.stringify({ type: 'offer', roomId: data.roomId, payload: offer }));
               }
             }
             break;
         case 'peer-joined':
             setState(prev => ({ ...prev, peerPresent: true, isConnecting: true }));
-            // Creator waits for an offer from the peer that joined
             break;
         case 'offer':
              if (!pcRef.current) {
                 pcRef.current = createPeerConnection(currentRoomId!);
             }
-            await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.sdp));
+            await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.payload));
             const answer = await pcRef.current?.createAnswer();
             await pcRef.current?.setLocalDescription(answer);
             if(wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: 'answer', roomId: currentRoomId, sdp: answer }));
+                wsRef.current.send(JSON.stringify({ type: 'answer', roomId: currentRoomId, payload: answer }));
             }
             break;
         case 'answer':
             if (pcRef.current?.signalingState !== 'stable') {
-                await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                await pcRef.current?.setRemoteDescription(new RTCSessionDescription(data.payload));
             }
             break;
         case 'candidate':
             if (pcRef.current) {
                 try {
-                    await pcRef.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+                    await pcRef.current.addIceCandidate(new RTCIceCandidate(data.payload));
                 } catch (e) {
                     console.error('[WebRTC] Error adding received ICE candidate', e);
                 }
@@ -199,7 +182,7 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     
     pc.onicecandidate = (event) => {
       if (event.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
-        wsRef.current.send(JSON.stringify({ type: 'candidate', roomId: currentRoomId, candidate: event.candidate }));
+        wsRef.current.send(JSON.stringify({ type: 'candidate', roomId: currentRoomId, payload: event.candidate }));
       }
     };
 
@@ -223,11 +206,13 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
     return pc;
   }, [disconnect, setupDataChannelEvents]);
   
-  const connectWebSocket = useCallback((action: () => void): Promise<void> => {
+  const connectWebSocket = useCallback((action: (ws: WebSocket) => void): Promise<void> => {
       return new Promise((resolve, reject) => {
         if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
-            console.warn('[WebRTC] WebSocket already open or connecting. Disconnecting first.');
-            disconnect();
+            console.log('[WebRTC] WebSocket already open or connecting. Using existing connection.');
+            action(wsRef.current);
+            resolve();
+            return;
         }
 
         setState(prev => ({ ...prev, isConnecting: true, error: null }));
@@ -245,14 +230,18 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
         ws.onopen = () => {
             console.log('[WebRTC] WebSocket connected.');
-            action(); // Execute the specific action (create or join)
+            action(ws);
             resolve();
         };
 
         ws.onmessage = (event) => {
             try {
               const data = JSON.parse(event.data);
-              handleSignalingMessage(data);
+              // Pass the current roomId from state to the handler
+              setState(currentState => {
+                handleSignalingMessage(data, currentState.roomId);
+                return currentState; 
+              });
             } catch (e) {
                console.error('[WebRTC] Error parsing signaling message:', e);
             }
@@ -267,24 +256,20 @@ export const WebRTCProvider = ({ children }: { children: ReactNode }) => {
 
         ws.onclose = (event) => {
             console.log(`[WebRTC] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
-            // Only update state if it was previously connected to avoid error flashes on initial failed connect
-            if(state.isConnected){
-                 setState(prev => ({ ...prev, error: "Connection lost." }));
-                 disconnect();
-            }
+            disconnect();
         };
       })
-  }, [disconnect, cleanup, handleSignalingMessage, state.isConnected]);
+  }, [cleanup, handleSignalingMessage, disconnect]);
 
   const createRoom = useCallback(async () => {
-      await connectWebSocket(() => {
-          wsRef.current?.send(JSON.stringify({ type: 'create-room' }));
+      await connectWebSocket((ws) => {
+          ws.send(JSON.stringify({ type: 'create-room' }));
       });
   }, [connectWebSocket]);
 
   const joinRoom = useCallback(async (roomIdToJoin: string) => {
-    await connectWebSocket(() => {
-        wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
+    await connectWebSocket((ws) => {
+        ws.send(JSON.stringify({ type: 'join-room', roomId: roomIdToJoin }));
     });
   }, [connectWebSocket]);
   

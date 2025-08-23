@@ -63,7 +63,7 @@ wss.on('connection', ws => {
             return;
         }
 
-        const { type, roomId } = data;
+        const { type, roomId, payload } = data;
         
         switch (type) {
             case 'create-room':
@@ -88,7 +88,6 @@ wss.on('connection', ws => {
                 }
                 break;
             
-            // These messages are intended to be relayed to the other peer in the room.
             case 'offer':
             case 'answer':
             case 'candidate':
