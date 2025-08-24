@@ -1814,7 +1814,7 @@ export default function EvolvingChessPage() {
       timerIntervalRef.current = null;
     }
 
-    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
 
@@ -1909,9 +1909,9 @@ export default function EvolvingChessPage() {
                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
                     const promoR_AI = currentPlayer === 'white' ? 0 : 7;
-                    const {row: resRookPromoAIR} = algebraicToCoords(aiPromoRookSquareAlg!);
+                    const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
                     if (resRookPromoAIR === promoR_AI) {
-                        const resurrectedPieceOnBoardAI = boardWithResurrection[resRookPromoAIR]?.[algebraicToCoords(aiPromoRookSquareAlg!).col]?.piece;
+                        const resurrectedPieceOnBoardAI = boardWithResurrection[resRookPromoAIR]?.[resRookPromoAIC]?.piece;
                         if (resurrectedPieceOnBoardAI) {
                             if (resurrectedPieceOnBoardAI.type === 'pawn') {
                                 resurrectedPieceOnBoardAI.type = 'queen';
@@ -2218,7 +2218,7 @@ export default function EvolvingChessPage() {
                  toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 2500 });
             }
              if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
-               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
+               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedCount} pieces obliterated.`, duration: 2500 });
             }
           } else {
               aiErrorOccurredRef.current = true;
@@ -2296,10 +2296,7 @@ export default function EvolvingChessPage() {
               message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
               isCheck: true,
               playerWithKingInCheck: currentPlayer,
-              isCheckmate: true,
-              isStalemate: false,
-              gameOver: true,
-              winner: opponentPlayer
+              isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
             }));
             setBoard(finalBoardStateForAI);
             setEnPassantTargetSquare(aiGeneratedEnPassantTarget);
@@ -2509,8 +2506,8 @@ export default function EvolvingChessPage() {
                             if (aiPromoRookResPerformed) {
                                 finalBoardStateForAI = boardWithResurrection;
                                 setCapturedPieces(capturedPiecesAfterResurrection);
-                                globalUniqueIdCounter = aiPromoRookIdCounter!;
                                 setBoard(finalBoardStateForAI);
+                                globalUniqueIdCounter = aiPromoRookIdCounter!;
                                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
                                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
                                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
@@ -3205,3 +3202,7 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
+
+    
