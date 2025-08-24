@@ -1248,8 +1248,9 @@ export default function EvolvingChessPage() {
                 const isNormallyInvulnerable = !isQueenTarget && isPieceInvulnerableToAttack(victimPiece, pieceToMoveFromSelected);
 
                 if (!isNormallyInvulnerable || (isQueenTarget && ['commander', 'hero', 'infiltrator'].includes(pieceToMoveFromSelected.type))) {
+                  const uniqueVictim = { ...victimPiece, id: `${victimPiece.id}_sd_${globalResurrectionIdCounter++}` };
                   if (pieceToMoveFromSelected.type !== 'infiltrator') {
-                    finalCapturedPiecesStateForTurn[selfDestructPlayer].push({ ...victimPiece });
+                    finalCapturedPiecesStateForTurn[selfDestructPlayer].push(uniqueVictim);
                   }
                   boardAfterDestruct[adjR][adjC].piece = null;
                   toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
@@ -2169,8 +2170,9 @@ export default function EvolvingChessPage() {
                         const isNormallyInvulnerableAI = !isQueenTargetAI && isPieceInvulnerableToAttack(victimPieceAI, selfDestructingKnight_AI);
 
                         if (!isNormallyInvulnerableAI || (isQueenTargetAI )) {
+                            const uniqueVictimAI = { ...victimPieceAI, id: `${victimPieceAI.id}_sd_ai_${globalResurrectionIdCounter++}` };
                             if (selfDestructingKnight_AI.type !== 'infiltrator') {
-                                finalCapturedPiecesForAI[currentPlayer].push({ ...victimPieceAI });
+                                finalCapturedPiecesForAI[currentPlayer].push(uniqueVictimAI);
                             }
                             if(finalBoardStateForAI[adjR_AI]?.[adjC_AI]) {
                                 finalBoardStateForAI[adjR_AI][adjC_AI].piece = null;
