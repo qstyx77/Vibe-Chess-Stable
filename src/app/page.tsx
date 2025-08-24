@@ -103,7 +103,7 @@ function adaptBoardForAI(
     },
     capturedPieces: {
       white: currentCapturedPieces?.white?.map(p => ({ ...p })) || [],
-      black: currentCapturedPieces?.black?.map(p => ({ ...p })) || [],
+      black: capturedPieces?.black?.map(p => ({ ...p })) || [],
     },
     gameOver: false,
     winner: undefined,
@@ -679,18 +679,18 @@ export default function EvolvingChessPage() {
             let opponentCapturedSomething = false;
     
             if (capturedPiece) {
-              setCapturedPieces(prev => ({
-                ...prev,
-                [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` }]
-              }));
-              setLastCapturePlayer(playerWhoseTurnCompleted);
-              opponentCapturedSomething = true;
+                setCapturedPieces(prev => {
+                  const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` }];
+                  return { ...prev, [playerWhoseTurnCompleted]: newCapturedList };
+                });
+                setLastCapturePlayer(playerWhoseTurnCompleted);
+                opponentCapturedSomething = true;
             }
             if (pieceCapturedByAnvil) {
-                setCapturedPieces(prev => ({
-                  ...prev,
-                  [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), { ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${globalUniqueIdCounter++}` }]
-                }));
+                setCapturedPieces(prev => {
+                   const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), { ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${globalUniqueIdCounter++}` }];
+                   return { ...prev, [playerWhoseTurnCompleted]: newCapturedList };
+                });
                 setLastCapturePlayer(playerWhoseTurnCompleted);
                 opponentCapturedSomething = true;
                 toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
