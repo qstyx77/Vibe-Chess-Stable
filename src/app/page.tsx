@@ -681,7 +681,7 @@ export default function EvolvingChessPage() {
             if (capturedPiece) {
               setCapturedPieces(prev => ({
                 ...prev,
-                [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), capturedPiece]
+                [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), { ...capturedPiece, id: `${capturedPiece.id}_cap_${Date.now()}` }]
               }));
               setLastCapturePlayer(playerWhoseTurnCompleted);
               opponentCapturedSomething = true;
@@ -689,7 +689,7 @@ export default function EvolvingChessPage() {
             if (pieceCapturedByAnvil) {
                 setCapturedPieces(prev => ({
                   ...prev,
-                  [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), pieceCapturedByAnvil]
+                  [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), { ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${Date.now()}` }]
                 }));
                 setLastCapturePlayer(playerWhoseTurnCompleted);
                 opponentCapturedSomething = true;
@@ -1538,7 +1538,7 @@ export default function EvolvingChessPage() {
         if (capturedPieceFromApply) {
           setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
-            finalCapturedPiecesStateForTurn[capturingPlayer].push(capturedPieceFromApply);
+            finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${Date.now()}` });
           } else {
             toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 3000});
           }
@@ -1546,7 +1546,7 @@ export default function EvolvingChessPage() {
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
           setLastCapturePlayer(capturingPlayer);
-          finalCapturedPiecesStateForTurn[capturingPlayer].push(pieceCapturedByAnvilFromApply);
+          finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${Date.now()}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(capturingPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 3000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -2270,7 +2270,7 @@ export default function EvolvingChessPage() {
             pieceCapturedByAnvilAI = true;
             capturedPieceDataForScoring = applyMoveResult.pieceCapturedByAnvil; // Also counts for resurrection
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
-                finalCapturedPiecesForAI[currentPlayer].push(applyMoveResult.pieceCapturedByAnvil);
+                finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.pieceCapturedByAnvil, id: `${applyMoveResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
             } else {
                 toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
             }
@@ -2316,7 +2316,7 @@ export default function EvolvingChessPage() {
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${applyMoveResult.capturedPiece.color} ${applyMoveResult.capturedPiece.type}!`, duration: 3000});
             } else {
-                finalCapturedPiecesForAI[currentPlayer].push(applyMoveResult.capturedPiece);
+                finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.capturedPiece, id: `${applyMoveResult.capturedPiece.id}_cap_ai_${Date.now()}` });
             }
             aiMoveCapturedSomething = true;
           }
