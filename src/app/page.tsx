@@ -640,8 +640,32 @@ export default function EvolvingChessPage() {
   const handleIncomingData = useCallback((data: any) => {
     switch (data.type) {
       case 'game-move': {
-        const move = data.payload as Move;
-        
+        const { payload: move } = data;
+        if (!move) return;
+
+        // Special handling for commander promotion which is not a standard move
+        if (move.type === 'commander-promo') {
+            const { player, square } = move;
+            setBoard(currentBoard => {
+                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+                const { row, col } = algebraicToCoords(square);
+                const pieceToPromote = newBoard[row]?.[col]?.piece;
+                if (pieceToPromote && pieceToPromote.type === 'pawn' && pieceToPromote.color === player) {
+                    pieceToPromote.type = 'commander';
+                    pieceToPromote.id = `${pieceToPromote.id}_CMD`; // Ensure unique ID
+                }
+                toast({ title: "Opponent Promoted!", description: `${getPlayerDisplayName(player)}'s Pawn on ${square} is now a Commander!`, duration: 3000});
+                
+                // This move doesn't end the turn in the traditional sense, it's part of another turn
+                // We need to re-evaluate the game state without changing the player
+                const wasExtraTurnFromStreak = killStreaks[player] === 6;
+                processMoveEnd(newBoard, player, wasExtraTurnFromStreak, null);
+
+                return newBoard;
+            });
+            return; 
+        }
+
         saveStateToHistory();
         setLastMoveFrom(move.from);
         setLastMoveTo(move.to);
@@ -1776,7 +1800,7 @@ export default function EvolvingChessPage() {
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     setEnPassantTargetSquare,
-    onlineStatus, activeTimerPlayer, localPlayerColor, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
+    onlineStatus, activeTimerPlayer, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
     setResurrectedSquares
   ]);
 
