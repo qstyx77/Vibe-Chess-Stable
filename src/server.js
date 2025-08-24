@@ -21,8 +21,16 @@ const broadcastToRoom = (roomId, message, sender) => {
     const room = rooms[roomId];
     if (room && room.clients) {
         room.clients.forEach(client => {
-            if (client !== sender && client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(message));
+            // Broadcast to all clients in the room, including the sender for item spawns
+            if (message.type === 'anvil-spawn' || message.type === 'shroom-spawn') {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(message));
+                }
+            } else {
+                // For other messages, broadcast to other clients only
+                if (client !== sender && client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify(message));
+                }
             }
         });
     }

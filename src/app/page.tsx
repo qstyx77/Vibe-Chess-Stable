@@ -525,37 +525,44 @@ export default function EvolvingChessPage() {
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
     
-    // Anvil Spawn Logic
-    if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
-      const { newBoard, spawnedAt } = spawnAnvil(currentBoardState);
-      currentBoardState = newBoard;
-      setBoard(currentBoardState);
-      toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
-      if (onlineStatus === 'connected' && spawnedAt) {
-          const ws = wsRef.current;
-          if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'anvil-spawn', square: spawnedAt }));
-          }
-      }
-    }
-
-    // Shroom Spawn Logic
-    let currentShroomCounter = shroomSpawnCounter + 1;
-    setShroomSpawnCounter(currentShroomCounter);
-    if (currentShroomCounter >= nextShroomSpawnTurn) {
-        const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
-        currentBoardState = newBoard;
-        setBoard(currentBoardState);
-        toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
-        const newNextTurn = Math.floor(Math.random() * 6) + 5;
+    // Item Spawn Logic - only the current player triggers the check
+    if (onlineStatus !== 'connected' || localPlayerColor === playerWhoseTurnCompleted) {
+      // Anvil Spawn Logic
+      if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
+        const { spawnedAt } = spawnAnvil(currentBoardState);
         if (onlineStatus === 'connected' && spawnedAt) {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn }));
+                ws.send(JSON.stringify({ type: 'anvil-spawn', square: spawnedAt }));
             }
+        } else if (onlineStatus !== 'connected' && spawnedAt) {
+            const { newBoard } = spawnAnvil(currentBoardState); // re-call to get board update
+            currentBoardState = newBoard;
+            setBoard(currentBoardState);
+            toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
         }
-        setShroomSpawnCounter(0);
-        setNextShroomSpawnTurn(newNextTurn);
+      }
+
+      // Shroom Spawn Logic
+      let currentShroomCounter = shroomSpawnCounter + 1;
+      setShroomSpawnCounter(currentShroomCounter);
+      if (currentShroomCounter >= nextShroomSpawnTurn) {
+          const { spawnedAt } = spawnShroom(currentBoardState);
+          const newNextTurn = Math.floor(Math.random() * 6) + 5;
+          if (onlineStatus === 'connected' && spawnedAt) {
+              const ws = wsRef.current;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn }));
+              }
+          } else if (onlineStatus !== 'connected' && spawnedAt) {
+              const { newBoard } = spawnShroom(currentBoardState); // re-call to get board update
+              currentBoardState = newBoard;
+              setBoard(currentBoardState);
+              toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+              setShroomSpawnCounter(0);
+              setNextShroomSpawnTurn(newNextTurn);
+          }
+      }
     }
 
 
@@ -626,105 +633,111 @@ export default function EvolvingChessPage() {
     setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn,
     gameMoveCounter, setBoard, isAwaitingCommanderPromotion, playerWhoGotFirstBlood,
     getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
-    shroomSpawnCounter, nextShroomSpawnTurn, startOrResetTurnTimer, onlineStatus
+    shroomSpawnCounter, nextShroomSpawnTurn, startOrResetTurnTimer, onlineStatus,
+    localPlayerColor
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
     switch (data.type) {
       case 'game-move': {
         const move = data.payload as Move;
-        const { row: fromR, col: fromC } = algebraicToCoords(move.from);
         
         saveStateToHistory();
         setLastMoveFrom(move.from);
         setLastMoveTo(move.to);
         
-        const { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, isEnPassantCapture, promotedToInfiltrator, infiltrationWin, enPassantTargetSet, shroomConsumed } = applyMove(board, move, enPassantTargetSquare);
+        setBoard(currentBoard => {
+            const { newBoard, capturedPiece, pieceCapturedByAnvil, shroomConsumed } = applyMove(currentBoard, move, enPassantTargetSquare);
         
-        setBoard(newBoard);
-        setEnPassantTargetSquare(enPassantTargetSet);
-
-        const playerWhoseTurnCompleted = currentPlayer;
-        let opponentCapturedSomething = false;
-
-        if (capturedPiece) {
-          setCapturedPieces(prev => ({
-            ...prev,
-            [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), capturedPiece]
-          }));
-          setLastCapturePlayer(playerWhoseTurnCompleted);
-          opponentCapturedSomething = true;
-        }
-        if (pieceCapturedByAnvil) {
-            setCapturedPieces(prev => ({
-              ...prev,
-              [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), pieceCapturedByAnvil]
-            }));
-            setLastCapturePlayer(playerWhoseTurnCompleted);
-            opponentCapturedSomething = true;
-            toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
-        }
-
-        let newOpponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
-        if (opponentCapturedSomething) {
-            newOpponentKillStreak++;
-            if (!firstBloodAchieved) {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(playerWhoseTurnCompleted);
-                toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)} drew first blood!`, duration: 4000});
+            setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
+    
+            const playerWhoseTurnCompleted = currentPlayer;
+            let opponentCapturedSomething = false;
+    
+            if (capturedPiece) {
+              setCapturedPieces(prev => ({
+                ...prev,
+                [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), capturedPiece]
+              }));
+              setLastCapturePlayer(playerWhoseTurnCompleted);
+              opponentCapturedSomething = true;
             }
-            const opponentStreakMsg = getKillStreakToastMessage(newOpponentKillStreak);
-            if(opponentStreakMsg) {
-                setKillStreakFlashMessage(`OPPONENT: ${opponentStreakMsg}`);
-                setKillStreakFlashMessageKey(k => k + 1);
+            if (pieceCapturedByAnvil) {
+                setCapturedPieces(prev => ({
+                  ...prev,
+                  [playerWhoseTurnCompleted]: [...(prev[playerWhoseTurnCompleted] || []), pieceCapturedByAnvil]
+                }));
+                setLastCapturePlayer(playerWhoseTurnCompleted);
+                opponentCapturedSomething = true;
+                toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
             }
-        } else {
-            newOpponentKillStreak = 0;
-        }
-        setKillStreaks(prev => ({ ...prev, [playerWhoseTurnCompleted]: newOpponentKillStreak }));
-
-        let extraTurnForOpponent = false; 
-        
-        if (shroomConsumed) {
-            const movedPieceDataOpp = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
-            if(movedPieceDataOpp) {
-                toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s ${movedPieceDataOpp.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataOpp.level}!`, duration: 3000 });
+    
+            let newOpponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
+            if (opponentCapturedSomething) {
+                newOpponentKillStreak++;
+                if (!firstBloodAchieved) {
+                    setFirstBloodAchieved(true);
+                    setPlayerWhoGotFirstBlood(playerWhoseTurnCompleted);
+                    toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)} drew first blood!`, duration: 4000});
+                }
+                const opponentStreakMsg = getKillStreakToastMessage(newOpponentKillStreak);
+                if(opponentStreakMsg) {
+                    setKillStreakFlashMessage(`OPPONENT: ${opponentStreakMsg}`);
+                    setKillStreakFlashMessageKey(k => k + 1);
+                }
+            } else {
+                newOpponentKillStreak = 0;
             }
-        }
-
-        const opponentOriginalPiece = board[fromR]?.[fromC]?.piece;
-        if (opponentOriginalPiece?.type === 'pawn' && (originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
-            extraTurnForOpponent = true;
-        }
-        if (opponentOriginalPiece?.type === 'commander' && (originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
-            extraTurnForOpponent = true;
-        }
-        if ((capturedPiece || pieceCapturedByAnvil) && newOpponentKillStreak === 6) {
-            extraTurnForOpponent = true;
-        }
-
-        if (!gameInfo.gameOver && !isWhiteAI && !isBlackAI) {
-            startOrResetTurnTimer(extraTurnForOpponent ? playerWhoseTurnCompleted : localPlayerColor!);
-        }
-        processMoveEnd(newBoard, playerWhoseTurnCompleted, extraTurnForOpponent, enPassantTargetSet);
-        toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+            setKillStreaks(prev => ({ ...prev, [playerWhoseTurnCompleted]: newOpponentKillStreak }));
+    
+            let extraTurnForOpponent = false; 
+            
+            if (shroomConsumed) {
+                const movedPieceDataOpp = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
+                if(movedPieceDataOpp) {
+                    toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s ${movedPieceDataOpp.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataOpp.level}!`, duration: 3000 });
+                }
+            }
+    
+            const opponentOriginalPiece = board[algebraicToCoords(move.from).row]?.[algebraicToCoords(move.from).col]?.piece;
+            if (opponentOriginalPiece?.type === 'pawn' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
+                extraTurnForOpponent = true;
+            }
+            if (opponentOriginalPiece?.type === 'commander' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
+                extraTurnForOpponent = true;
+            }
+            if ((capturedPiece || pieceCapturedByAnvil) && newOpponentKillStreak === 6) {
+                extraTurnForOpponent = true;
+            }
+    
+            if (!gameInfo.gameOver && !isWhiteAI && !isBlackAI) {
+                startOrResetTurnTimer(extraTurnForOpponent ? playerWhoseTurnCompleted : localPlayerColor!);
+            }
+            processMoveEnd(newBoard, playerWhoseTurnCompleted, extraTurnForOpponent, applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
+            toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+            return newBoard;
+        });
         break;
       }
       case 'anvil-spawn': {
         const { square } = data;
         const { row, col } = algebraicToCoords(square);
-        const newBoard = board.map(r => r.map(s => ({...s})));
-        newBoard[row][col].item = { type: 'anvil' };
-        setBoard(newBoard);
+        setBoard(currentBoard => {
+            const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            newBoard[row][col].item = { type: 'anvil' };
+            return newBoard;
+        });
         toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
         break;
       }
       case 'shroom-spawn': {
         const { square, nextTurn } = data;
         const { row, col } = algebraicToCoords(square);
-        const newBoard = board.map(r => r.map(s => ({...s})));
-        newBoard[row][col].item = { type: 'shroom' };
-        setBoard(newBoard);
+        setBoard(currentBoard => {
+            const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            newBoard[row][col].item = { type: 'shroom' };
+            return newBoard;
+        });
         setShroomSpawnCounter(0);
         setNextShroomSpawnTurn(nextTurn);
         toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
@@ -1207,7 +1220,7 @@ export default function EvolvingChessPage() {
         let selfDestructCapturedSomething = false;
         let piecesDestroyedCount = 0;
         let anvilsDestroyedCount = 0;
-        let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+        let boardAfterDestruct = finalBoardStateForTurn.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
 
         const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
