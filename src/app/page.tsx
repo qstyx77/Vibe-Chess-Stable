@@ -679,8 +679,11 @@ export default function EvolvingChessPage() {
             let opponentCapturedSomething = false;
     
             if (capturedPiece) {
+                console.log(`[handleIncomingData] Opponent ${playerWhoseTurnCompleted} captured a piece. Piece data:`, capturedPiece);
                 setCapturedPieces(prev => {
-                  const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` }];
+                  const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_remote_${globalUniqueIdCounter++}` };
+                  const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), uniqueCapturedPiece];
+                  console.log(`[handleIncomingData] Adding to ${playerWhoseTurnCompleted}'s captured list. New list for ${playerWhoseTurnCompleted}:`, newCapturedList);
                   return { ...prev, [playerWhoseTurnCompleted]: newCapturedList };
                 });
                 setLastCapturePlayer(playerWhoseTurnCompleted);
@@ -1119,7 +1122,7 @@ export default function EvolvingChessPage() {
     if (isAwaitingPawnSacrifice && playerToSacrificePawn === currentPlayer) {
       if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
         saveStateToHistory();
-        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
         const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalUniqueIdCounter++}`};
         boardAfterSacrifice[row][col].piece = null;
@@ -1538,9 +1541,12 @@ export default function EvolvingChessPage() {
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
+          console.log(`[handleSquareClick] Local player ${capturingPlayer} captured a piece. Piece data:`, capturedPieceFromApply);
           setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
-            finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` });
+              const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_local_${globalUniqueIdCounter++}` };
+              console.log(`[handleSquareClick] Adding to ${capturingPlayer}'s captured list. Unique piece data:`, uniqueCapturedPiece);
+              finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
           } else {
             toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 3000});
           }

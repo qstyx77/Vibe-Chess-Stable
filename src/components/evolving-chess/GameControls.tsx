@@ -40,6 +40,10 @@ export function GameControls({
 
   const renderCapturedPieces = (color: PlayerColor) => {
     const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
+    
+    // LOGGING: Add a log to see what is being rendered
+    console.log(`[GameControls] Rendering captured pieces for ${color}. Pieces:`, actualCaptured);
+
     return (
       <div>
         <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
