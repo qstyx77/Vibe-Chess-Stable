@@ -1558,6 +1558,54 @@ export default function EvolvingChessPage() {
         if (anvilPushedOffBoardFromApply) {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 2000 });
         }
+        
+        let humanRookResData: RookResurrectionResult | null = null;
+        const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
+        const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;
+
+        if (movedPieceOnToSquareHuman && (movedPieceOnToSquareHuman.type === 'rook' || (moveBeingMade.type === 'promotion' && moveBeingMade.promoteTo === 'rook')) ) {
+           if (capturedPieceFromApply) { // Only call if a capture occurred this move
+            const oldLevelForResurrectionCheck = levelFromApplyMoveInternal !== undefined ? levelFromApplyMoveInternal : originalPieceLevelBeforeMove;
+            humanRookResData = processRookResurrectionCheck(
+              finalBoardStateForTurn,
+              currentPlayer,
+              moveBeingMade,
+              algebraic,
+              oldLevelForResurrectionCheck,
+              finalCapturedPiecesStateForTurn,
+              globalUniqueIdCounter
+            );
+            if (humanRookResData.resurrectionPerformed) {
+              finalBoardStateForTurn = humanRookResData.boardWithResurrection;
+              finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
+              globalUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
+              setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
+              toast({
+                  title: "Rook's Call!",
+                  description: `${getPlayerDisplayName(currentPlayer)}'s Rook resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L1)`,
+                  duration: 3000,
+              });
+
+              if (humanRookResData.resurrectedPieceData?.type === 'pawn' || humanRookResData.resurrectedPieceData?.type === 'commander'){
+                  const promoRow = currentPlayer === 'white' ? 0 : 7;
+                  const isExtraTurnForRookResPromo = newStreakForCapturingPlayer === 6;
+                  if (algebraicToCoords(humanRookResData.resurrectedSquareAlg!).row === promoRow) {
+                      setPlayerForPostResurrectionPromotion(currentPlayer);
+                      setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo); 
+                      setIsResurrectionPromotionInProgress(true);
+                      setIsPromotingPawn(true);
+                      setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
+                      setBoard(finalBoardStateForTurn);
+                      setCapturedPieces(finalCapturedPiecesStateForTurn);
+                      setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
+                      setIsMoveProcessing(false);
+                      setAnimatedSquareTo(null);
+                      return;
+                  }
+              }
+            }
+          }
+        }
 
         if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
             const isCurrentPlayerHuman = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
@@ -1616,53 +1664,6 @@ export default function EvolvingChessPage() {
               }
         }
 
-        const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
-        const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;
-        let humanRookResData: RookResurrectionResult | null = null;
-        let combinedExtraTurn = false;
-
-        if (movedPieceOnToSquareHuman && (movedPieceOnToSquareHuman.type === 'rook' || (moveBeingMade.type === 'promotion' && moveBeingMade.promoteTo === 'rook')) ) {
-           if (capturedPieceFromApply) { // Only call if a capture occurred this move
-            const oldLevelForResurrectionCheck = levelFromApplyMoveInternal !== undefined ? levelFromApplyMoveInternal : originalPieceLevelBeforeMove;
-            humanRookResData = processRookResurrectionCheck(
-              finalBoardStateForTurn,
-              currentPlayer,
-              moveBeingMade,
-              algebraic,
-              oldLevelForResurrectionCheck,
-              finalCapturedPiecesStateForTurn,
-              globalUniqueIdCounter
-            );
-            if (humanRookResData.resurrectionPerformed) {
-              finalBoardStateForTurn = humanRookResData.boardWithResurrection;
-              finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
-              globalUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
-              setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
-              toast({
-                  title: "Rook's Call!",
-                  description: `${getPlayerDisplayName(currentPlayer)}'s Rook resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L1)`,
-                  duration: 3000,
-              });
-
-              if (humanRookResData.resurrectedPieceData?.type === 'pawn' || humanRookResData.resurrectedPieceData?.type === 'commander'){
-                  const promoRow = currentPlayer === 'white' ? 0 : 7;
-                  if (algebraicToCoords(humanRookResData.resurrectedSquareAlg!).row === promoRow) {
-                      setPlayerForPostResurrectionPromotion(currentPlayer);
-                      setIsExtraTurnForPostResurrectionPromotion(combinedExtraTurn); 
-                      setIsResurrectionPromotionInProgress(true);
-                      setIsPromotingPawn(true);
-                      setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
-                      setBoard(finalBoardStateForTurn);
-                      setCapturedPieces(finalCapturedPiecesStateForTurn);
-                      setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
-                      setIsMoveProcessing(false);
-                      setAnimatedSquareTo(null);
-                      return;
-                  }
-              }
-            }
-          }
-        }
 
         if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
           conversionEventsFromApply.forEach(event => toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 2500 }));
@@ -1706,7 +1707,7 @@ export default function EvolvingChessPage() {
 
 
           const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
-          combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
+          const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
 
           let isPendingHumanResurrectionPromotion = isResurrectionPromotionInProgress;
