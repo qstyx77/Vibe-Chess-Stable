@@ -643,7 +643,6 @@ export default function EvolvingChessPage() {
         const { payload: move } = data;
         if (!move) return;
 
-        // Special handling for commander promotion which is not a standard move
         if (move.type === 'commander-promo') {
             const { player, square } = move;
             setBoard(currentBoard => {
@@ -652,12 +651,10 @@ export default function EvolvingChessPage() {
                 const pieceToPromote = newBoard[row]?.[col]?.piece;
                 if (pieceToPromote && pieceToPromote.type === 'pawn' && pieceToPromote.color === player) {
                     pieceToPromote.type = 'commander';
-                    pieceToPromote.id = `${pieceToPromote.id}_CMD`; // Ensure unique ID
+                    pieceToPromote.id = `${pieceToPromote.id}_CMD_${globalUniqueIdCounter++}`;
                 }
                 toast({ title: "Opponent Promoted!", description: `${getPlayerDisplayName(player)}'s Pawn on ${square} is now a Commander!`, duration: 3000});
                 
-                // This move doesn't end the turn in the traditional sense, it's part of another turn
-                // We need to re-evaluate the game state without changing the player
                 const wasExtraTurnFromStreak = killStreaks[player] === 6;
                 processMoveEnd(newBoard, player, wasExtraTurnFromStreak, null);
 
@@ -679,11 +676,9 @@ export default function EvolvingChessPage() {
             let opponentCapturedSomething = false;
     
             if (capturedPiece) {
-                console.log(`[handleIncomingData] Opponent ${playerWhoseTurnCompleted} captured a piece. Piece data:`, capturedPiece);
                 setCapturedPieces(prev => {
                   const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_remote_${globalUniqueIdCounter++}` };
                   const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), uniqueCapturedPiece];
-                  console.log(`[handleIncomingData] Adding to ${playerWhoseTurnCompleted}'s captured list. New list for ${playerWhoseTurnCompleted}:`, newCapturedList);
                   return { ...prev, [playerWhoseTurnCompleted]: newCapturedList };
                 });
                 setLastCapturePlayer(playerWhoseTurnCompleted);
@@ -1027,7 +1022,7 @@ export default function EvolvingChessPage() {
         } else {
           setIsAwaitingPawnSacrifice(true);
           setPlayerToSacrificePawn(playerWhoseQueenLeveled);
-          setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))));
+          setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))));
           setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
           setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select Pawn/Commander to sacrifice for L7 Queen!` }));
@@ -1541,11 +1536,9 @@ export default function EvolvingChessPage() {
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
-          console.log(`[handleSquareClick] Local player ${capturingPlayer} captured a piece. Piece data:`, capturedPieceFromApply);
           setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_local_${globalUniqueIdCounter++}` };
-              console.log(`[handleSquareClick] Adding to ${capturingPlayer}'s captured list. Unique piece data:`, uniqueCapturedPiece);
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
           } else {
             toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 3000});
@@ -3208,7 +3201,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
-    
-
-    
