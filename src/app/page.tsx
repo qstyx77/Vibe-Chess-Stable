@@ -103,7 +103,7 @@ function adaptBoardForAI(
     },
     capturedPieces: {
       white: currentCapturedPieces?.white?.map(p => ({ ...p })) || [],
-      black: capturedPieces?.black?.map(p => ({ ...p })) || [],
+      black: currentCapturedPieces?.black?.map(p => ({ ...p })) || [],
     },
     gameOver: false,
     winner: undefined,
@@ -1073,7 +1073,7 @@ export default function EvolvingChessPage() {
         saveStateToHistory();
         const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
         boardAfterCommanderPromo[row][col].piece!.type = 'commander';
-        boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD`;
+        boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
         setBoard(boardAfterCommanderPromo);
         toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
         
@@ -1337,7 +1337,7 @@ export default function EvolvingChessPage() {
                  setPlayerWhoGotFirstBlood(selfDestructPlayer);
             }
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
-        } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer === 3) {
+        } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                 const pieceToResOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
@@ -1620,7 +1620,7 @@ export default function EvolvingChessPage() {
                 setPlayerWhoGotFirstBlood(capturingPlayer);
             }
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
-        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
+        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                 const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
@@ -2363,7 +2363,7 @@ export default function EvolvingChessPage() {
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
                     toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 4000 });
-                } else if (newStreakForAIPlayer === 3) {
+                } else if (newStreakForAIPlayer >= 3) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
