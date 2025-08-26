@@ -640,8 +640,12 @@ export default function EvolvingChessPage() {
   const handleIncomingData = useCallback((data: any) => {
     switch (data.type) {
       case 'game-move': {
-        const { payload: move } = data;
-        if (!move) return;
+        const { payload: move, movingPlayer: playerWhoMoved } = data;
+        if (!move || !playerWhoMoved) return;
+
+        if (playerWhoMoved !== localPlayerColor) {
+             toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+        }
 
         if (move.type === 'commander-promo') {
             const { player, square } = move;
@@ -653,7 +657,9 @@ export default function EvolvingChessPage() {
                     pieceToPromote.type = 'commander';
                     pieceToPromote.id = `${pieceToPromote.id}_CMD_${globalUniqueIdCounter++}`;
                 }
-                toast({ title: "Opponent Promoted!", description: `${getPlayerDisplayName(player)}'s Pawn on ${square} is now a Commander!`, duration: 3000});
+                if (player !== localPlayerColor) {
+                  toast({ title: "Opponent Promoted!", description: `${getPlayerDisplayName(player)}'s Pawn on ${square} is now a Commander!`, duration: 3000});
+                }
                 
                 const wasExtraTurnFromStreak = killStreaks[player] === 6;
                 processMoveEnd(newBoard, player, wasExtraTurnFromStreak, null);
@@ -672,71 +678,69 @@ export default function EvolvingChessPage() {
         
             setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
     
-            const playerWhoseTurnCompleted = currentPlayer;
-            let opponentCapturedSomething = false;
-    
             if (capturedPiece) {
                 setCapturedPieces(prev => {
                   const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_remote_${globalUniqueIdCounter++}` };
-                  const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), uniqueCapturedPiece];
-                  return { ...prev, [playerWhoseTurnCompleted]: newCapturedList };
+                  const newCapturedList = [...(prev[playerWhoMoved] || []), uniqueCapturedPiece];
+                  return { ...prev, [playerWhoMoved]: newCapturedList };
                 });
-                setLastCapturePlayer(playerWhoseTurnCompleted);
-                opponentCapturedSomething = true;
+                setLastCapturePlayer(playerWhoMoved);
             }
             if (pieceCapturedByAnvil) {
                 setCapturedPieces(prev => {
-                   const newCapturedList = [...(prev[playerWhoseTurnCompleted] || []), { ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${globalUniqueIdCounter++}` }];
-                   return { ...prev, [playerWhoseTurnCompleted]: newCapturedList };
+                   const newCapturedList = [...(prev[playerWhoMoved] || []), { ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${globalUniqueIdCounter++}` }];
+                   return { ...prev, [playerWhoMoved]: newCapturedList };
                 });
-                setLastCapturePlayer(playerWhoseTurnCompleted);
-                opponentCapturedSomething = true;
-                toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
+                setLastCapturePlayer(playerWhoMoved);
+                if (playerWhoMoved !== localPlayerColor) {
+                  toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoMoved)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
+                }
             }
     
-            let newOpponentKillStreak = killStreaks[playerWhoseTurnCompleted] || 0;
-            if (opponentCapturedSomething) {
-                newOpponentKillStreak++;
+            let newKillStreak = killStreaks[playerWhoMoved] || 0;
+            if (capturedPiece || pieceCapturedByAnvil) {
+                newKillStreak++;
                 if (!firstBloodAchieved) {
                     setFirstBloodAchieved(true);
-                    setPlayerWhoGotFirstBlood(playerWhoseTurnCompleted);
-                    toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)} drew first blood!`, duration: 4000});
+                    setPlayerWhoGotFirstBlood(playerWhoMoved);
+                     if (playerWhoMoved !== localPlayerColor) {
+                      toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoMoved)} drew first blood!`, duration: 4000});
+                    }
                 }
-                const opponentStreakMsg = getKillStreakToastMessage(newOpponentKillStreak);
-                if(opponentStreakMsg) {
-                    setKillStreakFlashMessage(`OPPONENT: ${opponentStreakMsg}`);
+                const streakMsg = getKillStreakToastMessage(newKillStreak);
+                if(streakMsg && playerWhoMoved !== localPlayerColor) {
+                    setKillStreakFlashMessage(`OPPONENT: ${streakMsg}`);
                     setKillStreakFlashMessageKey(k => k + 1);
                 }
             } else {
-                newOpponentKillStreak = 0;
+                newKillStreak = 0;
             }
-            setKillStreaks(prev => ({ ...prev, [playerWhoseTurnCompleted]: newOpponentKillStreak }));
+            setKillStreaks(prev => ({ ...prev, [playerWhoMoved]: newKillStreak }));
     
-            let extraTurnForOpponent = false; 
+            let extraTurn = false; 
             
             if (shroomConsumed) {
-                const movedPieceDataOpp = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
-                if(movedPieceDataOpp) {
-                    toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoseTurnCompleted)}'s ${movedPieceDataOpp.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataOpp.level}!`, duration: 3000 });
+                const movedPieceData = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
+                if(movedPieceData && playerWhoMoved !== localPlayerColor) {
+                    toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoMoved)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 3000 });
                 }
             }
     
-            const opponentOriginalPiece = board[algebraicToCoords(move.from).row]?.[algebraicToCoords(move.from).col]?.piece;
-            if (opponentOriginalPiece?.type === 'pawn' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
-                extraTurnForOpponent = true;
+            const originalPiece = board[algebraicToCoords(move.from).row]?.[algebraicToCoords(move.from).col]?.piece;
+            if (originalPiece?.type === 'pawn' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
+                extraTurn = true;
             }
-            if (opponentOriginalPiece?.type === 'commander' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
-                extraTurnForOpponent = true;
+            if (originalPiece?.type === 'commander' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
+                extraTurn = true;
             }
-            if ((capturedPiece || pieceCapturedByAnvil) && newOpponentKillStreak === 6) {
-                extraTurnForOpponent = true;
+            if ((capturedPiece || pieceCapturedByAnvil) && newKillStreak === 6) {
+                extraTurn = true;
             }
     
             if (!gameInfo.gameOver && !isWhiteAI && !isBlackAI) {
-                startOrResetTurnTimer(extraTurnForOpponent ? playerWhoseTurnCompleted : localPlayerColor!);
+                startOrResetTurnTimer(extraTurn ? playerWhoMoved : (playerWhoMoved === 'white' ? 'black' : 'white'));
             }
-            processMoveEnd(newBoard, playerWhoseTurnCompleted, extraTurnForOpponent, applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
-            toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+            processMoveEnd(newBoard, playerWhoMoved, extraTurn, applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
             return newBoard;
         });
         break;
@@ -766,25 +770,26 @@ export default function EvolvingChessPage() {
         break;
       }
       case 'forfeit-timeout':
-        toast({ title: "Game Over!", description: `${getPlayerDisplayName(data.timedOutPlayer)} forfeited due to timeouts. ${getPlayerDisplayName(data.winner)} wins!`, duration: 5000 });
+        if(data.timedOutPlayer !== localPlayerColor){
+          toast({ title: "Game Over!", description: `${getPlayerDisplayName(data.timedOutPlayer)} forfeited due to timeouts. ${getPlayerDisplayName(data.winner)} wins!`, duration: 5000 });
+        }
         setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(data.timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(data.winner)} wins!`, gameOver: true, winner: data.winner }));
         setActiveTimerPlayer(null);
         setRemainingTime(null);
         break;
       case 'turn-pass-timeout':
-        toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(data.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(data.nextPlayer)}'s turn.`, duration: 3000});
-        setCurrentPlayer(data.nextPlayer);
-        if (data.nextPlayer === localPlayerColor) {
-            startOrResetTurnTimer(localPlayerColor!);
-        } else {
-            setActiveTimerPlayer(null);
-            setRemainingTime(null);
+        if(data.timedOutPlayer !== localPlayerColor){
+          toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(data.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(data.nextPlayer)}'s turn.`, duration: 3000});
         }
+        setCurrentPlayer(data.nextPlayer);
+        startOrResetTurnTimer(data.nextPlayer);
         break;
       case 'resign':
         const resigningPlayer = data.resigningPlayer;
         const winner = resigningPlayer === 'white' ? 'black' : 'white';
-        toast({ title: "Opponent Resigned!", description: `${getPlayerDisplayName(resigningPlayer)} has resigned. ${getPlayerDisplayName(winner)} wins!`, duration: 5000 });
+        if (resigningPlayer !== localPlayerColor) {
+           toast({ title: "Opponent Resigned!", description: `${getPlayerDisplayName(resigningPlayer)} has resigned. ${getPlayerDisplayName(winner)} wins!`, duration: 5000 });
+        }
         setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`, gameOver: true, winner: winner }));
         setActiveTimerPlayer(null);
         setRemainingTime(null);
@@ -859,7 +864,7 @@ export default function EvolvingChessPage() {
             const timedOutPlayer = activeTimerPlayer; 
             setActiveTimerPlayer(null); 
 
-            if (timedOutPlayer) {
+            if (timedOutPlayer && timedOutPlayer === localPlayerColor) {
               const newTimeouts = { ...turnTimeouts, [timedOutPlayer]: (turnTimeouts[timedOutPlayer] || 0) + 1 };
               setTurnTimeouts(newTimeouts);
               setKillStreaks(prev => ({...prev, [timedOutPlayer]: 0}));
@@ -867,29 +872,29 @@ export default function EvolvingChessPage() {
 
               if (newTimeouts[timedOutPlayer] >= 3) {
                 const winner = timedOutPlayer === 'white' ? 'black' : 'white';
-                setGameInfo(prev => ({
+                if (onlineStatus === 'connected') {
+                    const ws = wsRef.current;
+                    if(ws && ws.readyState === WebSocket.OPEN) {
+                      ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: winner, timedOutPlayer: timedOutPlayer }));
+                    }
+                }
+                 setGameInfo(prev => ({
                   ...prev,
                   message: `${getPlayerDisplayName(timedOutPlayer)} forfeits after 3 timeouts. ${getPlayerDisplayName(winner)} wins!`,
                   gameOver: true,
                   winner: winner
                 }));
-                 if (onlineStatus === 'connected') {
-                    const ws = wsRef.current;
-                    if(ws && ws.readyState === WebSocket.OPEN) {
-                      ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: winner, timedOutPlayer: timedOutPlayer }));
-                    }
-                 }
               } else {
                 const nextPlayerAfterTimeout = timedOutPlayer === 'white' ? 'black' : 'white';
-                setCurrentPlayer(nextPlayerAfterTimeout);
-                setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(nextPlayerAfterTimeout)}'s turn.` }));
-                startOrResetTurnTimer(nextPlayerAfterTimeout);
-                 if (onlineStatus === 'connected') {
+                if (onlineStatus === 'connected') {
                     const ws = wsRef.current;
                     if(ws && ws.readyState === WebSocket.OPEN) {
                       ws.send(JSON.stringify({ type: 'turn-pass-timeout', nextPlayer: nextPlayerAfterTimeout, timedOutPlayer: timedOutPlayer }));
                     }
-                 }
+                }
+                setCurrentPlayer(nextPlayerAfterTimeout);
+                setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(nextPlayerAfterTimeout)}'s turn.` }));
+                startOrResetTurnTimer(nextPlayerAfterTimeout);
               }
             }
             return 0; 
@@ -909,7 +914,7 @@ export default function EvolvingChessPage() {
         timerIntervalRef.current = null;
       }
     };
-  }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, onlineStatus, isWhiteAI, isBlackAI, startOrResetTurnTimer, setKillStreaks]);
+  }, [activeTimerPlayer, remainingTime, gameInfo.gameOver, turnTimeouts, toast, getPlayerDisplayName, setCurrentPlayer, setGameInfo, onlineStatus, isWhiteAI, isBlackAI, startOrResetTurnTimer, setKillStreaks, localPlayerColor]);
 
   useEffect(() => {
     const initializeAI = async () => {
@@ -1055,13 +1060,6 @@ export default function EvolvingChessPage() {
           return;
       }
     }
-
-    if (onlineStatus === 'connected' && !isWhiteAI && !isBlackAI && activeTimerPlayer === currentPlayer) {
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-
-
     
     const clickedItem = clickedSquareState?.item;
     let originalPieceLevelBeforeMove: number | undefined;
@@ -1393,7 +1391,7 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected' && moveBeingMade) {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+              ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
             }
         }
 
@@ -1539,7 +1537,7 @@ export default function EvolvingChessPage() {
         if (capturedPieceFromApply) {
           setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
-              const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_local_${globalUniqueIdCounter++}` };
+              const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
           } else {
             toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 3000});
@@ -1564,7 +1562,7 @@ export default function EvolvingChessPage() {
         const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;
 
         if (movedPieceOnToSquareHuman && (movedPieceOnToSquareHuman.type === 'rook' || (moveBeingMade.type === 'promotion' && moveBeingMade.promoteTo === 'rook')) ) {
-           if (capturedPieceFromApply) { // Only call if a capture occurred this move
+           if (pieceWasCapturedThisTurn) { // Only call if a capture occurred this move
             const oldLevelForResurrectionCheck = levelFromApplyMoveInternal !== undefined ? levelFromApplyMoveInternal : originalPieceLevelBeforeMove;
             humanRookResData = processRookResurrectionCheck(
               finalBoardStateForTurn,
@@ -1621,46 +1619,48 @@ export default function EvolvingChessPage() {
             }
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
-              let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
-              if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-                const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
-                if (pieceToResurrectOriginal) {
-                  const emptySquares: AlgebraicSquare[] = [];
-                  for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
-                  if (emptySquares.length > 0) {
-                    const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                    const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                    const newUniqueSuffix = globalUniqueIdCounter++;
-                    const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
+              if (!humanRookResData?.resurrectionPerformed) {
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
+                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
+                    const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
+                    if (pieceToResurrectOriginal) {
+                      const emptySquares: AlgebraicSquare[] = [];
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                      if (emptySquares.length > 0) {
+                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
+                        const newUniqueSuffix = globalUniqueIdCounter++;
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
 
-                    const promoRow = capturingPlayer === 'white' ? 0 : 7;
-                     if (resurrectedPiece.type === 'commander' && resR === promoRow) {
-                        resurrectedPiece.type = 'hero';
-                        resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
-                        toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
-                    } else {
-                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
-                    }
-                    finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                    setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
-                    finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
+                        const promoRow = capturingPlayer === 'white' ? 0 : 7;
+                        if (resurrectedPiece.type === 'commander' && resR === promoRow) {
+                            resurrectedPiece.type = 'hero';
+                            resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
+                            toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                        } else {
+                            toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+                        }
+                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
+                        finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
 
-                    if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
-                        setPlayerForPostResurrectionPromotion(capturingPlayer);
-                        setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6);
-                        setIsResurrectionPromotionInProgress(true);
-                        setIsPromotingPawn(true);
-                        setPromotionSquare(randomSquareAlg);
-                        setBoard(finalBoardStateForTurn);
-                        setCapturedPieces(finalCapturedPiecesStateForTurn);
-                        setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
-                        setIsMoveProcessing(false);
-                        setAnimatedSquareTo(null);
-                        return;
+                        if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
+                            setPlayerForPostResurrectionPromotion(capturingPlayer);
+                            setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6);
+                            setIsResurrectionPromotionInProgress(true);
+                            setIsPromotingPawn(true);
+                            setPromotionSquare(randomSquareAlg);
+                            setBoard(finalBoardStateForTurn);
+                            setCapturedPieces(finalCapturedPiecesStateForTurn);
+                            setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
+                            setIsMoveProcessing(false);
+                            setAnimatedSquareTo(null);
+                            return;
+                        }
+                      }
                     }
                   }
-                }
               }
         }
 
@@ -1676,7 +1676,7 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected' && moveBeingMade) { 
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
             }
         }
 
@@ -1864,7 +1864,7 @@ export default function EvolvingChessPage() {
               to: promotionSquare,
               type: 'promotion',
               promoteTo: pieceType
-          } as Move}));
+          } as Move, movingPlayer: currentPlayer }));
         }
     }
 
@@ -2949,7 +2949,7 @@ export default function EvolvingChessPage() {
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, setEnPassantTargetSquare,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
     setActiveTimerPlayer, setRemainingTime, setTurnTimeouts, onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
-    setResurrectedSquares,
+    setResurrectedSquares, playerWhoGotFirstBlood,
   ]);
 
 
