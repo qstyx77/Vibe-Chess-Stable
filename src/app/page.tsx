@@ -3203,3 +3203,5 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
