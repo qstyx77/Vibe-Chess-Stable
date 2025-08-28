@@ -638,6 +638,7 @@ export default function EvolvingChessPage() {
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+    console.log(`[LOG] Received data from server:`, data);
     switch (data.type) {
       case 'game-move': {
         const { payload: move, movingPlayer: playerWhoMoved } = data;
@@ -679,9 +680,12 @@ export default function EvolvingChessPage() {
             setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
     
             if (capturedPiece) {
+                console.log(`[LOG] handleIncomingData: Piece captured:`, capturedPiece, `by player`, playerWhoMoved);
                 setCapturedPieces(prev => {
-                  const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_remote_${globalUniqueIdCounter++}` };
+                  console.log(`[LOG] handleIncomingData: setCapturedPieces PREV state for player ${playerWhoMoved}:`, prev[playerWhoMoved]?.map(p => p.id));
+                  const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` };
                   const newCapturedList = [...(prev[playerWhoMoved] || []), uniqueCapturedPiece];
+                  console.log(`[LOG] handleIncomingData: setCapturedPieces NEW state for player ${playerWhoMoved}:`, newCapturedList.map(p => p.id));
                   return { ...prev, [playerWhoMoved]: newCapturedList };
                 });
                 setLastCapturePlayer(playerWhoMoved);
@@ -1535,6 +1539,7 @@ export default function EvolvingChessPage() {
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
+          console.log(`[LOG] handleSquareClick: Local capture of ${capturedPieceFromApply.id} by ${capturingPlayer}`);
           setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
@@ -1670,7 +1675,15 @@ export default function EvolvingChessPage() {
         }
 
         setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesStateForTurn);
+        console.log(`[LOG] handleSquareClick: Setting captured pieces after local move.`);
+        setCapturedPieces(prev => {
+          console.log(`[LOG] handleSquareClick: PREV state for white:`, prev.white.map(p => p.id));
+          console.log(`[LOG] handleSquareClick: PREV state for black:`, prev.black.map(p => p.id));
+          console.log(`[LOG] handleSquareClick: NEW state for white:`, finalCapturedPiecesStateForTurn.white.map(p => p.id));
+          console.log(`[LOG] handleSquareClick: NEW state for black:`, finalCapturedPiecesStateForTurn.black.map(p => p.id));
+          return finalCapturedPiecesStateForTurn;
+        });
+
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
 
         if (onlineStatus === 'connected' && moveBeingMade) { 
@@ -3203,5 +3216,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
-    
