@@ -38,8 +38,6 @@ export function GameControls({
   pieceForInfoDisplay,
 }: GameControlsProps) {
 
-  console.log(`[LOG] GameControls Rendering. Captured White: ${capturedPieces.white.map(p => p.id).join(', ')}. Captured Black: ${capturedPieces.black.map(p => p.id).join(', ')}`);
-
 
   const renderCapturedPieces = (color: PlayerColor) => {
     const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;

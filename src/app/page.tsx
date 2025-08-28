@@ -638,7 +638,6 @@ export default function EvolvingChessPage() {
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-    console.log(`[LOG] Received data from server:`, data);
     switch (data.type) {
       case 'game-move': {
         const { payload: move, movingPlayer: playerWhoMoved } = data;
@@ -680,12 +679,9 @@ export default function EvolvingChessPage() {
             setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
     
             if (capturedPiece) {
-                console.log(`[LOG] handleIncomingData: Piece captured:`, capturedPiece, `by player`, playerWhoMoved);
                 setCapturedPieces(prev => {
-                  console.log(`[LOG] handleIncomingData: setCapturedPieces PREV state for player ${playerWhoMoved}:`, prev[playerWhoMoved]?.map(p => p.id));
                   const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` };
                   const newCapturedList = [...(prev[playerWhoMoved] || []), uniqueCapturedPiece];
-                  console.log(`[LOG] handleIncomingData: setCapturedPieces NEW state for player ${playerWhoMoved}:`, newCapturedList.map(p => p.id));
                   return { ...prev, [playerWhoMoved]: newCapturedList };
                 });
                 setLastCapturePlayer(playerWhoMoved);
@@ -810,13 +806,9 @@ export default function EvolvingChessPage() {
   ]);
 
   useEffect(() => {
-    if (onlineStatus === 'disconnected') return;
-
-    const ws = wsRef.current;
-    if (ws) {
-      ws.onmessage = (event) => {
+    if (onlineStatus !== 'disconnected' && wsRef.current) {
+      wsRef.current.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        // Special handling for initial connection messages
         switch (data.type) {
           case 'room-created':
             setRoomId(data.roomId);
@@ -826,17 +818,20 @@ export default function EvolvingChessPage() {
             break;
           case 'player-joined':
             setOnlineStatus('connected');
-            toast({ title: "Player Joined!", description: "Your game is starting." });
-            startOrResetTurnTimer(currentPlayer);
+            if (localPlayerColor) {
+              toast({ title: "Player Joined!", description: "Your game is starting." });
+              startOrResetTurnTimer('white');
+            }
             break;
           case 'room-joined':
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
             setOnlineStatus('connected');
             toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
-            startOrResetTurnTimer(currentPlayer);
+            startOrResetTurnTimer('white');
             break;
           case 'opponent-disconnected':
+            if (gameInfo.gameOver) return;
             toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
             setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
             disconnectAndReset();
@@ -847,13 +842,12 @@ export default function EvolvingChessPage() {
             wsRef.current = null;
             break;
           default:
-            // For all other messages (gameplay), use the stable handler
             handleIncomingData(data);
             break;
         }
       };
     }
-  }, [handleIncomingData, startOrResetTurnTimer, currentPlayer, localPlayerColor, toast, setGameInfo, disconnectAndReset, onlineStatus]);
+  }, [onlineStatus, localPlayerColor, toast, disconnectAndReset, handleIncomingData, startOrResetTurnTimer, gameInfo.gameOver]);
 
   useEffect(() => {
     if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) {
@@ -1539,7 +1533,6 @@ export default function EvolvingChessPage() {
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
-          console.log(`[LOG] handleSquareClick: Local capture of ${capturedPieceFromApply.id} by ${capturingPlayer}`);
           setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
@@ -1675,14 +1668,7 @@ export default function EvolvingChessPage() {
         }
 
         setBoard(finalBoardStateForTurn);
-        console.log(`[LOG] handleSquareClick: Setting captured pieces after local move.`);
-        setCapturedPieces(prev => {
-          console.log(`[LOG] handleSquareClick: PREV state for white:`, prev.white.map(p => p.id));
-          console.log(`[LOG] handleSquareClick: PREV state for black:`, prev.black.map(p => p.id));
-          console.log(`[LOG] handleSquareClick: NEW state for white:`, finalCapturedPiecesStateForTurn.white.map(p => p.id));
-          console.log(`[LOG] handleSquareClick: NEW state for black:`, finalCapturedPiecesStateForTurn.black.map(p => p.id));
-          return finalCapturedPiecesStateForTurn;
-        });
+        setCapturedPieces(finalCapturedPiecesStateForTurn);
 
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
 
