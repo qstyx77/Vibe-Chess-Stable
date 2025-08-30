@@ -638,6 +638,7 @@ export default function EvolvingChessPage() {
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+    console.log('[LOG] handleIncomingData: Received message from server', data);
     switch (data.type) {
       case 'game-move': {
         const { payload: move, movingPlayer: playerWhoMoved } = data;
@@ -679,9 +680,12 @@ export default function EvolvingChessPage() {
             setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
     
             if (capturedPiece) {
+                console.log(`[LOG] handleIncomingData: Piece captured:`, capturedPiece, `by player ${playerWhoMoved}`);
                 setCapturedPieces(prev => {
+                  console.log(`[LOG] handleIncomingData: setCapturedPieces PREV state for player ${playerWhoMoved}:`, prev[playerWhoMoved]);
                   const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` };
                   const newCapturedList = [...(prev[playerWhoMoved] || []), uniqueCapturedPiece];
+                  console.log(`[LOG] handleIncomingData: setCapturedPieces NEW state for player ${playerWhoMoved}:`, newCapturedList);
                   return { ...prev, [playerWhoMoved]: newCapturedList };
                 });
                 setLastCapturePlayer(playerWhoMoved);
@@ -1430,6 +1434,8 @@ export default function EvolvingChessPage() {
         newEnPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
 
+        console.log(`[LOG] handleSquareClick: Local move from ${moveBeingMade.from} to ${moveBeingMade.to}. Capture detected:`, capturedPieceFromApply);
+        console.log('[LOG] handleSquareClick: capturedPieces state BEFORE local update:', finalCapturedPiecesStateForTurn);
 
         if (gameWonByInfiltrationFromApply) {
           setBoard(finalBoardStateForTurn);
@@ -1555,6 +1561,9 @@ export default function EvolvingChessPage() {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 2000 });
         }
         
+        console.log(`[LOG] handleSquareClick: capturedPieces state AFTER local update for player ${capturingPlayer}:`, finalCapturedPiecesStateForTurn[capturingPlayer]);
+
+
         let humanRookResData: RookResurrectionResult | null = null;
         const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
         const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;

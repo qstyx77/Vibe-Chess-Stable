@@ -7,6 +7,7 @@ import { Separator } from '../ui/separator';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { PieceAbilitiesInfo } from './PieceAbilitiesInfo';
 import { cn } from '@/lib/utils';
+import React from 'react';
 
 interface GameControlsProps {
   currentPlayer: PlayerColor;
@@ -38,6 +39,9 @@ export function GameControls({
   pieceForInfoDisplay,
 }: GameControlsProps) {
 
+  React.useEffect(() => {
+    console.log('[LOG] GameControls Rendering. Captured Pieces State:', capturedPieces);
+  }, [capturedPieces]);
 
   const renderCapturedPieces = (color: PlayerColor) => {
     const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;

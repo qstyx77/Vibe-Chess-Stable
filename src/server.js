@@ -20,8 +20,10 @@ const rooms = {};
 const broadcastToRoom = (roomId, message, sender) => {
     const room = rooms[roomId];
     if (room && room.clients) {
+        console.log(`[SERVER LOG] Broadcasting message to room ${roomId}:`, message);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
+                console.log(`[SERVER LOG] Sending to client in room ${roomId}. Is sender: ${client === sender}`);
                 client.send(JSON.stringify(message));
             }
         });
