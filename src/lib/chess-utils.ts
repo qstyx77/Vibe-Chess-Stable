@@ -1,4 +1,5 @@
 
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -134,7 +135,7 @@ export function getPossibleMovesInternal(
                 
                 let isIntermediatePathSafe = true;
                 if (checkKingSafety) {
-                    if (isSquareAttacked(board, coordsToAlgebraic(midR, midC), opponentColor, true, pieceOnFinalTarget ? finalTargetSquareAlgebraic : null, enPassantTargetSquare )) {
+                    if (isSquareAttacked(board, coordsToAlgebraic(midR, midC), opponentColor, false, pieceOnFinalTarget ? finalTargetSquareAlgebraic : null, enPassantTargetSquare )) {
                         isIntermediatePathSafe = false;
                     }
                 }
@@ -175,9 +176,9 @@ export function getPossibleMovesInternal(
                 !board[kingRow]?.[5]?.piece && (!board[kingRow]?.[5]?.item || board[kingRow]?.[5]?.item?.type === 'shroom') &&
                 !board[kingRow]?.[6]?.piece && (!board[kingRow]?.[6]?.item || board[kingRow]?.[6]?.item?.type === 'shroom')
                 ) {
-                if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, true, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, true, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, true, null, enPassantTargetSquare)) {
+                if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
+                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, false, null, enPassantTargetSquare) &&
+                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, false, null, enPassantTargetSquare)) {
                     possible.push(coordsToAlgebraic(kingRow, 6));
                 }
             }
@@ -187,9 +188,9 @@ export function getPossibleMovesInternal(
                 !board[kingRow]?.[2]?.piece && (!board[kingRow]?.[2]?.item || board[kingRow]?.[2]?.item?.type === 'shroom') &&
                 !board[kingRow]?.[3]?.piece && (!board[kingRow]?.[3]?.item || board[kingRow]?.[3]?.item?.type === 'shroom')
                  ) {
-                if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, true, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, true, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, true, null, enPassantTargetSquare)) {
+                if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
+                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, false, null, enPassantTargetSquare) &&
+                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, false, null, enPassantTargetSquare)) {
                     possible.push(coordsToAlgebraic(kingRow, 2));
                 }
             }
