@@ -702,8 +702,8 @@ export default function EvolvingChessPage() {
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
             else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
             else if (reason === 'self-check') message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
-            else if (type === 'forfeit-timeout') message = `${getPlayerDisplayName(timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(winner)} wins!`;
-            else if (type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
+            else if (data.type === 'forfeit-timeout') message = `${getPlayerDisplayName(timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(winner)} wins!`;
+            else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
             toast({ title: "Game Over!", description: message, duration: 5000 });
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
@@ -719,7 +719,7 @@ export default function EvolvingChessPage() {
             startOrResetTurnTimer(data.nextPlayer);
             break;
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, onlineStatus, startOrResetTurnTimer]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, startOrResetTurnTimer]);
 
 
   useEffect(() => {
@@ -805,7 +805,7 @@ export default function EvolvingChessPage() {
             wsRef.current.close();
         }
     };
-  }, [onlineStatus, disconnectAndReset, toast, localPlayerColor, gameInfo.gameOver, handleIncomingData, startOrResetTurnTimer, inputRoomId]);
+  }, [onlineStatus, disconnectAndReset, toast, gameInfo.gameOver, handleIncomingData, startOrResetTurnTimer, inputRoomId, localPlayerColor]);
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join') => {
     if (onlineStatus !== 'disconnected') {
@@ -2916,7 +2916,7 @@ export default function EvolvingChessPage() {
     if (onlineStatus === 'waiting' && roomId) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
-          Waiting... Share ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
+          Waiting... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
         </p>
       );
     }
@@ -3110,3 +3110,5 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    
