@@ -205,8 +205,6 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
-  const wsActionRef = useRef<'create' | 'join' | null>(null);
-  const wsRoomIdRef = useRef<string | null>(null);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -807,15 +805,20 @@ export default function EvolvingChessPage() {
     setActiveTimerPlayer, setRemainingTime
   ]);
 
-  useEffect(() => {
-    if (onlineStatus !== 'connecting') return;
-
+  const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
+    if (onlineStatus !== 'disconnected') {
+      disconnectAndReset();
+      return;
+    }
+  
+    setOnlineStatus('connecting');
+  
     const getWebSocketUrl = () => {
       const hostname = window.location.hostname;
       const websocketHostname = hostname.replace(/^9000-/, '8080-');
       return `wss://${websocketHostname}`;
     };
-
+  
     const wsUrl = getWebSocketUrl();
     if (!wsUrl) {
       toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive'});
@@ -825,15 +828,15 @@ export default function EvolvingChessPage() {
     
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
-
+  
     ws.onopen = () => {
-      if (wsActionRef.current === 'create') {
+      if (action === 'create') {
         ws.send(JSON.stringify({ type: 'create-room' }));
-      } else if (wsActionRef.current === 'join' && wsRoomIdRef.current) {
-        ws.send(JSON.stringify({ type: 'join-room', roomId: wsRoomIdRef.current }));
+      } else if (action === 'join' && id) {
+        ws.send(JSON.stringify({ type: 'join-room', roomId: id }));
       }
     };
-
+  
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         switch (data.type) {
@@ -873,27 +876,22 @@ export default function EvolvingChessPage() {
             break;
         }
       };
-
+  
     ws.onerror = (err) => {
       console.error("[CLIENT] WebSocket error:", err);
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive'});
       setOnlineStatus('disconnected');
       wsRef.current = null;
     };
-
+  
     ws.onclose = () => {
         if(onlineStatus !== 'disconnected') {
             toast({ title: "Connection Closed", description: "Disconnected from the game server."});
             disconnectAndReset();
         }
     };
-
-    return () => {
-        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
-            wsRef.current.close();
-        }
-    };
-  }, [onlineStatus]);
+  }, [onlineStatus, disconnectAndReset, toast, localPlayerColor, gameInfo.gameOver, handleIncomingData, startOrResetTurnTimer]);
+  
 
   useEffect(() => {
     if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) {
@@ -2791,16 +2789,6 @@ export default function EvolvingChessPage() {
     fullGameReset();
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
   }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset, gameInfo.gameOver]);
-
-  const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
-    if (onlineStatus !== 'disconnected') {
-      disconnectAndReset();
-      return;
-    }
-    wsActionRef.current = action;
-    wsRoomIdRef.current = id || null;
-    setOnlineStatus('connecting');
-  }, [onlineStatus, disconnectAndReset]);
 
   const handleUndo = useCallback(() => {
     if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
