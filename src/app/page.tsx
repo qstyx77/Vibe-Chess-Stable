@@ -204,7 +204,6 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
-  const wsActionRef = useRef<'create' | 'join' | null>(null);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -306,6 +305,7 @@ export default function EvolvingChessPage() {
 
   const disconnectAndReset = useCallback(() => {
     if (wsRef.current) {
+        wsRef.current.onclose = null; // Prevent onclose handler from running again
         wsRef.current.close();
         wsRef.current = null;
     }
@@ -451,7 +451,7 @@ export default function EvolvingChessPage() {
       if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'game-over', reason: 'auto-checkmate', winner: playerTakingExtraTurn }));
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerTakingExtraTurn, timedOutPlayer: opponentColor, reason: 'auto-checkmate' }));
         }
       }
       return;
@@ -466,7 +466,7 @@ export default function EvolvingChessPage() {
       if (onlineStatus === 'connected') {
          const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'game-over', reason: 'stalemate', winner: 'draw' }));
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'stalemate' }));
         }
       }
     } else {
@@ -496,7 +496,7 @@ export default function EvolvingChessPage() {
          if (onlineStatus === 'connected') {
           const ws = wsRef.current;
           if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'game-over', reason: 'checkmate', winner: playerWhoseTurnEnded }));
+            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerWhoseTurnEnded, timedOutPlayer: nextPlayer, reason: 'checkmate' }));
           }
         }
         return;
@@ -512,7 +512,7 @@ export default function EvolvingChessPage() {
          if (onlineStatus === 'connected') {
           const ws = wsRef.current;
           if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'game-over', reason: 'stalemate', winner: 'draw' }));
+            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'stalemate' }));
           }
         }
         return;
@@ -594,7 +594,7 @@ export default function EvolvingChessPage() {
       if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'game-over', reason: 'threefold-repetition', winner: 'draw' }));
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
         }
       }
       return;
@@ -640,31 +640,35 @@ export default function EvolvingChessPage() {
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-    switch (data.type) {
+      switch (data.type) {
         case 'game-move': {
-            const { payload: move, movingPlayer: playerWhoMoved, fullBoardState, capturedPieces: serverCapturedPieces, killStreaks: serverKillStreaks, enPassantTarget, gameInfo: serverGameInfo } = data;
-            if (!move || !playerWhoMoved || !fullBoardState) return;
+            // The server is the source of truth for the entire game state after a move.
+            const { fullGameState } = data;
+            if (!fullGameState) return;
 
-            setBoard(fullBoardState);
-            if (serverCapturedPieces) setCapturedPieces(serverCapturedPieces);
-            if (serverKillStreaks) setKillStreaks(serverKillStreaks);
-            setEnPassantTargetSquare(enPassantTarget || null);
-            setLastMoveFrom(move.from);
-            setLastMoveTo(move.to);
+            setBoard(fullGameState.board);
+            setCapturedPieces(fullGameState.capturedPieces);
+            setKillStreaks(fullGameState.killStreaks);
+            setGameInfo(fullGameState.gameInfo);
+            setCurrentPlayer(fullGameState.currentPlayer);
+            setEnPassantTargetSquare(fullGameState.enPassantTarget || null);
+            setLastMoveFrom(fullGameState.lastMoveFrom || null);
+            setLastMoveTo(fullGameState.lastMoveTo || null);
+            
+            // Sync other special states if they are part of the broadcast
+            setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
+            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
 
-            const isExtraTurn = serverGameInfo.currentPlayer === playerWhoMoved;
-            const nextPlayer = isExtraTurn ? playerWhoMoved : (playerWhoMoved === 'white' ? 'black' : 'white');
-            setCurrentPlayer(nextPlayer);
+            // Handle resurrection highlights from server
+            if(fullGameState.resurrectedSquare) {
+                setResurrectedSquares(prev => [...prev, { square: fullGameState.resurrectedSquare, player: fullGameState.lastPlayer }]);
+            }
 
-            if (serverGameInfo.isCheckmate || serverGameInfo.isStalemate || serverGameInfo.gameOver) {
-                setGameInfo(serverGameInfo);
+            if (fullGameState.gameInfo.gameOver) {
                 setActiveTimerPlayer(null);
                 setRemainingTime(null);
             } else {
-                setGameInfo(serverGameInfo);
-                if (onlineStatus === 'connected') {
-                    startOrResetTurnTimer(nextPlayer);
-                }
+                startOrResetTurnTimer(fullGameState.currentPlayer);
             }
             break;
         }
@@ -722,99 +726,103 @@ export default function EvolvingChessPage() {
   }, [localPlayerColor, toast, getPlayerDisplayName, startOrResetTurnTimer]);
 
 
+  // Effect for cleaning up WebSocket on unmount
   useEffect(() => {
-    if (onlineStatus !== 'connecting') return;
-
-    const getWebSocketUrl = () => {
-        const hostname = window.location.hostname;
-        const websocketHostname = hostname.replace(/^9000-/, '8080-');
-        return `wss://${websocketHostname}`;
-    };
-
-    const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-        toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive' });
-        setOnlineStatus('disconnected');
-        return;
-    }
-
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-        if (wsActionRef.current === 'create') {
-            ws.send(JSON.stringify({ type: 'create-room' }));
-        } else if (wsActionRef.current === 'join' && inputRoomId) {
-            ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
-        }
-    };
-
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        switch (data.type) {
-            case 'room-created':
-                setRoomId(data.roomId);
-                setLocalPlayerColor(data.color);
-                setOnlineStatus('waiting');
-                toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}` });
-                break;
-            case 'player-joined':
-                setOnlineStatus('connected');
-                toast({ title: "Player Joined!", description: "Your game is starting." });
-                startOrResetTurnTimer('white');
-                break;
-            case 'room-joined':
-                setRoomId(data.roomId);
-                setLocalPlayerColor(data.color);
-                setOnlineStatus('connected');
-                toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
-                startOrResetTurnTimer('white');
-                break;
-            case 'opponent-disconnected':
-                if (gameInfo.gameOver) return;
-                toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
-                setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
-                disconnectAndReset();
-                break;
-            case 'error':
-                toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
-                setOnlineStatus('disconnected');
-                wsRef.current = null;
-                break;
-            default:
-                handleIncomingData(data);
-                break;
-        }
-    };
-
-    ws.onerror = (err) => {
-        console.error("[CLIENT] WebSocket error:", err);
-        toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive' });
-        setOnlineStatus('disconnected');
-        wsRef.current = null;
-    };
-
-    ws.onclose = () => {
-        if (onlineStatus !== 'disconnected') {
-             disconnectAndReset();
-        }
-    };
-
     return () => {
-        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            wsRef.current.close();
-        }
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
     };
-  }, [onlineStatus, disconnectAndReset, toast, gameInfo.gameOver, handleIncomingData, startOrResetTurnTimer, inputRoomId, localPlayerColor]);
+  }, []);
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join') => {
     if (onlineStatus !== 'disconnected') {
       disconnectAndReset();
       return;
     }
-    wsActionRef.current = action;
+  
     setOnlineStatus('connecting');
-  }, [onlineStatus, disconnectAndReset]);
+  
+    const getWebSocketUrl = () => {
+      const hostname = window.location.hostname;
+      const websocketHostname = hostname.replace(/^9000-/, '8080-');
+      return `wss://${websocketHostname}`;
+    };
+  
+    const wsUrl = getWebSocketUrl();
+    if (!wsUrl) {
+      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive' });
+      setOnlineStatus('disconnected');
+      return;
+    }
+  
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+  
+    ws.onopen = () => {
+      if (action === 'create') {
+        ws.send(JSON.stringify({ type: 'create-room' }));
+      } else if (action === 'join' && inputRoomId) {
+        ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
+      }
+    };
+  
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      switch (data.type) {
+        case 'room-created':
+          setRoomId(data.roomId);
+          setLocalPlayerColor(data.color);
+          setOnlineStatus('waiting');
+          toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}` });
+          break;
+        case 'player-joined':
+          setOnlineStatus('connected');
+          toast({ title: "Player Joined!", description: "Your game is starting." });
+          startOrResetTurnTimer('white');
+          break;
+        case 'room-joined':
+          setRoomId(data.roomId);
+          setLocalPlayerColor(data.color);
+          setOnlineStatus('connected');
+          toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
+          startOrResetTurnTimer('white');
+          break;
+        case 'opponent-disconnected':
+          if (gameInfo.gameOver) return;
+          toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
+          setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
+          disconnectAndReset();
+          break;
+        case 'error':
+          toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
+          if(wsRef.current) {
+            wsRef.current.onclose = null;
+            wsRef.current.close();
+            wsRef.current = null;
+          }
+          setOnlineStatus('disconnected');
+          break;
+        default:
+          handleIncomingData(data);
+          break;
+      }
+    };
+  
+    ws.onerror = (err) => {
+      console.error("[CLIENT] WebSocket error:", err);
+      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive' });
+      setOnlineStatus('disconnected');
+    };
+  
+    ws.onclose = () => {
+      if (onlineStatus !== 'disconnected') {
+        toast({ title: "Connection Closed", description: "Disconnected from game server."});
+        disconnectAndReset();
+      }
+    };
+  
+  }, [onlineStatus, disconnectAndReset, toast, inputRoomId, handleIncomingData, startOrResetTurnTimer, gameInfo.gameOver, localPlayerColor]);
   
 
   useEffect(() => {
@@ -1044,7 +1052,7 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic } }));
+                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic, fullGameState: { board: boardAfterCommanderPromo } } }));
             }
         }
 
@@ -1100,7 +1108,7 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic } }));
+                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic, fullGameState: { board: boardAfterSacrifice } } }));
             }
         }
 
@@ -1409,7 +1417,7 @@ export default function EvolvingChessPage() {
            if (onlineStatus === 'connected') {
              const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'game-over', reason: 'infiltration', winner: currentPlayer }));
+              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: currentPlayer, reason: 'infiltration' }));
             }
            }
           return;
@@ -1468,7 +1476,7 @@ export default function EvolvingChessPage() {
           if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'game-over', reason: 'self-check', winner: opponentPlayer, byPlayer: currentPlayer }));
+              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
             }
           }
           return;
@@ -1643,8 +1651,15 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected' && moveBeingMade) { 
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
+                // In online play, we just send the intended move. The server is the authority.
+                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
+            // We'll wait for the server to send back the authoritative state update.
+            setIsMoveProcessing(false);
+            setAnimatedSquareTo(null);
+            setSelectedSquare(null); setPossibleMoves([]);
+            setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+            return;
         }
 
 
@@ -1826,13 +1841,15 @@ export default function EvolvingChessPage() {
     if (onlineStatus === 'connected' && localPlayerColor === pawnColor) {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'game-move', payload: {
-              from: lastMoveFrom!,
-              to: promotionSquare,
-              type: 'promotion',
-              promoteTo: pieceType
-          } as Move, movingPlayer: currentPlayer }));
+          // Send the complete move including promotion
+          ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
+        // Wait for server to broadcast the new state.
+        setIsMoveProcessing(false);
+        setAnimatedSquareTo(null);
+        setIsPromotingPawn(false);
+        setPromotionSquare(null);
+        return;
     }
 
     setTimeout(() => {

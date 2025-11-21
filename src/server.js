@@ -18,10 +18,10 @@ const wss = new WebSocket.Server({ server });
 const rooms = {};
 
 // Server-side game logic import (ensure path is correct)
-const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate } = require('./lib/chess-utils.js');
+const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil: spawnAnvilUtil, spawnShroom: spawnShroomUtil } = require('./lib/chess-utils.js');
 
 
-const broadcastToRoom = (roomId, message) => {
+const broadcastToRoom = (roomId, message, sender) => {
     const room = rooms[roomId];
     if (room && room.clients) {
         room.clients.forEach(client => {
@@ -58,6 +58,12 @@ wss.on('connection', ws => {
                         capturedPieces: { white: [], black: [] },
                         killStreaks: { white: 0, black: 0 },
                         enPassantTarget: null,
+                        gameMoveCounter: 0,
+                        lastMoveFrom: null,
+                        lastMoveTo: null,
+                        firstBloodAchieved: false,
+                        playerWhoGotFirstBlood: null,
+                        resurrectedSquare: null,
                         gameInfo: {
                             message: "\u00A0",
                             isCheck: false,
@@ -80,7 +86,7 @@ wss.on('connection', ws => {
                     
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black' }));
                     
-                    broadcastToRoom(roomIdToJoin, { type: 'player-joined' });
+                    broadcastToRoom(roomIdToJoin, { type: 'player-joined' }, ws);
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
@@ -89,58 +95,77 @@ wss.on('connection', ws => {
             case 'game-move': {
                 if (!room) return;
 
-                const { payload: move, movingPlayer } = data;
-                if (movingPlayer !== room.gameState.currentPlayer) {
-                    return; // Ignore move if it's not the player's turn
-                }
+                const { payload: move } = data;
+                const movingPlayer = room.gameState.currentPlayer;
 
-                // Apply the move on the server's authoritative game state
+                // --- Start of Server-Authoritative Move Processing ---
+                
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
+                
                 room.gameState.board = newBoard;
                 room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
-                
+                room.gameState.lastMoveFrom = move.from;
+                room.gameState.lastMoveTo = move.to;
+
                 if (capturedPiece) {
                     room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
                     room.gameState.killStreaks[movingPlayer] = (room.gameState.killStreaks[movingPlayer] || 0) + 1;
                     const opponent = movingPlayer === 'white' ? 'black' : 'white';
                     room.gameState.killStreaks[opponent] = 0;
+                    if(!room.gameState.firstBloodAchieved) {
+                        room.gameState.firstBloodAchieved = true;
+                        room.gameState.playerWhoGotFirstBlood = movingPlayer;
+                    }
                 } else {
                     room.gameState.killStreaks[movingPlayer] = 0;
                 }
+
+                if (data.payload.type === 'commander-promo' && data.payload.square) {
+                    const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.payload.square);
+                    if(room.gameState.board[row][col].piece) {
+                       room.gameState.board[row][col].piece.type = 'commander';
+                    }
+                }
                 
-                // Check for game over conditions
+                room.gameState.gameMoveCounter++;
                 const nextPlayer = movingPlayer === 'white' ? 'black' : 'white';
+
                 const inCheck = isKingInCheck(newBoard, nextPlayer, room.gameState.enPassantTarget);
                 let message = "\u00A0";
-                
+                let gameOver = false;
+                let winner = undefined;
+
                 if (isCheckmate(newBoard, nextPlayer, room.gameState.enPassantTarget)) {
-                    room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: movingPlayer, isCheckmate: true, message: `Checkmate! ${movingPlayer} wins!` };
+                    message = `Checkmate! ${movingPlayer} wins!`;
+                    gameOver = true;
+                    winner = movingPlayer;
                 } else if (isStalemate(newBoard, nextPlayer, room.gameState.enPassantTarget)) {
-                    room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: 'draw', isStalemate: true, message: "Stalemate! It's a draw." };
+                    message = "Stalemate! It's a draw.";
+                    gameOver = true;
+                    winner = 'draw';
                 } else if (inCheck) {
                     message = "Check!";
                 }
 
-                if (!room.gameState.gameInfo.gameOver) {
-                    room.gameState.currentPlayer = nextPlayer;
-                    room.gameState.gameInfo = {
-                        ...room.gameState.gameInfo,
-                        isCheck: inCheck,
-                        playerWithKingInCheck: inCheck ? nextPlayer : null,
-                        message: message
-                    };
-                }
-                
-                // Broadcast the entire new state to all players
+                room.gameState.gameInfo = {
+                    message: message,
+                    isCheck: inCheck,
+                    playerWithKingInCheck: inCheck ? nextPlayer : null,
+                    isCheckmate: winner === movingPlayer && !isStalemate,
+                    isStalemate: winner === 'draw',
+                    gameOver: gameOver,
+                    winner: winner
+                };
+
+                room.gameState.currentPlayer = nextPlayer;
+
+                // --- End of Server-Authoritative Move Processing ---
+
+                // Broadcast the single, authoritative new game state to ALL clients
                 broadcastToRoom(ws.roomId, {
                     type: 'game-move',
-                    payload: move,
-                    movingPlayer: movingPlayer,
-                    fullBoardState: room.gameState.board,
-                    capturedPieces: room.gameState.capturedPieces,
-                    killStreaks: room.gameState.killStreaks,
-                    enPassantTarget: room.gameState.enPassantTarget,
-                    gameInfo: room.gameState.gameInfo
+                    fullGameState: room.gameState,
+                    lastPlayer: movingPlayer,
                 });
                 break;
             }
@@ -149,22 +174,20 @@ wss.on('connection', ws => {
                  if (room) {
                     const winner = data.resigningPlayer === 'white' ? 'black' : (data.timedOutPlayer === 'white' ? 'black' : 'white');
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner };
-                    broadcastToRoom(ws.roomId, { ...data, winner });
+                    broadcastToRoom(ws.roomId, { ...data, winner }, ws);
                 }
                 break;
             case 'anvil-spawn':
             case 'shroom-spawn': {
                  if (room) {
-                    // Just broadcast these events, the client will handle the logic
-                    // This ensures both clients see the same random outcome
-                    broadcastToRoom(ws.roomId, data);
+                    broadcastToRoom(ws.roomId, data, ws);
                  }
                  break;
             }
             case 'turn-pass-timeout': {
                  if (room) {
                     room.gameState.currentPlayer = data.nextPlayer;
-                    broadcastToRoom(ws.roomId, data);
+                    broadcastToRoom(ws.roomId, data, ws);
                  }
                  break;
             }
@@ -180,11 +203,12 @@ wss.on('connection', ws => {
                 room.clients = room.clients.filter(client => client !== ws);
                 
                 if (room.clients.length > 0) {
-                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' });
+                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' }, ws);
                 }
                
                 if (room.clients.length === 0) {
                     delete rooms[ws.roomId];
+                    console.log(`[Server] Room ${ws.roomId} closed.`);
                 }
             }
         }
@@ -201,3 +225,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
+
+    
