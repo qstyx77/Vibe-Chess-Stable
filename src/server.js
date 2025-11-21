@@ -20,10 +20,8 @@ const rooms = {};
 const broadcastToRoom = (roomId, message, sender) => {
     const room = rooms[roomId];
     if (room && room.clients) {
-        console.log(`[SERVER LOG] Broadcasting message to room ${roomId}:`, message);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                console.log(`[SERVER LOG] Sending to client in room ${roomId}. Is sender: ${client === sender}`);
                 client.send(JSON.stringify(message));
             }
         });
@@ -58,15 +56,18 @@ wss.on('connection', ws => {
                     ws.roomId = roomId;
                     room.clients.push(ws);
                     
+                    // Notify the new player they joined and are black
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomId, color: 'black' }));
                     
-                    broadcastToRoom(roomId, { type: 'player-joined' }, ws);
+                    // Notify everyone in the room that the second player has joined
+                    broadcastToRoom(roomId, { type: 'player-joined' }, null); // Send to all, including original sender
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
             }
             case 'game-move':
+            case 'game-over':
             case 'resign':
             case 'forfeit-timeout':
             case 'turn-pass-timeout':
@@ -74,7 +75,7 @@ wss.on('connection', ws => {
             case 'shroom-spawn':
             {
                 if (ws.roomId) {
-                    broadcastToRoom(ws.roomId, data, ws);
+                    broadcastToRoom(ws.roomId, data, null); // Broadcast to all
                 }
                 break;
             }
@@ -87,8 +88,18 @@ wss.on('connection', ws => {
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room) {
-                broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' }, ws);
-                delete rooms[ws.roomId];
+                // Remove the disconnected client
+                room.clients = room.clients.filter(client => client !== ws);
+                
+                if (room.clients.length > 0) {
+                     // Notify the remaining player
+                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' }, ws);
+                }
+               
+                // If the room is now empty, delete it
+                if (room.clients.length === 0) {
+                    delete rooms[ws.roomId];
+                }
             }
         }
     });

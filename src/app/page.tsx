@@ -205,6 +205,8 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
+  const wsActionRef = useRef<'create' | 'join' | null>(null);
+  const wsRoomIdRef = useRef<string | null>(null);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -638,7 +640,6 @@ export default function EvolvingChessPage() {
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-    console.log('[LOG] handleIncomingData: Received message from server', data);
     switch (data.type) {
       case 'game-move': {
         const { payload: move, movingPlayer: playerWhoMoved } = data;
@@ -680,12 +681,9 @@ export default function EvolvingChessPage() {
             setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
     
             if (capturedPiece) {
-                console.log(`[LOG] handleIncomingData: Piece captured:`, capturedPiece, `by player ${playerWhoMoved}`);
                 setCapturedPieces(prev => {
-                  console.log(`[LOG] handleIncomingData: setCapturedPieces PREV state for player ${playerWhoMoved}:`, prev[playerWhoMoved]);
                   const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` };
                   const newCapturedList = [...(prev[playerWhoMoved] || []), uniqueCapturedPiece];
-                  console.log(`[LOG] handleIncomingData: setCapturedPieces NEW state for player ${playerWhoMoved}:`, newCapturedList);
                   return { ...prev, [playerWhoMoved]: newCapturedList };
                 });
                 setLastCapturePlayer(playerWhoMoved);
@@ -810,8 +808,33 @@ export default function EvolvingChessPage() {
   ]);
 
   useEffect(() => {
-    if (onlineStatus !== 'disconnected' && wsRef.current) {
-      wsRef.current.onmessage = (event) => {
+    if (onlineStatus !== 'connecting') return;
+
+    const getWebSocketUrl = () => {
+      const hostname = window.location.hostname;
+      const websocketHostname = hostname.replace(/^9000-/, '8080-');
+      return `wss://${websocketHostname}`;
+    };
+
+    const wsUrl = getWebSocketUrl();
+    if (!wsUrl) {
+      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive'});
+      setOnlineStatus('disconnected');
+      return;
+    }
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      if (wsActionRef.current === 'create') {
+        ws.send(JSON.stringify({ type: 'create-room' }));
+      } else if (wsActionRef.current === 'join' && wsRoomIdRef.current) {
+        ws.send(JSON.stringify({ type: 'join-room', roomId: wsRoomIdRef.current }));
+      }
+    };
+
+    ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
         switch (data.type) {
           case 'room-created':
@@ -850,8 +873,27 @@ export default function EvolvingChessPage() {
             break;
         }
       };
-    }
-  }, [onlineStatus, localPlayerColor, toast, disconnectAndReset, handleIncomingData, startOrResetTurnTimer, gameInfo.gameOver]);
+
+    ws.onerror = (err) => {
+      console.error("[CLIENT] WebSocket error:", err);
+      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive'});
+      setOnlineStatus('disconnected');
+      wsRef.current = null;
+    };
+
+    ws.onclose = () => {
+        if(onlineStatus !== 'disconnected') {
+            toast({ title: "Connection Closed", description: "Disconnected from the game server."});
+            disconnectAndReset();
+        }
+    };
+
+    return () => {
+        if (wsRef.current && wsRef.current.readyState !== WebSocket.CLOSED) {
+            wsRef.current.close();
+        }
+    };
+  }, [onlineStatus]);
 
   useEffect(() => {
     if (activeTimerPlayer && remainingTime !== null && remainingTime > 0 && !gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) {
@@ -1434,9 +1476,6 @@ export default function EvolvingChessPage() {
         newEnPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
 
-        console.log(`[LOG] handleSquareClick: Local move from ${moveBeingMade.from} to ${moveBeingMade.to}. Capture detected:`, capturedPieceFromApply);
-        console.log('[LOG] handleSquareClick: capturedPieces state BEFORE local update:', finalCapturedPiecesStateForTurn);
-
         if (gameWonByInfiltrationFromApply) {
           setBoard(finalBoardStateForTurn);
           setCapturedPieces(finalCapturedPiecesStateForTurn);
@@ -1561,8 +1600,6 @@ export default function EvolvingChessPage() {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 2000 });
         }
         
-        console.log(`[LOG] handleSquareClick: capturedPieces state AFTER local update for player ${capturingPlayer}:`, finalCapturedPiecesStateForTurn[capturingPlayer]);
-
 
         let humanRookResData: RookResurrectionResult | null = null;
         const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
@@ -2755,65 +2792,15 @@ export default function EvolvingChessPage() {
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
   }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset, gameInfo.gameOver]);
 
-  useEffect(() => {
-    const ws = wsRef.current;
-    return () => {
-      if (ws) {
-        ws.close();
-      }
-    };
-  }, []);
-
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
     if (onlineStatus !== 'disconnected') {
       disconnectAndReset();
       return;
     }
-
+    wsActionRef.current = action;
+    wsRoomIdRef.current = id || null;
     setOnlineStatus('connecting');
-
-    const getWebSocketUrl = () => {
-      const hostname = window.location.hostname;
-      // In environments like Gitpod or Cloud Workstations, the hostname for a forwarded port
-      // often contains the port number. We need to replace it.
-      const websocketHostname = hostname.replace(/^9000-/, '8080-');
-      return `wss://${websocketHostname}`;
-    };
-    
-    const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive'});
-      setOnlineStatus('disconnected');
-      return;
-    }
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      if (action === 'create') {
-        ws.send(JSON.stringify({ type: 'create-room' }));
-      } else if (action === 'join' && id) {
-        ws.send(JSON.stringify({ type: 'join-room', roomId: id }));
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error("[CLIENT] WebSocket error:", err);
-      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive'});
-      setOnlineStatus('disconnected');
-      wsRef.current = null;
-    };
-
-    ws.onclose = (event) => {
-      if (onlineStatus !== 'disconnected') {
-          // Only show toast if it was an unexpected closure
-          toast({ title: "Connection Closed", description: "Disconnected from the game server."});
-          disconnectAndReset();
-      }
-    };
-  }, [onlineStatus, toast, disconnectAndReset]);
-
+  }, [onlineStatus, disconnectAndReset]);
 
   const handleUndo = useCallback(() => {
     if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
@@ -3211,3 +3198,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
