@@ -46,7 +46,6 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-
 let globalUniqueIdCounter = 0;
 const TURN_DURATION_SECONDS = 60;
 
@@ -205,6 +204,7 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
+  const wsActionRef = useRef<'create' | 'join' | null>(null);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -309,9 +309,11 @@ export default function EvolvingChessPage() {
         wsRef.current.close();
         wsRef.current = null;
     }
-    fullGameReset();
-    toast({ title: "Disconnected", description: "You have left the online game." });
-  }, [fullGameReset, toast]);
+    if (onlineStatus !== 'disconnected') {
+      fullGameReset();
+      toast({ title: "Disconnected", description: "You have left the online game." });
+    }
+  }, [fullGameReset, toast, onlineStatus]);
 
   const determineBoardOrientation = useCallback((): PlayerColor => {
     if (isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
@@ -639,258 +641,180 @@ export default function EvolvingChessPage() {
 
   const handleIncomingData = useCallback((data: any) => {
     switch (data.type) {
-      case 'game-move': {
-        const { payload: move, movingPlayer: playerWhoMoved } = data;
-        if (!move || !playerWhoMoved) return;
+        case 'game-move': {
+            const { payload: move, movingPlayer: playerWhoMoved, fullBoardState, capturedPieces: serverCapturedPieces, killStreaks: serverKillStreaks, enPassantTarget, gameInfo: serverGameInfo } = data;
+            if (!move || !playerWhoMoved || !fullBoardState) return;
 
-        if (playerWhoMoved !== localPlayerColor) {
-             toast({ title: "Opponent Move", description: `From ${move.from} to ${move.to}`, duration: 2000 });
+            setBoard(fullBoardState);
+            if (serverCapturedPieces) setCapturedPieces(serverCapturedPieces);
+            if (serverKillStreaks) setKillStreaks(serverKillStreaks);
+            setEnPassantTargetSquare(enPassantTarget || null);
+            setLastMoveFrom(move.from);
+            setLastMoveTo(move.to);
+
+            const isExtraTurn = serverGameInfo.currentPlayer === playerWhoMoved;
+            const nextPlayer = isExtraTurn ? playerWhoMoved : (playerWhoMoved === 'white' ? 'black' : 'white');
+            setCurrentPlayer(nextPlayer);
+
+            if (serverGameInfo.isCheckmate || serverGameInfo.isStalemate || serverGameInfo.gameOver) {
+                setGameInfo(serverGameInfo);
+                setActiveTimerPlayer(null);
+                setRemainingTime(null);
+            } else {
+                setGameInfo(serverGameInfo);
+                if (onlineStatus === 'connected') {
+                    startOrResetTurnTimer(nextPlayer);
+                }
+            }
+            break;
         }
-
-        if (move.type === 'commander-promo') {
-            const { player, square } = move;
+        case 'anvil-spawn': {
+            const { square } = data;
+            const { row, col } = algebraicToCoords(square);
             setBoard(currentBoard => {
-                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-                const { row, col } = algebraicToCoords(square);
-                const pieceToPromote = newBoard[row]?.[col]?.piece;
-                if (pieceToPromote && pieceToPromote.type === 'pawn' && pieceToPromote.color === player) {
-                    pieceToPromote.type = 'commander';
-                    pieceToPromote.id = `${pieceToPromote.id}_CMD_${globalUniqueIdCounter++}`;
-                }
-                if (player !== localPlayerColor) {
-                  toast({ title: "Opponent Promoted!", description: `${getPlayerDisplayName(player)}'s Pawn on ${square} is now a Commander!`, duration: 3000});
-                }
-                
-                const wasExtraTurnFromStreak = killStreaks[player] === 6;
-                processMoveEnd(newBoard, player, wasExtraTurnFromStreak, null);
-
+                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+                newBoard[row][col].item = { type: 'anvil' };
                 return newBoard;
             });
-            return; 
+            toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+            break;
         }
-
-        saveStateToHistory();
-        setLastMoveFrom(move.from);
-        setLastMoveTo(move.to);
-        
-        setBoard(currentBoard => {
-            const { newBoard, capturedPiece, pieceCapturedByAnvil, shroomConsumed } = applyMove(currentBoard, move, enPassantTargetSquare);
-        
-            setEnPassantTargetSquare(applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
-    
-            if (capturedPiece) {
-                setCapturedPieces(prev => {
-                  const uniqueCapturedPiece = { ...capturedPiece, id: `${capturedPiece.id}_cap_${globalUniqueIdCounter++}` };
-                  const newCapturedList = [...(prev[playerWhoMoved] || []), uniqueCapturedPiece];
-                  return { ...prev, [playerWhoMoved]: newCapturedList };
-                });
-                setLastCapturePlayer(playerWhoMoved);
-            }
-            if (pieceCapturedByAnvil) {
-                setCapturedPieces(prev => {
-                   const newCapturedList = [...(prev[playerWhoMoved] || []), { ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${globalUniqueIdCounter++}` }];
-                   return { ...prev, [playerWhoMoved]: newCapturedList };
-                });
-                setLastCapturePlayer(playerWhoMoved);
-                if (playerWhoMoved !== localPlayerColor) {
-                  toast({ title: "Opponent's Anvil Crush!", description: `${getPlayerDisplayName(playerWhoMoved)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 3000 });
-                }
-            }
-    
-            let newKillStreak = killStreaks[playerWhoMoved] || 0;
-            if (capturedPiece || pieceCapturedByAnvil) {
-                newKillStreak++;
-                if (!firstBloodAchieved) {
-                    setFirstBloodAchieved(true);
-                    setPlayerWhoGotFirstBlood(playerWhoMoved);
-                     if (playerWhoMoved !== localPlayerColor) {
-                      toast({ title: "OPPONENT GOT FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoMoved)} drew first blood!`, duration: 4000});
-                    }
-                }
-                const streakMsg = getKillStreakToastMessage(newKillStreak);
-                if(streakMsg && playerWhoMoved !== localPlayerColor) {
-                    setKillStreakFlashMessage(`OPPONENT: ${streakMsg}`);
-                    setKillStreakFlashMessageKey(k => k + 1);
-                }
-            } else {
-                newKillStreak = 0;
-            }
-            setKillStreaks(prev => ({ ...prev, [playerWhoMoved]: newKillStreak }));
-    
-            let extraTurn = false; 
+        case 'shroom-spawn': {
+            const { square, nextTurn } = data;
+            const { row, col } = algebraicToCoords(square);
+            setBoard(currentBoard => {
+                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+                newBoard[row][col].item = { type: 'shroom' };
+                return newBoard;
+            });
+            setShroomSpawnCounter(0);
+            setNextShroomSpawnTurn(nextTurn);
+            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+            break;
+        }
+        case 'game-over':
+        case 'forfeit-timeout':
+        case 'resign': {
+            const { winner, reason, timedOutPlayer, resigningPlayer } = data;
+            let message = "";
+            if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
+            else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
+            else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
+            else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
+            else if (reason === 'self-check') message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
+            else if (type === 'forfeit-timeout') message = `${getPlayerDisplayName(timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(winner)} wins!`;
+            else if (type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
-            if (shroomConsumed) {
-                const movedPieceData = newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece;
-                if(movedPieceData && playerWhoMoved !== localPlayerColor) {
-                    toast({ title: "Opponent Level Up!", description: `${getPlayerDisplayName(playerWhoMoved)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 3000 });
-                }
-            }
-    
-            const originalPiece = board[algebraicToCoords(move.from).row]?.[algebraicToCoords(move.from).col]?.piece;
-            if (originalPiece?.type === 'pawn' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7) && move.type !== 'enpassant') {
-                extraTurn = true;
-            }
-            if (originalPiece?.type === 'commander' && (applyMove(currentBoard, move, enPassantTargetSquare).originalPieceLevel || 0) >= 5 && move.type === 'promotion' && move.promoteTo === 'hero') {
-                extraTurn = true;
-            }
-            if ((capturedPiece || pieceCapturedByAnvil) && newKillStreak === 6) {
-                extraTurn = true;
-            }
-    
-            if (!gameInfo.gameOver && !isWhiteAI && !isBlackAI) {
-                startOrResetTurnTimer(extraTurn ? playerWhoMoved : (playerWhoMoved === 'white' ? 'black' : 'white'));
-            }
-            processMoveEnd(newBoard, playerWhoMoved, extraTurn, applyMove(currentBoard, move, enPassantTargetSquare).enPassantTargetSet);
-            return newBoard;
-        });
-        break;
-      }
-      case 'anvil-spawn': {
-        const { square } = data;
-        const { row, col } = algebraicToCoords(square);
-        setBoard(currentBoard => {
-            const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            newBoard[row][col].item = { type: 'anvil' };
-            return newBoard;
-        });
-        toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
-        break;
-      }
-      case 'shroom-spawn': {
-        const { square, nextTurn } = data;
-        const { row, col } = algebraicToCoords(square);
-        setBoard(currentBoard => {
-            const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            newBoard[row][col].item = { type: 'shroom' };
-            return newBoard;
-        });
-        setShroomSpawnCounter(0);
-        setNextShroomSpawnTurn(nextTurn);
-        toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
-        break;
-      }
-      case 'forfeit-timeout':
-        if(data.timedOutPlayer !== localPlayerColor){
-          toast({ title: "Game Over!", description: `${getPlayerDisplayName(data.timedOutPlayer)} forfeited due to timeouts. ${getPlayerDisplayName(data.winner)} wins!`, duration: 5000 });
+            toast({ title: "Game Over!", description: message, duration: 5000 });
+            setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
+            setActiveTimerPlayer(null);
+            setRemainingTime(null);
+            break;
         }
-        setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(data.timedOutPlayer)} forfeits (timeouts). ${getPlayerDisplayName(data.winner)} wins!`, gameOver: true, winner: data.winner }));
-        setActiveTimerPlayer(null);
-        setRemainingTime(null);
-        break;
-      case 'turn-pass-timeout':
-        if(data.timedOutPlayer !== localPlayerColor){
-          toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(data.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(data.nextPlayer)}'s turn.`, duration: 3000});
-        }
-        setCurrentPlayer(data.nextPlayer);
-        startOrResetTurnTimer(data.nextPlayer);
-        break;
-      case 'resign':
-        const resigningPlayer = data.resigningPlayer;
-        const winner = resigningPlayer === 'white' ? 'black' : 'white';
-        if (resigningPlayer !== localPlayerColor) {
-           toast({ title: "Opponent Resigned!", description: `${getPlayerDisplayName(resigningPlayer)} has resigned. ${getPlayerDisplayName(winner)} wins!`, duration: 5000 });
-        }
-        setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`, gameOver: true, winner: winner }));
-        setActiveTimerPlayer(null);
-        setRemainingTime(null);
-        break;
+        case 'turn-pass-timeout':
+            if (data.timedOutPlayer !== localPlayerColor) {
+                toast({ title: "Opponent Timed Out", description: `${getPlayerDisplayName(data.timedOutPlayer)}'s turn passed. It's now ${getPlayerDisplayName(data.nextPlayer)}'s turn.`, duration: 3000 });
+            }
+            setCurrentPlayer(data.nextPlayer);
+            startOrResetTurnTimer(data.nextPlayer);
+            break;
     }
-  }, [
-    board, currentPlayer, localPlayerColor, toast, enPassantTargetSquare, saveStateToHistory, 
-    setLastMoveFrom, setLastMoveTo, setBoard, setEnPassantTargetSquare, setCapturedPieces, 
-    setLastCapturePlayer, getPlayerDisplayName, setKillStreakFlashMessage, 
-    setKillStreakFlashMessageKey, killStreaks, firstBloodAchieved, getKillStreakToastMessage, 
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, gameInfo.gameOver, isWhiteAI, isBlackAI, 
-    startOrResetTurnTimer, processMoveEnd, setKillStreaks, setGameInfo, setCurrentPlayer, 
-    setActiveTimerPlayer, setRemainingTime
-  ]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, onlineStatus, startOrResetTurnTimer]);
 
-  const handleOnlinePlay = useCallback(async (action: 'create' | 'join', id?: string) => {
+
+  useEffect(() => {
+    if (onlineStatus !== 'connecting') return;
+
+    const getWebSocketUrl = () => {
+        const hostname = window.location.hostname;
+        const websocketHostname = hostname.replace(/^9000-/, '8080-');
+        return `wss://${websocketHostname}`;
+    };
+
+    const wsUrl = getWebSocketUrl();
+    if (!wsUrl) {
+        toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive' });
+        setOnlineStatus('disconnected');
+        return;
+    }
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+        if (wsActionRef.current === 'create') {
+            ws.send(JSON.stringify({ type: 'create-room' }));
+        } else if (wsActionRef.current === 'join' && inputRoomId) {
+            ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
+        }
+    };
+
+    ws.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        switch (data.type) {
+            case 'room-created':
+                setRoomId(data.roomId);
+                setLocalPlayerColor(data.color);
+                setOnlineStatus('waiting');
+                toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}` });
+                break;
+            case 'player-joined':
+                setOnlineStatus('connected');
+                toast({ title: "Player Joined!", description: "Your game is starting." });
+                startOrResetTurnTimer('white');
+                break;
+            case 'room-joined':
+                setRoomId(data.roomId);
+                setLocalPlayerColor(data.color);
+                setOnlineStatus('connected');
+                toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
+                startOrResetTurnTimer('white');
+                break;
+            case 'opponent-disconnected':
+                if (gameInfo.gameOver) return;
+                toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
+                setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
+                disconnectAndReset();
+                break;
+            case 'error':
+                toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
+                setOnlineStatus('disconnected');
+                wsRef.current = null;
+                break;
+            default:
+                handleIncomingData(data);
+                break;
+        }
+    };
+
+    ws.onerror = (err) => {
+        console.error("[CLIENT] WebSocket error:", err);
+        toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive' });
+        setOnlineStatus('disconnected');
+        wsRef.current = null;
+    };
+
+    ws.onclose = () => {
+        if (onlineStatus !== 'disconnected') {
+             disconnectAndReset();
+        }
+    };
+
+    return () => {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.close();
+        }
+    };
+  }, [onlineStatus, disconnectAndReset, toast, localPlayerColor, gameInfo.gameOver, handleIncomingData, startOrResetTurnTimer, inputRoomId]);
+
+  const handleOnlinePlay = useCallback(async (action: 'create' | 'join') => {
     if (onlineStatus !== 'disconnected') {
       disconnectAndReset();
       return;
     }
-  
+    wsActionRef.current = action;
     setOnlineStatus('connecting');
-  
-    const getWebSocketUrl = () => {
-      const hostname = window.location.hostname;
-      const websocketHostname = hostname.replace(/^9000-/, '8080-');
-      return `wss://${websocketHostname}`;
-    };
-  
-    const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive'});
-      setOnlineStatus('disconnected');
-      return;
-    }
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-  
-    ws.onopen = () => {
-      if (action === 'create') {
-        ws.send(JSON.stringify({ type: 'create-room' }));
-      } else if (action === 'join' && id) {
-        ws.send(JSON.stringify({ type: 'join-room', roomId: id }));
-      }
-    };
-  
-    ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        switch (data.type) {
-          case 'room-created':
-            setRoomId(data.roomId);
-            setLocalPlayerColor(data.color);
-            setOnlineStatus('waiting');
-            toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}` });
-            break;
-          case 'player-joined':
-            setOnlineStatus('connected');
-            if (localPlayerColor) {
-              toast({ title: "Player Joined!", description: "Your game is starting." });
-              startOrResetTurnTimer('white');
-            }
-            break;
-          case 'room-joined':
-            setRoomId(data.roomId);
-            setLocalPlayerColor(data.color);
-            setOnlineStatus('connected');
-            toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
-            startOrResetTurnTimer('white');
-            break;
-          case 'opponent-disconnected':
-            if (gameInfo.gameOver) return;
-            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
-            setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
-            disconnectAndReset();
-            break;
-          case 'error':
-            toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
-            setOnlineStatus('disconnected');
-            wsRef.current = null;
-            break;
-          default:
-            handleIncomingData(data);
-            break;
-        }
-      };
-  
-    ws.onerror = (err) => {
-      console.error("[CLIENT] WebSocket error:", err);
-      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive'});
-      setOnlineStatus('disconnected');
-      wsRef.current = null;
-    };
-  
-    ws.onclose = () => {
-        if(onlineStatus !== 'disconnected') {
-            toast({ title: "Connection Closed", description: "Disconnected from the game server."});
-            disconnectAndReset();
-        }
-    };
-  }, [onlineStatus, disconnectAndReset, toast, localPlayerColor, gameInfo.gameOver, handleIncomingData, startOrResetTurnTimer]);
+  }, [onlineStatus, disconnectAndReset]);
   
 
   useEffect(() => {
@@ -3104,7 +3028,7 @@ export default function EvolvingChessPage() {
               />
               <Button
                 variant="outline"
-                onClick={() => handleOnlinePlay('join', inputRoomId)}
+                onClick={() => handleOnlinePlay('join')}
                 disabled={onlineStatus !== 'disconnected' || !inputRoomId || isWhiteAI || isBlackAI}
                 className="h-8 px-2 text-sm font-medium"
                 aria-label="Join Online Game"
@@ -3186,4 +3110,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
