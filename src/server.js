@@ -1,4 +1,5 @@
 
+
 const WebSocket = require('ws');
 const http = require('http');
 
@@ -18,7 +19,7 @@ const wss = new WebSocket.Server({ server });
 const rooms = {};
 
 // Server-side game logic import (ensure path is correct)
-const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil: spawnAnvilUtil, spawnShroom: spawnShroomUtil, processRookResurrectionCheck } = require('./lib/chess-utils.js');
+const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil, spawnShroom, processRookResurrectionCheck } = require('./lib/chess-utils.js');
 let globalServerUniqueIdCounter = 10000;
 
 
@@ -164,17 +165,17 @@ wss.on('connection', ws => {
 
                 // Item Spawning is now triggered by clients but executed authoritatively by server
                  if (data.payload.type === 'anvil-spawn-request') {
-                    const { spawnedAt } = spawnAnvilUtil(room.gameState.board);
+                    const { spawnedAt } = spawnAnvil(room.gameState.board);
                     if (spawnedAt) {
-                         const { newBoard: boardAfterAnvil } = spawnAnvilUtil(room.gameState.board);
+                         const { newBoard: boardAfterAnvil } = spawnAnvil(room.gameState.board);
                          room.gameState.board = boardAfterAnvil;
                          broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
                     }
                  }
                 if (data.payload.type === 'shroom-spawn-request') {
-                    const { spawnedAt } = spawnShroomUtil(room.gameState.board);
+                    const { spawnedAt } = spawnShroom(room.gameState.board);
                     if (spawnedAt) {
-                        const { newBoard: boardAfterShroom } = spawnShroomUtil(room.gameState.board);
+                        const { newBoard: boardAfterShroom } = spawnShroom(room.gameState.board);
                         room.gameState.board = boardAfterShroom;
                         const newNextTurn = Math.floor(Math.random() * 6) + 5;
                         room.gameState.shroomSpawnCounter = 0;
@@ -279,5 +280,3 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
-
-    

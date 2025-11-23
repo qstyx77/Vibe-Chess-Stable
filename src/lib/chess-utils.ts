@@ -96,7 +96,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
 }
 
 
-export function getPossibleMovesInternal(
+function getPossibleMovesInternal(
     board: BoardState,
     fromSquare: AlgebraicSquare,
     piece: Piece,
@@ -956,7 +956,7 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassa
 }
 
 
-export function filterLegalMoves(
+function filterLegalMoves(
   board: BoardState,
   pieceOriginalSquare: AlgebraicSquare,
   pseudoMoves: AlgebraicSquare[],
