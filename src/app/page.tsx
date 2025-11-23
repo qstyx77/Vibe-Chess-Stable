@@ -43,8 +43,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { AlertDialogTrigger } from '@/components/ui/alert-dialog';
+
 
 let globalUniqueIdCounter = 0;
 const TURN_DURATION_SECONDS = 60;
@@ -602,24 +603,6 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    const playerIsAI = (playerWhoseTurnCompleted === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (playerWhoseTurnCompleted === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === playerWhoseTurnCompleted && playerIsAI) {
-        setIsAwaitingCommanderPromotion(false);
-    }
-
-    const nextPlayerActual = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
-
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === nextPlayerActual && !((nextPlayerActual === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (nextPlayerActual === 'black' && isBlackAI && onlineStatus === 'disconnected'))) {
-      setCurrentPlayer(nextPlayerActual);
-      setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(nextPlayerActual)}: Select L1 Pawn for Commander!`}));
-      setSelectedSquare(null);
-      setPossibleMoves([]);
-      setEnemySelectedSquare(null);
-      setEnemyPossibleMoves([]);
-      setActiveTimerPlayer(null); setRemainingTime(null);
-      return;
-    }
-
     if (gameInfo.gameOver) { 
       setActiveTimerPlayer(null); setRemainingTime(null);
       return;
@@ -630,12 +613,13 @@ export default function EvolvingChessPage() {
       if (!gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer(playerWhoseTurnCompleted);
     } else {
       completeTurn(currentBoardState, playerWhoseTurnCompleted, finalEnPassantTarget);
+      const nextPlayerActual = playerWhoseTurnCompleted === 'white' ? 'black' : 'white';
       if (!gameInfo.gameOver && onlineStatus === 'connected' && !isWhiteAI && !isBlackAI) startOrResetTurnTimer(nextPlayerActual);
     }
   }, [
     positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver,
     setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn,
-    gameMoveCounter, setBoard, isAwaitingCommanderPromotion, playerWhoGotFirstBlood,
+    gameMoveCounter, setBoard,
     getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
     shroomSpawnCounter, nextShroomSpawnTurn, startOrResetTurnTimer, onlineStatus,
     localPlayerColor
@@ -1054,25 +1038,23 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                // Send the specific promotion event
                 ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
             }
+        } else {
+             const playerWhoActed = playerWhoGotFirstBlood;
+             let wasExtraTurnFromStreak = false;
+             if (historyStack.length > 0) {
+                 const previousSnapshot = historyStack[historyStack.length - 1];
+                 if (previousSnapshot && previousSnapshot.killStreaks && playerWhoActed) {
+                     const streakWhenFirstBloodOccurred = previousSnapshot.killStreaks[playerWhoActed];
+                      wasExtraTurnFromStreak = streakWhenFirstBloodOccurred === 6;
+                 }
+             } else if (playerWhoActed) {
+                 wasExtraTurnFromStreak = killStreaks[playerWhoActed] === 6;
+             }
+             setIsAwaitingCommanderPromotion(false);
+             processMoveEnd(boardAfterCommanderPromo, playerWhoActed!, wasExtraTurnFromStreak, null);
         }
-
-        const playerWhoActed = playerWhoGotFirstBlood;
-        let wasExtraTurnFromStreak = false;
-        if (historyStack.length > 0) {
-            const previousSnapshot = historyStack[historyStack.length - 1];
-            if (previousSnapshot && previousSnapshot.killStreaks && playerWhoActed) {
-                const streakWhenFirstBloodOccurred = previousSnapshot.killStreaks[playerWhoActed];
-                 wasExtraTurnFromStreak = streakWhenFirstBloodOccurred === 6;
-            }
-        } else if (playerWhoActed) {
-            wasExtraTurnFromStreak = killStreaks[playerWhoActed] === 6;
-        }
-
-        setIsAwaitingCommanderPromotion(false);
-        processMoveEnd(boardAfterCommanderPromo, playerWhoActed!, wasExtraTurnFromStreak, null);
 
         setSelectedSquare(null);
         setPossibleMoves([]);
@@ -1304,14 +1286,9 @@ export default function EvolvingChessPage() {
             const isCurrentPlayerHuman = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
             if (isCurrentPlayerHuman) {
                 humanPlayerAchievedFirstBloodThisTurn = true;
-                 setFirstBloodAchieved(true);
-                 setPlayerWhoGotFirstBlood(selfDestructPlayer);
-                 setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
-                 setIsAwaitingCommanderPromotion(true);
-            } else {
-                 setFirstBloodAchieved(true);
-                 setPlayerWhoGotFirstBlood(selfDestructPlayer);
             }
+            setFirstBloodAchieved(true);
+            setPlayerWhoGotFirstBlood(selfDestructPlayer);
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
@@ -1379,7 +1356,10 @@ export default function EvolvingChessPage() {
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
           if (humanPlayerAchievedFirstBloodThisTurn) {
+             setIsAwaitingCommanderPromotion(true);
+             setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
              setIsMoveProcessing(false);
+             setActiveTimerPlayer(null); setRemainingTime(null);
              return;
           }
 
@@ -1400,8 +1380,6 @@ export default function EvolvingChessPage() {
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
-            // For online games, we do an optimistic update but wait for the server's broadcast for the final state.
-            // The local processing below will happen, but handleIncomingData will overwrite it.
         }
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
@@ -1598,14 +1576,9 @@ export default function EvolvingChessPage() {
             const isCurrentPlayerHuman = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
             if (isCurrentPlayerHuman) {
                 humanPlayerAchievedFirstBloodThisTurn = true;
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(capturingPlayer);
-                setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
-                setIsAwaitingCommanderPromotion(true);
-            } else {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(capturingPlayer);
             }
+            setFirstBloodAchieved(true);
+            setPlayerWhoGotFirstBlood(capturingPlayer);
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
@@ -1667,9 +1640,12 @@ export default function EvolvingChessPage() {
           setAnimatedSquareTo(null);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
-          if (humanPlayerAchievedFirstBloodThisTurn && onlineStatus === 'disconnected') {
-            setIsMoveProcessing(false);
-            return;
+          if (humanPlayerAchievedFirstBloodThisTurn) {
+             setIsAwaitingCommanderPromotion(true);
+             setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
+             setIsMoveProcessing(false);
+             setActiveTimerPlayer(null); setRemainingTime(null);
+             return;
           }
 
           const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
@@ -3121,3 +3097,5 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
+    

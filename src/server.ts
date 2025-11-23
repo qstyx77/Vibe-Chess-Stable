@@ -114,7 +114,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                 break;
             }
             case 'commander-promo': {
-                if (!room || !data.square) return;
+                 if (!room || !data.square) return;
 
                 const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
@@ -123,7 +123,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                     piece.type = 'commander';
                     piece.id = `${piece.id}_CMD_SRV`;
                     
-                    // Now that the promotion is done, we can end the turn.
                     const playerWhoActed = room.gameState.playerWhoGotFirstBlood;
                     const opponent = playerWhoActed === 'white' ? 'black' : 'white';
                     room.gameState.currentPlayer = opponent;
@@ -140,7 +139,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                         room.gameState.gameInfo = { message: " ", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, gameOver: false };
                     }
                     
-                    broadcastToRoom(ws.roomId, {
+                    broadcastToRoom(ws.roomId!, {
                         type: 'game-move',
                         fullGameState: room.gameState,
                         lastPlayer: playerWhoActed
@@ -177,26 +176,21 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                     room.gameState.capturedPieces[movingPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                 }
 
-                let isFirstBlood = false;
                 if (wasCapture) {
                     room.gameState.killStreaks[movingPlayer] = (room.gameState.killStreaks[movingPlayer] || 0) + 1;
                     room.gameState.killStreaks[opponentPlayer] = 0;
                     if(!room.gameState.firstBloodAchieved) {
-                        isFirstBlood = true;
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayer;
+                        // Don't change turn yet, wait for commander selection
+                         room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
+                         broadcastToRoom(ws.roomId!, { type: 'game-move', fullGameState: room.gameState, lastPlayer: movingPlayer });
+                         return; // IMPORTANT: Stop processing until commander is selected
                     }
                 } else {
                     room.gameState.killStreaks[movingPlayer] = 0;
                 }
 
-                if (isFirstBlood) {
-                     // Don't change turns yet. Wait for commander selection.
-                     room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
-                     broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: movingPlayer });
-                     return; 
-                }
-                
                 room.gameState.gameMoveCounter++;
                 const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
                 const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
@@ -313,3 +307,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
+
+    
