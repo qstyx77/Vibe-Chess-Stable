@@ -51,7 +51,7 @@ let globalUniqueIdCounter = 0;
 const TURN_DURATION_SECONDS = 60;
 
 const initialGameStatus: GameStatus = {
-  message: "\u00A0",
+  message: " ",
   isCheck: false,
   playerWithKingInCheck: null,
   isCheckmate: false,
@@ -485,7 +485,7 @@ export default function EvolvingChessPage() {
 
     const inCheck = isKingInCheck(updatedBoard, nextPlayer, currentEnPassantTarget);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
-    let currentMessage = "\u00A0";
+    let currentMessage = " ";
 
     if (inCheck) {
       newPlayerWithKingInCheck = nextPlayer;
@@ -1023,6 +1023,7 @@ export default function EvolvingChessPage() {
     let originalPieceLevelBeforeMove: number | undefined;
     let currentEnPassantTargetForThisTurn = enPassantTargetSquare;
     let moveBeingMade: Move | null = null;
+    let humanPlayerAchievedFirstBloodThisTurn = false;
 
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
       if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
@@ -1041,6 +1042,8 @@ export default function EvolvingChessPage() {
             if(ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
             }
+             // For online games, server will handle turn progression after getting promo confirmation
+            return;
         }
         
         const playerWhoActed = currentPlayer;
@@ -1283,9 +1286,11 @@ export default function EvolvingChessPage() {
            if(lastCapturePlayer === selfDestructPlayer) setLastCapturePlayer(null);
         }
 
+        const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
         if (selfDestructCapturedSomething && !firstBloodAchieved) {
             setFirstBloodAchieved(true);
             setPlayerWhoGotFirstBlood(selfDestructPlayer);
+            if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
@@ -1352,17 +1357,14 @@ export default function EvolvingChessPage() {
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
-          const isHumanPlayer = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-          if (selfDestructCapturedSomething && !firstBloodAchieved && isHumanPlayer) {
-             setIsAwaitingCommanderPromotion(true);
-             setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
-             setIsMoveProcessing(false);
-             setActiveTimerPlayer(null); setRemainingTime(null);
-             return;
-          }
-
           const streakGrantsExtraTurn = newStreakForSelfDestructPlayer === 6;
-          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, null);
+          if (humanPlayerAchievedFirstBloodThisTurn) {
+              setIsAwaitingCommanderPromotion(true);
+              setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
+              setActiveTimerPlayer(null); setRemainingTime(null);
+          } else {
+              processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, null);
+          }
           setIsMoveProcessing(false);
         }, 800);
         return;
@@ -1570,9 +1572,11 @@ export default function EvolvingChessPage() {
           }
         }
 
+        const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
         if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
             setFirstBloodAchieved(true);
             setPlayerWhoGotFirstBlood(capturingPlayer);
+            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
@@ -1634,15 +1638,6 @@ export default function EvolvingChessPage() {
           setAnimatedSquareTo(null);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
-          const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-          if (pieceWasCapturedThisTurn && !firstBloodAchieved && isHumanPlayer) {
-             setIsAwaitingCommanderPromotion(true);
-             setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
-             setIsMoveProcessing(false);
-             setActiveTimerPlayer(null); setRemainingTime(null);
-             return;
-          }
-
           const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
           const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
           const isPawnPromotingMove = pieceOnBoardAfterMove && pieceOnBoardAfterMove.type === 'pawn' && (toR_final === 0 || toR_final === 7) && !enPassantHappenedFromApply && !becameInfiltratorFromApply;
@@ -1661,6 +1656,14 @@ export default function EvolvingChessPage() {
 
           const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
           const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
+
+          if (humanPlayerAchievedFirstBloodThisTurn) {
+              setIsAwaitingCommanderPromotion(true);
+              setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
+              setActiveTimerPlayer(null); setRemainingTime(null);
+              setIsMoveProcessing(false);
+              return;
+          }
 
 
           let isPendingHumanResurrectionPromotion = isResurrectionPromotionInProgress;
@@ -2498,10 +2501,8 @@ export default function EvolvingChessPage() {
               }
 
               if (localAIAwaitingCommanderPromo) {
-                console.log(`AI FIRST BLOOD DEBUG: Player ${currentPlayer}. Extra turn for processMoveEnd: ${extraTurnForThisAIMove}. Streak: ${newStreakForAIPlayer}. Pawn/Cmdr promo L5+ involved: ${(isAIPawnPromoting || isAICommanderPromoting) && originalLevelOfAIMovedPieceForPromoCheck >= 5}`);
-              }
-
-              if (!sacrificeNeededForAIQueen) {
+                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, aiGeneratedEnPassantTarget);
+              } else if (!sacrificeNeededForAIQueen) {
                   processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, aiGeneratedEnPassantTarget);
               }
 
@@ -3035,7 +3036,7 @@ export default function EvolvingChessPage() {
                     isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
                       isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
                         isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                          gameInfo.message || "\u00A0"
+                          gameInfo.message || " "
                 }
                 capturedPieces={capturedPieces}
                 isCheck={gameInfo.isCheck}
@@ -3047,6 +3048,8 @@ export default function EvolvingChessPage() {
                 remainingTime={remainingTime}
                 turnTimeouts={turnTimeouts}
                 pieceForInfoDisplay={pieceForInfoDisplay}
+                localPlayerColor={localPlayerColor}
+                getPlayerDisplayName={getPlayerDisplayName}
               />
           </div>
           {/* Board Container */}

@@ -22,6 +22,8 @@ interface GameControlsProps {
   remainingTime: number | null;
   turnTimeouts: { white: number, black: number };
   pieceForInfoDisplay: Piece | null;
+  localPlayerColor?: PlayerColor | null;
+  getPlayerDisplayName: (player: PlayerColor) => string;
 }
 
 export function GameControls({
@@ -37,11 +39,9 @@ export function GameControls({
   remainingTime,
   turnTimeouts,
   pieceForInfoDisplay,
+  localPlayerColor,
+  getPlayerDisplayName,
 }: GameControlsProps) {
-
-  React.useEffect(() => {
-    console.log('[LOG] GameControls Rendering. Captured Pieces State:', capturedPieces);
-  }, [capturedPieces]);
 
   const renderCapturedPieces = (color: PlayerColor) => {
     const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
@@ -58,13 +58,6 @@ export function GameControls({
         </div>
       </div>
     );
-  };
-
-  const getPlayerDisplayNameWithAI = (player: PlayerColor) => {
-    let name = player.charAt(0).toUpperCase() + player.slice(1);
-    if (player === 'white' && isWhiteAI) name += " (AI)";
-    if (player === 'black' && isBlackAI) name += " (AI)";
-    return name;
   };
 
   let currentTurnMessage = gameStatusMessage;
@@ -101,14 +94,14 @@ export function GameControls({
               isGameOver && "opacity-50"
             )}
           >
-            {isGameOver ? "-" : getPlayerDisplayNameWithAI(currentPlayer)}
+            {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
           </p>
         </div>
 
         {activeTimerPlayer && remainingTime !== null && !isGameOver && (
           <div className="text-center mt-2">
             <p className="text-lg font-semibold font-sans text-accent">
-              {getPlayerDisplayNameWithAI(activeTimerPlayer)}'s Time: {formatTime(remainingTime)}
+              {getPlayerDisplayName(activeTimerPlayer)}'s Time: {formatTime(remainingTime)}
             </p>
           </div>
         )}
