@@ -1,7 +1,22 @@
+import WebSocket from 'ws';
+import http from 'http';
+import { URL } from 'url';
 
+import { 
+    initializeBoard, 
+    applyMove, 
+    isKingInCheck, 
+    isCheckmate, 
+    isStalemate, 
+    getCastlingRightsString, 
+    boardToPositionHash, 
+    spawnAnvil, 
+    spawnShroom, 
+    processRookResurrectionCheck,
+    coordsToAlgebraic
+} from './lib/chess-utils';
+import type { BoardState, PlayerColor, Piece, Move, GameStatus } from './types';
 
-const WebSocket = require('ws');
-const http = require('http');
 
 const server = http.createServer((req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -16,26 +31,23 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const rooms = {};
-
-// Server-side game logic import (ensure path is correct)
-const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil, spawnShroom, processRookResurrectionCheck } = require('./src/lib/chess-utils.js');
+const rooms: Record<string, { clients: WebSocket[]; gameState: any; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
-
-const broadcastToRoom = (roomId, message) => {
+const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
     if (room && room.clients) {
+        const payload = JSON.stringify(message);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify(message));
+                client.send(payload);
             }
         });
     }
 };
 
-wss.on('connection', ws => {
-    ws.roomId = null;
+wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
+    ws.roomId = undefined;
 
     ws.on('message', message => {
         let data;
@@ -46,7 +58,11 @@ wss.on('connection', ws => {
             return;
         }
 
-        const room = rooms[ws.roomId];
+        if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room') {
+            return;
+        }
+        
+        const room = ws.roomId ? rooms[ws.roomId] : undefined;
 
         switch (data.type) {
             case 'create-room': {
@@ -143,7 +159,7 @@ wss.on('connection', ws => {
 
                 // Handle promotions explicitly based on move payload
                 if (move.type === 'promotion') {
-                    const { row, col } = require('./src/lib/chess-utils.js').algebraicToCoords(move.to);
+                    const { row, col } = coordsToAlgebraic(move.to.row, move.to.col);
                     const piece = room.gameState.board[row][col].piece;
                     if (piece && piece.color === movingPlayer) {
                         piece.type = move.promoteTo || 'queen';
@@ -152,38 +168,15 @@ wss.on('connection', ws => {
                 
                 // Handle Commander Promotion
                 if (data.payload.type === 'commander-promo' && data.payload.square) {
-                    const { row, col } = require('./src/lib/chess-utils.js').algebraicToCoords(data.payload.square);
+                    const { row, col } = coordsToAlgebraic(data.payload.square.row, data.payload.square.col);
                     if(room.gameState.board[row][col].piece) {
                        room.gameState.board[row][col].piece.type = 'commander';
                     }
                 }
 
                 room.gameState.gameMoveCounter++;
-                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : (restOfResult.extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
+                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
                 const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
-
-
-                // Item Spawning is now triggered by clients but executed authoritatively by server
-                 if (data.payload.type === 'anvil-spawn-request') {
-                    const { spawnedAt } = spawnAnvil(room.gameState.board);
-                    if (spawnedAt) {
-                         const { newBoard: boardAfterAnvil } = spawnAnvil(room.gameState.board);
-                         room.gameState.board = boardAfterAnvil;
-                         broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
-                    }
-                 }
-                if (data.payload.type === 'shroom-spawn-request') {
-                    const { spawnedAt } = spawnShroom(room.gameState.board);
-                    if (spawnedAt) {
-                        const { newBoard: boardAfterShroom } = spawnShroom(room.gameState.board);
-                        room.gameState.board = boardAfterShroom;
-                        const newNextTurn = Math.floor(Math.random() * 6) + 5;
-                        room.gameState.shroomSpawnCounter = 0;
-                        room.gameState.nextShroomSpawnTurn = newNextTurn;
-                        broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn });
-                    }
-                }
-
 
                 const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
                 let message = " ";
@@ -232,10 +225,26 @@ wss.on('connection', ws => {
                     broadcastToRoom(ws.roomId, { ...data, winner });
                 }
                 break;
-            case 'anvil-spawn':
-            case 'shroom-spawn': {
+            case 'anvil-spawn': {
                  if (room) {
-                    // This logic is now handled in the 'game-move' case to be authoritative
+                    const { newBoard, spawnedAt } = spawnAnvil(room.gameState.board);
+                     if (spawnedAt) {
+                         room.gameState.board = newBoard;
+                         broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
+                    }
+                 }
+                 break;
+            }
+             case 'shroom-spawn': {
+                 if (room) {
+                    const { newBoard, spawnedAt } = spawnShroom(room.gameState.board);
+                    if (spawnedAt) {
+                        room.gameState.board = newBoard;
+                        const newNextTurn = Math.floor(Math.random() * 6) + 5;
+                        room.gameState.shroomSpawnCounter = 0;
+                        room.gameState.nextShroomSpawnTurn = newNextTurn;
+                        broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn });
+                    }
                  }
                  break;
             }
