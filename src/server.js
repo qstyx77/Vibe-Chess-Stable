@@ -18,7 +18,8 @@ const wss = new WebSocket.Server({ server });
 const rooms = {};
 
 // Server-side game logic import (ensure path is correct)
-const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil: spawnAnvilUtil, spawnShroom: spawnShroomUtil } = require('./lib/chess-utils.js');
+const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil: spawnAnvilUtil, spawnShroom: spawnShroomUtil, processRookResurrectionCheck: processRookResurrectionCheckUtil } = require('./lib/chess-utils.js');
+let globalServerUniqueIdCounter = 10000;
 
 
 const broadcastToRoom = (roomId, message) => {
@@ -71,7 +72,9 @@ wss.on('connection', ws => {
                             isCheckmate: false,
                             isStalemate: false,
                             gameOver: false,
-                        }
+                        },
+                        shroomSpawnCounter: 0,
+                        nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
                     }
                 };
                 ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
@@ -93,13 +96,13 @@ wss.on('connection', ws => {
                 break;
             }
             case 'game-move': {
-                if (!room) return;
-
+                if (!room || !data.payload) return;
+                
                 const { payload: move } = data;
                 const movingPlayer = room.gameState.currentPlayer;
+                const opponentPlayer = movingPlayer === 'white' ? 'black' : 'white';
 
                 // --- Start of Server-Authoritative Move Processing ---
-                
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
                 
                 room.gameState.board = newBoard;
@@ -107,11 +110,23 @@ wss.on('connection', ws => {
                 room.gameState.lastMoveFrom = move.from;
                 room.gameState.lastMoveTo = move.to;
 
+                let wasCapture = false;
                 if (capturedPiece) {
-                    room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
+                    wasCapture = true;
+                    if (restOfResult.promotedToInfiltrator) {
+                        // Obliterated
+                    } else {
+                        room.gameState.capturedPieces[movingPlayer].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
+                    }
+                }
+                 if (restOfResult.pieceCapturedByAnvil) {
+                    wasCapture = true;
+                    room.gameState.capturedPieces[movingPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
+                }
+
+                if (wasCapture) {
                     room.gameState.killStreaks[movingPlayer] = (room.gameState.killStreaks[movingPlayer] || 0) + 1;
-                    const opponent = movingPlayer === 'white' ? 'black' : 'white';
-                    room.gameState.killStreaks[opponent] = 0;
+                    room.gameState.killStreaks[opponentPlayer] = 0;
                     if(!room.gameState.firstBloodAchieved) {
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayer;
@@ -120,26 +135,64 @@ wss.on('connection', ws => {
                     room.gameState.killStreaks[movingPlayer] = 0;
                 }
 
+                if(move.type === 'self-destruct') {
+                    // Self-destruct logic needs to be robustly handled on the server too
+                    // For now, we trust the client's board state from applyMove
+                }
+
+                // Handle promotions explicitly based on move payload
+                if (move.type === 'promotion') {
+                    const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(move.to);
+                    const piece = room.gameState.board[row][col].piece;
+                    if (piece && piece.color === movingPlayer) {
+                        piece.type = move.promoteTo || 'queen';
+                    }
+                }
+                
+                // Handle Commander Promotion
                 if (data.payload.type === 'commander-promo' && data.payload.square) {
                     const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.payload.square);
                     if(room.gameState.board[row][col].piece) {
                        room.gameState.board[row][col].piece.type = 'commander';
                     }
                 }
-                
-                room.gameState.gameMoveCounter++;
-                const nextPlayer = movingPlayer === 'white' ? 'black' : 'white';
 
-                const inCheck = isKingInCheck(newBoard, nextPlayer, room.gameState.enPassantTarget);
+                room.gameState.gameMoveCounter++;
+                const nextPlayer = restOfResult.extraTurn ? movingPlayer : opponentPlayer;
+
+                // Item Spawning
+                 if (room.gameState.gameMoveCounter > 0 && room.gameState.gameMoveCounter % 9 === 0) {
+                    const { spawnedAt } = spawnAnvilUtil(room.gameState.board);
+                    if (spawnedAt) {
+                         const { newBoard: boardAfterAnvil } = spawnAnvilUtil(room.gameState.board);
+                         room.gameState.board = boardAfterAnvil;
+                         broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
+                    }
+                 }
+                room.gameState.shroomSpawnCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
+                if (room.gameState.shroomSpawnCounter >= room.gameState.nextShroomSpawnTurn) {
+                    const { spawnedAt } = spawnShroomUtil(room.gameState.board);
+                    if (spawnedAt) {
+                        const { newBoard: boardAfterShroom } = spawnShroomUtil(room.gameState.board);
+                        room.gameState.board = boardAfterShroom;
+                        const newNextTurn = Math.floor(Math.random() * 6) + 5;
+                        room.gameState.shroomSpawnCounter = 0;
+                        room.gameState.nextShroomSpawnTurn = newNextTurn;
+                        broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn });
+                    }
+                }
+
+
+                const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
                 let message = "\u00A0";
                 let gameOver = false;
                 let winner = undefined;
 
-                if (isCheckmate(newBoard, nextPlayer, room.gameState.enPassantTarget)) {
+                if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
                     message = `Checkmate! ${movingPlayer} wins!`;
                     gameOver = true;
                     winner = movingPlayer;
-                } else if (isStalemate(newBoard, nextPlayer, room.gameState.enPassantTarget)) {
+                } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
                     message = "Stalemate! It's a draw.";
                     gameOver = true;
                     winner = 'draw';

@@ -609,7 +609,7 @@ export default function EvolvingChessPage() {
 
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === nextPlayerActual && !((nextPlayerActual === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (nextPlayerActual === 'black' && isBlackAI && onlineStatus === 'disconnected'))) {
       setCurrentPlayer(nextPlayerActual);
-      setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(nextPlayerActual)}: Select L1 Pawn for Commander!`}));
+      setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(nextPlayerActual)}: Select L1 Pawn for Commander!`}));
       setSelectedSquare(null);
       setPossibleMoves([]);
       setEnemySelectedSquare(null);
@@ -1391,22 +1391,6 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
-            }
-            // In online mode, we don't process the move locally. We wait for the server.
-            // We just set processing to true and reset selections.
-            setIsMoveProcessing(false);
-            setAnimatedSquareTo(null);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-            return;
-        }
-
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
         finalBoardStateForTurn = applyMoveResult.newBoard;
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
@@ -1421,6 +1405,14 @@ export default function EvolvingChessPage() {
         const gameWonByInfiltrationFromApply = applyMoveResult.infiltrationWin;
         newEnPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
+
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+            }
+        }
+
 
         if (gameWonByInfiltrationFromApply) {
           setBoard(finalBoardStateForTurn);
@@ -1845,12 +1837,6 @@ export default function EvolvingChessPage() {
           // Send the complete move including promotion
           ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
-        // Wait for server to broadcast the new state.
-        setIsMoveProcessing(false);
-        setAnimatedSquareTo(null);
-        setIsPromotingPawn(false);
-        setPromotionSquare(null);
-        return;
     }
 
     setTimeout(() => {
@@ -2352,15 +2338,15 @@ export default function EvolvingChessPage() {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
-                      const pieceToResOriginalAI = piecesOfAICapturedByOpponent.pop();
-                      if (pieceToResOriginalAI) {
+                      const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
+                      if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
                       for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
                           const newUniqueSuffixAI = globalUniqueIdCounter++;
-                          const resurrectedAI: Piece = { ...pieceToResOriginalAI, level: 1, id: `${pieceToResOriginalAI.id}_res_${newUniqueSuffixAI}`, hasMoved: pieceToResOriginalAI.type === 'king' || pieceToResOriginalAI.type === 'rook' ? false : pieceToResOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${newUniqueSuffixAI}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -2376,7 +2362,7 @@ export default function EvolvingChessPage() {
                           }
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
-                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResOriginalAI.id);
+                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalAI.id);
                       }
                       }
                   }
