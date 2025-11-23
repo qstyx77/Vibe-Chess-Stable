@@ -1391,6 +1391,22 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+            }
+            // In online mode, we don't process the move locally. We wait for the server.
+            // We just set processing to true and reset selections.
+            setIsMoveProcessing(false);
+            setAnimatedSquareTo(null);
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+            return;
+        }
+
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
         finalBoardStateForTurn = applyMoveResult.newBoard;
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
@@ -1647,21 +1663,6 @@ export default function EvolvingChessPage() {
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
         setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
-
-        if (onlineStatus === 'connected' && moveBeingMade) { 
-            const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                // In online play, we just send the intended move. The server is the authority.
-                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
-            }
-            // We'll wait for the server to send back the authoritative state update.
-            setIsMoveProcessing(false);
-            setAnimatedSquareTo(null);
-            setSelectedSquare(null); setPossibleMoves([]);
-            setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-            return;
-        }
-
 
         setTimeout(() => {
           setAnimatedSquareTo(null);
@@ -3010,7 +3011,7 @@ export default function EvolvingChessPage() {
             <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
               <BookOpen className="mr-1" /> Rules
             </Button>
-            <Button variant="outline" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || historyStack.length === 0 || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
+            <Button variant="outline" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
               <Undo2 className="mr-1" /> Undo
             </Button>
             <Button variant="outline" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
@@ -3127,5 +3128,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
-    

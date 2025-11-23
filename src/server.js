@@ -21,7 +21,7 @@ const rooms = {};
 const { initializeBoard, applyMove, isKingInCheck, isCheckmate, isStalemate, getCastlingRightsString, boardToPositionHash, spawnAnvil: spawnAnvilUtil, spawnShroom: spawnShroomUtil } = require('./lib/chess-utils.js');
 
 
-const broadcastToRoom = (roomId, message, sender) => {
+const broadcastToRoom = (roomId, message) => {
     const room = rooms[roomId];
     if (room && room.clients) {
         room.clients.forEach(client => {
@@ -86,7 +86,7 @@ wss.on('connection', ws => {
                     
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black' }));
                     
-                    broadcastToRoom(roomIdToJoin, { type: 'player-joined' }, ws);
+                    broadcastToRoom(roomIdToJoin, { type: 'player-joined' });
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
@@ -174,20 +174,20 @@ wss.on('connection', ws => {
                  if (room) {
                     const winner = data.resigningPlayer === 'white' ? 'black' : (data.timedOutPlayer === 'white' ? 'black' : 'white');
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner };
-                    broadcastToRoom(ws.roomId, { ...data, winner }, ws);
+                    broadcastToRoom(ws.roomId, { ...data, winner });
                 }
                 break;
             case 'anvil-spawn':
             case 'shroom-spawn': {
                  if (room) {
-                    broadcastToRoom(ws.roomId, data, ws);
+                    broadcastToRoom(ws.roomId, data);
                  }
                  break;
             }
             case 'turn-pass-timeout': {
                  if (room) {
                     room.gameState.currentPlayer = data.nextPlayer;
-                    broadcastToRoom(ws.roomId, data, ws);
+                    broadcastToRoom(ws.roomId, data);
                  }
                  break;
             }
@@ -203,7 +203,7 @@ wss.on('connection', ws => {
                 room.clients = room.clients.filter(client => client !== ws);
                 
                 if (room.clients.length > 0) {
-                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' }, ws);
+                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' });
                 }
                
                 if (room.clients.length === 0) {
@@ -225,5 +225,3 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
-
-    
