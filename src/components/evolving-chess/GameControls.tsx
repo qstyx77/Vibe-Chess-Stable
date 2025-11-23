@@ -69,7 +69,7 @@ export function GameControls({
 
   let currentTurnMessage = gameStatusMessage;
    if (!currentTurnMessage && !isGameOver) {
-    currentTurnMessage = "\u00A0";
+    currentTurnMessage = " ";
   }
 
   const formatTime = (seconds: number | null): string => {
@@ -105,10 +105,10 @@ export function GameControls({
           </p>
         </div>
 
-        {activeTimerPlayer === currentPlayer && remainingTime !== null && !isGameOver && (
+        {activeTimerPlayer && remainingTime !== null && !isGameOver && (
           <div className="text-center mt-2">
             <p className="text-lg font-semibold font-sans text-accent">
-              Time: {formatTime(remainingTime)}
+              {getPlayerDisplayNameWithAI(activeTimerPlayer)}'s Time: {formatTime(remainingTime)}
             </p>
           </div>
         )}
