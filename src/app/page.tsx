@@ -644,7 +644,6 @@ export default function EvolvingChessPage() {
   const handleIncomingData = useCallback((data: any) => {
       switch (data.type) {
         case 'game-move': {
-            // The server is the source of truth for the entire game state after a move.
             const { fullGameState } = data;
             if (!fullGameState) return;
 
@@ -657,11 +656,9 @@ export default function EvolvingChessPage() {
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             
-            // Sync other special states if they are part of the broadcast
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
 
-            // Handle resurrection highlights from server
             if(fullGameState.resurrectedSquare) {
                 setResurrectedSquares(prev => [...prev, { square: fullGameState.resurrectedSquare, player: fullGameState.lastPlayer }]);
             }
@@ -1398,20 +1395,18 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
-        // --- Optimistic UI Update & Server Communication ---
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
-        finalBoardStateForTurn = applyMoveResult.newBoard;
-        
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                // Send the move to the server, but don't stop local processing
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
-            // For online games, we optimistically update but the server's broadcast will be the final source of truth.
-            // No early return here. Let the rest of the logic flow.
+            // For online games, we do an optimistic update but wait for the server's broadcast for the final state.
+            // The local processing below will happen, but handleIncomingData will overwrite it.
         }
 
+        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
+        finalBoardStateForTurn = applyMoveResult.newBoard;
+        
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
         const pieceCapturedByAnvilFromApply = applyMoveResult.pieceCapturedByAnvil;
         const anvilPushedOffBoardFromApply = applyMoveResult.anvilPushedOffBoard;
