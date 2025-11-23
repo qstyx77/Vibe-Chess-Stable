@@ -1391,6 +1391,16 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+            }
+            // For online games, we stop local processing and wait for the server's authoritative state.
+            // But we keep the animation running for responsiveness.
+            return;
+        }
+
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
         finalBoardStateForTurn = applyMoveResult.newBoard;
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
@@ -1405,13 +1415,6 @@ export default function EvolvingChessPage() {
         const gameWonByInfiltrationFromApply = applyMoveResult.infiltrationWin;
         newEnPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
-
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
-            }
-        }
 
 
         if (gameWonByInfiltrationFromApply) {
@@ -1828,16 +1831,18 @@ export default function EvolvingChessPage() {
     setLastMoveTo(promotionSquare);
     setIsMoveProcessing(true);
     setAnimatedSquareTo(promotionSquare);
-    setBoard(boardToUpdate);
-    setEnPassantTargetSquare(null);
-
+    
     if (onlineStatus === 'connected' && localPlayerColor === pawnColor) {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          // Send the complete move including promotion
           ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
+         // For online games, we stop local processing and wait for the server's authoritative state.
+        return;
     }
+
+    setBoard(boardToUpdate);
+    setEnPassantTargetSquare(null);
 
     setTimeout(() => {
       setAnimatedSquareTo(null);
