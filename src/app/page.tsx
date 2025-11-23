@@ -1055,7 +1055,7 @@ export default function EvolvingChessPage() {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
                 // Send the specific promotion event
-                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic } }));
+                ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
             }
         }
 
@@ -1667,7 +1667,7 @@ export default function EvolvingChessPage() {
           setAnimatedSquareTo(null);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
-          if (humanPlayerAchievedFirstBloodThisTurn) {
+          if (humanPlayerAchievedFirstBloodThisTurn && onlineStatus === 'disconnected') {
             setIsMoveProcessing(false);
             return;
           }

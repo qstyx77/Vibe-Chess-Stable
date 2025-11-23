@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -112,6 +113,41 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                 }
                 break;
             }
+            case 'commander-promo': {
+                if (!room || !data.square) return;
+
+                const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.square);
+                const piece = room.gameState.board[row]?.[col]?.piece;
+                
+                if (piece && piece.color === room.gameState.playerWhoGotFirstBlood && piece.type === 'pawn' && piece.level === 1) {
+                    piece.type = 'commander';
+                    piece.id = `${piece.id}_CMD_SRV`;
+                    
+                    // Now that the promotion is done, we can end the turn.
+                    const playerWhoActed = room.gameState.playerWhoGotFirstBlood;
+                    const opponent = playerWhoActed === 'white' ? 'black' : 'white';
+                    room.gameState.currentPlayer = opponent;
+                    
+                    const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
+                    
+                    if (isCheckmate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
+                         room.gameState.gameInfo = { message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, gameOver: true, winner: playerWhoActed };
+                    } else if (isStalemate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
+                        room.gameState.gameInfo = { message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isStalemate: true, gameOver: true, winner: 'draw' };
+                    } else if (inCheck) {
+                        room.gameState.gameInfo = { message: "Check!", isCheck: true, playerWithKingInCheck: opponent, isCheckmate: false, gameOver: false };
+                    } else {
+                        room.gameState.gameInfo = { message: " ", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, gameOver: false };
+                    }
+                    
+                    broadcastToRoom(ws.roomId, {
+                        type: 'game-move',
+                        fullGameState: room.gameState,
+                        lastPlayer: playerWhoActed
+                    });
+                }
+                break;
+            }
             case 'game-move': {
                 if (!room || !data.payload) return;
                 
@@ -141,10 +177,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                     room.gameState.capturedPieces[movingPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                 }
 
+                let isFirstBlood = false;
                 if (wasCapture) {
                     room.gameState.killStreaks[movingPlayer] = (room.gameState.killStreaks[movingPlayer] || 0) + 1;
                     room.gameState.killStreaks[opponentPlayer] = 0;
                     if(!room.gameState.firstBloodAchieved) {
+                        isFirstBlood = true;
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayer;
                     }
@@ -152,31 +190,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                     room.gameState.killStreaks[movingPlayer] = 0;
                 }
 
-                if(move.type === 'self-destruct') {
-                    // Self-destruct logic needs to be robustly handled on the server too
-                    // For now, we trust the client's board state from applyMove
-                }
-
-                // Handle promotions explicitly based on move payload
-                if (move.type === 'promotion') {
-                    const { row, col } = coordsToAlgebraic(move.to.row, move.to.col);
-                    const piece = room.gameState.board[row][col].piece;
-                    if (piece && piece.color === movingPlayer) {
-                        piece.type = move.promoteTo || 'queen';
-                    }
+                if (isFirstBlood) {
+                     // Don't change turns yet. Wait for commander selection.
+                     room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
+                     broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: movingPlayer });
+                     return; 
                 }
                 
-                // Handle Commander Promotion
-                if (data.payload.type === 'commander-promo' && data.payload.square) {
-                    const { row, col } = coordsToAlgebraic(data.payload.square.row, data.payload.square.col);
-                    if(room.gameState.board[row][col].piece) {
-                       room.gameState.board[row][col].piece.type = 'commander';
-                    }
-                }
-
                 room.gameState.gameMoveCounter++;
                 const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
                 const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
+
 
                 const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
                 let message = " ";
