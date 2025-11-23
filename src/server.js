@@ -158,10 +158,12 @@ wss.on('connection', ws => {
                 }
 
                 room.gameState.gameMoveCounter++;
-                const nextPlayer = restOfResult.extraTurn ? movingPlayer : opponentPlayer;
+                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : (restOfResult.extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
+                const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
 
-                // Item Spawning
-                 if (room.gameState.gameMoveCounter > 0 && room.gameState.gameMoveCounter % 9 === 0) {
+
+                // Item Spawning is now triggered by clients but executed authoritatively by server
+                 if (data.payload.type === 'anvil-spawn-request') {
                     const { spawnedAt } = spawnAnvilUtil(room.gameState.board);
                     if (spawnedAt) {
                          const { newBoard: boardAfterAnvil } = spawnAnvilUtil(room.gameState.board);
@@ -169,8 +171,7 @@ wss.on('connection', ws => {
                          broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
                     }
                  }
-                room.gameState.shroomSpawnCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
-                if (room.gameState.shroomSpawnCounter >= room.gameState.nextShroomSpawnTurn) {
+                if (data.payload.type === 'shroom-spawn-request') {
                     const { spawnedAt } = spawnShroomUtil(room.gameState.board);
                     if (spawnedAt) {
                         const { newBoard: boardAfterShroom } = spawnShroomUtil(room.gameState.board);
@@ -233,7 +234,7 @@ wss.on('connection', ws => {
             case 'anvil-spawn':
             case 'shroom-spawn': {
                  if (room) {
-                    broadcastToRoom(ws.roomId, data);
+                    // This logic is now handled in the 'game-move' case to be authoritative
                  }
                  break;
             }

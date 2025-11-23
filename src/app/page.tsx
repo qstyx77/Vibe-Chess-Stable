@@ -531,17 +531,18 @@ export default function EvolvingChessPage() {
     if (onlineStatus !== 'connected' || localPlayerColor === playerWhoseTurnCompleted) {
       // Anvil Spawn Logic
       if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
-        const { spawnedAt } = spawnAnvil(currentBoardState);
-        if (onlineStatus === 'connected' && spawnedAt) {
+        if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'anvil-spawn', square: spawnedAt }));
+                ws.send(JSON.stringify({ type: 'anvil-spawn' }));
             }
-        } else if (onlineStatus !== 'connected' && spawnedAt) {
-            const { newBoard } = spawnAnvil(currentBoardState); // re-call to get board update
-            currentBoardState = newBoard;
-            setBoard(currentBoardState);
-            toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+        } else {
+            const { newBoard, spawnedAt } = spawnAnvil(currentBoardState); 
+            if (spawnedAt) {
+                currentBoardState = newBoard;
+                setBoard(currentBoardState);
+                toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+            }
         }
       }
 
@@ -549,20 +550,21 @@ export default function EvolvingChessPage() {
       let currentShroomCounter = shroomSpawnCounter + 1;
       setShroomSpawnCounter(currentShroomCounter);
       if (currentShroomCounter >= nextShroomSpawnTurn) {
-          const { spawnedAt } = spawnShroom(currentBoardState);
-          const newNextTurn = Math.floor(Math.random() * 6) + 5;
-          if (onlineStatus === 'connected' && spawnedAt) {
+          if (onlineStatus === 'connected') {
               const ws = wsRef.current;
               if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn }));
+                  ws.send(JSON.stringify({ type: 'shroom-spawn' }));
               }
-          } else if (onlineStatus !== 'connected' && spawnedAt) {
-              const { newBoard } = spawnShroom(currentBoardState); // re-call to get board update
-              currentBoardState = newBoard;
-              setBoard(currentBoardState);
-              toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
-              setShroomSpawnCounter(0);
-              setNextShroomSpawnTurn(newNextTurn);
+          } else {
+              const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
+              if (spawnedAt) {
+                  currentBoardState = newBoard;
+                  setBoard(currentBoardState);
+                  const newNextTurn = Math.floor(Math.random() * 6) + 5;
+                  toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+                  setShroomSpawnCounter(0);
+                  setNextShroomSpawnTurn(newNextTurn);
+              }
           }
       }
     }
@@ -736,7 +738,7 @@ export default function EvolvingChessPage() {
   }, []);
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join') => {
-    if (onlineStatus !== 'disconnected') {
+    if (wsRef.current) {
       disconnectAndReset();
       return;
     }
@@ -816,13 +818,16 @@ export default function EvolvingChessPage() {
     };
   
     ws.onclose = () => {
-      if (onlineStatus !== 'disconnected') {
-        toast({ title: "Connection Closed", description: "Disconnected from game server."});
-        disconnectAndReset();
-      }
+        if (wsRef.current) { // Check if the closure is for the current WebSocket instance
+            wsRef.current = null;
+            if (onlineStatus !== 'disconnected') {
+                toast({ title: "Connection Closed", description: "Disconnected from game server."});
+                fullGameReset();
+            }
+        }
     };
   
-  }, [onlineStatus, disconnectAndReset, toast, inputRoomId, handleIncomingData, startOrResetTurnTimer, gameInfo.gameOver, localPlayerColor]);
+  }, [inputRoomId, handleIncomingData, startOrResetTurnTimer, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus]);
   
 
   useEffect(() => {
@@ -1052,7 +1057,8 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic, fullGameState: { board: boardAfterCommanderPromo } } }));
+                // Send the specific promotion event
+                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'commander-promo', player: currentPlayer, square: algebraic } }));
             }
         }
 
@@ -1108,7 +1114,8 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, sacrificedPiece: pawnToSacrifice, square: algebraic, fullGameState: { board: boardAfterSacrifice } } }));
+                // Let the server know about the sacrifice to sync state
+                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } }));
             }
         }
 
@@ -1391,18 +1398,20 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
 
+        // --- Optimistic UI Update & Server Communication ---
+        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
+        finalBoardStateForTurn = applyMoveResult.newBoard;
+        
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
+                // Send the move to the server, but don't stop local processing
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
-            // For online games, we stop local processing and wait for the server's authoritative state.
-            // But we keep the animation running for responsiveness.
-            return;
+            // For online games, we optimistically update but the server's broadcast will be the final source of truth.
+            // No early return here. Let the rest of the logic flow.
         }
 
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, currentEnPassantTargetForThisTurn);
-        finalBoardStateForTurn = applyMoveResult.newBoard;
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
         const pieceCapturedByAnvilFromApply = applyMoveResult.pieceCapturedByAnvil;
         const anvilPushedOffBoardFromApply = applyMoveResult.anvilPushedOffBoard;
@@ -1531,7 +1540,7 @@ export default function EvolvingChessPage() {
         } else if (pieceCapturedByAnvilFromApply) {
           setLastCapturePlayer(capturingPlayer);
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
-          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(capturingPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 3000 });
+          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 3000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else {
@@ -1832,13 +1841,11 @@ export default function EvolvingChessPage() {
     setIsMoveProcessing(true);
     setAnimatedSquareTo(promotionSquare);
     
-    if (onlineStatus === 'connected' && localPlayerColor === pawnColor) {
+    if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
-         // For online games, we stop local processing and wait for the server's authoritative state.
-        return;
     }
 
     setBoard(boardToUpdate);
