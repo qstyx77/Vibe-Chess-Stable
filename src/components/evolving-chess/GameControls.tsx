@@ -98,7 +98,7 @@ export function GameControls({
           </p>
         </div>
 
-        {activeTimerPlayer && remainingTime !== null && !isGameOver && (
+        {activeTimerPlayer && activeTimerPlayer !== localPlayerColor && remainingTime !== null && !isGameOver && (
           <div className="text-center mt-2">
             <p className="text-lg font-semibold font-sans text-accent">
               {getPlayerDisplayName(activeTimerPlayer)}'s Time: {formatTime(remainingTime)}
