@@ -44,7 +44,9 @@ export function GameControls({
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
-    const actualCaptured = color === 'white' ? capturedPieces.black : capturedPieces.white;
+    // Corrected logic: Show pieces of 'color' that have been captured.
+    // White captures black pieces, so they go in the 'white' array.
+    const actualCaptured = color === 'white' ? capturedPieces.white : capturedPieces.black;
     
     return (
       <div>
