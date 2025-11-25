@@ -121,11 +121,11 @@ export function GameControls({
 
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured Black Pieces:</h3>
-          {renderCapturedPieces('black')}
+          {renderCapturedPieces('white')}
         </div>
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
-          {renderCapturedPieces('white')}
+          {renderCapturedPieces('black')}
         </div>
 
         <Separator />
