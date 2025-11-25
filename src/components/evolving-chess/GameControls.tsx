@@ -100,14 +100,6 @@ export function GameControls({
           </p>
         </div>
 
-        {activeTimerPlayer && remainingTime !== null && !isGameOver && (
-          <div className="text-center mt-2">
-            <p className="text-lg font-semibold font-sans text-accent">
-              {getPlayerDisplayName(activeTimerPlayer)}'s Time: {formatTime(remainingTime)}
-            </p>
-          </div>
-        )}
-
         <div className="text-center mt-2 space-y-1">
           <p className="text-sm font-medium text-destructive">
             White's Streak: {killStreaks.white} | Timeouts: {turnTimeouts.white}
