@@ -205,6 +205,8 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
+  const [showLossScreen, setShowLossScreen] = useState(false);
+
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
@@ -302,6 +304,7 @@ export default function EvolvingChessPage() {
 
     setResurrectedSquares([]);
     setPieceForInfoDisplay(null);
+    setShowLossScreen(false);
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -2578,14 +2581,19 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;
-    if (gameInfo.gameOver && gameInfo.winner === 'draw') {
-      currentCheckStateString = 'draw';
-    } else if (gameInfo.isCheckmate && gameInfo.playerWithKingInCheck) {
-      currentCheckStateString = `checkmate-${gameInfo.playerWithKingInCheck}`;
+    if (gameInfo.gameOver) {
+      if (onlineStatus === 'connected' && localPlayerColor && gameInfo.winner && gameInfo.winner !== 'draw' && gameInfo.winner !== localPlayerColor) {
+        setShowLossScreen(true);
+      }
+      if (gameInfo.winner === 'draw') {
+        currentCheckStateString = 'draw';
+      } else if (gameInfo.isCheckmate && gameInfo.playerWithKingInCheck) {
+        currentCheckStateString = `checkmate-${gameInfo.playerWithKingInCheck}`;
+      } else if (gameInfo.isInfiltrationWin) {
+        currentCheckStateString = `infiltration-${gameInfo.winner}`;
+      }
     } else if (gameInfo.isCheck && !gameInfo.gameOver && gameInfo.playerWithKingInCheck && !gameInfo.isStalemate && !gameInfo.isThreefoldRepetitionDraw) {
       currentCheckStateString = `${gameInfo.playerWithKingInCheck}-check`;
-    } else if (gameInfo.isInfiltrationWin) {
-      currentCheckStateString = `infiltration-${gameInfo.winner}`;
     }
 
 
@@ -2616,7 +2624,7 @@ export default function EvolvingChessPage() {
         flashedCheckStateRef.current = null;
       }
     }
-  }, [gameInfo]);
+  }, [gameInfo, onlineStatus, localPlayerColor]);
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
@@ -2920,12 +2928,21 @@ export default function EvolvingChessPage() {
 
   return (
     <div className="container mx-auto p-4 flex flex-col">
-      {/* Flash Messages */}
+      {/* Flash Messages & Overlays */}
       {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash" />}
       {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash" />}
       {showCheckmatePatternFlash && <div key={`checkmate-${checkmatePatternFlashKey}`} className="fixed inset-0 z-10 animate-checkmate-pattern-flash" />}
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
+      {showLossScreen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-to-black pointer-events-none">
+          <div className="animate-flash-check" style={{ animationName: 'flash-loss', animationDuration: '3s', animationFillMode: 'forwards' }}>
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
+              YOU LOST
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="relative z-20 flex-grow flex flex-col">
         {/* Header Section */}
