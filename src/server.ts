@@ -236,9 +236,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                 break;
             }
             case 'resign':
-            case 'forfeit-timeout':
                  if (room) {
-                    const winner = data.resigningPlayer === 'white' ? 'black' : (data.timedOutPlayer === 'white' ? 'black' : 'white');
+                    const winner = data.resigningPlayer === 'white' ? 'black' : 'white';
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner };
                     broadcastToRoom(ws.roomId, { ...data, winner });
                 }
@@ -263,13 +262,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                         room.gameState.nextShroomSpawnTurn = newNextTurn;
                         broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn });
                     }
-                 }
-                 break;
-            }
-            case 'turn-pass-timeout': {
-                 if (room) {
-                    room.gameState.currentPlayer = data.nextPlayer;
-                    broadcastToRoom(ws.roomId, data);
                  }
                  break;
             }

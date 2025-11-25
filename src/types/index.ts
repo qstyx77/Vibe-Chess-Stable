@@ -130,11 +130,6 @@ export interface GameSnapshot {
 
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
-
-  // Timer state
-  activeTimerPlayer: PlayerColor | null;
-  remainingTime: number | null;
-  turnTimeouts: { white: number, black: number };
   resurrectedSquares: ResurrectedSquareInfo[];
 }
 

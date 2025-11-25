@@ -67,7 +67,7 @@ wss.on('connection', ws => {
                         playerWhoGotFirstBlood: null,
                         resurrectedSquare: null,
                         gameInfo: {
-                            message: "\u00A0",
+                            message: " ",
                             isCheck: false,
                             playerWithKingInCheck: null,
                             isCheckmate: false,
@@ -186,7 +186,7 @@ wss.on('connection', ws => {
 
 
                 const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
-                let message = "\u00A0";
+                let message = " ";
                 let gameOver = false;
                 let winner = undefined;
 
@@ -225,9 +225,8 @@ wss.on('connection', ws => {
                 break;
             }
             case 'resign':
-            case 'forfeit-timeout':
                  if (room) {
-                    const winner = data.resigningPlayer === 'white' ? 'black' : (data.timedOutPlayer === 'white' ? 'black' : 'white');
+                    const winner = data.resigningPlayer === 'white' ? 'black' : 'white';
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner };
                     broadcastToRoom(ws.roomId, { ...data, winner });
                 }
@@ -236,13 +235,6 @@ wss.on('connection', ws => {
             case 'shroom-spawn': {
                  if (room) {
                     // This logic is now handled in the 'game-move' case to be authoritative
-                 }
-                 break;
-            }
-            case 'turn-pass-timeout': {
-                 if (room) {
-                    room.gameState.currentPlayer = data.nextPlayer;
-                    broadcastToRoom(ws.roomId, data);
                  }
                  break;
             }

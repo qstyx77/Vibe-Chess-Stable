@@ -18,9 +18,6 @@ interface GameControlsProps {
   killStreaks: { white: number, black: number };
   isWhiteAI: boolean;
   isBlackAI: boolean;
-  activeTimerPlayer: PlayerColor | null;
-  remainingTime: number | null;
-  turnTimeouts: { white: number, black: number };
   pieceForInfoDisplay: Piece | null;
   localPlayerColor?: PlayerColor | null;
   getPlayerDisplayName: (player: PlayerColor) => string;
@@ -35,9 +32,6 @@ export function GameControls({
   killStreaks,
   isWhiteAI,
   isBlackAI,
-  activeTimerPlayer,
-  remainingTime,
-  turnTimeouts,
   pieceForInfoDisplay,
   localPlayerColor,
   getPlayerDisplayName,
@@ -67,13 +61,6 @@ export function GameControls({
     currentTurnMessage = " ";
   }
 
-  const formatTime = (seconds: number | null): string => {
-    if (seconds === null) return "--:--";
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
   return (
     <Card className="w-full shadow-lg">
       <CardHeader className="pb-2">
@@ -102,10 +89,10 @@ export function GameControls({
 
         <div className="text-center mt-2 space-y-1">
           <p className="text-sm font-medium text-destructive">
-            White's Streak: {killStreaks.white} | Timeouts: {turnTimeouts.white}
+            White's Streak: {killStreaks.white}
           </p>
           <p className="text-sm font-medium text-destructive">
-            Black's Streak: {killStreaks.black} | Timeouts: {turnTimeouts.black}
+            Black's Streak: {killStreaks.black}
           </p>
         </div>
 
