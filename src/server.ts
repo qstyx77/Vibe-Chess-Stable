@@ -93,6 +93,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                         },
                         shroomSpawnCounter: 0,
                         nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
+                        whiteTimeouts: 0,
+                        blackTimeouts: 0,
                     }
                 };
                 ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
@@ -149,6 +151,22 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
             }
             case 'game-move': {
                 if (!room || !data.payload) return;
+
+                if (data.payload.type === 'timeout') {
+                    const timedOutPlayer = room.gameState.currentPlayer;
+                    const winner = timedOutPlayer === 'white' ? 'black' : 'white';
+                    if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
+                    else room.gameState.blackTimeouts++;
+
+                    if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3) {
+                         room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: winner, message: `${timedOutPlayer} timed out 3 times.` };
+                         broadcastToRoom(ws.roomId, { type: 'forfeit-timeout', timedOutPlayer: timedOutPlayer, winner: winner, reason: 'timeout' });
+                         return;
+                    }
+                    room.gameState.currentPlayer = winner;
+                    broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: timedOutPlayer });
+                    return;
+                }
                 
                 const { payload: move } = data;
                 const movingPlayer = room.gameState.currentPlayer;
@@ -299,5 +317,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
+
+    
 
     

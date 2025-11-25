@@ -131,6 +131,11 @@ export interface GameSnapshot {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
   resurrectedSquares: ResurrectedSquareInfo[];
+
+  turnTimer: number | null;
+  activeTimerPlayer: PlayerColor | null;
+  whiteTimeouts: number;
+  blackTimeouts: number;
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation
@@ -163,3 +168,5 @@ export interface AIGameState {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
 }
+
+    

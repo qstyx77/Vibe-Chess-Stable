@@ -21,6 +21,9 @@ interface GameControlsProps {
   pieceForInfoDisplay: Piece | null;
   localPlayerColor?: PlayerColor | null;
   getPlayerDisplayName: (player: PlayerColor) => string;
+  onlineStatus: 'disconnected' | 'connecting' | 'connected' | 'waiting';
+  turnTimer: number | null;
+  activeTimerPlayer: PlayerColor | null;
 }
 
 export function GameControls({
@@ -35,6 +38,9 @@ export function GameControls({
   pieceForInfoDisplay,
   localPlayerColor,
   getPlayerDisplayName,
+  onlineStatus,
+  turnTimer,
+  activeTimerPlayer,
 }: GameControlsProps) {
 
   const renderCapturedPieces = (color: PlayerColor) => {
@@ -60,6 +66,9 @@ export function GameControls({
    if (!currentTurnMessage && !isGameOver) {
     currentTurnMessage = " ";
   }
+  
+  const timerDisplay = onlineStatus === 'connected' ? (turnTimer !== null ? turnTimer.toString().padStart(2, '0') : '45') : '00';
+
 
   return (
     <Card className="w-full shadow-lg">
@@ -85,6 +94,14 @@ export function GameControls({
           >
             {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
           </p>
+          {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
+            <div className="text-center mt-2">
+              <p className="text-sm font-medium text-muted-foreground">Time Left</p>
+              <p className="text-xl font-semibold font-mono text-primary animate-pulse">
+                {timerDisplay}
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="text-center mt-2 space-y-1">
@@ -123,3 +140,5 @@ export function GameControls({
     </Card>
   );
 }
+
+    
