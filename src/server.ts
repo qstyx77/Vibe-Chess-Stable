@@ -152,11 +152,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
             case 'timeout': {
                  if (room) {
                     const timedOutPlayer = room.gameState.currentPlayer;
+                    const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
+                    
                     if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
                     else room.gameState.blackTimeouts++;
                     
-                    const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
-                    room.gameState.currentPlayer = opponent;
+                    room.gameState.currentPlayer = opponent; // This was missing
                     
                     // Broadcast the state update with the new current player
                     broadcastToRoom(ws.roomId, {
@@ -339,3 +340,4 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
