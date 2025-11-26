@@ -207,6 +207,7 @@ export default function EvolvingChessPage() {
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
   const [showLossScreen, setShowLossScreen] = useState(false);
+  const [showWinScreen, setShowWinScreen] = useState(false);
 
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
@@ -300,6 +301,7 @@ export default function EvolvingChessPage() {
     setResurrectedSquares([]);
     setPieceForInfoDisplay(null);
     setShowLossScreen(false);
+    setShowWinScreen(false);
 
     setTurnTimer(null);
     setActiveTimerPlayer(null);
@@ -681,6 +683,9 @@ export default function EvolvingChessPage() {
             
             toast({ title: "Game Over!", description: message, duration: 5000 });
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
+            if (data.type === 'resign' && winner === localPlayerColor) {
+              setShowWinScreen(true);
+            }
             stopTurnTimer();
             break;
         }
@@ -722,7 +727,7 @@ export default function EvolvingChessPage() {
         } else {
             toast({ title: "Time's Up!", description: `${getPlayerDisplayName(timedOutPlayer)}'s turn was passed.` });
             if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                 wsRef.current.send(JSON.stringify({ type: 'game-move', payload: { type: 'timeout' } }));
+                 wsRef.current.send(JSON.stringify({ type: 'timeout' }));
             }
         }
     }, [currentPlayer, whiteTimeouts, blackTimeouts, toast, getPlayerDisplayName, onlineStatus]);
@@ -816,6 +821,7 @@ export default function EvolvingChessPage() {
           if (gameInfo.gameOver) return;
           toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
           setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
+          setShowWinScreen(true);
           disconnectAndReset();
           break;
         case 'error':
@@ -2899,6 +2905,13 @@ export default function EvolvingChessPage() {
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
       
+      {showWinScreen && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
+              YOU WON
+            </p>
+        </div>
+      )}
       {showLossScreen && (
          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
@@ -3075,5 +3088,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
-    

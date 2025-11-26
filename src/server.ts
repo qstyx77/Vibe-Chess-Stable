@@ -149,6 +149,24 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                 }
                 break;
             }
+            case 'timeout': {
+                 if (room) {
+                    const timedOutPlayer = room.gameState.currentPlayer;
+                    if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
+                    else room.gameState.blackTimeouts++;
+                    
+                    const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
+                    room.gameState.currentPlayer = opponent;
+                    
+                    // Broadcast the state update with the new current player
+                    broadcastToRoom(ws.roomId, {
+                        type: 'game-move', // Using 'game-move' to update the whole state
+                        fullGameState: room.gameState,
+                        lastPlayer: timedOutPlayer, // The player who timed out
+                    });
+                 }
+                 break;
+            }
             case 'game-move': {
                 if (!room || !data.payload) return;
 
