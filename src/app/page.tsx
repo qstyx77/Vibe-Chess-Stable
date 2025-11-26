@@ -2986,28 +2986,28 @@ setIsBlackAI(newIsBlackAI);
         <div className="w-full flex flex-col items-center space-y-4 mb-4">
             <div className="w-full flex flex-wrap items-center justify-center md:justify-between gap-4">
               <div className="flex-grow md:flex-grow-0"></div> {/* Spacer */}
-              <div className="flex items-center justify-center gap-1 order-1 md:order-2">
+              <div className="flex items-center justify-center gap-0 order-1 md:order-2">
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
-                  width={72}
-                  height={72}
+                  width={60}
+                  height={60}
                   unoptimized
-                  className="hidden sm:block"
+                  className="w-10 h-10 sm:w-16 sm:h-16"
                   data-ai-hint="chess rook"
                 />
-                <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
+                <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
-                  width={72}
-                  height={72}
+                  width={60}
+                  height={60}
                   unoptimized
-                  className="transform scale-x-[-1] hidden sm:block"
+                  className="transform scale-x-[-1] w-10 h-10 sm:w-16 sm:h-16"
                   data-ai-hint="chess rook"
                 />
               </div>
-              <div className="flex justify-end order-2 md:order-3">
+              <div className="flex justify-center md:justify-end order-3 md:order-3 w-full md:w-auto">
                 <AuthWidget />
               </div>
             </div>
