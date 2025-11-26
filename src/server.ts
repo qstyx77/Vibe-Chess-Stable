@@ -302,6 +302,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string }) => {
                  }
                  break;
             }
+            case 'forfeit-timeout': {
+                if (room && data.winner) {
+                    room.gameState.gameInfo.gameOver = true;
+                    room.gameState.gameInfo.winner = data.winner;
+                    // Forward the message to other clients
+                    broadcastToRoom(ws.roomId, data);
+                }
+                break;
+            }
             default:
                 break;
         }
@@ -340,4 +349,5 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 

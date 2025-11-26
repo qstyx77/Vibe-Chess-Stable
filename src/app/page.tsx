@@ -678,12 +678,13 @@ export default function EvolvingChessPage() {
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
             else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
             else if (reason === 'self-check') message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
-            else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
+            else if (reason === 'self-check-timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} lost by running out of time in check!`;
+            else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
             else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
             toast({ title: "Game Over!", description: message, duration: 5000 });
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
-            if (data.type === 'resign' && winner === localPlayerColor) {
+            if (winner === localPlayerColor) {
               setShowWinScreen(true);
             }
             stopTurnTimer();
@@ -715,6 +716,19 @@ export default function EvolvingChessPage() {
             newBlackTimeouts++;
             setBlackTimeouts(newBlackTimeouts);
         }
+        
+        // New logic: Check if player timed out while in check
+        if (gameInfo.isCheck && gameInfo.playerWithKingInCheck === timedOutPlayer) {
+            toast({ title: "Game Over!", description: `${getPlayerDisplayName(timedOutPlayer)} ran out of time while in check. ${getPlayerDisplayName(winner)} wins!` });
+            setGameInfo(prev => ({ ...prev, message: `Timeout in Check! ${getPlayerDisplayName(winner)} wins.`, gameOver: true, winner: winner }));
+
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'forfeit-timeout', timedOutPlayer: timedOutPlayer, winner: winner, reason: 'self-check-timeout' }));
+            }
+            return;
+        }
+
 
         if (newWhiteTimeouts >= 3 || newBlackTimeouts >= 3) {
             toast({ title: "Game Over!", description: `${getPlayerDisplayName(timedOutPlayer)} timed out 3 times. ${getPlayerDisplayName(winner)} wins!` });
@@ -730,7 +744,7 @@ export default function EvolvingChessPage() {
                  wsRef.current.send(JSON.stringify({ type: 'timeout' }));
             }
         }
-    }, [currentPlayer, whiteTimeouts, blackTimeouts, toast, getPlayerDisplayName, onlineStatus]);
+    }, [currentPlayer, whiteTimeouts, blackTimeouts, toast, getPlayerDisplayName, onlineStatus, gameInfo.isCheck, gameInfo.playerWithKingInCheck]);
 
     const startTurnTimer = useCallback((player: PlayerColor) => {
         if (turnTimerIntervalId.current) {
@@ -995,16 +1009,18 @@ export default function EvolvingChessPage() {
       }
     }
 
+    // Allow selection and hovering even if it's not the player's turn online
     if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
-        if(clickedPiece) {
-            if(clickedPiece.color !== localPlayerColor) {
-                setEnemySelectedSquare(algebraic);
-                setEnemyPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
-            } else {
+        if (clickedPiece) {
+            setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
+            if (clickedPiece.color === localPlayerColor) {
                 setSelectedSquare(algebraic);
-                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
+            } else {
+                setEnemySelectedSquare(algebraic);
+                setSelectedSquare(null);
+                setPossibleMoves([]);
             }
         } else {
             setSelectedSquare(null);
@@ -1012,7 +1028,7 @@ export default function EvolvingChessPage() {
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
         }
-        return;
+        // Do not return here, let the move attempt logic handle turn validation
     }
     
     const clickedItem = clickedSquareState?.item;
@@ -1150,6 +1166,18 @@ export default function EvolvingChessPage() {
 
 
     if (selectedSquare) {
+      // It's not your turn in an online game, so you can't make a move
+      if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
+          // Just update selection, but don't attempt a move
+          if (clickedPiece && clickedPiece.color === localPlayerColor) {
+              setSelectedSquare(algebraic);
+              setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
+              setEnemySelectedSquare(null);
+              setEnemyPossibleMoves([]);
+          }
+          return;
+      }
+
       const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
       const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
       const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
@@ -1680,8 +1708,10 @@ export default function EvolvingChessPage() {
         }, 800);
         return;
       } else {
-        setSelectedSquare(null);
-        setPossibleMoves([]);
+        if (onlineStatus !== 'connected') {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+        }
         if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
             if(clickedPiece.color === currentPlayer) {
                 setSelectedSquare(algebraic);
@@ -1689,12 +1719,14 @@ export default function EvolvingChessPage() {
                 setPossibleMoves(legalMovesForNewSelection);
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
-            } else {
+            } else if (onlineStatus !== 'connected') { // Only allow selecting enemy pieces offline
                 setEnemySelectedSquare(algebraic);
                 const enemyMovesForNewSelection = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
                 setEnemyPossibleMoves(enemyMovesForNewSelection);
             }
         } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
         }
@@ -1703,13 +1735,13 @@ export default function EvolvingChessPage() {
         return;
       }
     } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-        if(clickedPiece.color === currentPlayer) {
+        if(clickedPiece.color === currentPlayer || onlineStatus === 'connected') { // Allow selection if it's your piece OR you're online
             setSelectedSquare(algebraic);
             const legalMovesForPlayer = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
             setPossibleMoves(legalMovesForPlayer);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
-        } else {
+        } else { // Offline and not your piece
             setSelectedSquare(null);
             setPossibleMoves([]);
             setEnemySelectedSquare(algebraic);
@@ -2897,7 +2929,7 @@ export default function EvolvingChessPage() {
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
   return (
-    <div className={cn("container mx-auto p-4 flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:z-[-1] after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
+    <div className={cn("container mx-auto p-4 flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
       {/* Flash Messages & Overlays */}
       {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash pointer-events-none" />}
       {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash pointer-events-none" />}
