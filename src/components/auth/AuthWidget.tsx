@@ -14,24 +14,23 @@ import { Button } from '@/components/ui/button';
 import { AuthForm } from './AuthForm';
 import { UserProfile } from './UserProfile';
 import { useToast } from '@/hooks/use-toast';
+import { LogIn } from 'lucide-react';
+import Link from 'next/link';
 
 export function AuthWidget() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
   const { toast } = useToast();
-  const [sheetOpen, setSheetOpen] = React.useState(false);
-  const [formType, setFormType] = React.useState<'signin' | 'signup'>('signin');
-
+  
   React.useEffect(() => {
     // If user logs in successfully, close the sheet
-    if (user && sheetOpen) {
-      setSheetOpen(false);
+    if (user) {
       toast({
         title: "Signed In Successfully!",
-        description: `Welcome back, ${user.email}`,
+        description: `Welcome back, ${user.displayName || user.email}`,
       });
     }
-  }, [user, sheetOpen, toast]);
+  }, [user, toast]);
 
   const handleSignOut = () => {
     auth.signOut().then(() => {
@@ -42,13 +41,8 @@ export function AuthWidget() {
     });
   };
 
-  const openSheet = (type: 'signin' | 'signup') => {
-    setFormType(type);
-    setSheetOpen(true);
-  };
-
   if (isUserLoading) {
-    return <Button variant="outline" disabled>Loading...</Button>;
+    return <Button variant="outline" size="sm" disabled>Loading...</Button>;
   }
 
   if (user) {
@@ -56,32 +50,18 @@ export function AuthWidget() {
   }
 
   return (
-    <>
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={() => openSheet('signin')}>
-          Sign In
+    <div className="flex gap-2">
+      <Link href="/login">
+        <Button variant="ghost" size="sm">
+          <LogIn className="mr-2 h-4 w-4" />
+          Login
         </Button>
-        <Button variant="default" onClick={() => openSheet('signup')}>
+      </Link>
+      <Link href="/register">
+        <Button variant="default" size="sm">
           Sign Up
         </Button>
-      </div>
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent>
-          <SheetHeader>
-            <SheetTitle>
-              {formType === 'signin' ? 'Sign In' : 'Create an Account'}
-            </SheetTitle>
-            <SheetDescription>
-              {formType === 'signin'
-                ? "Access your account to see your game history and stats."
-                : "Join the ranks and start your Vibe Chess journey."}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="py-4">
-            <AuthForm type={formType} onSuccess={() => setSheetOpen(false)} />
-          </div>
-        </SheetContent>
-      </Sheet>
-    </>
+      </Link>
+    </div>
   );
 }

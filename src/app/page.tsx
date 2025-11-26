@@ -2984,9 +2984,9 @@ setIsBlackAI(newIsBlackAI);
       <div className="relative z-20 flex-grow flex flex-col">
         {/* Header Section */}
         <div className="w-full flex flex-col items-center space-y-4 mb-4">
-          <div className="w-full flex items-center justify-between">
-              <div className="w-1/3"></div> {/* Spacer */}
-              <div className="w-1/3 flex items-center justify-center gap-1">
+            <div className="w-full grid grid-cols-3 items-center">
+              <div className="w-full"></div> {/* Left Spacer */}
+              <div className="flex items-center justify-center gap-1">
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
@@ -3007,7 +3007,7 @@ setIsBlackAI(newIsBlackAI);
                   data-ai-hint="chess rook"
                 />
               </div>
-              <div className="w-1/3 flex justify-end">
+              <div className="flex justify-end">
                 <AuthWidget />
               </div>
             </div>
