@@ -83,6 +83,12 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Threefold Repetition">
                   If the same board position (including piece and item locations, current player, castling rights, and en passant target square) occurs three times during a game, the game is a draw.
                 </PieceRule>
+                <PieceRule title="Online Play: Turn Timer">
+                  In online games, each player has 45 seconds to make a move. If the timer expires, the turn is automatically passed to the opponent. If a player allows their timer to expire 3 times in a single game, they lose by timeout.
+                </PieceRule>
+                <PieceRule title="Online Play: Timeout in Check (Self-Checkmate)">
+                  If a player is in check and their turn timer expires before they can make a legal move to get out of check, they lose the game immediately.
+                </PieceRule>
               </AccordionContent>
             </AccordionItem>
 
