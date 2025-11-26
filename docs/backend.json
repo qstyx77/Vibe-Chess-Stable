@@ -1,0 +1,188 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the Evolving Chess game.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user."
+        },
+        "username": {
+          "type": "string",
+          "description": "The user's username."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "eloRating": {
+          "type": "number",
+          "description": "The user's Elo rating."
+        }
+      },
+      "required": [
+        "id",
+        "username",
+        "email"
+      ]
+    },
+    "Game": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Game",
+      "type": "object",
+      "description": "Represents a single chess game.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the game."
+        },
+        "player1Id": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Game) Unique identifier of player 1."
+        },
+        "player2Id": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Game) Unique identifier of player 2."
+        },
+        "startTime": {
+          "type": "string",
+          "description": "Timestamp when the game started.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "Timestamp when the game ended.",
+          "format": "date-time"
+        },
+        "winnerId": {
+          "type": "string",
+          "description": "Reference to User. The unique identifier of the winning player. Null if the game is a draw or in progress."
+        },
+        "moves": {
+          "type": "array",
+          "description": "A list of moves in the game, stored as strings (e.g., 'e2e4').",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "player1Id",
+        "player2Id",
+        "startTime"
+      ]
+    },
+    "Piece": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Piece",
+      "type": "object",
+      "description": "Represents a chess piece in the game.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the piece."
+        },
+        "gameId": {
+          "type": "string",
+          "description": "Reference to Game. (Relationship: Game 1:N Piece) The game this piece belongs to."
+        },
+        "playerId": {
+          "type": "string",
+          "description": "Reference to User. (Relationship: User 1:N Piece) The player who owns the piece."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of the chess piece (e.g., 'pawn', 'rook', 'knight', 'bishop', 'queen', 'king')."
+        },
+        "level": {
+          "type": "number",
+          "description": "The level of the chess piece."
+        },
+        "position": {
+          "type": "string",
+          "description": "The position of the piece on the board (e.g., 'a1', 'h8')."
+        },
+        "experience": {
+          "type": "number",
+          "description": "The experience of the chess piece."
+        }
+      },
+      "required": [
+        "id",
+        "gameId",
+        "playerId",
+        "type",
+        "level",
+        "position"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user data. Access is restricted to the user identified by {userId}.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/games/{gameId}",
+        "definition": {
+          "entityName": "Game",
+          "schema": {
+            "$ref": "#/backend/entities/Game"
+          },
+          "description": "Stores game data. Includes denormalized 'members' map containing {player1Id: 'player1', player2Id: 'player2'} for authorization independence.",
+          "params": [
+            {
+              "name": "gameId",
+              "description": "The unique identifier of the game."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/games/{gameId}/pieces/{pieceId}",
+        "definition": {
+          "entityName": "Piece",
+          "schema": {
+            "$ref": "#/backend/entities/Piece"
+          },
+          "description": "Stores piece data for a specific game. Access is restricted based on the game's members.",
+          "params": [
+            {
+              "name": "gameId",
+              "description": "The unique identifier of the game."
+            },
+            {
+              "name": "pieceId",
+              "description": "The unique identifier of the piece."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore structure is designed to support the Evolving Chess game, emphasizing secure and scalable data management. It adheres to the principles of Authorization Independence, Clarity of Intent, DBAC (Database-Based Access Control), and QAPs (Rules are not Filters). Each collection is designed with a homogeneous security posture in mind.\n\n*   **Users:** User data is stored in `/users/{userId}`. This path-based ownership provides a straightforward way to secure user-specific data. The `userId` is derived from `request.auth.uid`, ensuring that only the authenticated user can access their data.\n*   **Games:** Game data is stored in `/games/{gameId}`.  Both `player1Id` and `player2Id` from the Game schema are copied into the game document as `members` map, and used to restrict write access to the game to only those players.\n*   **Pieces:** Piece data is stored within the game document, leveraging hierarchical ownership at `/games/{gameId}/pieces/{pieceId}`. Since Pieces are only relevant within the scope of a game, nesting these as subcollections of `/games` make sense.  The Piece schema contains `gameId` and `playerId`, which makes the rules easier to write and understand.\n\n\n**Authorization Independence:**\n\n*   The structure denormalizes authorization data to avoid `get()` calls in security rules. For example, the `Game` document contains the `player1Id` and `player2Id`, which are used to derive the `members` map to authorize write access. This eliminates the need to fetch user data to determine if a user is authorized to modify the game.\n\n**QAPs (Rules are not Filters):**\n\n*   The segregation of data into collections with clear ownership (users, games, and pieces) makes it easy to write secure list operations. Rules can easily filter based on the presence of the `userId` in the request, or in the `members` map on the game."
+  }
+}
