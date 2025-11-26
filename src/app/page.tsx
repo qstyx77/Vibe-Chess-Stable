@@ -2984,16 +2984,16 @@ setIsBlackAI(newIsBlackAI);
       <div className="relative z-20 flex-grow flex flex-col">
         {/* Header Section */}
         <div className="w-full flex flex-col items-center space-y-4 mb-4">
-            <div className="w-full grid grid-cols-3 items-center">
-              <div className="w-full"></div> {/* Left Spacer */}
-              <div className="flex items-center justify-center gap-1">
+            <div className="w-full flex flex-wrap items-center justify-center md:justify-between gap-4">
+              <div className="flex-grow md:flex-grow-0"></div> {/* Spacer */}
+              <div className="flex items-center justify-center gap-1 order-1 md:order-2">
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
                   width={72}
                   height={72}
                   unoptimized
-                  className=""
+                  className="hidden sm:block"
                   data-ai-hint="chess rook"
                 />
                 <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
@@ -3003,11 +3003,11 @@ setIsBlackAI(newIsBlackAI);
                   width={72}
                   height={72}
                   unoptimized
-                  className="transform scale-x-[-1]"
+                  className="transform scale-x-[-1] hidden sm:block"
                   data-ai-hint="chess rook"
                 />
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-end order-2 md:order-3">
                 <AuthWidget />
               </div>
             </div>

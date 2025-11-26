@@ -52,7 +52,7 @@ export function AuthWidget() {
   return (
     <div className="flex gap-2">
       <Link href="/login">
-        <Button variant="ghost" size="sm">
+        <Button variant="outline" size="sm">
           <LogIn className="mr-2 h-4 w-4" />
           Login
         </Button>
