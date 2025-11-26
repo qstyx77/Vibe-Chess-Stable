@@ -1,3 +1,4 @@
+
 /**
  * Core Philosophy: This ruleset enforces a security model based on a combination of strict user-ownership and shared access for collaborative resources. User data is private to each user, while game data is shared exclusively between the two participating players.
  *
@@ -88,7 +89,21 @@ service cloud.firestore {
       // On update, the internal ID must not change.
       let isIdConsistent = request.resource.data.id == userId;
       let isIdImmutable = resource.data.id == request.resource.data.id;
-      return request.method == 'create' ? isIdConsistent : isIdImmutable;
+      
+      // Ensure ELO is a number and only changes in a valid way (e.g., by a trusted server process, not covered here)
+      let isEloValid = request.resource.data.eloRating is number;
+      
+      // On create, anyone can create their own user doc.
+      if (request.method == 'create') {
+        return isOwner(userId) && isIdConsistent && isEloValid;
+      }
+      
+      // On update, only the user can update their own doc, and some fields are immutable.
+      if (request.method == 'update') {
+        return isOwner(userId) && isIdImmutable;
+      }
+      
+      return false;
     }
     
     /**
@@ -125,14 +140,16 @@ service cloud.firestore {
     /**
      * @description Controls access to user profile documents.
      * @path /users/{userId}
-     * @allow A signed-in user (auth.uid=`user_abc`) can create their own profile at `/users/user_abc`. (create)
+     * @allow A signed-in user (auth.uid=`user_abc`) can read their own profile at `/users/user_abc`. (get)
+     * @allow Any user (signed in or not) can create a user document during sign-up. (create)
      * @deny A signed-in user (auth.uid=`user_xyz`) cannot read or write to `/users/user_abc`. (get, update, delete)
-     * @principle Restricts access to a user's own data tree, enforcing strict ownership.
+     * @principle Restricts access to a user's own data tree, enforcing strict ownership, but allows creation for new users.
      */
     match /users/{userId} {
       allow get: if isOwner(userId);
       allow list: if false;
-      allow create: if isOwner(userId) && hasValidUserData(userId);
+      // Allow creation for any user, but only if they are creating their own document.
+      allow create: if hasValidUserData(userId); 
       allow update: if isOwnerOfExistingDoc(userId) && hasValidUserData(userId);
       allow delete: if isOwnerOfExistingDoc(userId);
     }

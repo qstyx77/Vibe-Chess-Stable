@@ -22,12 +22,23 @@
         "eloRating": {
           "type": "number",
           "description": "The user's Elo rating."
+        },
+        "wins": {
+          "type": "number",
+          "description": "Total number of wins."
+        },
+        "losses": {
+          "type": "number",
+          "description": "Total number of losses."
         }
       },
       "required": [
         "id",
         "username",
-        "email"
+        "email",
+        "eloRating",
+        "wins",
+        "losses"
       ]
     },
     "Game": {

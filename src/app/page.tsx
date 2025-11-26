@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { AuthWidget } from '@/components/auth/AuthWidget';
 
 
 let globalUniqueIdCounter = 0;
@@ -2983,27 +2984,33 @@ setIsBlackAI(newIsBlackAI);
       <div className="relative z-20 flex-grow flex flex-col">
         {/* Header Section */}
         <div className="w-full flex flex-col items-center space-y-4 mb-4">
-          <div className="flex items-center justify-center gap-1">
-            <Image
-              src="/images/rook-title.gif"
-              alt="Vibe Chess Rook"
-              width={72}
-              height={72}
-              unoptimized
-              className=""
-              data-ai-hint="chess rook"
-            />
-            <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
-            <Image
-              src="/images/rook-title.gif"
-              alt="Vibe Chess Rook"
-              width={72}
-              height={72}
-              unoptimized
-              className="transform scale-x-[-1]"
-              data-ai-hint="chess rook"
-            />
-          </div>
+          <div className="w-full flex items-center justify-between">
+              <div className="w-1/3"></div> {/* Spacer */}
+              <div className="w-1/3 flex items-center justify-center gap-1">
+                <Image
+                  src="/images/rook-title.gif"
+                  alt="Vibe Chess Rook"
+                  width={72}
+                  height={72}
+                  unoptimized
+                  className=""
+                  data-ai-hint="chess rook"
+                />
+                <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash">VIBE CHESS</h1>
+                <Image
+                  src="/images/rook-title.gif"
+                  alt="Vibe Chess Rook"
+                  width={72}
+                  height={72}
+                  unoptimized
+                  className="transform scale-x-[-1]"
+                  data-ai-hint="chess rook"
+                />
+              </div>
+              <div className="w-1/3 flex justify-end">
+                <AuthWidget />
+              </div>
+            </div>
           <div className="flex flex-wrap justify-center items-center gap-2">
             <AlertDialog>
               <AlertDialogTrigger asChild>

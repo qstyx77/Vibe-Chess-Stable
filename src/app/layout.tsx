@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
 import { Press_Start_2P } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Added Toaster
+import { FirebaseClientProvider } from '@/firebase';
 
 const geistSans = Geist({ // Corrected function name
   variable: '--font-geist-sans',
@@ -40,6 +41,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${pressStart2P.variable}`}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
+        <FirebaseClientProvider>
           <main className="flex-grow">
             {children}
           </main>
@@ -47,6 +49,7 @@ export default function RootLayout({
           <footer className="py-4 text-center text-sm font-medium text-muted-foreground">
             Made By Sugga
           </footer>
+        </FirebaseClientProvider>
       </body>
     </html>
   );

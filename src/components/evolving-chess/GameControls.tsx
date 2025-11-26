@@ -8,6 +8,9 @@ import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { PieceAbilitiesInfo } from './PieceAbilitiesInfo';
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { useUser, useDoc, useMemoFirebase } from '@/firebase';
+import { doc, firestore } from 'firebase/firestore';
+import { useFirestore } from '@/firebase';
 
 interface GameControlsProps {
   currentPlayer: PlayerColor;
@@ -42,6 +45,16 @@ export function GameControls({
   turnTimer,
   activeTimerPlayer,
 }: GameControlsProps) {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const userDocRef = useMemoFirebase(
+    () => (user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user]
+  );
+  
+  const { data: userData } = useDoc(userDocRef);
+
 
   const renderCapturedPieces = (color: PlayerColor) => {
     // Corrected logic: Show pieces of 'color' that have been captured.
@@ -84,6 +97,19 @@ export function GameControls({
           </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {user ? (
+          <div className="text-center">
+            <p className="text-lg font-semibold text-primary">{user.displayName || user.email}</p>
+            {userData && (
+               <p className="text-sm font-medium text-muted-foreground">ELO: {userData.eloRating}</p>
+            )}
+          </div>
+        ) : (
+          <div className="text-center text-sm text-muted-foreground">
+            Not logged in
+          </div>
+        )}
+        <Separator/>
         <div className="text-center">
           <p className="text-sm font-medium text-muted-foreground">Current Player</p>
           <p className={cn(
