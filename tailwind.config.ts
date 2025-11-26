@@ -178,7 +178,16 @@ export default {
             transform: 'scale3d(1, 1, 1)', 
             opacity: '1' 
           },
-        }
+        },
+        'flash-timer-warning': {
+          '0%, 100%': { opacity: '0', transform: 'scale(0.5)' },
+          '25%, 75%': { opacity: '1', transform: 'scale(1.1)' },
+          '50%': { opacity: '0.5', transform: 'scale(0.8)' },
+        },
+        'fade-to-black': {
+            from: { backgroundColor: 'transparent' },
+            to: { backgroundColor: 'black' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -190,6 +199,8 @@ export default {
         'check-pattern-flash': 'check-pattern-flash 2.25s ease-in-out forwards',
         'checkmate-pattern-flash': 'checkmate-pattern-flash 5.25s ease-in-out forwards',
         'animate-piece-slide-in': 'piece-slide-in 0.7s ease-out forwards',
+        'flash-timer-warning': 'flash-timer-warning 1.5s ease-in-out forwards',
+        'fade-to-black': 'fade-to-black 2.5s ease-in forwards',
   		}
   	}
   },

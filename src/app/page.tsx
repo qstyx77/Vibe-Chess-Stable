@@ -208,6 +208,8 @@ export default function EvolvingChessPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const [showLossScreen, setShowLossScreen] = useState(false);
   const [showWinScreen, setShowWinScreen] = useState(false);
+  const [showTimerWarning, setShowTimerWarning] = useState(false);
+  const [timerWarningKey, setTimerWarningKey] = useState(0);
 
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
@@ -233,7 +235,7 @@ export default function EvolvingChessPage() {
     const newIsWhiteAI = false;
     const newIsBlackAI = false;
     setIsWhiteAI(newIsWhiteAI);
-    setIsBlackAI(newIsBlackAI);
+setIsBlackAI(newIsBlackAI);
 
     setGameInfo({ ...initialGameStatus });
     flashedCheckStateRef.current = null;
@@ -758,6 +760,10 @@ export default function EvolvingChessPage() {
                 if (prev === null) {
                     if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
                     return null;
+                }
+                if (prev === 11) {
+                    setShowTimerWarning(true);
+                    setTimerWarningKey(k => k + 1);
                 }
                 if (prev <= 1) {
                     handleTimeout();
@@ -1713,16 +1719,18 @@ export default function EvolvingChessPage() {
             setPossibleMoves([]);
         }
         if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-            if(clickedPiece.color === currentPlayer) {
+            if(clickedPiece.color === currentPlayer || onlineStatus === 'connected') { // Allow selection if it's your piece OR you're online
                 setSelectedSquare(algebraic);
-                const legalMovesForNewSelection = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
-                setPossibleMoves(legalMovesForNewSelection);
+                const legalMovesForPlayer = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
+                setPossibleMoves(legalMovesForPlayer);
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
-            } else if (onlineStatus !== 'connected') { // Only allow selecting enemy pieces offline
+            } else { // Offline and not your piece
+                setSelectedSquare(null);
+                setPossibleMoves([]);
                 setEnemySelectedSquare(algebraic);
-                const enemyMovesForNewSelection = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
-                setEnemyPossibleMoves(enemyMovesForNewSelection);
+                const enemyMoves = getPossibleMoves(board, algebraic, currentEnPassantTargetForThisTurn);
+                setEnemyPossibleMoves(enemyMoves);
             }
         } else {
             setSelectedSquare(null);
@@ -2668,6 +2676,16 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
+    if (showTimerWarning) {
+      timerId = setTimeout(() => {
+        setShowTimerWarning(false);
+      }, 1500);
+    }
+    return () => { if (timerId) clearTimeout(timerId); };
+  }, [showTimerWarning, timerWarningKey]);
+
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | null = null;
     if (showCaptureFlash) {
       timerId = setTimeout(() => {
         setShowCaptureFlash(false);
@@ -2937,6 +2955,16 @@ export default function EvolvingChessPage() {
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
       
+      {showTimerWarning && (
+        <div key={`timer-warning-${timerWarningKey}`} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="animate-flash-timer-warning">
+                <p className="text-7xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
+                    10
+                </p>
+            </div>
+        </div>
+      )}
+
       {showWinScreen && (
          <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
