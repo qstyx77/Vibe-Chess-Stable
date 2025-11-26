@@ -32,7 +32,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy } from 'lucide-react';
 import type { VibeChessAI as VibeChessAIClassType } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -47,6 +47,8 @@ import {
 import { AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { AuthWidget } from '@/components/auth/AuthWidget';
+import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 
 let globalUniqueIdCounter = 0;
@@ -121,6 +123,8 @@ function adaptBoardForAI(
 
 
 export default function EvolvingChessPage() {
+  const { user } = useUser();
+  const firestore = useFirestore();
   const [board, setBoard] = useState<BoardState>(initializeBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
@@ -211,6 +215,8 @@ export default function EvolvingChessPage() {
   const [showWinScreen, setShowWinScreen] = useState(false);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [timerWarningKey, setTimerWarningKey] = useState(0);
+  const [isRankedGame, setIsRankedGame] = useState(false);
+  const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
 
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
@@ -311,6 +317,8 @@ setIsBlackAI(newIsBlackAI);
     if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
     setWhiteTimeouts(0);
     setBlackTimeouts(0);
+    setIsRankedGame(false);
+    setRankedQueueStatus('idle');
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -319,11 +327,11 @@ setIsBlackAI(newIsBlackAI);
         wsRef.current.close();
         wsRef.current = null;
     }
-    if (onlineStatus !== 'disconnected') {
+    if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
       fullGameReset();
-      toast({ title: "Disconnected", description: "You have left the online game." });
+      toast({ title: "Disconnected", description: "You have left the online session." });
     }
-  }, [fullGameReset, toast, onlineStatus]);
+  }, [fullGameReset, toast, onlineStatus, rankedQueueStatus]);
 
   const determineBoardOrientation = useCallback((): PlayerColor => {
     if (isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
@@ -674,7 +682,7 @@ setIsBlackAI(newIsBlackAI);
         case 'forfeit-timeout':
         case 'game-over':
         case 'resign': {
-            const { winner, reason, timedOutPlayer, resigningPlayer } = data;
+            const { winner, reason, timedOutPlayer, resigningPlayer, eloChanges } = data;
             let message = "";
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
             else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
@@ -687,14 +695,39 @@ setIsBlackAI(newIsBlackAI);
             
             toast({ title: "Game Over!", description: message, duration: 5000 });
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
+            
+            if (isRankedGame && eloChanges && user) {
+                const playerEloChange = eloChanges[user.uid];
+                if (playerEloChange) {
+                    const eloChange = playerEloChange.newElo - playerEloChange.oldElo;
+                    const newWins = winner === localPlayerColor ? playerEloChange.wins + 1 : playerEloChange.wins;
+                    const newLosses = winner !== localPlayerColor && winner !== 'draw' ? playerEloChange.losses + 1 : playerEloChange.losses;
+
+                    toast({
+                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
+                        description: `Wins: ${newWins}, Losses: ${newLosses}`,
+                        duration: 8000,
+                    });
+                    
+                    const userDocRef = doc(firestore, 'users', user.uid);
+                    updateDocumentNonBlocking(userDocRef, {
+                        eloRating: playerEloChange.newElo,
+                        wins: newWins,
+                        losses: newLosses
+                    });
+                }
+            }
+
+
             if (winner === localPlayerColor) {
               setShowWinScreen(true);
             }
             stopTurnTimer();
+            setIsRankedGame(false);
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore]);
 
     const stopTurnTimer = () => {
         if (turnTimerIntervalId.current) {
@@ -785,7 +818,7 @@ setIsBlackAI(newIsBlackAI);
     };
   }, []);
 
-  const handleOnlinePlay = useCallback(async (action: 'create' | 'join') => {
+  const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
     if (wsRef.current) {
       disconnectAndReset();
       return;
@@ -814,6 +847,11 @@ setIsBlackAI(newIsBlackAI);
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && inputRoomId) {
         ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
+      } else if (action === 'ranked') {
+          if(user) {
+              setRankedQueueStatus('searching');
+              ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid }));
+          }
       }
     };
   
@@ -838,6 +876,15 @@ setIsBlackAI(newIsBlackAI);
           toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
           startTurnTimer('white');
           break;
+        case 'ranked-match-found':
+            setRankedQueueStatus('idle');
+            setRoomId(data.roomId);
+            setLocalPlayerColor(data.color);
+            setOnlineStatus('connected');
+            setIsRankedGame(true);
+            toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 4000 });
+            startTurnTimer('white');
+            break;
         case 'opponent-disconnected':
           if (gameInfo.gameOver) return;
           toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
@@ -853,6 +900,7 @@ setIsBlackAI(newIsBlackAI);
             wsRef.current = null;
           }
           setOnlineStatus('disconnected');
+          setRankedQueueStatus('idle');
           break;
         default:
           handleIncomingData(data);
@@ -864,19 +912,20 @@ setIsBlackAI(newIsBlackAI);
       console.error("[CLIENT] WebSocket error:", err);
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive' });
       setOnlineStatus('disconnected');
+      setRankedQueueStatus('idle');
     };
   
     ws.onclose = () => {
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
-            if (onlineStatus !== 'disconnected') {
+            if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
                 toast({ title: "Connection Closed", description: "Disconnected from game server."});
                 fullGameReset();
             }
         }
     };
   
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer]);
+  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer, user, rankedQueueStatus]);
   
 
   useEffect(() => {
@@ -2924,7 +2973,28 @@ setIsBlackAI(newIsBlackAI);
     return 'Create Online Game';
   };
 
+  const getRankedButtonText = () => {
+    if(rankedQueueStatus === 'searching') return 'Searching...';
+    return 'Ranked';
+  }
+
+  const handleRankedPlay = () => {
+    if (rankedQueueStatus === 'searching') {
+        // Cancel logic
+        if(wsRef.current) wsRef.current.send(JSON.stringify({ type: 'leave-ranked-queue' }));
+        setRankedQueueStatus('idle');
+        disconnectAndReset();
+        toast({ title: "Search Cancelled", description: "You have left the ranked queue." });
+    } else {
+        handleOnlinePlay('ranked');
+    }
+  }
+
+
   const getStatusMessage = () => {
+    if (rankedQueueStatus === 'searching') {
+        return <p className="text-sm font-medium text-primary mt-2 animate-pulse">Searching for a ranked match...</p>;
+    }
     if (onlineStatus === 'waiting' && roomId) {
       return (
         <p className="text-sm font-medium text-primary mt-2">
@@ -2984,16 +3054,16 @@ setIsBlackAI(newIsBlackAI);
       <div className="relative z-20 flex-grow flex flex-col">
         {/* Header Section */}
         <div className="w-full flex flex-col items-center space-y-4 mb-4">
-            <div className="w-full flex flex-wrap items-center justify-center md:justify-between gap-4">
+          <div className="w-full grid grid-cols-1 md:grid-cols-3 items-center gap-4">
               <div className="flex-grow md:flex-grow-0"></div> {/* Spacer */}
-              <div className="flex items-center justify-center gap-0 order-1 md:order-2">
+              <div className="flex items-center justify-center gap-0 order-2 md:order-2">
                 <Image
                   src="/images/rook-title.gif"
                   alt="Vibe Chess Rook"
                   width={60}
                   height={60}
                   unoptimized
-                  className="w-10 h-10 sm:w-16 sm:h-16"
+                  className="transform scale-x-[-1] w-10 h-10 sm:w-16 sm:h-16"
                   data-ai-hint="chess rook"
                 />
                 <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
@@ -3003,7 +3073,7 @@ setIsBlackAI(newIsBlackAI);
                   width={60}
                   height={60}
                   unoptimized
-                  className="transform scale-x-[-1] w-10 h-10 sm:w-16 sm:h-16"
+                  className="w-10 h-10 sm:w-16 sm:h-16"
                   data-ai-hint="chess rook"
                 />
               </div>
@@ -3052,8 +3122,18 @@ setIsBlackAI(newIsBlackAI);
           <div className="flex flex-wrap justify-center items-center gap-2">
             <Button
               variant="outline"
+              onClick={handleRankedPlay}
+              disabled={!user || onlineStatus !== 'disconnected'}
+              className="h-8 px-2 text-sm font-medium"
+              aria-label="Play Ranked Match"
+            >
+              <Trophy className="mr-1" />
+              {getRankedButtonText()}
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => handleOnlinePlay('create')}
-              disabled={onlineStatus === 'connecting' || (isWhiteAI || isBlackAI)}
+              disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
               className="h-8 px-2 text-sm font-medium"
               aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
             >
@@ -3067,12 +3147,12 @@ setIsBlackAI(newIsBlackAI);
                 value={inputRoomId}
                 onChange={(e) => setInputRoomId(e.target.value)}
                 className="h-8 px-2 text-xs font-medium w-24"
-                disabled={onlineStatus !== 'disconnected' || isWhiteAI || isBlackAI}
+                disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
               />
               <Button
                 variant="outline"
                 onClick={() => handleOnlinePlay('join')}
-                disabled={onlineStatus !== 'disconnected' || !inputRoomId || isWhiteAI || isBlackAI}
+                disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
                 className="h-8 px-2 text-sm font-medium"
                 aria-label="Join Online Game"
               >
@@ -3092,6 +3172,7 @@ setIsBlackAI(newIsBlackAI);
             <GameControls
                 currentPlayer={currentPlayer}
                 gameStatusMessage={
+                  rankedQueueStatus === 'searching' ? 'Searching for match...' :
                   isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected')) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
                     isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
                       isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :

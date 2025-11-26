@@ -89,9 +89,13 @@ service cloud.firestore {
       // On update, the internal ID must not change.
       let isIdConsistent = request.resource.data.id == userId;
       let isIdImmutable = resource.data.id == request.resource.data.id;
+      let isEmailImmutable = resource.data.email == request.resource.data.email;
+      let isUsernameImmutable = resource.data.username == request.resource.data.username;
       
-      // Ensure ELO is a number and only changes in a valid way (e.g., by a trusted server process, not covered here)
+      // Allow eloRating, wins, and losses to be updated.
       let isEloValid = request.resource.data.eloRating is number;
+      let isWinsValid = request.resource.data.wins is number;
+      let isLossesValid = request.resource.data.losses is number;
       
       // On create, anyone can create their own user doc.
       if (request.method == 'create') {
@@ -100,7 +104,7 @@ service cloud.firestore {
       
       // On update, only the user can update their own doc, and some fields are immutable.
       if (request.method == 'update') {
-        return isOwner(userId) && isIdImmutable;
+        return isOwner(userId) && isIdImmutable && isEmailImmutable && isUsernameImmutable && isEloValid && isWinsValid && isLossesValid;
       }
       
       return false;
@@ -146,12 +150,12 @@ service cloud.firestore {
      * @principle Restricts access to a user's own data tree, enforcing strict ownership, but allows creation for new users.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId);
-      allow list: if false;
+      allow get; // Allow anyone to read profiles for leaderboards
+      allow list; // Allow listing for leaderboards
       // Allow creation for any user, but only if they are creating their own document.
       allow create: if hasValidUserData(userId); 
-      allow update: if isOwnerOfExistingDoc(userId) && hasValidUserData(userId);
-      allow delete: if isOwnerOfExistingDoc(userId);
+      allow update: if isOwner(userId) && hasValidUserData(userId);
+      allow delete: if isOwner(userId);
     }
 
     /**
