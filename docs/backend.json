@@ -131,6 +131,31 @@
         "level",
         "position"
       ]
+    },
+    "Leaderboard": {
+      "title": "Leaderboard",
+      "type": "object",
+      "description": "Stores the top players for the public leaderboard.",
+      "properties": {
+        "players": {
+          "type": "array",
+          "description": "An array of the top players.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "username": { "type": "string" },
+              "eloRating": { "type": "number" }
+            },
+            "required": ["id", "username", "eloRating"]
+          }
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The last time the leaderboard was updated."
+        }
+      }
     }
   },
   "auth": {
@@ -189,6 +214,22 @@
             {
               "name": "pieceId",
               "description": "The unique identifier of the piece."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/leaderboard/{leaderboardId}",
+        "definition": {
+          "entityName": "Leaderboard",
+          "schema": {
+            "$ref": "#/backend/entities/Leaderboard"
+          },
+          "description": "Stores pre-computed leaderboard data. Publicly readable.",
+          "params": [
+            {
+              "name": "leaderboardId",
+              "description": "The identifier for the leaderboard document (e.g., 'top10')."
             }
           ]
         }

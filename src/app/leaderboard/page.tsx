@@ -1,60 +1,43 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFirestore } from '@/firebase';
-import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import { useDoc, useMemoFirebase } from '@/firebase';
+import { doc, getFirestore } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Trophy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { triggerLeaderboardUpdate } from '@/ai/flows/leaderboard-flow';
 
-interface UserProfile {
-  id: string;
-  username: string;
-  eloRating: number;
+interface LeaderboardData {
+  players: {
+    id: string;
+    username: string;
+    eloRating: number;
+  }[];
+  updatedAt: string;
 }
 
 export default function LeaderboardPage() {
-  const firestore = useFirestore();
-  const [topPlayers, setTopPlayers] = useState<UserProfile[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-
-  useEffect(() => {
-    const fetchLeaderboard = async () => {
-      if (!firestore) {
-        // Firestore might not be available on the first render, so we wait.
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const leaderboardQuery = query(
-          collection(firestore, 'users'),
-          orderBy('eloRating', 'desc'),
-          limit(10)
-        );
-
-        const querySnapshot = await getDocs(leaderboardQuery);
-        const players: UserProfile[] = [];
-        querySnapshot.forEach((doc) => {
-          players.push({ id: doc.id, ...doc.data() } as UserProfile);
-        });
-        setTopPlayers(players);
-      } catch (e: any) {
-        console.error("Error fetching leaderboard:", e);
-        setError(e);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchLeaderboard();
+  const firestore = getFirestore();
+  const leaderboardRef = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return doc(firestore, 'leaderboard', 'top10');
   }, [firestore]);
+
+  const { data: leaderboardData, isLoading, error } = useDoc<LeaderboardData>(leaderboardRef);
+
+  const handleManualUpdate = async () => {
+    try {
+      await triggerLeaderboardUpdate();
+      alert('Leaderboard update triggered! The new data will appear shortly.');
+    } catch (e) {
+      console.error(e);
+      alert('Failed to trigger leaderboard update.');
+    }
+  }
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
@@ -85,7 +68,7 @@ export default function LeaderboardPage() {
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                   </TableRow>
                 ))}
-              {!isLoading && topPlayers.map((player, index) => (
+              {!isLoading && leaderboardData?.players.map((player, index) => (
                 <TableRow key={player.id}>
                   <TableCell className="font-medium text-center">{index + 1}</TableCell>
                   <TableCell>{player.username}</TableCell>
@@ -94,16 +77,22 @@ export default function LeaderboardPage() {
               ))}
             </TableBody>
           </Table>
-          {!isLoading && (!topPlayers || topPlayers.length === 0) && (
-            <p className="text-center text-muted-foreground mt-4">No players on the leaderboard yet.</p>
+          {!isLoading && (!leaderboardData?.players || leaderboardData.players.length === 0) && (
+            <p className="text-center text-muted-foreground mt-4">No players on the leaderboard yet. Try manually updating.</p>
           )}
         </CardContent>
       </Card>
-      <div className="text-center mt-6">
+      <div className="text-center mt-6 space-x-4">
         <Link href="/">
           <Button>Back to Game</Button>
         </Link>
+         <Button onClick={handleManualUpdate} variant="secondary">Update Leaderboard</Button>
       </div>
+       {leaderboardData?.updatedAt && (
+        <p className="text-center text-xs text-muted-foreground mt-2">
+          Last updated: {new Date(leaderboardData.updatedAt).toLocaleString()}
+        </p>
+      )}
     </div>
   );
 }

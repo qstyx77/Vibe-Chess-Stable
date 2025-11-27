@@ -1,23 +1,4 @@
 
-/**
- * Core Philosophy: This ruleset enforces a security model based on a combination of strict user-ownership and shared access for collaborative resources. User data is private to each user, while game data is shared exclusively between the two participating players.
- *
- * Data Structure:
- * - /users/{userId}: Contains private user profile data. Each document is owned by the user corresponding to {userId}.
- * - /games/{gameId}: Contains data for a specific game session. Access is controlled by the `player1Id` and `player2Id` fields within the document.
- * - /games/{gameId}/pieces/{pieceId}: A subcollection storing the state of individual pieces for a game, inheriting access rights from its parent game document.
- *
- * Key Security Decisions:
- * - User Data Access: Any authenticated user can read any user's profile data (get) and query the entire users collection (list). This is necessary for the public leaderboard feature to function.
- * - User Data Writes: A user can only create, update, or delete their own document in the `/users` collection.
- * - Shared Game Access: Access to a game document and its `pieces` subcollection is granted only to the two users identified in the game's `player1Id` and `player2Id` fields.
- *
- * Denormalization for Authorization:
- * To ensure fast and secure authorization checks, the `player1Id` and `player2Id` are denormalized directly onto each `/games/{gameId}` document. This avoids costly and slow `get()` calls to other collections and allows rules to make decisions based solely on the document being accessed.
- *
- * Structural Segregation:
- * The data is segregated by its security context. Private user data is in `/users`, while shared game data is in `/games`. This clear separation simplifies rule logic and aligns with a Firestore's query model.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -26,152 +7,38 @@ service cloud.firestore {
     // Helper Functions
     // -------------------------------------------------------------------------
 
-    /**
-     * Checks if a user is authenticated.
-     */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user's UID matches the provided userId.
-     * This is the foundation of the user-ownership model.
-     */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    /**
-     * Checks if the currently authenticated user owns an existing document.
-     * Used for safe update and delete operations.
-     */
-    function isOwnerOfExistingDoc(userId) {
-      return isOwner(userId) && resource.data != null;
-    }
-
-    /**
-     * Checks if the authenticated user is one of the two players in a game,
-     * based on the provided game document data.
-     */
-    function isGamePlayer(gameData) {
-      return isSignedIn() && (request.auth.uid == gameData.player1Id || request.auth.uid == gameData.player2Id);
-    }
-    
-    /**
-     * Checks if the authenticated user is a player in an existing game document.
-     * Used for safe update and delete operations on games.
-     */
-    function isPlayerOfExistingGame(gameDoc) {
-      return isGamePlayer(gameDoc.data) && gameDoc.data != null;
-    }
-
-    /**
-     * Validates that the user creating a game is one of the players listed.
-     */
-    function isCreatorAlsoPlayer() {
-      return isGamePlayer(request.resource.data);
-    }
-
-    /**
-     * Fetches the parent game document and checks if the authenticated user is a player.
-     * This is used to secure access to subcollections like 'pieces'.
-     */
-    function isPlayerInParentGame(gameId) {
-      let game = get(/databases/$(database)/documents/games/$(gameId)).data;
-      return game.player1Id == request.auth.uid || game.player2Id == request.auth.uid;
-    }
-
-    /**
-     * Ensures critical relational fields on a User document are consistent and immutable.
-     */
-    function hasValidUserData(userId) {
-      // On create, the document ID must match the internal ID.
-      // On update, the internal ID must not change.
-      let isIdConsistent = request.resource.data.id == userId;
-      let isIdImmutable = resource.data.id == request.resource.data.id;
-      let isEmailImmutable = resource.data.email == request.resource.data.email;
-      let isUsernameImmutable = resource.data.username == request.resource.data.username;
-      
-      // Allow eloRating, wins, and losses to be updated.
-      let isEloValid = request.resource.data.eloRating is number;
-      let isWinsValid = request.resource.data.wins is number;
-      let isLossesValid = request.resource.data.losses is number;
-      
-      // On create, anyone can create their own user doc.
-      if (request.method == 'create') {
-        return isOwner(userId) && isIdConsistent && isEloValid;
-      }
-      
-      // On update, only the user can update their own doc, and some fields are immutable.
-      if (request.method == 'update') {
-        return isOwner(userId) && isIdImmutable && isEmailImmutable && isUsernameImmutable && isEloValid && isWinsValid && isLossesValid;
-      }
-      
-      return false;
-    }
-    
-    /**
-     * Ensures critical relational fields on a Game document are consistent and immutable.
-     */
-    function hasValidGameData(gameId) {
-      let data = request.resource.data;
-      // On create, enforce path consistency.
-      let correctGameId = data.id == gameId;
-      // On update, enforce immutability of core game relationships.
-      let immutableFields = data.id == resource.data.id
-          && data.player1Id == resource.data.player1Id
-          -&& data.player2Id == resource.data.player2Id;
-
-      return request.method == 'create' ? correctGameId : immutableFields;
-    }
-    
-    /**
-     * Ensures critical relational fields on a Piece document are consistent and immutable.
-     */
-    function hasValidPieceData(gameId) {
-      let data = request.resource.data;
-      // On create, enforce that the piece is linked to the correct parent game.
-      let correctGameId = data.gameId == gameId;
-      // On update, enforce immutability of the piece's game and player ownership.
-      let immutableFields = data.gameId == resource.data.gameId && data.playerId == resource.data.playerId;
-      return request.method == 'create' ? correctGameId : immutableFields;
     }
 
     // -------------------------------------------------------------------------
     // Collection Rules
     // -------------------------------------------------------------------------
 
+    // Users can only read their own data, but anyone can write to create a user profile.
     match /users/{userId} {
-      // Any signed-in user can read any user's profile for the leaderboard.
-      // Only the user themselves can create, update, or delete their own profile.
-      allow read: if isSignedIn();
-      allow write: if isOwner(userId) && hasValidUserData(userId);
+      allow read, update, delete: if isOwner(userId);
+      allow create: if isSignedIn();
     }
     
-    match /games/{gameId} {
-      allow get: if isGamePlayer(resource.data);
-      // List is denied because Firestore queries cannot perform the required OR logic
-      // (`player1Id == uid` OR `player2Id == uid`) securely in rules.
-      // To enable, add a `playerIds` array to the schema for `array-contains` queries.
-      allow list: if false;
-      allow create: if isCreatorAlsoPlayer() && hasValidGameData(gameId);
-      allow update: if isPlayerOfExistingGame(resource) && hasValidGameData(gameId);
-      allow delete: if isPlayerOfExistingGame(resource);
+    // Leaderboard is a public document that can be read by anyone.
+    // It is written to by a server-side process, so client-side writes are denied.
+    match /leaderboard/{docId} {
+      allow read: if true;
+      allow write: if false;
     }
 
-    /**
-     * @description Controls access to the pieces within a game.
-     * @path /games/{gameId}/pieces/{pieceId}
-     * @allow A user who is a player in the parent game (`/games/{gameId}`) can list all pieces for that game. (list)
-     * @deny A user who is not a player in the parent game cannot access any piece data. (get, list, write)
-     * @principle Enforces hierarchical security, where subcollection access is derived from the parent document.
-     */
+    // Game data is private to the players involved.
+    match /games/{gameId} {
+      allow read, write: if isSignedIn() && (resource.data.player1Id == request.auth.uid || resource.data.player2Id == request.auth.uid);
+    }
+
     match /games/{gameId}/pieces/{pieceId} {
-      allow get: if isPlayerInParentGame(gameId);
-      allow list: if isPlayerInParentGame(gameId);
-      allow create: if isPlayerInParentGame(gameId) && hasValidPieceData(gameId);
-      allow update: if isPlayerInParentGame(gameId) && hasValidPieceData(gameId);
-      allow delete: if isPlayerInParentGame(gameId);
+       allow read, write: if get(/databases/$(database)/documents/games/$(gameId)).data.player1Id == request.auth.uid || get(/databases/$(database)/documents/games/$(gameId)).data.player2Id == request.auth.uid;
     }
   }
 }
