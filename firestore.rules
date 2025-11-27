@@ -8,8 +8,8 @@
  * - /games/{gameId}/pieces/{pieceId}: A subcollection storing the state of individual pieces for a game, inheriting access rights from its parent game document.
  *
  * Key Security Decisions:
- * - User Isolation: Users can only read and write to their own document in the `/users` collection.
- * - Leaderboard Access: Any authenticated user is allowed to perform a `list` operation on the `/users` collection. This is required for the leaderboard to function. Queries must be secured client-side to only fetch necessary data (e.g., limit to top 10).
+ * - User Isolation: Users can only create, update, and delete their own document in the `/users` collection.
+ * - Leaderboard Access: To enable the leaderboard, any authenticated user is allowed to perform a `list` operation on the `/users` collection and a `get` operation on any individual user profile. This is necessary for Firestore queries to function correctly.
  * - Shared Game Access: Access to a game document and its `pieces` subcollection is granted only to the two users identified in the game's `player1Id` and `player2Id` fields.
  *
  * Denormalization for Authorization:
@@ -143,16 +143,10 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Allow any signed-in user to read any profile for leaderboards/profiles.
-      allow get: if isSignedIn();
+      allow get, list: if isSignedIn();
       // Only the owner can create, update, or delete their own document.
       allow create: if hasValidUserData(userId);
       allow update, delete: if isOwner(userId);
-    }
-
-    // This rule allows the leaderboard query to work.
-    // It must be separate from the /users/{userId} rule.
-    match /users/{document=**} {
-      allow list: if isSignedIn();
     }
     
     match /games/{gameId} {
