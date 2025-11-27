@@ -142,8 +142,7 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /users/{userId} {
-      // Allow any signed-in user to read any profile for leaderboards/profiles.
-      // This is required for the leaderboard query to work.
+      // Allow any signed-in user to read any user document for the leaderboard.
       allow read: if isSignedIn();
       
       // Only the owner can create, update, or delete their own document.
