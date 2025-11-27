@@ -141,6 +141,14 @@ service cloud.firestore {
     // Collection Rules
     // -------------------------------------------------------------------------
 
+    match /users/{userId} {
+      allow get: if true;
+      allow list: if true;
+      allow create: if hasValidUserData(userId); 
+      allow update: if isOwner(userId) && hasValidUserData(userId);
+      allow delete: if isOwner(userId);
+    }
+    
     /**
      * @description Controls access to user profile documents.
      * @path /users/{userId}
@@ -148,23 +156,6 @@ service cloud.firestore {
      * @allow Any user (signed in or not) can create a user document during sign-up. (create)
      * @deny A signed-in user (auth.uid=`user_xyz`) cannot read or write to `/users/user_abc`. (get, update, delete)
      * @principle Restricts access to a user's own data tree, enforcing strict ownership, but allows creation for new users.
-     */
-    match /users/{userId} {
-      allow get; // Allow anyone to read profiles for leaderboards
-      allow list; // Allow listing for leaderboards
-      // Allow creation for any user, but only if they are creating their own document.
-      allow create: if hasValidUserData(userId); 
-      allow update: if isOwner(userId) && hasValidUserData(userId);
-      allow delete: if isOwner(userId);
-    }
-
-    /**
-     * @description Controls access to game documents. Access is limited to the two players.
-     * @path /games/{gameId}
-     * @allow A user who is `player1Id` or `player2Id` in the game document can read it. (get)
-     * @deny Listing all games is disallowed for security reasons. (list)
-     * @deny A user not involved in the game cannot read or write to it. (get, create, update, delete)
-     * @principle Enforces shared access for a closed group of collaborators (the two players).
      */
     match /games/{gameId} {
       allow get: if isGamePlayer(resource.data);
@@ -193,3 +184,5 @@ service cloud.firestore {
     }
   }
 }
+
+    
