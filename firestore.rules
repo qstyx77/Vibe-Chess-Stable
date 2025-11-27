@@ -142,12 +142,9 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /users/{userId} {
-      allow get, update, delete: if isOwner(userId);
+      allow get, list: if isSignedIn();
       allow create: if hasValidUserData(userId);
-    }
-
-    match /users/{document=**} {
-      allow list: if isSignedIn();
+      allow update, delete: if isOwner(userId);
     }
     
     match /games/{gameId} {
