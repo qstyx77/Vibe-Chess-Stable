@@ -143,10 +143,13 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow get: if true;
-      allow list: if true;
       allow create: if hasValidUserData(userId); 
       allow update: if isOwner(userId) && hasValidUserData(userId);
       allow delete: if isOwner(userId);
+    }
+
+    match /users/{document=**} {
+      allow list: if isSignedIn();
     }
     
     /**
@@ -184,5 +187,3 @@ service cloud.firestore {
     }
   }
 }
-
-    
