@@ -24,7 +24,10 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     const fetchLeaderboard = async () => {
-      if (!firestore) return;
+      if (!firestore) {
+        // Firestore might not be available on the first render, so we wait.
+        return;
+      }
 
       setIsLoading(true);
       setError(null);

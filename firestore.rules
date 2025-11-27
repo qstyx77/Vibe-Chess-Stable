@@ -16,7 +16,7 @@
  * To ensure fast and secure authorization checks, the `player1Id` and `player2Id` are denormalized directly onto each `/games/{gameId}` document. This avoids costly and slow `get()` calls to other collections and allows rules to make decisions based solely on the document being accessed.
  *
  * Structural Segregation:
- * The data is segregated by its security context. Private user data is in `/users`, while shared game data is in `/games`. This clear separation simplifies rule logic and aligns with Firestore's query model.
+ * The data is segregated by its security context. Private user data is in `/users`, while shared game data is in `/games`. This clear separation simplifies rule logic and aligns with a Firestore's query model.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -142,10 +142,7 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /users/{userId} {
-      // Allow any signed-in user to read any user document for the leaderboard.
-      allow read: if isSignedIn();
-      
-      // Only the owner can create, update, or delete their own document.
+      allow get, list: if isSignedIn();
       allow write: if isOwner(userId);
     }
     
