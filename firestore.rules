@@ -141,6 +141,14 @@ service cloud.firestore {
     // Collection Rules
     // -------------------------------------------------------------------------
 
+    /**
+     * @description Controls access to individual user profile documents.
+     * @path /users/{userId}
+     * @allow A signed-in user (auth.uid=`user_abc`) can read their own profile at `/users/user_abc`. (get)
+     * @allow Any user (signed in or not) can create a user document during sign-up. (create)
+     * @deny A signed-in user (auth.uid=`user_xyz`) cannot read or write to `/users/user_abc`. (get, update, delete)
+     * @principle Restricts access to a user's own data tree, enforcing strict ownership, but allows creation for new users.
+     */
     match /users/{userId} {
       allow get: if true;
       allow create: if hasValidUserData(userId); 
@@ -148,18 +156,17 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
+    /**
+     * @description Controls list access for the entire 'users' collection.
+     * This is separate from individual document access.
+     * @path /users
+     * @allow Any signed-in user can list the documents in the 'users' collection,
+     * which is required for the leaderboard functionality.
+     */
     match /users/{document=**} {
       allow list: if isSignedIn();
     }
     
-    /**
-     * @description Controls access to user profile documents.
-     * @path /users/{userId}
-     * @allow A signed-in user (auth.uid=`user_abc`) can read their own profile at `/users/user_abc`. (get)
-     * @allow Any user (signed in or not) can create a user document during sign-up. (create)
-     * @deny A signed-in user (auth.uid=`user_xyz`) cannot read or write to `/users/user_abc`. (get, update, delete)
-     * @principle Restricts access to a user's own data tree, enforcing strict ownership, but allows creation for new users.
-     */
     match /games/{gameId} {
       allow get: if isGamePlayer(resource.data);
       // List is denied because Firestore queries cannot perform the required OR logic
