@@ -8,9 +8,9 @@
  * - /games/{gameId}/pieces/{pieceId}: A subcollection storing the state of individual pieces for a game, inheriting access rights from its parent game document.
  *
  * Key Security Decisions:
- * - User Isolation: Users can only read and write to their own document in the `/users` collection. Listing all users is explicitly disabled to prevent data scraping and protect user privacy.
+ * - User Isolation: Users can only read and write to their own document in the `/users` collection.
+ * - Leaderboard Access: Any authenticated user is allowed to perform a `list` operation on the `/users` collection. This is required for the leaderboard to function. Queries must be secured client-side to only fetch necessary data (e.g., limit to top 10).
  * - Shared Game Access: Access to a game document and its `pieces` subcollection is granted only to the two users identified in the game's `player1Id` and `player2Id` fields.
- * - Secure Listing: Listing all games in the top-level `/games` collection is disallowed because the data model (using separate `player1Id` and `player2Id` fields) does not support a secure "OR" query in Firestore rules. To enable listing a user's games, the data model should be updated to include a `playerIds` array field, which would allow for a secure `array-contains` query.
  *
  * Denormalization for Authorization:
  * To ensure fast and secure authorization checks, the `player1Id` and `player2Id` are denormalized directly onto each `/games/{gameId}` document. This avoids costly and slow `get()` calls to other collections and allows rules to make decisions based solely on the document being accessed.
@@ -120,7 +120,7 @@ service cloud.firestore {
       // On update, enforce immutability of core game relationships.
       let immutableFields = data.id == resource.data.id
           && data.player1Id == resource.data.player1Id
-          && data.player2Id == resource.data.player2Id;
+          -&& data.player2Id == resource.data.player2Id;
 
       return request.method == 'create' ? correctGameId : immutableFields;
     }
@@ -141,28 +141,11 @@ service cloud.firestore {
     // Collection Rules
     // -------------------------------------------------------------------------
 
-    /**
-     * @description Controls access to individual user profile documents.
-     * @path /users/{userId}
-     * @allow A signed-in user (auth.uid=`user_abc`) can read their own profile at `/users/user_abc`. (get)
-     * @allow Any user (signed in or not) can create a user document during sign-up. (create)
-     * @deny A signed-in user (auth.uid=`user_xyz`) cannot read or write to `/users/user_abc`. (get, update, delete)
-     * @principle Restricts access to a user's own data tree, enforcing strict ownership, but allows creation for new users.
-     */
     match /users/{userId} {
-      allow get: if true;
-      allow create: if hasValidUserData(userId); 
-      allow update: if isOwner(userId) && hasValidUserData(userId);
-      allow delete: if isOwner(userId);
+      allow get, update, delete: if isOwner(userId);
+      allow create: if hasValidUserData(userId);
     }
 
-    /**
-     * @description Controls list access for the entire 'users' collection.
-     * This is separate from individual document access.
-     * @path /users
-     * @allow Any signed-in user can list the documents in the 'users' collection,
-     * which is required for the leaderboard functionality.
-     */
     match /users/{document=**} {
       allow list: if isSignedIn();
     }
