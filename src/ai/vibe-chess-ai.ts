@@ -1,2 +1,3 @@
-// This file's content has been moved to src/lib/vibe-chess-ai.ts
-// This file can be deleted or left empty.
+
+// This file is intentionally left blank as it will be deleted.
+// If the file system operation fails to delete it, its emptiness ensures no functional impact.
