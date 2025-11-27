@@ -1,9 +1,8 @@
-
 'use client';
 
-import { useMemo } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { useFirestore } from '@/firebase';
+import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,24 +11,47 @@ import { Trophy } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 
 interface UserProfile {
+  id: string;
   username: string;
   eloRating: number;
 }
 
 export default function LeaderboardPage() {
   const firestore = useFirestore();
+  const [topPlayers, setTopPlayers] = useState<UserProfile[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const leaderboardQuery = useMemoFirebase(
-    () =>
-      query(
-        collection(firestore, 'users'),
-        orderBy('eloRating', 'desc'),
-        limit(10)
-      ),
-    [firestore]
-  );
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      if (!firestore) return;
 
-  const { data: topPlayers, isLoading, error } = useCollection<UserProfile>(leaderboardQuery);
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const leaderboardQuery = query(
+          collection(firestore, 'users'),
+          orderBy('eloRating', 'desc'),
+          limit(10)
+        );
+
+        const querySnapshot = await getDocs(leaderboardQuery);
+        const players: UserProfile[] = [];
+        querySnapshot.forEach((doc) => {
+          players.push({ id: doc.id, ...doc.data() } as UserProfile);
+        });
+        setTopPlayers(players);
+      } catch (e: any) {
+        console.error("Error fetching leaderboard:", e);
+        setError(e);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchLeaderboard();
+  }, [firestore]);
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
@@ -60,7 +82,7 @@ export default function LeaderboardPage() {
                     <TableCell className="text-right"><Skeleton className="h-5 w-12 ml-auto" /></TableCell>
                   </TableRow>
                 ))}
-              {!isLoading && topPlayers && topPlayers.map((player, index) => (
+              {!isLoading && topPlayers.map((player, index) => (
                 <TableRow key={player.id}>
                   <TableCell className="font-medium text-center">{index + 1}</TableCell>
                   <TableCell>{player.username}</TableCell>
