@@ -49,6 +49,7 @@ import { cn } from '@/lib/utils';
 import { AuthWidget } from '@/components/auth/AuthWidget';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import Link from 'next/link';
 
 
 let globalUniqueIdCounter = 0;
@@ -880,7 +881,6 @@ setIsBlackAI(newIsBlackAI);
             setRankedQueueStatus('idle');
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
-            setOnlineStatus('connected');
             setIsRankedGame(true);
             toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 4000 });
             startTurnTimer('white');
@@ -3106,6 +3106,11 @@ setIsBlackAI(newIsBlackAI);
             <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
               <BookOpen className="mr-1" /> Rules
             </Button>
+            <Link href="/leaderboard">
+              <Button variant="outline" aria-label="View Leaderboard" className="h-8 px-2 text-sm font-medium">
+                <Trophy className="mr-1" /> Leaderboard
+              </Button>
+            </Link>
             <Button variant="outline" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
               <Undo2 className="mr-1" /> Undo
             </Button>
