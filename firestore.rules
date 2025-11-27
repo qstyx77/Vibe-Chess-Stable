@@ -143,12 +143,10 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Allow any signed-in user to read any profile for leaderboards/profiles.
-      // This is necessary for collection queries to work.
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       
       // Only the owner can create, update, or delete their own document.
-      allow create: if hasValidUserData(userId);
-      allow update, delete: if isOwner(userId);
+      allow write: if isOwner(userId);
     }
     
     match /games/{gameId} {
