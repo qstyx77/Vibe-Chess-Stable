@@ -142,9 +142,17 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /users/{userId} {
-      allow get, list: if isSignedIn();
+      // Allow any signed-in user to read any profile for leaderboards/profiles.
+      allow get: if isSignedIn();
+      // Only the owner can create, update, or delete their own document.
       allow create: if hasValidUserData(userId);
       allow update, delete: if isOwner(userId);
+    }
+
+    // This rule allows the leaderboard query to work.
+    // It must be separate from the /users/{userId} rule.
+    match /users/{document=**} {
+      allow list: if isSignedIn();
     }
     
     match /games/{gameId} {
