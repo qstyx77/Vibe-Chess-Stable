@@ -142,8 +142,15 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     match /users/{userId} {
-      allow get, list: if isSignedIn();
-      allow write: if isOwner(userId);
+      // Allow any signed-in user to read any user's profile (for leaderboards)
+      allow get: if isSignedIn();
+      // Only the user themselves can create, update, or delete their own profile
+      allow write: if isOwner(userId) && hasValidUserData(userId);
+    }
+    
+    match /users {
+        // Allow any signed-in user to list users for the leaderboard
+        allow list: if isSignedIn();
     }
     
     match /games/{gameId} {
