@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -656,6 +655,27 @@ setIsBlackAI(newIsBlackAI);
 
             break;
         }
+        case 'awaiting-commander-promo': {
+            const { fullGameState } = data;
+            if (!fullGameState) return;
+
+            // Set the full state to ensure sync
+            setBoard(fullGameState.board);
+            setCapturedPieces(fullGameState.capturedPieces);
+            setKillStreaks(fullGameState.killStreaks);
+            setGameInfo(fullGameState.gameInfo);
+            setCurrentPlayer(fullGameState.currentPlayer);
+            setEnPassantTargetSquare(fullGameState.enPassantTarget || null);
+            setLastMoveFrom(fullGameState.lastMoveFrom || null);
+            setLastMoveTo(fullGameState.lastMoveTo || null);
+            setFirstBloodAchieved(fullGameState.firstBloodAchieved);
+            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood);
+
+            // Crucially, set the awaiting promotion flag
+            setIsAwaitingCommanderPromotion(true);
+            toast({ title: "First Blood!", description: `${getPlayerDisplayName(fullGameState.playerWhoGotFirstBlood!)} to select a Pawn to promote!`});
+            break;
+        }
         case 'anvil-spawn': {
             const { square } = data;
             const { row, col } = algebraicToCoords(square);
@@ -740,9 +760,8 @@ setIsBlackAI(newIsBlackAI);
     };
 
     const handleTimeout = useCallback(() => {
-        stopTurnTimer();
-        // The server is now the single source of truth for timeout logic.
         // The client just notifies the server that its timer has run out.
+        // It no longer changes any state itself.
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'timeout' }));
         }

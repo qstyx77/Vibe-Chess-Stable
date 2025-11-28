@@ -289,6 +289,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         return;
                     }
 
+                    // This is the fix: ensure currentPlayer is set to the opponent.
                     room.gameState.currentPlayer = opponent;
                     
                     const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
@@ -305,7 +306,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     broadcastToRoom(ws.roomId, {
                         type: 'game-move',
                         fullGameState: room.gameState,
-                        lastPlayer: timedOutPlayer,
+                        lastPlayer: timedOutPlayer, // The player who timed out still 'made' the move (by timing out)
                     });
                  }
                  break;
@@ -347,7 +348,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.playerWhoGotFirstBlood = movingPlayer;
                         // Don't change turn yet, wait for commander selection
                          room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
-                         broadcastToRoom(ws.roomId!, { type: 'game-move', fullGameState: room.gameState, lastPlayer: movingPlayer });
+                         // Send a specific message to ensure clients are in sync
+                         broadcastToRoom(ws.roomId!, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
                          return; // IMPORTANT: Stop processing until commander is selected
                     }
                 } else {
