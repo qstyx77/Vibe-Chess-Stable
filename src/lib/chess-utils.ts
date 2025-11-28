@@ -370,7 +370,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (isKnightOrHeroBishopSwap || isBishopKnightOrHeroSwap) {
     return true;
   }
-
+  
   if (piece.type === 'pawn' && to === enPassantTargetSquare) {
     const { row: epRow, col: epCol } = algebraicToCoords(enPassantTargetSquare);
     const capturedPawnRow = piece.color === 'white' ? epRow + 1 : epRow - 1;
