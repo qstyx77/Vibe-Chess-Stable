@@ -149,7 +149,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         board: initializeBoard(),
                         currentPlayer: 'white',
                         capturedPieces: { white: [], black: [] },
-                        killStreaks: { white: 0, black: 0 },
+                        killStreaks: { white: [], black: [] },
                         enPassantTarget: null,
                         gameMoveCounter: 0,
                         lastMoveFrom: null,
@@ -267,42 +267,36 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'timeout': {
-                 if (room) {
+                 if (room && !room.gameState.gameInfo.gameOver) {
                     const timedOutPlayer = room.gameState.currentPlayer;
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
                     
                     if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
                     else room.gameState.blackTimeouts++;
                     
-                    room.gameState.currentPlayer = opponent; // This was missing
+                    room.gameState.currentPlayer = opponent;
                     
-                    // Broadcast the state update with the new current player
+                    const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
+                    if (inCheck) {
+                        room.gameState.gameInfo.message = "Check!";
+                        room.gameState.gameInfo.isCheck = true;
+                        room.gameState.gameInfo.playerWithKingInCheck = opponent;
+                    } else {
+                        room.gameState.gameInfo.message = " ";
+                        room.gameState.gameInfo.isCheck = false;
+                        room.gameState.gameInfo.playerWithKingInCheck = null;
+                    }
+
                     broadcastToRoom(ws.roomId, {
-                        type: 'game-move', // Using 'game-move' to update the whole state
+                        type: 'game-move',
                         fullGameState: room.gameState,
-                        lastPlayer: timedOutPlayer, // The player who timed out
+                        lastPlayer: timedOutPlayer,
                     });
                  }
                  break;
             }
             case 'game-move': {
                 if (!room || !data.payload) return;
-
-                if (data.payload.type === 'timeout') {
-                    const timedOutPlayer = room.gameState.currentPlayer;
-                    const winner = timedOutPlayer === 'white' ? 'black' : 'white';
-                    if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
-                    else room.gameState.blackTimeouts++;
-
-                    if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3) {
-                         room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: winner, message: `${timedOutPlayer} timed out 3 times.` };
-                         broadcastToRoom(ws.roomId, { type: 'forfeit-timeout', timedOutPlayer: timedOutPlayer, winner: winner, reason: 'timeout' });
-                         return;
-                    }
-                    room.gameState.currentPlayer = winner;
-                    broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: timedOutPlayer });
-                    return;
-                }
                 
                 const { payload: move } = data;
                 const movingPlayer = room.gameState.currentPlayer;
@@ -398,7 +392,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                 // --- End of Server-Authoritative Move Processing ---
 
-                // Broadcast the single, authoritative new game state to ALL clients
                  if (gameOver) {
                     broadcastToRoom(ws.roomId, { type: 'game-over', winner, reason: winner === 'draw' ? 'stalemate' : 'checkmate', eloChanges });
                 } else {
@@ -495,7 +488,5 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
-
-    
 
     
