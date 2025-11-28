@@ -828,22 +828,29 @@ setIsBlackAI(newIsBlackAI);
     setOnlineStatus('connecting');
   
     const getWebSocketUrl = () => {
+      if (typeof window === 'undefined') return '';
       const hostname = window.location.hostname;
-      const websocketHostname = hostname.replace(/^9000-/, '8080-');
+      // In a typical cloud dev environment, the server port might be mapped differently.
+      // This logic attempts to replace a common client-side port (like 9000) with the server-side port (8080).
+      // You may need to adjust this based on your specific environment.
+      const websocketHostname = hostname.replace(/^(\d+)-/, '8080-');
       return `wss://${websocketHostname}`;
     };
   
     const wsUrl = getWebSocketUrl();
     if (!wsUrl) {
+      console.error("[CLIENT] Could not determine WebSocket URL.");
       toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive' });
       setOnlineStatus('disconnected');
       return;
     }
   
+    console.log(`[CLIENT] Connecting to WebSocket at: ${wsUrl}`);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
   
     ws.onopen = () => {
+      console.log('[CLIENT] WebSocket connection opened.');
       if (action === 'create') {
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && inputRoomId) {
@@ -857,54 +864,59 @@ setIsBlackAI(newIsBlackAI);
     };
   
     ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      switch (data.type) {
-        case 'room-created':
-          setRoomId(data.roomId);
-          setLocalPlayerColor(data.color);
-          setOnlineStatus('waiting');
-          toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}` });
-          break;
-        case 'player-joined':
-          setOnlineStatus('connected');
-          toast({ title: "Player Joined!", description: "Your game is starting." });
-          startTurnTimer('white');
-          break;
-        case 'room-joined':
-          setRoomId(data.roomId);
-          setLocalPlayerColor(data.color);
-          setOnlineStatus('connected');
-          toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
-          startTurnTimer('white');
-          break;
-        case 'ranked-match-found':
-            setRankedQueueStatus('idle');
+      try {
+        const data = JSON.parse(event.data as string);
+        console.log('[CLIENT] Received message:', data);
+        switch (data.type) {
+          case 'room-created':
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
-            setIsRankedGame(true);
-            toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 4000 });
+            setOnlineStatus('waiting');
+            toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}` });
+            break;
+          case 'player-joined':
+            setOnlineStatus('connected');
+            toast({ title: "Player Joined!", description: "Your game is starting." });
             startTurnTimer('white');
             break;
-        case 'opponent-disconnected':
-          if (gameInfo.gameOver) return;
-          toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
-          setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
-          setShowWinScreen(true);
-          disconnectAndReset();
-          break;
-        case 'error':
-          toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
-          if(wsRef.current) {
-            wsRef.current.onclose = null;
-            wsRef.current.close();
-            wsRef.current = null;
-          }
-          setOnlineStatus('disconnected');
-          setRankedQueueStatus('idle');
-          break;
-        default:
-          handleIncomingData(data);
-          break;
+          case 'room-joined':
+            setRoomId(data.roomId);
+            setLocalPlayerColor(data.color);
+            setOnlineStatus('connected');
+            toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.` });
+            startTurnTimer('white');
+            break;
+          case 'ranked-match-found':
+              setRankedQueueStatus('idle');
+              setRoomId(data.roomId);
+              setLocalPlayerColor(data.color);
+              setIsRankedGame(true);
+              toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 4000 });
+              startTurnTimer('white');
+              break;
+          case 'opponent-disconnected':
+            if (gameInfo.gameOver) return;
+            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
+            setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
+            setShowWinScreen(true);
+            disconnectAndReset();
+            break;
+          case 'error':
+            toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
+            if(wsRef.current) {
+              wsRef.current.onclose = null;
+              wsRef.current.close();
+              wsRef.current = null;
+            }
+            setOnlineStatus('disconnected');
+            setRankedQueueStatus('idle');
+            break;
+          default:
+            handleIncomingData(data);
+            break;
+        }
+      } catch (err) {
+        console.error("[CLIENT] Error processing message:", err);
       }
     };
   
@@ -915,7 +927,8 @@ setIsBlackAI(newIsBlackAI);
       setRankedQueueStatus('idle');
     };
   
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+        console.log('[CLIENT] WebSocket connection closed:', event.code, event.reason);
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
