@@ -271,9 +271,24 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const timedOutPlayer = room.gameState.currentPlayer;
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
                     
+                    let winnerOnTimeout = opponent;
+                    let reason = 'timeout';
+
                     if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
                     else room.gameState.blackTimeouts++;
+
+                    const timedOutPlayerInCheck = isKingInCheck(room.gameState.board, timedOutPlayer, room.gameState.enPassantTarget);
+                    if (timedOutPlayerInCheck) {
+                        reason = 'self-check-timeout';
+                    }
                     
+                    if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
+                        room.gameState.gameInfo.gameOver = true;
+                        room.gameState.gameInfo.winner = winnerOnTimeout;
+                        broadcastToRoom(ws.roomId, { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason });
+                        return;
+                    }
+
                     room.gameState.currentPlayer = opponent;
                     
                     const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);

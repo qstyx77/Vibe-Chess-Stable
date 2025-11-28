@@ -741,47 +741,12 @@ setIsBlackAI(newIsBlackAI);
 
     const handleTimeout = useCallback(() => {
         stopTurnTimer();
-        const timedOutPlayer = currentPlayer;
-        const winner = timedOutPlayer === 'white' ? 'black' : 'white';
-        let newWhiteTimeouts = whiteTimeouts;
-        let newBlackTimeouts = blackTimeouts;
-
-        if (timedOutPlayer === 'white') {
-            newWhiteTimeouts++;
-            setWhiteTimeouts(newWhiteTimeouts);
-        } else {
-            newBlackTimeouts++;
-            setBlackTimeouts(newBlackTimeouts);
+        // The server is now the single source of truth for timeout logic.
+        // The client just notifies the server that its timer has run out.
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'timeout' }));
         }
-        
-        // New logic: Check if player timed out while in check
-        if (gameInfo.isCheck && gameInfo.playerWithKingInCheck === timedOutPlayer) {
-            toast({ title: "Game Over!", description: `${getPlayerDisplayName(timedOutPlayer)} ran out of time while in check. ${getPlayerDisplayName(winner)} wins!` });
-            setGameInfo(prev => ({ ...prev, message: `Timeout in Check! ${getPlayerDisplayName(winner)} wins.`, gameOver: true, winner: winner }));
-
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'forfeit-timeout', timedOutPlayer: timedOutPlayer, winner: winner, reason: 'self-check-timeout' }));
-            }
-            return;
-        }
-
-
-        if (newWhiteTimeouts >= 3 || newBlackTimeouts >= 3) {
-            toast({ title: "Game Over!", description: `${getPlayerDisplayName(timedOutPlayer)} timed out 3 times. ${getPlayerDisplayName(winner)} wins!` });
-            setGameInfo(prev => ({ ...prev, message: `Timeout! ${getPlayerDisplayName(winner)} wins.`, gameOver: true, winner: winner }));
-            
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'forfeit-timeout', timedOutPlayer: timedOutPlayer, winner: winner, reason: 'timeout' }));
-            }
-        } else {
-            toast({ title: "Time's Up!", description: `${getPlayerDisplayName(timedOutPlayer)}'s turn was passed.` });
-            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                 wsRef.current.send(JSON.stringify({ type: 'timeout' }));
-            }
-        }
-    }, [currentPlayer, whiteTimeouts, blackTimeouts, toast, getPlayerDisplayName, onlineStatus, gameInfo.isCheck, gameInfo.playerWithKingInCheck]);
+    }, []);
 
     const startTurnTimer = useCallback((player: PlayerColor) => {
         if (turnTimerIntervalId.current) {
