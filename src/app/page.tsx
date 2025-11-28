@@ -1262,7 +1262,7 @@ setIsBlackAI(newIsBlackAI);
           if (freshlyCalculatedMovesForThisPiece.includes(algebraic)) { 
             moveBeingMade.type = 'castle';
           }
-      } else if (pieceToMoveFromSelected.type === 'pawn' && algebraic === currentEnPassantTargetForThisTurn && !board[row][col].piece) {
+      } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === currentEnPassantTargetForThisTurn && !board[row][col].piece) {
          moveBeingMade.type = 'enpassant';
       } else if (isMoveInFreshList && board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
          moveBeingMade.type = 'capture';
@@ -2092,7 +2092,7 @@ setIsBlackAI(newIsBlackAI);
             const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
             if (targetSquareForOverride?.piece) {
                 overrideMoveType = 'capture';
-            } else if (pieceOnFromSquareForAI.type === 'pawn' && chosenDefinitiveMoveAlg === enPassantTargetSquare) {
+            } else if ((pieceOnFromSquareForAI.type === 'pawn' || pieceOnFromSquareForAI.type === 'commander') && chosenDefinitiveMoveAlg === enPassantTargetSquare) {
                 overrideMoveType = 'enpassant';
             }
             const promotionRankOverride = currentPlayer === 'white' ? 0 : 7;

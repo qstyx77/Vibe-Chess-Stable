@@ -196,7 +196,7 @@ function getPossibleMovesInternal(
             }
         }
     }
-  } else if (piece.type === 'pawn' || piece.type === 'infiltrator') {
+  } else if (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') {
       for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
           const toSquare = coordsToAlgebraic(r_idx,c_idx);
@@ -371,12 +371,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     return true;
   }
   
-  if (piece.type === 'pawn' && to === enPassantTargetSquare) {
+  if ((piece.type === 'pawn' || piece.type === 'commander') && to === enPassantTargetSquare) {
     const { row: epRow, col: epCol } = algebraicToCoords(enPassantTargetSquare);
     const capturedPawnRow = piece.color === 'white' ? epRow + 1 : epRow - 1;
     if (fromCol !== epCol && Math.abs(fromCol - epCol) === 1 && fromRow === capturedPawnRow) {
       const capturedPawnSquareState = board[capturedPawnRow]?.[epCol];
-      if (capturedPawnSquareState?.piece?.type === 'pawn' && capturedPawnSquareState.piece.color !== piece.color) {
+      if (capturedPawnSquareState?.piece && (capturedPawnSquareState.piece.type === 'pawn' || capturedPawnSquareState.piece.type === 'commander') && capturedPawnSquareState.piece.color !== piece.color) {
          if (!board[toRow]?.[toCol]?.piece) { 
             return true;
          }
@@ -641,7 +641,7 @@ export function applyMove(
     isEnPassantCapture = true;
     const capturedPawnRow = movingPieceOriginalRef.color === 'white' ? toRow + 1 : toRow - 1;
     const capturedPawnCol = toCol;
-    if (isValidSquare(capturedPawnRow, capturedPawnCol) && newBoard[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'pawn') {
+    if (isValidSquare(capturedPawnRow, capturedPawnCol) && (newBoard[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'pawn' || newBoard[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'commander')) {
       capturedPiece = { ...newBoard[capturedPawnRow][capturedPawnCol].piece! };
       newBoard[capturedPawnRow][capturedPawnCol].piece = null;
     }
@@ -668,7 +668,7 @@ export function applyMove(
     return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, enPassantTargetSet: null, shroomConsumed: shroomConsumedThisMove };
   }
 
-  if (movingPieceOriginalRef.type === 'pawn' && Math.abs(fromRow - toRow) === 2) {
+  if ((movingPieceOriginalRef.type === 'pawn' || movingPieceOriginalRef.type === 'commander') && Math.abs(fromRow - toRow) === 2) {
     newEnPassantTargetSet = coordsToAlgebraic(fromRow + (movingPieceOriginalRef.color === 'white' ? -1 : 1), fromCol);
   }
 
@@ -753,7 +753,7 @@ export function applyMove(
 
 
   // Promotion-specific leveling and typing
-  if (isEnPassantCapture && movingPieceOriginalRef.type === 'pawn') {
+  if (isEnPassantCapture && (movingPieceOriginalRef.type === 'pawn' || movingPieceOriginalRef.type === 'commander')) {
     // pieceNowOnToSquare.level is already set by general capture logic for en passant
     pieceNowOnToSquare.type = 'infiltrator';
     pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_infiltrator`;
@@ -983,7 +983,7 @@ function filterLegalMoves(
         moveTypeForApply = 'capture';
     }
 
-    if (originalMovingPiece.type === 'pawn' && targetSquare === enPassantTargetSquare && !targetPieceForSim) {
+    if ((originalMovingPiece.type === 'pawn' || originalMovingPiece.type === 'commander') && targetSquare === enPassantTargetSquare && !targetPieceForSim) {
         moveTypeForApply = 'enpassant';
     }
 
