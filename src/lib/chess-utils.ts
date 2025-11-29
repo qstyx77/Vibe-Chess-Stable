@@ -197,11 +197,22 @@ function getPossibleMovesInternal(
         }
     }
   } else if (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') {
+    if (enPassantTargetSquare) {
+      const { row: epR, col: epC } = algebraicToCoords(enPassantTargetSquare);
+      const isEpPossible = (piece.type === 'pawn' || piece.type === 'commander') &&
+                           Math.abs(fromCol - epC) === 1 &&
+                           fromRow === (piece.color === 'white' ? 3 : 4) &&
+                           epR === (piece.color === 'white' ? 2 : 5);
+
+      if (isEpPossible) {
+        possible.push(enPassantTargetSquare);
+      }
+    }
       for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
           const toSquare = coordsToAlgebraic(r_idx,c_idx);
           if (isMoveValid(board, fromSquare, toSquare, piece, enPassantTargetSquare)) {
-              possible.push(toSquare);
+              if(!possible.includes(toSquare)) possible.push(toSquare);
           }
         }
       }

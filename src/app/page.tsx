@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -760,8 +761,6 @@ setIsBlackAI(newIsBlackAI);
     };
 
     const handleTimeout = useCallback(() => {
-        // The client just notifies the server that its timer has run out.
-        // It no longer changes any state itself.
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'timeout' }));
         }
@@ -1258,12 +1257,13 @@ setIsBlackAI(newIsBlackAI);
 
       moveBeingMade = { from: selectedSquare, to: algebraic }; 
 
-      if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
+      if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare && !board[row][col].piece) {
+        moveBeingMade.type = 'enpassant';
+        isMoveInFreshList = true;
+      } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
           if (freshlyCalculatedMovesForThisPiece.includes(algebraic)) { 
             moveBeingMade.type = 'castle';
           }
-      } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === currentEnPassantTargetForThisTurn && !board[row][col].piece) {
-         moveBeingMade.type = 'enpassant';
       } else if (isMoveInFreshList && board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
          moveBeingMade.type = 'capture';
       }
@@ -2315,7 +2315,7 @@ setIsBlackAI(newIsBlackAI);
               title: "Auto-Checkmate!",
               description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
               variant: "destructive",
-              duration: 5000
+              duration: 5000,
             });
             setGameInfo(prev => ({
               ...prev,
@@ -2331,6 +2331,12 @@ setIsBlackAI(newIsBlackAI);
             setAnimatedSquareTo(null);
             setSelectedSquare(null); setPossibleMoves([]);
             setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+            if (onlineStatus === 'connected') {
+              const ws = wsRef.current;
+              if(ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
+              }
+            }
             return;
           }
           toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1500 });
