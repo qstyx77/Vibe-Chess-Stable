@@ -714,7 +714,10 @@ export function applyMove(
     let newLevelForPiece = (pieceNowOnToSquare.level || 1) + levelGain;
     
     if (move.type === 'enpassant') {
-      pieceNowOnToSquare.type = 'infiltrator';
+        pieceNowOnToSquare.type = 'infiltrator';
+    } else if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
+        pieceNowOnToSquare.type = 'commander';
+        pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
     }
 
     if (pieceNowOnToSquare.type === 'queen') {
@@ -722,10 +725,6 @@ export function applyMove(
     }
     pieceNowOnToSquare.level = newLevelForPiece;
 
-    if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
-        pieceNowOnToSquare.type = 'commander';
-        pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
-    }
 
     if (pieceNowOnToSquare.type === 'commander') {
       const commanderColor = pieceNowOnToSquare.color;
