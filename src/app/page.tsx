@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1252,20 +1253,21 @@ setIsBlackAI(newIsBlackAI);
 
       originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
 
+      moveBeingMade = { from: selectedSquare, to: algebraic };
+      
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, currentEnPassantTargetForThisTurn);
       let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
-      moveBeingMade = { from: selectedSquare, to: algebraic }; 
-
+      // Explicitly check and set en passant move type
       if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare && !board[row][col].piece) {
-        moveBeingMade.type = 'enpassant';
-        isMoveInFreshList = true;
-      } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
-          if (freshlyCalculatedMovesForThisPiece.includes(algebraic)) { 
-            moveBeingMade.type = 'castle';
+          moveBeingMade.type = 'enpassant';
+          isMoveInFreshList = true; // Ensure this is true if EP is valid
+      } else if (isMoveInFreshList) {
+          if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
+              moveBeingMade.type = 'capture';
+          } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
+              moveBeingMade.type = 'castle';
           }
-      } else if (isMoveInFreshList && board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
-         moveBeingMade.type = 'capture';
       }
 
 
