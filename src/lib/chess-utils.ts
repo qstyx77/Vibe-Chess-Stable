@@ -653,7 +653,7 @@ export function applyMove(
   newBoard[toRow][toCol].piece = movingPieceForToSquare;
   newBoard[fromRow][fromCol].piece = null;
 
-  if (movingPieceForToSquare.type === 'pawn' && Math.abs(fromRow - toRow) === 2) {
+  if ((movingPieceForToSquare.type === 'pawn' || movingPieceForToSquare.type === 'commander') && Math.abs(fromRow - toRow) === 2) {
     enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
   }
 

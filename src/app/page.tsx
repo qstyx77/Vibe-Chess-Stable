@@ -710,7 +710,15 @@ setIsBlackAI(newIsBlackAI);
             else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
             else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
-            else if (reason === 'self-check') message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
+            else if (reason === 'self-check') {
+                toast({
+                    title: "Auto-Checkmate!",
+                    description: `${getPlayerDisplayName(timedOutPlayer!)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(winner)} wins!`,
+                    variant: "destructive",
+                    duration: 5000,
+                });
+                message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
+            }
             else if (reason === 'self-check-timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} lost by running out of time in check!`;
             else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
             else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
@@ -764,7 +772,7 @@ setIsBlackAI(newIsBlackAI);
 
     const handleTimeout = useCallback(() => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'timeout' }));
+            wsRef.current.send(JSON.stringify({ type: 'timeout' }));
         }
     }, []);
 
