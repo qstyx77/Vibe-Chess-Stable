@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -213,7 +212,7 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
-  const [showLossScreen, setShowLossScreen] = useState(false);
+  const [showLossScreen, setShowLossScreen] = useState(showLossScreen);
   const [showWinScreen, setShowWinScreen] = useState(false);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [timerWarningKey, setTimerWarningKey] = useState(0);
@@ -401,7 +400,7 @@ setIsBlackAI(newIsBlackAI);
       isAwaitingRookSacrifice: isAwaitingRookSacrifice,
       playerToSacrificeForRook: playerToSacrificeForRook,
       rookToMakeInvulnerable: rookToMakeInvulnerable,
-      boardForRookSacrifice: boardForRookSacrifice ? boardForRookSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))) : null,
+      boardForRookSacrifice: boardForRookSacrifice ? boardForRookSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item} : null }))) : null,
       originalTurnPlayerForRookSacrifice: originalTurnPlayerForRookSacrifice,
       isExtraTurnFromRookLevelUp: isExtraTurnFromRookLevelUp,
       isResurrectionPromotionInProgress: isResurrectionPromotionInProgress,
@@ -1037,7 +1036,7 @@ setIsBlackAI(newIsBlackAI);
         } else {
           setIsAwaitingPawnSacrifice(true);
           setPlayerToSacrificePawn(playerWhoseQueenLeveled);
-          setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))));
+          setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item} : null }))));
           setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
           setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select Pawn/Commander to sacrifice for L7 Queen!` }));
@@ -1144,7 +1143,7 @@ setIsBlackAI(newIsBlackAI);
     if (isAwaitingPawnSacrifice && playerToSacrificePawn === currentPlayer) {
       if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
         saveStateToHistory();
-        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item} : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
         const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalUniqueIdCounter++}`};
         boardAfterSacrifice[row][col].piece = null;
@@ -1210,7 +1209,7 @@ setIsBlackAI(newIsBlackAI);
       return;
     }
 
-    let finalBoardStateForTurn = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+    let finalBoardStateForTurn = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
     let finalCapturedPiecesStateForTurn = {
       white: capturedPieces.white.map(p => ({ ...p })),
       black: capturedPieces.black.map(p => ({ ...p }))
@@ -1531,9 +1530,7 @@ setIsBlackAI(newIsBlackAI);
             isCheck: true,
             playerWithKingInCheck: currentPlayer,
             isCheckmate: true,
-            isStalemate: false,
-            gameOver: true,
-            winner: opponentPlayer
+            isStalemate: false, gameOver: true, winner: opponentPlayer
           }));
           setBoard(finalBoardStateForTurn);
           setEnPassantTargetSquare(newEnPassantTargetForNextTurn);
@@ -1847,7 +1844,7 @@ setIsBlackAI(newIsBlackAI);
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion ) return;
 
-    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
 
@@ -2313,12 +2310,6 @@ setIsBlackAI(newIsBlackAI);
 
           if (selfCheckByAIPushBack) {
             const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-            toast({
-              title: "Auto-Checkmate!",
-              description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
-              variant: "destructive",
-              duration: 5000,
-            });
             setGameInfo(prev => ({
               ...prev,
               message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
@@ -2326,6 +2317,12 @@ setIsBlackAI(newIsBlackAI);
               playerWithKingInCheck: currentPlayer,
               isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
             }));
+            toast({
+              title: "Auto-Checkmate!",
+              description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
+              variant: "destructive",
+              duration: 5000,
+            });
             setBoard(finalBoardStateForAI);
             setEnPassantTargetSquare(aiGeneratedEnPassantTarget);
             setIsMoveProcessing(false);
@@ -3246,3 +3243,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
+    
+
+    

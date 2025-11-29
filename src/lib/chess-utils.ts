@@ -1,5 +1,4 @@
 
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -637,7 +636,7 @@ export function applyMove(
   ) {
     if (targetItemOriginal?.type === 'shroom') {
         shroomConsumedThisMove = true;
-        newBoard[toRow][col].item = null; 
+        newBoard[toRow][toCol].item = null; 
         movingPieceOriginalRef.level = Math.min( (movingPieceOriginalRef.type === 'queen' ? 7 : Infinity) , (movingPieceOriginalRef.level || 1) + 1);
     }
     const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true };
@@ -980,7 +979,7 @@ function filterLegalMoves(
   const originalMovingPiece = fromSquareState.piece;
 
   return pseudoMoves.filter(targetSquare => {
-    const tempBoardState = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+    const tempBoardState = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null })));
     const { row: toR, col: toC } = algebraicToCoords(targetSquare);
 
     if (tempBoardState[toR]?.[toC]?.item && tempBoardState[toR]?.[toC]?.item?.type !== 'shroom') return false;
@@ -1246,7 +1245,7 @@ export function spawnAnvil(board: BoardState): { newBoard: BoardState; spawnedAt
 }
 
 export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedAt: AlgebraicSquare | null } {
-  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece} : null, item: sq.item ? { ...sq.item } : null })));
   const emptySquares: AlgebraicSquare[] = [];
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -1265,3 +1264,5 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
   }
   return { newBoard, spawnedAt: null };
 }
+
+    
