@@ -743,6 +743,8 @@ setIsBlackAI(newIsBlackAI);
 
             if (winner === localPlayerColor) {
               setShowWinScreen(true);
+            } else if (winner !== 'draw') {
+              setShowLossScreen(true);
             }
             stopTurnTimer();
             setIsRankedGame(false);
@@ -2310,6 +2312,12 @@ setIsBlackAI(newIsBlackAI);
 
           if (selfCheckByAIPushBack) {
             const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            toast({
+              title: "Auto-Checkmate!",
+              description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
+              variant: "destructive",
+              duration: 5000,
+            });
             setGameInfo(prev => ({
               ...prev,
               message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
@@ -2317,12 +2325,6 @@ setIsBlackAI(newIsBlackAI);
               playerWithKingInCheck: currentPlayer,
               isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
             }));
-            toast({
-              title: "Auto-Checkmate!",
-              description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
-              variant: "destructive",
-              duration: 5000,
-            });
             setBoard(finalBoardStateForAI);
             setEnPassantTargetSquare(aiGeneratedEnPassantTarget);
             setIsMoveProcessing(false);
@@ -2397,7 +2399,7 @@ setIsBlackAI(newIsBlackAI);
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
-                      const pieceToResurrectOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
+                      const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
                       if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
                       for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
@@ -3242,12 +3244,5 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-    
-
-    
-
-
-
 
     

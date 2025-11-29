@@ -195,18 +195,24 @@ function getPossibleMovesInternal(
             }
         }
     }
-  } else if (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') {
+  } else if (piece.type === 'pawn' || piece.type === 'commander') {
     if (enPassantTargetSquare) {
       const { row: epR, col: epC } = algebraicToCoords(enPassantTargetSquare);
-      const isEpPossible = (piece.type === 'pawn' || piece.type === 'commander') &&
-                           Math.abs(fromCol - epC) === 1 &&
-                           fromRow === (piece.color === 'white' ? 3 : 4) &&
-                           epR === (piece.color === 'white' ? 2 : 5);
-
-      if (isEpPossible) {
-        possible.push(enPassantTargetSquare);
+      const captureRank = piece.color === 'white' ? 3 : 4;
+      const targetRank = piece.color === 'white' ? 2 : 5;
+      if (fromRow === captureRank && epR === targetRank && Math.abs(fromCol - epC) === 1) {
+          possible.push(enPassantTargetSquare);
       }
     }
+      for (let r_idx = 0; r_idx < 8; r_idx++) {
+        for (let c_idx = 0; c_idx < 8; c_idx++) {
+          const toSquare = coordsToAlgebraic(r_idx,c_idx);
+          if (isMoveValid(board, fromSquare, toSquare, piece, enPassantTargetSquare)) {
+              if(!possible.includes(toSquare)) possible.push(toSquare);
+          }
+        }
+      }
+  } else if (piece.type === 'infiltrator') {
       for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
           const toSquare = coordsToAlgebraic(r_idx,c_idx);
@@ -462,8 +468,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
                 if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom') ||
                     board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
-                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.[fromCol]?.item && board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.[fromCol]?.item?.type !== 'shroom') ||
-                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.[fromCol]?.item && board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.[fromCol]?.item?.type !== 'shroom')) return false;
+                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item?.type !== 'shroom') ||
+                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item?.type !== 'shroom')) return false;
             }
             return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
@@ -1264,7 +1270,3 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
   }
   return { newBoard, spawnedAt: null };
 }
-
-    
-
-    
