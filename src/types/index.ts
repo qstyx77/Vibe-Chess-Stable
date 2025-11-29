@@ -71,10 +71,8 @@ export interface ApplyMoveResult {
   originalPieceLevel?: number;
   selfCheckByPushBack: boolean;
   queenLevelReducedEvents?: QueenLevelReducedEvent[];
-  isEnPassantCapture?: boolean;
   promotedToInfiltrator?: boolean;
   infiltrationWin?: boolean;
-  enPassantTargetSet?: AlgebraicSquare | null;
   shroomConsumed?: boolean; // Added for Shroom
 }
 
@@ -164,9 +162,11 @@ export interface AIGameState {
   autoCheckmate?: boolean;
   firstBloodAchieved?: boolean;
   playerWhoGotFirstBlood?: PlayerColor | null;
-  enPassantTargetSquare?: AlgebraicSquare | null;
+  enPassantTargetSquare: AlgebraicSquare | null;
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
 }
+
+    
 
     
