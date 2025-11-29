@@ -397,8 +397,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
        if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
         const capturedPawnRow = fromRow;
         const capturedPawnCol = toCol;
-        const opponentPawn = board[capturedPawnRow]?.[capturedPawnCol]?.piece;
-        if(opponentPawn && opponentPawn.color !== piece.color && (opponentPawn.type === 'pawn' || opponentPawn.type === 'commander')) return true;
+        const opponentPiece = board[capturedPawnRow]?.[capturedPawnCol]?.piece;
+        if(opponentPiece && opponentPiece.color !== piece.color && (opponentPiece.type === 'pawn' || opponentPiece.type === 'commander')) return true;
       }
       if (fromCol === toCol && toRow === fromRow + direction && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
         return true;
@@ -981,7 +981,8 @@ function filterLegalMoves(
     if (targetSquare === enPassantTargetSquare && (pieceToMoveCopy.type === 'pawn' || pieceToMoveCopy.type === 'commander')) {
       const capturedPawnRow = algebraicToCoords(pieceOriginalSquare).row;
       const capturedPawnCol = algebraicToCoords(targetSquare).col;
-      if (tempBoardState[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'pawn' || tempBoardState[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'commander') {
+      const opponentPiece = tempBoardState[capturedPawnRow]?.[capturedPawnCol]?.piece;
+      if (opponentPiece && (opponentPiece.type === 'pawn' || opponentPiece.type === 'commander')) {
           moveTypeForApply = 'enpassant';
       }
     } else if (targetPieceForSim && targetPieceForSim.color !== pieceToMoveCopy.color) {
