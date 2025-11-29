@@ -636,7 +636,7 @@ export function applyMove(
   ) {
     if (targetItemOriginal?.type === 'shroom') {
         shroomConsumedThisMove = true;
-        newBoard[toRow][toCol].item = null; 
+        newBoard[toRow][col].item = null; 
         movingPieceOriginalRef.level = Math.min( (movingPieceOriginalRef.type === 'queen' ? 7 : Infinity) , (movingPieceOriginalRef.level || 1) + 1);
     }
     const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true };
