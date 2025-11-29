@@ -74,6 +74,7 @@ function adaptBoardForAI(
   gameMoveCounter: number,
   firstBloodAchieved: boolean,
   playerWhoGotFirstBlood: PlayerColor | null,
+  enPassantTargetSquare: AlgebraicSquare | null,
   shroomSpawnCounter?: number,
   nextShroomSpawnTurn?: number
 ): AIGameState {
@@ -115,7 +116,7 @@ function adaptBoardForAI(
     gameMoveCounter: gameMoveCounter,
     firstBloodAchieved: firstBloodAchieved,
     playerWhoGotFirstBlood: playerWhoGotFirstBlood,
-    enPassantTargetSquare: null,
+    enPassantTargetSquare: enPassantTargetSquare,
     shroomSpawnCounter: shroomSpawnCounter,
     nextShroomSpawnTurn: nextShroomSpawnTurn,
   };
@@ -165,6 +166,7 @@ export default function EvolvingChessPage() {
   const [lastMoveFrom, setLastMoveFrom] = useState<AlgebraicSquare | null>(null);
   const [lastMoveTo, setLastMoveTo] = useState<AlgebraicSquare | null>(null);
   const [gameMoveCounter, setGameMoveCounter] = useState(0);
+  const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
 
 
   const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
@@ -317,6 +319,7 @@ setIsBlackAI(newIsBlackAI);
     setBlackTimeouts(0);
     setIsRankedGame(false);
     setRankedQueueStatus('idle');
+    setEnPassantTargetSquare(null);
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -387,7 +390,7 @@ setIsBlackAI(newIsBlackAI);
       lastMoveFrom: lastMoveFrom,
       lastMoveTo: lastMoveTo,
       gameMoveCounter: gameMoveCounter,
-      enPassantTargetSquare: null,
+      enPassantTargetSquare: enPassantTargetSquare,
 
       isAwaitingPawnSacrifice: isAwaitingPawnSacrifice,
       playerToSacrificePawn: playerToSacrificePawn,
@@ -424,7 +427,7 @@ setIsBlackAI(newIsBlackAI);
     });
   }, [
     board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode,
-    isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter,
+    isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare, promotionMoveWasCapture, promotionPawnOriginalLevel,
@@ -443,7 +446,7 @@ setIsBlackAI(newIsBlackAI);
 
 
     const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
-    const opponentInCheck = isKingInCheck(currentBoard, opponentColor);
+    const opponentInCheck = isKingInCheck(currentBoard, opponentColor, null);
 
     if (opponentInCheck) {
       toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 2500 });
@@ -459,7 +462,7 @@ setIsBlackAI(newIsBlackAI);
 
     let message = `${getPlayerDisplayName(playerTakingExtraTurn)} gets an extra turn!`;
 
-    const opponentIsStalemated = isStalemate(currentBoard, opponentColor);
+    const opponentIsStalemated = isStalemate(currentBoard, opponentColor, null);
     if (opponentIsStalemated) {
       setGameInfo(prev => ({ ...prev, message: `Stalemate! It's a draw.`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
       if (onlineStatus === 'connected') {
@@ -473,21 +476,22 @@ setIsBlackAI(newIsBlackAI);
     }
   }, [toast, getPlayerDisplayName, onlineStatus]);
 
-  const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor) => {
+  const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
     setCurrentPlayer(nextPlayer);
+    setEnPassantTargetSquare(newEnPassantTarget);
     setSelectedSquare(null);
     setPossibleMoves([]);
     setEnemySelectedSquare(null);
     setEnemyPossibleMoves([]);
 
-    const inCheck = isKingInCheck(updatedBoard, nextPlayer);
+    const inCheck = isKingInCheck(updatedBoard, nextPlayer, newEnPassantTarget);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
     let currentMessage = " ";
 
     if (inCheck) {
       newPlayerWithKingInCheck = nextPlayer;
-      const mate = isCheckmate(updatedBoard, nextPlayer);
+      const mate = isCheckmate(updatedBoard, nextPlayer, newEnPassantTarget);
       if (mate) {
         currentMessage = `Checkmate! ${getPlayerDisplayName(playerWhoseTurnEnded)} wins!`;
         setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: true, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoseTurnEnded }));
@@ -502,7 +506,7 @@ setIsBlackAI(newIsBlackAI);
         currentMessage = "Check!";
       }
     } else {
-      const stale = isStalemate(updatedBoard, nextPlayer);
+      const stale = isStalemate(updatedBoard, nextPlayer, newEnPassantTarget);
       if (stale) {
         currentMessage = `Stalemate! It's a draw.`;
         setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
@@ -522,7 +526,7 @@ setIsBlackAI(newIsBlackAI);
 
   }, [getPlayerDisplayName, onlineStatus, gameInfo.gameOver]);
 
-  const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean) => {
+  const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null) => {
     let currentBoardState = boardForNextStep;
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
@@ -572,7 +576,7 @@ setIsBlackAI(newIsBlackAI);
 
     const nextPlayerForHash = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
     const castlingRights = getCastlingRightsString(currentBoardState);
-    const currentPositionHash = boardToPositionHash(currentBoardState, nextPlayerForHash, castlingRights, null);
+    const currentPositionHash = boardToPositionHash(currentBoardState, nextPlayerForHash, castlingRights, newEnPassantTarget);
 
     const newHistory = [...positionHistory, currentPositionHash];
     setPositionHistory(newHistory);
@@ -608,7 +612,7 @@ setIsBlackAI(newIsBlackAI);
     if (isExtraTurn) {
       setGameInfoBasedOnExtraTurn(currentBoardState, playerWhoseTurnCompleted);
     } else {
-      completeTurn(currentBoardState, playerWhoseTurnCompleted);
+      completeTurn(currentBoardState, playerWhoseTurnCompleted, newEnPassantTarget);
     }
   }, [
     positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver,
@@ -632,6 +636,7 @@ setIsBlackAI(newIsBlackAI);
             setCurrentPlayer(fullGameState.currentPlayer);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
+            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
             
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
@@ -665,6 +670,7 @@ setIsBlackAI(newIsBlackAI);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setFirstBloodAchieved(fullGameState.firstBloodAchieved);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood);
+            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
 
             // Crucially, set the awaiting promotion flag
             setIsAwaitingCommanderPromotion(true);
@@ -957,11 +963,12 @@ setIsBlackAI(newIsBlackAI);
     playerWhoseQueenLeveled: PlayerColor,
     queenMovedWithThis: Move | null,
     originalPieceLevelIfKnown: number | undefined,
-    isExtraTurnFromOriginalMove: boolean
+    isExtraTurnFromOriginalMove: boolean,
+    newEnPassantTarget: AlgebraicSquare | null
   ): boolean => {
 
     if (!queenMovedWithThis) {
-        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
+        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
         return false;
     }
 
@@ -969,7 +976,7 @@ setIsBlackAI(newIsBlackAI);
     const queenOnSquare = boardAfterPrimaryMove[toR]?.[toC]?.piece;
 
     if (!queenOnSquare || queenOnSquare.type !== 'queen' || queenOnSquare.color !== playerWhoseQueenLeveled) {
-        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
+        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
         return false;
     }
 
@@ -1026,7 +1033,7 @@ setIsBlackAI(newIsBlackAI);
             }));
           }
           toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn/Commander for L7 Queen!`, duration: 2500 });
-          processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
+          processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
           return false;
         } else {
           setIsAwaitingPawnSacrifice(true);
@@ -1034,12 +1041,13 @@ setIsBlackAI(newIsBlackAI);
           setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item} : null }))));
           setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
           setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
+          setEnPassantTargetSquare(newEnPassantTarget);
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select Pawn/Commander to sacrifice for L7 Queen!` }));
           return true;
         }
       }
     }
-    processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove);
+    processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
     return false;
   }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, onlineStatus]);
 
@@ -1059,7 +1067,7 @@ setIsBlackAI(newIsBlackAI);
     // Allow selection and hovering even if it's not the player's turn online
     if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
         if (clickedPiece) {
-            setPossibleMoves(getPossibleMoves(board, algebraic));
+            setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
             if (clickedPiece.color === localPlayerColor) {
                 setSelectedSquare(algebraic);
                 setEnemySelectedSquare(null);
@@ -1123,7 +1131,7 @@ setIsBlackAI(newIsBlackAI);
         setLastMoveFrom(null);
         setLastMoveTo(algebraic);
 
-        processMoveEnd(boardAfterCommanderPromo, playerWhoActed, wasExtraTurnFromStreak);
+        processMoveEnd(boardAfterCommanderPromo, playerWhoActed, wasExtraTurnFromStreak, enPassantTargetSquare);
         return;
 
       } else {
@@ -1172,7 +1180,7 @@ setIsBlackAI(newIsBlackAI);
         setLastMoveFrom(null);
         setLastMoveTo(algebraic);
 
-        processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice);
+        processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice, enPassantTargetSquare);
       } else {
         toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 2500 });
       }
@@ -1192,7 +1200,7 @@ setIsBlackAI(newIsBlackAI);
       setIsAwaitingRookSacrifice(false);
       setPlayerToSacrificeForRook(null);
       setRookToMakeInvulnerable(null);
-      processMoveEnd(boardForRookSacrifice || board, originalTurnPlayerForRookSacrifice || currentPlayer, isExtraTurnFromRookLevelUp || false);
+      processMoveEnd(boardForRookSacrifice || board, originalTurnPlayerForRookSacrifice || currentPlayer, isExtraTurnFromRookLevelUp || false, enPassantTargetSquare);
       setBoardForRookSacrifice(null);
       setOriginalTurnPlayerForRookSacrifice(null);
       setIsExtraTurnFromRookLevelUp(false);
@@ -1212,7 +1220,7 @@ setIsBlackAI(newIsBlackAI);
           // Just update selection, but don't attempt a move
           if (clickedPiece && clickedPiece.color === localPlayerColor) {
               setSelectedSquare(algebraic);
-              setPossibleMoves(getPossibleMoves(board, algebraic));
+              setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
               setEnemySelectedSquare(null);
               setEnemyPossibleMoves([]);
           }
@@ -1242,12 +1250,14 @@ setIsBlackAI(newIsBlackAI);
 
       moveBeingMade = { from: selectedSquare, to: algebraic };
       
-      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare);
+      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
       // Explicitly check and set en passant move type
       if (isMoveInFreshList) {
-          if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
+          if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
+            moveBeingMade.type = 'enpassant';
+          } else if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
               moveBeingMade.type = 'capture';
           } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
               moveBeingMade.type = 'castle';
@@ -1273,7 +1283,7 @@ setIsBlackAI(newIsBlackAI);
 
         const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
-        if (isKingInCheck(tempBoardForCheck, selfDestructPlayer)) {
+        if (isKingInCheck(tempBoardForCheck, selfDestructPlayer, enPassantTargetSquare)) {
           toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 2500 });
           setIsMoveProcessing(false); setAnimatedSquareTo(null); return;
         }
@@ -1423,7 +1433,7 @@ setIsBlackAI(newIsBlackAI);
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
           } else {
-              processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn);
+              processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, null);
           }
           setIsMoveProcessing(false);
         }, 800);
@@ -1442,8 +1452,9 @@ setIsBlackAI(newIsBlackAI);
             }
         }
 
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade);
+        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
         finalBoardStateForTurn = applyMoveResult.newBoard;
+        let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
         
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
         const pieceCapturedByAnvilFromApply = applyMoveResult.pieceCapturedByAnvil;
@@ -1455,6 +1466,10 @@ setIsBlackAI(newIsBlackAI);
         const becameInfiltratorFromApply = applyMoveResult.promotedToInfiltrator;
         const gameWonByInfiltrationFromApply = applyMoveResult.infiltrationWin;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
+
+        if (becameInfiltratorFromApply) {
+          toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 3000 });
+        }
 
 
         if (gameWonByInfiltrationFromApply) {
@@ -1712,7 +1727,7 @@ setIsBlackAI(newIsBlackAI);
           let sacrificeNeededForQueen = false;
 
           if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn);
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
@@ -1720,11 +1735,11 @@ setIsBlackAI(newIsBlackAI);
             setPromotionMoveWasCapture(!!capturedPieceFromApply);
             setIsPromotingPawn(true); setPromotionSquare(algebraic);
           } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion && !becameInfiltratorFromApply) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           } else if (humanRookResData?.resurrectionPerformed && !isPendingHumanResurrectionPromotion) {
-             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn);
+             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           } else if ((becameInfiltratorFromApply) && !isPendingHumanResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           }
 
           setIsMoveProcessing(false);
@@ -1738,7 +1753,7 @@ setIsBlackAI(newIsBlackAI);
         if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
             if(clickedPiece.color === currentPlayer || onlineStatus === 'connected') { // Allow selection if it's your piece OR you're online
                 setSelectedSquare(algebraic);
-                const legalMovesForPlayer = getPossibleMoves(board, algebraic);
+                const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
                 setPossibleMoves(legalMovesForPlayer);
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
@@ -1746,7 +1761,7 @@ setIsBlackAI(newIsBlackAI);
                 setSelectedSquare(null);
                 setPossibleMoves([]);
                 setEnemySelectedSquare(algebraic);
-                const enemyMoves = getPossibleMoves(board, algebraic);
+                const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
                 setEnemyPossibleMoves(enemyMoves);
             }
         } else {
@@ -1761,7 +1776,7 @@ setIsBlackAI(newIsBlackAI);
     } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
         if(clickedPiece.color === currentPlayer || onlineStatus === 'connected') { // Allow selection if it's your piece OR you're online
             setSelectedSquare(algebraic);
-            const legalMovesForPlayer = getPossibleMoves(board, algebraic);
+            const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
             setPossibleMoves(legalMovesForPlayer);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
@@ -1769,7 +1784,7 @@ setIsBlackAI(newIsBlackAI);
             setSelectedSquare(null);
             setPossibleMoves([]);
             setEnemySelectedSquare(algebraic);
-            const enemyMoves = getPossibleMoves(board, algebraic);
+            const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
             setEnemyPossibleMoves(enemyMoves);
         }
     } else {
@@ -1781,7 +1796,7 @@ setIsBlackAI(newIsBlackAI);
 
 
   }, [
-    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer,
+    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer, enPassantTargetSquare,
     saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast,
     setGameInfo, setBoard, setCapturedPieces, setKillStreaks, setLastCapturePlayer,
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
@@ -1856,7 +1871,7 @@ setIsBlackAI(newIsBlackAI);
       if (isResurrectionPromotionInProgress) {
         toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
-        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer === 6);
+        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer === 6, enPassantTargetSquare);
         setIsResurrectionPromotionInProgress(false);
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
@@ -1871,7 +1886,7 @@ setIsBlackAI(newIsBlackAI);
         let sacrificeNeededForQueen = false;
 
         if (pieceType === 'queen') {
-          sacrificeNeededForQueen = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn);
+          sacrificeNeededForQueen = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn, enPassantTargetSquare);
         } else if (pieceType === 'rook') {
           if (promotionMoveWasCapture) { // Only call if the promotion move was a capture
             const newRookLevel = Number(boardToUpdate[row][col].piece!.level || 1);
@@ -1913,7 +1928,7 @@ setIsBlackAI(newIsBlackAI);
         }
 
         if (!sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress && !isAwaitingCommanderPromotion) {
-           processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn);
+           processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn, enPassantTargetSquare);
         }
       }
 
@@ -1931,7 +1946,7 @@ setIsBlackAI(newIsBlackAI);
     setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
-    isAwaitingCommanderPromotion,
+    isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
     setResurrectedSquares
   ]);
@@ -1994,7 +2009,7 @@ setIsBlackAI(newIsBlackAI);
       while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
         attemptCount++;
         await new Promise(resolve => setTimeout(resolve, 50 * attemptCount)); // Small delay, increasing
-        const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, shroomSpawnCounter, nextShroomSpawnTurn);
+        const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
         const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
         aiMoveDataFromVibeAI = aiResult?.move;
         aiExtraTurnFromAIMethod = aiResult?.extraTurn || false;
@@ -2017,13 +2032,13 @@ setIsBlackAI(newIsBlackAI);
             continue; // Try again
         }
 
-        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare);
+        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
         isAiMoveActuallyLegal = definitiveLegalMovesForPiece.includes(aiToAlg as AlgebraicSquare);
         
         if (!isAiMoveActuallyLegal && aiMoveDataFromVibeAI.type === 'self-destruct' && aiFromAlg === aiToAlg) {
             const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
             tempStateAfterSelfDestruct[aiMoveDataFromVibeAI.from[0]][aiMoveDataFromVibeAI.from[1]].piece = null;
-            if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer)) {
+            if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer, enPassantTargetSquare)) {
               isAiMoveActuallyLegal = true;
             }
         }
@@ -2037,7 +2052,7 @@ setIsBlackAI(newIsBlackAI);
 
       if (!isAiMoveActuallyLegal && pieceOnFromSquareForAI && aiFromAlg) { // Fallback if all attempts failed
         toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking a valid one.", duration: 2000 });
-        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare);
+        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
         if (definitiveLegalMovesForPiece.length > 0) {
             const chosenDefinitiveMoveAlg = definitiveLegalMovesForPiece[0];
             const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
@@ -2077,10 +2092,10 @@ setIsBlackAI(newIsBlackAI);
 
       if (!aiMoveDataFromVibeAI || !isAiMoveActuallyLegal) {
         // This block handles cases where AI has no valid moves or all attempts/fallbacks failed
-        const isAiInCheck = isKingInCheck(finalBoardStateForAI, currentPlayer);
+        const isAiInCheck = isKingInCheck(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
         const opponent = currentPlayer === 'white' ? 'black' : 'white';
         if (isAiInCheck) {
-            const isMate = isCheckmate(finalBoardStateForAI, currentPlayer);
+            const isMate = isCheckmate(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
             if (isMate) {
                 setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
                 toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 3000 });
@@ -2091,7 +2106,7 @@ setIsBlackAI(newIsBlackAI);
                  aiErrorOccurredRef.current = true;
             }
         } else {
-            const isStale = isStalemate(finalBoardStateForAI, currentPlayer);
+            const isStale = isStalemate(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
             if (isStale) {
               setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
               toast({ title: "Stalemate!", description: "It's a draw! AI has no moves.", duration: 3000 });
@@ -2140,6 +2155,7 @@ setIsBlackAI(newIsBlackAI);
         let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | undefined = undefined;
         let aiBecameInfiltrator = false;
         let aiGameWonByInfiltration = false;
+        let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
 
 
         if (moveForApplyMoveAI!.type === 'self-destruct') {
@@ -2148,7 +2164,7 @@ setIsBlackAI(newIsBlackAI);
 
           const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
           tempBoardForCheckAI[knightR_AI][knightC_AI].piece = null;
-          if (isKingInCheck(tempBoardForCheckAI, currentPlayer)) {
+          if (isKingInCheck(tempBoardForCheckAI, currentPlayer, enPassantTargetSquare)) {
               aiErrorOccurredRef.current = true;
           } else if (selfDestructingKnight_AI) {
             for (let dr = -1; dr <= 1; dr++) {
@@ -2199,16 +2215,21 @@ setIsBlackAI(newIsBlackAI);
               aiErrorOccurredRef.current = true;
           }
         } else {
-          const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI as Move);
+          const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI as Move, enPassantTargetSquare);
           finalBoardStateForAI = applyMoveResult.newBoard;
+          nextEnPassantTargetForAI = applyMoveResult.enPassantTargetSet;
           capturedPieceDataForScoring = applyMoveResult.capturedPiece; // Store for later checks
           shroomConsumedByAIForEval = applyMoveResult.shroomConsumed || false;
           levelFromAIApplyMove = applyMoveResult.originalPieceLevel;
           selfCheckByAIPushBack = applyMoveResult.selfCheckByPushBack;
           aiAnvilPushedOff = applyMoveResult.anvilPushedOffBoard;
           queenLevelReducedEventsAI = applyMoveResult.queenLevelReducedEvents;
-          aiBecameInfiltrator = applyMoveResult.promotedToInfiltrator;
+          aiBecameInfiltrator = applyMoveResult.promotedToInfiltrator || false;
           aiGameWonByInfiltration = applyMoveResult.infiltrationWin || false;
+
+          if (aiBecameInfiltrator) {
+            toast({ title: "AI Infiltrator!", description: `AI's pawn promoted to an Infiltrator!`, duration: 3000 });
+          }
 
 
           if (aiGameWonByInfiltration) {
@@ -2372,7 +2393,7 @@ setIsBlackAI(newIsBlackAI);
             }
 
             if (localAIAwaitingCommanderPromo && currentAiInstance) {
-                const gameStateForAICmdrSelect = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, true, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn);
+                const gameStateForAICmdrSelect = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, true, currentPlayer, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
                 const commanderPawnCoords = currentAiInstance.selectPawnForCommanderPromotion(gameStateForAICmdrSelect);
                 if (commanderPawnCoords) {
                     const [pawnR, pawnC] = commanderPawnCoords;
@@ -2465,7 +2486,7 @@ setIsBlackAI(newIsBlackAI);
                   const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                   if (pieceAfterAIPromo?.type === 'queen') {
-                    sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove);
+                    sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, nextEnPassantTargetForAI);
                   } else if (pieceAfterAIPromo?.type === 'rook') {
                       if ((!aiRookResData || !aiRookResData.resurrectionPerformed) && (capturedPieceDataForScoring || pieceCapturedByAnvilAI)) { // Rook resurrection only on capture
                         const newRookLevelCheck = Number(pieceAfterAIPromo.level || 1);
@@ -2515,14 +2536,14 @@ setIsBlackAI(newIsBlackAI);
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 2500 });
                     if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
               } else if (pieceAtDestinationAI?.type === 'queen') {
-                 sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove);
+                 sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               } else if (aiBecameInfiltrator) {
               }
 
               if (localAIAwaitingCommanderPromo) {
-                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove);
+                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               } else if (!sacrificeNeededForAIQueen) {
-                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove);
+                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               }
 
               setAnimatedSquareTo(null);
@@ -2551,14 +2572,14 @@ setIsBlackAI(newIsBlackAI);
 
       if (!gameInfo.gameOver) {
           const boardBeforeAIAttempt = board.map(r_err => r_err.map(s_err => ({ ...s_err, piece: s_err.piece ? { ...s_err.piece } : null, item: s_err.item ? {...s_err.item} : null })));
-          processMoveEnd(boardBeforeAIAttempt, currentPlayer, false);
+          processMoveEnd(boardBeforeAIAttempt, currentPlayer, false, enPassantTargetSquare);
       }
       setIsMoveProcessing(false);
       setIsAiThinking(false);
       setAnimatedSquareTo(null);
     }
   }, [
-    board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer,
+    board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer, enPassantTargetSquare,
     isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice,
     saveStateToHistory, toast, getPlayerDisplayName,
     setGameInfo, setBoard, setCapturedPieces, setKillStreaks, setLastCapturePlayer,
@@ -2588,11 +2609,11 @@ setIsBlackAI(newIsBlackAI);
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
     const initialCastlingRights = getCastlingRightsString(board);
-    const initialHash = boardToPositionHash(board, currentPlayer, initialCastlingRights, null);
+    const initialHash = boardToPositionHash(board, currentPlayer, initialCastlingRights, enPassantTargetSquare);
     if (initialHash) {
       setPositionHistory([initialHash]);
     }
-  }, [board, currentPlayer, positionHistory]);
+  }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;
@@ -2791,6 +2812,7 @@ setIsBlackAI(newIsBlackAI);
       setLastMoveFrom(stateToRestore.lastMoveFrom || null);
       setLastMoveTo(stateToRestore.lastMoveTo || null);
       setGameMoveCounter(stateToRestore.gameMoveCounter || 0);
+      setEnPassantTargetSquare(stateToRestore.enPassantTargetSquare || null);
 
       setIsWhiteAI(stateToRestore.isWhiteAI);
       setIsBlackAI(stateToRestore.isBlackAI);
@@ -2868,7 +2890,7 @@ setIsBlackAI(newIsBlackAI);
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
-    setResurrectedSquares, playerWhoGotFirstBlood,
+    setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare
   ]);
 
 
@@ -3161,6 +3183,7 @@ setIsBlackAI(newIsBlackAI);
                   playerToSacrificePawn={playerToSacrificePawn}
                   isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
                   playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
+                  isEnPassantTarget={enPassantTargetSquare}
                   resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
                   onPieceHover={handlePieceHover}
               />
@@ -3181,7 +3204,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-    
-
-    

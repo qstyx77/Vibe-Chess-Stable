@@ -25,6 +25,7 @@ interface ChessBoardProps {
   playerToSacrificePawn: PlayerColor | null;
   isAwaitingCommanderPromotion?: boolean;
   playerToPromoteCommander?: PlayerColor | null;
+  isEnPassantTarget: AlgebraicSquare | null;
   resurrectedSquares: AlgebraicSquare[];
   onPieceHover: (piece: Piece | null) => void;
 }
@@ -49,6 +50,7 @@ export function ChessBoard({
   playerToSacrificePawn,
   isAwaitingCommanderPromotion,
   playerToPromoteCommander,
+  isEnPassantTarget,
   resurrectedSquares,
   onPieceHover,
 }: ChessBoardProps) {
@@ -125,7 +127,7 @@ export function ChessBoard({
               isCommanderPromoTarget={isCommanderPromoTargetSquare}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
               playerToPromoteCommander={playerToPromoteCommander}
-              isEnPassantTarget={false}
+              isEnPassantTarget={isEnPassantTarget === currentSquareData.algebraic}
               isResurrectedSquare={isResurrectedSquare}
               onPieceHover={onPieceHover}
             />
@@ -135,5 +137,3 @@ export function ChessBoard({
     </div>
   );
 }
-
-    

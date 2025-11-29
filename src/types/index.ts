@@ -70,10 +70,11 @@ export interface ApplyMoveResult {
   conversionEvents: ConversionEvent[];
   originalPieceLevel?: number;
   selfCheckByPushBack: boolean;
-  queenLevelReducedEvents?: QueenLevelReducedEvent[];
+  queenLevelReducedEvents?: QueenLevelReducedEvent[] | null;
   promotedToInfiltrator?: boolean;
   infiltrationWin?: boolean;
-  shroomConsumed?: boolean; // Added for Shroom
+  shroomConsumed?: boolean;
+  enPassantTargetSet: AlgebraicSquare | null;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -166,7 +167,3 @@ export interface AIGameState {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
 }
-
-    
-
-    
