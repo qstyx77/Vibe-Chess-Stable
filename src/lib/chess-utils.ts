@@ -462,8 +462,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
                 if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom') ||
                     board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
-                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item?.type !== 'shroom') ||
-                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item?.type !== 'shroom')) return false;
+                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.[fromCol]?.item && board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.[fromCol]?.item?.type !== 'shroom') ||
+                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.[fromCol]?.item && board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.[fromCol]?.item?.type !== 'shroom')) return false;
             }
             return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
@@ -1264,5 +1264,7 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
   }
   return { newBoard, spawnedAt: null };
 }
+
+    
 
     

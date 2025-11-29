@@ -2397,7 +2397,7 @@ setIsBlackAI(newIsBlackAI);
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
-                      const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
+                      const pieceToResurrectOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
                       if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
                       for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
@@ -2466,11 +2466,10 @@ setIsBlackAI(newIsBlackAI);
                   globalUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 3000 });
-
-                  if (aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander') {
-                      const promoRowAI = currentPlayer === 'white' ? 0 : 7;
+                  if(aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander'){
+                      const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                       const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
-                      if (resRookPromoAIR === promoRowAI) {
+                      if (resRookPromoAIR === promoR_AI) {
                           const resurrectedPieceOnBoardAI = finalBoardStateForAI[resRookPromoAIR]?.[resRookPromoAIC]?.piece;
                           if (resurrectedPieceOnBoardAI) {
                               if (resurrectedPieceOnBoardAI.type === 'pawn') {
@@ -3249,3 +3248,6 @@ setIsBlackAI(newIsBlackAI);
     
 
 
+
+
+    
