@@ -212,7 +212,7 @@ export default function EvolvingChessPage() {
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
-  const [showLossScreen, setShowLossScreen] = useState(showLossScreen);
+  const [showLossScreen, setShowLossScreen] = useState(false);
   const [showWinScreen, setShowWinScreen] = useState(false);
   const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [timerWarningKey, setTimerWarningKey] = useState(0);
