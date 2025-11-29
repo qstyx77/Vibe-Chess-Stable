@@ -979,7 +979,11 @@ function filterLegalMoves(
 
     let moveTypeForApply: Move['type'] = 'move';
     if (targetSquare === enPassantTargetSquare && (pieceToMoveCopy.type === 'pawn' || pieceToMoveCopy.type === 'commander')) {
-      moveTypeForApply = 'enpassant';
+      const capturedPawnRow = algebraicToCoords(pieceOriginalSquare).row;
+      const capturedPawnCol = algebraicToCoords(targetSquare).col;
+      if (tempBoardState[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'pawn' || tempBoardState[capturedPawnRow]?.[capturedPawnCol]?.piece?.type === 'commander') {
+          moveTypeForApply = 'enpassant';
+      }
     } else if (targetPieceForSim && targetPieceForSim.color !== pieceToMoveCopy.color) {
         moveTypeForApply = 'capture';
     }
