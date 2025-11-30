@@ -1962,6 +1962,23 @@ setIsBlackAI(newIsBlackAI);
 
   const performAiMove = useCallback(async () => {
     const currentAiInstance = aiInstanceRef.current;
+    
+    // Capture the game state *before* the AI starts thinking
+    const originalGameStateForMove = {
+        board: board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
+        currentPlayer,
+        capturedPieces: {
+            white: capturedPieces.white.map(p => ({ ...p })),
+            black: capturedPieces.black.map(p => ({ ...p }))
+        },
+        killStreaks,
+        gameMoveCounter,
+        firstBloodAchieved,
+        playerWhoGotFirstBlood,
+        enPassantTargetSquare,
+        shroomSpawnCounter,
+        nextShroomSpawnTurn
+    };
 
     if (!currentAiInstance) {
       console.error("AI instance not available for performAiMove (captured check).");
@@ -1984,23 +2001,6 @@ setIsBlackAI(newIsBlackAI);
         return;
     }
     
-    // Capture the game state *before* the AI starts thinking
-    const originalGameStateForMove = {
-        board: board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
-        currentPlayer,
-        capturedPieces: {
-            white: capturedPieces.white.map(p => ({ ...p })),
-            black: capturedPieces.black.map(p => ({ ...p }))
-        },
-        killStreaks,
-        gameMoveCounter,
-        firstBloodAchieved,
-        playerWhoGotFirstBlood,
-        enPassantTargetSquare,
-        shroomSpawnCounter,
-        nextShroomSpawnTurn
-    };
-
     aiErrorOccurredRef.current = false;
     setIsAiThinking(true);
     setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) is thinking...` }));
@@ -3230,5 +3230,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-    
