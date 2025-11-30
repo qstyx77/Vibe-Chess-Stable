@@ -2157,7 +2157,6 @@ setIsBlackAI(newIsBlackAI);
         let pieceCapturedByAnvilAI = false;
         let aiAnvilPushedOff = false;
         let piecesDestroyedByAICount = 0;
-        let piecesDestroyedCount = 0;
         let anvilsDestroyedByAICount = 0;
         let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
         let selfCheckByAIPushBack = false;
@@ -2217,7 +2216,8 @@ setIsBlackAI(newIsBlackAI);
             if (anvilsDestroyedByAICount > 0) {
                  toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 2500 });
             }
-             if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
+            let piecesDestroyedCount = piecesDestroyedByAICount; // Fix: Initialize piecesDestroyedCount
+            if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
                toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedCount} pieces obliterated.`, duration: 2500 });
             }
           } else {
