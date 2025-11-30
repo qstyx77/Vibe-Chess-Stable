@@ -2157,6 +2157,7 @@ setIsBlackAI(newIsBlackAI);
         let pieceCapturedByAnvilAI = false;
         let aiAnvilPushedOff = false;
         let piecesDestroyedByAICount = 0;
+        let piecesDestroyedCount = 0;
         let anvilsDestroyedByAICount = 0;
         let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
         let selfCheckByAIPushBack = false;
