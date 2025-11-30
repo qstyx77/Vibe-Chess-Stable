@@ -1521,7 +1521,7 @@ setIsBlackAI(newIsBlackAI);
             title: "Auto-Checkmate!",
             description: `${getPlayerDisplayName(currentPlayer)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
             variant: "destructive",
-            duration: 5000
+            duration: 5000,
           });
           setGameInfo(prev => ({
             ...prev,
@@ -1983,6 +1983,23 @@ setIsBlackAI(newIsBlackAI);
         setIsAiThinking(false);
         return;
     }
+    
+    // Capture the game state *before* the AI starts thinking
+    const originalGameStateForMove = {
+        board: board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
+        currentPlayer,
+        capturedPieces: {
+            white: capturedPieces.white.map(p => ({ ...p })),
+            black: capturedPieces.black.map(p => ({ ...p }))
+        },
+        killStreaks,
+        gameMoveCounter,
+        firstBloodAchieved,
+        playerWhoGotFirstBlood,
+        enPassantTargetSquare,
+        shroomSpawnCounter,
+        nextShroomSpawnTurn
+    };
 
     aiErrorOccurredRef.current = false;
     setIsAiThinking(true);
@@ -2333,7 +2350,7 @@ setIsBlackAI(newIsBlackAI);
             const aiCaptureOccurredThisTurnForStreak = aiMoveCapturedSomething || pieceCapturedByAnvilAI; // Use this for streak
 
             if (aiCaptureOccurredThisTurnForStreak) {
-                newStreakForAIPlayer += (moveForApplyMoveAI!.type === 'self-destruct' ? (finalCapturedPiecesForAI[currentPlayer].length - (originalGameState.capturedPieces[currentPlayer]?.length || 0)) : 1);
+                newStreakForAIPlayer += (moveForApplyMoveAI!.type === 'self-destruct' ? (finalCapturedPiecesForAI[currentPlayer].length - (originalGameStateForMove.capturedPieces[currentPlayer]?.length || 0)) : 1);
                 if (!firstBloodAchieved) {
                     setKillStreakFlashMessage("FIRST BLOOD!");
                     setKillStreakFlashMessageKey(k => k + 1);
