@@ -2156,8 +2156,6 @@ setIsBlackAI(newIsBlackAI);
         let aiMoveCapturedSomething = false;
         let pieceCapturedByAnvilAI = false;
         let aiAnvilPushedOff = false;
-        let piecesDestroyedByAICount = 0;
-        let anvilsDestroyedByAICount = 0;
         let levelFromAIApplyMove: number | undefined = originalPieceLevelForAI;
         let selfCheckByAIPushBack = false;
         let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | undefined = undefined;
@@ -2169,6 +2167,9 @@ setIsBlackAI(newIsBlackAI);
         if (moveForApplyMoveAI!.type === 'self-destruct') {
           const { row: knightR_AI, col: knightC_AI } = algebraicToCoords(moveForApplyMoveAI!.from as AlgebraicSquare);
           const selfDestructingKnight_AI = finalBoardStateForAI[knightR_AI]?.[knightC_AI]?.piece;
+          let piecesDestroyedByAICount = 0;
+          let anvilsDestroyedByAICount = 0;
+
 
           const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
           tempBoardForCheckAI[knightR_AI][knightC_AI].piece = null;
@@ -2216,9 +2217,8 @@ setIsBlackAI(newIsBlackAI);
             if (anvilsDestroyedByAICount > 0) {
                  toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 2500 });
             }
-            let piecesDestroyedCount = piecesDestroyedByAICount; // Fix: Initialize piecesDestroyedCount
             if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
-               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedCount} pieces obliterated.`, duration: 2500 });
+               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
             }
           } else {
               aiErrorOccurredRef.current = true;
@@ -2333,7 +2333,7 @@ setIsBlackAI(newIsBlackAI);
             const aiCaptureOccurredThisTurnForStreak = aiMoveCapturedSomething || pieceCapturedByAnvilAI; // Use this for streak
 
             if (aiCaptureOccurredThisTurnForStreak) {
-                newStreakForAIPlayer += (piecesDestroyedByAICount > 0 ? piecesDestroyedByAICount : 1);
+                newStreakForAIPlayer += (moveForApplyMoveAI!.type === 'self-destruct' ? (finalCapturedPiecesForAI[currentPlayer].length - (originalGameState.capturedPieces[currentPlayer]?.length || 0)) : 1);
                 if (!firstBloodAchieved) {
                     setKillStreakFlashMessage("FIRST BLOOD!");
                     setKillStreakFlashMessageKey(k => k + 1);
