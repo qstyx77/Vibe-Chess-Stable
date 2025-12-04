@@ -235,7 +235,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'commander-promo': {
-                 if (!room || !data.square) return;
+                if (!room || !data.square) return;
 
                 const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.square);
                 const piece = room.gameState.board[row]?.[col]?.piece;

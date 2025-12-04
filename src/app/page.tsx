@@ -645,8 +645,9 @@ setIsBlackAI(newIsBlackAI);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
             
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
-            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
+            // This is the key fix: ensure the client knows the server has processed the promotion
             setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
+            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
 
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
@@ -1115,6 +1116,8 @@ setIsBlackAI(newIsBlackAI);
             if(ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
             }
+            // After sending, we wait for the server's authoritative response ('commander-promo-finalized')
+            // This prevents the client from getting out of sync.
             return;
         }
 
