@@ -100,6 +100,7 @@ const processRankedQueue = async () => {
                 lastMoveTo: null,
                 firstBloodAchieved: false,
                 playerWhoGotFirstBlood: null,
+                isAwaitingCommanderPromotion: false,
                 gameInfo: { message: " ", isCheck: false, isCheckmate: false, isStalemate: false, gameOver: false },
                 shroomSpawnCounter: 0,
                 nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
@@ -156,6 +157,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         lastMoveTo: null,
                         firstBloodAchieved: false,
                         playerWhoGotFirstBlood: null,
+                        isAwaitingCommanderPromotion: false,
                         resurrectedSquare: null,
                         gameInfo: {
                             message: " ",
@@ -242,7 +244,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     piece.type = 'commander';
                     piece.id = `${piece.id}_CMD_SRV`;
                     
-                    const playerWhoActed = room.gameState.playerWhoGotFirstBlood;
+                    // Reset the promotion flags
+                    room.gameState.isAwaitingCommanderPromotion = false;
+                    room.gameState.playerWhoGotFirstBlood = null;
+
+                    const playerWhoActed = room.gameState.currentPlayer;
                     const opponent = playerWhoActed === 'white' ? 'black' : 'white';
                     room.gameState.currentPlayer = opponent;
                     
@@ -259,7 +265,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     }
                     
                     broadcastToRoom(ws.roomId!, {
-                        type: 'game-move',
+                        type: 'commander-promo-finalized',
                         fullGameState: room.gameState,
                         lastPlayer: playerWhoActed
                     });
@@ -346,6 +352,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if(!room.gameState.firstBloodAchieved) {
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayer;
+                        room.gameState.isAwaitingCommanderPromotion = true;
                         // Don't change turn yet, wait for commander selection
                          room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
                          // Send a specific message to ensure clients are in sync

@@ -625,9 +625,15 @@ setIsBlackAI(newIsBlackAI);
 
   const handleIncomingData = useCallback((data: any) => {
       switch (data.type) {
+        case 'commander-promo-finalized':
         case 'game-move': {
             const { fullGameState } = data;
             if (!fullGameState) return;
+
+            if (data.type === 'commander-promo-finalized') {
+                setIsAwaitingCommanderPromotion(false);
+                setPlayerWhoGotFirstBlood(null);
+            }
 
             setBoard(fullGameState.board);
             setCapturedPieces(fullGameState.capturedPieces);
@@ -640,6 +646,7 @@ setIsBlackAI(newIsBlackAI);
             
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
+            setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
 
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
@@ -1109,7 +1116,7 @@ setIsBlackAI(newIsBlackAI);
         toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
         
         setIsAwaitingCommanderPromotion(false);
-        setPlayerWhoGotFirstBlood(null); // This is the key fix to prevent re-triggering.
+        setPlayerWhoGotFirstBlood(null);
 
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
@@ -1645,7 +1652,7 @@ setIsBlackAI(newIsBlackAI);
         if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
             setFirstBloodAchieved(true);
             setPlayerWhoGotFirstBlood(capturingPlayer);
-            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
+            if (isHumanPlayer || onlineStatus === 'connected') humanPlayerAchievedFirstBloodThisTurn = true;
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
@@ -1726,7 +1733,10 @@ setIsBlackAI(newIsBlackAI);
           if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
-              setIsMoveProcessing(false);
+              // In online games, we sent the move to the server which will respond with 'awaiting-commander-promo'
+              if (onlineStatus === 'disconnected') {
+                setIsMoveProcessing(false);
+              }
               return;
           }
 
