@@ -1109,6 +1109,15 @@ setIsBlackAI(newIsBlackAI);
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
       if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
         saveStateToHistory();
+        
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
+            }
+            return;
+        }
+
         const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
         boardAfterCommanderPromo[row][col].piece!.type = 'commander';
         boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
@@ -1117,19 +1126,7 @@ setIsBlackAI(newIsBlackAI);
         
         setIsAwaitingCommanderPromotion(false);
         setPlayerWhoGotFirstBlood(null);
-
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                // Send the choice to the server and wait for the authoritative state back
-                ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
-            }
-            // For online games, we stop here. The server will handle turn progression
-            // and broadcast the new state, which will be caught by handleIncomingData.
-            return;
-        }
         
-        // This part now only runs for offline games
         const playerWhoActed = currentPlayer;
         let wasExtraTurnFromStreak = false;
         if (historyStack.length > 0) {
@@ -1538,8 +1535,7 @@ setIsBlackAI(newIsBlackAI);
             message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
             isCheck: true,
             playerWithKingInCheck: currentPlayer,
-            isCheckmate: true,
-            isStalemate: false, gameOver: true, winner: opponentPlayer
+            isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
           }));
           setBoard(finalBoardStateForTurn);
           setIsMoveProcessing(false);
