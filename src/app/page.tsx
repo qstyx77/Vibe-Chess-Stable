@@ -1121,12 +1121,15 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
+                // Send the choice to the server and wait for the authoritative state back
                 ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
             }
-             // For online games, server will handle turn progression after getting promo confirmation
+            // For online games, we stop here. The server will handle turn progression
+            // and broadcast the new state, which will be caught by handleIncomingData.
             return;
         }
         
+        // This part now only runs for offline games
         const playerWhoActed = currentPlayer;
         let wasExtraTurnFromStreak = false;
         if (historyStack.length > 0) {

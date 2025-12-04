@@ -239,21 +239,22 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                 const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
+                const playerWhoActed = room.gameState.playerWhoGotFirstBlood;
                 
-                if (piece && piece.color === room.gameState.playerWhoGotFirstBlood && piece.type === 'pawn' && piece.level === 1) {
+                if (piece && piece.color === playerWhoActed && piece.type === 'pawn' && piece.level === 1) {
                     piece.type = 'commander';
                     piece.id = `${piece.id}_CMD_SRV`;
                     
-                    // Reset the promotion flags
+                    // Reset promotion flags
                     room.gameState.isAwaitingCommanderPromotion = false;
-                    room.gameState.playerWhoGotFirstBlood = null;
-
-                    const playerWhoActed = room.gameState.currentPlayer;
+                    
                     const opponent = playerWhoActed === 'white' ? 'black' : 'white';
+                    
+                    // Set the next player's turn
                     room.gameState.currentPlayer = opponent;
                     
+                    // Check for check/mate after promotion and turn change
                     const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
-                    
                     if (isCheckmate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
                          room.gameState.gameInfo = { message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, gameOver: true, winner: playerWhoActed };
                     } else if (isStalemate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
