@@ -630,11 +630,6 @@ setIsBlackAI(newIsBlackAI);
             const { fullGameState } = data;
             if (!fullGameState) return;
 
-            if (data.type === 'commander-promo-finalized') {
-                setIsAwaitingCommanderPromotion(false);
-                setPlayerWhoGotFirstBlood(null);
-            }
-
             setBoard(fullGameState.board);
             setCapturedPieces(fullGameState.capturedPieces);
             setKillStreaks(fullGameState.killStreaks);
@@ -1108,54 +1103,54 @@ setIsBlackAI(newIsBlackAI);
     let humanPlayerAchievedFirstBloodThisTurn = false;
 
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
-      if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
-        saveStateToHistory();
-        
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
+        if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
+            saveStateToHistory();
+            
+            if (onlineStatus === 'connected') {
+                const ws = wsRef.current;
+                if(ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
+                }
+                // Client no longer progresses state; it waits for server's authoritative response.
+                return;
             }
-            // After sending, we wait for the server's authoritative response ('commander-promo-finalized')
-            // This prevents the client from getting out of sync.
+
+            // This block now only runs for local games
+            const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+            boardAfterCommanderPromo[row][col].piece!.type = 'commander';
+            boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
+            setBoard(boardAfterCommanderPromo);
+            toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
+            
+            setIsAwaitingCommanderPromotion(false);
+            setPlayerWhoGotFirstBlood(null);
+            
+            const playerWhoActed = currentPlayer;
+            const opponent = playerWhoActed === 'white' ? 'black' : 'white';
+            
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+            setLastMoveFrom(null);
+            setLastMoveTo(algebraic);
+
+            // Turn progression is now handled authoritatively by the server in online mode.
+            // For local, we set the next player's turn.
+            setCurrentPlayer(opponent);
+            const inCheck = isKingInCheck(boardAfterCommanderPromo, opponent, enPassantTargetSquare);
+             if (isCheckmate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
+                setGameInfo({ message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoActed });
+            } else if (isStalemate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
+                setGameInfo({ message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
+            } else {
+                 setGameInfo(prev => ({...prev, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false }));
+            }
             return;
+        } else {
+            toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 2500});
         }
-
-        const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-        boardAfterCommanderPromo[row][col].piece!.type = 'commander';
-        boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
-        setBoard(boardAfterCommanderPromo);
-        toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
-        
-        setIsAwaitingCommanderPromotion(false);
-        setPlayerWhoGotFirstBlood(null);
-        
-        const playerWhoActed = currentPlayer;
-        let wasExtraTurnFromStreak = false;
-        if (historyStack.length > 0) {
-            const previousSnapshot = historyStack[historyStack.length - 1];
-            if (previousSnapshot && previousSnapshot.killStreaks && playerWhoActed) {
-                const streakWhenFirstBloodOccurred = previousSnapshot.killStreaks[playerWhoActed];
-                  wasExtraTurnFromStreak = streakWhenFirstBloodOccurred === 6;
-            }
-        } else if (playerWhoActed) {
-            wasExtraTurnFromStreak = killStreaks[playerWhoActed] === 6;
-        }
-
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-        setLastMoveFrom(null);
-        setLastMoveTo(algebraic);
-
-        processMoveEnd(boardAfterCommanderPromo, playerWhoActed, wasExtraTurnFromStreak, enPassantTargetSquare);
         return;
-
-      } else {
-        toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 2500});
-      }
-      return;
     }
 
 
@@ -3242,5 +3237,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-    

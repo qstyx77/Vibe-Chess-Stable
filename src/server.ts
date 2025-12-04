@@ -247,6 +247,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     
                     // Reset promotion flags
                     room.gameState.isAwaitingCommanderPromotion = false;
+                    room.gameState.playerWhoGotFirstBlood = null;
                     
                     const opponent = playerWhoActed === 'white' ? 'black' : 'white';
                     
@@ -259,10 +260,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                          room.gameState.gameInfo = { message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, gameOver: true, winner: playerWhoActed };
                     } else if (isStalemate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
                         room.gameState.gameInfo = { message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isStalemate: true, gameOver: true, winner: 'draw' };
-                    } else if (inCheck) {
-                        room.gameState.gameInfo = { message: "Check!", isCheck: true, playerWithKingInCheck: opponent, isCheckmate: false, gameOver: false };
                     } else {
-                        room.gameState.gameInfo = { message: " ", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, gameOver: false };
+                         room.gameState.gameInfo = { message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false };
                     }
                     
                     broadcastToRoom(ws.roomId!, {
