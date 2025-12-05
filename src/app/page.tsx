@@ -1373,10 +1373,12 @@ setIsBlackAI(newIsBlackAI);
 
         const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
         if (selfDestructCapturedSomething && !firstBloodAchieved) {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(selfDestructPlayer);
-            if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+            if (onlineStatus === 'disconnected') {
+                setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood(selfDestructPlayer);
+                if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
+                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+            }
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1463,6 +1465,9 @@ setIsBlackAI(newIsBlackAI);
             if (ws && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
+            // For online games, we stop client-side processing here.
+            // The server will send back the authoritative state.
+            return;
         }
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
@@ -1612,12 +1617,12 @@ setIsBlackAI(newIsBlackAI);
               algebraic,
               oldLevelForResurrectionCheck,
               finalCapturedPiecesStateForTurn,
-              globalUniqueIdCounter
+              globalServerUniqueIdCounter
             );
             if (humanRookResData.resurrectionPerformed) {
               finalBoardStateForTurn = humanRookResData.boardWithResurrection;
               finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
-              globalUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
+              globalServerUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
               setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
               toast({
                   title: "Rook's Call!",
@@ -1647,10 +1652,12 @@ setIsBlackAI(newIsBlackAI);
 
         const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
         if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(capturingPlayer);
-            if (isHumanPlayer || onlineStatus === 'connected') humanPlayerAchievedFirstBloodThisTurn = true;
-            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+            if (onlineStatus === 'disconnected') {
+                setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood(capturingPlayer);
+                if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
+                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+            }
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
@@ -1909,13 +1916,13 @@ setIsBlackAI(newIsBlackAI);
               const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                 boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
                 0, // Original level of "rook" type is 0 for promotion
-                capturedPieces, globalUniqueIdCounter
+                capturedPieces, globalServerUniqueIdCounter
               );
               if (aiPromoRookResPerformed) {
                 boardToUpdate = boardWithResurrection;
                 setCapturedPieces(capturedPiecesAfterResurrection);
                 setBoard(boardToUpdate);
-                globalUniqueIdCounter = aiPromoRookIdCounter!;
+                globalServerUniqueIdCounter = aiPromoRookIdCounter!;
                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
@@ -2408,7 +2415,7 @@ setIsBlackAI(newIsBlackAI);
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'hero';
                               resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
-                              toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'queen';
                               resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
@@ -2455,12 +2462,12 @@ setIsBlackAI(newIsBlackAI);
                   aiToAlg as AlgebraicSquare,
                   oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
-                  globalUniqueIdCounter
+                  globalServerUniqueIdCounter
               );
               if (aiRookResData.resurrectionPerformed) {
                   finalBoardStateForAI = aiRookResData.boardWithResurrection;
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
-                  globalUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
+                  globalServerUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 3000 });
                   if(aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander'){
@@ -2527,13 +2534,13 @@ setIsBlackAI(newIsBlackAI);
                             const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                                 finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, aiToAlg as AlgebraicSquare, 
                                 0, // Original level of "rook" type is 0 for promotion
-                                finalCapturedPiecesForAI, globalUniqueIdCounter
+                                finalCapturedPiecesForAI, globalServerUniqueIdCounter
                             );
                             if (aiPromoRookResPerformed) {
                                 finalBoardStateForAI = boardWithResurrection;
                                 setCapturedPieces(capturedPiecesAfterResurrection);
                                 setBoard(finalBoardStateForAI);
-                                globalUniqueIdCounter = aiPromoRookIdCounter!;
+                                globalServerUniqueIdCounter = aiPromoRookIdCounter!;
                                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
                                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
                                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){

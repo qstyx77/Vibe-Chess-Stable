@@ -247,7 +247,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     
                     // Reset promotion flags
                     room.gameState.isAwaitingCommanderPromotion = false;
-                    room.gameState.playerWhoGotFirstBlood = null;
                     
                     const opponent = playerWhoActed === 'white' ? 'black' : 'white';
                     
@@ -516,3 +515,4 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
