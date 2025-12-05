@@ -344,24 +344,37 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     wasCapture = true;
                     room.gameState.capturedPieces[movingPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                 }
-
+                
+                let isFirstBloodThisTurn = false;
                 if (wasCapture) {
                     room.gameState.killStreaks[movingPlayer] = (room.gameState.killStreaks[movingPlayer] || 0) + 1;
                     room.gameState.killStreaks[opponentPlayer] = 0;
                     if(!room.gameState.firstBloodAchieved) {
+                        isFirstBloodThisTurn = true;
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayer;
                         room.gameState.isAwaitingCommanderPromotion = true;
-                        // Don't change turn yet, wait for commander selection
-                         room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
-                         // Send a specific message to ensure clients are in sync
-                         broadcastToRoom(ws.roomId!, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                         return; // IMPORTANT: Stop processing until commander is selected
                     }
                 } else {
                     room.gameState.killStreaks[movingPlayer] = 0;
                 }
 
+                if (isFirstBloodThisTurn) {
+                     room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
+                     broadcastToRoom(ws.roomId!, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
+                     return;
+                }
+
+
+                // Handle promotions explicitly based on move payload
+                if (move.type === 'promotion') {
+                    const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(move.to);
+                    const piece = room.gameState.board[row][col].piece;
+                    if (piece && piece.color === movingPlayer) {
+                        piece.type = move.promoteTo || 'queen';
+                    }
+                }
+                
                 room.gameState.gameMoveCounter++;
                 const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
                 const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
@@ -511,8 +524,3 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
-
-    
-
-    
-
