@@ -625,7 +625,33 @@ setIsBlackAI(newIsBlackAI);
 
   const handleIncomingData = useCallback((data: any) => {
       switch (data.type) {
-        case 'commander-promo-finalized':
+        case 'commander-promo-finalized': {
+            const { fullGameState } = data;
+            if (!fullGameState) return;
+
+            setBoard(fullGameState.board);
+            setCapturedPieces(fullGameState.capturedPieces);
+            setKillStreaks(fullGameState.killStreaks);
+            setGameInfo(fullGameState.gameInfo);
+            setCurrentPlayer(fullGameState.currentPlayer);
+            setLastMoveFrom(fullGameState.lastMoveFrom || null);
+            setLastMoveTo(fullGameState.lastMoveTo || null);
+            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
+            setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
+            // This is the key fix: ensure the client knows the server has processed the promotion
+            setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
+            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
+
+            setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
+            setBlackTimeouts(fullGameState.blackTimeouts || 0);
+
+            if(fullGameState.gameInfo.gameOver) {
+                stopTurnTimer();
+            } else {
+                startTurnTimer(fullGameState.currentPlayer);
+            }
+            break;
+        }
         case 'game-move': {
             const { fullGameState } = data;
             if (!fullGameState) return;
@@ -640,7 +666,6 @@ setIsBlackAI(newIsBlackAI);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
             
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
-            // This is the key fix: ensure the client knows the server has processed the promotion
             setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
 
@@ -1112,6 +1137,8 @@ setIsBlackAI(newIsBlackAI);
                     ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
                 }
                 // Client no longer progresses state; it waits for server's authoritative response.
+                setIsAwaitingCommanderPromotion(false); // Optimistically clear
+                setPlayerWhoGotFirstBlood(null);
                 return;
             }
 
@@ -1372,13 +1399,11 @@ setIsBlackAI(newIsBlackAI);
         }
 
         const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-        if (selfDestructCapturedSomething && !firstBloodAchieved) {
-            if (onlineStatus === 'disconnected') {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(selfDestructPlayer);
-                if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
-            }
+        if (selfDestructCapturedSomething && !firstBloodAchieved && onlineStatus === 'disconnected') {
+            setFirstBloodAchieved(true);
+            setPlayerWhoGotFirstBlood(selfDestructPlayer);
+            if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
+            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1651,13 +1676,11 @@ setIsBlackAI(newIsBlackAI);
         }
 
         const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-        if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
-            if (onlineStatus === 'disconnected') {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(capturingPlayer);
-                if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
-            }
+        if (pieceWasCapturedThisTurn && !firstBloodAchieved && onlineStatus === 'disconnected') {
+            setFirstBloodAchieved(true);
+            setPlayerWhoGotFirstBlood(capturingPlayer);
+            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
+            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
