@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -79,8 +78,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <ul className="list-disc list-inside pl-4 mt-1">
                     <li className="text-sm font-medium">Stalemate: If the player whose turn it is to move is not in check but has no legal moves.</li>
                     <li className="text-sm font-medium">Threefold Repetition: If the same board position (including piece locations, current player, castling rights, and en passant target) occurs three times.</li>
-                    <li className="text-sm font-medium">Insufficient Material: This is not automatically enforced by the game, but players can agree to a draw if no checkmate is possible.</li>
-                    <li className="text-sm font-medium">50-Move Rule: Not currently enforced.</li>
                   </ul>
                 </PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
@@ -287,7 +284,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <ul>
                   <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square)." />
                   <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). The intermediate square must be empty (needs line of sight). If moving 2 squares to capture a piece that is checking the King, the King can pass through an intermediate square even if that intermediate square is attacked *only by the piece being captured*." />
-                  <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all previous abilities." />
+                  <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all other abilities." />
                   <LevelRule description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained." />
                 </ul>
               </AccordionContent>
