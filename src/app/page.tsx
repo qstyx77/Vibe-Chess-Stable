@@ -50,6 +50,8 @@ import { AuthWidget } from '@/components/auth/AuthWidget';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
+import { Card, CardContent } from '@/components/ui/card';
+import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 
 
 let globalUniqueIdCounter = 0;
@@ -1399,11 +1401,18 @@ setIsBlackAI(newIsBlackAI);
         }
 
         const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-        if (selfDestructCapturedSomething && !firstBloodAchieved && onlineStatus === 'disconnected') {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(selfDestructPlayer);
-            if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+        if (selfDestructCapturedSomething && !firstBloodAchieved) {
+            if (onlineStatus === 'connected') {
+                const ws = wsRef.current;
+                if(ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
+                }
+            } else {
+                 setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood(selfDestructPlayer);
+                if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
+                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+            }
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1675,12 +1684,19 @@ setIsBlackAI(newIsBlackAI);
           }
         }
 
-        const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-        if (pieceWasCapturedThisTurn && !firstBloodAchieved && onlineStatus === 'disconnected') {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(capturingPlayer);
-            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+        if (pieceWasCapturedThisTurn && !firstBloodAchieved) {
+            if (onlineStatus === 'connected') {
+                const ws = wsRef.current;
+                if(ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
+                }
+            } else {
+                setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood(capturingPlayer);
+                const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI) || (capturingPlayer === 'black' && isBlackAI));
+                if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
+                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+            }
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
@@ -3043,8 +3059,26 @@ setIsBlackAI(newIsBlackAI);
 
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
+  const renderCapturedPieces = (color: PlayerColor, capturedBy: PlayerColor) => {
+    const pieces = capturedPieces[capturedBy];
+    return (
+      <Card className="flex-grow">
+        <CardContent className="p-2">
+          <h3 className="text-sm font-medium text-muted-foreground mb-2">Captured {color.charAt(0).toUpperCase() + color.slice(1)} Pieces</h3>
+          <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[28px] p-1">
+            {pieces.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : pieces.map(p => (
+              <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
+                <ChessPieceDisplay piece={p} />
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
-    <div className={cn("container mx-auto p-4 flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
+    <div className={cn("min-h-screen w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
       {/* Flash Messages & Overlays */}
       {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash pointer-events-none" />}
       {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash pointer-events-none" />}
@@ -3077,178 +3111,183 @@ setIsBlackAI(newIsBlackAI);
         </div>
       )}
       
-      <div className="relative z-20 flex-grow flex flex-col">
-        {/* Header Section */}
-        <div className="w-full flex flex-col items-center space-y-4 mb-4">
-          <div className="w-full grid grid-cols-1 md:grid-cols-3 items-center gap-4">
-              <div className="flex-grow md:flex-grow-0"></div> {/* Spacer */}
-              <div className="flex items-center justify-center gap-0 order-2 md:order-2">
-                <Image
-                  src="/images/rook-title.gif"
-                  alt="Vibe Chess Rook"
-                  width={60}
-                  height={60}
-                  unoptimized
-                  className="transform scale-x-[-1] w-10 h-10 sm:w-16 sm:h-16"
-                  data-ai-hint="chess rook"
-                />
-                <h1 className="text-3xl md:text-5xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
-                <Image
-                  src="/images/rook-title.gif"
-                  alt="Vibe Chess Rook"
-                  width={60}
-                  height={60}
-                  unoptimized
-                  className="w-10 h-10 sm:w-16 sm:h-16"
-                  data-ai-hint="chess rook"
-                />
-              </div>
-              <div className="flex justify-center md:justify-end order-3 md:order-3 w-full md:w-auto">
-                <AuthWidget />
-              </div>
-            </div>
-          <div className="flex flex-wrap justify-center items-center gap-2">
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-sm font-medium">
-                  {isOnlineGameInProgress ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isOnlineGameInProgress ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={resetGame}>
-                    {isOnlineGameInProgress ? 'Yes, Resign' : 'Yes, Reset'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-sm font-medium">
-              <BookOpen className="mr-1" /> Rules
-            </Button>
-            <Link href="/leaderboard">
-              <Button variant="outline" aria-label="View Leaderboard" className="h-8 px-2 text-sm font-medium">
-                <Trophy className="mr-1" /> Leaderboard
-              </Button>
-            </Link>
-            <Button variant="outline" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-sm font-medium">
-              <Undo2 className="mr-1" /> Undo
-            </Button>
-            <Button variant="outline" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-sm font-medium">
-              <Bot className="mr-1" /> White AI: {isWhiteAI ? 'On' : 'Off'}
-            </Button>
-            <Button variant="outline" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-sm font-medium">
-              <Bot className="mr-1" /> Black AI: {isBlackAI ? 'On' : 'Off'}
-            </Button>
-              <Button variant="outline" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-8 px-2 text-sm font-medium">
-              <View className="mr-1" /> View: {viewMode === 'flipping' ? 'Hotseat' : 'Tabletop'}
-            </Button>
-          </div>
-          <div className="flex flex-wrap justify-center items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleRankedPlay}
-              disabled={!user || onlineStatus !== 'disconnected'}
-              className="h-8 px-2 text-sm font-medium"
-              aria-label="Play Ranked Match"
-            >
-              <Trophy className="mr-1" />
-              {getRankedButtonText()}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => handleOnlinePlay('create')}
-              disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
-              className="h-8 px-2 text-sm font-medium"
-              aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
-            >
-              {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
-              {getButtonText()}
-            </Button>
-            <div className="flex gap-1 items-center">
-              <Input
-                type="text"
-                placeholder="Room ID"
-                value={inputRoomId}
-                onChange={(e) => setInputRoomId(e.target.value)}
-                className="h-8 px-2 text-xs font-medium w-24"
-                disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
-              />
-              <Button
-                variant="outline"
-                onClick={() => handleOnlinePlay('join')}
-                disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
-                className="h-8 px-2 text-sm font-medium"
-                aria-label="Join Online Game"
-              >
-                Join
-              </Button>
-            </div>
-          </div>
-          <div className="w-full text-center h-6">
-            {getStatusMessage()}
-          </div>
-        </div>
+      <div className="relative z-20 flex-grow w-full p-2 lg:p-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 h-full">
 
-        {/* Main Content Area */}
-        <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 mt-4">
-          {/* Controls Container */}
-          <div className="w-full lg:w-1/3 order-1 lg:order-2">
-            <GameControls
+          {/* Left Column (Captured Pieces) */}
+          <div className="hidden lg:flex flex-col justify-center">
+            {renderCapturedPieces('black', 'white')}
+          </div>
+
+          {/* Center Column (Board and Main Controls) */}
+          <div className="flex flex-col items-center justify-center gap-2">
+            <div className="w-full flex items-center justify-between">
+                <div className="w-1/3"></div>
+                <div className="w-1/3 flex items-center justify-center gap-0">
+                     <Image
+                        src="/images/rook-title.gif"
+                        alt="Vibe Chess Rook"
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="transform scale-x-[-1] w-8 h-8 sm:w-12 sm:h-12"
+                        data-ai-hint="chess rook"
+                    />
+                    <h1 className="text-2xl md:text-4xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
+                    <Image
+                        src="/images/rook-title.gif"
+                        alt="Vibe Chess Rook"
+                        width={40}
+                        height={40}
+                        unoptimized
+                        className="w-8 h-8 sm:w-12 sm:h-12"
+                        data-ai-hint="chess rook"
+                    />
+                </div>
+                 <div className="w-1/3 flex justify-end">
+                    <AuthWidget />
+                </div>
+            </div>
+
+             <div className={cn("text-center text-md font-bold min-h-[1.5em]",
+                gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
+                (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
+              )}>
+               {gameInfo.message}
+             </div>
+            
+            <div className="w-full">
+              <ChessBoard
+                boardState={board}
+                selectedSquare={selectedSquare}
+                possibleMoves={possibleMoves}
+                enemySelectedSquare={enemySelectedSquare}
+                enemyPossibleMoves={enemyPossibleMoves}
+                onSquareClick={handleSquareClick}
+                playerColor={boardOrientation}
+                currentPlayerColor={currentPlayer}
+                isInteractionDisabled={isInteractionDisabled}
+                applyBoardOpacityEffect={applyBoardOpacityEffect}
+                playerInCheck={gameInfo.playerWithKingInCheck}
+                viewMode={viewMode}
+                animatedSquareTo={animatedSquareTo}
+                lastMoveFrom={lastMoveFrom}
+                lastMoveTo={lastMoveTo}
+                isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+                playerToSacrificePawn={playerToSacrificePawn}
+                isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
+                playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
+                isEnPassantTarget={enPassantTargetSquare}
+                resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
+                onPieceHover={handlePieceHover}
+              />
+            </div>
+            
+            <div className="flex flex-wrap justify-center items-center gap-2 mt-2">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-xs">
+                    {isOnlineGameInProgress ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {isOnlineGameInProgress ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={resetGame}>
+                      {isOnlineGameInProgress ? 'Yes, Resign' : 'Yes, Reset'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-xs">
+                <BookOpen className="mr-1" /> Rules
+              </Button>
+              <Link href="/leaderboard">
+                <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-8 px-2 text-xs">
+                  <Trophy className="mr-1" /> Leaderboard
+                </Button>
+              </Link>
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-xs">
+                <Undo2 className="mr-1" /> Undo
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-xs">
+                <Bot className="mr-1" /> W AI: {isWhiteAI ? 'On' : 'Off'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-xs">
+                <Bot className="mr-1" /> B AI: {isBlackAI ? 'On' : 'Off'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-8 px-2 text-xs">
+                <View className="mr-1" /> View
+              </Button>
+            </div>
+             <div className="flex flex-wrap justify-center items-center gap-2">
+                <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRankedPlay}
+                disabled={!user || onlineStatus !== 'disconnected'}
+                className="h-8 px-2 text-xs"
+                aria-label="Play Ranked Match"
+                >
+                <Trophy className="mr-1" />
+                {getRankedButtonText()}
+                </Button>
+                <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOnlinePlay('create')}
+                disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
+                className="h-8 px-2 text-xs"
+                aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
+                >
+                {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
+                {getButtonText()}
+                </Button>
+                <div className="flex gap-1 items-center">
+                <Input
+                    type="text"
+                    placeholder="Room ID"
+                    value={inputRoomId}
+                    onChange={(e) => setInputRoomId(e.target.value)}
+                    className="h-8 px-2 text-xs w-24"
+                    disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
+                />
+                <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleOnlinePlay('join')}
+                    disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
+                    className="h-8 px-2 text-xs"
+                    aria-label="Join Online Game"
+                >
+                    Join
+                </Button>
+                </div>
+            </div>
+             <div className="w-full text-center h-6">
+                {getStatusMessage()}
+            </div>
+          </div>
+
+          {/* Right Column (Game Controls) */}
+          <div className="flex flex-col justify-center">
+             <GameControls
                 currentPlayer={currentPlayer}
-                gameStatusMessage={
-                  rankedQueueStatus === 'searching' ? 'Searching for match...' :
-                  isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer && !((currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected')) ? `${getPlayerDisplayName(playerWhoGotFirstBlood!)}: Select L1 Pawn for Commander!` :
-                    isResurrectionPromotionInProgress ? `${getPlayerDisplayName(playerForPostResurrectionPromotion!)} promoting piece!` :
-                      isAwaitingPawnSacrifice ? `${getPlayerDisplayName(playerToSacrificePawn!)} select Pawn/Cmdr to sacrifice!` :
-                        isAwaitingRookSacrifice ? `${getPlayerDisplayName(playerToSacrificeForRook!)}: Rook action pending.` :
-                          gameInfo.message || " "
-                }
                 capturedPieces={capturedPieces}
-                isCheck={gameInfo.isCheck}
                 isGameOver={gameInfo.gameOver}
                 killStreaks={killStreaks}
-                isWhiteAI={isWhiteAI && onlineStatus === 'disconnected'}
-                isBlackAI={isBlackAI && onlineStatus === 'disconnected'}
                 pieceForInfoDisplay={pieceForInfoDisplay}
                 localPlayerColor={localPlayerColor}
                 getPlayerDisplayName={getPlayerDisplayName}
                 onlineStatus={onlineStatus}
                 turnTimer={turnTimer}
                 activeTimerPlayer={activeTimerPlayer}
-              />
-          </div>
-          {/* Board Container */}
-          <div className="w-full lg:w-2/3 flex justify-center order-2 lg:order-1">
-              <ChessBoard
-                  boardState={board}
-                  selectedSquare={selectedSquare}
-                  possibleMoves={possibleMoves}
-                  enemySelectedSquare={enemySelectedSquare}
-                  enemyPossibleMoves={enemyPossibleMoves}
-                  onSquareClick={handleSquareClick}
-                  playerColor={boardOrientation}
-                  currentPlayerColor={currentPlayer}
-                  isInteractionDisabled={isInteractionDisabled}
-                  applyBoardOpacityEffect={applyBoardOpacityEffect}
-                  playerInCheck={gameInfo.playerWithKingInCheck}
-                  viewMode={viewMode}
-                  animatedSquareTo={animatedSquareTo}
-                  lastMoveFrom={lastMoveFrom}
-                  lastMoveTo={lastMoveTo}
-                  isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
-                  playerToSacrificePawn={playerToSacrificePawn}
-                  isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
-                  playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
-                  isEnPassantTarget={enPassantTargetSquare}
-                  resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
-                  onPieceHover={handlePieceHover}
               />
           </div>
         </div>

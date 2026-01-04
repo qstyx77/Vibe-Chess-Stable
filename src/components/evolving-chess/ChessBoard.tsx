@@ -64,7 +64,7 @@ export function ChessBoard({
   return (
     <div
       className={cn(
-        "grid grid-cols-8 w-full max-w-md md:max-w-xl aspect-square overflow-hidden border-4 border-border group",
+        "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-2xl",
         applyBoardOpacityEffect && "opacity-70",
         isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"

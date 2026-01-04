@@ -14,13 +14,9 @@ import { useFirestore } from '@/firebase';
 
 interface GameControlsProps {
   currentPlayer: PlayerColor;
-  gameStatusMessage: string;
   capturedPieces: { white: Piece[], black: Piece[] };
-  isCheck: boolean;
   isGameOver: boolean;
   killStreaks: { white: number, black: number };
-  isWhiteAI: boolean;
-  isBlackAI: boolean;
   pieceForInfoDisplay: Piece | null;
   localPlayerColor?: PlayerColor | null;
   getPlayerDisplayName: (player: PlayerColor) => string;
@@ -31,13 +27,9 @@ interface GameControlsProps {
 
 export function GameControls({
   currentPlayer,
-  gameStatusMessage,
   capturedPieces,
-  isCheck,
   isGameOver,
   killStreaks,
-  isWhiteAI,
-  isBlackAI,
   pieceForInfoDisplay,
   localPlayerColor,
   getPlayerDisplayName,
@@ -55,48 +47,11 @@ export function GameControls({
   
   const { data: userData } = useDoc(userDocRef);
 
-
-  const renderCapturedPieces = (color: PlayerColor) => {
-    // Corrected logic: Show pieces of 'color' that have been captured.
-    // White captures black pieces, so they go in the 'white' array.
-    const actualCaptured = color === 'white' ? capturedPieces.white : capturedPieces.black;
-    
-    return (
-      <div>
-        <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
-          {actualCaptured.length === 0 && <span className="text-sm font-medium text-muted-foreground">None</span>}
-          {actualCaptured.map(p => (
-            <div key={p.id} className="w-6 h-6 relative">
-              <ChessPieceDisplay piece={p} />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  let currentTurnMessage = gameStatusMessage;
-   if (!currentTurnMessage && !isGameOver) {
-    currentTurnMessage = " ";
-  }
-  
   const timerDisplay = onlineStatus === 'connected' ? (turnTimer !== null ? turnTimer.toString().padStart(2, '0') : '45') : '00';
 
-
   return (
-    <Card className="w-full shadow-lg">
+    <Card className="w-full shadow-lg h-full flex flex-col">
       <CardHeader className="pb-2">
-          <CardDescription
-            className={cn(
-              "text-center text-sm font-medium min-h-[1.5em]",
-              isCheck && !isGameOver && "text-destructive font-bold animate-pulse",
-              (gameStatusMessage.includes("(AI) is thinking...") && "text-primary font-bold")
-            )}
-          >
-           {currentTurnMessage}
-          </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
         {user ? (
           <div className="text-center">
             <p className="text-lg font-semibold text-primary">{user.displayName || user.email}</p>
@@ -109,6 +64,8 @@ export function GameControls({
             Not logged in
           </div>
         )}
+      </CardHeader>
+      <CardContent className="space-y-4 flex-grow flex flex-col">
         <Separator/>
         <div className="text-center">
           <p className="text-sm font-medium text-muted-foreground">Current Player</p>
@@ -142,17 +99,19 @@ export function GameControls({
         <Separator />
 
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured Black Pieces:</h3>
-          {renderCapturedPieces('white')}
-        </div>
-        <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
-          {renderCapturedPieces('black')}
+          <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
+            {capturedPieces.black.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : capturedPieces.black.map(p => (
+              <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
+                <ChessPieceDisplay piece={p} />
+              </div>
+            ))}
+          </div>
         </div>
 
         <Separator />
         
-        <div className="min-h-[140px]">
+        <div className="flex-grow min-h-[140px]">
           {pieceForInfoDisplay ? (
             <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
           ) : (
@@ -166,5 +125,3 @@ export function GameControls({
     </Card>
   );
 }
-
-    
