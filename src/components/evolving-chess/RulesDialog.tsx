@@ -74,14 +74,20 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn.
                 </PieceRule>
                 <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
+                <PieceRule title="Draw Conditions">
+                  A game can end in a draw in several ways:
+                  <ul className="list-disc list-inside pl-4 mt-1">
+                    <li className="text-sm font-medium">Stalemate: If the player whose turn it is to move is not in check but has no legal moves.</li>
+                    <li className="text-sm font-medium">Threefold Repetition: If the same board position (including piece locations, current player, castling rights, and en passant target) occurs three times.</li>
+                    <li className="text-sm font-medium">Insufficient Material: This is not automatically enforced by the game, but players can agree to a draw if no checkmate is possible.</li>
+                    <li className="text-sm font-medium">50-Move Rule: Not currently enforced.</li>
+                  </ul>
+                </PieceRule>
                 <PieceRule title="Auto-Checkmate on Extra Turn">
                   If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn/commander promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
                 </PieceRule>
                 <PieceRule title="Push-Back Self-Check (Auto-Loss)">
                   If a Level 4+ Pawn or Commander uses its Push-Back ability, and this push directly results in its own King being put into check, it is an immediate loss for the player who made the push. The opponent wins by auto-checkmate.
-                </PieceRule>
-                <PieceRule title="Threefold Repetition">
-                  If the same board position (including piece and item locations, current player, castling rights, and en passant target square) occurs three times during a game, the game is a draw.
                 </PieceRule>
                 <PieceRule title="Online Play: Turn Timer">
                   In online games, each player has 45 seconds to make a move. If the timer expires, the turn is automatically passed to the opponent. If a player allows their timer to expire 3 times in a single game, they lose by timeout.
