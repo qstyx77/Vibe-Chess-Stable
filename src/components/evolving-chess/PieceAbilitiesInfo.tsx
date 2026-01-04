@@ -76,7 +76,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
 
   return (
-    <div className="text-center text-sm font-medium">
+    <div className="text-center text-xs">
       <h3 className="font-bold text-primary">{pieceName} - Level {piece.level || 1}</h3>
       <ul className="list-none p-0 m-0">
         {abilities.map((ability, index) => (

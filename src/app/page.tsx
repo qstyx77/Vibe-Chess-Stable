@@ -3112,7 +3112,7 @@ setIsBlackAI(newIsBlackAI);
       )}
       
       <div className="relative z-20 flex-grow w-full p-2 lg:p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-4 h-full">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-2 h-full">
 
           {/* Left Column (Captured Pieces) */}
           <div className="hidden lg:flex flex-col justify-center">

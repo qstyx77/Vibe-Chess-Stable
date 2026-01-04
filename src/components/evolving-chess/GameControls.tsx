@@ -65,62 +65,57 @@ export function GameControls({
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-4 flex-grow flex flex-col">
-        <Separator/>
-        <div className="text-center">
-          <p className="text-sm font-medium text-muted-foreground">Current Player</p>
-          <p className={cn(
-              "text-xl font-semibold font-sans",
-              currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
-              isGameOver && "opacity-50"
-            )}
-          >
-            {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
-          </p>
-          {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
-            <div className="text-center mt-2">
-              <p className="text-sm font-medium text-muted-foreground">Time Left</p>
-              <p className="text-xl font-semibold font-mono text-primary animate-pulse">
-                {timerDisplay}
-              </p>
+      <CardContent className="space-y-2 flex-grow flex flex-col">
+        {pieceForInfoDisplay ? (
+            <div className="flex-grow flex flex-col justify-center">
+                 <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
             </div>
-          )}
-        </div>
+        ) : (
+            <>
+                <Separator/>
+                <div className="text-center">
+                  <p className="text-sm font-medium text-muted-foreground">Current Player</p>
+                  <p className={cn(
+                      "text-xl font-semibold font-sans",
+                      currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
+                      isGameOver && "opacity-50"
+                    )}
+                  >
+                    {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
+                  </p>
+                  {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
+                    <div className="text-center mt-1">
+                      <p className="text-xs font-medium text-muted-foreground">Time Left</p>
+                      <p className="text-lg font-semibold font-mono text-primary animate-pulse">
+                        {timerDisplay}
+                      </p>
+                    </div>
+                  )}
+                </div>
 
-        <div className="text-center mt-2 space-y-1">
-          <p className="text-sm font-medium text-destructive">
-            White's Streak: {killStreaks.white}
-          </p>
-          <p className="text-sm font-medium text-destructive">
-            Black's Streak: {killStreaks.black}
-          </p>
-        </div>
+                <div className="text-center space-y-1">
+                  <p className="text-xs font-medium text-destructive">
+                    White's Streak: {killStreaks.white}
+                  </p>
+                  <p className="text-xs font-medium text-destructive">
+                    Black's Streak: {killStreaks.black}
+                  </p>
+                </div>
 
-        <Separator />
-
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
-          <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
-            {capturedPieces.black.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : capturedPieces.black.map(p => (
-              <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
-                <ChessPieceDisplay piece={p} />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-        
-        <div className="flex-grow min-h-[140px]">
-          {pieceForInfoDisplay ? (
-            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
-          ) : (
-             <div className="text-center text-sm font-medium text-muted-foreground pt-2">
-                Select or hover over a piece to see its abilities.
-            </div>
-          )}
-        </div>
-
+                <Separator />
+                
+                <div className="flex-grow">
+                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
+                  <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
+                    {capturedPieces.white.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : capturedPieces.white.map(p => (
+                      <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
+                        <ChessPieceDisplay piece={p} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+             </>
+        )}
       </CardContent>
     </Card>
   );
