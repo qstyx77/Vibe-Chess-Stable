@@ -40,15 +40,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${pressStart2P.variable}`}>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased min-h-screen flex flex-col`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col`}>
         <FirebaseClientProvider>
-          <main className="flex-grow">
+          <main className="flex-grow flex flex-col">
             {children}
           </main>
           <Toaster />
-          <footer className="py-4 text-center text-sm font-medium text-muted-foreground">
-            Made By Sugga
-          </footer>
         </FirebaseClientProvider>
       </body>
     </html>

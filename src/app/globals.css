@@ -10,6 +10,7 @@ html {
   -ms-interpolation-mode: nearest-neighbor; /* IE */
   -webkit-text-size-adjust: 100%; /* Prevent font scaling in Safari */
   text-size-adjust: 100%; /* Prevent font scaling in other browsers */
+  font-size: 90%; /* Reduce base font size for a more compact UI */
 }
 
 body {
@@ -159,5 +160,6 @@ body {
   animation: fade-to-black 2.5s ease-in forwards;
 }
     
+
 
 

@@ -152,10 +152,10 @@ export function ChessSquare({
           />
         </div>
       )}
-      <span className="absolute bottom-0.5 left-0.5 text-xs font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20">
+      <span className="absolute bottom-0.5 left-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20">
         {squareData.algebraic}
       </span>
-       <span className="absolute top-0.5 right-0.5 text-xs font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20">
+       <span className="absolute top-0.5 right-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20">
         {squareData.algebraic}
       </span>
     </button>

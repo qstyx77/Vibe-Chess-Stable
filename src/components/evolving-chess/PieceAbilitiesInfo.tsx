@@ -77,8 +77,8 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
 
   return (
     <div className="text-center text-xs">
-      <h3 className="font-bold text-primary">{pieceName} - Level {piece.level || 1}</h3>
-      <ul className="list-none p-0 m-0">
+      <h3 className="font-bold text-primary text-sm">{pieceName} - Level {piece.level || 1}</h3>
+      <ul className="list-none p-0 m-0 text-[0.7rem]">
         {abilities.map((ability, index) => (
           <li key={index}>{ability}</li>
         ))}

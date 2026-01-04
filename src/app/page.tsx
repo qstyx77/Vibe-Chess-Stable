@@ -3064,10 +3064,10 @@ setIsBlackAI(newIsBlackAI);
     return (
       <Card className="flex-grow">
         <CardContent className="p-2">
-          <h3 className="text-sm font-medium text-muted-foreground mb-2">Captured {color.charAt(0).toUpperCase() + color.slice(1)} Pieces</h3>
-          <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[28px] p-1">
+          <h3 className="text-xs font-medium text-muted-foreground mb-1">Captured {color.charAt(0).toUpperCase() + color.slice(1)}</h3>
+          <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[24px] p-1">
             {pieces.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : pieces.map(p => (
-              <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
+              <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
                 <ChessPieceDisplay piece={p} />
               </div>
             ))}
@@ -3078,13 +3078,13 @@ setIsBlackAI(newIsBlackAI);
   };
 
   return (
-    <div className={cn("min-h-screen w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
+    <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
       {/* Flash Messages & Overlays */}
       {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash pointer-events-none" />}
       {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash pointer-events-none" />}
       {showCheckmatePatternFlash && <div key={`checkmate-${checkmatePatternFlashKey}`} className="fixed inset-0 z-10 animate-checkmate-pattern-flash pointer-events-none" />}
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
-      {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
+      {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
       
       {showTimerWarning && (
         <div key={`timer-warning-${timerWarningKey}`} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
@@ -3111,16 +3111,16 @@ setIsBlackAI(newIsBlackAI);
         </div>
       )}
       
-      <div className="relative z-20 flex-grow w-full p-2 lg:p-4">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto_1fr] gap-2 h-full">
+      <div className="relative z-20 flex flex-col flex-grow w-full p-1 md:p-2">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-2 h-full flex-grow">
 
-          {/* Left Column (Captured Pieces) */}
-          <div className="hidden lg:flex flex-col justify-center">
+          {/* Left Column (Captured Pieces - Desktop only) */}
+          <div className="hidden md:flex flex-col justify-center">
             {renderCapturedPieces('black', 'white')}
           </div>
 
           {/* Center Column (Board and Main Controls) */}
-          <div className="flex flex-col items-center justify-center gap-2">
+          <div className="flex flex-col items-center justify-between flex-grow gap-1">
             <div className="w-full flex items-center justify-between">
                 <div className="w-1/3"></div>
                 <div className="w-1/3 flex items-center justify-center gap-0">
@@ -3130,17 +3130,17 @@ setIsBlackAI(newIsBlackAI);
                         width={40}
                         height={40}
                         unoptimized
-                        className="transform scale-x-[-1] w-8 h-8 sm:w-12 sm:h-12"
+                        className="transform scale-x-[-1] w-6 h-6 sm:w-10 sm:h-10"
                         data-ai-hint="chess rook"
                     />
-                    <h1 className="text-2xl md:text-4xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
+                    <h1 className="text-xl md:text-3xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
                     <Image
                         src="/images/rook-title.gif"
                         alt="Vibe Chess Rook"
                         width={40}
                         height={40}
                         unoptimized
-                        className="w-8 h-8 sm:w-12 sm:h-12"
+                        className="w-6 h-6 sm:w-10 sm:h-10"
                         data-ai-hint="chess rook"
                     />
                 </div>
@@ -3149,7 +3149,7 @@ setIsBlackAI(newIsBlackAI);
                 </div>
             </div>
 
-             <div className={cn("text-center text-md font-bold min-h-[1.5em]",
+             <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
                 gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
                 (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
               )}>
@@ -3183,11 +3183,17 @@ setIsBlackAI(newIsBlackAI);
               />
             </div>
             
-            <div className="flex flex-wrap justify-center items-center gap-2 mt-2">
+            {/* Captured Pieces for Mobile */}
+            <div className="w-full flex md:hidden gap-2">
+              {renderCapturedPieces('black', 'white')}
+              {renderCapturedPieces('white', 'black')}
+            </div>
+            
+            <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-8 px-2 text-xs">
-                    {isOnlineGameInProgress ? <Flag className="mr-1" /> : <RefreshCw className="mr-1" />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
+                  <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-7 px-2 text-xs">
+                    {isOnlineGameInProgress ? <Flag /> : <RefreshCw />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
@@ -3205,37 +3211,39 @@ setIsBlackAI(newIsBlackAI);
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-8 px-2 text-xs">
-                <BookOpen className="mr-1" /> Rules
+              <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
+                <BookOpen /> Rules
               </Button>
               <Link href="/leaderboard">
-                <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-8 px-2 text-xs">
-                  <Trophy className="mr-1" /> Leaderboard
+                <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs">
+                  <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-8 px-2 text-xs">
-                <Undo2 className="mr-1" /> Undo
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-8 px-2 text-xs">
-                <Bot className="mr-1" /> W AI: {isWhiteAI ? 'On' : 'Off'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-8 px-2 text-xs">
-                <Bot className="mr-1" /> B AI: {isBlackAI ? 'On' : 'Off'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-8 px-2 text-xs">
-                <View className="mr-1" /> View
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-7 px-2 text-xs">
+                <Undo2 /> Undo
               </Button>
             </div>
-             <div className="flex flex-wrap justify-center items-center gap-2">
+             <div className="flex flex-wrap justify-center items-center gap-1">
+                <Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-7 px-2 text-xs">
+                  <Bot /> W:{isWhiteAI ? 'On' : 'Off'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-7 px-2 text-xs">
+                  <Bot /> B:{isBlackAI ? 'On' : 'Off'}
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-7 px-2 text-xs">
+                  <View /> View
+                </Button>
+             </div>
+             <div className="flex flex-wrap justify-center items-center gap-1">
                 <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRankedPlay}
                 disabled={!user || onlineStatus !== 'disconnected'}
-                className="h-8 px-2 text-xs"
+                className="h-7 px-2 text-xs"
                 aria-label="Play Ranked Match"
                 >
-                <Trophy className="mr-1" />
+                <Trophy />
                 {getRankedButtonText()}
                 </Button>
                 <Button
@@ -3243,10 +3251,10 @@ setIsBlackAI(newIsBlackAI);
                 size="sm"
                 onClick={() => handleOnlinePlay('create')}
                 disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
-                className="h-8 px-2 text-xs"
+                className="h-7 px-2 text-xs"
                 aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
                 >
-                {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1" /> : <Globe className="mr-1" />}
+                {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
                 {getButtonText()}
                 </Button>
                 <div className="flex gap-1 items-center">
@@ -3255,7 +3263,7 @@ setIsBlackAI(newIsBlackAI);
                     placeholder="Room ID"
                     value={inputRoomId}
                     onChange={(e) => setInputRoomId(e.target.value)}
-                    className="h-8 px-2 text-xs w-24"
+                    className="h-7 px-2 text-xs w-20"
                     disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
                 />
                 <Button
@@ -3263,20 +3271,20 @@ setIsBlackAI(newIsBlackAI);
                     size="sm"
                     onClick={() => handleOnlinePlay('join')}
                     disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
-                    className="h-8 px-2 text-xs"
+                    className="h-7 px-2 text-xs"
                     aria-label="Join Online Game"
                 >
                     Join
                 </Button>
                 </div>
             </div>
-             <div className="w-full text-center h-6">
+             <div className="w-full text-center h-4 text-xs">
                 {getStatusMessage()}
             </div>
           </div>
 
-          {/* Right Column (Game Controls) */}
-          <div className="flex flex-col justify-center">
+          {/* Right Column (Game Controls - Desktop only) */}
+          <div className="hidden md:flex flex-col justify-center">
              <GameControls
                 currentPlayer={currentPlayer}
                 capturedPieces={capturedPieces}
@@ -3291,6 +3299,9 @@ setIsBlackAI(newIsBlackAI);
               />
           </div>
         </div>
+        <footer className="py-1 text-center text-xs font-medium text-muted-foreground mt-auto">
+          Made By Sugga
+        </footer>
       </div>
 
 

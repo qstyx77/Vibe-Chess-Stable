@@ -51,21 +51,21 @@ export function GameControls({
 
   return (
     <Card className="w-full shadow-lg h-full flex flex-col">
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-2 pt-3">
         {user ? (
           <div className="text-center">
-            <p className="text-lg font-semibold text-primary">{user.displayName || user.email}</p>
+            <p className="text-base font-semibold text-primary">{user.displayName || user.email}</p>
             {userData && (
-               <p className="text-sm font-medium text-muted-foreground">ELO: {userData.eloRating}</p>
+               <p className="text-xs font-medium text-muted-foreground">ELO: {userData.eloRating}</p>
             )}
           </div>
         ) : (
-          <div className="text-center text-sm text-muted-foreground">
+          <div className="text-center text-xs text-muted-foreground">
             Not logged in
           </div>
         )}
       </CardHeader>
-      <CardContent className="space-y-2 flex-grow flex flex-col">
+      <CardContent className="space-y-1 flex-grow flex flex-col p-3 pt-0">
         {pieceForInfoDisplay ? (
             <div className="flex-grow flex flex-col justify-center">
                  <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
@@ -74,9 +74,9 @@ export function GameControls({
             <>
                 <Separator/>
                 <div className="text-center">
-                  <p className="text-sm font-medium text-muted-foreground">Current Player</p>
+                  <p className="text-xs font-medium text-muted-foreground">Current Player</p>
                   <p className={cn(
-                      "text-xl font-semibold font-sans",
+                      "text-lg font-semibold font-sans",
                       currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
                       isGameOver && "opacity-50"
                     )}
@@ -84,16 +84,16 @@ export function GameControls({
                     {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
                   </p>
                   {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
-                    <div className="text-center mt-1">
-                      <p className="text-xs font-medium text-muted-foreground">Time Left</p>
-                      <p className="text-lg font-semibold font-mono text-primary animate-pulse">
+                    <div className="text-center">
+                      <p className="text-xs font-medium text-muted-foreground">Time</p>
+                      <p className="text-base font-semibold font-mono text-primary animate-pulse">
                         {timerDisplay}
                       </p>
                     </div>
                   )}
                 </div>
 
-                <div className="text-center space-y-1">
+                <div className="text-center space-y-0.5">
                   <p className="text-xs font-medium text-destructive">
                     White's Streak: {killStreaks.white}
                   </p>
@@ -105,10 +105,10 @@ export function GameControls({
                 <Separator />
                 
                 <div className="flex-grow">
-                  <h3 className="text-sm font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
-                  <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[28px]">
+                  <h3 className="text-xs font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
+                  <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[24px]">
                     {capturedPieces.white.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : capturedPieces.white.map(p => (
-                      <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
+                      <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
                         <ChessPieceDisplay piece={p} />
                       </div>
                     ))}
