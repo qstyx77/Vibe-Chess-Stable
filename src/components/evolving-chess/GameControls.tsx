@@ -107,7 +107,7 @@ export function GameControls({
                 <div className="flex-grow">
                   <h3 className="text-xs font-medium text-muted-foreground mb-1">Captured White Pieces:</h3>
                   <div className="flex flex-wrap gap-1 p-1 bg-background rounded-none min-h-[24px]">
-                    {capturedPieces.white.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : capturedPieces.white.map(p => (
+                    {capturedPieces.black.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : capturedPieces.black.map(p => (
                       <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
                         <ChessPieceDisplay piece={p} />
                       </div>

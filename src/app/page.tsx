@@ -52,6 +52,7 @@ import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
+import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 
 
 let globalUniqueIdCounter = 0;
@@ -3111,7 +3112,7 @@ setIsBlackAI(newIsBlackAI);
         </div>
       )}
       
-      <div className="relative z-20 flex flex-col flex-grow w-full p-1 md:p-2">
+      <div className="relative z-20 flex flex-col flex-grow w-full p-2">
         <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-2 h-full flex-grow">
 
           {/* Left Column (Captured Pieces - Desktop only) */}
@@ -3120,7 +3121,7 @@ setIsBlackAI(newIsBlackAI);
           </div>
 
           {/* Center Column (Board and Main Controls) */}
-          <div className="flex flex-col items-center justify-between flex-grow gap-1">
+          <div className="flex flex-col items-center justify-between flex-grow gap-2">
             <div className="w-full flex items-center justify-between">
                 <div className="w-1/3"></div>
                 <div className="w-1/3 flex items-center justify-center gap-0">
@@ -3183,10 +3184,19 @@ setIsBlackAI(newIsBlackAI);
               />
             </div>
             
-            {/* Captured Pieces for Mobile */}
-            <div className="w-full flex md:hidden gap-2">
-              {renderCapturedPieces('black', 'white')}
-              {renderCapturedPieces('white', 'black')}
+            {/* Captured Pieces & Piece Info for Mobile */}
+            <div className="w-full flex flex-col gap-2">
+                <div className="flex md:hidden gap-2">
+                    {renderCapturedPieces('black', 'white')}
+                    {renderCapturedPieces('white', 'black')}
+                </div>
+                {pieceForInfoDisplay && (
+                    <Card>
+                        <CardContent className="p-2">
+                            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+                        </CardContent>
+                    </Card>
+                )}
             </div>
             
             <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
@@ -3299,9 +3309,6 @@ setIsBlackAI(newIsBlackAI);
               />
           </div>
         </div>
-        <footer className="py-1 text-center text-xs font-medium text-muted-foreground mt-auto">
-          Made By Sugga
-        </footer>
       </div>
 
 
