@@ -3036,20 +3036,20 @@ setIsBlackAI(newIsBlackAI);
 
   const getStatusMessage = () => {
     if (rankedQueueStatus === 'searching') {
-        return <p className="text-sm font-medium text-primary mt-2 animate-pulse">Searching for a ranked match...</p>;
+        return <p className="text-sm font-medium text-primary mt-1 animate-pulse">Searching for a ranked match...</p>;
     }
     if (onlineStatus === 'waiting' && roomId) {
       return (
-        <p className="text-sm font-medium text-primary mt-2">
+        <p className="text-sm font-medium text-primary mt-1">
           Waiting... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
         </p>
       );
     }
     if (onlineStatus === 'connected' && localPlayerColor) {
-      return <p className="text-sm font-medium text-primary mt-2">Connection established! You are playing as {localPlayerColor}.</p>;
+      return <p className="text-sm font-medium text-primary mt-1">Connection established! You are playing as {localPlayerColor}.</p>;
     }
     if (onlineStatus === 'connecting') {
-        return <p className="text-sm font-medium text-primary mt-2">Connecting...</p>;
+        return <p className="text-sm font-medium text-primary mt-1">Connecting...</p>;
     }
     return null;
   };
@@ -3059,24 +3059,6 @@ setIsBlackAI(newIsBlackAI);
   }, []);
 
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
-
-  const renderCapturedPieces = (color: PlayerColor, capturedBy: PlayerColor) => {
-    const pieces = capturedPieces[capturedBy];
-    return (
-      <Card className="flex-grow">
-        <CardContent className="p-2">
-          <h3 className="text-xs font-medium text-muted-foreground mb-1">Captured {color.charAt(0).toUpperCase() + color.slice(1)}</h3>
-          <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[24px] p-1">
-            {pieces.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : pieces.map(p => (
-              <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
-                <ChessPieceDisplay piece={p} />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
@@ -3112,16 +3094,8 @@ setIsBlackAI(newIsBlackAI);
         </div>
       )}
       
-      <div className="relative z-20 flex flex-col flex-grow w-full p-2">
-        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] md:gap-2 h-full flex-grow">
-
-          {/* Left Column (Captured Pieces - Desktop only) */}
-          <div className="hidden md:flex flex-col justify-center">
-            {renderCapturedPieces('black', 'white')}
-          </div>
-
-          {/* Center Column (Board and Main Controls) */}
-          <div className="flex flex-col items-center justify-between flex-grow gap-2">
+      <div className="relative z-20 flex flex-col flex-grow w-full p-1">
+        <div className="flex flex-col items-center justify-between flex-grow gap-1">
             <div className="w-full flex items-center justify-between">
                 <div className="w-1/3"></div>
                 <div className="w-1/3 flex items-center justify-center gap-0">
@@ -3150,7 +3124,7 @@ setIsBlackAI(newIsBlackAI);
                 </div>
             </div>
 
-             <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
+            <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
                 gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
                 (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
               )}>
@@ -3184,20 +3158,18 @@ setIsBlackAI(newIsBlackAI);
               />
             </div>
             
-            {/* Captured Pieces & Piece Info for Mobile */}
-            <div className="w-full flex flex-col gap-2">
-                <div className="flex md:hidden gap-2">
-                    {renderCapturedPieces('black', 'white')}
-                    {renderCapturedPieces('white', 'black')}
-                </div>
-                {pieceForInfoDisplay && (
-                    <Card>
-                        <CardContent className="p-2">
-                            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
-                        </CardContent>
-                    </Card>
-                )}
-            </div>
+             <GameControls
+                currentPlayer={currentPlayer}
+                capturedPieces={capturedPieces}
+                isGameOver={gameInfo.gameOver}
+                killStreaks={killStreaks}
+                pieceForInfoDisplay={pieceForInfoDisplay}
+                localPlayerColor={localPlayerColor}
+                getPlayerDisplayName={getPlayerDisplayName}
+                onlineStatus={onlineStatus}
+                turnTimer={turnTimer}
+                activeTimerPlayer={activeTimerPlayer}
+              />
             
             <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
               <AlertDialog>
@@ -3288,27 +3260,10 @@ setIsBlackAI(newIsBlackAI);
                 </Button>
                 </div>
             </div>
-             <div className="w-full text-center h-4 text-xs">
+             <div className="w-full text-center h-4 text-xs mt-1">
                 {getStatusMessage()}
             </div>
           </div>
-
-          {/* Right Column (Game Controls - Desktop only) */}
-          <div className="hidden md:flex flex-col justify-center">
-             <GameControls
-                currentPlayer={currentPlayer}
-                capturedPieces={capturedPieces}
-                isGameOver={gameInfo.gameOver}
-                killStreaks={killStreaks}
-                pieceForInfoDisplay={pieceForInfoDisplay}
-                localPlayerColor={localPlayerColor}
-                getPlayerDisplayName={getPlayerDisplayName}
-                onlineStatus={onlineStatus}
-                turnTimer={turnTimer}
-                activeTimerPlayer={activeTimerPlayer}
-              />
-          </div>
-        </div>
       </div>
 
 
@@ -3324,3 +3279,4 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+

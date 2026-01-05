@@ -42,7 +42,7 @@ export function AuthWidget() {
   };
 
   if (isUserLoading) {
-    return <Button variant="outline" size="sm" disabled>Loading...</Button>;
+    return <Button variant="outline" size="sm" disabled className="h-7 px-2 text-xs">Loading...</Button>;
   }
 
   if (user) {
@@ -50,15 +50,15 @@ export function AuthWidget() {
   }
 
   return (
-    <div className="flex gap-2">
+    <div className="flex gap-1">
       <Link href="/login">
-        <Button variant="outline" size="sm">
-          <LogIn className="mr-2 h-4 w-4" />
+        <Button variant="outline" className="h-7 px-2 text-xs">
+          <LogIn className="mr-1 h-3 w-3" />
           Login
         </Button>
       </Link>
       <Link href="/register">
-        <Button variant="default" size="sm">
+        <Button variant="default" className="h-7 px-2 text-xs">
           Sign Up
         </Button>
       </Link>
