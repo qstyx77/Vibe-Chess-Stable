@@ -65,53 +65,57 @@ export function GameControls({
     );
   };
 
-
   return (
     <Card className="w-full shadow-lg h-full flex flex-col mt-1">
       <CardContent className="space-y-1 flex-grow flex flex-col p-2">
-        {pieceForInfoDisplay ? (
-            <div className="flex-grow flex flex-col justify-center">
-                 <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+        {/* Top Fixed Section */}
+        <div className="flex justify-around items-center text-center">
+          <div>
+            <p className="text-xs font-medium text-muted-foreground">Current Player</p>
+            <p className={cn(
+                "text-base font-semibold font-sans",
+                currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
+                isGameOver && "opacity-50"
+              )}
+            >
+              {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
+            </p>
+          </div>
+
+          {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">Time</p>
+              <p className="text-base font-semibold font-mono text-primary animate-pulse">
+                {timerDisplay}
+              </p>
             </div>
-        ) : (
-            <>
-                <div className="flex justify-around items-center text-center">
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground">Current Player</p>
-                    <p className={cn(
-                        "text-base font-semibold font-sans",
-                        currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
-                        isGameOver && "opacity-50"
-                      )}
-                    >
-                      {isGameOver ? "-" : getPlayerDisplayName(currentPlayer)}
-                    </p>
-                  </div>
+          )}
 
-                  {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground">Time</p>
-                      <p className="text-base font-semibold font-mono text-primary animate-pulse">
-                        {timerDisplay}
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-0.5">
-                    <p className="text-xs font-medium text-destructive">
-                      W-Streak: {killStreaks.white}
-                    </p>
-                    <p className="text-xs font-medium text-destructive">
-                      B-Streak: {killStreaks.black}
-                    </p>
-                  </div>
-                </div>
-             </>
-        )}
-         <Separator className="my-1"/>
-         <div className="flex gap-2">
+          <div className="space-y-0.5">
+            <p className="text-xs font-medium text-destructive">
+              W-Streak: {killStreaks.white}
+            </p>
+            <p className="text-xs font-medium text-destructive">
+              B-Streak: {killStreaks.black}
+            </p>
+          </div>
+        </div>
+        <Separator className="my-1"/>
+        <div className="flex gap-2">
             {renderCapturedPieces('black', 'white')}
             {renderCapturedPieces('white', 'black')}
+        </div>
+        
+        {/* Bottom Dynamic Section */}
+        <Separator className="my-1" />
+        <div className="flex-grow flex flex-col justify-center min-h-[60px]">
+          {pieceForInfoDisplay ? (
+            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+          ) : (
+             <div className="text-center text-xs text-muted-foreground">
+                Hover over a piece to see its abilities.
+             </div>
+          )}
         </div>
       </CardContent>
     </Card>
