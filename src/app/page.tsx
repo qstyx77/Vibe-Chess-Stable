@@ -2066,6 +2066,7 @@ setIsBlackAI(newIsBlackAI);
     let originalPieceLevelForAI: number | undefined;
     let moveForApplyMoveAI: Move | null = null;
     let localAIAwaitingCommanderPromo = false;
+    let anvilsDestroyedByAICount = 0;
 
 
     let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? { ...s_fbs.item } : null })));
@@ -2239,7 +2240,7 @@ setIsBlackAI(newIsBlackAI);
           const { row: knightR_AI, col: knightC_AI } = algebraicToCoords(moveForApplyMoveAI!.from as AlgebraicSquare);
           const selfDestructingKnight_AI = finalBoardStateForAI[knightR_AI]?.[knightC_AI]?.piece;
           let piecesDestroyedByAICount = 0;
-          let anvilsDestroyedByAICount = 0;
+          anvilsDestroyedByAICount = 0;
 
 
           const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
