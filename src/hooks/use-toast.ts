@@ -168,7 +168,7 @@ function toast({ ...props }: Toast) {
   })
 
   // Set a timeout to dismiss the toast automatically
-  const duration = props.duration || (props.variant === 'destructive' ? 8000 : 2000);
+  const duration = props.duration || (props.variant === 'destructive' ? 8000 : 1000);
   setTimeout(() => {
     dismiss();
   }, duration);
