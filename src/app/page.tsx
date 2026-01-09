@@ -452,7 +452,7 @@ setIsBlackAI(newIsBlackAI);
     const opponentInCheck = isKingInCheck(currentBoard, opponentColor, null);
 
     if (opponentInCheck) {
-      toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 2500 });
+      toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 5000 });
       setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingExtraTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
       if (onlineStatus === 'connected') {
         const ws = wsRef.current;
@@ -548,7 +548,7 @@ setIsBlackAI(newIsBlackAI);
             if (spawnedAt) {
                 currentBoardState = newBoard;
                 setBoard(currentBoardState);
-                toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+                toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 5000 });
             }
         }
       }
@@ -568,7 +568,7 @@ setIsBlackAI(newIsBlackAI);
                   currentBoardState = newBoard;
                   setBoard(currentBoardState);
                   const newNextTurn = Math.floor(Math.random() * 6) + 5;
-                  toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+                  toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 5000 });
                   setShroomSpawnCounter(0);
                   setNextShroomSpawnTurn(newNextTurn);
               }
@@ -587,7 +587,7 @@ setIsBlackAI(newIsBlackAI);
     const repetitionCount = newHistory.filter(hash => hash === currentPositionHash).length;
 
     if (repetitionCount >= 3 && !gameInfo.isCheckmate && !gameInfo.isStalemate && !gameInfo.isThreefoldRepetitionDraw && !gameInfo.isInfiltrationWin) {
-      toast({ title: "Draw!", description: "Draw by Threefold Repetition.", duration: 2500 });
+      toast({ title: "Draw!", description: "Draw by Threefold Repetition.", duration: 5000 });
       setGameInfo(prev => ({
         ...prev,
         message: "Draw by Threefold Repetition!",
@@ -716,7 +716,7 @@ setIsBlackAI(newIsBlackAI);
                 newBoard[row][col].item = { type: 'anvil' };
                 return newBoard;
             });
-            toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 2500 });
+            toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 5000 });
             break;
         }
         case 'shroom-spawn': {
@@ -729,7 +729,7 @@ setIsBlackAI(newIsBlackAI);
             });
             setShroomSpawnCounter(0);
             setNextShroomSpawnTurn(nextTurn);
-            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 2500 });
+            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 5000 });
             break;
         }
         case 'forfeit-timeout':
@@ -746,7 +746,7 @@ setIsBlackAI(newIsBlackAI);
                     title: "Auto-Checkmate!",
                     description: `${getPlayerDisplayName(timedOutPlayer!)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(winner)} wins!`,
                     variant: "destructive",
-                    duration: 5000,
+                    duration: 8000,
                 });
                 message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
             }
@@ -754,7 +754,7 @@ setIsBlackAI(newIsBlackAI);
             else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
             else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
-            toast({ title: "Game Over!", description: message, duration: 5000 });
+            toast({ title: "Game Over!", description: message, duration: 8000 });
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
             
             if (isRankedGame && eloChanges && user) {
@@ -864,7 +864,7 @@ setIsBlackAI(newIsBlackAI);
     const wsUrl = getWebSocketUrl();
     if (!wsUrl) {
       console.error("[CLIENT] Could not determine WebSocket URL.");
-      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive' });
+      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       return;
     }
@@ -915,18 +915,18 @@ setIsBlackAI(newIsBlackAI);
               setRoomId(data.roomId);
               setLocalPlayerColor(data.color);
               setIsRankedGame(true);
-              toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 4000 });
+              toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 5000 });
               startTurnTimer('white');
               break;
           case 'opponent-disconnected':
             if (gameInfo.gameOver) return;
-            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 5000 });
+            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
             setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
             setShowWinScreen(true);
             disconnectAndReset();
             break;
           case 'error':
-            toast({ title: "Connection Error", description: data.message, variant: 'destructive' });
+            toast({ title: "Connection Error", description: data.message, variant: 'destructive', duration: 8000 });
             if(wsRef.current) {
               wsRef.current.onclose = null;
               wsRef.current.close();
@@ -946,7 +946,7 @@ setIsBlackAI(newIsBlackAI);
   
     ws.onerror = (err) => {
       console.error("[CLIENT] WebSocket error:", err);
-      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive' });
+      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       setRankedQueueStatus('idle');
     };
@@ -978,6 +978,7 @@ setIsBlackAI(newIsBlackAI);
             title: "AI Initialization Error",
             description: "Could not load the AI engine (named export not found or not a constructor).",
             variant: "destructive",
+            duration: 8000,
           });
         }
       } catch (err: any) {
@@ -986,6 +987,7 @@ setIsBlackAI(newIsBlackAI);
           title: "AI Import Error",
           description: `There was an issue loading the AI component: ${err.message}`,
           variant: "destructive",
+          duration: 8000,
         });
       }
     };
@@ -1071,7 +1073,7 @@ setIsBlackAI(newIsBlackAI);
               [opponentColor]: [...(prev[opponentColor] || []), sacrificedAIPawn!]
             }));
           }
-          toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn/Commander for L7 Queen!`, duration: 2500 });
+          toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn/Commander for L7 Queen!`, duration: 5000 });
           processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
           return false;
         } else {
@@ -1150,7 +1152,7 @@ setIsBlackAI(newIsBlackAI);
             boardAfterCommanderPromo[row][col].piece!.type = 'commander';
             boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
             setBoard(boardAfterCommanderPromo);
-            toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 3000});
+            toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 5000});
             
             setIsAwaitingCommanderPromotion(false);
             setPlayerWhoGotFirstBlood(null);
@@ -1178,7 +1180,7 @@ setIsBlackAI(newIsBlackAI);
             }
             return;
         } else {
-            toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 2500});
+            toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 5000});
         }
         return;
     }
@@ -1201,7 +1203,7 @@ setIsBlackAI(newIsBlackAI);
           return newCaptured;
         });
 
-        toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 2500 });
+        toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 5000 });
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
@@ -1225,7 +1227,7 @@ setIsBlackAI(newIsBlackAI);
 
         processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice, enPassantTargetSquare);
       } else {
-        toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 2500 });
+        toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 5000 });
       }
       return;
     }
@@ -1239,7 +1241,7 @@ setIsBlackAI(newIsBlackAI);
     }
 
     if (isAwaitingRookSacrifice && playerToSacrificeForRook === currentPlayer) {
-      toast({ title: "Rook Action", description: "Rook ability is now automatic on L4+.", duration: 2500 });
+      toast({ title: "Rook Action", description: "Rook ability is now automatic on L4+.", duration: 5000 });
       setIsAwaitingRookSacrifice(false);
       setPlayerToSacrificeForRook(null);
       setRookToMakeInvulnerable(null);
@@ -1327,7 +1329,7 @@ setIsBlackAI(newIsBlackAI);
         const tempBoardForCheck = boardAfterDestruct.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
         if (isKingInCheck(tempBoardForCheck, selfDestructPlayer, enPassantTargetSquare)) {
-          toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 2500 });
+          toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 5000 });
           setIsMoveProcessing(false); setAnimatedSquareTo(null); return;
         }
 
@@ -1355,11 +1357,11 @@ setIsBlackAI(newIsBlackAI);
                     finalCapturedPiecesStateForTurn[selfDestructPlayer].push(uniqueVictim);
                   }
                   boardAfterDestruct[adjR][adjC].piece = null;
-                  toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget ? ' (bypassing invulnerability!)' : ''}.`, duration: 3000 });
+                  toast({ title: "Self-Destruct!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} obliterated ${victimPiece.color} ${victimPiece.type}${isQueenTarget ? ' (bypassing invulnerability!)' : ''}.`, duration: 5000 });
                   selfDestructCapturedSomething = true;
                   piecesDestroyedCount++;
                 } else {
-                  toast({ title: "Invulnerable!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type}'s self-destruct failed on invulnerable ${victimPiece.type}.`, duration: 2500 });
+                  toast({ title: "Invulnerable!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type}'s self-destruct failed on invulnerable ${victimPiece.type}.`, duration: 5000 });
                 }
               }
             }
@@ -1369,7 +1371,7 @@ setIsBlackAI(newIsBlackAI);
         finalBoardStateForTurn = boardAfterDestruct;
 
         if (anvilsDestroyedCount > 0) {
-            toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} destroyed ${anvilsDestroyedCount} anvil${anvilsDestroyedCount > 1 ? 's' : ''}!`, duration: 2500 });
+            toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(selfDestructPlayer)} ${pieceToMoveFromSelected.type} destroyed ${anvilsDestroyedCount} anvil${anvilsDestroyedCount > 1 ? 's' : ''}!`, duration: 5000 });
         }
 
         let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
@@ -1412,7 +1414,7 @@ setIsBlackAI(newIsBlackAI);
                  setFirstBloodAchieved(true);
                 setPlayerWhoGotFirstBlood(selfDestructPlayer);
                 if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 5000 });
             }
         } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
@@ -1437,9 +1439,9 @@ setIsBlackAI(newIsBlackAI);
                     if (resurrectedPiece.type === 'commander' && resR === promoRow) {
                         resurrectedPiece.type = 'hero';
                         resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
-                        toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                        toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 5000 });
                     } else {
-                         toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+                         toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 5000 });
                     }
                     finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                     setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
@@ -1521,7 +1523,7 @@ setIsBlackAI(newIsBlackAI);
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
 
         if (becameInfiltratorFromApply) {
-          toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 3000 });
+          toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 5000 });
         }
 
 
@@ -1543,7 +1545,7 @@ setIsBlackAI(newIsBlackAI);
         if (shroomConsumedFromApply) {
             const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
             if(movedPieceData) {
-                toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 3000 });
+                toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 5000 });
             }
         }
 
@@ -1554,7 +1556,7 @@ setIsBlackAI(newIsBlackAI);
                 toast({
                 title: "King's Dominion!",
                 description: `${getPlayerDisplayName(event.reducedByKingOfColor)} King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
-                duration: 3500,
+                duration: 5000,
                 });
             });
         }
@@ -1566,7 +1568,7 @@ setIsBlackAI(newIsBlackAI);
             title: "Auto-Checkmate!",
             description: `${getPlayerDisplayName(currentPlayer)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
             variant: "destructive",
-            duration: 5000,
+            duration: 8000,
           });
           setGameInfo(prev => ({
             ...prev,
@@ -1620,21 +1622,21 @@ setIsBlackAI(newIsBlackAI);
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
           } else {
-            toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 3000});
+            toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 5000});
           }
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
           setLastCapturePlayer(capturingPlayer);
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
-          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 3000 });
+          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 5000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else {
           if(lastCapturePlayer === capturingPlayer) setLastCapturePlayer(null);
         }
         if (anvilPushedOffBoardFromApply) {
-            toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 2000 });
+            toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 5000 });
         }
         
 
@@ -1662,7 +1664,7 @@ setIsBlackAI(newIsBlackAI);
               toast({
                   title: "Rook's Call!",
                   description: `${getPlayerDisplayName(currentPlayer)}'s Rook resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L1)`,
-                  duration: 3000,
+                  duration: 5000,
               });
 
               if (humanRookResData.resurrectedPieceData?.type === 'pawn' || humanRookResData.resurrectedPieceData?.type === 'commander'){
@@ -1696,7 +1698,7 @@ setIsBlackAI(newIsBlackAI);
                 setPlayerWhoGotFirstBlood(capturingPlayer);
                 const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI) || (capturingPlayer === 'black' && isBlackAI));
                 if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 4000 });
+                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 5000 });
             }
         } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
               if (!humanRookResData?.resurrectionPerformed) {
@@ -1716,9 +1718,9 @@ setIsBlackAI(newIsBlackAI);
                         if (resurrectedPiece.type === 'commander' && resR === promoRow) {
                             resurrectedPiece.type = 'hero';
                             resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
-                            toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                            toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 5000 });
                         } else {
-                            toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 2500 });
+                            toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 5000 });
                         }
                         finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                         setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
@@ -1745,7 +1747,7 @@ setIsBlackAI(newIsBlackAI);
 
 
         if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
-          conversionEventsFromApply.forEach(event => toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 2500 }));
+          conversionEventsFromApply.forEach(event => toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 5000 }));
         }
 
         setBoard(finalBoardStateForTurn);
@@ -1931,14 +1933,14 @@ setIsBlackAI(newIsBlackAI);
       let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
 
       if (isResurrectionPromotionInProgress) {
-        toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
+        toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 5000 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
         processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer === 6, enPassantTargetSquare);
         setIsResurrectionPromotionInProgress(false);
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
       } else {
-        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 2500 });
+        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 5000 });
 
         const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
         const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
@@ -1964,7 +1966,7 @@ setIsBlackAI(newIsBlackAI);
                 setBoard(boardToUpdate);
                 globalUniqueIdCounter = aiPromoRookIdCounter!;
                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
-                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
+                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 5000 });
                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
                     const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                     const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
@@ -1975,11 +1977,11 @@ setIsBlackAI(newIsBlackAI);
                                 resurrectedPieceOnBoardAI.type = 'queen';
                                 resurrectedPieceOnBoardAI.level = 1;
                                 resurrectedPieceOnBoardAI.id = `${aiPromoRookPieceData!.id}_resPromo_Q`;
-                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 5000 });
                             } else if (resurrectedPieceOnBoardAI.type === 'commander') {
                                 resurrectedPieceOnBoardAI.type = 'hero';
                                 resurrectedPieceOnBoardAI.id = `${aiPromoRookPieceData!.id}_resPromo_H_AI`;
-                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
+                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 5000 });
                             }
                         }
                     }
@@ -2040,6 +2042,7 @@ setIsBlackAI(newIsBlackAI);
         title: "AI Error",
         description: "AI engine is not ready or was lost. Please wait or reset the game.",
         variant: "destructive",
+        duration: 8000,
       });
       setIsAiThinking(false);
       if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
@@ -2131,7 +2134,7 @@ setIsBlackAI(newIsBlackAI);
 
 
       if (!isAiMoveActuallyLegal && pieceOnFromSquareForAI && aiFromAlg) { // Fallback if all attempts failed
-        toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking a valid one.", duration: 2000 });
+        toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking a valid one.", duration: 5000 });
         const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
         if (definitiveLegalMovesForPiece.length > 0) {
             const chosenDefinitiveMoveAlg = definitiveLegalMovesForPiece[0];
@@ -2178,18 +2181,18 @@ setIsBlackAI(newIsBlackAI);
             const isMate = isCheckmate(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
             if (isMate) {
                 setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
-                toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 3000 });
+                toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 5000 });
             } else {
                  console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Malfunction: AI in check, found no moves, but utils indicate not checkmate. Legal moves should exist.`);
                  setGameInfo(prev => ({ ...prev, message: `Draw! (AI Error/Forfeit)`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: false, isStalemate: true, gameOver: true, winner: "draw" }));
-                 toast({ title: "Draw by AI Error!", description: "The AI encountered an issue and cannot make a legal move.", variant: "destructive" });
+                 toast({ title: "Draw by AI Error!", description: "The AI encountered an issue and cannot make a legal move.", variant: "destructive", duration: 8000 });
                  aiErrorOccurredRef.current = true;
             }
         } else {
             const isStale = isStalemate(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
             if (isStale) {
               setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-              toast({ title: "Stalemate!", description: "It's a draw! AI has no moves.", duration: 3000 });
+              toast({ title: "Stalemate!", description: "It's a draw! AI has no moves.", duration: 5000 });
             } else {
               console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves, not in check, but not stalemate. Assuming stalemate or error.`);
               setGameInfo(prev => ({ ...prev, message: "Stalemate! (AI Forfeit)", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
@@ -2277,7 +2280,7 @@ setIsBlackAI(newIsBlackAI);
                             }
                             aiMoveCapturedSomething = true;
                             piecesDestroyedByAICount++;
-                            toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Obliterates!`, description: `${victimPieceAI.color} ${victimPieceAI.type} destroyed${isQueenTargetAI ? ' (bypassing invulnerability!)' : ''}.`, duration: 2500 });
+                            toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Obliterates!`, description: `${victimPieceAI.color} ${victimPieceAI.type} destroyed${isQueenTargetAI ? ' (bypassing invulnerability!)' : ''}.`, duration: 5000 });
                         }
                     }
                 }
@@ -2287,10 +2290,10 @@ setIsBlackAI(newIsBlackAI);
                 finalBoardStateForAI[knightR_AI][knightC_AI].piece = null;
             }
             if (anvilsDestroyedByAICount > 0) {
-                 toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 2500 });
+                 toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 5000 });
             }
             if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
-               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 2500 });
+               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 5000 });
             }
           } else {
               aiErrorOccurredRef.current = true;
@@ -2309,7 +2312,7 @@ setIsBlackAI(newIsBlackAI);
           aiGameWonByInfiltration = applyMoveResult.infiltrationWin || false;
 
           if (aiBecameInfiltrator) {
-            toast({ title: "AI Infiltrator!", description: `AI's pawn promoted to an Infiltrator!`, duration: 3000 });
+            toast({ title: "AI Infiltrator!", description: `AI's pawn promoted to an Infiltrator!`, duration: 5000 });
           }
 
 
@@ -2323,7 +2326,7 @@ setIsBlackAI(newIsBlackAI);
           if (shroomConsumedByAIForEval) {
               const movedPieceDataAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
                if(movedPieceDataAI) {
-                 toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 3000 });
+                 toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 5000 });
                }
           }
 
@@ -2334,7 +2337,7 @@ setIsBlackAI(newIsBlackAI);
                   toast({
                     title: "King's Dominion!",
                     description: `${getPlayerDisplayName(event.reducedByKingOfColor)} (AI) King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
-                    duration: 3500,
+                    duration: 5000,
                   });
               });
           }
@@ -2345,12 +2348,12 @@ setIsBlackAI(newIsBlackAI);
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
                 finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.pieceCapturedByAnvil, id: `${applyMoveResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
             } else {
-                toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
+                toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 5000 });
             }
-            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 3000 });
+            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 5000 });
           }
           if (aiAnvilPushedOff) {
-              toast({ title: "AI Anvil Removed!", description: "Anvil pushed off the board by AI.", duration: 2000 });
+              toast({ title: "AI Anvil Removed!", description: "Anvil pushed off the board by AI.", duration: 5000 });
           }
 
 
@@ -2360,7 +2363,7 @@ setIsBlackAI(newIsBlackAI);
               title: "Auto-Checkmate!",
               description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
               variant: "destructive",
-              duration: 5000,
+              duration: 8000,
             });
             setGameInfo(prev => ({
               ...prev,
@@ -2383,20 +2386,20 @@ setIsBlackAI(newIsBlackAI);
             }
             return;
           }
-          toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1500 });
+          toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 5000 });
 
           if (applyMoveResult.capturedPiece) { // This is the direct capture by the moving piece
             // capturedPieceDataForScoring is already set
             const pieceThatMadeTheMoveAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
-                toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${applyMoveResult.capturedPiece.color} ${applyMoveResult.capturedPiece.type}!`, duration: 3000});
+                toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${applyMoveResult.capturedPiece.color} ${applyMoveResult.capturedPiece.type}!`, duration: 5000});
             } else {
                 finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.capturedPiece, id: `${applyMoveResult.capturedPiece.id}_cap_ai_${globalUniqueIdCounter++}` });
             }
             aiMoveCapturedSomething = true;
           }
           if (applyMoveResult.conversionEvents && applyMoveResult.conversionEvents.length > 0) {
-            applyMoveResult.conversionEvents.forEach(event => toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 2500 }));
+            applyMoveResult.conversionEvents.forEach(event => toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 5000 }));
           }
         }
 
@@ -2437,7 +2440,7 @@ setIsBlackAI(newIsBlackAI);
                     setFirstBloodAchieved(true);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
-                    toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 4000 });
+                    toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 5000 });
                 } else if (newStreakForAIPlayer >= 3) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
@@ -2456,13 +2459,13 @@ setIsBlackAI(newIsBlackAI);
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'hero';
                               resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
-                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 3000 });
+                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 5000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'queen';
                               resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
-                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 5000 });
                           } else {
-                               toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 2500 });
+                               toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 5000 });
                           }
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
@@ -2510,7 +2513,7 @@ setIsBlackAI(newIsBlackAI);
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
                   globalUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
-                  toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 3000 });
+                  toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 5000 });
                   if(aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander'){
                       const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                       const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
@@ -2521,11 +2524,11 @@ setIsBlackAI(newIsBlackAI);
                                   resurrectedPieceOnBoardAI.type = 'queen';
                                   resurrectedPieceOnBoardAI.level = 1;
                                   resurrectedPieceOnBoardAI.id = `${aiRookResData.resurrectedPieceData!.id}_resPromo_Q`;
-                                  toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                  toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 5000 });
                               } else if (resurrectedPieceOnBoardAI.type === 'commander') {
                                   resurrectedPieceOnBoardAI.type = 'hero';
                                   resurrectedPieceOnBoardAI.id = `${aiRookResData.resurrectedPieceData!.id}_resPromo_H_AI`;
-                                  toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
+                                  toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 5000 });
                               }
                           }
                       }
@@ -2560,7 +2563,7 @@ setIsBlackAI(newIsBlackAI);
                       finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
                       setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                   }
-                  toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L${finalBoardStateForAI[promoR][promoC].piece!.level})`, duration: 2500 });
+                  toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L${finalBoardStateForAI[promoR][promoC].piece!.level})`, duration: 5000 });
 
                   if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
 
@@ -2583,7 +2586,7 @@ setIsBlackAI(newIsBlackAI);
                                 setBoard(finalBoardStateForAI);
                                 globalUniqueIdCounter = aiPromoRookIdCounter!;
                                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
-                                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 3000 });
+                                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 5000 });
                                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
                                     const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                                     const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
@@ -2594,11 +2597,11 @@ setIsBlackAI(newIsBlackAI);
                                                 resurrectedPieceOnBoardAI.type = 'queen';
                                                 resurrectedPieceOnBoardAI.level = 1;
                                                 resurrectedPieceOnBoardAI.id = `${aiPromoRookPieceData!.id}_resPromo_Q`;
-                                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 2500 });
+                                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 5000 });
                                             } else if (resurrectedPieceOnBoardAI.type === 'commander') {
                                                 resurrectedPieceOnBoardAI.type = 'hero';
                                                 resurrectedPieceOnBoardAI.id = `${aiPromoRookPieceData!.id}_resPromo_H_AI`;
-                                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 2500 });
+                                                toast({ title: "AI Rook Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Commander promoted to Hero! (L1)`, duration: 5000 });
                                             }
                                         }
                                     }
@@ -2614,7 +2617,7 @@ setIsBlackAI(newIsBlackAI);
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
-                    toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 2500 });
+                    toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 5000 });
                     if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
               } else if (pieceAtDestinationAI?.type === 'queen') {
                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, nextEnPassantTargetForAI);
@@ -2647,7 +2650,7 @@ setIsBlackAI(newIsBlackAI);
         title: `AI (${getPlayerDisplayName(currentPlayer)}) Error/Forfeit`,
         description: "AI move forfeited or error occurred.",
         variant: "destructive",
-        duration: 2500,
+        duration: 5000,
       });
       if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
 
@@ -2823,20 +2826,20 @@ setIsBlackAI(newIsBlackAI);
         gameOver: true,
         winner: opponent,
       }));
-      toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 3000});
+      toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 5000});
       return;
     }
     fullGameReset();
-    toast({ title: "Game Reset", description: "The board has been reset.", duration: 2500 });
+    toast({ title: "Game Reset", description: "The board has been reset.", duration: 5000 });
   }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
     if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
-      toast({ title: "Undo Failed", description: "Cannot undo during AI turn, processing, or pending actions. Undo is disabled in online games.", duration: 2500 });
+      toast({ title: "Undo Failed", description: "Cannot undo during AI turn, processing, or pending actions. Undo is disabled in online games.", duration: 5000 });
       return;
     }
     if (historyStack.length === 0) {
-      toast({ title: "Undo Failed", description: "No moves to undo.", duration: 2500 });
+      toast({ title: "Undo Failed", description: "No moves to undo.", duration: 5000 });
       setLastMoveFrom(null);
       setLastMoveTo(null);
       return;
@@ -2875,7 +2878,7 @@ setIsBlackAI(newIsBlackAI);
 
 
     if (targetIndex === -1) {
-      toast({ title: "Undo Failed", description: "No playable state to undo to.", duration: 2500 });
+      toast({ title: "Undo Failed", description: "No playable state to undo to.", duration: 5000 });
       return;
     }
 
@@ -2952,7 +2955,7 @@ setIsBlackAI(newIsBlackAI);
       setWhiteTimeouts(stateToRestore.whiteTimeouts || 0);
       setBlackTimeouts(stateToRestore.blackTimeouts || 0);
 
-      toast({ title: "Move Undone", description: "Returned to previous state.", duration: 2500 });
+      toast({ title: "Move Undone", description: "Returned to previous state.", duration: 5000 });
     } else {
       setLastMoveFrom(null);
       setLastMoveTo(null);
@@ -2987,24 +2990,24 @@ setIsBlackAI(newIsBlackAI);
 
   const handleToggleWhiteAI = useCallback(() => {
     if ((isAiThinking && currentPlayer === 'white') || isMoveProcessing || onlineStatus !== 'disconnected') {
-      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
+      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 5000 });
       return;
     }
     const newIsWhiteAI = !isWhiteAI;
     setIsWhiteAI(newIsWhiteAI);
-    toast({ title: `White AI ${newIsWhiteAI ? 'On' : 'Off'}`, duration: 1500 });
+    toast({ title: `White AI ${newIsWhiteAI ? 'On' : 'Off'}`, duration: 5000 });
     setSelectedSquare(null); setPossibleMoves([]);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, toast, gameInfo.gameOver, onlineStatus]); 
 
   const handleToggleBlackAI = useCallback(() => {
      if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing || onlineStatus !== 'disconnected') {
-      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 2500 });
+      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 5000 });
       return;
     }
     const newIsBlackAI = !isBlackAI;
     setIsBlackAI(newIsBlackAI);
-    toast({ title: `Black AI ${newIsBlackAI ? 'On' : 'Off'}`, duration: 1500 });
+    toast({ title: `Black AI ${newIsBlackAI ? 'On' : 'Off'}`, duration: 5000 });
     setSelectedSquare(null); setPossibleMoves([]);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, onlineStatus]);

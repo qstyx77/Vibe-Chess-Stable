@@ -28,6 +28,7 @@ export function AuthWidget() {
       toast({
         title: "Signed In Successfully!",
         description: `Welcome back, ${user.displayName || user.email}`,
+        duration: 5000,
       });
     }
   }, [user, toast]);
@@ -37,6 +38,7 @@ export function AuthWidget() {
       toast({
         title: 'Signed Out',
         description: 'You have been successfully signed out.',
+        duration: 5000,
       });
     });
   };

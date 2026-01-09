@@ -31,6 +31,7 @@ export default function RegisterPage() {
         variant: 'destructive',
         title: 'Registration Failed',
         description: 'Password must be at least 6 characters long.',
+        duration: 8000,
       });
       return;
     }
@@ -59,6 +60,7 @@ export default function RegisterPage() {
       toast({
         title: 'Registration Successful',
         description: 'Welcome to Vibe Chess!',
+        duration: 5000,
       });
       router.push('/');
     } catch (error: any) {
@@ -67,6 +69,7 @@ export default function RegisterPage() {
         variant: 'destructive',
         title: 'Registration Failed',
         description: error.message || 'An unexpected error occurred.',
+        duration: 8000,
       });
       setIsLoading(false);
     }

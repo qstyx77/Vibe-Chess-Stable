@@ -31,6 +31,7 @@ export default function LoginPage() {
       toast({
         title: 'Logging In...',
         description: 'You will be redirected shortly.',
+        duration: 5000,
       });
       router.push('/');
     } catch (error: any) {
@@ -39,6 +40,7 @@ export default function LoginPage() {
         variant: 'destructive',
         title: 'Login Failed',
         description: error.message || 'An unexpected error occurred.',
+        duration: 8000,
       });
       setIsLoading(false);
     }

@@ -47,6 +47,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
     toast({
         title: 'Logging in...',
         description: 'Please wait while we check your credentials.',
+        duration: 5000,
     });
     if(onSuccess) onSuccess();
   };
