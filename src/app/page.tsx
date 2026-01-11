@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1979,7 +1980,7 @@ setIsBlackAI(newIsBlackAI);
                 setBoard(boardToUpdate);
                 globalUniqueIdCounter = aiPromoRookIdCounter!;
                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
-                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)}'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 1000 });
+                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(pawnColor)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 1000 });
                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
                     const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                     const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
@@ -3282,13 +3283,6 @@ setIsBlackAI(newIsBlackAI);
                 {getStatusMessage()}
             </div>
           </div>
-        <Alert className="bg-blue-900/50 border-blue-700 text-blue-200 fixed bottom-4 left-1/2 -translate-x-1/2 w-auto max-w-lg">
-            <Terminal className="h-4 w-4 text-blue-400" />
-            <AlertTitle>Preview Backend</AlertTitle>
-            <AlertDescription>
-                The backend server for online play is disconnected. <a href="https://console.cloud.google.com/home/dashboard?project=evolving-chess" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Learn more</a>.
-            </AlertDescription>
-        </Alert>
       </div>
 
 
