@@ -129,7 +129,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         let data;
         try {
             data = JSON.parse(message.toString());
-            console.log(`[SERVER] Received message in room ${ws.roomId}:`, data);
+            console.log(`[SERVER] Received message in room ${ws.roomId}:`, data.type, data.payload || '');
         } catch (e) {
             console.error('[SERVER] Failed to parse message:', message.toString());
             return;
@@ -296,7 +296,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winnerOnTimeout;
-                        broadcastToRoom(ws.roomId, { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason });
+                        broadcastToRoom(ws.roomId!, { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason });
                         return;
                     }
 
