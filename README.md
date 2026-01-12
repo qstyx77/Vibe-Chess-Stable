@@ -1,4 +1,4 @@
-de # Firebase Studio
+nde # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
 

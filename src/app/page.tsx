@@ -470,7 +470,7 @@ setIsBlackAI(newIsBlackAI);
     const opponentIsStalemated = isStalemate(currentBoard, opponentColor, null);
     if (opponentIsStalemated) {
       setGameInfo(prev => ({ ...prev, message: `Stalemate! It's a draw.`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-      if (onlineStatus === 'connected') {
+       if (onlineStatus === 'connected') {
          const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'stalemate' }));
