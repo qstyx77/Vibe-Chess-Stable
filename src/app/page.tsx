@@ -804,14 +804,12 @@ setIsBlackAI(newIsBlackAI);
     };
 
     const handleTimeout = useCallback(() => {
-        console.log("[CLIENT] handleTimeout called. Sending 'timeout' message.");
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
             wsRef.current.send(JSON.stringify({ type: 'timeout' }));
         }
     }, []);
 
     const startTurnTimer = useCallback((player: PlayerColor) => {
-        console.log(`[CLIENT] Starting timer for ${player}.`);
         if (turnTimerIntervalId.current) {
             clearInterval(turnTimerIntervalId.current);
         }
@@ -867,27 +865,21 @@ setIsBlackAI(newIsBlackAI);
   
     const wsUrl = getWebSocketUrl();
     if (!wsUrl) {
-      console.error("[CLIENT] Could not determine WebSocket URL.");
       toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       return;
     }
   
-    console.log(`[CLIENT] Connecting to WebSocket at: ${wsUrl}`);
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
   
     ws.onopen = () => {
-      console.log('[CLIENT] WebSocket connection opened.');
       if (action === 'create') {
-        console.log('[CLIENT] Sending create-room message.');
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && inputRoomId) {
-        console.log(`[CLIENT] Sending join-room message for room: ${inputRoomId}.`);
         ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
       } else if (action === 'ranked') {
           if(user) {
-              console.log(`[CLIENT] Sending join-ranked-queue message for user: ${user.uid}.`);
               setRankedQueueStatus('searching');
               ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid }));
           }
@@ -897,7 +889,6 @@ setIsBlackAI(newIsBlackAI);
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data as string);
-        console.log('[CLIENT] Received message:', data);
         switch (data.type) {
           case 'room-created':
             setRoomId(data.roomId);
@@ -947,19 +938,17 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
       } catch (err) {
-        console.error("[CLIENT] Error processing message:", err);
+        console.error("Error processing message:", err);
       }
     };
   
     ws.onerror = (err) => {
-      console.error("[CLIENT] WebSocket error:", err);
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       setRankedQueueStatus('idle');
     };
   
     ws.onclose = (event) => {
-        console.log('[CLIENT] WebSocket connection closed:', event.code, event.reason);
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
@@ -1146,7 +1135,6 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    console.log('[CLIENT] Sending commander-promo message.');
                     ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
                 }
                 // Client no longer progresses state; it waits for server's authoritative response.
@@ -1216,7 +1204,6 @@ setIsBlackAI(newIsBlackAI);
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
                 // Let the server know about the sacrifice to sync state
-                console.log('[CLIENT] Sending pawn-sacrifice message.');
                 ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } }));
             }
         }
@@ -1417,7 +1404,6 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    console.log('[CLIENT] Sending game-move message for self-destruct.');
                     ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
                 }
             } else {
@@ -1481,7 +1467,6 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected' && moveBeingMade) {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-              console.log('[CLIENT] Sending game-move message for self-destruct.');
               ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
             }
         }
@@ -1511,7 +1496,6 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('[CLIENT] Sending game-move message:', moveBeingMade);
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
             // For online games, we stop client-side processing here.
@@ -1703,7 +1687,6 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    console.log('[CLIENT] Sending game-move message for first blood.');
                     ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
                 }
             } else {
@@ -1934,7 +1917,6 @@ setIsBlackAI(newIsBlackAI);
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          console.log('[CLIENT] Sending game-move message for promotion.');
           ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
     }
@@ -2051,7 +2033,6 @@ setIsBlackAI(newIsBlackAI);
     };
 
     if (!currentAiInstance) {
-      console.error("AI instance not available for performAiMove (captured check).");
       toast({
         title: "AI Error",
         description: "AI engine is not ready or was lost. Please wait or reset the game.",
@@ -2114,7 +2095,6 @@ setIsBlackAI(newIsBlackAI);
         if (!aiMoveDataFromVibeAI || !aiMoveDataFromVibeAI.from || !aiMoveDataFromVibeAI.to ||
             !Array.isArray(aiMoveDataFromVibeAI.from) || aiMoveDataFromVibeAI.from.length !== 2 ||
             !Array.isArray(aiMoveDataFromVibeAI.to) || aiMoveDataFromVibeAI.to.length !== 2) {
-            console.log(`AI ILLEGAL MOVE DEBUG (Attempt ${attemptCount}): AI move data from vibe AI is invalid or null.`);
             continue; // Try again
         }
 
@@ -2125,7 +2105,6 @@ setIsBlackAI(newIsBlackAI);
         originalPieceLevelForAI = Number(pieceOnFromSquareForAI?.level || 1);
 
         if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) {
-            console.log(`AI ILLEGAL MOVE DEBUG (Attempt ${attemptCount}): No piece to move for AI or piece color mismatch. Piece: ${pieceOnFromSquareForAI}, CurrentPlayer: ${currentPlayer}`);
             continue; // Try again
         }
 
@@ -2140,10 +2119,6 @@ setIsBlackAI(newIsBlackAI);
             }
         }
 
-
-        if (!isAiMoveActuallyLegal) {
-            console.log(`AI ILLEGAL MOVE DEBUG (Attempt ${attemptCount}): AI suggested move ${aiFromAlg} to ${aiToAlg} is not in chess-utils legal moves.`);
-        }
       }
 
 
@@ -2179,46 +2154,14 @@ setIsBlackAI(newIsBlackAI);
             aiMoveDataFromVibeAI = { from: aiMoveDataFromVibeAI!.from, to: [newToCoords.row, newToCoords.col], type: overrideMoveType, promoteTo: promoteToOverrideType };
             aiToAlg = chosenDefinitiveMoveAlg;
             isAiMoveActuallyLegal = true;
-            console.log("AI overridden move:", aiMoveDataFromVibeAI);
         } else {
             aiErrorOccurredRef.current = true;
-            console.log("AI Fallback: chess-utils also confirms no legal moves for AI's chosen piece. Proceeding with forfeit logic.");
         }
       }
 
 
       if (!aiMoveDataFromVibeAI || !isAiMoveActuallyLegal) {
-        // This block handles cases where AI has no valid moves or all attempts/fallbacks failed
-        const isAiInCheck = isKingInCheck(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
-        const opponent = currentPlayer === 'white' ? 'black' : 'white';
-        if (isAiInCheck) {
-            const isMate = isCheckmate(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
-            if (isMate) {
-                setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponent }));
-                toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no moves.`, duration: 8000 });
-            } else {
-                 console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) Malfunction: AI in check, found no moves, but utils indicate not checkmate. Legal moves should exist.`);
-                 setGameInfo(prev => ({ ...prev, message: `Draw! (AI Error/Forfeit)`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: false, isStalemate: true, gameOver: true, winner: "draw" }));
-                 toast({ title: "Draw by AI Error!", description: "The AI encountered an issue and cannot make a legal move.", variant: "destructive", duration: 8000 });
-                 aiErrorOccurredRef.current = true;
-            }
-        } else {
-            const isStale = isStalemate(finalBoardStateForAI, currentPlayer, enPassantTargetSquare);
-            if (isStale) {
-              setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-              toast({ title: "Stalemate!", description: "It's a draw! AI has no moves.", duration: 8000 });
-            } else {
-              console.warn(`AI (${getPlayerDisplayName(currentPlayer)}) has no moves, not in check, but not stalemate. Assuming stalemate or error.`);
-              setGameInfo(prev => ({ ...prev, message: "Stalemate! (AI Forfeit)", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-              aiErrorOccurredRef.current = true;
-            }
-        }
-        if(!aiErrorOccurredRef.current) {
-            setIsAiThinking(false);
-            setIsMoveProcessing(false);
-            setAnimatedSquareTo(null);
-            return;
-        }
+        aiErrorOccurredRef.current = true;
       }
 
       if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI && aiFromAlg && aiToAlg) {
@@ -2651,7 +2594,7 @@ setIsBlackAI(newIsBlackAI);
         } else {
           aiErrorOccurredRef.current = true;
         }
-      } else { // This branch now only covers if aiMoveDataFromVibeAI was null initially, or all attempts + fallback failed.
+      } else { 
         aiErrorOccurredRef.current = true;
       }
     } catch (error) {
@@ -2660,21 +2603,48 @@ setIsBlackAI(newIsBlackAI);
     }
 
     if (aiErrorOccurredRef.current) {
-      toast({
-        title: `AI (${getPlayerDisplayName(currentPlayer)}) Error/Forfeit`,
-        description: "AI move forfeited or error occurred.",
-        variant: "destructive",
-        duration: 8000,
-      });
-      if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
-
-      if (!gameInfo.gameOver) {
-          const boardBeforeAIAttempt = board.map(r_err => r_err.map(s_err => ({ ...s_err, piece: s_err.piece ? { ...s_err.piece } : null, item: s_err.item ? {...s_err.item} : null })));
-          processMoveEnd(boardBeforeAIAttempt, currentPlayer, false, enPassantTargetSquare);
-      }
-      setIsMoveProcessing(false);
-      setIsAiThinking(false);
-      setAnimatedSquareTo(null);
+        toast({
+            title: `AI (${getPlayerDisplayName(currentPlayer)}) Error/Forfeit`,
+            description: "AI move forfeited or error occurred.",
+            variant: "destructive",
+            duration: 8000,
+        });
+    
+        const isCurrentPlayerInCheck = isKingInCheck(board, currentPlayer, enPassantTargetSquare);
+        const opponent = currentPlayer === 'white' ? 'black' : 'white';
+    
+        if (isCurrentPlayerInCheck) {
+            setGameInfo(prev => ({
+                ...prev,
+                message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`,
+                isCheck: true,
+                playerWithKingInCheck: currentPlayer,
+                isCheckmate: true,
+                isStalemate: false,
+                gameOver: true,
+                winner: opponent
+            }));
+            toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no legal moves.`, duration: 8000 });
+        } else {
+            setGameInfo(prev => ({
+                ...prev,
+                message: "Stalemate! It's a draw.",
+                isCheck: false,
+                playerWithKingInCheck: null,
+                isCheckmate: false,
+                isStalemate: true,
+                gameOver: true,
+                winner: 'draw'
+            }));
+            toast({ title: "Stalemate!", description: "It's a draw! The AI has no legal moves.", duration: 8000 });
+        }
+    
+        if (currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
+    
+        setIsMoveProcessing(false);
+        setIsAiThinking(false);
+        setAnimatedSquareTo(null);
+        return;
     }
   }, [
     board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer, enPassantTargetSquare,
@@ -2827,26 +2797,15 @@ setIsBlackAI(newIsBlackAI);
 
   const resetGame = useCallback(() => {
     if (onlineStatus === 'connected' && !gameInfo.gameOver) {
-      const opponent = localPlayerColor === 'white' ? 'black' : 'white';
-      
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
-          console.log('[CLIENT] Sending resign message.');
           ws.send(JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor }));
       }
-      
-      setGameInfo(prev => ({
-        ...prev,
-        message: `${getPlayerDisplayName(localPlayerColor!)} resigned. ${getPlayerDisplayName(opponent)} wins!`,
-        gameOver: true,
-        winner: opponent,
-      }));
-      toast({ title: "You Resigned", description: `${getPlayerDisplayName(opponent)} wins.`, duration: 8000});
       return;
     }
     fullGameReset();
     toast({ title: "Game Reset", description: "The board has been reset.", duration: 8000 });
-  }, [onlineStatus, localPlayerColor, getPlayerDisplayName, toast, fullGameReset, gameInfo.gameOver]);
+  }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
     if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
