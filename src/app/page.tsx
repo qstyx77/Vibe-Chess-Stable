@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -643,10 +644,12 @@ setIsBlackAI(newIsBlackAI);
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
             setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
-
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
-
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
             setIsMoveProcessing(false);
             setAnimatedSquareTo(null);
 
@@ -669,14 +672,15 @@ setIsBlackAI(newIsBlackAI);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
-            
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
             setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
-
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
-
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
             setIsMoveProcessing(false);
             setAnimatedSquareTo(null);
 
