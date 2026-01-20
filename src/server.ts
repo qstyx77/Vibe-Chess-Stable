@@ -58,7 +58,6 @@ const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'l
 const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
     if (room && room.clients) {
-        console.log(`[SERVER] Broadcasting to room ${roomId}:`, message); // LOG
         const payload = JSON.stringify(message);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
@@ -113,14 +112,12 @@ const processRankedQueue = async () => {
 
         player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', opponent: {id: player2Data.userId, elo: player2Data.elo} }));
         player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', opponent: {id: player1Data.userId, elo: player1Data.elo} }));
-        console.log(`[SERVER] Ranked match started in room ${roomId} between ${player1Data.userId} and ${player2Data.userId}`); // LOG
     }
 };
 setInterval(processRankedQueue, 10000);
 
 
 wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
-    console.log('[SERVER] Client connected.'); // LOG
     ws.roomId = undefined;
     ws.userId = undefined;
 
@@ -128,14 +125,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         let data;
         try {
             data = JSON.parse(message.toString());
-            console.log(`[SERVER] Received message from client in room ${ws.roomId || 'N/A'}:`, data); // LOG
         } catch (e) {
             console.error('[SERVER] Failed to parse message:', message.toString());
             return;
         }
 
         if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
-            console.log(`[SERVER] Message of type ${data.type} received from client without room. Ignoring.`); //LOG
             return;
         }
         
@@ -175,7 +170,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         blackTimeouts: 0,
                     }
                 };
-                console.log(`[SERVER] Room ${roomId} created by client.`); // LOG
                 ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
                 break;
             }
@@ -185,13 +179,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 if (roomToJoin && roomToJoin.clients.length < 2) {
                     ws.roomId = roomIdToJoin;
                     roomToJoin.clients.push(ws);
-                    console.log(`[SERVER] Client joined room ${roomIdToJoin}. Total clients: ${roomToJoin.clients.length}`); //LOG
                     
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black' }));
                     
                     broadcastToRoom(roomIdToJoin, { type: 'player-joined' });
                 } else {
-                    console.log(`[SERVER] Client failed to join room ${roomIdToJoin}: not found or full.`); //LOG
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
                 break;
@@ -225,7 +217,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                 const existingPlayer = rankedQueue.find(p => p.ws === ws);
                 if (!existingPlayer) {
-                    console.log(`[SERVER] User ${userId} with ELO ${userElo} joined ranked queue.`); // LOG
                     rankedQueue.push({ ws, userId, elo: userElo, timestamp: Date.now() });
                 }
                 break;
@@ -233,14 +224,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             case 'leave-ranked-queue': {
                 const index = rankedQueue.findIndex(p => p.ws === ws);
                 if (index > -1) {
-                    console.log(`[SERVER] User ${rankedQueue[index].userId} left ranked queue.`); // LOG
                     rankedQueue.splice(index, 1);
                 }
                 break;
             }
             case 'commander-promo': {
                 if (!room || !data.square) break;
-                console.log(`[SERVER] Processing commander-promo in room ${ws.roomId}.`); // LOG
 
                 const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
@@ -269,14 +258,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         fullGameState: room.gameState,
                         lastPlayer: playerWhoActed
                     });
-                } else {
-                    console.log(`[SERVER] Invalid commander-promo attempt in room ${ws.roomId}.`); // LOG
                 }
                 break;
             }
             case 'timeout': {
                  if (room && !room.gameState.gameInfo.gameOver) {
-                    console.log(`[SERVER] Timeout received for room ${ws.roomId}. Current player: ${room.gameState.currentPlayer}`); // LOG
                     const timedOutPlayer = room.gameState.currentPlayer;
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
                     
@@ -286,24 +272,19 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
                     else room.gameState.blackTimeouts++;
 
-                    console.log(`[SERVER] Timeouts - White: ${room.gameState.whiteTimeouts}, Black: ${room.gameState.blackTimeouts}`); // LOG
-
                     const timedOutPlayerInCheck = isKingInCheck(room.gameState.board, timedOutPlayer, room.gameState.enPassantTarget);
                     if (timedOutPlayerInCheck) {
                         reason = 'self-check-timeout';
                     }
                     
                     if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
-                        console.log(`[SERVER] Game over by timeout/forfeit in room ${ws.roomId}. Winner: ${winnerOnTimeout}`); // LOG
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winnerOnTimeout;
                         broadcastToRoom(ws.roomId!, { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason });
                         return;
                     }
 
-                    // This is the fix: ensure currentPlayer is set to the opponent.
                     room.gameState.currentPlayer = opponent;
-                    console.log(`[SERVER] Turn passed due to timeout. New current player: ${room.gameState.currentPlayer}`); // LOG
                     
                     const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
                     if (inCheck) {
@@ -326,7 +307,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             }
             case 'game-move': {
                 if (!room || !data.payload) break;
-                console.log(`[SERVER] Processing game-move in room ${ws.roomId}.`); // LOG
 
                 const { payload: move } = data;
                 const movingPlayer = room.gameState.currentPlayer;
@@ -458,13 +438,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             default:
-                console.log(`[SERVER] Unhandled message type: ${data.type}`); // LOG
                 break;
         }
     });
 
     ws.on('close', () => {
-        console.log(`[SERVER] Client in room ${ws.roomId || 'N/A'} disconnected.`); // LOG
         // Handle leaving ranked queue
         const queueIndex = rankedQueue.findIndex(p => p.ws === ws);
         if (queueIndex > -1) {
@@ -487,7 +465,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                
                 if (room.clients.length === 0) {
                     delete rooms[ws.roomId];
-                    console.log(`[SERVER] Room ${ws.roomId} closed.`); // LOG
                 }
             }
         }
@@ -502,4 +479,3 @@ const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
     // Startup message removed to clean up logs
 });
-

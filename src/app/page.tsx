@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -54,7 +53,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
 
 
 let globalUniqueIdCounter = 0;
@@ -629,7 +627,6 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-      console.log('[CLIENT] Received message:', data); // LOG
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -644,12 +641,14 @@ setIsBlackAI(newIsBlackAI);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
             setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
-            // This is the key fix: ensure the client knows the server has processed the promotion
             setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
             setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
 
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
+
+            setIsMoveProcessing(false);
+            setAnimatedSquareTo(null);
 
             if(fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
@@ -677,6 +676,9 @@ setIsBlackAI(newIsBlackAI);
 
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
+
+            setIsMoveProcessing(false);
+            setAnimatedSquareTo(null);
 
             if(fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
@@ -790,6 +792,8 @@ setIsBlackAI(newIsBlackAI);
             }
             stopTurnTimer();
             setIsRankedGame(false);
+            setIsMoveProcessing(false);
+            setAnimatedSquareTo(null);
             break;
         }
     }
@@ -871,21 +875,16 @@ setIsBlackAI(newIsBlackAI);
       return;
     }
     
-    console.log('[CLIENT] Attempting to connect to WebSocket...'); // LOG
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
   
     ws.onopen = () => {
-      console.log('[CLIENT] WebSocket connection opened.'); // LOG
       if (action === 'create') {
-        console.log('[CLIENT] Sending create-room message.'); // LOG
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && inputRoomId) {
-        console.log(`[CLIENT] Sending join-room message for room: ${inputRoomId}`); // LOG
         ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
       } else if (action === 'ranked') {
           if(user) {
-              console.log(`[CLIENT] Sending join-ranked-queue message for user: ${user.uid}`); // LOG
               setRankedQueueStatus('searching');
               ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid }));
           }
@@ -894,7 +893,6 @@ setIsBlackAI(newIsBlackAI);
   
     ws.onmessage = (event) => {
       try {
-        console.log('[CLIENT] Raw message from server:', event.data); // LOG
         const data = JSON.parse(event.data as string);
         switch (data.type) {
           case 'room-created':
@@ -945,19 +943,18 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
       } catch (err) {
-        console.error("[CLIENT] Error processing message:", err);
+        console.error("Error processing message:", err);
       }
     };
   
     ws.onerror = (err) => {
-      console.error('[CLIENT] WebSocket error:', err); // LOG
+      console.error('WebSocket error:', err);
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       setRankedQueueStatus('idle');
     };
   
     ws.onclose = (event) => {
-        console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`); // LOG
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
@@ -1144,7 +1141,6 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    console.log('[CLIENT] Sending commander-promo message.'); // LOG
                     ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
                 }
                 // Client no longer progresses state; it waits for server's authoritative response.
@@ -1213,7 +1209,6 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                console.log('[CLIENT] Sending pawn-sacrifice message.'); // LOG
                 ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } }));
             }
         }
@@ -1414,7 +1409,6 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    console.log('[CLIENT] Sending self-destruct move.'); // LOG
                     ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
                 }
             } else {
@@ -1478,7 +1472,6 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected' && moveBeingMade) {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-              console.log('[CLIENT] Sending self-destruct move (end).'); // LOG
               ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
             }
         }
@@ -1508,7 +1501,6 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                console.log('[CLIENT] Sending game-move message:', moveBeingMade); // LOG
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
             // For online games, we stop client-side processing here.
@@ -1700,7 +1692,6 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    console.log('[CLIENT] Sending game-move that should trigger first blood.'); // LOG
                     ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
                 }
             } else {
@@ -1931,7 +1922,6 @@ setIsBlackAI(newIsBlackAI);
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          console.log('[CLIENT] Sending promotion move.'); // LOG
           ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
     }
@@ -2625,33 +2615,17 @@ setIsBlackAI(newIsBlackAI);
             duration: 8000,
         });
     
-        const isCurrentPlayerInCheck = isKingInCheck(board, currentPlayer, enPassantTargetSquare);
         const opponent = currentPlayer === 'white' ? 'black' : 'white';
     
-        if (isCurrentPlayerInCheck) {
-            setGameInfo(prev => ({
-                ...prev,
-                message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`,
-                isCheck: true,
-                playerWithKingInCheck: currentPlayer,
-                isCheckmate: true,
-                isStalemate: false,
-                gameOver: true,
-                winner: opponent
-            }));
-            toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins! AI has no legal moves.`, duration: 8000 });
-        } else {
-            setGameInfo(prev => ({
-                ...prev,
-                message: "Stalemate! It's a draw.",
-                isCheck: false,
-                playerWithKingInCheck: null,
-                isCheckmate: false,
-                isStalemate: true,
-                gameOver: true,
-                winner: 'draw'
-            }));
-            toast({ title: "Stalemate!", description: "It's a draw! The AI has no legal moves.", duration: 8000 });
+        // Check for checkmate or stalemate
+        if (!hasAnyLegalMoves(board, currentPlayer, enPassantTargetSquare)) {
+          if (isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
+            setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponent }));
+            toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins as AI has no legal moves.`, duration: 8000 });
+          } else {
+            setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, isStalemate: true, gameOver: true, winner: 'draw' }));
+            toast({ title: "Stalemate!", description: "It's a draw as AI has no legal moves.", duration: 8000 });
+          }
         }
     
         if (currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
@@ -3053,6 +3027,24 @@ setIsBlackAI(newIsBlackAI);
 
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
+  const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const squareState = board[r]?.[c];
+        if(!squareState) continue;
+        const piece = squareState.piece;
+        if (piece && piece.color === playerColor) {
+          const pieceSquareAlgebraic = squareState.algebraic;
+          const legalMoves = getPossibleMoves(board, pieceSquareAlgebraic, enPassantTargetSquare);
+          if (legalMoves.length > 0) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }, []);
+
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
       {/* Flash Messages & Overlays */}
@@ -3271,4 +3263,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
