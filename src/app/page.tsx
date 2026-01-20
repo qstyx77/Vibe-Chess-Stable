@@ -628,6 +628,7 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+      console.log('[CLIENT] Received data from server:', data);
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -813,12 +814,15 @@ setIsBlackAI(newIsBlackAI);
     };
 
     const handleTimeout = useCallback(() => {
+        console.log('[CLIENT] TIMEOUT! Current player:', activeTimerPlayer);
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            console.log('[CLIENT] Sending timeout message to server...');
             wsRef.current.send(JSON.stringify({ type: 'timeout' }));
         }
-    }, []);
+    }, [activeTimerPlayer]);
 
     const startTurnTimer = useCallback((player: PlayerColor) => {
+        console.log('[CLIENT] Starting timer for', player);
         if (turnTimerIntervalId.current) {
             clearInterval(turnTimerIntervalId.current);
         }
