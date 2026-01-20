@@ -629,6 +629,7 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+      console.log('[CLIENT] Received message:', data); // LOG
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -869,17 +870,22 @@ setIsBlackAI(newIsBlackAI);
       setOnlineStatus('disconnected');
       return;
     }
-  
+    
+    console.log('[CLIENT] Attempting to connect to WebSocket...'); // LOG
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
   
     ws.onopen = () => {
+      console.log('[CLIENT] WebSocket connection opened.'); // LOG
       if (action === 'create') {
+        console.log('[CLIENT] Sending create-room message.'); // LOG
         ws.send(JSON.stringify({ type: 'create-room' }));
       } else if (action === 'join' && inputRoomId) {
+        console.log(`[CLIENT] Sending join-room message for room: ${inputRoomId}`); // LOG
         ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
       } else if (action === 'ranked') {
           if(user) {
+              console.log(`[CLIENT] Sending join-ranked-queue message for user: ${user.uid}`); // LOG
               setRankedQueueStatus('searching');
               ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid }));
           }
@@ -888,6 +894,7 @@ setIsBlackAI(newIsBlackAI);
   
     ws.onmessage = (event) => {
       try {
+        console.log('[CLIENT] Raw message from server:', event.data); // LOG
         const data = JSON.parse(event.data as string);
         switch (data.type) {
           case 'room-created':
@@ -938,17 +945,19 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
       } catch (err) {
-        console.error("Error processing message:", err);
+        console.error("[CLIENT] Error processing message:", err);
       }
     };
   
     ws.onerror = (err) => {
+      console.error('[CLIENT] WebSocket error:', err); // LOG
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       setRankedQueueStatus('idle');
     };
   
     ws.onclose = (event) => {
+        console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`); // LOG
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
@@ -1135,6 +1144,7 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
+                    console.log('[CLIENT] Sending commander-promo message.'); // LOG
                     ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
                 }
                 // Client no longer progresses state; it waits for server's authoritative response.
@@ -1203,7 +1213,7 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                // Let the server know about the sacrifice to sync state
+                console.log('[CLIENT] Sending pawn-sacrifice message.'); // LOG
                 ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } }));
             }
         }
@@ -1404,6 +1414,7 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
+                    console.log('[CLIENT] Sending self-destruct move.'); // LOG
                     ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
                 }
             } else {
@@ -1467,6 +1478,7 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected' && moveBeingMade) {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
+              console.log('[CLIENT] Sending self-destruct move (end).'); // LOG
               ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
             }
         }
@@ -1496,6 +1508,7 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
+                console.log('[CLIENT] Sending game-move message:', moveBeingMade); // LOG
                 ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
             }
             // For online games, we stop client-side processing here.
@@ -1687,6 +1700,7 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
+                    console.log('[CLIENT] Sending game-move that should trigger first blood.'); // LOG
                     ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
                 }
             } else {
@@ -1917,6 +1931,7 @@ setIsBlackAI(newIsBlackAI);
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
+          console.log('[CLIENT] Sending promotion move.'); // LOG
           ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
         }
     }
@@ -3256,3 +3271,4 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
