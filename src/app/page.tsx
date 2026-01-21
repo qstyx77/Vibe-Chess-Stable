@@ -222,24 +222,6 @@ export default function EvolvingChessPage() {
   const [isRankedGame, setIsRankedGame] = useState(false);
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
 
-  const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const squareState = board[r]?.[c];
-        if(!squareState) continue;
-        const piece = squareState.piece;
-        if (piece && piece.color === playerColor) {
-          const pieceSquareAlgebraic = squareState.algebraic;
-          const legalMoves = getPossibleMoves(board, pieceSquareAlgebraic, enPassantTargetSquare);
-          if (legalMoves.length > 0) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }, []);
-
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
     if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') name += " (AI)";
@@ -497,9 +479,7 @@ setIsBlackAI(newIsBlackAI);
   }, [toast, getPlayerDisplayName, onlineStatus]);
 
   const stopTurnTimer = () => {
-      console.log("[CLIENT] stopTurnTimer called");
       if (turnTimerIntervalId.current) {
-          console.log(`[CLIENT] Clearing timer interval in stopTurnTimer: ${turnTimerIntervalId.current}`);
           clearInterval(turnTimerIntervalId.current);
           turnTimerIntervalId.current = null;
       }
@@ -508,9 +488,7 @@ setIsBlackAI(newIsBlackAI);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
-    console.log(`[CLIENT] startTurnTimer called for player: ${player}`);
     if (turnTimerIntervalId.current) {
-        console.log(`[CLIENT] Clearing existing timer interval: ${turnTimerIntervalId.current}`);
         clearInterval(turnTimerIntervalId.current);
     }
     setActiveTimerPlayer(player);
@@ -518,34 +496,20 @@ setIsBlackAI(newIsBlackAI);
 
     const intervalId = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            console.log(`[CLIENT] Timer tick. Player in closure: ${player}, Current Value: ${currentTimerValue}`);
-            
-            if (currentTimerValue === null) {
-                console.log("[CLIENT] Timer value is null, clearing interval.");
+            if (currentTimerValue === null || currentTimerValue <= 1) {
                 clearInterval(intervalId);
-                return null;
-            }
-
-            if (currentTimerValue === 1) { // Exact check to prevent re-firing
-                clearInterval(intervalId); // Stop the timer immediately.
                 turnTimerIntervalId.current = null;
 
-                console.log(`[CLIENT] TIMEOUT! Player in closure: ${player}. Sending timeout message.`);
-                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
+                // Make sure this doesn't fire if already stopped
+                if (currentTimerValue === 1) {
+                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                        wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
+                    }
                 }
                 
-                return 0; // Set final display to 0.
+                return 0; // Final display value
             }
             
-            if (currentTimerValue < 1) {
-                // Safeguard for any unexpected state
-                console.log(`[CLIENT] Timer value is < 1 (${currentTimerValue}), stopping to prevent runaway.`);
-                clearInterval(intervalId);
-                turnTimerIntervalId.current = null;
-                return 0;
-            }
-
             if (currentTimerValue === 11) {
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
@@ -556,7 +520,6 @@ setIsBlackAI(newIsBlackAI);
     }, 1000);
 
     turnTimerIntervalId.current = intervalId;
-    console.log(`[CLIENT] New timer interval set: ${intervalId} for player ${player}`);
   }, [setShowTimerWarning, setTimerWarningKey]);
 
 
@@ -708,7 +671,6 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-      console.log("[CLIENT] Received data from server:", data);
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -1042,6 +1004,24 @@ setIsBlackAI(newIsBlackAI);
   useEffect(() => {
     setBoardOrientation(determineBoardOrientation());
   }, [determineBoardOrientation]);
+
+  const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const squareState = board[r]?.[c];
+        if(!squareState) continue;
+        const piece = squareState.piece;
+        if (piece && piece.color === playerColor) {
+          const pieceSquareAlgebraic = squareState.algebraic;
+          const legalMoves = getPossibleMoves(board, pieceSquareAlgebraic, enPassantTargetSquare);
+          if (legalMoves.length > 0) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }, []);
 
   const processPawnSacrificeCheck = useCallback((
     boardAfterPrimaryMove: BoardState,
@@ -2250,7 +2230,7 @@ setIsBlackAI(newIsBlackAI);
           anvilsDestroyedByAICount = 0;
 
 
-          const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+          const tempBoardForCheckAI = finalBoardStateForAI.map(r => r.map(s => ({...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
           tempBoardForCheckAI[knightR_AI][knightC_AI].piece = null;
           if (isKingInCheck(tempBoardForCheckAI, currentPlayer, enPassantTargetSquare)) {
               aiErrorOccurredRef.current = true;
@@ -2649,7 +2629,6 @@ setIsBlackAI(newIsBlackAI);
         aiErrorOccurredRef.current = true;
       }
     } catch (error) {
-      console.error(`AI (${getPlayerDisplayName(currentPlayer)}) Error in performAiMove (outer try-catch):`, error);
       aiErrorOccurredRef.current = true;
     }
 
@@ -2722,9 +2701,6 @@ setIsBlackAI(newIsBlackAI);
   useEffect(() => {
     let currentCheckStateString: string | null = null;
     if (gameInfo.gameOver) {
-      if (onlineStatus === 'connected' && localPlayerColor && gameInfo.winner && gameInfo.winner !== 'draw' && gameInfo.winner !== localPlayerColor) {
-        setShowLossScreen(true);
-      }
       if (gameInfo.winner === 'draw') {
         currentCheckStateString = 'draw';
       } else if (gameInfo.isCheckmate && gameInfo.playerWithKingInCheck) {
@@ -3300,4 +3276,5 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+
 

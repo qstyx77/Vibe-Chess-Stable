@@ -126,14 +126,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         try {
             data = JSON.parse(message.toString());
         } catch (e) {
-            console.error('[Server] Failed to parse message:', message.toString());
             return;
         }
 
-        console.log('[Server] Received message:', data);
 
         if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
-            console.log('[Server] Discarding message from client without room.');
             return;
         }
         
@@ -265,12 +262,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'timeout': {
-                 console.log('[Server] Received timeout message:', data);
                  if (room && !room.gameState.gameInfo.gameOver) {
                     const timedOutPlayer = data.timedOutPlayer;
 
                     if (room.gameState.currentPlayer !== timedOutPlayer) {
-                        console.log(`[Server] IGNORED timeout for ${timedOutPlayer}, because current player is ${room.gameState.currentPlayer}`);
                         return; // Safeguard against race conditions
                     }
 
@@ -290,7 +285,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winnerOnTimeout;
                         const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
-                        console.log('[Server] Game over by timeout/forfeit. Broadcasting:', broadcastMsg);
                         broadcastToRoom(ws.roomId!, broadcastMsg);
                         return;
                     }
@@ -313,7 +307,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         fullGameState: room.gameState,
                         lastPlayer: timedOutPlayer,
                     };
-                    console.log('[Server] Passing turn due to timeout. Broadcasting:', broadcastMsg);
                     broadcastToRoom(ws.roomId, broadcastMsg);
                  }
                  break;
@@ -484,15 +477,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     });
 
     ws.on('error', (err) => {
-        console.error('[Server] WebSocket error:', err);
     });
 });
 
 const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`================================================`);
-    console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
-    console.log(`================================================`);
 });
 
     
