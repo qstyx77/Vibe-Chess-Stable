@@ -214,6 +214,7 @@ export default function EvolvingChessPage() {
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
+  const [gamePlayers, setGamePlayers] = useState<{white: {username?: string} | null, black: {username?: string} | null} | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [showLossScreen, setShowLossScreen] = useState(false);
   const [showWinScreen, setShowWinScreen] = useState(false);
@@ -223,22 +224,28 @@ export default function EvolvingChessPage() {
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    let baseName: string;
-
-    // Determine the base name
-    if (onlineStatus === 'connected' && player === localPlayerColor && userData?.username) {
-      baseName = userData.username;
-    } else {
-      baseName = player.charAt(0).toUpperCase() + player.slice(1);
+    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
+        const username = gamePlayers?.[player]?.username;
+        if (username) {
+            if (player === localPlayerColor) {
+                return `${username} (You)`;
+            }
+            return username;
+        }
+        // Fallback for non-ranked anonymous before second player joins
+        if (player === localPlayerColor) {
+            return userData?.username ? `${userData.username} (You)` : 'You';
+        }
     }
-
-    // Append suffixes
+    
+    // Local game logic
+    let baseName: string = player.charAt(0).toUpperCase() + player.slice(1);
+    
     if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
     if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
-    if (onlineStatus === 'connected' && player === localPlayerColor) return `${baseName} (You)`;
 
     return baseName;
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, userData]);
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, userData, gamePlayers]);
   
   const fullGameReset = useCallback(() => {
     globalUniqueIdCounter = 0;
@@ -317,6 +324,7 @@ setIsBlackAI(newIsBlackAI);
     setLocalPlayerColor(null);
     setRoomId(null);
     setOnlineStatus('disconnected');
+    setGamePlayers(null);
 
     setResurrectedSquares([]);
     setPieceForInfoDisplay(null);
@@ -390,7 +398,6 @@ setIsBlackAI(newIsBlackAI);
         black: capturedPieces.black.map(p => ({ ...p })),
       },
       killStreaks: { ...killStreaks },
-      lastCapturePlayer: null, 
       boardOrientation: boardOrientation,
       viewMode: viewMode,
       isWhiteAI: isWhiteAI,
@@ -510,12 +517,12 @@ setIsBlackAI(newIsBlackAI);
                 return null;
             }
             if (currentTimerValue <= 1) { // Will be 0 on next render
-                if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
-                turnTimerIntervalId.current = null;
-                
-                // Send timeout message exactly once
-                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
+                if (turnTimerIntervalId.current) {
+                    clearInterval(turnTimerIntervalId.current);
+                    turnTimerIntervalId.current = null;
+                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                         wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
+                    }
                 }
                 return 0;
             }
@@ -685,6 +692,7 @@ setIsBlackAI(newIsBlackAI);
             if (!fullGameState) return;
 
             setBoard(fullGameState.board);
+            if (fullGameState.players) setGamePlayers(fullGameState.players);
             setCapturedPieces(fullGameState.capturedPieces);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
@@ -716,6 +724,7 @@ setIsBlackAI(newIsBlackAI);
             if (!fullGameState) return;
 
             setBoard(fullGameState.board);
+            if (fullGameState.players) setGamePlayers(fullGameState.players);
             setCapturedPieces(fullGameState.capturedPieces);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
@@ -753,6 +762,7 @@ setIsBlackAI(newIsBlackAI);
 
             // Set the full state to ensure sync
             setBoard(fullGameState.board);
+            if (fullGameState.players) setGamePlayers(fullGameState.players);
             setCapturedPieces(fullGameState.capturedPieces);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
@@ -887,10 +897,11 @@ setIsBlackAI(newIsBlackAI);
     wsRef.current = ws;
   
     ws.onopen = () => {
+      const userInfo = user ? { userId: user.uid, username: userData?.username || user.displayName || 'Anonymous' } : null;
       if (action === 'create') {
-        ws.send(JSON.stringify({ type: 'create-room' }));
+        ws.send(JSON.stringify({ type: 'create-room', user: userInfo }));
       } else if (action === 'join' && inputRoomId) {
-        ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId }));
+        ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: userInfo }));
       } else if (action === 'ranked') {
           if(user) {
               setRankedQueueStatus('searching');
@@ -910,6 +921,9 @@ setIsBlackAI(newIsBlackAI);
             toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}`, duration: 8000 });
             break;
           case 'player-joined':
+            if(data.gameState?.players) {
+              setGamePlayers(data.gameState.players);
+            }
             setOnlineStatus('connected');
             toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
             startTurnTimer('white');
@@ -925,6 +939,9 @@ setIsBlackAI(newIsBlackAI);
               setRankedQueueStatus('idle');
               setRoomId(data.roomId);
               setLocalPlayerColor(data.color);
+              if (data.players) {
+                setGamePlayers(data.players);
+              }
               setIsRankedGame(true);
               toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
               startTurnTimer('white');
@@ -969,7 +986,7 @@ setIsBlackAI(newIsBlackAI);
         }
     };
   
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer, user, rankedQueueStatus]);
+  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer, user, userData, rankedQueueStatus]);
   
 
   useEffect(() => {
@@ -1669,12 +1686,12 @@ setIsBlackAI(newIsBlackAI);
               algebraic,
               oldLevelForResurrectionCheck,
               finalCapturedPiecesStateForTurn,
-              globalUniqueIdCounter
+              globalServerUniqueIdCounter
             );
             if (humanRookResData.resurrectionPerformed) {
               finalBoardStateForTurn = humanRookResData.boardWithResurrection;
               finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
-              globalUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
+              globalServerUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
               setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
               toast({
                   title: "Rook's Call!",
@@ -1888,7 +1905,7 @@ setIsBlackAI(newIsBlackAI);
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     onlineStatus, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
-    setResurrectedSquares
+    setResurrectedSquares, user
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -2421,11 +2438,7 @@ setIsBlackAI(newIsBlackAI);
                       const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
                       if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) {
-                        for (let c_idx = 0; c_idx < 8; c_idx++) {
-                           if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
-                        }
-                      }
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx]?.[c_idx]?.piece && !finalBoardStateForAI[r_idx]?.[c_idx]?.item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);

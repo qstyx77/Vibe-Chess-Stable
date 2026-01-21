@@ -40,7 +40,7 @@ const rooms: Record<string, { clients: (WebSocket & { userId?: string })[]; game
 let globalServerUniqueIdCounter = 10000;
 
 // Ranked matchmaking queue
-const rankedQueue: { ws: WebSocket & { userId?: string }; userId: string; elo: number; timestamp: number }[] = [];
+const rankedQueue: { ws: WebSocket & { userId?: string }; userId: string; elo: number; username: string; timestamp: number }[] = [];
 
 
 const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'loss' | 'draw') => {
@@ -105,13 +105,15 @@ const processRankedQueue = async () => {
                 nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
                 whiteTimeouts: 0,
                 blackTimeouts: 0,
-                player1: { id: player1Data.userId, elo: player1Data.elo },
-                player2: { id: player2Data.userId, elo: player2Data.elo },
+                players: {
+                    white: { userId: player1Data.userId, elo: player1Data.elo, username: player1Data.username },
+                    black: { userId: player2Data.userId, elo: player2Data.elo, username: player2Data.username }
+                }
             }
         };
 
-        player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', opponent: {id: player2Data.userId, elo: player2Data.elo} }));
-        player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', opponent: {id: player1Data.userId, elo: player1Data.elo} }));
+        player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', players: rooms[roomId].gameState.players }));
+        player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', players: rooms[roomId].gameState.players }));
     }
 };
 setInterval(processRankedQueue, 10000);
@@ -168,6 +170,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
                         whiteTimeouts: 0,
                         blackTimeouts: 0,
+                        players: {
+                            white: data.user ? { userId: data.user.userId, username: data.user.username } : null,
+                            black: null
+                        }
                     }
                 };
                 ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
@@ -179,10 +185,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 if (roomToJoin && roomToJoin.clients.length < 2) {
                     ws.roomId = roomIdToJoin;
                     roomToJoin.clients.push(ws);
-                    
+                    roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username } : null;
+
                     ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black' }));
                     
-                    broadcastToRoom(roomIdToJoin, { type: 'player-joined' });
+                    broadcastToRoom(roomIdToJoin, { type: 'player-joined', gameState: roomToJoin.gameState });
                 } else {
                     ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                 }
@@ -199,6 +206,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 // For simplicity in this environment, we'll fetch ELO here.
                 // In a production system, you'd want a more secure way to get this.
                 let userElo = 1200; // Default
+                let username = `Player-${userId.slice(0,5)}`;
                 let userWins = 0;
                 let userLosses = 0;
                 try {
@@ -208,6 +216,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const userDoc = await getDoc(userDocRef);
                     if (userDoc.exists()) {
                         userElo = userDoc.data().eloRating || 1200;
+                        username = userDoc.data().username || `Player-${userId.slice(0,5)}`;
                         userWins = userDoc.data().wins || 0;
                         userLosses = userDoc.data().losses || 0;
                     }
@@ -217,7 +226,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                 const existingPlayer = rankedQueue.find(p => p.ws === ws);
                 if (!existingPlayer) {
-                    rankedQueue.push({ ws, userId, elo: userElo, timestamp: Date.now() });
+                    rankedQueue.push({ ws, userId, elo: userElo, username, timestamp: Date.now() });
                 }
                 break;
             }
