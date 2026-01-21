@@ -497,7 +497,9 @@ setIsBlackAI(newIsBlackAI);
   }, [toast, getPlayerDisplayName, onlineStatus]);
 
   const stopTurnTimer = () => {
+      console.log("[CLIENT] stopTurnTimer called");
       if (turnTimerIntervalId.current) {
+          console.log(`[CLIENT] Clearing timer interval in stopTurnTimer: ${turnTimerIntervalId.current}`);
           clearInterval(turnTimerIntervalId.current);
           turnTimerIntervalId.current = null;
       }
@@ -506,7 +508,9 @@ setIsBlackAI(newIsBlackAI);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
+    console.log(`[CLIENT] startTurnTimer called for player: ${player}`);
     if (turnTimerIntervalId.current) {
+        console.log(`[CLIENT] Clearing existing timer interval: ${turnTimerIntervalId.current}`);
         clearInterval(turnTimerIntervalId.current);
     }
     setActiveTimerPlayer(player);
@@ -514,22 +518,34 @@ setIsBlackAI(newIsBlackAI);
 
     const intervalId = setInterval(() => {
         setTurnTimer(currentTimerValue => {
+            console.log(`[CLIENT] Timer tick. Player in closure: ${player}, Current Value: ${currentTimerValue}`);
+            
             if (currentTimerValue === null) {
+                console.log("[CLIENT] Timer value is null, clearing interval.");
                 clearInterval(intervalId);
                 return null;
             }
 
-            if (currentTimerValue <= 1) {
-                clearInterval(intervalId);
-                turnTimerIntervalId.current = null; 
+            if (currentTimerValue === 1) { // Exact check to prevent re-firing
+                clearInterval(intervalId); // Stop the timer immediately.
+                turnTimerIntervalId.current = null;
 
+                console.log(`[CLIENT] TIMEOUT! Player in closure: ${player}. Sending timeout message.`);
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                    wsRef.current.send(JSON.stringify({ type: 'timeout' }));
+                    wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
                 }
                 
-                return 0;
+                return 0; // Set final display to 0.
             }
             
+            if (currentTimerValue < 1) {
+                // Safeguard for any unexpected state
+                console.log(`[CLIENT] Timer value is < 1 (${currentTimerValue}), stopping to prevent runaway.`);
+                clearInterval(intervalId);
+                turnTimerIntervalId.current = null;
+                return 0;
+            }
+
             if (currentTimerValue === 11) {
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
@@ -540,6 +556,7 @@ setIsBlackAI(newIsBlackAI);
     }, 1000);
 
     turnTimerIntervalId.current = intervalId;
+    console.log(`[CLIENT] New timer interval set: ${intervalId} for player ${player}`);
   }, [setShowTimerWarning, setTimerWarningKey]);
 
 
@@ -691,6 +708,7 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+      console.log("[CLIENT] Received data from server:", data);
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -2434,7 +2452,11 @@ setIsBlackAI(newIsBlackAI);
                       const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
                       if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
+                      for (let r_idx = 0; r_idx < 8; r_idx++) {
+                        for (let c_idx = 0; c_idx < 8; c_idx++) {
+                           if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
+                        }
+                      }
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
@@ -2492,12 +2514,12 @@ setIsBlackAI(newIsBlackAI);
                   aiToAlg as AlgebraicSquare,
                   oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
-                  globalServerUniqueIdCounter
+                  globalUniqueIdCounter
               );
               if (aiRookResData.resurrectionPerformed) {
                   finalBoardStateForAI = aiRookResData.boardWithResurrection;
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
-                  globalServerUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
+                  globalUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 8000 });
                   if(aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander'){
@@ -3278,3 +3300,4 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+
