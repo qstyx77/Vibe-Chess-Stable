@@ -232,10 +232,6 @@ export default function EvolvingChessPage() {
             }
             return username;
         }
-        // Fallback for non-ranked anonymous before second player joins
-        if (player === localPlayerColor) {
-            return userData?.username ? `${userData.username} (You)` : 'You';
-        }
     }
     
     // Local game logic
@@ -245,7 +241,7 @@ export default function EvolvingChessPage() {
     if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
 
     return baseName;
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, userData, gamePlayers]);
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
   
   const fullGameReset = useCallback(() => {
     globalUniqueIdCounter = 0;
@@ -504,9 +500,7 @@ setIsBlackAI(newIsBlackAI);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
-    if (turnTimerIntervalId.current) {
-        clearInterval(turnTimerIntervalId.current);
-    }
+    stopTurnTimer(); // Ensure any existing timer is stopped
     setActiveTimerPlayer(player);
     setTurnTimer(45);
 
@@ -932,6 +926,9 @@ setIsBlackAI(newIsBlackAI);
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
             setOnlineStatus('connected');
+            if (data.gameState?.players) {
+              setGamePlayers(data.gameState.players);
+            }
             toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
             startTurnTimer('white');
             break;
@@ -943,6 +940,7 @@ setIsBlackAI(newIsBlackAI);
                 setGamePlayers(data.players);
               }
               setIsRankedGame(true);
+              setOnlineStatus('connected');
               toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
               startTurnTimer('white');
               break;
@@ -2701,17 +2699,19 @@ setIsBlackAI(newIsBlackAI);
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    if (gameInfo.gameOver && gameInfo.winner) {
+    // Only show win/loss screen if the game is over AND the main flash message (like CHECKMATE) is done.
+    if (gameInfo.gameOver && gameInfo.winner && !flashMessage) {
       if (gameInfo.winner === localPlayerColor) {
         setShowWinScreen(true);
       } else if (gameInfo.winner !== 'draw') {
         setShowLossScreen(true);
       }
-    } else {
+    } else if (!gameInfo.gameOver) {
+      // This part is important to reset the screens for a new game
       setShowWinScreen(false);
       setShowLossScreen(false);
     }
-  }, [gameInfo.gameOver, gameInfo.winner, localPlayerColor]);
+  }, [gameInfo.gameOver, gameInfo.winner, localPlayerColor, flashMessage]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;
