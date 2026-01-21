@@ -122,6 +122,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     ws.userId = undefined;
 
     ws.on('message', async (message) => {
+        console.log(`[SERVER] Received message: ${message.toString()}`);
         let data;
         try {
             data = JSON.parse(message.toString());
@@ -262,7 +263,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             }
             case 'timeout': {
                  if (room && !room.gameState.gameInfo.gameOver) {
+                    console.log('[SERVER] Processing timeout event for room:', ws.roomId);
                     const timedOutPlayer = room.gameState.currentPlayer;
+                    console.log('[SERVER] Player who timed out:', timedOutPlayer);
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
                     
                     let winnerOnTimeout = opponent;
@@ -279,11 +282,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winnerOnTimeout;
-                        broadcastToRoom(ws.roomId!, { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason });
+                        const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
+                        console.log('[SERVER] Broadcasting forfeit:', JSON.stringify(broadcastMsg, null, 2));
+                        broadcastToRoom(ws.roomId!, broadcastMsg);
                         return;
                     }
 
                     room.gameState.currentPlayer = opponent;
+                    console.log('[SERVER] New current player:', room.gameState.currentPlayer);
                     
                     const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
                     if (inCheck) {
@@ -296,11 +302,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.gameInfo.playerWithKingInCheck = null;
                     }
 
-                    broadcastToRoom(ws.roomId, {
+                    const broadcastMsg = {
                         type: 'game-move',
                         fullGameState: room.gameState,
-                        lastPlayer: timedOutPlayer, // The player who timed out still 'made' the move (by timing out)
-                    });
+                        lastPlayer: timedOutPlayer,
+                    };
+                    console.log('[SERVER] Broadcasting new game state after timeout:', JSON.stringify(broadcastMsg.fullGameState, null, 2));
+                    broadcastToRoom(ws.roomId, broadcastMsg);
                  }
                  break;
             }
@@ -478,3 +486,5 @@ const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
     // Startup message removed to clean up logs
 });
+
+    
