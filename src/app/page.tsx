@@ -214,7 +214,7 @@ export default function EvolvingChessPage() {
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
-  const [gamePlayers, setGamePlayers] = useState<{white: {username?: string} | null, black: {username?: string} | null} | null>(null);
+  const [gamePlayers, setGamePlayers] = useState<{white: {username?: string; userId?: string; elo?: number;} | null, black: {username?: string; userId?: string; elo?: number;} | null} | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const [showLossScreen, setShowLossScreen] = useState(false);
   const [showWinScreen, setShowWinScreen] = useState(false);
@@ -500,17 +500,13 @@ setIsBlackAI(newIsBlackAI);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
-    stopTurnTimer(); // Ensure any existing timer is stopped
+    stopTurnTimer();
     setActiveTimerPlayer(player);
     setTurnTimer(45);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === null) {
-                if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
-                return null;
-            }
-            if (currentTimerValue <= 1) { // Will be 0 on next render
+            if (currentTimerValue === null || currentTimerValue <= 1) {
                 if (turnTimerIntervalId.current) {
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
@@ -525,7 +521,6 @@ setIsBlackAI(newIsBlackAI);
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
             }
-
             return currentTimerValue - 1;
         });
     }, 1000);
@@ -899,7 +894,7 @@ setIsBlackAI(newIsBlackAI);
       } else if (action === 'ranked') {
           if(user) {
               setRankedQueueStatus('searching');
-              ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid }));
+              ws.send(JSON.stringify({ type: 'join-ranked-queue', user: {userId: user.uid, username: userData?.username, elo: userData?.eloRating} }));
           }
       }
     };
@@ -2699,24 +2694,43 @@ setIsBlackAI(newIsBlackAI);
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    // Only show win/loss screen if the game is over AND the main flash message (like CHECKMATE) is done.
-    if (gameInfo.gameOver && gameInfo.winner && !flashMessage) {
-      if (gameInfo.winner === localPlayerColor) {
-        setShowWinScreen(true);
-      } else if (gameInfo.winner !== 'draw') {
-        setShowLossScreen(true);
-      }
-    } else if (!gameInfo.gameOver) {
-      // This part is important to reset the screens for a new game
+    // This effect handles the display of the final "You Won" / "You Lost" screens.
+    if (gameInfo.gameOver && gameInfo.winner) {
+      // Game has ended. Start the sequence.
+      
+      // Determine if there's a primary, full-screen announcement.
+      const hasPrimaryAnnouncement = 
+        gameInfo.isCheckmate || 
+        gameInfo.isInfiltrationWin || 
+        gameInfo.isStalemate || 
+        gameInfo.isThreefoldRepetitionDraw;
+
+      // If there's a primary announcement like "CHECKMATE!", wait for its animation to finish.
+      // Otherwise (e.g., for resignation/timeout), show the outcome immediately.
+      const delay = hasPrimaryAnnouncement ? 2700 : 0; 
+
+      const timerId = setTimeout(() => {
+        if (gameInfo.winner === localPlayerColor) {
+          setShowWinScreen(true);
+        } else if (gameInfo.winner !== 'draw') {
+          setShowLossScreen(true);
+        }
+      }, delay);
+
+      // Cleanup timeout if dependencies change or component unmounts.
+      return () => clearTimeout(timerId);
+
+    } else {
+      // If the game is not over (e.g., reset), ensure win/loss screens are hidden.
       setShowWinScreen(false);
       setShowLossScreen(false);
     }
-  }, [gameInfo.gameOver, gameInfo.winner, localPlayerColor, flashMessage]);
+  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.isCheckmate, gameInfo.isInfiltrationWin, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, localPlayerColor]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;
     if (gameInfo.gameOver) {
-      if (gameInfo.winner === 'draw') {
+      if (gameInfo.winner === 'draw' || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw) {
         currentCheckStateString = 'draw';
       } else if (gameInfo.isCheckmate && gameInfo.playerWithKingInCheck) {
         currentCheckStateString = `checkmate-${gameInfo.playerWithKingInCheck}`;
@@ -2755,7 +2769,7 @@ setIsBlackAI(newIsBlackAI);
         flashedCheckStateRef.current = null;
       }
     }
-  }, [gameInfo, onlineStatus, localPlayerColor]);
+  }, [gameInfo]);
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
@@ -3297,3 +3311,4 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+

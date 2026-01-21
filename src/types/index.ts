@@ -90,7 +90,6 @@ export interface GameSnapshot {
   gameInfo: GameStatus;
   capturedPieces: { white: Piece[], black: Piece[] };
   killStreaks: { white: number, black: number };
-  lastCapturePlayer: PlayerColor | null;
   boardOrientation: PlayerColor;
   viewMode: ViewMode;
   isWhiteAI: boolean;
