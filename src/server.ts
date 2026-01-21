@@ -58,7 +58,6 @@ const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'l
 const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
     if (room && room.clients) {
-        console.log(`[SERVER] Broadcasting to room ${roomId}:`, message);
         const payload = JSON.stringify(message);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
@@ -119,7 +118,6 @@ setInterval(processRankedQueue, 10000);
 
 
 wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
-    console.log('[SERVER] New client connected.');
     ws.roomId = undefined;
     ws.userId = undefined;
 
@@ -127,7 +125,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         let data;
         try {
             data = JSON.parse(message.toString());
-            console.log('[SERVER] Received message:', data);
         } catch (e) {
             console.error('[SERVER] Failed to parse message:', message.toString());
             return;
@@ -266,10 +263,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             }
             case 'timeout': {
                  if (room && !room.gameState.gameInfo.gameOver) {
-                    console.log('[SERVER] Timeout message received.');
                     const timedOutPlayer = room.gameState.currentPlayer;
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
-                    console.log(`[SERVER] Player ${timedOutPlayer} timed out. Next player should be ${opponent}.`);
                     
                     let winnerOnTimeout = opponent;
                     let reason = 'timeout';
