@@ -128,7 +128,7 @@ function adaptBoardForAI(
 
 
 export default function EvolvingChessPage() {
-  const { user } = useUser();
+  const { user, userData } = useUser();
   const firestore = useFirestore();
   const [board, setBoard] = useState<BoardState>(initializeBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
@@ -223,12 +223,22 @@ export default function EvolvingChessPage() {
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    let name = player.charAt(0).toUpperCase() + player.slice(1);
-    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') name += " (AI)";
-    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') name += " (AI)";
-    if (onlineStatus === 'connected' && player === localPlayerColor) name += " (You)";
-    return name;
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor]);
+    let baseName: string;
+
+    // Determine the base name
+    if (onlineStatus === 'connected' && player === localPlayerColor && userData?.username) {
+      baseName = userData.username;
+    } else {
+      baseName = player.charAt(0).toUpperCase() + player.slice(1);
+    }
+
+    // Append suffixes
+    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
+    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
+    if (onlineStatus === 'connected' && player === localPlayerColor) return `${baseName} (You)`;
+
+    return baseName;
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, userData]);
   
   const fullGameReset = useCallback(() => {
     globalUniqueIdCounter = 0;
@@ -380,7 +390,7 @@ setIsBlackAI(newIsBlackAI);
         black: capturedPieces.black.map(p => ({ ...p })),
       },
       killStreaks: { ...killStreaks },
-      lastCapturePlayer: null, // This state was removed, causing issues
+      lastCapturePlayer: null, 
       boardOrientation: boardOrientation,
       viewMode: viewMode,
       isWhiteAI: isWhiteAI,
@@ -493,24 +503,23 @@ setIsBlackAI(newIsBlackAI);
     setActiveTimerPlayer(player);
     setTurnTimer(45);
 
-    const intervalId = setInterval(() => {
+    turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === 1) { // Fires exactly once when timer will become 0
-                clearInterval(intervalId);
+            if (currentTimerValue === null) {
+                if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
+                return null;
+            }
+            if (currentTimerValue <= 1) { // Will be 0 on next render
+                if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
                 turnTimerIntervalId.current = null;
-
+                
+                // Send timeout message exactly once
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
                 }
-                
-                return 0; // Final display value
-            }
-            
-            if (currentTimerValue === null || currentTimerValue <= 0) { // Safety check
-                clearInterval(intervalId);
                 return 0;
             }
-
+            
             if (currentTimerValue === 11) {
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
@@ -519,8 +528,6 @@ setIsBlackAI(newIsBlackAI);
             return currentTimerValue - 1;
         });
     }, 1000);
-
-    turnTimerIntervalId.current = intervalId;
   }, [setShowTimerWarning, setTimerWarningKey]);
 
 
@@ -2681,13 +2688,11 @@ setIsBlackAI(newIsBlackAI);
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    if (gameInfo.gameOver && gameInfo.winner && gameInfo.winner !== 'draw') {
+    if (gameInfo.gameOver && gameInfo.winner) {
       if (gameInfo.winner === localPlayerColor) {
         setShowWinScreen(true);
-        setShowLossScreen(false);
-      } else {
+      } else if (gameInfo.winner !== 'draw') {
         setShowLossScreen(true);
-        setShowWinScreen(false);
       }
     } else {
       setShowWinScreen(false);
@@ -3275,5 +3280,7 @@ setIsBlackAI(newIsBlackAI);
 
 
 
+
+    
 
     

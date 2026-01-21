@@ -6,6 +6,7 @@ import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 
 interface UserData {
+  username: string;
   email: string;
   eloRating: number;
   wins: number;
@@ -33,6 +34,7 @@ export function useUser() {
           } else {
             // If the document doesn't exist, create it.
             const newUserProfile: UserData = {
+              username: firebaseUser.displayName || `Player-${firebaseUser.uid.slice(0,5)}`,
               email: firebaseUser.email || 'anonymous',
               eloRating: 1200,
               wins: 0,
@@ -63,3 +65,5 @@ export function useUser() {
 
   return { user, userData, isLoading };
 }
+
+    

@@ -8,9 +8,6 @@ import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { PieceAbilitiesInfo } from './PieceAbilitiesInfo';
 import { cn } from '@/lib/utils';
 import React from 'react';
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, firestore } from 'firebase/firestore';
-import { useFirestore } from '@/firebase';
 
 interface GameControlsProps {
   currentPlayer: PlayerColor;
@@ -37,16 +34,6 @@ export function GameControls({
   turnTimer,
   activeTimerPlayer,
 }: GameControlsProps) {
-  const { user } = useUser();
-  const firestore = useFirestore();
-
-  const userDocRef = useMemoFirebase(
-    () => (user ? doc(firestore, 'users', user.uid) : null),
-    [firestore, user]
-  );
-  
-  const { data: userData } = useDoc(userDocRef);
-
   const timerDisplay = onlineStatus === 'connected' ? (turnTimer !== null ? turnTimer.toString().padStart(2, '0') : '45') : '00';
 
   const renderCapturedPieces = (color: PlayerColor, capturedBy: PlayerColor) => {
@@ -121,3 +108,5 @@ export function GameControls({
     </Card>
   );
 }
+
+    
