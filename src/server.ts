@@ -262,11 +262,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'timeout': {
-                 if (room && !room.gameState.gameInfo.gameOver) {
+                if (room && !room.gameState.gameInfo.gameOver) {
                     const timedOutPlayer = data.timedOutPlayer;
 
+                    // Safeguard: only process timeout if it's actually that player's turn
                     if (room.gameState.currentPlayer !== timedOutPlayer) {
-                        return; // Safeguard against race conditions
+                        return;
                     }
 
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
@@ -435,7 +436,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                  break;
             }
             case 'forfeit-timeout': {
-                if (room && data.winner) {
+                if (room && data.winner && !room.gameState.gameInfo.gameOver) {
                     room.gameState.gameInfo.gameOver = true;
                     room.gameState.gameInfo.winner = data.winner;
                     // Forward the message to other clients
@@ -483,5 +484,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
 });
+
+    
 
     

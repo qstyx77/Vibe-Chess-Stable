@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -157,7 +158,6 @@ export default function EvolvingChessPage() {
   const [promotionPawnOriginalLevel, setPromotionPawnOriginalLevel] = useState<number | null>(null);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
-  const [lastCapturePlayer, setLastCapturePlayer] = useState<PlayerColor | null>(null);
   const [historyStack, setHistoryStack] = useState<GameSnapshot[]>([]);
   const [isWhiteAI, setIsWhiteAI] = useState(false);
   const [isBlackAI, setIsBlackAI] = useState(false);
@@ -269,7 +269,6 @@ setIsBlackAI(newIsBlackAI);
     setPromotionMoveWasCapture(false);
     setPromotionPawnOriginalLevel(null);
     setKillStreaks({ white: 0, black: 0 });
-    setLastCapturePlayer(null);
     setHistoryStack([]);
     setLastMoveFrom(null);
     setLastMoveTo(null);
@@ -381,7 +380,7 @@ setIsBlackAI(newIsBlackAI);
         black: capturedPieces.black.map(p => ({ ...p })),
       },
       killStreaks: { ...killStreaks },
-      lastCapturePlayer: lastCapturePlayer,
+      lastCapturePlayer: null, // This state was removed, causing issues
       boardOrientation: boardOrientation,
       viewMode: viewMode,
       isWhiteAI: isWhiteAI,
@@ -428,7 +427,7 @@ setIsBlackAI(newIsBlackAI);
       return newHistory;
     });
   }, [
-    board, currentPlayer, gameInfo, capturedPieces, killStreaks, lastCapturePlayer, boardOrientation, viewMode,
+    board, currentPlayer, gameInfo, capturedPieces, killStreaks, boardOrientation, viewMode,
     isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
@@ -496,20 +495,22 @@ setIsBlackAI(newIsBlackAI);
 
     const intervalId = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === null || currentTimerValue <= 1) {
+            if (currentTimerValue === 1) { // Fires exactly once when timer will become 0
                 clearInterval(intervalId);
                 turnTimerIntervalId.current = null;
 
-                // Make sure this doesn't fire if already stopped
-                if (currentTimerValue === 1) {
-                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                        wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
-                    }
+                if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                    wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
                 }
                 
                 return 0; // Final display value
             }
             
+            if (currentTimerValue === null || currentTimerValue <= 0) { // Safety check
+                clearInterval(intervalId);
+                return 0;
+            }
+
             if (currentTimerValue === 11) {
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
@@ -830,13 +831,6 @@ setIsBlackAI(newIsBlackAI);
                     });
                 }
             }
-
-
-            if (winner === localPlayerColor) {
-              setShowWinScreen(true);
-            } else if (winner !== 'draw') {
-              setShowLossScreen(true);
-            }
             stopTurnTimer();
             setIsRankedGame(false);
             setIsMoveProcessing(false);
@@ -932,7 +926,6 @@ setIsBlackAI(newIsBlackAI);
             if (gameInfo.gameOver) return;
             toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
             setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
-            setShowWinScreen(true);
             disconnectAndReset();
             break;
           case 'error':
@@ -950,7 +943,6 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
       } catch (err) {
-        console.error("Error processing message:", err);
       }
     };
   
@@ -1419,11 +1411,8 @@ setIsBlackAI(newIsBlackAI);
 
 
         if (selfDestructCapturedSomething) {
-          setLastCapturePlayer(selfDestructPlayer);
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
-        } else {
-           if(lastCapturePlayer === selfDestructPlayer) setLastCapturePlayer(null);
         }
 
         const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
@@ -1640,7 +1629,6 @@ setIsBlackAI(newIsBlackAI);
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
-          setLastCapturePlayer(capturingPlayer);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
@@ -1650,13 +1638,10 @@ setIsBlackAI(newIsBlackAI);
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
-          setLastCapturePlayer(capturingPlayer);
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
-        } else {
-          if(lastCapturePlayer === capturingPlayer) setLastCapturePlayer(null);
         }
         if (anvilPushedOffBoardFromApply) {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
@@ -1883,9 +1868,9 @@ setIsBlackAI(newIsBlackAI);
 
 
   }, [
-    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer, enPassantTargetSquare,
+    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
     saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast,
-    setGameInfo, setBoard, setCapturedPieces, setKillStreaks, setLastCapturePlayer,
+    setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
     setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
@@ -2411,11 +2396,8 @@ setIsBlackAI(newIsBlackAI);
 
 
             if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
-              setLastCapturePlayer(currentPlayer);
               setShowCaptureFlash(true);
               setCaptureFlashKey(k => k + 1);
-            } else {
-              if(lastCapturePlayer === currentPlayer) setLastCapturePlayer(null);
             }
 
 
@@ -2675,7 +2657,7 @@ setIsBlackAI(newIsBlackAI);
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, lastCapturePlayer, setLastCapturePlayer
+    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares
   ]);
 
 
@@ -2697,6 +2679,21 @@ setIsBlackAI(newIsBlackAI);
       setPositionHistory([initialHash]);
     }
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
+
+  useEffect(() => {
+    if (gameInfo.gameOver && gameInfo.winner && gameInfo.winner !== 'draw') {
+      if (gameInfo.winner === localPlayerColor) {
+        setShowWinScreen(true);
+        setShowLossScreen(false);
+      } else {
+        setShowLossScreen(true);
+        setShowWinScreen(false);
+      }
+    } else {
+      setShowWinScreen(false);
+      setShowLossScreen(false);
+    }
+  }, [gameInfo.gameOver, gameInfo.winner, localPlayerColor]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;
@@ -2877,7 +2874,6 @@ setIsBlackAI(newIsBlackAI);
       setGameInfo(stateToRestore.gameInfo);
       setCapturedPieces(stateToRestore.capturedPieces);
       setKillStreaks(stateToRestore.killStreaks);
-      setLastCapturePlayer(stateToRestore.lastCapturePlayer);
       setPositionHistory(stateToRestore.positionHistory || []);
       setLastMoveFrom(stateToRestore.lastMoveFrom || null);
       setLastMoveTo(stateToRestore.lastMoveTo || null);
@@ -2949,7 +2945,7 @@ setIsBlackAI(newIsBlackAI);
   }, [
     historyStack, isAiThinking, toast, currentPlayer, isWhiteAI, isBlackAI, determineBoardOrientation, isMoveProcessing,
     isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion,
-    setBoard, setCurrentPlayer, setGameInfo, setCapturedPieces, setKillStreaks, setLastCapturePlayer,
+    setBoard, setCurrentPlayer, setGameInfo, setCapturedPieces, setKillStreaks,
     setPositionHistory, setLastMoveFrom, setLastMoveTo, setIsWhiteAI, setIsBlackAI, setViewMode, setBoardOrientation,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setFlashMessage,
     setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
@@ -3278,3 +3274,6 @@ setIsBlackAI(newIsBlackAI);
     
 
 
+
+
+    
