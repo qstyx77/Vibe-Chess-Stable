@@ -125,6 +125,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         let data;
         try {
             data = JSON.parse(message.toString());
+            console.log(`[SERVER] Received message of type: ${data.type} from client in room ${ws.roomId}`);
         } catch (e) {
             console.error('[SERVER] Failed to parse message:', message.toString());
             return;
@@ -263,6 +264,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             }
             case 'timeout': {
                  if (room && !room.gameState.gameInfo.gameOver) {
+                    console.log(`[SERVER] Timeout received for room ${ws.roomId}. Current player is ${room.gameState.currentPlayer}.`);
                     const timedOutPlayer = room.gameState.currentPlayer;
                     const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
                     
@@ -271,20 +273,25 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                     if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
                     else room.gameState.blackTimeouts++;
+                    
+                    console.log(`[SERVER] Timeouts: White ${room.gameState.whiteTimeouts}, Black ${room.gameState.blackTimeouts}`);
 
                     const timedOutPlayerInCheck = isKingInCheck(room.gameState.board, timedOutPlayer, room.gameState.enPassantTarget);
                     if (timedOutPlayerInCheck) {
                         reason = 'self-check-timeout';
+                        console.log(`[SERVER] Player ${timedOutPlayer} timed out while in check.`);
                     }
                     
                     if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winnerOnTimeout;
+                        console.log(`[SERVER] Game over due to timeouts/check. Winner: ${winnerOnTimeout}. Broadcasting 'forfeit-timeout'.`);
                         broadcastToRoom(ws.roomId!, { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason });
                         return;
                     }
 
                     room.gameState.currentPlayer = opponent;
+                    console.log(`[SERVER] Passing turn to ${opponent}.`);
                     
                     const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
                     if (inCheck) {
@@ -297,11 +304,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.gameInfo.playerWithKingInCheck = null;
                     }
 
+                    console.log(`[SERVER] Broadcasting 'game-move' to pass turn.`);
                     broadcastToRoom(ws.roomId, {
                         type: 'game-move',
                         fullGameState: room.gameState,
                         lastPlayer: timedOutPlayer, // The player who timed out still 'made' the move (by timing out)
                     });
+                 } else {
+                    console.log(`[SERVER] Timeout received but room not found or game is already over.`);
                  }
                  break;
             }

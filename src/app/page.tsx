@@ -224,6 +224,24 @@ export default function EvolvingChessPage() {
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
 
 
+  const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const squareState = board[r]?.[c];
+        if(!squareState) continue;
+        const piece = squareState.piece;
+        if (piece && piece.color === playerColor) {
+          const pieceSquareAlgebraic = squareState.algebraic;
+          const legalMoves = getPossibleMoves(board, pieceSquareAlgebraic, enPassantTargetSquare);
+          if (legalMoves.length > 0) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }, []);
+
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     let name = player.charAt(0).toUpperCase() + player.slice(1);
     if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') name += " (AI)";
@@ -628,6 +646,7 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+      console.log('[CLIENT] Received message from server:', data);
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -813,6 +832,7 @@ setIsBlackAI(newIsBlackAI);
     };
 
     const startTurnTimer = useCallback((player: PlayerColor) => {
+        console.log(`[CLIENT] Starting timer for ${player}`);
         if (turnTimerIntervalId.current) {
             clearInterval(turnTimerIntervalId.current);
         }
@@ -825,9 +845,11 @@ setIsBlackAI(newIsBlackAI);
                     clearInterval(intervalId);
                     return null;
                 }
+                console.log(`[CLIENT] Timer tick: ${prev - 1}`);
                 if (prev <= 1) {
                     clearInterval(intervalId);
                     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+                        console.log('[CLIENT] TIMEOUT! Sending timeout message to server.');
                         wsRef.current.send(JSON.stringify({ type: 'timeout' }));
                     }
                     return 0;
@@ -2610,48 +2632,49 @@ setIsBlackAI(newIsBlackAI);
     }
 
     if (aiErrorOccurredRef.current) {
-        toast({
-            title: `AI (${getPlayerDisplayName(currentPlayer)}) Error/Forfeit`,
-            description: "AI move forfeited or error occurred.",
-            variant: "destructive",
-            duration: 8000,
-        });
-    
-        const opponent = currentPlayer === 'white' ? 'black' : 'white';
-    
-        // Check for checkmate or stalemate
-        if (!hasAnyLegalMoves(board, currentPlayer, enPassantTargetSquare)) {
+      toast({
+        title: `AI (${getPlayerDisplayName(currentPlayer)}) Error/Forfeit`,
+        description: "AI move forfeited due to an internal error or no legal moves.",
+        variant: "destructive",
+        duration: 8000,
+      });
+  
+      const opponent = currentPlayer === 'white' ? 'black' : 'white';
+  
+      if (!hasAnyLegalMoves(board, currentPlayer, enPassantTargetSquare)) {
           if (isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
-            setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponent }));
-            toast({ title: "Checkmate!", description: `${getPlayerDisplayName(opponent)} wins as AI has no legal moves.`, duration: 8000 });
+              setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponent }));
           } else {
-            setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-            toast({ title: "Stalemate!", description: "It's a draw as AI has no legal moves.", duration: 8000 });
+              setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, isStalemate: true, gameOver: true, winner: 'draw' }));
           }
-        }
-    
-        if (currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
-    
-        setIsMoveProcessing(false);
-        setIsAiThinking(false);
-        setAnimatedSquareTo(null);
-        return;
+      } else {
+          // If there are legal moves but the AI failed, it's a forfeit.
+          setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponent)} wins!`, gameOver: true, winner: opponent }));
+      }
+  
+      if (currentPlayer === 'white') setIsWhiteAI(false);
+      else setIsBlackAI(false);
+  
+      setIsMoveProcessing(false);
+      setIsAiThinking(false);
+      setAnimatedSquareTo(null);
+      return;
     }
   }, [
-    board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, lastCapturePlayer, enPassantTargetSquare,
+    board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
     isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice,
     saveStateToHistory, toast, getPlayerDisplayName,
-    setGameInfo, setBoard, setCapturedPieces, setKillStreaks, setLastCapturePlayer,
+    setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves,
     setIsAiThinking, setIsMoveProcessing, setAnimatedSquareTo,
     setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
     setLastMoveFrom, setLastMoveTo,
     processPawnSacrificeCheck,
-    getPossibleMoves, isStalemate, isCheckmate,
+    getPossibleMoves, isStalemate, isCheckmate, hasAnyLegalMoves,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares,
+    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, lastCapturePlayer, setLastCapturePlayer
   ]);
 
 
@@ -2904,7 +2927,7 @@ setIsBlackAI(newIsBlackAI);
 
       setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
       setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnFromPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
 
       setFirstBloodAchieved(stateToRestore.firstBloodAchieved);
       setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
@@ -3028,24 +3051,6 @@ setIsBlackAI(newIsBlackAI);
   }, []);
 
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
-
-  const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const squareState = board[r]?.[c];
-        if(!squareState) continue;
-        const piece = squareState.piece;
-        if (piece && piece.color === playerColor) {
-          const pieceSquareAlgebraic = squareState.algebraic;
-          const legalMoves = getPossibleMoves(board, pieceSquareAlgebraic, enPassantTargetSquare);
-          if (legalMoves.length > 0) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }, []);
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
@@ -3267,3 +3272,7 @@ setIsBlackAI(newIsBlackAI);
 }
 
 
+
+
+
+    
