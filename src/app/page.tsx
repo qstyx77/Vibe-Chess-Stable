@@ -223,7 +223,6 @@ export default function EvolvingChessPage() {
   const [isRankedGame, setIsRankedGame] = useState(false);
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
 
-
   const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
     for (let r = 0; r < 8; r++) {
       for (let c = 0; c < 8; c++) {
@@ -498,6 +497,45 @@ setIsBlackAI(newIsBlackAI);
     }
   }, [toast, getPlayerDisplayName, onlineStatus]);
 
+  const stopTurnTimer = () => {
+      if (turnTimerIntervalId.current) {
+          clearInterval(turnTimerIntervalId.current);
+          turnTimerIntervalId.current = null;
+      }
+      setTurnTimer(null);
+      setActiveTimerPlayer(null);
+  };
+
+  const startTurnTimer = useCallback((player: PlayerColor) => {
+    if (turnTimerIntervalId.current) {
+      clearInterval(turnTimerIntervalId.current);
+    }
+    setActiveTimerPlayer(player);
+    setTurnTimer(45);
+
+    const intervalId = setInterval(() => {
+      setTurnTimer(prev => {
+        if (prev === null) {
+          clearInterval(intervalId);
+          return null;
+        }
+        if (prev <= 1) {
+          clearInterval(intervalId);
+          if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+            wsRef.current.send(JSON.stringify({ type: 'timeout' }));
+          }
+          return 0;
+        }
+        if (prev === 11) {
+          setShowTimerWarning(true);
+          setTimerWarningKey(k => k + 1);
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    turnTimerIntervalId.current = intervalId;
+  }, []);
+
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
     setCurrentPlayer(nextPlayer);
@@ -546,7 +584,7 @@ setIsBlackAI(newIsBlackAI);
        startTurnTimer(nextPlayer);
      }
 
-  }, [getPlayerDisplayName, onlineStatus, gameInfo.gameOver]);
+  }, [getPlayerDisplayName, onlineStatus, gameInfo.gameOver, startTurnTimer]);
 
   const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null) => {
     let currentBoardState = boardForNextStep;
@@ -646,7 +684,6 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-      console.log('[CLIENT] Received message from server:', data);
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -820,49 +857,8 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, startTurnTimer]);
 
-    const stopTurnTimer = () => {
-        if (turnTimerIntervalId.current) {
-            clearInterval(turnTimerIntervalId.current);
-            turnTimerIntervalId.current = null;
-        }
-        setTurnTimer(null);
-        setActiveTimerPlayer(null);
-    };
-
-    const startTurnTimer = useCallback((player: PlayerColor) => {
-        console.log(`[CLIENT] Starting timer for ${player}`);
-        if (turnTimerIntervalId.current) {
-            clearInterval(turnTimerIntervalId.current);
-        }
-        setActiveTimerPlayer(player);
-        setTurnTimer(45);
-
-        const intervalId = setInterval(() => {
-            setTurnTimer(prev => {
-                if (prev === null) {
-                    clearInterval(intervalId);
-                    return null;
-                }
-                console.log(`[CLIENT] Timer tick: ${prev - 1}`);
-                if (prev <= 1) {
-                    clearInterval(intervalId);
-                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                        console.log('[CLIENT] TIMEOUT! Sending timeout message to server.');
-                        wsRef.current.send(JSON.stringify({ type: 'timeout' }));
-                    }
-                    return 0;
-                }
-                if (prev === 11) {
-                    setShowTimerWarning(true);
-                    setTimerWarningKey(k => k + 1);
-                }
-                return prev - 1;
-            });
-        }, 1000);
-        turnTimerIntervalId.current = intervalId;
-    }, []);
 
   // Effect for cleaning up WebSocket on unmount
   useEffect(() => {
@@ -972,7 +968,6 @@ setIsBlackAI(newIsBlackAI);
     };
   
     ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       setRankedQueueStatus('idle');
@@ -999,7 +994,6 @@ setIsBlackAI(newIsBlackAI);
         if (ActualVibeChessAI && typeof ActualVibeChessAI === 'function') {
           aiInstanceRef.current = new ActualVibeChessAI(2);
         } else {
-          console.error("Failed to load VibeChessAI constructor dynamically from named export.", ActualVibeChessAI);
           toast({
             title: "AI Initialization Error",
             description: "Could not load the AI engine (named export not found or not a constructor).",
@@ -1008,7 +1002,6 @@ setIsBlackAI(newIsBlackAI);
           });
         }
       } catch (err: any) {
-        console.error("Error dynamically importing VibeChessAI:", err);
         toast({
           title: "AI Import Error",
           description: `There was an issue loading the AI component: ${err.message}`,
@@ -2434,7 +2427,13 @@ setIsBlackAI(newIsBlackAI);
                       const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
                       if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
+                      for (let r_idx = 0; r_idx < 8; r_idx++) {
+                        for (let c_idx = 0; c_idx < 8; c_idx++) {
+                            if (!finalBoardStateForAI[r_idx]?.[c_idx]?.piece && !finalBoardStateForAI[r_idx]?.[c_idx]?.item) {
+                                emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
+                            }
+                        }
+                      }
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
