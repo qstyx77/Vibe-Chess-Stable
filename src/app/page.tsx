@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -507,39 +506,39 @@ setIsBlackAI(newIsBlackAI);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
-    console.log(`[CLIENT] startTurnTimer called for ${player}`);
     if (turnTimerIntervalId.current) {
-        console.log(`[CLIENT] Clearing existing timer interval: ${turnTimerIntervalId.current}`);
         clearInterval(turnTimerIntervalId.current);
     }
     setActiveTimerPlayer(player);
     setTurnTimer(45);
 
     const intervalId = setInterval(() => {
-        setTurnTimer(prev => {
-            console.log(`[CLIENT] Timer tick. Player: ${player}, Prev value: ${prev}`);
-            if (prev === null) {
-                console.log('[CLIENT] Timer value is null, clearing interval from within.');
+        setTurnTimer(currentTimerValue => {
+            if (currentTimerValue === null) {
                 clearInterval(intervalId);
                 return null;
             }
-            if (prev <= 1) {
-                console.log(`[CLIENT] TIMEOUT! Player: ${player}. Sending 'timeout' message.`);
+
+            if (currentTimerValue <= 1) {
                 clearInterval(intervalId);
                 turnTimerIntervalId.current = null; 
+
                 if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
                     wsRef.current.send(JSON.stringify({ type: 'timeout' }));
                 }
+                
                 return 0;
             }
-            if (prev === 11) {
+            
+            if (currentTimerValue === 11) {
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
             }
-            return prev - 1;
+
+            return currentTimerValue - 1;
         });
     }, 1000);
-    console.log(`[CLIENT] Set new timer interval: ${intervalId}`);
+
     turnTimerIntervalId.current = intervalId;
   }, [setShowTimerWarning, setTimerWarningKey]);
 
@@ -692,7 +691,6 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-      console.log('[CLIENT] Received data from server:', JSON.stringify(data, null, 2));
       switch (data.type) {
         case 'commander-promo-finalized': {
             const { fullGameState } = data;
@@ -2436,13 +2434,7 @@ setIsBlackAI(newIsBlackAI);
                       const pieceToResurrectOriginalAI = piecesOfAICapturedByOpponent.pop();
                       if (pieceToResurrectOriginalAI) {
                       const emptySqAI: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) {
-                        for (let c_idx = 0; c_idx < 8; c_idx++) {
-                            if (!finalBoardStateForAI[r_idx]?.[c_idx]?.piece && !finalBoardStateForAI[r_idx]?.[c_idx]?.item) {
-                                emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
-                            }
-                        }
-                      }
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForAI[r_idx][c_idx].piece && !finalBoardStateForAI[r_idx][c_idx].item) emptySqAI.push(coordsToAlgebraic(r_idx, c_idx));
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
