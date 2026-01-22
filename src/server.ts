@@ -265,13 +265,16 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const { row, col } = algebraicToCoords(square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
     
-                if (piece && piece.color === movingPlayer && (piece.type === 'pawn' || piece.type === 'commander') && (row === 0 || row === 7)) {
-                    const originalLevel = piece.level;
+                if (piece && piece.color === movingPlayer && (piece.type === 'pawn' || piece.type === 'commander') ) {
+                    
                     piece.type = promoteTo;
-                    // The level would have been calculated during the initial applyMove
+                    if(promoteTo === 'queen') {
+                        piece.level = Math.min(piece.level, 7);
+                    }
     
                     const opponentPlayer = movingPlayer === 'white' ? 'black' : 'white';
-                    const isExtraTurn = (originalLevel >= 5) || (room.gameState.killStreaks[movingPlayer] >= 6);
+                    
+                    const isExtraTurn = room.gameState.promotionContext?.extraTurn || false;
                     const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
     
                     const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
@@ -293,6 +296,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, message, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: gameOver && winner === movingPlayer, isStalemate: gameOver && winner === 'draw', gameOver, winner };
                     room.gameState.currentPlayer = nextPlayer;
+                    delete room.gameState.promotionContext;
     
                     broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: movingPlayer });
                 }
@@ -359,14 +363,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                 const { payload: move } = data;
 
-                // Server-side validation: Ensure the piece being moved belongs to the current player
                 const { from } = move;
                 const { row: fromRow, col: fromCol } = algebraicToCoords(from);
                 const pieceBeingMoved = room.gameState.board[fromRow]?.[fromCol]?.piece;
 
                 if (!pieceBeingMoved || pieceBeingMoved.color !== movingPlayerColor) {
                     ws.send(JSON.stringify({ type: 'error', message: 'Invalid move: Not your piece or empty square.' }));
-                    return; // Stop processing this move
+                    return;
                 }
 
                 const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
@@ -393,7 +396,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.playerWhoGotFirstBlood = movingPlayerColor;
                         room.gameState.isAwaitingCommanderPromotion = true;
                         room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
-                        room.gameState.board = newBoard; // Update board before broadcasting
+                        room.gameState.board = newBoard;
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
                         return; 
                     }
@@ -408,16 +411,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                 const { row: toRow, col: toCol } = algebraicToCoords(move.to);
                 const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
-                const isPromotion = pieceOnToSquare && (pieceOnToSquare.type === 'pawn' || pieceOnToSquare.type === 'commander') && (toRow === 0 || toRow === 7);
+                const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
+                const isCommanderPromotion = pieceOnToSquare && pieceOnToSquare.type === 'hero' && (toRow === 0 || toRow === 7);
     
-                if (isPromotion && !move.promoteTo) {
-                    // Pawn has reached the back rank, waiting for client's promotion choice.
+                if (isPawnPromotion) {
+                    room.gameState.promotionContext = {
+                        extraTurn: (restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayerColor] >= 6),
+                    };
                     broadcastToRoom(ws.roomId, {
-                        type: 'game-move', 
-                        fullGameState: room.gameState,
-                        lastPlayer: movingPlayerColor,
+                        type: 'promotion-required',
+                        square: move.to,
+                        player: movingPlayerColor,
+                        fullGameState: room.gameState
                     });
-                    return; // Wait for 'finalize-promotion' message.
+                    return;
                 }
             
                 room.gameState.gameMoveCounter++;
@@ -552,3 +559,6 @@ server.listen(PORT, '0.0.0.0', () => {
 
 
 
+
+
+    
