@@ -506,7 +506,7 @@ setIsBlackAI(newIsBlackAI);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === null || currentTimerValue <= 1) {
+            if (currentTimerValue === null || currentTimerValue <= 1) { // Trigger at 1
                 if (turnTimerIntervalId.current) {
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
@@ -733,6 +733,17 @@ setIsBlackAI(newIsBlackAI);
             setIsMoveProcessing(false);
             setAnimatedSquareTo(null);
 
+            const movedToSquare = fullGameState.lastMoveTo;
+            if (movedToSquare && localPlayerColor) {
+                const { row, col } = algebraicToCoords(movedToSquare);
+                const pieceOnToSquare = fullGameState.board[row]?.[col]?.piece;
+                
+                if (pieceOnToSquare && pieceOnToSquare.color === localPlayerColor && pieceOnToSquare.type === 'pawn' && (row === 0 || row === 7)) {
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(movedToSquare);
+                }
+            }
+
             if(fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
             } else {
@@ -894,7 +905,7 @@ setIsBlackAI(newIsBlackAI);
       } else if (action === 'ranked') {
           if(user) {
               setRankedQueueStatus('searching');
-              ws.send(JSON.stringify({ type: 'join-ranked-queue', user: {userId: user.uid, username: userData?.username, elo: userData?.eloRating} }));
+              ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid, username: userData?.username, elo: userData?.eloRating }));
           }
       }
     };
@@ -2659,14 +2670,14 @@ setIsBlackAI(newIsBlackAI);
   }, [
     board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
     isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice,
-    saveStateToHistory, toast, getPlayerDisplayName,
+    saveStateToHistory, toast, getPlayerDisplayName, hasAnyLegalMoves,
     setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves,
     setIsAiThinking, setIsMoveProcessing, setAnimatedSquareTo,
     setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
     setLastMoveFrom, setLastMoveTo,
     processPawnSacrificeCheck,
-    getPossibleMoves, isStalemate, isCheckmate, hasAnyLegalMoves,
+    getPossibleMoves, isStalemate, isCheckmate,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
     firstBloodAchieved, playerWhoGotFirstBlood,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
@@ -2694,21 +2705,9 @@ setIsBlackAI(newIsBlackAI);
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    // This effect handles the display of the final "You Won" / "You Lost" screens.
     if (gameInfo.gameOver && gameInfo.winner) {
-      // Game has ended. Start the sequence.
-      
-      // Determine if there's a primary, full-screen announcement.
-      const hasPrimaryAnnouncement = 
-        gameInfo.isCheckmate || 
-        gameInfo.isInfiltrationWin || 
-        gameInfo.isStalemate || 
-        gameInfo.isThreefoldRepetitionDraw;
-
-      // If there's a primary announcement like "CHECKMATE!", wait for its animation to finish.
-      // Otherwise (e.g., for resignation/timeout), show the outcome immediately.
+      const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
       const delay = hasPrimaryAnnouncement ? 2700 : 0; 
-
       const timerId = setTimeout(() => {
         if (gameInfo.winner === localPlayerColor) {
           setShowWinScreen(true);
@@ -2716,12 +2715,9 @@ setIsBlackAI(newIsBlackAI);
           setShowLossScreen(true);
         }
       }, delay);
-
-      // Cleanup timeout if dependencies change or component unmounts.
       return () => clearTimeout(timerId);
 
     } else {
-      // If the game is not over (e.g., reset), ensure win/loss screens are hidden.
       setShowWinScreen(false);
       setShowLossScreen(false);
     }
@@ -3311,4 +3307,5 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+
 

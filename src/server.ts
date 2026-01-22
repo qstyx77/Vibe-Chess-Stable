@@ -142,6 +142,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             case 'create-room': {
                 const roomId = Math.random().toString(36).substring(2, 9);
                 ws.roomId = roomId;
+                if (data.user) { ws.userId = data.user.userId; }
                 rooms[roomId] = {
                     clients: [ws],
                     isRanked: false,
@@ -184,6 +185,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const roomToJoin = rooms[roomIdToJoin];
                 if (roomToJoin && roomToJoin.clients.length < 2) {
                     ws.roomId = roomIdToJoin;
+                    if (data.user) { ws.userId = data.user.userId; }
                     roomToJoin.clients.push(ws);
                     roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username } : null;
 
@@ -196,37 +198,16 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
              case 'join-ranked-queue': {
-                const { userId } = data;
+                const { userId, username, elo } = data;
                 if (!userId) {
                     ws.send(JSON.stringify({ type: 'error', message: 'User ID is required for ranked play.' }));
                     return;
                 }
                 ws.userId = userId;
 
-                // For simplicity in this environment, we'll fetch ELO here.
-                // In a production system, you'd want a more secure way to get this.
-                let userElo = 1200; // Default
-                let username = `Player-${userId.slice(0,5)}`;
-                let userWins = 0;
-                let userLosses = 0;
-                try {
-                    const app = initializeApp(firebaseConfig, 'server-app-for-elo');
-                    const firestore = getFirestore(app);
-                    const userDocRef = doc(firestore, 'users', userId);
-                    const userDoc = await getDoc(userDocRef);
-                    if (userDoc.exists()) {
-                        userElo = userDoc.data().eloRating || 1200;
-                        username = userDoc.data().username || `Player-${userId.slice(0,5)}`;
-                        userWins = userDoc.data().wins || 0;
-                        userLosses = userDoc.data().losses || 0;
-                    }
-                } catch(e) {
-                    // silently fail on ELO fetch
-                }
-
                 const existingPlayer = rankedQueue.find(p => p.ws === ws);
                 if (!existingPlayer) {
-                    rankedQueue.push({ ws, userId, elo: userElo, username, timestamp: Date.now() });
+                    rankedQueue.push({ ws, userId, elo, username, timestamp: Date.now() });
                 }
                 break;
             }
@@ -274,7 +255,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 if (room && !room.gameState.gameInfo.gameOver) {
                     const timedOutPlayer = data.timedOutPlayer;
 
-                    // Safeguard: only process timeout if it's actually that player's turn
                     if (room.gameState.currentPlayer !== timedOutPlayer) {
                         return;
                     }
@@ -324,49 +304,82 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             case 'game-move': {
                 if (!room || !data.payload) break;
 
+                const movingPlayerColor = room.gameState.currentPlayer;
+                const movingPlayerInfo = room.gameState.players[movingPlayerColor];
+                if (room.clients.length > 1 && movingPlayerInfo && movingPlayerInfo.userId && movingPlayerInfo.userId !== ws.userId) {
+                    return;
+                }
+
                 const { payload: move } = data;
-                const movingPlayer = room.gameState.currentPlayer;
-                const opponentPlayer = movingPlayer === 'white' ? 'black' : 'white';
+                const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
             
-                // --- Start of Server-Authoritative Move Processing ---
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
             
                 room.gameState.board = newBoard;
                 room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
                 room.gameState.lastMoveFrom = move.from;
                 room.gameState.lastMoveTo = move.to;
+
+                if (move.type === 'promotion') {
+                    const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(move.to);
+                    const piece = room.gameState.board[row][col].piece;
+                    if (piece && piece.color === movingPlayerColor) {
+                        piece.type = move.promoteTo || 'queen';
+                    }
+                }
             
                 let wasCapture = false;
                 if (capturedPiece) {
                     wasCapture = true;
                     if (!restOfResult.promotedToInfiltrator) {
-                        room.gameState.capturedPieces[movingPlayer].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
+                        room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
                     }
                 }
                 if (restOfResult.pieceCapturedByAnvil) {
                     wasCapture = true;
-                    room.gameState.capturedPieces[movingPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
+                    room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                 }
             
                 if (wasCapture) {
-                    room.gameState.killStreaks[movingPlayer] = (room.gameState.killStreaks[movingPlayer] || 0) + 1;
+                    room.gameState.killStreaks[movingPlayerColor] = (room.gameState.killStreaks[movingPlayerColor] || 0) + 1;
                     room.gameState.killStreaks[opponentPlayer] = 0;
                     if (!room.gameState.firstBloodAchieved) {
                         room.gameState.firstBloodAchieved = true;
-                        room.gameState.playerWhoGotFirstBlood = movingPlayer;
+                        room.gameState.playerWhoGotFirstBlood = movingPlayerColor;
                         room.gameState.isAwaitingCommanderPromotion = true;
-                        room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayer} to select Commander!` };
+                        room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayerColor} to select Commander!` };
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                        // Halt further processing until commander is chosen
                         return; 
                     }
                 } else {
-                    room.gameState.killStreaks[movingPlayer] = 0;
+                    room.gameState.killStreaks[movingPlayerColor] = 0;
                 }
             
                 room.gameState.gameMoveCounter++;
-                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayer] === 6));
-                const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
+
+                if (room.gameState.gameMoveCounter > 0 && room.gameState.gameMoveCounter % 9 === 0) {
+                    const { newBoard: boardAfterAnvil, spawnedAt } = spawnAnvil(room.gameState.board);
+                    if (spawnedAt) {
+                        room.gameState.board = boardAfterAnvil;
+                        broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
+                    }
+                }
+                
+                let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
+                room.gameState.shroomSpawnCounter = currentShroomCounter;
+                if (currentShroomCounter >= (room.gameState.nextShroomSpawnTurn || 5)) {
+                    const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(room.gameState.board);
+                    if (shroomSpawnedAt) {
+                        room.gameState.board = boardAfterShroom;
+                        const newNextTurn = Math.floor(Math.random() * 6) + 5;
+                        room.gameState.shroomSpawnCounter = 0;
+                        room.gameState.nextShroomSpawnTurn = newNextTurn;
+                        broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: shroomSpawnedAt, nextTurn: newNextTurn });
+                    }
+                }
+
+                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayerColor] === 6));
+                const nextPlayer = isExtraTurn ? movingPlayerColor : opponentPlayer;
             
                 const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
                 let message = " ";
@@ -374,9 +387,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 let winner: PlayerColor | 'draw' | undefined = undefined;
 
                 if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                    message = `Checkmate! ${movingPlayer} wins!`;
+                    message = `Checkmate! ${movingPlayerColor} wins!`;
                     gameOver = true;
-                    winner = movingPlayer;
+                    winner = movingPlayerColor;
                 } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
                     message = "Stalemate! It's a draw.";
                     gameOver = true;
@@ -389,7 +402,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     message: message,
                     isCheck: inCheck,
                     playerWithKingInCheck: inCheck ? nextPlayer : null,
-                    isCheckmate: winner === movingPlayer && !isStalemate,
+                    isCheckmate: winner === movingPlayerColor && !isStalemate,
                     isStalemate: winner === 'draw',
                     gameOver: gameOver,
                     winner: winner,
@@ -401,15 +414,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                    // Elo logic would go here
                 }
             
-                // --- End of Server-Authoritative Move Processing ---
-            
                 if (gameOver) {
                     broadcastToRoom(ws.roomId, { type: 'game-over', winner, reason: winner === 'draw' ? 'stalemate' : 'checkmate' });
                 } else {
                     broadcastToRoom(ws.roomId, {
                         type: 'game-move',
                         fullGameState: room.gameState,
-                        lastPlayer: movingPlayer,
+                        lastPlayer: movingPlayerColor,
                     });
                 }
                 break;
@@ -421,34 +432,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     broadcastToRoom(ws.roomId, { ...data, winner });
                 }
                 break;
-            case 'anvil-spawn': {
-                 if (room) {
-                    const { newBoard, spawnedAt } = spawnAnvil(room.gameState.board);
-                     if (spawnedAt) {
-                         room.gameState.board = newBoard;
-                         broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
-                    }
-                 }
-                 break;
-            }
-             case 'shroom-spawn': {
-                 if (room) {
-                    const { newBoard, spawnedAt } = spawnShroom(room.gameState.board);
-                    if (spawnedAt) {
-                        room.gameState.board = newBoard;
-                        const newNextTurn = Math.floor(Math.random() * 6) + 5;
-                        room.gameState.shroomSpawnCounter = 0;
-                        room.gameState.nextShroomSpawnTurn = newNextTurn;
-                        broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: spawnedAt, nextTurn: newNextTurn });
-                    }
-                 }
-                 break;
-            }
             case 'forfeit-timeout': {
                 if (room && data.winner && !room.gameState.gameInfo.gameOver) {
                     room.gameState.gameInfo.gameOver = true;
                     room.gameState.gameInfo.winner = data.winner;
-                    // Forward the message to other clients
                     broadcastToRoom(ws.roomId, data);
                 }
                 break;
@@ -459,7 +446,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     });
 
     ws.on('close', () => {
-        // Handle leaving ranked queue
         const queueIndex = rankedQueue.findIndex(p => p.ws === ws);
         if (queueIndex > -1) {
             rankedQueue.splice(queueIndex, 1);
@@ -472,7 +458,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 
                 if (room.clients.length > 0) {
                      if (!room.gameState.gameInfo.gameOver) {
-                        const winner = room.clients[0] === ws ? 'black' : 'white';
+                        const winner = room.clients.find(c => c !== ws) === room.clients[0] ? (room.gameState.players.white.userId === room.clients[0].userId ? 'white' : 'black') : (room.gameState.players.white.userId === room.clients[0].userId ? 'black' : 'white');
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winner;
                         broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' });
@@ -497,3 +483,4 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
