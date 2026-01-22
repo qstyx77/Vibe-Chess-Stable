@@ -824,7 +824,6 @@ setIsBlackAI(newIsBlackAI);
             else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
             else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
-            toast({ title: "Game Over!", description: message, duration: 8000 });
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
             
             if (isRankedGame && eloChanges && user) {
@@ -918,6 +917,7 @@ setIsBlackAI(newIsBlackAI);
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
             setOnlineStatus('waiting');
+            if (data.gameState?.players) setGamePlayers(data.gameState.players);
             toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}`, duration: 8000 });
             break;
           case 'player-joined':
@@ -1874,19 +1874,23 @@ setIsBlackAI(newIsBlackAI);
         return;
       }
     } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-        if(clickedPiece.color === currentPlayer || onlineStatus === 'connected') { // Allow selection if it's your piece OR you're online
-            setSelectedSquare(algebraic);
-            const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-            setPossibleMoves(legalMovesForPlayer);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        } else { // Offline and not your piece
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(algebraic);
-            const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-            setEnemyPossibleMoves(enemyMoves);
-        }
+      const isMyPiece = onlineStatus === 'connected'
+        ? clickedPiece.color === localPlayerColor
+        : clickedPiece.color === currentPlayer;
+
+      if (isMyPiece) {
+        setSelectedSquare(algebraic);
+        const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+        setPossibleMoves(legalMovesForPlayer);
+        setEnemySelectedSquare(null);
+        setEnemyPossibleMoves([]);
+      } else { // It's an opponent's piece, or not selectable
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        setEnemySelectedSquare(algebraic);
+        const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+        setEnemyPossibleMoves(enemyMoves);
+      }
     } else {
       setSelectedSquare(null);
       setPossibleMoves([]);
@@ -3307,5 +3311,6 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+
 
 

@@ -18,7 +18,8 @@ import {
     spawnAnvil, 
     spawnShroom, 
     processRookResurrectionCheck,
-    coordsToAlgebraic
+    coordsToAlgebraic,
+    algebraicToCoords,
 } from './lib/chess-utils';
 import type { BoardState, PlayerColor, Piece, Move, GameStatus } from './types';
 
@@ -177,7 +178,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                     }
                 };
-                ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white' }));
+                ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white', gameState: rooms[roomId].gameState }));
                 break;
             }
             case 'join-room': {
@@ -189,7 +190,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     roomToJoin.clients.push(ws);
                     roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username } : null;
 
-                    ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black' }));
+                    ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black', gameState: roomToJoin.gameState }));
                     
                     broadcastToRoom(roomIdToJoin, { type: 'player-joined', gameState: roomToJoin.gameState });
                 } else {
@@ -311,6 +312,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 }
 
                 const { payload: move } = data;
+
+                // Server-side validation: Ensure the piece being moved belongs to the current player
+                const { from } = move;
+                const { row: fromRow, col: fromCol } = algebraicToCoords(from);
+                const pieceBeingMoved = room.gameState.board[fromRow]?.[fromCol]?.piece;
+
+                if (!pieceBeingMoved || pieceBeingMoved.color !== movingPlayerColor) {
+                    ws.send(JSON.stringify({ type: 'error', message: 'Invalid move: Not your piece or empty square.' }));
+                    return; // Stop processing this move
+                }
+
                 const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
             
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
@@ -319,14 +331,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
                 room.gameState.lastMoveFrom = move.from;
                 room.gameState.lastMoveTo = move.to;
-
-                if (move.type === 'promotion') {
-                    const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(move.to);
-                    const piece = room.gameState.board[row][col].piece;
-                    if (piece && piece.color === movingPlayerColor) {
-                        piece.type = move.promoteTo || 'queen';
-                    }
-                }
             
                 let wasCapture = false;
                 if (capturedPiece) {
@@ -347,7 +351,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayerColor;
                         room.gameState.isAwaitingCommanderPromotion = true;
-                        room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${movingPlayerColor} to select Commander!` };
+                        room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${room.gameState.players[movingPlayerColor].username} to select Commander!` };
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
                         return; 
                     }
@@ -387,7 +391,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 let winner: PlayerColor | 'draw' | undefined = undefined;
 
                 if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                    message = `Checkmate! ${movingPlayerColor} wins!`;
+                    message = `Checkmate! ${room.gameState.players[movingPlayerColor].username} wins!`;
                     gameOver = true;
                     winner = movingPlayerColor;
                 } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
@@ -483,4 +487,5 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
