@@ -502,6 +502,10 @@ setIsBlackAI(newIsBlackAI);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
+    if (isPromotingPawn) {
+        stopTurnTimer();
+        return;
+    }
     stopTurnTimer();
     setActiveTimerPlayer(player);
     setTurnTimer(45);
@@ -533,7 +537,7 @@ setIsBlackAI(newIsBlackAI);
             return currentTimerValue - 1;
         });
     }, 1000);
-  }, [setShowTimerWarning, setTimerWarningKey]);
+  }, [setShowTimerWarning, setTimerWarningKey, isPromotingPawn]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
@@ -748,6 +752,7 @@ setIsBlackAI(newIsBlackAI);
                 const pieceOnToSquare = fullGameState.board[row]?.[col]?.piece;
                 
                 if (pieceOnToSquare && pieceOnToSquare.color === localPlayerColor && (pieceOnToSquare.type === 'pawn' || pieceOnToSquare.type === 'commander') && (row === 0 || row === 7)) {
+                    stopTurnTimer();
                     setIsPromotingPawn(true);
                     setPromotionSquare(movedToSquare);
                 }
@@ -3350,3 +3355,6 @@ setIsBlackAI(newIsBlackAI);
 
     
 
+
+
+    
