@@ -222,6 +222,8 @@ export default function EvolvingChessPage() {
   const [timerWarningKey, setTimerWarningKey] = useState(0);
   const [isRankedGame, setIsRankedGame] = useState(false);
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
+  const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
+  const prevFirstBloodRef = useRef(false);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
@@ -506,7 +508,7 @@ setIsBlackAI(newIsBlackAI);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === null || currentTimerValue <= 1) { // Trigger at 1
+            if (currentTimerValue === 1) { // Trigger exactly at 1
                 if (turnTimerIntervalId.current) {
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
@@ -515,6 +517,13 @@ setIsBlackAI(newIsBlackAI);
                     }
                 }
                 return 0;
+            }
+            if (currentTimerValue === null || currentTimerValue <= 0) {
+                 if (turnTimerIntervalId.current) {
+                    clearInterval(turnTimerIntervalId.current);
+                    turnTimerIntervalId.current = null;
+                 }
+                 return 0;
             }
             
             if (currentTimerValue === 11) {
@@ -738,7 +747,7 @@ setIsBlackAI(newIsBlackAI);
                 const { row, col } = algebraicToCoords(movedToSquare);
                 const pieceOnToSquare = fullGameState.board[row]?.[col]?.piece;
                 
-                if (pieceOnToSquare && pieceOnToSquare.color === localPlayerColor && pieceOnToSquare.type === 'pawn' && (row === 0 || row === 7)) {
+                if (pieceOnToSquare && pieceOnToSquare.color === localPlayerColor && (pieceOnToSquare.type === 'pawn' || pieceOnToSquare.type === 'commander') && (row === 0 || row === 7)) {
                     setIsPromotingPawn(true);
                     setPromotionSquare(movedToSquare);
                 }
@@ -1152,15 +1161,15 @@ setIsBlackAI(newIsBlackAI);
     // Allow selection and hovering even if it's not the player's turn online
     if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
         if (clickedPiece) {
-            setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
             if (clickedPiece.color === localPlayerColor) {
                 setSelectedSquare(algebraic);
+                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
             } else {
                 setEnemySelectedSquare(algebraic);
+                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
                 setSelectedSquare(null);
-                setPossibleMoves([]);
             }
         } else {
             setSelectedSquare(null);
@@ -1524,9 +1533,15 @@ setIsBlackAI(newIsBlackAI);
           if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
-          } else {
-              processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, null);
+              // In online games, we sent the move to the server which will respond with 'awaiting-commander-promo'
+              if (onlineStatus === 'disconnected') {
+                setIsMoveProcessing(false);
+              }
+              return;
           }
+
+
+          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, null);
           setIsMoveProcessing(false);
         }, 800);
         return;
@@ -1851,13 +1866,13 @@ setIsBlackAI(newIsBlackAI);
             setPossibleMoves([]);
         }
         if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-            if(clickedPiece.color === currentPlayer || onlineStatus === 'connected') { // Allow selection if it's your piece OR you're online
+            if(clickedPiece.color === currentPlayer || (onlineStatus === 'connected' && clickedPiece.color === localPlayerColor)) { // Allow selection if it's your piece OR you're online and it's your color
                 setSelectedSquare(algebraic);
                 const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
                 setPossibleMoves(legalMovesForPlayer);
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
-            } else { // Offline and not your piece
+            } else { // Offline and not your piece, or online and not your piece
                 setSelectedSquare(null);
                 setPossibleMoves([]);
                 setEnemySelectedSquare(algebraic);
@@ -1917,8 +1932,20 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion ) return;
+    if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion) return;
 
+    if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
+        }
+        // Close the dialog and wait for server broadcast to update the game state
+        setIsPromotingPawn(false);
+        setPromotionSquare(null);
+        return;
+    }
+
+    // --- LOCAL GAME LOGIC ---
     let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
@@ -1958,12 +1985,6 @@ setIsBlackAI(newIsBlackAI);
     setIsMoveProcessing(true);
     setAnimatedSquareTo(promotionSquare);
     
-    if (onlineStatus === 'connected') {
-        const ws = wsRef.current;
-        if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'game-move', payload: moveThatLedToPromotion }));
-        }
-    }
 
     setBoard(boardToUpdate);
 
@@ -2785,6 +2806,42 @@ setIsBlackAI(newIsBlackAI);
   }, [flashMessage, flashMessageKey]);
 
   useEffect(() => {
+    // Check for First Blood first
+    if (firstBloodAchieved && !prevFirstBloodRef.current) {
+      setKillStreakFlashMessage("FIRST BLOOD!");
+      setKillStreakFlashMessageKey(k => k + 1);
+    }
+    // If not first blood, check for other streaks
+    else {
+      const { white: prevWhite, black: prevBlack } = prevKillStreaksRef.current;
+      const { white: currentWhite, black: currentBlack } = killStreaks;
+
+      let playerWithNewStreak: PlayerColor | null = null;
+      let newStreakValue = 0;
+
+      if (currentWhite > prevWhite) {
+        playerWithNewStreak = 'white';
+        newStreakValue = currentWhite;
+      } else if (currentBlack > prevBlack) {
+        playerWithNewStreak = 'black';
+        newStreakValue = currentBlack;
+      }
+      
+      if (playerWithNewStreak) {
+        const streakMsg = getKillStreakToastMessage(newStreakValue);
+        if (streakMsg) {
+          setKillStreakFlashMessage(streakMsg);
+          setKillStreakFlashMessageKey(k => k + 1);
+        }
+      }
+    }
+    
+    prevKillStreaksRef.current = killStreaks;
+    prevFirstBloodRef.current = firstBloodAchieved;
+
+  }, [killStreaks, firstBloodAchieved, getKillStreakToastMessage]);
+
+  useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
     if (killStreakFlashMessage) {
       timerId = setTimeout(() => {
@@ -3026,7 +3083,7 @@ setIsBlackAI(newIsBlackAI);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, onlineStatus]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer);
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (onlineStatus === 'connected' && localPlayerColor !== currentPlayer);
 
   const getButtonText = () => {
     if (onlineStatus === 'connecting') return 'Connecting...';
@@ -3311,6 +3368,3 @@ setIsBlackAI(newIsBlackAI);
     
 
     
-
-
-

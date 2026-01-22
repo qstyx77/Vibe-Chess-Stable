@@ -252,6 +252,52 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 }
                 break;
             }
+            case 'finalize-promotion': {
+                if (!room || !data.payload) break;
+                const { square, promoteTo } = data.payload;
+                const movingPlayer = room.gameState.currentPlayer;
+    
+                const client = room.clients.find(c => c === ws);
+                if (!client || (room.gameState.players[movingPlayer] && client.userId !== room.gameState.players[movingPlayer].userId)) {
+                    return; // Not this player's turn to promote
+                }
+    
+                const { row, col } = algebraicToCoords(square);
+                const piece = room.gameState.board[row]?.[col]?.piece;
+    
+                if (piece && piece.color === movingPlayer && (piece.type === 'pawn' || piece.type === 'commander') && (row === 0 || row === 7)) {
+                    const originalLevel = piece.level;
+                    piece.type = promoteTo;
+                    // The level would have been calculated during the initial applyMove
+    
+                    const opponentPlayer = movingPlayer === 'white' ? 'black' : 'white';
+                    const isExtraTurn = (originalLevel >= 5) || (room.gameState.killStreaks[movingPlayer] >= 6);
+                    const nextPlayer = isExtraTurn ? movingPlayer : opponentPlayer;
+    
+                    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
+                    let message = " ";
+                    let gameOver = false;
+                    let winner: PlayerColor | 'draw' | undefined = undefined;
+    
+                    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
+                        message = `Checkmate! ${room.gameState.players[movingPlayer].username || movingPlayer} wins!`;
+                        gameOver = true;
+                        winner = movingPlayer;
+                    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
+                        message = "Stalemate! It's a draw.";
+                        gameOver = true;
+                        winner = 'draw';
+                    } else if (inCheck) {
+                        message = "Check!";
+                    }
+    
+                    room.gameState.gameInfo = { ...room.gameState.gameInfo, message, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: gameOver && winner === movingPlayer, isStalemate: gameOver && winner === 'draw', gameOver, winner };
+                    room.gameState.currentPlayer = nextPlayer;
+    
+                    broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: movingPlayer });
+                }
+                break;
+            }
             case 'timeout': {
                 if (room && !room.gameState.gameInfo.gameOver) {
                     const timedOutPlayer = data.timedOutPlayer;
@@ -327,11 +373,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
             
-                room.gameState.board = newBoard;
-                room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
-                room.gameState.lastMoveFrom = move.from;
-                room.gameState.lastMoveTo = move.to;
-            
                 let wasCapture = false;
                 if (capturedPiece) {
                     wasCapture = true;
@@ -351,12 +392,32 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayerColor;
                         room.gameState.isAwaitingCommanderPromotion = true;
-                        room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${room.gameState.players[movingPlayerColor].username} to select Commander!` };
+                        room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
+                        room.gameState.board = newBoard; // Update board before broadcasting
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
                         return; 
                     }
                 } else {
                     room.gameState.killStreaks[movingPlayerColor] = 0;
+                }
+                
+                room.gameState.board = newBoard;
+                room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
+                room.gameState.lastMoveFrom = move.from;
+                room.gameState.lastMoveTo = move.to;
+
+                const { row: toRow, col: toCol } = algebraicToCoords(move.to);
+                const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
+                const isPromotion = pieceOnToSquare && (pieceOnToSquare.type === 'pawn' || pieceOnToSquare.type === 'commander') && (toRow === 0 || toRow === 7);
+    
+                if (isPromotion && !move.promoteTo) {
+                    // Pawn has reached the back rank, waiting for client's promotion choice.
+                    broadcastToRoom(ws.roomId, {
+                        type: 'game-move', 
+                        fullGameState: room.gameState,
+                        lastPlayer: movingPlayerColor,
+                    });
+                    return; // Wait for 'finalize-promotion' message.
                 }
             
                 room.gameState.gameMoveCounter++;
@@ -391,7 +452,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 let winner: PlayerColor | 'draw' | undefined = undefined;
 
                 if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                    message = `Checkmate! ${room.gameState.players[movingPlayerColor].username} wins!`;
+                    message = `Checkmate! ${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} wins!`;
                     gameOver = true;
                     winner = movingPlayerColor;
                 } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
@@ -487,5 +548,6 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
