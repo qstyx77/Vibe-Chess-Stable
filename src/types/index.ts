@@ -75,6 +75,7 @@ export interface ApplyMoveResult {
   infiltrationWin?: boolean;
   shroomConsumed?: boolean;
   enPassantTargetSet: AlgebraicSquare | null;
+  extraTurn: boolean;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -120,7 +121,9 @@ export interface GameSnapshot {
   isExtraTurnForPostResurrectionPromotion: boolean;
   promotionSquare: AlgebraicSquare | null;
   promotionMoveWasCapture: boolean;
+  originalPromotionLevel: number | null; // Renamed for clarity
   promotionPawnOriginalLevel: number | null;
+
 
   firstBloodAchieved: boolean;
   playerWhoGotFirstBlood: PlayerColor | null;
