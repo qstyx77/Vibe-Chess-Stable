@@ -689,8 +689,10 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+      console.log('[CLIENT] Received data:', JSON.stringify(data, null, 2));
       switch (data.type) {
         case 'promotion-required': {
+            console.log('[CLIENT] PROMOTION REQUIRED');
             const { square, player, fullGameState } = data;
             
             // Always sync state first to avoid race conditions
@@ -713,6 +715,7 @@ setIsBlackAI(newIsBlackAI);
                 stopTurnTimer();
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
+                console.log(`[CLIENT] Set isPromotingPawn to true for square ${square}`);
             }
             break;
         }
@@ -1939,10 +1942,12 @@ setIsBlackAI(newIsBlackAI);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion) return;
+    console.log(`[CLIENT] handlePromotionSelect called with: ${pieceType}`);
 
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
+          console.log(`[CLIENT] Sending finalize-promotion for ${promotionSquare} to ${pieceType}`);
           ws.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
         }
         // Close the dialog and wait for server broadcast to update the game state
@@ -2543,7 +2548,7 @@ setIsBlackAI(newIsBlackAI);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 8000 });
                   if(aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander'){
                       const promoR_AI = currentPlayer === 'white' ? 0 : 7;
-                      const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
+                      const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiRookResSquareAlg!);
                       if (resRookPromoAIR === promoR_AI) {
                           const resurrectedPieceOnBoardAI = finalBoardStateForAI[resRookPromoAIR]?.[resRookPromoAIC]?.piece;
                           if (resurrectedPieceOnBoardAI) {
@@ -3378,5 +3383,7 @@ setIsBlackAI(newIsBlackAI);
     
 
 
+
+    
 
     
