@@ -1152,13 +1152,7 @@ setIsBlackAI(newIsBlackAI);
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
-    if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
-      if (!(isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
-          return;
-      }
-    }
-
-    // Allow selection and hovering even if it's not the player's turn online
+    // --- Online "Not My Turn" block ---
     if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
         if (clickedPiece) {
             if (clickedPiece.color === localPlayerColor) {
@@ -1167,9 +1161,10 @@ setIsBlackAI(newIsBlackAI);
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
             } else {
-                setEnemySelectedSquare(algebraic);
-                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
                 setSelectedSquare(null);
+                setPossibleMoves([]);
+                setEnemySelectedSquare(algebraic);
+                setEnemyPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
             }
         } else {
             setSelectedSquare(null);
@@ -1177,7 +1172,13 @@ setIsBlackAI(newIsBlackAI);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
         }
-        // Do not return here, let the move attempt logic handle turn validation
+        return; // Exit here for online "not my turn" case.
+    }
+
+    if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
+      if (!(isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
+          return;
+      }
     }
     
     const clickedItem = clickedSquareState?.item;
@@ -1312,18 +1313,6 @@ setIsBlackAI(newIsBlackAI);
 
 
     if (selectedSquare) {
-      // It's not your turn in an online game, so you can't make a move
-      if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
-          // Just update selection, but don't attempt a move
-          if (clickedPiece && clickedPiece.color === localPlayerColor) {
-              setSelectedSquare(algebraic);
-              setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
-              setEnemySelectedSquare(null);
-              setEnemyPossibleMoves([]);
-          }
-          return;
-      }
-
       const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
       const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
       const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
@@ -1861,18 +1850,14 @@ setIsBlackAI(newIsBlackAI);
         }, 800);
         return;
       } else {
-        if (onlineStatus !== 'connected') {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-        }
         if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-            if(clickedPiece.color === currentPlayer || (onlineStatus === 'connected' && clickedPiece.color === localPlayerColor)) { // Allow selection if it's your piece OR you're online and it's your color
+            if(clickedPiece.color === currentPlayer) { 
                 setSelectedSquare(algebraic);
                 const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
                 setPossibleMoves(legalMovesForPlayer);
                 setEnemySelectedSquare(null);
                 setEnemyPossibleMoves([]);
-            } else { // Offline and not your piece, or online and not your piece
+            } else { // Offline and not your piece
                 setSelectedSquare(null);
                 setPossibleMoves([]);
                 setEnemySelectedSquare(algebraic);
@@ -1889,22 +1874,18 @@ setIsBlackAI(newIsBlackAI);
         return;
       }
     } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-      const isMyPiece = onlineStatus === 'connected'
-        ? clickedPiece.color === localPlayerColor
-        : clickedPiece.color === currentPlayer;
-
-      if (isMyPiece) {
-        setSelectedSquare(algebraic);
-        const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-        setPossibleMoves(legalMovesForPlayer);
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-      } else { // It's an opponent's piece, or not selectable
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setEnemySelectedSquare(algebraic);
-        const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-        setEnemyPossibleMoves(enemyMoves);
+        if (clickedPiece.color === currentPlayer) {
+            setSelectedSquare(algebraic);
+            const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+            setPossibleMoves(legalMovesForPlayer);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(algebraic);
+            const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+            setEnemyPossibleMoves(enemyMoves);
       }
     } else {
       setSelectedSquare(null);
@@ -3083,7 +3064,7 @@ setIsBlackAI(newIsBlackAI);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, onlineStatus]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (onlineStatus === 'connected' && localPlayerColor !== currentPlayer);
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer);
 
   const getButtonText = () => {
     if (onlineStatus === 'connecting') return 'Connecting...';
@@ -3368,3 +3349,4 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+

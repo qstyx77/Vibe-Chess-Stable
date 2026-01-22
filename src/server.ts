@@ -280,7 +280,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     let winner: PlayerColor | 'draw' | undefined = undefined;
     
                     if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                        message = `Checkmate! ${room.gameState.players[movingPlayer].username || movingPlayer} wins!`;
+                        message = `Checkmate! ${(room.gameState.players[movingPlayer] || {username: movingPlayer}).username} wins!`;
                         gameOver = true;
                         winner = movingPlayer;
                     } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
@@ -548,6 +548,7 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
 
