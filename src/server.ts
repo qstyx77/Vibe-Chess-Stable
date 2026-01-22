@@ -131,8 +131,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         } catch (e) {
             return;
         }
-        console.log(`[SERVER] Received message: ${message.toString()}`);
-
 
         if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
             return;
@@ -254,41 +252,29 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'finalize-promotion': {
-                console.log(`[SERVER] Received finalize-promotion: ${JSON.stringify(data.payload)}`);
                 if (!room || !data.payload) break;
                 const { square, promoteTo } = data.payload;
                 
-                // The player who needs to promote is the one whose turn it was when the promotion was triggered.
-                const promotingPlayerColor = room.gameState.currentPlayer;
-
-                // Simple auth: just check if the message came from one of the players in the room.
-                // A more robust check would map ws to player color.
-                if (!room.clients.includes(ws)) {
-                    console.log('[SERVER] finalize-promotion from unknown client.');
-                    return;
-                }
-
                 const { row, col } = algebraicToCoords(square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
-
-                if (piece && piece.color === promotingPlayerColor && (piece.type === 'pawn' || piece.type === 'commander') ) {
-                    console.log(`[SERVER] Promoting ${piece.type} at ${square} to ${promoteTo}`);
-                    
+            
+                if (piece && (piece.type === 'pawn' || piece.type === 'commander')) {
+                    const promotingPlayerColor = piece.color;
+                    const opponentPlayer = promotingPlayerColor === 'white' ? 'black' : 'white';
+            
                     piece.type = promoteTo;
                     if(promoteTo === 'queen') {
                         piece.level = Math.min(piece.level, 7);
                     }
-
-                    const opponentPlayer = promotingPlayerColor === 'white' ? 'black' : 'white';
-                    
+            
                     const isExtraTurn = room.gameState.promotionContext?.extraTurn || false;
                     const nextPlayer = isExtraTurn ? promotingPlayerColor : opponentPlayer;
-
+            
                     const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
                     let message = " ";
                     let gameOver = false;
                     let winner: PlayerColor | 'draw' | undefined = undefined;
-
+            
                     if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
                         message = `Checkmate! ${(room.gameState.players[promotingPlayerColor] || {username: promotingPlayerColor}).username} wins!`;
                         gameOver = true;
@@ -300,14 +286,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     } else if (inCheck) {
                         message = "Check!";
                     }
-
+            
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, message, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: gameOver && winner === promotingPlayerColor, isStalemate: gameOver && winner === 'draw', gameOver, winner };
                     room.gameState.currentPlayer = nextPlayer;
                     delete room.gameState.promotionContext;
-
+            
                     broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: promotingPlayerColor });
-                } else {
-                    console.log(`[SERVER] Finalize promotion validation failed. Piece: ${piece?.type}, Color: ${piece?.color}, Expected Color: ${promotingPlayerColor}`);
                 }
                 break;
             }
@@ -316,7 +300,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const timedOutPlayer = data.timedOutPlayer;
 
                     if (room.gameState.currentPlayer !== timedOutPlayer) {
-                        console.log(`[SERVER] Received timeout for ${timedOutPlayer}, but current player is ${room.gameState.currentPlayer}. Ignoring.`);
                         return;
                     }
 
@@ -422,7 +405,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const { row: toRow, col: toCol } = algebraicToCoords(move.to);
                 const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
                 const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
-                const isCommanderPromotion = pieceOnToSquare && pieceOnToSquare.type === 'hero' && (toRow === 0 || toRow === 7);
     
                 if (isPawnPromotion) {
                     room.gameState.promotionContext = {

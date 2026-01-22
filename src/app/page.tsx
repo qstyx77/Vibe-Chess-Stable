@@ -154,6 +154,7 @@ export default function EvolvingChessPage() {
   const [checkmatePatternFlashKey, setCheckmatePatternFlashKey] = useState(0);
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
+  const [playerToPromote, setPlayerToPromote] = useState<PlayerColor | null>(null);
   const [promotionMoveWasCapture, setPromotionMoveWasCapture] = useState(false);
   const [promotionPawnOriginalLevel, setPromotionPawnOriginalLevel] = useState<number | null>(null);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
@@ -281,6 +282,7 @@ setIsBlackAI(newIsBlackAI);
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
+    setPlayerToPromote(null);
     setPromotionMoveWasCapture(false);
     setPromotionPawnOriginalLevel(null);
     setKillStreaks({ white: 0, black: 0 });
@@ -689,10 +691,8 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
-      console.log('[CLIENT] Received data:', JSON.stringify(data, null, 2));
       switch (data.type) {
         case 'promotion-required': {
-            console.log('[CLIENT] PROMOTION REQUIRED');
             const { square, player, fullGameState } = data;
             
             // Always sync state first to avoid race conditions
@@ -713,9 +713,9 @@ setIsBlackAI(newIsBlackAI);
 
             if (player === localPlayerColor) {
                 stopTurnTimer();
+                setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
-                console.log(`[CLIENT] Set isPromotingPawn to true for square ${square}`);
             }
             break;
         }
@@ -1520,6 +1520,7 @@ setIsBlackAI(newIsBlackAI);
                         setPlayerForPostResurrectionPromotion(selfDestructPlayer);
                         setIsExtraTurnForPostResurrectionPromotion(newStreakForSelfDestructPlayer === 6);
                         setIsResurrectionPromotionInProgress(true);
+                        setPlayerToPromote(selfDestructPlayer);
                         setIsPromotingPawn(true);
                         setPromotionSquare(randomSquareAlg);
                         setBoard(finalBoardStateForTurn);
@@ -1744,6 +1745,7 @@ setIsBlackAI(newIsBlackAI);
                       setPlayerForPostResurrectionPromotion(currentPlayer);
                       setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo); 
                       setIsResurrectionPromotionInProgress(true);
+                      setPlayerToPromote(currentPlayer);
                       setIsPromotingPawn(true);
                       setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
                       setBoard(finalBoardStateForTurn);
@@ -1801,6 +1803,7 @@ setIsBlackAI(newIsBlackAI);
                             setPlayerForPostResurrectionPromotion(capturingPlayer);
                             setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6);
                             setIsResurrectionPromotionInProgress(true);
+                            setPlayerToPromote(capturingPlayer);
                             setIsPromotingPawn(true);
                             setPromotionSquare(randomSquareAlg);
                             setBoard(finalBoardStateForTurn);
@@ -1865,7 +1868,9 @@ setIsBlackAI(newIsBlackAI);
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
-            setIsPromotingPawn(true); setPromotionSquare(algebraic);
+            setPlayerToPromote(currentPlayer);
+            setIsPromotingPawn(true); 
+            setPromotionSquare(algebraic);
           } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion && !becameInfiltratorFromApply) {
             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           } else if (humanRookResData?.resurrectionPerformed && !isPendingHumanResurrectionPromotion) {
@@ -1928,7 +1933,7 @@ setIsBlackAI(newIsBlackAI);
     saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast,
     setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
-    setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo,
+    setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
     getPossibleMoves,
@@ -1942,17 +1947,16 @@ setIsBlackAI(newIsBlackAI);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion) return;
-    console.log(`[CLIENT] handlePromotionSelect called with: ${pieceType}`);
 
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          console.log(`[CLIENT] Sending finalize-promotion for ${promotionSquare} to ${pieceType}`);
           ws.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
         }
         // Close the dialog and wait for server broadcast to update the game state
         setIsPromotingPawn(false);
         setPromotionSquare(null);
+        setPlayerToPromote(null);
         return;
     }
 
@@ -1966,6 +1970,7 @@ setIsBlackAI(newIsBlackAI);
       setPromotionMoveWasCapture(false);
       setPromotionPawnOriginalLevel(null);
       setIsResurrectionPromotionInProgress(false);
+      setPlayerToPromote(null);
       return;
     }
 
@@ -2072,6 +2077,7 @@ setIsBlackAI(newIsBlackAI);
       setEnemyPossibleMoves([]);
       setIsPromotingPawn(false);
       setPromotionSquare(null);
+      setPlayerToPromote(null);
       setPromotionMoveWasCapture(false);
       setPromotionPawnOriginalLevel(null);
       setIsMoveProcessing(false);
@@ -2079,7 +2085,7 @@ setIsBlackAI(newIsBlackAI);
   }, [
     board, promotionSquare, toast, killStreaks, saveStateToHistory, getPlayerDisplayName, processPawnSacrificeCheck, processRookResurrectionCheck,
     isMoveProcessing, setBoard, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
-    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces,
+    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces, setPlayerToPromote,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
@@ -3000,6 +3006,7 @@ setIsBlackAI(newIsBlackAI);
       setShowCheckmatePatternFlash(false);
       setIsPromotingPawn(false);
       setPromotionSquare(stateToRestore.promotionSquare || null);
+      setPlayerToPromote(null);
       setPromotionMoveWasCapture(stateToRestore.promotionMoveWasCapture || false);
       setPromotionPawnOriginalLevel(stateToRestore.promotionPawnOriginalLevel || null);
       setAnimatedSquareTo(null);
@@ -3357,10 +3364,7 @@ setIsBlackAI(newIsBlackAI);
       <PromotionDialog
         isOpen={isPromotingPawn}
         onSelectPiece={handlePromotionSelect}
-        pawnColor={
-            promotionSquare &&
-            (isResurrectionPromotionInProgress ? playerForPostResurrectionPromotion : board[algebraicToCoords(promotionSquare).row][algebraicToCoords(promotionSquare).col].piece?.color) || null
-        }
+        pawnColor={playerToPromote}
       />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
     </div>
