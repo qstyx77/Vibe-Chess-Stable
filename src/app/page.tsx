@@ -693,9 +693,9 @@ setIsBlackAI(newIsBlackAI);
   const handleIncomingData = useCallback((data: any) => {
       switch (data.type) {
         case 'promotion-required': {
+            console.log('[CLIENT] PROMOTION REQUIRED received:', data);
             const { square, player, fullGameState } = data;
             
-            // Always sync state first to avoid race conditions
             setBoard(fullGameState.board);
             if (fullGameState.players) setGamePlayers(fullGameState.players);
             setCapturedPieces(fullGameState.capturedPieces);
@@ -711,7 +711,10 @@ setIsBlackAI(newIsBlackAI);
             setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
             setBlackTimeouts(fullGameState.blackTimeouts || 0);
 
+            setIsMoveProcessing(false);
+
             if (player === localPlayerColor) {
+                console.log('[CLIENT] This client needs to promote.');
                 stopTurnTimer();
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
@@ -1946,11 +1949,15 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion) return;
+    if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion) {
+        console.log('[CLIENT] Promotion select blocked:', { promotionSquare, isMoveProcessing, isAwaitingCommanderPromotion });
+        return;
+    }
 
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
+          console.log('[CLIENT] Sending finalize-promotion:', { square: promotionSquare, promoteTo: pieceType });
           ws.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
         }
         // Close the dialog and wait for server broadcast to update the game state

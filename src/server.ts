@@ -252,13 +252,18 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'finalize-promotion': {
-                if (!room || !data.payload) break;
+                console.log('[Server] Received finalize-promotion:', data.payload);
+                if (!room || !data.payload) {
+                    console.log('[Server] Finalize-promotion rejected: no room or payload.');
+                    break;
+                }
                 const { square, promoteTo } = data.payload;
                 
                 const { row, col } = algebraicToCoords(square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
             
                 if (piece && (piece.type === 'pawn' || piece.type === 'commander')) {
+                    console.log(`[Server] Promoting piece at ${square} to ${promoteTo}.`);
                     const promotingPlayerColor = piece.color;
                     const opponentPlayer = promotingPlayerColor === 'white' ? 'black' : 'white';
             
@@ -292,6 +297,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     delete room.gameState.promotionContext;
             
                     broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: promotingPlayerColor });
+                    console.log('[Server] Broadcasted final game state after promotion.');
+                } else {
+                     console.log(`[Server] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
                 }
                 break;
             }
@@ -407,6 +415,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
     
                 if (isPawnPromotion) {
+                    console.log(`[Server] Pawn promotion detected for ${movingPlayerColor} at ${move.to}. Sending 'promotion-required'.`);
                     room.gameState.promotionContext = {
                         extraTurn: (restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayerColor] >= 6),
                     };
