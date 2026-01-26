@@ -1949,8 +1949,9 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare || isMoveProcessing || isAwaitingCommanderPromotion) {
-        console.log('[CLIENT] Promotion select blocked:', { promotionSquare, isMoveProcessing, isAwaitingCommanderPromotion });
+    console.log(`[CLIENT] handlePromotionSelect called with: ${pieceType}`);
+    if (!promotionSquare || isAwaitingCommanderPromotion) {
+        console.log('[CLIENT] Promotion select blocked:', { promotionSquare, isAwaitingCommanderPromotion });
         return;
     }
 
@@ -2042,13 +2043,13 @@ setIsBlackAI(newIsBlackAI);
               const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                 boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
                 0, // Original level of "rook" type is 0 for promotion
-                capturedPieces, globalUniqueIdCounter
+                capturedPieces, globalServerUniqueIdCounter
               );
               if (aiPromoRookResPerformed) {
                 boardToUpdate = boardWithResurrection;
                 setCapturedPieces(capturedPiecesAfterResurrection);
                 setBoard(boardToUpdate);
-                globalUniqueIdCounter = aiPromoRookIdCounter!;
+                globalServerUniqueIdCounter = aiPromoRookIdCounter!;
                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 8000 });
                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
@@ -2211,47 +2212,62 @@ setIsBlackAI(newIsBlackAI);
       }
 
 
-      if (!isAiMoveActuallyLegal && pieceOnFromSquareForAI && aiFromAlg) { // Fallback if all attempts failed
-        toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking a valid one.", duration: 8000 });
-        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
-        if (definitiveLegalMovesForPiece.length > 0) {
-            const chosenDefinitiveMoveAlg = definitiveLegalMovesForPiece[0];
-            const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
-            let overrideMoveType: AIMoveType['type'] = 'move';
-            const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
-            if (targetSquareForOverride?.piece) {
-                overrideMoveType = 'capture';
-            }
-            const promotionRankOverride = currentPlayer === 'white' ? 0 : 7;
-            let promoteToOverrideType: PieceType | undefined = undefined;
-            if ((pieceOnFromSquareForAI.type === 'pawn' || pieceOnFromSquareForAI.type === 'commander') && newToCoords.row === promotionRankOverride) {
-                 overrideMoveType = 'promotion';
-                 promoteToOverrideType = pieceOnFromSquareForAI.type === 'commander' ? 'hero' : 'queen';
-            } else if (pieceOnFromSquareForAI.type === 'king' && Math.abs(aiMoveDataFromVibeAI!.from[1] - newToCoords.col) === 2) {
-                overrideMoveType = 'castle';
-            } else if (pieceOnFromSquareForAI.type === 'knight' || pieceOnFromSquareForAI.type === 'hero') {
-                if ((Number(pieceOnFromSquareForAI.level || 1) >= 5) && chosenDefinitiveMoveAlg === aiFromAlg) {
-                    overrideMoveType = 'self-destruct';
-                } else if (Number(pieceOnFromSquareForAI.level || 1) >= 4 && targetSquareForOverride?.piece?.type === 'bishop' && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
-                    overrideMoveType = 'swap';
+      if (!isAiMoveActuallyLegal) { // Fallback if all attempts failed
+        toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking any valid move.", duration: 8000 });
+        
+        let foundFallbackMove = false;
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const fbSquareState = finalBoardStateForAI[r]?.[c];
+            if (fbSquareState?.piece?.color === currentPlayer) {
+              const fromAlg = coordsToAlgebraic(r, c);
+              const legalMoves = getPossibleMoves(finalBoardStateForAI, fromAlg, enPassantTargetSquare);
+              
+              if (legalMoves.length > 0) {
+                const pieceOnFromSquareForAI = fbSquareState.piece;
+                const chosenDefinitiveMoveAlg = legalMoves[0];
+                const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
+                let overrideMoveType: AIMoveType['type'] = 'move';
+                const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
+                if (targetSquareForOverride?.piece) {
+                    overrideMoveType = 'capture';
                 }
-            } else if (pieceOnFromSquareForAI.type === 'bishop' && Number(pieceOnFromSquareForAI.level || 1) >= 4) {
-                 if ((targetSquareForOverride?.piece?.type === 'knight' || targetSquareForOverride?.piece?.type === 'hero') && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
-                    overrideMoveType = 'swap';
+                const promotionRankOverride = currentPlayer === 'white' ? 0 : 7;
+                let promoteToOverrideType: PieceType | undefined = undefined;
+                if ((pieceOnFromSquareForAI.type === 'pawn' || pieceOnFromSquareForAI.type === 'commander') && newToCoords.row === promotionRankOverride) {
+                    overrideMoveType = 'promotion';
+                    promoteToOverrideType = pieceOnFromSquareForAI.type === 'commander' ? 'hero' : 'queen';
+                } else if (pieceOnFromSquareForAI.type === 'king' && Math.abs(c - newToCoords.col) === 2) {
+                    overrideMoveType = 'castle';
+                } else if (pieceOnFromSquareForAI.type === 'knight' || pieceOnFromSquareForAI.type === 'hero') {
+                    if ((Number(pieceOnFromSquareForAI.level || 1) >= 5) && chosenDefinitiveMoveAlg === fromAlg) {
+                        overrideMoveType = 'self-destruct';
+                    } else if (Number(pieceOnFromSquareForAI.level || 1) >= 4 && targetSquareForOverride?.piece?.type === 'bishop' && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
+                        overrideMoveType = 'swap';
+                    }
+                } else if (pieceOnFromSquareForAI.type === 'bishop' && Number(pieceOnFromSquareForAI.level || 1) >= 4) {
+                    if ((targetSquareForOverride?.piece?.type === 'knight' || targetSquareForOverride?.piece?.type === 'hero') && targetSquareForOverride.piece.color === pieceOnFromSquareForAI.color) {
+                        overrideMoveType = 'swap';
+                    }
                 }
+
+                aiFromAlg = fromAlg;
+                aiToAlg = chosenDefinitiveMoveAlg;
+                aiMoveDataFromVibeAI = { from: [r,c], to: [newToCoords.row, newToCoords.col], type: overrideMoveType, promoteTo: promoteToOverrideType };
+                isAiMoveActuallyLegal = true;
+                foundFallbackMove = true;
+                break; // exit inner loop
+              }
             }
-            aiMoveDataFromVibeAI = { from: aiMoveDataFromVibeAI!.from, to: [newToCoords.row, newToCoords.col], type: overrideMoveType, promoteTo: promoteToOverrideType };
-            aiToAlg = chosenDefinitiveMoveAlg;
-            isAiMoveActuallyLegal = true;
-        } else {
-            aiErrorOccurredRef.current = true;
+          }
+          if (foundFallbackMove) break; // exit outer loop
+        }
+
+        if (!foundFallbackMove) {
+          aiErrorOccurredRef.current = true;
         }
       }
 
-
-      if (!aiMoveDataFromVibeAI || !isAiMoveActuallyLegal) {
-        aiErrorOccurredRef.current = true;
-      }
 
       if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI && aiFromAlg && aiToAlg) {
         saveStateToHistory();
@@ -3398,3 +3414,4 @@ setIsBlackAI(newIsBlackAI);
     
 
     
+
