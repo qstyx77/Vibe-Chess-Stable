@@ -3,7 +3,7 @@
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil } from '@/lib/chess-utils';
 
-const AI_DEBUG_KING_SAFETY_ONLY = false; 
+const AI_DEBUG_KING_SAFETY_ONLY = true; 
 
 const aiLog = (message: string, isKingSafetyCheck: boolean | undefined, callId: string | null | undefined, ...args: any[]) => {
     if (AI_DEBUG_KING_SAFETY_ONLY && isKingSafetyCheck) { 
@@ -214,6 +214,7 @@ export class VibeChessAI {
                     alpha = Math.max(alpha, evaluation.score);
                     if (beta <= alpha) break;
                 }
+                aiLog(`[AI_DEBUG_MINIMAX] Depth: ${depth}, Max, Best Move: ${bestMove ? `${coordsToAlgebraic(bestMove.from[0], bestMove.from[1])} to ${coordsToAlgebraic(bestMove.to[0], bestMove.to[1])}`: 'None'}, Score: ${maxEval}`, true, null);
                 const result = { score: maxEval, move: bestMove, depth, extraTurn: bestExtraTurn };
                 if (this.positionCache.size < this.maxCacheSize) this.positionCache.set(positionKey, result);
                 return result;
@@ -231,6 +232,7 @@ export class VibeChessAI {
                     beta = Math.min(beta, evaluation.score);
                     if (beta <= alpha) break;
                 }
+                aiLog(`[AI_DEBUG_MINIMAX] Depth: ${depth}, Min, Best Move: ${bestMove ? `${coordsToAlgebraic(bestMove.from[0], bestMove.from[1])} to ${coordsToAlgebraic(bestMove.to[0], bestMove.to[1])}`: 'None'}, Score: ${minEval}`, true, null);
                 const result = { score: minEval, move: bestMove, depth, extraTurn: bestExtraTurn };
                 if (this.positionCache.size < this.maxCacheSize) this.positionCache.set(positionKey, result);
                 return result;
