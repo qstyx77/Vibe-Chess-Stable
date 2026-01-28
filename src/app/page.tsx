@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -2178,16 +2179,13 @@ setIsBlackAI(newIsBlackAI);
         attemptCount++;
         await new Promise(resolve => setTimeout(resolve, 50 * attemptCount)); // Small delay, increasing
         const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
-        console.log(`[AI_PERFORM_MOVE] Attempt ${attemptCount}: Getting best move for ${currentPlayer}. Game state for AI:`, JSON.parse(JSON.stringify(gameStateForAI)));
         const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
         aiMoveDataFromVibeAI = aiResult?.move;
-        console.log(`[AI_PERFORM_MOVE] AI suggested move:`, aiMoveDataFromVibeAI);
         aiExtraTurnFromAIMethod = aiResult?.extraTurn || false;
 
         if (!aiMoveDataFromVibeAI || !aiMoveDataFromVibeAI.from || !aiMoveDataFromVibeAI.to ||
             !Array.isArray(aiMoveDataFromVibeAI.from) || aiMoveDataFromVibeAI.from.length !== 2 ||
             !Array.isArray(aiMoveDataFromVibeAI.to) || aiMoveDataFromVibeAI.to.length !== 2) {
-            console.log(`[AI_PERFORM_MOVE] AI returned invalid move structure. Retrying.`);
             continue; // Try again
         }
 
@@ -2198,14 +2196,11 @@ setIsBlackAI(newIsBlackAI);
         originalPieceLevelForAI = Number(pieceOnFromSquareForAI?.level || 1);
 
         if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) {
-            console.log(`[AI_PERFORM_MOVE] AI tried to move opponent's piece or empty square. Piece:`, pieceOnFromSquareForAI, `Player: ${currentPlayer}`);
             continue; // Try again
         }
 
         const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
-        console.log(`[AI_PERFORM_MOVE] Legal moves for ${aiFromAlg} are:`, definitiveLegalMovesForPiece);
         isAiMoveActuallyLegal = definitiveLegalMovesForPiece.includes(aiToAlg as AlgebraicSquare);
-        console.log(`[AI_PERFORM_MOVE] Is AI move ${aiFromAlg} to ${aiToAlg} legal? ${isAiMoveActuallyLegal}`);
         
         if (!isAiMoveActuallyLegal && aiMoveDataFromVibeAI.type === 'self-destruct' && aiFromAlg === aiToAlg) {
             const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
@@ -2219,7 +2214,6 @@ setIsBlackAI(newIsBlackAI);
 
 
       if (!isAiMoveActuallyLegal) { // Fallback if all attempts failed
-        console.log(`[AI_PERFORM_MOVE] AI failed to find a legal move after ${attemptCount} attempts. Entering fallback logic.`);
         toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking any valid move.", duration: 8000 });
         
         let foundFallbackMove = false;
@@ -2229,13 +2223,11 @@ setIsBlackAI(newIsBlackAI);
             if (fbSquareState?.piece?.color === currentPlayer) {
               const fromAlg = coordsToAlgebraic(r, c);
               const legalMoves = getPossibleMoves(finalBoardStateForAI, fromAlg, enPassantTargetSquare);
-              console.log(`[AI_FALLBACK] Checking piece at ${fromAlg}. Found ${legalMoves.length} legal moves.`);
               
               if (legalMoves.length > 0) {
                 const pieceOnFromSquareForAI = fbSquareState.piece;
                 const chosenDefinitiveMoveAlg = legalMoves[0];
                 const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
-                console.log(`[AI_FALLBACK] Found fallback move: ${fromAlg} to ${chosenDefinitiveMoveAlg}.`);
                 let overrideMoveType: AIMoveType['type'] = 'move';
                 const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
                 if (targetSquareForOverride?.piece) {
@@ -2784,7 +2776,7 @@ setIsBlackAI(newIsBlackAI);
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    if (gameInfo.gameOver && gameInfo.winner) {
+    if (gameInfo.gameOver && gameInfo.winner && onlineStatus === 'disconnected') {
       const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
       const delay = hasPrimaryAnnouncement ? 2700 : 0; 
       const timerId = setTimeout(() => {
@@ -2796,11 +2788,22 @@ setIsBlackAI(newIsBlackAI);
       }, delay);
       return () => clearTimeout(timerId);
 
+    } else if (gameInfo.gameOver && gameInfo.winner && onlineStatus !== 'disconnected') {
+        const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
+        const delay = hasPrimaryAnnouncement ? 2700 : 0;
+        const timerId = setTimeout(() => {
+            if (gameInfo.winner === localPlayerColor) {
+                setShowWinScreen(true);
+            } else if (gameInfo.winner !== 'draw' && gameInfo.winner !== undefined) {
+                setShowLossScreen(true);
+            }
+        }, delay);
+        return () => clearTimeout(timerId);
     } else {
       setShowWinScreen(false);
       setShowLossScreen(false);
     }
-  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.isCheckmate, gameInfo.isInfiltrationWin, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, localPlayerColor]);
+  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.isCheckmate, gameInfo.isInfiltrationWin, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, localPlayerColor, onlineStatus]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;

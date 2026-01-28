@@ -3,7 +3,7 @@
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil } from '@/lib/chess-utils';
 
-const AI_DEBUG_KING_SAFETY_ONLY = true; 
+const AI_DEBUG_KING_SAFETY_ONLY = false; 
 
 const aiLog = (message: string, isKingSafetyCheck: boolean | undefined, callId: string | null | undefined, ...args: any[]) => {
     if (AI_DEBUG_KING_SAFETY_ONLY && isKingSafetyCheck) { 
