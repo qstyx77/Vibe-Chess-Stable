@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -2108,7 +2107,7 @@ setIsBlackAI(newIsBlackAI);
     
     // Capture the game state *before* the AI starts thinking
     const originalGameStateForMove = {
-        board: board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
+        board: board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))),
         currentPlayer,
         capturedPieces: {
             white: capturedPieces.white.map(p => ({ ...p })),
@@ -2358,7 +2357,7 @@ setIsBlackAI(newIsBlackAI);
                  toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 8000 });
             }
             if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
-               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedCount} pieces obliterated.`, duration: 8000 });
+               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 8000 });
             }
           } else {
               aiErrorOccurredRef.current = true;
