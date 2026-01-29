@@ -405,7 +405,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                     if (room.gameState.killStreaks[movingPlayerColor] === 6) {
                         extraTurnFromStreak = true;
-                        room.gameState.killStreaks[movingPlayerColor] = 0;
                     } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
                         const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
                         const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
@@ -442,7 +441,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 }
                             }
                         }
-                        room.gameState.killStreaks[movingPlayerColor] = 0;
                     }
 
                     if (!room.gameState.firstBloodAchieved) {
@@ -618,4 +616,5 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
