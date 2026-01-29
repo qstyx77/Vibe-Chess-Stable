@@ -43,6 +43,18 @@ let globalServerUniqueIdCounter = 10000;
 // Ranked matchmaking queue
 const rankedQueue: { ws: WebSocket & { userId?: string }; userId: string; elo: number; username: string; timestamp: number }[] = [];
 
+const pieceValues: Record<string, number> = {
+    'pawn': 1, 'commander': 1, 'infiltrator': 1,
+    'knight': 3, 'hero': 3, 'bishop': 3,
+    'rook': 5,
+    'queen': 9,
+    'king': 0
+};
+
+const chooseBestResurrectionPiece = (capturedPieces: Piece[]): Piece | null => {
+    if (!capturedPieces || capturedPieces.length === 0) return null;
+    return [...capturedPieces].sort((a,b) => (pieceValues[b.type] || 0) - (pieceValues[a.type] || 0))[0];
+};
 
 const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'loss' | 'draw') => {
     const K = 32;
@@ -243,7 +255,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                          room.gameState.gameInfo = { ...room.gameState.gameInfo, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false };
                     }
                     
-                    broadcastToRoom(ws.roomId!, {
+                    broadcastToRoom(ws.roomId, {
                         type: 'commander-promo-finalized',
                         fullGameState: room.gameState,
                         lastPlayer: playerWhoActed
@@ -327,7 +339,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winnerOnTimeout;
                         const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
-                        broadcastToRoom(ws.roomId!, broadcastMsg);
+                        broadcastToRoom(ws.roomId, broadcastMsg);
                         return;
                     }
 
@@ -376,35 +388,76 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
             
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
-            
-                let wasCapture = false;
-                if (capturedPiece) {
-                    wasCapture = true;
-                    if (!restOfResult.promotedToInfiltrator) {
+                let wasCapture = !!capturedPiece || !!restOfResult.pieceCapturedByAnvil;
+                let extraTurnFromStreak = false;
+                room.gameState.resurrectedSquare = null;
+
+                if (wasCapture) {
+                    if (capturedPiece && !restOfResult.promotedToInfiltrator) {
                         room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
                     }
-                }
-                if (restOfResult.pieceCapturedByAnvil) {
-                    wasCapture = true;
-                    room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
-                }
-            
-                if (wasCapture) {
+                    if (restOfResult.pieceCapturedByAnvil) {
+                        room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
+                    }
+
                     room.gameState.killStreaks[movingPlayerColor] = (room.gameState.killStreaks[movingPlayerColor] || 0) + 1;
                     room.gameState.killStreaks[opponentPlayer] = 0;
+
+                    if (room.gameState.killStreaks[movingPlayerColor] === 6) {
+                        extraTurnFromStreak = true;
+                        room.gameState.killStreaks[movingPlayerColor] = 0;
+                    } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
+                        const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
+                        const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
+                        if (piecesToChooseFrom.length > 0) {
+                            const pieceToResurrect = chooseBestResurrectionPiece(piecesToChooseFrom);
+                            if (pieceToResurrect) {
+                                const emptySquares: {row: number, col: number}[] = [];
+                                for (let r_idx = 0; r_idx < 8; r_idx++) {
+                                    for (let c_idx = 0; c_idx < 8; c_idx++) {
+                                        if (!newBoard[r_idx][c_idx].piece && !newBoard[r_idx][c_idx].item) {
+                                            emptySquares.push({row: r_idx, col: c_idx});
+                                        }
+                                    }
+                                }
+
+                                if (emptySquares.length > 0) {
+                                    const {row: resR, col: resC} = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                                    const resurrectedPiece: Piece = {
+                                        ...pieceToResurrect,
+                                        level: 1,
+                                        id: `srv_res_${globalServerUniqueIdCounter++}`,
+                                        hasMoved: pieceToResurrect.type === 'king' || pieceToResurrect.type === 'rook' ? false : pieceToResurrect.hasMoved,
+                                        invulnerableTurnsRemaining: 0,
+                                    };
+                                    
+                                    const promotionRank = movingPlayerColor === 'white' ? 0 : 7;
+                                    if (resurrectedPiece.type === 'pawn' && resR === promotionRank) resurrectedPiece.type = 'queen';
+                                    else if (resurrectedPiece.type === 'commander' && resR === promotionRank) resurrectedPiece.type = 'hero';
+
+                                    newBoard[resR][resC].piece = resurrectedPiece;
+                                    room.gameState.resurrectedSquare = coordsToAlgebraic(resR, resC);
+
+                                    room.gameState.capturedPieces[opponentColorForRes] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
+                                }
+                            }
+                        }
+                        room.gameState.killStreaks[movingPlayerColor] = 0;
+                    }
+
                     if (!room.gameState.firstBloodAchieved) {
                         room.gameState.firstBloodAchieved = true;
                         room.gameState.playerWhoGotFirstBlood = movingPlayerColor;
                         room.gameState.isAwaitingCommanderPromotion = true;
                         room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
-                        room.gameState.board = newBoard;
+                        room.gameState.board = newBoard; // Board state is needed for commander selection
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                        return; 
+                        return; // Halt further processing until commander is chosen
                     }
                 } else {
                     room.gameState.killStreaks[movingPlayerColor] = 0;
                 }
-                
+            
                 room.gameState.board = newBoard;
                 room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
                 room.gameState.lastMoveFrom = move.from;
@@ -417,7 +470,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 if (isPawnPromotion) {
                     console.log(`[Server] Pawn promotion detected for ${movingPlayerColor} at ${move.to}. Sending 'promotion-required'.`);
                     room.gameState.promotionContext = {
-                        extraTurn: (restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayerColor] >= 6),
+                        extraTurn: (restOfResult as any).extraTurn || extraTurnFromStreak,
                     };
                     broadcastToRoom(ws.roomId, {
                         type: 'promotion-required',
@@ -451,7 +504,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     }
                 }
 
-                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || (room.gameState.killStreaks[movingPlayerColor] === 6));
+                const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
                 const nextPlayer = isExtraTurn ? movingPlayerColor : opponentPlayer;
             
                 const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
@@ -565,3 +618,4 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
