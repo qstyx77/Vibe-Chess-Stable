@@ -2776,17 +2776,9 @@ setIsBlackAI(newIsBlackAI);
 
   useEffect(() => {
     if (gameInfo.gameOver && gameInfo.winner && onlineStatus === 'disconnected') {
-      const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
-      const delay = hasPrimaryAnnouncement ? 2700 : 0; 
-      const timerId = setTimeout(() => {
-        if (gameInfo.winner === localPlayerColor) {
-          setShowWinScreen(true);
-        } else if (gameInfo.winner !== 'draw') {
-          setShowLossScreen(true);
-        }
-      }, delay);
-      return () => clearTimeout(timerId);
-
+      // Per user request, do not show the "You Lost" screen for offline games.
+      // The "You Won" screen is tied to localPlayerColor, which is null in offline games,
+      // so it also will not show.
     } else if (gameInfo.gameOver && gameInfo.winner && onlineStatus !== 'disconnected') {
         const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
         const delay = hasPrimaryAnnouncement ? 2700 : 0;
@@ -3407,5 +3399,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
+    
 
     
