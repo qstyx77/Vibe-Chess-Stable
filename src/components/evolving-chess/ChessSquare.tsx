@@ -66,7 +66,7 @@ export function ChessSquare({
   let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted';
 
   if (isLastMoveFrom || isLastMoveTo) {
-      currentBgClass = 'bg-yellow-300/40';
+      currentBgClass = 'bg-sky-500/40';
   }
 
   if (isPossibleMove && (!piece || item?.type === 'shroom') && !disabled) {
