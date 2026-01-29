@@ -366,6 +366,12 @@ setIsBlackAI(newIsBlackAI);
     return 'white';
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, viewMode, currentPlayer]);
 
+  useEffect(() => {
+    if (animatedSquareTo) {
+      const timer = setTimeout(() => setAnimatedSquareTo(null), 800);
+      return () => clearTimeout(timer);
+    }
+  }, [animatedSquareTo]);
 
   useEffect(() => {
     // Clear resurrection highlights for the player whose turn it now is.
@@ -745,7 +751,7 @@ setIsBlackAI(newIsBlackAI);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
             setIsMoveProcessing(false);
-            setAnimatedSquareTo(null);
+            setAnimatedSquareTo(fullGameState.lastMoveTo || null);
 
             if(fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
@@ -777,7 +783,7 @@ setIsBlackAI(newIsBlackAI);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
             setIsMoveProcessing(false);
-            setAnimatedSquareTo(null);
+            setAnimatedSquareTo(fullGameState.lastMoveTo || null);
 
             if(fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
@@ -1529,7 +1535,6 @@ setIsBlackAI(newIsBlackAI);
                         setBoard(finalBoardStateForTurn);
                         setCapturedPieces(finalCapturedPiecesStateForTurn);
                         setIsMoveProcessing(false);
-                        setAnimatedSquareTo(null);
                         return;
                     }
                   }
@@ -1548,7 +1553,6 @@ setIsBlackAI(newIsBlackAI);
         }
 
         setTimeout(() => {
-          setAnimatedSquareTo(null);
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
@@ -1610,7 +1614,7 @@ setIsBlackAI(newIsBlackAI);
           setCapturedPieces(finalCapturedPiecesStateForTurn);
           toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
-          setIsMoveProcessing(false); setAnimatedSquareTo(null);
+          setIsMoveProcessing(false);
            if (onlineStatus === 'connected') {
              const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
@@ -1657,7 +1661,6 @@ setIsBlackAI(newIsBlackAI);
           }));
           setBoard(finalBoardStateForTurn);
           setIsMoveProcessing(false);
-          setAnimatedSquareTo(null);
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
           if (onlineStatus === 'connected') {
@@ -1754,7 +1757,6 @@ setIsBlackAI(newIsBlackAI);
                       setBoard(finalBoardStateForTurn);
                       setCapturedPieces(finalCapturedPiecesStateForTurn);
                       setIsMoveProcessing(false);
-                      setAnimatedSquareTo(null);
                       return;
                   }
               }
@@ -1812,7 +1814,6 @@ setIsBlackAI(newIsBlackAI);
                             setBoard(finalBoardStateForTurn);
                             setCapturedPieces(finalCapturedPiecesStateForTurn);
                             setIsMoveProcessing(false);
-                            setAnimatedSquareTo(null);
                             return;
                         }
                       }
@@ -1830,7 +1831,6 @@ setIsBlackAI(newIsBlackAI);
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
         setTimeout(() => {
-          setAnimatedSquareTo(null);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
           const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
@@ -1867,7 +1867,7 @@ setIsBlackAI(newIsBlackAI);
           let sacrificeNeededForQueen = false;
 
           if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTargetForAI);
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
@@ -2013,8 +2013,6 @@ setIsBlackAI(newIsBlackAI);
     setBoard(boardToUpdate);
 
     setTimeout(() => {
-      setAnimatedSquareTo(null);
-
       let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
 
       if (isResurrectionPromotionInProgress) {
@@ -2157,7 +2155,7 @@ setIsBlackAI(newIsBlackAI);
     let anvilsDestroyedByAICount = 0;
 
 
-    let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? { ...s_fbs.item } : null })));
+    let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? {...s_fbs.item} : null })));
     let finalCapturedPiecesForAI = {
       white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
       black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
@@ -2357,7 +2355,7 @@ setIsBlackAI(newIsBlackAI);
                  toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 8000 });
             }
             if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
-               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 8000 });
+               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedCount} pieces obliterated.`, duration: 8000 });
             }
           } else {
               aiErrorOccurredRef.current = true;
@@ -2386,7 +2384,7 @@ setIsBlackAI(newIsBlackAI);
             setCapturedPieces(finalCapturedPiecesForAI);
             toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, duration: 8000 });
             setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
-            setIsMoveProcessing(false); setIsAiThinking(false); setAnimatedSquareTo(null); return;
+            setIsMoveProcessing(false); setIsAiThinking(false); return;
           }
           if (shroomConsumedByAIForEval) {
               const movedPieceDataAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
@@ -2440,7 +2438,6 @@ setIsBlackAI(newIsBlackAI);
             setBoard(finalBoardStateForAI);
             setIsMoveProcessing(false);
             setIsAiThinking(false);
-            setAnimatedSquareTo(null);
             setSelectedSquare(null); setPossibleMoves([]);
             setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
             if (onlineStatus === 'connected') {
@@ -2692,7 +2689,6 @@ setIsBlackAI(newIsBlackAI);
                   processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               }
 
-              setAnimatedSquareTo(null);
               setIsMoveProcessing(false);
               setIsAiThinking(false);
             }, 800);
@@ -2734,7 +2730,6 @@ setIsBlackAI(newIsBlackAI);
   
       setIsMoveProcessing(false);
       setIsAiThinking(false);
-      setAnimatedSquareTo(null);
       return;
     }
   }, [
@@ -3059,7 +3054,7 @@ setIsBlackAI(newIsBlackAI);
 
       setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
       setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnFromPostResurrectionPromotion);
 
       setFirstBloodAchieved(stateToRestore.firstBloodAchieved);
       setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
@@ -3399,7 +3394,5 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-    
 
     
