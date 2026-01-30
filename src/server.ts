@@ -400,11 +400,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                     }
 
-                    room.gameState.killStreaks[movingPlayerColor] = (room.gameState.killStreaks[movingPlayerColor] || 0) + 1;
+                    room.gameState.killStreaks[movingPlayerColor]++;
                     room.gameState.killStreaks[opponentPlayer] = 0;
 
                     if (room.gameState.killStreaks[movingPlayerColor] === 6) {
                         extraTurnFromStreak = true;
+                        room.gameState.killStreaks[movingPlayerColor] = 0;
                     } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
                         const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
                         const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
@@ -441,6 +442,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 }
                             }
                         }
+                        room.gameState.killStreaks[movingPlayerColor] = 0;
                     }
 
                     if (!room.gameState.firstBloodAchieved) {
@@ -538,15 +540,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                    // Elo logic would go here
                 }
             
-                if (gameOver) {
-                    broadcastToRoom(ws.roomId, { type: 'game-over', winner, reason: winner === 'draw' ? 'stalemate' : 'checkmate' });
-                } else {
-                    broadcastToRoom(ws.roomId, {
-                        type: 'game-move',
-                        fullGameState: room.gameState,
-                        lastPlayer: movingPlayerColor,
-                    });
-                }
+                // Always broadcast the final state as a 'game-move'
+                broadcastToRoom(ws.roomId, {
+                    type: 'game-move',
+                    fullGameState: room.gameState,
+                    lastPlayer: movingPlayerColor,
+                });
+
                 break;
             }
             case 'resign':
@@ -618,3 +618,6 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
 
+
+
+    
