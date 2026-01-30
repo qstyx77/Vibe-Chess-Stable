@@ -699,7 +699,6 @@ setIsBlackAI(newIsBlackAI);
   const handleIncomingData = useCallback((data: any) => {
       switch (data.type) {
         case 'promotion-required': {
-            console.log('[CLIENT] PROMOTION REQUIRED received:', data);
             const { square, player, fullGameState } = data;
             
             setBoard(fullGameState.board);
@@ -720,7 +719,6 @@ setIsBlackAI(newIsBlackAI);
             setIsMoveProcessing(false);
 
             if (player === localPlayerColor) {
-                console.log('[CLIENT] This client needs to promote.');
                 stopTurnTimer();
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
@@ -1949,16 +1947,13 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    console.log(`[CLIENT] handlePromotionSelect called with: ${pieceType}`);
     if (!promotionSquare || isAwaitingCommanderPromotion) {
-        console.log('[CLIENT] Promotion select blocked:', { promotionSquare, isAwaitingCommanderPromotion });
         return;
     }
 
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          console.log('[CLIENT] Sending finalize-promotion:', { square: promotionSquare, promoteTo: pieceType });
           ws.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
         }
         // Close the dialog and wait for server broadcast to update the game state
@@ -2355,7 +2350,7 @@ setIsBlackAI(newIsBlackAI);
                  toast({ title: "AI Smashes Anvils!", description: `${anvilsDestroyedByAICount} anvil${anvilsDestroyedByAICount > 1 ? 's':''} destroyed.`, duration: 8000 });
             }
             if (piecesDestroyedByAICount > 0 && piecesDestroyedByAICount !== 1) {
-               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedCount} pieces obliterated.`, duration: 8000 });
+               toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) ${selfDestructingKnight_AI.type} Self-Destructs!`, description: `${piecesDestroyedByAICount} pieces obliterated.`, duration: 8000 });
             }
           } else {
               aiErrorOccurredRef.current = true;
@@ -3394,5 +3389,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
+    
 
     
