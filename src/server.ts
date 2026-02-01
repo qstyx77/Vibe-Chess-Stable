@@ -144,6 +144,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             return;
         }
 
+        console.log('[Server] Received message:', data);
+
+
         if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
             return;
         }
@@ -264,18 +267,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 break;
             }
             case 'finalize-promotion': {
-                console.log('[Server] Received finalize-promotion:', data.payload);
+                console.log('[Server | finalize-promotion] Received:', data.payload);
                 if (!room || !data.payload) {
-                    console.log('[Server] Finalize-promotion rejected: no room or payload.');
+                    console.log('[Server | finalize-promotion] Rejected: no room or payload.');
                     break;
                 }
+                console.log('[Server | finalize-promotion] State BEFORE promotion:', JSON.parse(JSON.stringify(room.gameState)));
+
                 const { square, promoteTo } = data.payload;
                 
                 const { row, col } = algebraicToCoords(square);
                 const piece = room.gameState.board[row]?.[col]?.piece;
             
                 if (piece && (piece.type === 'pawn' || piece.type === 'commander')) {
-                    console.log(`[Server] Promoting piece at ${square} to ${promoteTo}.`);
+                    console.log(`[Server | finalize-promotion] Promoting piece at ${square} to ${promoteTo}.`);
                     const promotingPlayerColor = piece.color;
                     const opponentPlayer = promotingPlayerColor === 'white' ? 'black' : 'white';
             
@@ -307,11 +312,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     room.gameState.gameInfo = { ...room.gameState.gameInfo, message, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: gameOver && winner === promotingPlayerColor, isStalemate: gameOver && winner === 'draw', gameOver, winner };
                     room.gameState.currentPlayer = nextPlayer;
                     delete room.gameState.promotionContext;
-            
+
+                    console.log('[Server | finalize-promotion] Broadcasting final "game-move". Final State:', JSON.parse(JSON.stringify(room.gameState)));
                     broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: promotingPlayerColor });
-                    console.log('[Server] Broadcasted final game state after promotion.');
                 } else {
-                     console.log(`[Server] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
+                     console.log(`[Server | finalize-promotion] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
                 }
                 break;
             }
@@ -374,6 +379,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     return;
                 }
 
+                console.log(`[Server | game-move] Processing move for player: ${movingPlayerColor}`, data.payload);
+
                 const { payload: move } = data;
 
                 const { from } = move;
@@ -386,8 +393,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 }
 
                 const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
-            
+                
+                console.log('[Server | game-move] State BEFORE applyMove:', JSON.parse(JSON.stringify(room.gameState)));
                 const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
+                console.log('[Server | game-move] Result FROM applyMove:', { capturedPiece: !!capturedPiece, ...restOfResult });
+                
                 let wasCapture = !!capturedPiece || !!restOfResult.pieceCapturedByAnvil;
                 let extraTurnFromStreak = false;
                 room.gameState.resurrectedSquare = null;
@@ -466,9 +476,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const { row: toRow, col: toCol } = algebraicToCoords(move.to);
                 const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
                 const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
+
+                console.log('[Server | game-move] Flags:', { wasCapture, extraTurnFromStreak, isPawnPromotion });
     
                 if (isPawnPromotion) {
-                    console.log(`[Server] Pawn promotion detected for ${movingPlayerColor} at ${move.to}. Sending 'promotion-required'.`);
+                    console.log(`[Server | game-move] Promotion required for ${movingPlayerColor} at ${move.to}. Broadcasting "promotion-required".`);
                     room.gameState.promotionContext = {
                         extraTurn: (restOfResult as any).extraTurn || extraTurnFromStreak,
                     };
@@ -540,7 +552,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                    // Elo logic would go here
                 }
             
-                // Always broadcast the final state as a 'game-move'
+                console.log('[Server | game-move] Broadcasting "game-move". Final State:', JSON.parse(JSON.stringify(room.gameState)));
                 broadcastToRoom(ws.roomId, {
                     type: 'game-move',
                     fullGameState: room.gameState,
@@ -619,5 +631,7 @@ server.listen(PORT, '0.0.0.0', () => {
 
 
 
+
+    
 
     
