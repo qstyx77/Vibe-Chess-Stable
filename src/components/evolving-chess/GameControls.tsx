@@ -80,10 +80,10 @@ export function GameControls({
 
           <div className="space-y-0.5">
             <p className="text-xs font-medium text-destructive">
-              W-Streak: {killStreaks.white}
+              <span className="text-foreground">W</span>-Streak: {killStreaks.white}
             </p>
             <p className="text-xs font-medium text-destructive">
-              B-Streak: {killStreaks.black}
+              <span className="text-secondary">B</span>-Streak: {killStreaks.black}
             </p>
           </div>
         </div>
