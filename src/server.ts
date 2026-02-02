@@ -80,6 +80,73 @@ const broadcastToRoom = (roomId: string, message: any) => {
     }
 };
 
+const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean) => {
+    room.gameState.gameMoveCounter++;
+
+    if (room.gameState.gameMoveCounter > 0 && room.gameState.gameMoveCounter % 9 === 0) {
+        const { newBoard: boardAfterAnvil, spawnedAt } = spawnAnvil(room.gameState.board);
+        if (spawnedAt) {
+            room.gameState.board = boardAfterAnvil;
+            broadcastToRoom(room.clients[0].roomId, { type: 'anvil-spawn', square: spawnedAt });
+        }
+    }
+    
+    let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
+    room.gameState.shroomSpawnCounter = currentShroomCounter;
+    if (currentShroomCounter >= (room.gameState.nextShroomSpawnTurn || 5)) {
+        const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(room.gameState.board);
+        if (shroomSpawnedAt) {
+            room.gameState.board = boardAfterShroom;
+            const newNextTurn = Math.floor(Math.random() * 6) + 5;
+            room.gameState.shroomSpawnCounter = 0;
+            room.gameState.nextShroomSpawnTurn = newNextTurn;
+            broadcastToRoom(room.clients[0].roomId, { type: 'shroom-spawn', square: shroomSpawnedAt, nextTurn: newNextTurn });
+        }
+    }
+
+    const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
+
+    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
+    let message = " ";
+    let gameOver = false;
+    let winner: PlayerColor | 'draw' | undefined = undefined;
+
+    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
+        message = `Checkmate! ${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} wins!`;
+        gameOver = true;
+        winner = movingPlayerColor;
+    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
+        message = "Stalemate! It's a draw.";
+        gameOver = true;
+        winner = 'draw';
+    } else if (inCheck) {
+        message = "Check!";
+    }
+
+    room.gameState.gameInfo = {
+        message: message,
+        isCheck: inCheck,
+        playerWithKingInCheck: inCheck ? nextPlayer : null,
+        isCheckmate: gameOver && winner === movingPlayerColor,
+        isStalemate: gameOver && winner === 'draw',
+        gameOver: gameOver,
+        winner: winner,
+    };
+
+    room.gameState.currentPlayer = nextPlayer;
+
+    if (gameOver && room.isRanked) {
+        // Elo logic would go here
+    }
+
+    console.log('[Server | finalizeTurn] Broadcasting "game-move". Final State:', JSON.parse(JSON.stringify(room.gameState)));
+    broadcastToRoom(room.clients[0].roomId, {
+        type: 'game-move',
+        fullGameState: room.gameState,
+        lastPlayer: movingPlayerColor,
+    });
+};
+
 const processRankedQueue = async () => {
     if (rankedQueue.length < 2) {
         return;
@@ -282,7 +349,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 if (piece && (piece.type === 'pawn' || piece.type === 'commander')) {
                     console.log(`[Server | finalize-promotion] Promoting piece at ${square} to ${promoteTo}.`);
                     const promotingPlayerColor = piece.color;
-                    const opponentPlayer = promotingPlayerColor === 'white' ? 'black' : 'white';
             
                     piece.type = promoteTo;
                     if(promoteTo === 'queen') {
@@ -290,31 +356,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     }
             
                     const isExtraTurn = room.gameState.promotionContext?.extraTurn || false;
-                    const nextPlayer = isExtraTurn ? promotingPlayerColor : opponentPlayer;
-            
-                    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
-                    let message = " ";
-                    let gameOver = false;
-                    let winner: PlayerColor | 'draw' | undefined = undefined;
-            
-                    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                        message = `Checkmate! ${(room.gameState.players[promotingPlayerColor] || {username: promotingPlayerColor}).username} wins!`;
-                        gameOver = true;
-                        winner = promotingPlayerColor;
-                    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                        message = "Stalemate! It's a draw.";
-                        gameOver = true;
-                        winner = 'draw';
-                    } else if (inCheck) {
-                        message = "Check!";
-                    }
-            
-                    room.gameState.gameInfo = { ...room.gameState.gameInfo, message, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: gameOver && winner === promotingPlayerColor, isStalemate: gameOver && winner === 'draw', gameOver, winner };
-                    room.gameState.currentPlayer = nextPlayer;
                     delete room.gameState.promotionContext;
 
-                    console.log('[Server | finalize-promotion] Broadcasting final "game-move". Final State:', JSON.parse(JSON.stringify(room.gameState)));
-                    broadcastToRoom(ws.roomId, { type: 'game-move', fullGameState: room.gameState, lastPlayer: promotingPlayerColor });
+                    console.log(`[Server | finalize-promotion] Calling finalizeTurn for ${promotingPlayerColor} with extraTurn: ${isExtraTurn}`);
+                    finalizeTurn(room, promotingPlayerColor, isExtraTurn);
+
                 } else {
                      console.log(`[Server | finalize-promotion] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
                 }
@@ -490,74 +536,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         player: movingPlayerColor,
                         fullGameState: room.gameState
                     });
-                    return;
+                    return; // CRITICAL: Stop processing and wait for client's choice
                 }
             
-                room.gameState.gameMoveCounter++;
-
-                if (room.gameState.gameMoveCounter > 0 && room.gameState.gameMoveCounter % 9 === 0) {
-                    const { newBoard: boardAfterAnvil, spawnedAt } = spawnAnvil(room.gameState.board);
-                    if (spawnedAt) {
-                        room.gameState.board = boardAfterAnvil;
-                        broadcastToRoom(ws.roomId, { type: 'anvil-spawn', square: spawnedAt });
-                    }
-                }
-                
-                let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
-                room.gameState.shroomSpawnCounter = currentShroomCounter;
-                if (currentShroomCounter >= (room.gameState.nextShroomSpawnTurn || 5)) {
-                    const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(room.gameState.board);
-                    if (shroomSpawnedAt) {
-                        room.gameState.board = boardAfterShroom;
-                        const newNextTurn = Math.floor(Math.random() * 6) + 5;
-                        room.gameState.shroomSpawnCounter = 0;
-                        room.gameState.nextShroomSpawnTurn = newNextTurn;
-                        broadcastToRoom(ws.roomId, { type: 'shroom-spawn', square: shroomSpawnedAt, nextTurn: newNextTurn });
-                    }
-                }
-
                 const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
-                const nextPlayer = isExtraTurn ? movingPlayerColor : opponentPlayer;
-            
-                const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
-                let message = " ";
-                let gameOver = false;
-                let winner: PlayerColor | 'draw' | undefined = undefined;
-
-                if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                    message = `Checkmate! ${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} wins!`;
-                    gameOver = true;
-                    winner = movingPlayerColor;
-                } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
-                    message = "Stalemate! It's a draw.";
-                    gameOver = true;
-                    winner = 'draw';
-                } else if (inCheck) {
-                    message = "Check!";
-                }
-            
-                room.gameState.gameInfo = {
-                    message: message,
-                    isCheck: inCheck,
-                    playerWithKingInCheck: inCheck ? nextPlayer : null,
-                    isCheckmate: winner === movingPlayerColor && !isStalemate,
-                    isStalemate: winner === 'draw',
-                    gameOver: gameOver,
-                    winner: winner,
-                };
-            
-                room.gameState.currentPlayer = nextPlayer;
-            
-                if (gameOver && room.isRanked) {
-                   // Elo logic would go here
-                }
-            
-                console.log('[Server | game-move] Broadcasting "game-move". Final State:', JSON.parse(JSON.stringify(room.gameState)));
-                broadcastToRoom(ws.roomId, {
-                    type: 'game-move',
-                    fullGameState: room.gameState,
-                    lastPlayer: movingPlayerColor,
-                });
+                finalizeTurn(room, movingPlayerColor, isExtraTurn);
 
                 break;
             }
