@@ -208,6 +208,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         try {
             data = JSON.parse(message.toString());
         } catch (e) {
+            console.log('[Server] Failed to parse message:', e);
             return;
         }
 
@@ -508,7 +509,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
                         room.gameState.board = newBoard; // Board state is needed for commander selection
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                        return; // Halt further processing until commander is chosen
+                        return;
                     }
                 } else {
                     room.gameState.killStreaks[movingPlayerColor] = 0;
@@ -536,7 +537,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         player: movingPlayerColor,
                         fullGameState: room.gameState
                     });
-                    return; // CRITICAL: Stop processing and wait for client's choice
+                    return;
                 }
             
                 const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
@@ -592,29 +593,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     });
 
     ws.on('error', (err) => {
+        console.error('[Server] WebSocket error:', err);
     });
 });
 
 const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
+    console.log(`================================================`);
+    console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
+    console.log(`================================================`);
 });
-
-    
-
-    
-
-
-
-
-
-
-    
-
-    
-
-
-
-
-    
-
-    
