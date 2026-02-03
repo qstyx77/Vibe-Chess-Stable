@@ -558,7 +558,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room) {
                         const winner = data.resigningPlayer === 'white' ? 'black' : 'white';
                         room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner };
-                        broadcastToRoom(ws.roomId, data);
+                        broadcastToRoom(ws.roomId, { ...data, winner });
                     }
                     break;
                 case 'forfeit-timeout': {
