@@ -544,13 +544,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     room.gameState.promotionContext = {
                         extraTurn: (restOfResult as any).extraTurn || extraTurnFromStreak,
                     };
+                    const promotingUserId = room.gameState.players[movingPlayerColor]?.userId;
                     broadcastToRoom(ws.roomId, {
                         type: 'promotion-required',
                         square: move.to,
                         player: movingPlayerColor,
+                        promotingUserId: promotingUserId,
                         fullGameState: room.gameState
                     });
-                    // DO NOT continue processing. Wait for finalize-promotion message.
+                    console.log(`[Server | game-move] Broadcasted "promotion-required" to room ${ws.roomId}. Halting turn processing.`);
                     return; 
                 }
             

@@ -219,8 +219,8 @@ export default function EvolvingChessPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const [showLossScreen, setShowLossScreen] = useState(false);
   const [showWinScreen, setShowWinScreen] = useState(false);
-  const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [timerWarningKey, setTimerWarningKey] = useState(0);
+  const [showTimerWarning, setShowTimerWarning] = useState(false);
   const [isRankedGame, setIsRankedGame] = useState(false);
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
@@ -712,7 +712,7 @@ setIsBlackAI(newIsBlackAI);
       switch (data.type) {
         case 'promotion-required': {
             console.log('[CLIENT] "promotion-required" case hit.');
-            const { square, player, fullGameState } = data;
+            const { square, player, promotingUserId, fullGameState } = data;
             
             setBoard(fullGameState.board);
             if (fullGameState.players) setGamePlayers(fullGameState.players);
@@ -731,15 +731,15 @@ setIsBlackAI(newIsBlackAI);
 
             setIsMoveProcessing(false);
 
-            if (player === localPlayerColor) {
-                console.log(`[CLIENT] This client (${localPlayerColor}) needs to promote.`);
-                // stopTurnTimer(); // This is the critical fix
+            if (promotingUserId === user?.uid) {
+                console.log(`[CLIENT] This client (${user?.uid}) needs to promote.`);
+                stopTurnTimer(); 
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
                 console.log('[CLIENT] State set for promotion: isPromotingPawn=true');
             } else {
-                console.log(`[CLIENT] Another player (${player}) is promoting.`);
+                console.log(`[CLIENT] Another player (${player}, id: ${promotingUserId}) is promoting. My id is ${user?.uid}.`);
             }
             break;
         }
