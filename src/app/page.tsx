@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -2815,7 +2814,7 @@ setIsBlackAI(newIsBlackAI);
       // so it also will not show.
     } else if (gameInfo.gameOver && gameInfo.winner && onlineStatus !== 'disconnected') {
         const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
-        const delay = hasPrimaryAnnouncement ? 2700 : 0;
+        const delay = hasPrimaryAnnouncement ? 2700 : 1500;
         const timerId = setTimeout(() => {
             if (gameInfo.winner === localPlayerColor) {
                 setShowWinScreen(true);
