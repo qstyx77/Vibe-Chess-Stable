@@ -502,36 +502,45 @@ setIsBlackAI(newIsBlackAI);
   }, [toast, getPlayerDisplayName, onlineStatus]);
 
   const stopTurnTimer = () => {
+      console.log('[CLIENT] stopTurnTimer called.');
       if (turnTimerIntervalId.current) {
           clearInterval(turnTimerIntervalId.current);
           turnTimerIntervalId.current = null;
+          console.log('[CLIENT] Timer interval cleared.');
       }
       setTurnTimer(null);
       setActiveTimerPlayer(null);
   };
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
+    console.log(`[CLIENT] startTurnTimer called for ${player}.`);
     if (isPromotingPawn) {
+        console.log('[CLIENT] startTurnTimer aborted: pawn promotion in progress.');
         stopTurnTimer();
         return;
     }
-    stopTurnTimer();
+    stopTurnTimer(); // Ensure any existing timer is stopped before starting a new one
     setActiveTimerPlayer(player);
     setTurnTimer(45);
+    console.log(`[CLIENT] Timer started. Player: ${player}, Duration: 45s.`);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
             if (currentTimerValue === 1) { // Trigger exactly at 1
+                console.log(`[CLIENT] Timer at 1 for ${player}. Sending timeout.`);
                 if (turnTimerIntervalId.current) {
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
                     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                         wsRef.current.send(JSON.stringify({ type: 'timeout', timedOutPlayer: player }));
+                         const payload = JSON.stringify({ type: 'timeout', timedOutPlayer: player });
+                         console.log('[CLIENT] > SENDING WS to server:', payload);
+                         wsRef.current.send(payload);
                     }
                 }
                 return 0;
             }
             if (currentTimerValue === null || currentTimerValue <= 0) {
+                 console.log(`[CLIENT] Timer at or below 0 for ${player}. Clearing interval.`);
                  if (turnTimerIntervalId.current) {
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
@@ -540,9 +549,11 @@ setIsBlackAI(newIsBlackAI);
             }
             
             if (currentTimerValue === 11) {
+                console.log(`[CLIENT] Timer warning for ${player}.`);
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
             }
+            // console.log(`[CLIENT] Timer tick for ${player}: ${currentTimerValue - 1}`);
             return currentTimerValue - 1;
         });
     }, 1000);
@@ -697,8 +708,10 @@ setIsBlackAI(newIsBlackAI);
   ]);
 
   const handleIncomingData = useCallback((data: any) => {
+      console.log('[CLIENT] < RECEIVED WS from server:', data);
       switch (data.type) {
         case 'promotion-required': {
+            console.log('[CLIENT] "promotion-required" case hit.');
             const { square, player, fullGameState } = data;
             
             setBoard(fullGameState.board);
@@ -719,10 +732,14 @@ setIsBlackAI(newIsBlackAI);
             setIsMoveProcessing(false);
 
             if (player === localPlayerColor) {
-                stopTurnTimer();
+                console.log(`[CLIENT] This client (${localPlayerColor}) needs to promote.`);
+                // stopTurnTimer(); // This is the critical fix
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
+                console.log('[CLIENT] State set for promotion: isPromotingPawn=true');
+            } else {
+                console.log(`[CLIENT] Another player (${player}) is promoting.`);
             }
             break;
         }
@@ -935,22 +952,29 @@ setIsBlackAI(newIsBlackAI);
     wsRef.current = ws;
   
     ws.onopen = () => {
+      console.log('[CLIENT] WebSocket connected.');
       const userInfo = user ? { userId: user.uid, username: userData?.username || user.displayName || 'Anonymous' } : null;
+      let payload;
       if (action === 'create') {
-        ws.send(JSON.stringify({ type: 'create-room', user: userInfo }));
+        payload = { type: 'create-room', user: userInfo };
       } else if (action === 'join' && inputRoomId) {
-        ws.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: userInfo }));
+        payload = { type: 'join-room', roomId: inputRoomId, user: userInfo };
       } else if (action === 'ranked') {
           if(user) {
               setRankedQueueStatus('searching');
-              ws.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid, username: userData?.username, elo: userData?.eloRating }));
+              payload = { type: 'join-ranked-queue', userId: user.uid, username: userData?.username, elo: userData?.eloRating };
           }
+      }
+      if (payload) {
+          console.log('[CLIENT] > SENDING WS to server:', payload);
+          ws.send(JSON.stringify(payload));
       }
     };
   
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data as string);
+        console.log('[CLIENT] < RECEIVED WS from server:', data); // Log all incoming messages
         switch (data.type) {
           case 'room-created':
             setRoomId(data.roomId);
@@ -1010,16 +1034,19 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
       } catch (err) {
+        console.error('[CLIENT] Error parsing WebSocket message:', err);
       }
     };
   
     ws.onerror = (err) => {
+      console.error('[CLIENT] WebSocket error:', err);
       toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
       setOnlineStatus('disconnected');
       setRankedQueueStatus('idle');
     };
   
     ws.onclose = (event) => {
+        console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
@@ -1228,7 +1255,9 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
+                    const payload = JSON.stringify({ type: 'commander-promo', square: algebraic });
+                    console.log('[CLIENT] > SENDING WS to server:', payload);
+                    ws.send(payload);
                 }
                 // Client no longer progresses state; it waits for server's authoritative response.
                 setIsAwaitingCommanderPromotion(false); // Optimistically clear
@@ -1296,7 +1325,9 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } }));
+                const payload = JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } });
+                console.log('[CLIENT] > SENDING WS to server:', payload);
+                ws.send(payload);
             }
         }
 
@@ -1483,7 +1514,9 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
+                    const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
+                    console.log('[CLIENT] > SENDING WS to server:', payload);
+                    ws.send(payload);
                 }
             } else {
                  setFirstBloodAchieved(true);
@@ -1546,7 +1579,9 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected' && moveBeingMade) {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
+              const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
+              console.log('[CLIENT] > SENDING WS to server:', payload);
+              ws.send(payload);
             }
         }
 
@@ -1580,7 +1615,9 @@ setIsBlackAI(newIsBlackAI);
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade }));
+                const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade });
+                console.log('[CLIENT] > SENDING WS to server:', payload);
+                ws.send(payload);
             }
             // For online games, we stop client-side processing here.
             // The server will send back the authoritative state.
@@ -1766,7 +1803,9 @@ setIsBlackAI(newIsBlackAI);
             if (onlineStatus === 'connected') {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer }));
+                    const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
+                    console.log('[CLIENT] > SENDING WS to server:', payload);
+                    ws.send(payload);
                 }
             } else {
                 setFirstBloodAchieved(true);
@@ -1948,13 +1987,16 @@ setIsBlackAI(newIsBlackAI);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isAwaitingCommanderPromotion) {
+        console.log('[CLIENT] handlePromotionSelect rejected: no promotion square or awaiting commander promo.');
         return;
     }
 
     if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
+          const payload = JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } });
+          console.log('[CLIENT] > SENDING WS to server:', payload);
+          ws.send(payload);
         }
         // Close the dialog and wait for server broadcast to update the game state
         setIsPromotingPawn(false);
@@ -2935,7 +2977,9 @@ setIsBlackAI(newIsBlackAI);
     if (onlineStatus === 'connected' && !gameInfo.gameOver) {
       const ws = wsRef.current;
       if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor }));
+          const payload = JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor });
+          console.log('[CLIENT] > SENDING WS to server:', payload);
+          ws.send(payload);
       }
       return;
     }
@@ -3138,7 +3182,11 @@ setIsBlackAI(newIsBlackAI);
   const handleRankedPlay = () => {
     if (rankedQueueStatus === 'searching') {
         // Cancel logic
-        if(wsRef.current) wsRef.current.send(JSON.stringify({ type: 'leave-ranked-queue' }));
+        if(wsRef.current) {
+            const payload = JSON.stringify({ type: 'leave-ranked-queue' });
+            console.log('[CLIENT] > SENDING WS to server:', payload);
+            wsRef.current.send(payload);
+        }
         setRankedQueueStatus('idle');
         disconnectAndReset();
         toast({ title: "Search Cancelled", description: "You have left the ranked queue.", duration: 8000 });
@@ -3389,12 +3437,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-    
-
-    
-
-
-
-
-    

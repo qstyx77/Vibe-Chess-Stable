@@ -72,6 +72,7 @@ const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
     if (room && room.clients) {
         const payload = JSON.stringify(message);
+        console.log(`[Server | broadcastToRoom] Broadcasting to room ${roomId}:`, message);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(payload);
@@ -81,6 +82,7 @@ const broadcastToRoom = (roomId: string, message: any) => {
 };
 
 const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean) => {
+    console.log(`[Server | finalizeTurn] Finalizing turn for ${movingPlayerColor}. Extra Turn: ${isExtraTurn}`);
     room.gameState.gameMoveCounter++;
 
     if (room.gameState.gameMoveCounter > 0 && room.gameState.gameMoveCounter % 9 === 0) {
@@ -200,6 +202,7 @@ setInterval(processRankedQueue, 10000);
 
 
 wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
+    console.log('[Server] A client connected.');
     ws.roomId = undefined;
     ws.userId = undefined;
 
@@ -216,6 +219,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
 
         if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
+            console.log(`[Server] Message of type ${data.type} rejected because client is not in a room.`);
             return;
         }
         
@@ -372,6 +376,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const timedOutPlayer = data.timedOutPlayer;
 
                     if (room.gameState.currentPlayer !== timedOutPlayer) {
+                        console.log(`[Server | timeout] Rejected timeout for ${timedOutPlayer}, it is ${room.gameState.currentPlayer}'s turn.`);
                         return;
                     }
 
@@ -418,11 +423,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                  break;
             }
             case 'game-move': {
-                if (!room || !data.payload) break;
+                if (!room || !data.payload) {
+                    console.log('[Server | game-move] Rejected: no room or payload.');
+                    break;
+                }
 
                 const movingPlayerColor = room.gameState.currentPlayer;
                 const movingPlayerInfo = room.gameState.players[movingPlayerColor];
                 if (room.clients.length > 1 && movingPlayerInfo && movingPlayerInfo.userId && movingPlayerInfo.userId !== ws.userId) {
+                    console.log(`[Server | game-move] Rejected: Out of turn move by ${ws.userId}. It is ${movingPlayerColor}'s turn (${movingPlayerInfo.userId}).`);
                     return;
                 }
 
@@ -459,10 +468,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                     room.gameState.killStreaks[movingPlayerColor]++;
                     room.gameState.killStreaks[opponentPlayer] = 0;
+                    console.log(`[Server | game-move] Capture occurred. ${movingPlayerColor} kill streak is now ${room.gameState.killStreaks[movingPlayerColor]}`);
 
                     if (room.gameState.killStreaks[movingPlayerColor] === 6) {
                         extraTurnFromStreak = true;
                         room.gameState.killStreaks[movingPlayerColor] = 0;
+                        console.log('[Server | game-move] Extra turn from kill streak of 6.');
                     } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
                         const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
                         const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
@@ -496,6 +507,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     room.gameState.resurrectedSquare = coordsToAlgebraic(resR, resC);
 
                                     room.gameState.capturedPieces[opponentColorForRes] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
+                                    console.log(`[Server | game-move] Resurrected ${pieceToResurrect.type} at ${room.gameState.resurrectedSquare}`);
                                 }
                             }
                         }
@@ -508,8 +520,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.isAwaitingCommanderPromotion = true;
                         room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
                         room.gameState.board = newBoard; // Board state is needed for commander selection
+                        console.log(`[Server | game-move] First blood! Broadcasting "awaiting-commander-promo" for ${movingPlayerColor}`);
                         broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                        return;
+                        return; // Stop processing, wait for commander selection
                     }
                 } else {
                     room.gameState.killStreaks[movingPlayerColor] = 0;
@@ -524,7 +537,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
                 const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
 
-                console.log('[Server | game-move] Flags:', { wasCapture, extraTurnFromStreak, isPawnPromotion });
+                console.log('[Server | game-move] Flags:', { wasCapture, extraTurnFromStreak, isPawnPromotion, extraTurnFromApplyMove: (restOfResult as any).extraTurn });
     
                 if (isPawnPromotion) {
                     console.log(`[Server | game-move] Promotion required for ${movingPlayerColor} at ${move.to}. Broadcasting "promotion-required".`);
@@ -537,7 +550,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         player: movingPlayerColor,
                         fullGameState: room.gameState
                     });
-                    return;
+                    // DO NOT continue processing. Wait for finalize-promotion message.
+                    return; 
                 }
             
                 const isExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
@@ -566,6 +580,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     });
 
     ws.on('close', () => {
+        console.log(`[Server] Client disconnected. UserID: ${ws.userId}, RoomID: ${ws.roomId}`);
         const queueIndex = rankedQueue.findIndex(p => p.ws === ws);
         if (queueIndex > -1) {
             rankedQueue.splice(queueIndex, 1);
