@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -227,6 +228,7 @@ export default function EvolvingChessPage() {
   const prevFirstBloodRef = useRef(false);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    if (!player) return 'A player'; // Guard against undefined player
     if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
         const username = gamePlayers?.[player]?.username;
         if (username) {
@@ -733,7 +735,7 @@ setIsBlackAI(newIsBlackAI);
 
             if (promotingUserId === user?.uid) {
                 console.log(`[CLIENT] This client (${user?.uid}) needs to promote.`);
-                stopTurnTimer(); 
+                stopTurnTimer();
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
