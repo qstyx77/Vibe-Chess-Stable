@@ -216,7 +216,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 return;
             }
 
-            console.log('[Server] Received message:', data.type, data.payload);
+            console.log('[Server] Received message:', data.type, data.payload || data);
 
 
             if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
@@ -374,6 +374,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 case 'timeout': {
                     if (room && !room.gameState.gameInfo.gameOver) {
                         const timedOutPlayer = data.timedOutPlayer;
+
+                        if (data.gameMoveCounter !== room.gameState.gameMoveCounter) {
+                            console.log(`[Server | timeout] Stale timeout message received for move ${data.gameMoveCounter}, but server is on move ${room.gameState.gameMoveCounter}. Ignoring.`);
+                            return;
+                        }
 
                         if (room.gameState.currentPlayer !== timedOutPlayer) {
                             console.log(`[Server | timeout] Rejected timeout for ${timedOutPlayer}, it is ${room.gameState.currentPlayer}'s turn.`);
@@ -556,9 +561,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 }
                 case 'resign':
                     if (room) {
-                        const winner = data.resigningPlayer === 'white' ? 'black' : 'white';
-                        room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner };
-                        broadcastToRoom(ws.roomId, { ...data, winner });
+                        const resigningPlayer = data.resigningPlayer;
+                        const winner = resigningPlayer === 'white' ? 'black' : 'white';
+                        room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: winner };
+                        broadcastToRoom(ws.roomId, { type: 'resign', resigningPlayer, winner });
                     }
                     break;
                 case 'forfeit-timeout': {

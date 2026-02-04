@@ -204,6 +204,7 @@ export default function EvolvingChessPage() {
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
   const [activeTimerPlayer, setActiveTimerPlayer] = useState<PlayerColor | null>(null);
   const turnTimerIntervalId = useRef<NodeJS.Timeout | null>(null);
+  const turnTimerGameMoveCounterRef = useRef<number>(0);
   const [whiteTimeouts, setWhiteTimeouts] = useState(0);
   const [blackTimeouts, setBlackTimeouts] = useState(0);
 
@@ -523,7 +524,8 @@ setIsBlackAI(newIsBlackAI);
     stopTurnTimer(); // Ensure any existing timer is stopped before starting a new one
     setActiveTimerPlayer(player);
     setTurnTimer(45);
-    console.log(`[CLIENT] Timer started. Player: ${player}, Duration: 45s.`);
+    turnTimerGameMoveCounterRef.current = gameMoveCounter; // Store the current move counter
+    console.log(`[CLIENT] Timer started. Player: ${player}, Duration: 45s, MoveCounter: ${gameMoveCounter}`);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
@@ -533,7 +535,7 @@ setIsBlackAI(newIsBlackAI);
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
                     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                         const payload = JSON.stringify({ type: 'timeout', timedOutPlayer: player });
+                         const payload = JSON.stringify({ type: 'timeout', timedOutPlayer: player, gameMoveCounter: turnTimerGameMoveCounterRef.current });
                          console.log('[CLIENT] > SENDING WS to server:', payload);
                          wsRef.current.send(payload);
                     }
@@ -558,7 +560,7 @@ setIsBlackAI(newIsBlackAI);
             return currentTimerValue - 1;
         });
     }, 1000);
-  }, [setShowTimerWarning, setTimerWarningKey, isPromotingPawn]);
+  }, [setShowTimerWarning, setTimerWarningKey, isPromotingPawn, gameMoveCounter]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
@@ -721,6 +723,7 @@ setIsBlackAI(newIsBlackAI);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
             setCurrentPlayer(fullGameState.currentPlayer);
+            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
@@ -754,6 +757,7 @@ setIsBlackAI(newIsBlackAI);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
             setCurrentPlayer(fullGameState.currentPlayer);
+            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
@@ -786,6 +790,7 @@ setIsBlackAI(newIsBlackAI);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
             setCurrentPlayer(fullGameState.currentPlayer);
+            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
@@ -824,6 +829,7 @@ setIsBlackAI(newIsBlackAI);
             setKillStreaks(fullGameState.killStreaks);
             setGameInfo(fullGameState.gameInfo);
             setCurrentPlayer(fullGameState.currentPlayer);
+            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
             setFirstBloodAchieved(fullGameState.firstBloodAchieved);
@@ -864,6 +870,7 @@ setIsBlackAI(newIsBlackAI);
         case 'resign': {
             const { winner, reason, timedOutPlayer, resigningPlayer, eloChanges } = data;
             let message = "";
+            let isResignation = data.type === 'resign';
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
             else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
@@ -879,7 +886,7 @@ setIsBlackAI(newIsBlackAI);
             }
             else if (reason === 'self-check-timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} lost by running out of time in check!`;
             else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
-            else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
+            else if (isResignation) message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
             
@@ -2813,8 +2820,9 @@ setIsBlackAI(newIsBlackAI);
       // The "You Won" screen is tied to localPlayerColor, which is null in offline games,
       // so it also will not show.
     } else if (gameInfo.gameOver && gameInfo.winner && onlineStatus !== 'disconnected') {
-        const hasPrimaryAnnouncement = gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw;
-        const delay = hasPrimaryAnnouncement ? 2700 : 1500;
+        const isResignation = gameInfo.message.includes('resigned');
+        const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
+        const delay = hasPrimaryAnnouncement ? 2700 : (isResignation ? 1000 : 1500);
         const timerId = setTimeout(() => {
             if (gameInfo.winner === localPlayerColor) {
                 setShowWinScreen(true);
@@ -2827,7 +2835,7 @@ setIsBlackAI(newIsBlackAI);
       setShowWinScreen(false);
       setShowLossScreen(false);
     }
-  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.isCheckmate, gameInfo.isInfiltrationWin, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, localPlayerColor, onlineStatus]);
+  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.isCheckmate, gameInfo.isInfiltrationWin, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, localPlayerColor, onlineStatus, gameInfo.message]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;
@@ -3094,7 +3102,7 @@ setIsBlackAI(newIsBlackAI);
 
       setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
       setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnFromPostResurrectionPromotion);
+      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
 
       setFirstBloodAchieved(stateToRestore.firstBloodAchieved);
       setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
