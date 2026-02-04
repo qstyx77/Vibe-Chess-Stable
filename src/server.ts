@@ -25,7 +25,8 @@ import type { BoardState, PlayerColor, Piece, Move, GameStatus } from './types';
 
 
 const server = http.createServer((req, res) => {
-    const url = new URL(req.url, `http://${req.headers.host}`);
+    const urlString = req.url || '';
+    const url = new URL(urlString, `http://${req.headers.host}`);
     if (url.pathname === '/healthz') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('OK');
@@ -564,7 +565,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const resigningPlayer = data.resigningPlayer;
                         const winner = resigningPlayer === 'white' ? 'black' : 'white';
                         room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: winner };
-                        broadcastToRoom(ws.roomId, { type: 'resign', resigningPlayer, winner });
+                        broadcastToRoom(ws.roomId, { ...data, winner });
                     }
                     break;
                 case 'forfeit-timeout': {
