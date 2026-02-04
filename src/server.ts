@@ -25,8 +25,10 @@ import type { BoardState, PlayerColor, Piece, Move, GameStatus } from './types';
 
 
 const server = http.createServer((req, res) => {
+    // Add a guard to handle cases where req.url is undefined
     const urlString = req.url || '';
     const url = new URL(urlString, `http://${req.headers.host}`);
+
     if (url.pathname === '/healthz') {
         res.writeHead(200, { 'Content-Type': 'text/plain' });
         res.end('OK');
@@ -386,6 +388,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             return;
                         }
 
+                        room.gameState.killStreaks[timedOutPlayer] = 0;
+
                         const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
                         let winnerOnTimeout = opponent;
                         let reason = 'timeout';
@@ -431,7 +435,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 case 'game-move': {
                     if (!room || !data.payload) {
                         console.log('[Server | game-move] Rejected: no room or payload.');
-                        break;
+                        return;
                     }
 
                     const movingPlayerColor = room.gameState.currentPlayer;
@@ -472,8 +476,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         room.gameState.killStreaks[movingPlayerColor]++;
-                        room.gameState.killStreaks[opponentPlayer] = 0;
-
+                        
                         if (room.gameState.killStreaks[movingPlayerColor] === 6) {
                             extraTurnFromStreak = true;
                             room.gameState.killStreaks[movingPlayerColor] = 0;
@@ -604,7 +607,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const winner = room.clients.find(c => c !== ws) === room.clients[0] ? (room.gameState.players.white.userId === room.clients[0].userId ? 'white' : 'black') : (room.gameState.players.white.userId === room.clients[0].userId ? 'black' : 'white');
                         room.gameState.gameInfo.gameOver = true;
                         room.gameState.gameInfo.winner = winner;
-                        broadcastToRoom(ws.roomId, { type: 'opponent-disconnected' });
+                        broadcastToRoom(ws.roomId, { type: 'opponent-disconnected', winner: winner });
                     }
                 }
                
