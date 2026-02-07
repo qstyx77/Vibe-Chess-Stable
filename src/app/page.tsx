@@ -710,11 +710,52 @@ setIsBlackAI(newIsBlackAI);
     localPlayerColor
   ]);
 
+  const applyServerGameState = useCallback((gameState: any, lastPlayer?: PlayerColor) => {
+    if (!gameState) return;
+    console.log('[CLIENT] Applying server game state:', gameState);
+
+    setBoard(gameState.board);
+    if (gameState.players) setGamePlayers(gameState.players);
+    setCapturedPieces(gameState.capturedPieces);
+    setKillStreaks(gameState.killStreaks);
+    setGameInfo(gameState.gameInfo);
+    setCurrentPlayer(gameState.currentPlayer);
+    setGameMoveCounter(gameState.gameMoveCounter || 0);
+    setLastMoveFrom(gameState.lastMoveFrom || null);
+    setLastMoveTo(gameState.lastMoveTo || null);
+    setEnPassantTargetSquare(gameState.enPassantTargetSquare || null);
+    setFirstBloodAchieved(gameState.firstBloodAchieved || false);
+    setIsAwaitingCommanderPromotion(gameState.isAwaitingCommanderPromotion || false);
+    setPlayerWhoGotFirstBlood(gameState.playerWhoGotFirstBlood || null);
+    setWhiteTimeouts(gameState.whiteTimeouts || 0);
+    setBlackTimeouts(gameState.blackTimeouts || 0);
+
+    // Reset transient UI state that shouldn't be persisted from local play
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setEnemySelectedSquare(null);
+    setEnemyPossibleMoves([]);
+    setIsMoveProcessing(false);
+    
+    // Only animate if there's a last move, otherwise it's a fresh board
+    if (gameState.lastMoveTo) {
+      setAnimatedSquareTo(gameState.lastMoveTo);
+    } else {
+      setAnimatedSquareTo(null);
+    }
+
+    if (gameState.resurrectedSquare && lastPlayer) {
+      setResurrectedSquares(prev => [...prev, { square: gameState.resurrectedSquare, player: lastPlayer }]);
+    }
+  }, []); // Setters are stable.
+
+
   const handleIncomingData = useCallback((data: any) => {
       console.log('[CLIENT] < RECEIVED WS from server:', data);
       switch (data.type) {
         case 'promotion-required': {
             console.log('[CLIENT] "promotion-required" case hit.');
+            stopTurnTimer();
             const { square, player, promotingUserId, fullGameState } = data;
             
             setBoard(fullGameState.board);
@@ -737,7 +778,6 @@ setIsBlackAI(newIsBlackAI);
 
             if (promotingUserId === user?.uid) {
                 console.log(`[CLIENT] This client (${user?.uid}) needs to promote.`);
-                stopTurnTimer();
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
@@ -748,74 +788,21 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
         case 'commander-promo-finalized': {
-            const { fullGameState } = data;
-            if (!fullGameState) return;
-
-            setBoard(fullGameState.board);
-            if (fullGameState.players) setGamePlayers(fullGameState.players);
-            setCapturedPieces(fullGameState.capturedPieces);
-            setKillStreaks(fullGameState.killStreaks);
-            setGameInfo(fullGameState.gameInfo);
-            setCurrentPlayer(fullGameState.currentPlayer);
-            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
-            setLastMoveFrom(fullGameState.lastMoveFrom || null);
-            setLastMoveTo(fullGameState.lastMoveTo || null);
-            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
-            setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
-            setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
-            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
-            setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
-            setBlackTimeouts(fullGameState.blackTimeouts || 0);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-            setIsMoveProcessing(false);
-            setAnimatedSquareTo(fullGameState.lastMoveTo || null);
-
-            if(fullGameState.gameInfo.gameOver) {
+            applyServerGameState(data.fullGameState, data.lastPlayer);
+            if(data.fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
             } else {
-                startTurnTimer(fullGameState.currentPlayer);
+                startTurnTimer(data.fullGameState.currentPlayer);
             }
             break;
         }
         case 'game-move': {
-            const { fullGameState } = data;
-            if (!fullGameState) return;
-
-            setBoard(fullGameState.board);
-            if (fullGameState.players) setGamePlayers(fullGameState.players);
-            setCapturedPieces(fullGameState.capturedPieces);
-            setKillStreaks(fullGameState.killStreaks);
-            setGameInfo(fullGameState.gameInfo);
-            setCurrentPlayer(fullGameState.currentPlayer);
-            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
-            setLastMoveFrom(fullGameState.lastMoveFrom || null);
-            setLastMoveTo(fullGameState.lastMoveTo || null);
-            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
-            setFirstBloodAchieved(fullGameState.firstBloodAchieved || false);
-            setIsAwaitingCommanderPromotion(fullGameState.isAwaitingCommanderPromotion || false);
-            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood || null);
-            setWhiteTimeouts(fullGameState.whiteTimeouts || 0);
-            setBlackTimeouts(fullGameState.blackTimeouts || 0);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-            setIsMoveProcessing(false);
-            setAnimatedSquareTo(fullGameState.lastMoveTo || null);
-
-            if(fullGameState.gameInfo.gameOver) {
+            applyServerGameState(data.fullGameState, data.lastPlayer);
+            if (data.fullGameState.gameInfo.gameOver) {
                 stopTurnTimer();
             } else {
-                startTurnTimer(fullGameState.currentPlayer);
+                startTurnTimer(data.fullGameState.currentPlayer);
             }
-            
-            if(fullGameState.resurrectedSquare) {
-                setResurrectedSquares(prev => [...prev, { square: fullGameState.resurrectedSquare, player: fullGameState.lastPlayer }]);
-            }
-
             break;
         }
         case 'awaiting-commander-promo': {
@@ -918,7 +905,7 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, startTurnTimer]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, startTurnTimer, applyServerGameState]);
 
 
   // Effect for cleaning up WebSocket on unmount
@@ -988,13 +975,11 @@ setIsBlackAI(newIsBlackAI);
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
             setOnlineStatus('waiting');
-            if (data.gameState?.players) setGamePlayers(data.gameState.players);
+            applyServerGameState(data.gameState);
             toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}`, duration: 8000 });
             break;
           case 'player-joined':
-            if(data.gameState?.players) {
-              setGamePlayers(data.gameState.players);
-            }
+            applyServerGameState(data.gameState);
             setOnlineStatus('connected');
             toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
             startTurnTimer('white');
@@ -1002,10 +987,8 @@ setIsBlackAI(newIsBlackAI);
           case 'room-joined':
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
+            applyServerGameState(data.gameState);
             setOnlineStatus('connected');
-            if (data.gameState?.players) {
-              setGamePlayers(data.gameState.players);
-            }
             toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
             startTurnTimer('white');
             break;
@@ -1013,9 +996,7 @@ setIsBlackAI(newIsBlackAI);
               setRankedQueueStatus('idle');
               setRoomId(data.roomId);
               setLocalPlayerColor(data.color);
-              if (data.players) {
-                setGamePlayers(data.players);
-              }
+              applyServerGameState(data.gameState);
               setIsRankedGame(true);
               setOnlineStatus('connected');
               toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
@@ -1023,8 +1004,9 @@ setIsBlackAI(newIsBlackAI);
               break;
           case 'opponent-disconnected':
             if (gameInfo.gameOver) return;
+            const winningPlayer = localPlayerColor || (gamePlayers?.white?.userId === user?.uid ? 'white' : 'black');
             toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
-            setGameInfo(prev => ({ ...prev, gameOver: true, winner: localPlayerColor!, message: "Opponent disconnected. You win!" }));
+            setGameInfo(prev => ({ ...prev, gameOver: true, winner: winningPlayer, message: "Opponent disconnected. You win!" }));
             disconnectAndReset();
             break;
           case 'error':
@@ -1064,7 +1046,7 @@ setIsBlackAI(newIsBlackAI);
         }
     };
   
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer, user, userData, rankedQueueStatus]);
+  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState]);
   
 
   useEffect(() => {
@@ -1912,7 +1894,7 @@ setIsBlackAI(newIsBlackAI);
           let sacrificeNeededForQueen = false;
 
           if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTargetForAI);
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
@@ -3446,3 +3428,4 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+

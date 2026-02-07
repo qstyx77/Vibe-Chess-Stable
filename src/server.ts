@@ -197,8 +197,8 @@ const processRankedQueue = async () => {
             }
         };
 
-        player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', players: rooms[roomId].gameState.players }));
-        player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', players: rooms[roomId].gameState.players }));
+        player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
+        player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
     }
 };
 setInterval(processRankedQueue, 10000);
