@@ -1,5 +1,5 @@
 
-import type { Piece, ViewMode } from '@/types';
+import type { Piece, ViewMode, PlayerColor } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 
@@ -10,6 +10,9 @@ interface ChessPieceDisplayProps {
   isJustMoved?: boolean;
   isSacrificeTarget?: boolean;
   isCommanderPromoTarget?: boolean;
+  isConverting?: boolean;
+  isPromoting?: boolean;
+  conversionToColor?: PlayerColor;
 }
 
 export function ChessPieceDisplay({
@@ -19,10 +22,19 @@ export function ChessPieceDisplay({
   isJustMoved = false,
   isSacrificeTarget = false,
   isCommanderPromoTarget = false,
+  isConverting = false,
+  isPromoting = false,
+  conversionToColor,
 }: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
+  
+  let conversionClass = '';
+  if (isConverting) {
+    conversionClass = piece.color === 'white' ? 'animate-color-flash-wtb' : 'animate-color-flash-btw';
+  }
+
 
   if (piece.type === 'king' && isKingInCheck) {
     pieceColorClass = 'text-destructive animate-pulse';
@@ -47,8 +59,10 @@ export function ChessPieceDisplay({
         className={cn(
           "relative flex items-center justify-center w-full h-full",
           pieceColorClass,
-          isAnimating && !isSacrificeTarget && !isCommanderPromoTarget && "animate-piece-slide-in transform-gpu",
+          isAnimating && !isSacrificeTarget && !isCommanderPromoTarget && "animate-piece-slide",
           (isSacrificeTarget || isCommanderPromoTarget) && "animate-pulse",
+          isPromoting && "animate-ping",
+          conversionClass,
           animationOriginClass
         )}
       >

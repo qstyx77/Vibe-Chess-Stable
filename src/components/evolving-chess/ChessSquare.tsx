@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece } from '@/types';
+import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -30,6 +30,8 @@ interface ChessSquareProps {
   isEnPassantTarget?: boolean;
   isResurrectedSquare?: boolean;
   onPieceHover: (piece: Piece | null) => void;
+  effects: Effect[];
+  isPromoting: boolean;
 }
 
 export function ChessSquare({
@@ -55,6 +57,8 @@ export function ChessSquare({
   isEnPassantTarget = false,
   isResurrectedSquare = false,
   onPieceHover,
+  effects,
+  isPromoting,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -82,11 +86,8 @@ export function ChessSquare({
   if (isEnPassantTarget && isPossibleMove && !piece) {
     currentBgClass = 'bg-purple-400/50';
   }
-
-  if (isResurrectedSquare) {
-    currentBgClass = 'bg-cyan-400/50 animate-pulse';
-  }
-
+  
+  const isConverting = effects.some(e => e.type === 'conversion' && e.square === squareData.algebraic);
 
   let selectionRingClass = '';
   if (isCommanderPromoTarget) {
@@ -117,6 +118,8 @@ export function ChessSquare({
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}${isResurrectedSquare ? ' (Resurrected piece)' : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
+      {isResurrectedSquare && <div className="absolute inset-0 overflow-hidden"><div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/6 h-full bg-gradient-to-b from-transparent via-cyan-300/80 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" /></div>}
+
       {item && item.type === 'anvil' && (
         <div className={cn(
           "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-1",
@@ -149,6 +152,8 @@ export function ChessSquare({
             isJustMoved={isJustMoved}
             isSacrificeTarget={isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn}
             isCommanderPromoTarget={isCommanderPromoTarget}
+            isConverting={isConverting}
+            isPromoting={isPromoting}
           />
         </div>
       )}

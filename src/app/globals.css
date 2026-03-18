@@ -122,24 +122,68 @@ body {
   }
 }
 
-@keyframes piece-slide-in {
-  0% {
-    transform: scale(0.5);
-    opacity: 1;
+/* --- GAME ANIMATIONS --- */
+
+@keyframes piece-slide {
+  from {
+    transform: translateY(20%) scale(0.95);
+    opacity: 0.5;
   }
-  50% {
-    transform: scale(1.2);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
+  to {
+    transform: translateY(0) scale(1);
     opacity: 1;
   }
 }
 
-.animate-piece-slide-in {
-  animation: piece-slide-in 0.7s ease-out forwards;
+.animate-piece-slide {
+  animation: piece-slide 0.4s ease-out forwards;
 }
+
+@keyframes poof {
+  0% { opacity: 1; transform: scale(0.5); }
+  100% { opacity: 0; transform: scale(2.5); }
+}
+
+@keyframes pixel-explosion {
+  0% { opacity: 1; transform: scale(0.5); }
+  100% { opacity: 0; transform: scale(4); }
+}
+
+@keyframes shockwave-pulse {
+  from {
+    transform: scale(0);
+    opacity: 0.7;
+  }
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes light-beam-anim {
+  0% { opacity: 0; transform: translateY(-100%); }
+  50% { opacity: 0.7; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(100%); }
+}
+
+@keyframes color-flash-white-to-black {
+  0%, 100% { color: hsl(var(--foreground)); }
+  50% { color: hsl(var(--secondary)); }
+}
+
+@keyframes color-flash-black-to-white {
+  0%, 100% { color: hsl(var(--secondary)); }
+  50% { color: hsl(var(--foreground)); }
+}
+
+.animate-color-flash-wtb {
+  animation: color-flash-white-to-black 0.6s linear 3;
+}
+
+.animate-color-flash-btw {
+  animation: color-flash-black-to-white 0.6s linear 3;
+}
+
 
 @keyframes fade-to-black {
   from {
@@ -159,8 +203,3 @@ body {
 .animate-fade-to-black {
   animation: fade-to-black 2.5s ease-in forwards;
 }
-    
-
-
-
-

@@ -47,11 +47,26 @@ export interface GameStatus {
   gameOver: boolean;
 }
 
+export interface Effect {
+  id: number;
+  type: 'poof' | 'explosion' | 'shockwave' | 'conversion';
+  square: AlgebraicSquare;
+  color?: PlayerColor;
+  // For conversion, might need more data
+  fromColor?: PlayerColor;
+  toColor?: PlayerColor;
+}
+
 export interface ConversionEvent {
   originalPiece: Piece;
   convertedPiece: Piece;
   byPiece: Piece;
   at: AlgebraicSquare;
+}
+
+export interface RallyCryEvent {
+  square: AlgebraicSquare;
+  color: PlayerColor;
 }
 
 export interface QueenLevelReducedEvent {
@@ -68,6 +83,7 @@ export interface ApplyMoveResult {
   pieceCapturedByAnvil: Piece | null;
   anvilPushedOffBoard: boolean;
   conversionEvents: ConversionEvent[];
+  rallyCryTriggered: RallyCryEvent | null;
   originalPieceLevel?: number;
   selfCheckByPushBack: boolean;
   queenLevelReducedEvents?: QueenLevelReducedEvent[] | null;

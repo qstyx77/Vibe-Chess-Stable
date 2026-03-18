@@ -1,9 +1,10 @@
 
 'use client';
 
-import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece } from '@/types';
+import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
+import { algebraicToCoords } from '@/lib/chess-utils';
 
 interface ChessBoardProps {
   boardState: BoardState;
@@ -28,6 +29,8 @@ interface ChessBoardProps {
   isEnPassantTarget: AlgebraicSquare | null;
   resurrectedSquares: AlgebraicSquare[];
   onPieceHover: (piece: Piece | null) => void;
+  effects: Effect[];
+  promotingSquare: AlgebraicSquare | null;
 }
 
 export function ChessBoard({
@@ -53,6 +56,8 @@ export function ChessBoard({
   isEnPassantTarget,
   resurrectedSquares,
   onPieceHover,
+  effects = [],
+  promotingSquare,
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -60,6 +65,43 @@ export function ChessBoard({
   const displayBoard = visuallyFlipBoardForLogic
     ? [...boardState].reverse().map(row => [...row].reverse())
     : boardState;
+  
+  const EffectOverlay = ({ effect }: { effect: Effect }) => {
+    const { row, col } = algebraicToCoords(effect.square);
+    const top = `${(visuallyFlipBoardForLogic ? 7 - row : row) * 12.5}%`;
+    const left = `${(visuallyFlipBoardForLogic ? 7 - col : col) * 12.5}%`;
+    let effectClass = '';
+    
+    switch (effect.type) {
+      case 'poof':
+        effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.4s_ease-out_forwards]";
+        break;
+      case 'explosion':
+        effectClass = "after:content-['✹'] after:text-5xl after:md:text-6xl after:text-destructive after:animate-[pixel-explosion_0.6s_ease-out_forwards]";
+        break;
+      case 'shockwave':
+        const shockwaveColor = effect.color === 'white' ? 'hsl(var(--foreground))' : 'hsl(var(--secondary))';
+        return (
+           <div
+            className="absolute w-[12.5%] h-[12.5%] pointer-events-none"
+            style={{ top, left }}
+          >
+            <div 
+              className="absolute top-1/2 left-1/2 w-[300%] h-[300%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 animate-[shockwave-pulse_0.7s_ease-out_forwards]"
+              style={{ borderColor: shockwaveColor }}
+            />
+          </div>
+        );
+    }
+  
+    return (
+      <div 
+        className={cn("absolute w-[12.5%] h-[12.5%] pointer-events-none after:absolute after:inset-0 after:flex after:items-center after:justify-center", effectClass)}
+        style={{ top, left }}
+      />
+    );
+  };
+
 
   return (
     <div
@@ -118,7 +160,6 @@ export function ChessBoard({
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              currentPlayerColor={currentPlayerColor}
               isLastMoveFrom={isThisLastMoveFrom}
               isLastMoveTo={isThisLastMoveTo}
               isSacrificeTarget={isSacrificeTargetSquare}
@@ -130,10 +171,13 @@ export function ChessBoard({
               isEnPassantTarget={isEnPassantTarget === currentSquareData.algebraic}
               isResurrectedSquare={isResurrectedSquare}
               onPieceHover={onPieceHover}
+              effects={effects.filter(e => e.square === currentSquareData.algebraic)}
+              isPromoting={promotingSquare === currentSquareData.algebraic}
             />
           );
         })
       )}
+       {effects.map(effect => <EffectOverlay key={effect.id} effect={effect} />)}
     </div>
   );
 }
