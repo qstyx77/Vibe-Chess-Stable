@@ -28,7 +28,7 @@ import {
   spawnShroom,
   boardToSimpleString,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -207,6 +207,7 @@ export default function EvolvingChessPage() {
   const turnTimerGameMoveCounterRef = useRef<number>(0);
   const [whiteTimeouts, setWhiteTimeouts] = useState(0);
   const [blackTimeouts, setBlackTimeouts] = useState(0);
+  const [effects, setEffects] = useState<Effect[]>([]);
 
 
   const { toast } = useToast();
@@ -226,6 +227,25 @@ export default function EvolvingChessPage() {
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
   const prevFirstBloodRef = useRef(false);
+
+  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor) => {
+    const newEffect: Effect = {
+        id: Date.now() + Math.random(),
+        type,
+        square,
+        color,
+    };
+    setEffects(prev => [...prev, newEffect]);
+  }, []);
+
+  useEffect(() => {
+    if (effects.length > 0) {
+      const timer = setTimeout(() => {
+        setEffects([]);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [effects]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player'; // Guard against undefined player
@@ -332,6 +352,7 @@ setIsBlackAI(newIsBlackAI);
     setPieceForInfoDisplay(null);
     setShowLossScreen(false);
     setShowWinScreen(false);
+    setEffects([]);
 
     setTurnTimer(null);
     setActiveTimerPlayer(null);
@@ -420,7 +441,7 @@ setIsBlackAI(newIsBlackAI);
 
       isAwaitingPawnSacrifice: isAwaitingPawnSacrifice,
       playerToSacrificePawn: playerToSacrificePawn,
-      boardForPostSacrifice: boardForPostSacrifice ? boardForPostSacrifice.map(row => row.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))) : null,
+      boardForPostSacrifice: boardForPostSacrifice ? boardForPostSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))) : null,
       playerWhoMadeQueenMove: playerWhoMadeQueenMove,
       isExtraTurnFromQueenMove: isExtraTurnFromQueenMove,
       isAwaitingRookSacrifice: isAwaitingRookSacrifice,
@@ -1300,6 +1321,7 @@ setIsBlackAI(newIsBlackAI);
         let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
         const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalUniqueIdCounter++}`};
+        addEffect('poof', algebraic);
         boardAfterSacrifice[row][col].piece = null;
 
         setBoard(boardAfterSacrifice);
@@ -1415,6 +1437,7 @@ setIsBlackAI(newIsBlackAI);
         setLastMoveTo(selectedSquare);
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
+        addEffect('explosion', selectedSquare);
         moveBeingMade = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
 
 
@@ -1619,7 +1642,7 @@ setIsBlackAI(newIsBlackAI);
         let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
         
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
-        const pieceCapturedByAnvilFromApply = applyMoveResult.pieceCapturedByAnvil;
+        const pieceCapturedByAnvilFromApply = applyMoveResult.oneCapturedByAnvil; // Fixed from applyMoveResult.pieceCapturedByAnvil;
         const anvilPushedOffBoardFromApply = applyMoveResult.anvilPushedOffBoard;
         const conversionEventsFromApply = applyMoveResult.conversionEvents;
         const levelFromApplyMoveInternal = applyMoveResult.originalPieceLevel;
@@ -1628,6 +1651,7 @@ setIsBlackAI(newIsBlackAI);
         const becameInfiltratorFromApply = applyMoveResult.promotedToInfiltrator;
         const gameWonByInfiltrationFromApply = applyMoveResult.infiltrationWin;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
+        const rallyCryTriggered = applyMoveResult.rallyCryTriggered;
 
         if (becameInfiltratorFromApply) {
           toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -1723,6 +1747,7 @@ setIsBlackAI(newIsBlackAI);
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
+          addEffect('poof', algebraic);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
@@ -1732,6 +1757,7 @@ setIsBlackAI(newIsBlackAI);
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
+          addEffect('poof', algebraic);
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
@@ -1739,6 +1765,9 @@ setIsBlackAI(newIsBlackAI);
         }
         if (anvilPushedOffBoardFromApply) {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
+        }
+        if (rallyCryTriggered) {
+          addEffect('shockwave', rallyCryTriggered.square, rallyCryTriggered.color);
         }
         
 
@@ -1851,7 +1880,10 @@ setIsBlackAI(newIsBlackAI);
 
 
         if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
-          conversionEventsFromApply.forEach(event => toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 }));
+          conversionEventsFromApply.forEach(event => {
+            toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+            addEffect('conversion', event.at, event.byPiece.color);
+          });
         }
 
         setBoard(finalBoardStateForTurn);
@@ -1960,7 +1992,7 @@ setIsBlackAI(newIsBlackAI);
 
   }, [
     board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
-    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast,
+    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast, addEffect,
     setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
     setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
@@ -2123,7 +2155,7 @@ setIsBlackAI(newIsBlackAI);
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares
+    setResurrectedSquares, addEffect
   ]);
 
 
@@ -2326,9 +2358,11 @@ setIsBlackAI(newIsBlackAI);
         let aiGameWonByInfiltration = false;
         let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
         let aiExtraTurn = false;
+        let rallyCryTriggeredByAI: { square: AlgebraicSquare; color: PlayerColor; } | null = null;
 
 
         if (moveForApplyMoveAI!.type === 'self-destruct') {
+          addEffect('explosion', aiFromAlg as AlgebraicSquare);
           const { row: knightR_AI, col: knightC_AI } = algebraicToCoords(moveForApplyMoveAI!.from as AlgebraicSquare);
           const selfDestructingKnight_AI = finalBoardStateForAI[knightR_AI]?.[knightC_AI]?.piece;
           let piecesDestroyedByAICount = 0;
@@ -2400,6 +2434,12 @@ setIsBlackAI(newIsBlackAI);
           aiBecameInfiltrator = applyMoveResult.promotedToInfiltrator || false;
           aiGameWonByInfiltration = applyMoveResult.infiltrationWin || false;
           aiExtraTurn = applyMoveResult.extraTurn || false;
+          rallyCryTriggeredByAI = applyMoveResult.rallyCryTriggered;
+          
+          if (rallyCryTriggeredByAI) {
+            addEffect('shockwave', rallyCryTriggeredByAI.square, rallyCryTriggeredByAI.color);
+          }
+
 
           if (aiBecameInfiltrator) {
             toast({ title: "AI Infiltrator!", description: `AI's pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -2433,6 +2473,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
           if (applyMoveResult.pieceCapturedByAnvil) {
+            addEffect('poof', aiToAlg as AlgebraicSquare);
             pieceCapturedByAnvilAI = true;
             capturedPieceDataForScoring = applyMoveResult.pieceCapturedByAnvil; // Also counts for resurrection
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
@@ -2478,7 +2519,7 @@ setIsBlackAI(newIsBlackAI);
           toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1000 });
 
           if (applyMoveResult.capturedPiece) { // This is the direct capture by the moving piece
-            // capturedPieceDataForScoring is already set
+            addEffect('poof', aiToAlg as AlgebraicSquare);
             const pieceThatMadeTheMoveAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${applyMoveResult.capturedPiece.color} ${applyMoveResult.capturedPiece.type}!`, duration: 8000});
@@ -2488,7 +2529,10 @@ setIsBlackAI(newIsBlackAI);
             aiMoveCapturedSomething = true;
           }
           if (applyMoveResult.conversionEvents && applyMoveResult.conversionEvents.length > 0) {
-            applyMoveResult.conversionEvents.forEach(event => toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 }));
+            applyMoveResult.conversionEvents.forEach(event => {
+                toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+                addEffect('conversion', event.at, event.byPiece.color);
+            });
           }
         }
 
@@ -2761,7 +2805,7 @@ setIsBlackAI(newIsBlackAI);
     }
   }, [
     board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
-    isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice,
+    isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, addEffect,
     saveStateToHistory, toast, getPlayerDisplayName, hasAnyLegalMoves,
     setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves,
@@ -3099,6 +3143,7 @@ setIsBlackAI(newIsBlackAI);
       setActiveTimerPlayer(stateToRestore.activeTimerPlayer || null);
       setWhiteTimeouts(stateToRestore.whiteTimeouts || 0);
       setBlackTimeouts(stateToRestore.blackTimeouts || 0);
+      setEffects([]);
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
     } else {
@@ -3213,118 +3258,265 @@ setIsBlackAI(newIsBlackAI);
 
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
-  return (
-    <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
-      {/* Flash Messages & Overlays */}
-      {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash pointer-events-none" />}
-      {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash pointer-events-none" />}
-      {showCheckmatePatternFlash && <div key={`checkmate-${checkmatePatternFlashKey}`} className="fixed inset-0 z-10 animate-checkmate-pattern-flash pointer-events-none" />}
-      {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
-      {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
-      
-      {showTimerWarning && (
-        <div key={`timer-warning-${timerWarningKey}`} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="animate-flash-timer-warning">
-                <p className="text-7xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
-                    10
-                </p>
-            </div>
-        </div>
-      )}
+  const mobileLayout = (
+    <div className="relative z-20 flex flex-col flex-grow w-full p-1 lg:hidden">
+      <div className="flex flex-col items-center justify-between flex-grow gap-1">
+          <div className="w-full flex items-center justify-between">
+              <div className="w-1/3"></div>
+              <div className="w-1/3 flex items-center justify-center gap-0">
+                   <Image
+                      src="/images/rook-title.gif"
+                      alt="Vibe Chess Rook"
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="transform scale-x-[-1] w-6 h-6 sm:w-10 sm:h-10"
+                      data-ai-hint="chess rook"
+                  />
+                  <h1 className="text-xl md:text-3xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
+                  <Image
+                      src="/images/rook-title.gif"
+                      alt="Vibe Chess Rook"
+                      width={40}
+                      height={40}
+                      unoptimized
+                      className="w-6 h-6 sm:w-10 sm:h-10"
+                      data-ai-hint="chess rook"
+                  />
+              </div>
+               <div className="w-1/3 flex justify-end">
+                  <AuthWidget />
+              </div>
+          </div>
 
-      {showWinScreen && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
-            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
-              YOU WON
-            </p>
+          <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
+              gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
+              (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
+            )}>
+             {gameInfo.message}
+           </div>
+          
+          <div className="w-full">
+            <ChessBoard
+              boardState={board}
+              selectedSquare={selectedSquare}
+              possibleMoves={possibleMoves}
+              enemySelectedSquare={enemySelectedSquare}
+              enemyPossibleMoves={enemyPossibleMoves}
+              onSquareClick={handleSquareClick}
+              playerColor={boardOrientation}
+              currentPlayerColor={currentPlayer}
+              isInteractionDisabled={isInteractionDisabled}
+              applyBoardOpacityEffect={applyBoardOpacityEffect}
+              playerInCheck={gameInfo.playerWithKingInCheck}
+              viewMode={viewMode}
+              animatedSquareTo={animatedSquareTo}
+              lastMoveFrom={lastMoveFrom}
+              lastMoveTo={lastMoveTo}
+              isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+              playerToSacrificePawn={playerToSacrificePawn}
+              isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
+              playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
+              isEnPassantTarget={enPassantTargetSquare}
+              resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
+              onPieceHover={handlePieceHover}
+              effects={effects}
+              promotingSquare={promotionSquare}
+            />
+          </div>
+          
+           <GameControls
+              currentPlayer={currentPlayer}
+              capturedPieces={capturedPieces}
+              isGameOver={gameInfo.gameOver}
+              killStreaks={killStreaks}
+              pieceForInfoDisplay={pieceForInfoDisplay}
+              localPlayerColor={localPlayerColor}
+              getPlayerDisplayName={getPlayerDisplayName}
+              onlineStatus={onlineStatus}
+              turnTimer={turnTimer}
+              activeTimerPlayer={activeTimerPlayer}
+            />
+          
+          <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-7 px-2 text-xs">
+                  {isOnlineGameInProgress ? <Flag /> : <RefreshCw />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {isOnlineGameInProgress ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={resetGame}>
+                    {isOnlineGameInProgress ? 'Yes, Resign' : 'Yes, Reset'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
+              <BookOpen /> Rules
+            </Button>
+            <Link href="/leaderboard">
+              <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs">
+                <Trophy /> L.board
+              </Button>
+            </Link>
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Undo2 /> Undo
+            </Button>
+          </div>
+           <div className="flex flex-wrap justify-center items-center gap-1">
+              <Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-7 px-2 text-xs">
+                <Bot /> W:{isWhiteAI ? 'On' : 'Off'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-7 px-2 text-xs">
+                <Bot /> B:{isBlackAI ? 'On' : 'Off'}
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-7 px-2 text-xs">
+                <View /> View
+              </Button>
+           </div>
+           <div className="flex flex-wrap justify-center items-center gap-1">
+              <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRankedPlay}
+              disabled={!user || onlineStatus !== 'disconnected'}
+              className="h-7 px-2 text-xs"
+              aria-label="Play Ranked Match"
+              >
+              <Trophy />
+              {getRankedButtonText()}
+              </Button>
+              <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleOnlinePlay('create')}
+              disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
+              className="h-7 px-2 text-xs"
+              aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
+              >
+              {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
+              {getButtonText()}
+              </Button>
+              <div className="flex gap-1 items-center">
+              <Input
+                  type="text"
+                  placeholder="Room ID"
+                  value={inputRoomId}
+                  onChange={(e) => setInputRoomId(e.target.value)}
+                  className="h-7 px-2 text-xs w-20"
+                  disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
+              />
+              <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOnlinePlay('join')}
+                  disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
+                  className="h-7 px-2 text-xs"
+                  aria-label="Join Online Game"
+              >
+                  Join
+              </Button>
+              </div>
+          </div>
+           <div className="w-full text-center h-4 text-xs mt-1">
+              {getStatusMessage()}
+          </div>
         </div>
-      )}
-      {showLossScreen && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
-            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
-              YOU LOST
-            </p>
-        </div>
-      )}
-      
-      <div className="relative z-20 flex flex-col flex-grow w-full p-1">
-        <div className="flex flex-col items-center justify-between flex-grow gap-1">
-            <div className="w-full flex items-center justify-between">
-                <div className="w-1/3"></div>
-                <div className="w-1/3 flex items-center justify-center gap-0">
-                     <Image
-                        src="/images/rook-title.gif"
-                        alt="Vibe Chess Rook"
-                        width={40}
-                        height={40}
-                        unoptimized
-                        className="transform scale-x-[-1] w-6 h-6 sm:w-10 sm:h-10"
-                        data-ai-hint="chess rook"
-                    />
-                    <h1 className="text-xl md:text-3xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
-                    <Image
-                        src="/images/rook-title.gif"
-                        alt="Vibe Chess Rook"
-                        width={40}
-                        height={40}
-                        unoptimized
-                        className="w-6 h-6 sm:w-10 sm:h-10"
-                        data-ai-hint="chess rook"
-                    />
-                </div>
-                 <div className="w-1/3 flex justify-end">
-                    <AuthWidget />
-                </div>
-            </div>
+    </div>
+  );
 
-            <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
-                gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
-                (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
-              )}>
-               {gameInfo.message}
-             </div>
-            
-            <div className="w-full">
-              <ChessBoard
-                boardState={board}
-                selectedSquare={selectedSquare}
-                possibleMoves={possibleMoves}
-                enemySelectedSquare={enemySelectedSquare}
-                enemyPossibleMoves={enemyPossibleMoves}
-                onSquareClick={handleSquareClick}
-                playerColor={boardOrientation}
-                currentPlayerColor={currentPlayer}
-                isInteractionDisabled={isInteractionDisabled}
-                applyBoardOpacityEffect={applyBoardOpacityEffect}
-                playerInCheck={gameInfo.playerWithKingInCheck}
-                viewMode={viewMode}
-                animatedSquareTo={animatedSquareTo}
-                lastMoveFrom={lastMoveFrom}
-                lastMoveTo={lastMoveTo}
-                isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
-                playerToSacrificePawn={playerToSacrificePawn}
-                isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
-                playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
-                isEnPassantTarget={enPassantTargetSquare}
-                resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
-                onPieceHover={handlePieceHover}
-              />
-            </div>
-            
-             <GameControls
-                currentPlayer={currentPlayer}
-                capturedPieces={capturedPieces}
-                isGameOver={gameInfo.gameOver}
-                killStreaks={killStreaks}
-                pieceForInfoDisplay={pieceForInfoDisplay}
-                localPlayerColor={localPlayerColor}
-                getPlayerDisplayName={getPlayerDisplayName}
-                onlineStatus={onlineStatus}
-                turnTimer={turnTimer}
-                activeTimerPlayer={activeTimerPlayer}
-              />
-            
-            <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
+  const desktopLayout = (
+    <div className="hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
+      {/* Left Column */}
+      <div className="w-1/4 flex-shrink-0">
+        <GameControls
+            currentPlayer={currentPlayer}
+            capturedPieces={capturedPieces}
+            isGameOver={gameInfo.gameOver}
+            killStreaks={killStreaks}
+            pieceForInfoDisplay={pieceForInfoDisplay}
+            localPlayerColor={localPlayerColor}
+            getPlayerDisplayName={getPlayerDisplayName}
+            onlineStatus={onlineStatus}
+            turnTimer={turnTimer}
+            activeTimerPlayer={activeTimerPlayer}
+        />
+      </div>
+
+      {/* Center Column */}
+      <div className="w-1/2 flex flex-col items-center gap-2">
+        <div className="w-full flex items-center justify-center gap-0">
+            <Image
+                src="/images/rook-title.gif"
+                alt="Vibe Chess Rook"
+                width={40}
+                height={40}
+                unoptimized
+                className="transform scale-x-[-1] w-10 h-10"
+                data-ai-hint="chess rook"
+            />
+            <h1 className="text-3xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
+            <Image
+                src="/images/rook-title.gif"
+                alt="Vibe Chess Rook"
+                width={40}
+                height={40}
+                unoptimized
+                className="w-10 h-10"
+                data-ai-hint="chess rook"
+            />
+        </div>
+        <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
+            gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
+            (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
+          )}>
+           {gameInfo.message}
+        </div>
+        <div className="w-full max-w-lg">
+          <ChessBoard
+              boardState={board}
+              selectedSquare={selectedSquare}
+              possibleMoves={possibleMoves}
+              enemySelectedSquare={enemySelectedSquare}
+              enemyPossibleMoves={enemyPossibleMoves}
+              onSquareClick={handleSquareClick}
+              playerColor={boardOrientation}
+              currentPlayerColor={currentPlayer}
+              isInteractionDisabled={isInteractionDisabled}
+              applyBoardOpacityEffect={applyBoardOpacityEffect}
+              playerInCheck={gameInfo.playerWithKingInCheck}
+              viewMode={viewMode}
+              animatedSquareTo={animatedSquareTo}
+              lastMoveFrom={lastMoveFrom}
+              lastMoveTo={lastMoveTo}
+              isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+              playerToSacrificePawn={playerToSacrificePawn}
+              isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
+              playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
+              isEnPassantTarget={enPassantTargetSquare}
+              resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
+              onPieceHover={handlePieceHover}
+              effects={effects}
+              promotingSquare={promotionSquare}
+          />
+        </div>
+      </div>
+
+      {/* Right Column */}
+      <div className="w-1/4 flex flex-col gap-4">
+        <AuthWidget />
+        <Card>
+          <CardContent className="p-2 flex flex-col gap-2">
+            <div className="flex flex-wrap justify-center items-center gap-1">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-7 px-2 text-xs">
@@ -3369,13 +3561,17 @@ setIsBlackAI(newIsBlackAI);
                   <View /> View
                 </Button>
              </div>
-             <div className="flex flex-wrap justify-center items-center gap-1">
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-2 flex flex-col gap-2">
+             <div className="flex flex-col gap-1 items-center">
                 <Button
                 variant="outline"
                 size="sm"
                 onClick={handleRankedPlay}
                 disabled={!user || onlineStatus !== 'disconnected'}
-                className="h-7 px-2 text-xs"
+                className="h-7 px-2 text-xs w-full"
                 aria-label="Play Ranked Match"
                 >
                 <Trophy />
@@ -3386,19 +3582,19 @@ setIsBlackAI(newIsBlackAI);
                 size="sm"
                 onClick={() => handleOnlinePlay('create')}
                 disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
-                className="h-7 px-2 text-xs"
+                className="h-7 px-2 text-xs w-full"
                 aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
                 >
                 {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
                 {getButtonText()}
                 </Button>
-                <div className="flex gap-1 items-center">
+                <div className="flex gap-1 items-center w-full">
                 <Input
                     type="text"
                     placeholder="Room ID"
                     value={inputRoomId}
                     onChange={(e) => setInputRoomId(e.target.value)}
-                    className="h-7 px-2 text-xs w-20"
+                    className="h-7 px-2 text-xs flex-grow"
                     disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
                 />
                 <Button
@@ -3416,7 +3612,51 @@ setIsBlackAI(newIsBlackAI);
              <div className="w-full text-center h-4 text-xs mt-1">
                 {getStatusMessage()}
             </div>
-          </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
+      {/* Flash Messages & Overlays */}
+      {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash pointer-events-none" />}
+      {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash pointer-events-none" />}
+      {showCheckmatePatternFlash && <div key={`checkmate-${checkmatePatternFlashKey}`} className="fixed inset-0 z-10 animate-checkmate-pattern-flash pointer-events-none" />}
+      {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
+      {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
+      
+      {showTimerWarning && (
+        <div key={`timer-warning-${timerWarningKey}`} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
+            <div className="animate-flash-timer-warning">
+                <p className="text-7xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
+                    10
+                </p>
+            </div>
+        </div>
+      )}
+
+      {showWinScreen && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
+              YOU WON
+            </p>
+        </div>
+      )}
+      {showLossScreen && (
+         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
+            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
+              YOU LOST
+            </p>
+        </div>
+      )}
+      
+      <div className="lg:hidden">
+        {mobileLayout}
+      </div>
+      <div className="hidden lg:block h-full">
+        {desktopLayout}
       </div>
       
       <PromotionDialog
@@ -3428,4 +3668,5 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
