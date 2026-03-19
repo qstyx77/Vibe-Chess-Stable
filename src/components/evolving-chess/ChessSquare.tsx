@@ -28,9 +28,7 @@ interface ChessSquareProps {
   isAwaitingCommanderPromotion?: boolean;
   playerToPromoteCommander?: PlayerColor | null;
   isEnPassantTarget?: boolean;
-  isResurrectedSquare?: boolean;
   onPieceHover: (piece: Piece | null) => void;
-  effects: Effect[];
   isPromoting: boolean;
 }
 
@@ -55,9 +53,7 @@ export function ChessSquare({
   isAwaitingCommanderPromotion = false,
   playerToPromoteCommander = null,
   isEnPassantTarget = false,
-  isResurrectedSquare = false,
   onPieceHover,
-  effects,
   isPromoting,
 }: ChessSquareProps) {
   const piece = squareData.piece;
@@ -86,8 +82,6 @@ export function ChessSquare({
   if (isEnPassantTarget && isPossibleMove && !piece) {
     currentBgClass = 'bg-purple-400/50';
   }
-  
-  const isConverting = effects.some(e => e.type === 'conversion' && e.square === squareData.algebraic);
 
   let selectionRingClass = '';
   if (isCommanderPromoTarget) {
@@ -115,10 +109,9 @@ export function ChessSquare({
         effectiveDisabled && 'cursor-not-allowed',
         item && item.type !== 'shroom' && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}${isResurrectedSquare ? ' (Resurrected piece)' : ''}`}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
-      {isResurrectedSquare && <div className="absolute inset-0 overflow-hidden"><div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/6 h-full bg-gradient-to-b from-transparent via-cyan-300/80 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" /></div>}
 
       {item && item.type === 'anvil' && (
         <div className={cn(
@@ -152,7 +145,6 @@ export function ChessSquare({
             isJustMoved={isJustMoved}
             isSacrificeTarget={isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn}
             isCommanderPromoTarget={isCommanderPromoTarget}
-            isConverting={isConverting}
             isPromoting={isPromoting}
           />
         </div>
@@ -166,3 +158,4 @@ export function ChessSquare({
     </button>
   );
 }
+

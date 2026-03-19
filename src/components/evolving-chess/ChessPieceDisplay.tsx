@@ -10,9 +10,7 @@ interface ChessPieceDisplayProps {
   isJustMoved?: boolean;
   isSacrificeTarget?: boolean;
   isCommanderPromoTarget?: boolean;
-  isConverting?: boolean;
   isPromoting?: boolean;
-  conversionToColor?: PlayerColor;
 }
 
 export function ChessPieceDisplay({
@@ -22,16 +20,14 @@ export function ChessPieceDisplay({
   isJustMoved = false,
   isSacrificeTarget = false,
   isCommanderPromoTarget = false,
-  isConverting = false,
   isPromoting = false,
-  conversionToColor,
 }: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   
   let conversionClass = '';
-  if (isConverting) {
+  if (isPromoting) {
     conversionClass = piece.color === 'white' ? 'animate-color-flash-wtb' : 'animate-color-flash-btw';
   }
 
@@ -112,3 +108,4 @@ export function ChessPieceDisplay({
     </div>
   );
 }
+

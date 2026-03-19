@@ -866,7 +866,6 @@ export function applyMove(
                 const pushTargetCol_pb = adjCol_pb + dc_pb;
 
                 if (isEntityAnvil) {
-                  specialCaptureSquare = coordsToAlgebraic(adjRow_pb, adjCol_pb);
                   if (!isValidSquare(pushTargetRow_pb, pushTargetCol_pb)) {
                     newBoard[adjRow_pb][adjCol_pb].item = null;
                     anvilPushedOffBoard = true;
@@ -878,6 +877,7 @@ export function applyMove(
                       destinationSquareState.piece = null;
                       destinationSquareState.item = { type: 'anvil' };
                       newBoard[adjRow_pb][adjCol_pb].item = null;
+                      specialCaptureSquare = coordsToAlgebraic(pushTargetRow_pb, pushTargetCol_pb);
                     } else if (destinationSquareState.piece && destinationSquareState.piece.type === 'king') {
                     } else {
                       destinationSquareState.item = { type: 'anvil' };
@@ -1268,3 +1268,4 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
   }
   return { newBoard, spawnedAt: null };
 }
+

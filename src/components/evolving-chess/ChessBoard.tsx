@@ -27,7 +27,6 @@ interface ChessBoardProps {
   isAwaitingCommanderPromotion?: boolean;
   playerToPromoteCommander?: PlayerColor | null;
   isEnPassantTarget: AlgebraicSquare | null;
-  resurrectedSquares: AlgebraicSquare[];
   onPieceHover: (piece: Piece | null) => void;
   effects?: Effect[];
   promotingSquare: AlgebraicSquare | null;
@@ -54,7 +53,6 @@ export function ChessBoard({
   isAwaitingCommanderPromotion,
   playerToPromoteCommander,
   isEnPassantTarget,
-  resurrectedSquares,
   onPieceHover,
   effects = [],
   promotingSquare,
@@ -92,6 +90,12 @@ export function ChessBoard({
             />
           </div>
         );
+       case 'light-beam':
+        return (
+          <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '100%'}}>
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/6 h-full bg-gradient-to-b from-transparent via-cyan-300/80 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" />
+          </div>
+        );
     }
   
     return (
@@ -106,7 +110,7 @@ export function ChessBoard({
   return (
     <div
       className={cn(
-        "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto",
+        "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
         isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
@@ -143,8 +147,6 @@ export function ChessBoard({
                                                currentSquareData.piece?.level === 1 &&
                                                currentSquareData.piece?.color === playerToPromoteCommander;
           
-          const isResurrectedSquare = resurrectedSquares.includes(currentSquareData.algebraic);
-
 
           return (
             <ChessSquare
@@ -169,9 +171,7 @@ export function ChessBoard({
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
               playerToPromoteCommander={playerToPromoteCommander}
               isEnPassantTarget={isEnPassantTarget === currentSquareData.algebraic}
-              isResurrectedSquare={isResurrectedSquare}
               onPieceHover={onPieceHover}
-              effects={effects.filter(e => e.square === currentSquareData.algebraic)}
               isPromoting={promotingSquare === currentSquareData.algebraic}
             />
           );
@@ -181,3 +181,4 @@ export function ChessBoard({
     </div>
   );
 }
+
