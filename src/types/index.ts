@@ -186,5 +186,3 @@ export interface AIGameState {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
 }
-
-    
