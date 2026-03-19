@@ -49,7 +49,7 @@ export interface GameStatus {
 
 export interface Effect {
   id: number;
-  type: 'poof' | 'explosion' | 'shockwave' | 'conversion';
+  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam';
   square: AlgebraicSquare;
   color?: PlayerColor;
   // For conversion, might need more data
@@ -80,7 +80,7 @@ export interface QueenLevelReducedEvent {
 export interface ApplyMoveResult {
   newBoard: BoardState;
   capturedPiece: Piece | null;
-  pieceCapturedByAnvil: Piece | null;
+  oneCapturedByAnvil: Piece | null;
   anvilPushedOffBoard: boolean;
   conversionEvents: ConversionEvent[];
   rallyCryTriggered: RallyCryEvent | null;
@@ -92,6 +92,7 @@ export interface ApplyMoveResult {
   shroomConsumed?: boolean;
   enPassantTargetSet: AlgebraicSquare | null;
   extraTurn: boolean;
+  specialCaptureSquare: AlgebraicSquare | null;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -185,3 +186,5 @@ export interface AIGameState {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
 }
+
+    

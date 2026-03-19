@@ -766,6 +766,7 @@ setIsBlackAI(newIsBlackAI);
     }
 
     if (gameState.resurrectedSquare && lastPlayer) {
+      addEffect('light-beam', gameState.resurrectedSquare);
       setResurrectedSquares(prev => [...prev, { square: gameState.resurrectedSquare, player: lastPlayer }]);
     }
   }, []); // Setters are stable.
@@ -1565,6 +1566,7 @@ setIsBlackAI(newIsBlackAI);
                          toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 8000 });
                     }
                     finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                    addEffect('light-beam', randomSquareAlg);
                     setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
                     finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResOriginal.id);
 
@@ -1652,6 +1654,7 @@ setIsBlackAI(newIsBlackAI);
         const gameWonByInfiltrationFromApply = applyMoveResult.infiltrationWin;
         const shroomConsumedFromApply = applyMoveResult.shroomConsumed;
         const rallyCryTriggered = applyMoveResult.rallyCryTriggered;
+        const specialCaptureSquare = applyMoveResult.specialCaptureSquare;
 
         if (becameInfiltratorFromApply) {
           toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -1747,7 +1750,7 @@ setIsBlackAI(newIsBlackAI);
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
-          addEffect('poof', algebraic);
+          addEffect('poof', specialCaptureSquare || algebraic);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
@@ -1757,7 +1760,7 @@ setIsBlackAI(newIsBlackAI);
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
-          addEffect('poof', algebraic);
+          addEffect('poof', specialCaptureSquare || algebraic);
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
@@ -1791,6 +1794,7 @@ setIsBlackAI(newIsBlackAI);
               finalBoardStateForTurn = humanRookResData.boardWithResurrection;
               finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
               globalUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
+              addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
               setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
               toast({
                   title: "Rook's Call!",
@@ -1856,6 +1860,7 @@ setIsBlackAI(newIsBlackAI);
                             toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 8000 });
                         }
                         finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                        addEffect('light-beam', randomSquareAlg);
                         setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
                         finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
@@ -2107,6 +2112,7 @@ setIsBlackAI(newIsBlackAI);
                 setCapturedPieces(capturedPiecesAfterResurrection);
                 setBoard(boardToUpdate);
                 globalUniqueIdCounter = aiPromoRookIdCounter!;
+                addEffect('light-beam', aiPromoRookSquareAlg!);
                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 8000 });
                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
@@ -2359,6 +2365,7 @@ setIsBlackAI(newIsBlackAI);
         let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
         let aiExtraTurn = false;
         let rallyCryTriggeredByAI: { square: AlgebraicSquare; color: PlayerColor; } | null = null;
+        let aiSpecialCaptureSquare: AlgebraicSquare | null = null;
 
 
         if (moveForApplyMoveAI!.type === 'self-destruct') {
@@ -2435,6 +2442,7 @@ setIsBlackAI(newIsBlackAI);
           aiGameWonByInfiltration = applyMoveResult.infiltrationWin || false;
           aiExtraTurn = applyMoveResult.extraTurn || false;
           rallyCryTriggeredByAI = applyMoveResult.rallyCryTriggered;
+          aiSpecialCaptureSquare = applyMoveResult.specialCaptureSquare;
           
           if (rallyCryTriggeredByAI) {
             addEffect('shockwave', rallyCryTriggeredByAI.square, rallyCryTriggeredByAI.color);
@@ -2473,7 +2481,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
           if (applyMoveResult.pieceCapturedByAnvil) {
-            addEffect('poof', aiToAlg as AlgebraicSquare);
+            addEffect('poof', aiSpecialCaptureSquare || (aiToAlg as AlgebraicSquare));
             pieceCapturedByAnvilAI = true;
             capturedPieceDataForScoring = applyMoveResult.pieceCapturedByAnvil; // Also counts for resurrection
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
@@ -2519,7 +2527,7 @@ setIsBlackAI(newIsBlackAI);
           toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1000 });
 
           if (applyMoveResult.capturedPiece) { // This is the direct capture by the moving piece
-            addEffect('poof', aiToAlg as AlgebraicSquare);
+            addEffect('poof', aiSpecialCaptureSquare || (aiToAlg as AlgebraicSquare));
             const pieceThatMadeTheMoveAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${applyMoveResult.capturedPiece.color} ${applyMoveResult.capturedPiece.type}!`, duration: 8000});
@@ -2598,6 +2606,7 @@ setIsBlackAI(newIsBlackAI);
                                toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
                           }
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
+                          addEffect('light-beam', randSqAI_alg);
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
                           finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalAI.id);
                       }
@@ -2642,6 +2651,7 @@ setIsBlackAI(newIsBlackAI);
                   finalBoardStateForAI = aiRookResData.boardWithResurrection;
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
                   globalUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
+                  addEffect('light-beam', aiRookResData!.resurrectedSquareAlg!);
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Rook resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 8000 });
                   if(aiRookResData.resurrectedPieceData?.type === 'pawn' || aiRookResData.resurrectedPieceData?.type === 'commander'){
@@ -2715,6 +2725,7 @@ setIsBlackAI(newIsBlackAI);
                                 setCapturedPieces(capturedPiecesAfterResurrection);
                                 setBoard(finalBoardStateForAI);
                                 globalUniqueIdCounter = aiPromoRookIdCounter!;
+                                addEffect('light-beam', aiPromoRookSquareAlg!);
                                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
                                 toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 8000 });
                                 if(aiPromoRookPieceData?.type === 'pawn' || aiPromoRookPieceData?.type === 'commander'){
@@ -3670,3 +3681,6 @@ setIsBlackAI(newIsBlackAI);
 }
 
 
+
+
+    
