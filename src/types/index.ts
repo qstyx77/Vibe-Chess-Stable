@@ -80,7 +80,7 @@ export interface QueenLevelReducedEvent {
 export interface ApplyMoveResult {
   newBoard: BoardState;
   capturedPiece: Piece | null;
-  oneCapturedByAnvil: Piece | null;
+  pieceCapturedByAnvil: Piece | null;
   anvilPushedOffBoard: boolean;
   conversionEvents: ConversionEvent[];
   rallyCryTriggered: RallyCryEvent | null;

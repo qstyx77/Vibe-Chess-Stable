@@ -29,7 +29,7 @@ interface ChessBoardProps {
   isEnPassantTarget: AlgebraicSquare | null;
   resurrectedSquares: AlgebraicSquare[];
   onPieceHover: (piece: Piece | null) => void;
-  effects: Effect[];
+  effects?: Effect[];
   promotingSquare: AlgebraicSquare | null;
 }
 
