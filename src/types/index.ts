@@ -154,6 +154,11 @@ export interface GameSnapshot {
   activeTimerPlayer: PlayerColor | null;
   whiteTimeouts: number;
   blackTimeouts: number;
+
+  isAwaitingAnvilDrop: boolean;
+  playerToDropAnvil: PlayerColor | null;
+  anvilDropContext: { boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null;
+  anvilDropAfterPromotion: boolean;
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation

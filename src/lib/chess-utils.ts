@@ -610,7 +610,7 @@ export function applyMove(
 
   const movingPieceOriginalRef = newBoard[fromRow]?.[fromCol]?.piece;
   if (!movingPieceOriginalRef) {
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
+    return { newBoard: board, capturedPiece: null, oneCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   const originalPieceLevel = Number(movingPieceOriginalRef.level || 1);
@@ -618,7 +618,7 @@ export function applyMove(
   const targetItemOriginal = newBoard[toRow]?.[toCol]?.item;
 
   if (targetItemOriginal && targetItemOriginal.type !== 'shroom') { 
-    return { newBoard: board, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
+    return { newBoard: board, capturedPiece: null, oneCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level || 1);
@@ -635,7 +635,7 @@ export function applyMove(
     const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true };
     newBoard[toRow][toCol].piece = movingPieceCopy;
     newBoard[fromRow][fromCol].piece = targetPieceCopy;
-    return { newBoard, capturedPiece: null, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
+    return { newBoard, capturedPiece: null, oneCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   let capturedPiece: Piece | null = null;
@@ -672,7 +672,7 @@ export function applyMove(
 
   const pieceNowOnToSquare = newBoard[toRow]?.[toCol]?.piece;
   if (!pieceNowOnToSquare) { 
-    return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
+    return { newBoard, capturedPiece, oneCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
 
@@ -942,7 +942,7 @@ export function applyMove(
         }
     }
   }
-  return { newBoard, capturedPiece, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: queenLevelReducedEventsInternal, promotedToInfiltrator, infiltrationWin, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  return { newBoard, capturedPiece, oneCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: queenLevelReducedEventsInternal, promotedToInfiltrator, infiltrationWin, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
 }
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
@@ -1269,3 +1269,19 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
   return { newBoard, spawnedAt: null };
 }
 
+export function findKing(board: BoardState, color: PlayerColor): { row: number; col: number; piece: Piece } | null {
+    if (!board) return null;
+    for (let r_idx = 0; r_idx < 8; r_idx++) {
+        for (let c_idx = 0; c_idx < 8; c_idx++) {
+            const squareState = board[r_idx]?.[c_idx];
+            if (!squareState) continue;
+            const piece = squareState.piece;
+            if (piece && piece.type === 'king' && piece.color === color) {
+                return { row: r_idx, col: c_idx, piece: piece };
+            }
+        }
+    }
+    return null;
+}
+
+    

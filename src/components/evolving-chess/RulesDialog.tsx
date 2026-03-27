@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -178,7 +179,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   </>
                 }>
                   <ul className="list-none pl-0 space-y-1">
-                    <li><strong>Spawning:</strong> Every 9 game moves (after the 9th, 18th, 27th, etc. move is completed), an anvil drops onto a random empty square on the board.</li>
+                    <li><strong>Spawning:</strong> Awarded on a Kill Streak of 4. The player can place it on any empty square.</li>
                     <li><strong>Blocking:</strong> Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.</li>
                     <li><strong>Interaction:</strong> Anvils cannot be captured or destroyed by normal piece moves, but can be destroyed by a Knight/Hero's self-destruct ability.</li>
                     <li><strong>Pawn Push-Back (L4+ Pawn/Commander):</strong>
@@ -210,6 +211,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Activation">Achieved by capturing enemy pieces (including anvil captures). A player's streak only resets if that player makes a non-capturing move.</PieceRule>
                 <PieceRule title="Streak of 3 (Resurrection)">
                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn.
+                </PieceRule>
+                <PieceRule title="Streak of 4 (Anvil Drop)">
+                  After achieving a streak of 4, you are prompted to place an Anvil on any empty square on the board. This action is part of your turn.
                 </PieceRule>
                 <PieceRule title="Streak of 6 (Extra Turn)">
                   You gain an extra turn immediately.
