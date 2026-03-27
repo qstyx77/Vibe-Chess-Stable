@@ -1,4 +1,4 @@
- devrnde # Firebase Studio
+npm  devrnde # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
 

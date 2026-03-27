@@ -209,6 +209,10 @@ export default function EvolvingChessPage() {
   const [blackTimeouts, setBlackTimeouts] = useState(0);
   const [effects, setEffects] = useState<Effect[]>([]);
 
+  const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
+  const [playerToDropAnvil, setPlayerToDropAnvil] = useState<PlayerColor | null>(null);
+  const [anvilDropContext, setAnvilDropContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
+
 
   const { toast } = useToast();
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
@@ -362,6 +366,10 @@ setIsBlackAI(newIsBlackAI);
     setIsRankedGame(false);
     setRankedQueueStatus('idle');
     setEnPassantTargetSquare(null);
+
+    setIsAwaitingAnvilDrop(false);
+    setPlayerToDropAnvil(null);
+    setAnvilDropContext(null);
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -467,6 +475,9 @@ setIsBlackAI(newIsBlackAI);
       whiteTimeouts: whiteTimeouts,
       blackTimeouts: blackTimeouts,
       originalPromotionLevel: promotionPawnOriginalLevel,
+      isAwaitingAnvilDrop: isAwaitingAnvilDrop,
+      playerToDropAnvil: playerToDropAnvil,
+      anvilDropContext: anvilDropContext
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -482,6 +493,7 @@ setIsBlackAI(newIsBlackAI);
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn,
     resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
+    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
   ]);
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
@@ -641,23 +653,6 @@ setIsBlackAI(newIsBlackAI);
     
     // Item Spawn Logic - only the current player triggers the check
     if (onlineStatus !== 'connected' || localPlayerColor === playerWhoseTurnCompleted) {
-      // Anvil Spawn Logic
-      if (newGameMoveCounter > 0 && newGameMoveCounter % 9 === 0) {
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'anvil-spawn' }));
-            }
-        } else {
-            const { newBoard, spawnedAt } = spawnAnvil(currentBoardState); 
-            if (spawnedAt) {
-                currentBoardState = newBoard;
-                setBoard(currentBoardState);
-                toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 1000 });
-            }
-        }
-      }
-
       // Shroom Spawn Logic
       let currentShroomCounter = shroomSpawnCounter + 1;
       setShroomSpawnCounter(currentShroomCounter);
@@ -809,6 +804,29 @@ setIsBlackAI(newIsBlackAI);
             }
             break;
         }
+        case 'awaiting-anvil-drop': {
+            const { fullGameState, player } = data;
+            if (!fullGameState) return;
+
+            setBoard(fullGameState.board);
+            if (fullGameState.players) setGamePlayers(fullGameState.players);
+            setCapturedPieces(fullGameState.capturedPieces);
+            setKillStreaks(fullGameState.killStreaks);
+            setGameInfo(fullGameState.gameInfo);
+            setCurrentPlayer(fullGameState.currentPlayer);
+            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
+            setLastMoveFrom(fullGameState.lastMoveFrom || null);
+            setLastMoveTo(fullGameState.lastMoveTo || null);
+
+            setIsAwaitingAnvilDrop(true);
+            setPlayerToDropAnvil(player);
+            if (player === localPlayerColor) {
+              setGameInfo(prev => ({...prev, message: "ULTRA KILL! Place an anvil on an empty square."}));
+            } else {
+              setGameInfo(prev => ({...prev, message: `ULTRA KILL! ${getPlayerDisplayName(player)} is placing an anvil.`}));
+            }
+            break;
+        }
         case 'commander-promo-finalized': {
             applyServerGameState(data.fullGameState, data.lastPlayer);
             if(data.fullGameState.gameInfo.gameOver) {
@@ -850,22 +868,11 @@ setIsBlackAI(newIsBlackAI);
             toast({ title: "First Blood!", description: `${getPlayerDisplayName(fullGameState.playerWhoGotFirstBlood!)} to select a Pawn to promote!`, duration: 8000});
             break;
         }
-        case 'anvil-spawn': {
-            const { square } = data;
-            const { row, col } = algebraicToCoords(square);
-            setBoard(currentBoard => {
-                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                newBoard[row][col].item = { type: 'anvil' };
-                return newBoard;
-            });
-            toast({ title: "Look Out!", description: "An anvil has dropped onto the board!", duration: 1000 });
-            break;
-        }
         case 'shroom-spawn': {
             const { square, nextTurn } = data;
             const { row, col } = algebraicToCoords(square);
             setBoard(currentBoard => {
-                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
                 newBoard[row][col].item = { type: 'shroom' };
                 return newBoard;
             });
@@ -1247,6 +1254,34 @@ setIsBlackAI(newIsBlackAI);
             setEnemyPossibleMoves([]);
         }
         return; // Exit here for online "not my turn" case.
+    }
+
+    if (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) {
+      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+        saveStateToHistory();
+        const boardAfterAnvilDrop = anvilDropContext!.boardForNextStep.map(r => r.map(s => ({ ...s })));
+        boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
+        setBoard(boardAfterAnvilDrop);
+        
+        if (onlineStatus === 'connected') {
+          const ws = wsRef.current;
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
+          }
+        }
+    
+        toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
+    
+        const context = anvilDropContext!;
+        processMoveEnd(boardAfterAnvilDrop, context.playerWhoseTurnCompleted, context.isExtraTurn, context.newEnPassantTarget);
+    
+        setIsAwaitingAnvilDrop(false);
+        setPlayerToDropAnvil(null);
+        setAnvilDropContext(null);
+      } else {
+        toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
+      }
+      return;
     }
 
     if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
@@ -1728,6 +1763,7 @@ setIsBlackAI(newIsBlackAI);
         const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
         const pieceWasCapturedThisTurn = !!capturedPieceFromApply || !!pieceCapturedByAnvilFromApply;
         let newStreakForCapturingPlayer = killStreaks[capturingPlayer] || 0;
+        let isEnteringAnvilDropMode = false;
 
         if (pieceWasCapturedThisTurn) {
             newStreakForCapturingPlayer++;
@@ -1837,7 +1873,27 @@ setIsBlackAI(newIsBlackAI);
                 if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
                 toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
             }
-        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer >= 3) {
+        }
+        
+        const originalPieceDataFromBoard = board[algebraicToCoords(selectedSquare).row]?.[algebraicToCoords(selectedSquare).col]?.piece;
+        const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && pieceThatMadeTheMove?.type === 'hero');
+        const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (toR_final === 0 || toR_final === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
+        const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
+        const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || applyMoveResult.extraTurn;
+
+        if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 4) {
+            isEnteringAnvilDropMode = true;
+            const anvilDropCtx = {
+                boardForNextStep: finalBoardStateForTurn,
+                playerWhoseTurnCompleted: capturingPlayer,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: nextEnPassantTarget
+            };
+            setAnvilDropContext(anvilDropCtx);
+            setIsAwaitingAnvilDrop(true);
+            setPlayerToDropAnvil(capturingPlayer);
+            setGameInfo(prev => ({...prev, message: `ULTRA KILL! Place an anvil on an empty square.`}));
+        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1894,6 +1950,11 @@ setIsBlackAI(newIsBlackAI);
         setBoard(finalBoardStateForTurn);
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
+        if (isEnteringAnvilDropMode) {
+            setIsMoveProcessing(false); // Allow anvil drop interaction
+            return;
+        }
+
         setTimeout(() => {
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
@@ -1901,25 +1962,9 @@ setIsBlackAI(newIsBlackAI);
           const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
           const isPawnPromotingMove = pieceOnBoardAfterMove && pieceOnBoardAfterMove.type === 'pawn' && (toR_final === 0 || toR_final === 7) && !becameInfiltratorFromApply;
 
-
-          const originalPieceDataFromBoard = board[algebraicToCoords(selectedSquare).row]?.[algebraicToCoords(selectedSquare).col]?.piece;
-
-          const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' &&
-                                               (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 &&
-                                               pieceOnBoardAfterMove?.type === 'hero');
-
-          const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' &&
-                                           (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 &&
-                                           (toR_final === 0 || toR_final === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
-
-
-          const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
-          const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || applyMoveResult.extraTurn;
-
           if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
-              // In online games, we sent the move to the server which will respond with 'awaiting-commander-promo'
               if (onlineStatus === 'disconnected') {
                 setIsMoveProcessing(false);
               }
@@ -2009,7 +2054,8 @@ setIsBlackAI(newIsBlackAI);
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
     onlineStatus, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
-    setResurrectedSquares, user
+    setResurrectedSquares, user,
+    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext
   ]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -2197,7 +2243,7 @@ setIsBlackAI(newIsBlackAI);
       return;
     }
 
-    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice ) {
+    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop ) {
       setIsAiThinking(false);
       return;
     }
@@ -2572,6 +2618,12 @@ setIsBlackAI(newIsBlackAI);
               setCaptureFlashKey(k => k + 1);
             }
 
+            let isEnteringAnvilDropMode = false;
+            const streakGrantsExtraTurn = newStreakForAIPlayer === 6;
+
+            if (aiCaptureOccurredThisTurnForStreak && newStreakForAIPlayer === 4) {
+              isEnteringAnvilDropMode = true;
+            }
 
             if (aiCaptureOccurredThisTurnForStreak) { // Use the same consolidated capture flag
                 if (!firstBloodAchieved) {
@@ -2579,7 +2631,7 @@ setIsBlackAI(newIsBlackAI);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
                     toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 8000 });
-                } else if (newStreakForAIPlayer >= 3) {
+                } else if (newStreakForAIPlayer === 3) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
@@ -2673,6 +2725,33 @@ setIsBlackAI(newIsBlackAI);
                           }
                       }
                   }
+              }
+            }
+
+            if (isEnteringAnvilDropMode) {
+              const emptySquares: AlgebraicSquare[] = [];
+              for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
+              
+              if (emptySquares.length > 0) {
+                const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+                const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
+                let bestAnvilSquare: AlgebraicSquare;
+                if (oppKingPos) {
+                  emptySquares.sort((a,b) => {
+                    const { row: rA, col: cA } = algebraicToCoords(a);
+                    const { row: rB, col: cB } = algebraicToCoords(b);
+                    const distA = Math.abs(rA - oppKingPos.row) + Math.abs(cA - oppKingPos.col);
+                    const distB = Math.abs(rB - oppKingPos.row) + Math.abs(cB - oppKingPos.col);
+                    return distA - distB;
+                  });
+                  bestAnvilSquare = emptySquares[0];
+                } else {
+                  bestAnvilSquare = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                }
+                const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
+                finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
+                addEffect('poof', bestAnvilSquare); // Use poof for anvil drop
+                toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
               }
             }
 
@@ -2835,12 +2914,12 @@ setIsBlackAI(newIsBlackAI);
   useEffect(() => {
     const currentAiInstance = aiInstanceRef.current;
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && currentAiInstance) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && currentAiInstance) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -3034,7 +3113,7 @@ setIsBlackAI(newIsBlackAI);
   }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
-    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
+    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop) {
       toast({ title: "Undo Failed", description: "Cannot undo during AI turn, processing, or pending actions. Undo is disabled in online games.", duration: 8000 });
       return;
     }
@@ -3056,7 +3135,7 @@ setIsBlackAI(newIsBlackAI);
     let playableStatesFound = 0;
     for (let i = historyStack.length - 1; i >= 0; i--) {
         const state = historyStack[i];
-        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice) {
+        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop) {
             playableStatesFound++;
             if (playableStatesFound >= turnsToUndo) {
                 targetIndex = i;
@@ -3069,7 +3148,7 @@ setIsBlackAI(newIsBlackAI);
     if (targetIndex === -1 && playableStatesFound > 0) {
         for (let i = historyStack.length - 1; i >= 0; i--) {
             const state = historyStack[i];
-            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice) {
+            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop) {
                 targetIndex = i;
                 break;
             }
@@ -3156,6 +3235,10 @@ setIsBlackAI(newIsBlackAI);
       setBlackTimeouts(stateToRestore.blackTimeouts || 0);
       setEffects([]);
 
+      setIsAwaitingAnvilDrop(stateToRestore.isAwaitingAnvilDrop || false);
+      setPlayerToDropAnvil(stateToRestore.playerToDropAnvil || null);
+      setAnvilDropContext(stateToRestore.anvilDropContext || null);
+
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
     } else {
       setLastMoveFrom(null);
@@ -3175,7 +3258,7 @@ setIsBlackAI(newIsBlackAI);
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
-    setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare
+    setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare, isAwaitingAnvilDrop,
   ]);
 
 
@@ -3213,7 +3296,7 @@ setIsBlackAI(newIsBlackAI);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, gameInfo.gameOver, onlineStatus]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer);
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer);
 
   const getButtonText = () => {
     if (onlineStatus === 'connecting') return 'Connecting...';
@@ -3333,6 +3416,8 @@ setIsBlackAI(newIsBlackAI);
               onPieceHover={handlePieceHover}
               effects={effects}
               promotingSquare={promotionSquare}
+              isAwaitingAnvilDrop={isAwaitingAnvilDrop}
+              playerToDropAnvil={playerToDropAnvil}
             />
           </div>
           
@@ -3518,6 +3603,8 @@ setIsBlackAI(newIsBlackAI);
               onPieceHover={handlePieceHover}
               effects={effects}
               promotingSquare={promotionSquare}
+              isAwaitingAnvilDrop={isAwaitingAnvilDrop}
+              playerToDropAnvil={playerToDropAnvil}
           />
         </div>
       </div>
@@ -3557,7 +3644,7 @@ setIsBlackAI(newIsBlackAI);
                   <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop} aria-label="Undo Move" className="h-7 px-2 text-xs">
                 <Undo2 /> Undo
               </Button>
             </div>
