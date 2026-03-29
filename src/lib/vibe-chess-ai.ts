@@ -585,7 +585,7 @@ export class VibeChessAI {
         if (pieceWasCaptured || pieceCapturedByAnvil) {
             newState.killStreaks[currentPlayer] = (newState.killStreaks[currentPlayer] || 0) + (move.type === 'self-destruct' ? (newState.capturedPieces[currentPlayer].length - (originalGameState.capturedPieces[currentPlayer]?.length || 0)) : 1);
             newState.killStreaks[opponentColor] = 0;
-             if (newState.killStreaks[currentPlayer] === 3) {
+            if (newState.killStreaks[currentPlayer] === 4) {
                  this.handleResurrection(newState, currentPlayer);
             }
             if (newState.killStreaks[currentPlayer] === 6) newState.extraTurn = true;
@@ -605,22 +605,6 @@ export class VibeChessAI {
                         pawnToPromoteSquare.piece.type = 'commander';
                         pawnToPromoteSquare.piece.id = `${pawnToPromoteSquare.piece.id}_CMD_AI`;
                     }
-                }
-            }
-        }
-        if (newState.gameMoveCounter > 0 && newState.gameMoveCounter % 9 === 0) {
-            const emptySquaresForAnvil: [number, number][] = [];
-            for (let r_anvil = 0; r_anvil < 8; r_anvil++) {
-                for (let c_anvil = 0; c_anvil < 8; c_anvil++) {
-                    if (newState.board[r_anvil] && !newState.board[r_anvil][c_anvil]?.piece && !newState.board[r_anvil][c_anvil]?.item) {
-                        emptySquaresForAnvil.push([r_anvil, c_anvil]);
-                    }
-                }
-            }
-            if (emptySquaresForAnvil.length > 0) {
-                const [anvilR, anvilC] = emptySquaresForAnvil[Math.floor(Math.random() * emptySquaresForAnvil.length)];
-                if(newState.board[anvilR]?.[anvilC]) {
-                    newState.board[anvilR][anvilC].item = { type: 'anvil' };
                 }
             }
         }
@@ -1050,11 +1034,13 @@ export class VibeChessAI {
         const opponentColor = aiColor === 'white' ? 'black' : 'white';
         const opponentPlayerStreak = ks[opponentColor] || 0;
         if (aiPlayerStreak >= 2) streakScore += 10 * aiPlayerStreak;
-        if (aiPlayerStreak === 3) streakScore += 50;
+        if (aiPlayerStreak === 3) streakScore += 50; // Anvil
+        if (aiPlayerStreak === 4) streakScore += 50; // Resurrection
         if (aiPlayerStreak >= 5) streakScore += 25;
         if (aiPlayerStreak === 6) streakScore += 150;
         if (opponentPlayerStreak >= 2) streakScore -= 10 * opponentPlayerStreak;
         if (opponentPlayerStreak === 3) streakScore -= 50;
+        if (opponentPlayerStreak === 4) streakScore -= 50;
         if (opponentPlayerStreak >= 5) streakScore -= 25;
         if (opponentPlayerStreak === 6) streakScore -= 150;
         return streakScore;
@@ -1570,7 +1556,7 @@ export class VibeChessAI {
                 const attackerPiece = attackerSquareState.piece;
                 if (attackerPiece && attackerPiece.color === opponentColorForCheck) {
                     if (this.canAttackSquare(gameState, [r_att,c_att], [kingPos.row, kingPos.col], attackerPiece, isKingSafetyCheck, callId)) {
-                        aiLog(`[AI_DEBUG_IS_IN_CHECK_RESULT] King ${color} at ${coordsToAlgebraic(kingPos.row, kingPos.col)} IS attacked by ${attackerPiece.color} ${attackerPiece.type} at ${coordsToAlgebraic(r_att,c_att)}. RESULT: true`, isKingSafetyCheck, callId);
+                        aiLog(`    [AI_DEBUG_IS_IN_CHECK_RESULT] King ${color} at ${coordsToAlgebraic(kingPos.row, kingPos.col)} IS attacked by ${attackerPiece.color} ${attackerPiece.type} at ${coordsToAlgebraic(r_att,c_att)}. RESULT: true`, isKingSafetyCheck, callId);
                         return true;
                     }
                 }
@@ -2006,3 +1992,5 @@ export class VibeChessAI {
         return [availablePawns[0].row, availablePawns[0].col];
     }
 }
+
+    

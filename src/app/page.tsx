@@ -825,9 +825,9 @@ setIsBlackAI(newIsBlackAI);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(player);
             if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "ULTRA KILL! Place an anvil on an empty square."}));
+              setGameInfo(prev => ({...prev, message: "TRIPLE KILL! Place an anvil on an empty square."}));
             } else {
-              setGameInfo(prev => ({...prev, message: `ULTRA KILL! ${getPlayerDisplayName(player)} is placing an anvil.`}));
+              setGameInfo(prev => ({...prev, message: `TRIPLE KILL! ${getPlayerDisplayName(player)} is placing an anvil.`}));
             }
             break;
         }
@@ -1577,7 +1577,7 @@ setIsBlackAI(newIsBlackAI);
                 if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
                 toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
             }
-        } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer >= 3) {
+        } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer === 4) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                 const pieceToResOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
@@ -1886,7 +1886,7 @@ setIsBlackAI(newIsBlackAI);
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || applyMoveResult.extraTurn;
 
         let isEnteringAnvilDropMode = false;
-        if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 4) {
+        if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
           const anvilDropCtx = {
               boardForNextStep: finalBoardStateForTurn,
               playerWhoseTurnCompleted: capturingPlayer,
@@ -1900,9 +1900,9 @@ setIsBlackAI(newIsBlackAI);
               isEnteringAnvilDropMode = true;
               setIsAwaitingAnvilDrop(true);
               setPlayerToDropAnvil(capturingPlayer);
-              setGameInfo(prev => ({...prev, message: `ULTRA KILL! Place an anvil on an empty square.`}));
+              setGameInfo(prev => ({...prev, message: `TRIPLE KILL! Place an anvil on an empty square.`}));
           }
-        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
+        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 4) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -2154,7 +2154,7 @@ setIsBlackAI(newIsBlackAI);
             setAnvilDropContext(contextForAnvil);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(pawnColor);
-            setGameInfo(prev => ({...prev, message: `ULTRA KILL! Place an anvil on an empty square.`}));
+            setGameInfo(prev => ({...prev, message: `TRIPLE KILL! Place an anvil on an empty square.`}));
         } else {
             const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
             const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
@@ -2548,16 +2548,16 @@ setIsBlackAI(newIsBlackAI);
               });
           }
 
-          if (applyMoveResult.pieceCapturedByAnvil) {
+          if (applyMoveResult.oneCapturedByAnvil) {
             addEffect('poof', aiSpecialCaptureSquare || (aiToAlg as AlgebraicSquare));
             pieceCapturedByAnvilAI = true;
-            capturedPieceDataForScoring = applyMoveResult.pieceCapturedByAnvil; // Also counts for resurrection
+            capturedPieceDataForScoring = applyMoveResult.oneCapturedByAnvil; // Also counts for resurrection
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
-                finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.pieceCapturedByAnvil, id: `${applyMoveResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
+                finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.oneCapturedByAnvil, id: `${applyMoveResult.oneCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
             } else {
-                toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
+                toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.oneCapturedByAnvil.type}!`, duration: 8000 });
             }
-            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
+            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.oneCapturedByAnvil.type}!`, duration: 8000 });
           }
           if (aiAnvilPushedOff) {
               toast({ title: "AI Anvil Removed!", description: "Anvil pushed off by AI.", duration: 8000 });
@@ -2641,7 +2641,7 @@ setIsBlackAI(newIsBlackAI);
             }
 
             let isEnteringAnvilDropMode = false;
-            if (aiCaptureOccurredThisTurnForStreak && newStreakForAIPlayer === 4) {
+            if (aiCaptureOccurredThisTurnForStreak && newStreakForAIPlayer === 3) {
               isEnteringAnvilDropMode = true;
             }
 
@@ -2651,7 +2651,7 @@ setIsBlackAI(newIsBlackAI);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
                     toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 8000 });
-                } else if (newStreakForAIPlayer === 3) {
+                } else if (newStreakForAIPlayer === 4) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
@@ -3512,7 +3512,7 @@ setIsBlackAI(newIsBlackAI);
                 <Trophy /> L.board
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)} aria-label="Undo Move" className="h-7 px-2 text-xs">
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop} aria-label="Undo Move" className="h-7 px-2 text-xs">
               <Undo2 /> Undo
             </Button>
           </div>
@@ -3817,6 +3817,8 @@ setIsBlackAI(newIsBlackAI);
 
 
 
+
+    
 
     
 

@@ -477,7 +477,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
                     console.log('[Server | game-move] Result FROM applyMove:', { capturedPiece: !!capturedPiece, isPawnPromotion: !!(newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece?.type === 'pawn' && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7)) , ...restOfResult });
                     
-                    let wasCapture = !!capturedPiece || !!restOfResult.pieceCapturedByAnvil;
+                    let wasCapture = !!capturedPiece || !!restOfResult.oneCapturedByAnvil;
                     let extraTurnFromStreak = false;
                     room.gameState.resurrectedSquare = null;
 
@@ -485,8 +485,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (capturedPiece && !restOfResult.promotedToInfiltrator) {
                             room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
                         }
-                        if (restOfResult.pieceCapturedByAnvil) {
-                            room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
+                        if (restOfResult.oneCapturedByAnvil) {
+                            room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.oneCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                         }
 
                         room.gameState.killStreaks[movingPlayerColor]++;
@@ -494,7 +494,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (room.gameState.killStreaks[movingPlayerColor] === 6) {
                             extraTurnFromStreak = true;
                             room.gameState.killStreaks[movingPlayerColor] = 0;
-                        } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
+                        } else if (room.gameState.killStreaks[movingPlayerColor] === 4) {
                             const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
                             const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
                             if (piecesToChooseFrom.length > 0) {
@@ -558,7 +558,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         
                     const combinedExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
                     
-                    if (room.gameState.killStreaks[movingPlayerColor] === 4) {
+                    if (room.gameState.killStreaks[movingPlayerColor] === 3) {
                         const anvilContext = {
                             playerWhoseTurnCompleted: movingPlayerColor,
                             isExtraTurn: combinedExtraTurn,
@@ -675,5 +675,7 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
+
+    
 
     
