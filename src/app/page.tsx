@@ -1887,6 +1887,7 @@ setIsBlackAI(newIsBlackAI);
 
         let isEnteringAnvilDropMode = false;
         if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
+          isEnteringAnvilDropMode = true;
           const anvilDropCtx = {
               boardForNextStep: finalBoardStateForTurn,
               playerWhoseTurnCompleted: capturingPlayer,
@@ -1897,7 +1898,6 @@ setIsBlackAI(newIsBlackAI);
           if (isPawnPromotingMove) {
               setAnvilDropAfterPromotion(true);
           } else {
-              isEnteringAnvilDropMode = true;
               setIsAwaitingAnvilDrop(true);
               setPlayerToDropAnvil(capturingPlayer);
               setGameInfo(prev => ({...prev, message: `TRIPLE KILL! Place an anvil on an empty square.`}));
@@ -1959,7 +1959,7 @@ setIsBlackAI(newIsBlackAI);
         setBoard(finalBoardStateForTurn);
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
-        if (isEnteringAnvilDropMode) {
+        if (isEnteringAnvilDropMode && !isPawnPromotingMove) {
             setIsMoveProcessing(false); // Allow anvil drop interaction
             return;
         }
@@ -3814,12 +3814,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-
-
-
-    
-
-    
-
-    

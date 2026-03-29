@@ -493,7 +493,40 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         
                         if (room.gameState.killStreaks[movingPlayerColor] === 6) {
                             extraTurnFromStreak = true;
-                            room.gameState.killStreaks[movingPlayerColor] = 0;
+                        } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
+                            const anvilContext = {
+                                playerWhoseTurnCompleted: movingPlayerColor,
+                                isExtraTurn: extraTurnFromStreak || (restOfResult as any).extraTurn,
+                                newEnPassantTarget: restOfResult.enPassantTargetSet,
+                            };
+                            room.gameState.anvilDropContext = anvilContext;
+                            
+                            const { row: toRowAnvil, col: toColAnvil } = algebraicToCoords(move.to);
+                            const pieceOnToSquareAnvil = newBoard[toRowAnvil]?.[toColAnvil]?.piece;
+                            const isPawnPromotionAnvil = pieceOnToSquareAnvil && pieceOnToSquareAnvil.type === 'pawn' && (toRowAnvil === 0 || toRowAnvil === 7) && !restOfResult.promotedToInfiltrator;
+
+                            if (isPawnPromotionAnvil) {
+                                room.gameState.promotionContext = {
+                                    extraTurn: extraTurnFromStreak,
+                                    anvilDropContext: anvilContext,
+                                };
+                                broadcastToRoom(ws.roomId, {
+                                    type: 'promotion-required',
+                                    square: move.to,
+                                    player: movingPlayerColor,
+                                    promotingUserId: movingPlayerInfo?.userId,
+                                    fullGameState: room.gameState,
+                                });
+                                return; // Stop processing, wait for promotion finalization
+                            } else {
+                                broadcastToRoom(ws.roomId, {
+                                    type: 'awaiting-anvil-drop',
+                                    player: movingPlayerColor,
+                                    fullGameState: room.gameState,
+                                });
+                                return; // Stop processing, wait for anvil drop
+                            }
+
                         } else if (room.gameState.killStreaks[movingPlayerColor] === 4) {
                             const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
                             const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
@@ -530,7 +563,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     }
                                 }
                             }
-                            room.gameState.killStreaks[movingPlayerColor] = 0;
                         }
 
                         if (!room.gameState.firstBloodAchieved) {
@@ -558,37 +590,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         
                     const combinedExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
                     
-                    if (room.gameState.killStreaks[movingPlayerColor] === 3) {
-                        const anvilContext = {
-                            playerWhoseTurnCompleted: movingPlayerColor,
-                            isExtraTurn: combinedExtraTurn,
-                            newEnPassantTarget: restOfResult.enPassantTargetSet,
-                        };
-                        room.gameState.anvilDropContext = anvilContext;
-                        
-                        if (isPawnPromotion) {
-                            room.gameState.promotionContext = {
-                                extraTurn: combinedExtraTurn,
-                                anvilDropContext: anvilContext,
-                            };
-                            broadcastToRoom(ws.roomId, {
-                                type: 'promotion-required',
-                                square: move.to,
-                                player: movingPlayerColor,
-                                promotingUserId: movingPlayerInfo?.userId,
-                                fullGameState: room.gameState,
-                            });
-                        } else {
-                            broadcastToRoom(ws.roomId, {
-                                type: 'awaiting-anvil-drop',
-                                player: movingPlayerColor,
-                                fullGameState: room.gameState,
-                            });
-                        }
-                        return;
-                    }
-
-
                     if (isPawnPromotion) {
                         console.log(`[Server | game-move] Promotion required for ${movingPlayerColor} at ${move.to}. Broadcasting "promotion-required".`);
                         room.gameState.promotionContext = {
