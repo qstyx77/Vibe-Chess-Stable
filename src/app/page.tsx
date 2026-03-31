@@ -205,7 +205,6 @@ export default function EvolvingChessPage() {
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
   const [activeTimerPlayer, setActiveTimerPlayer] = useState<PlayerColor | null>(null);
   const turnTimerIntervalId = useRef<NodeJS.Timeout | null>(null);
-  const turnTimerGameMoveCounterRef = useRef<number>(0);
   const [whiteTimeouts, setWhiteTimeouts] = useState(0);
   const [blackTimeouts, setBlackTimeouts] = useState(0);
   const [effects, setEffects] = useState<Effect[]>([]);
@@ -540,47 +539,24 @@ setIsBlackAI(newIsBlackAI);
     }
   }, [toast, getPlayerDisplayName, onlineStatus]);
 
-  const stopTurnTimer = () => {
-      console.log('[CLIENT] stopTurnTimer called.');
+  const stopTurnTimer = useCallback(() => {
       if (turnTimerIntervalId.current) {
           clearInterval(turnTimerIntervalId.current);
           turnTimerIntervalId.current = null;
-          console.log('[CLIENT] Timer interval cleared.');
       }
-      setTurnTimer(null);
       setActiveTimerPlayer(null);
-  };
+      setTurnTimer(null);
+  }, []);
 
   const startTurnTimer = useCallback((player: PlayerColor) => {
-    console.log(`[CLIENT] startTurnTimer called for ${player}.`);
-    if (isPromotingPawn) {
-        console.log('[CLIENT] startTurnTimer aborted: pawn promotion in progress.');
-        stopTurnTimer();
-        return;
-    }
-    stopTurnTimer(); // Ensure any existing timer is stopped before starting a new one
+    stopTurnTimer();
+
     setActiveTimerPlayer(player);
     setTurnTimer(45);
-    turnTimerGameMoveCounterRef.current = gameMoveCounter; // Store the current move counter
-    console.log(`[CLIENT] Timer started. Player: ${player}, Duration: 45s, MoveCounter: ${gameMoveCounter}`);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === 1) { // Trigger exactly at 1
-                console.log(`[CLIENT] Timer at 1 for ${player}. Sending timeout.`);
-                if (turnTimerIntervalId.current) {
-                    clearInterval(turnTimerIntervalId.current);
-                    turnTimerIntervalId.current = null;
-                    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-                         const payload = JSON.stringify({ type: 'timeout', timedOutPlayer: player, gameMoveCounter: turnTimerGameMoveCounterRef.current });
-                         console.log('[CLIENT] > SENDING WS to server:', payload);
-                         wsRef.current.send(payload);
-                    }
-                }
-                return 0;
-            }
             if (currentTimerValue === null || currentTimerValue <= 0) {
-                 console.log(`[CLIENT] Timer at or below 0 for ${player}. Clearing interval.`);
                  if (turnTimerIntervalId.current) {
                     clearInterval(turnTimerIntervalId.current);
                     turnTimerIntervalId.current = null;
@@ -589,15 +565,43 @@ setIsBlackAI(newIsBlackAI);
             }
             
             if (currentTimerValue === 11) {
-                console.log(`[CLIENT] Timer warning for ${player}.`);
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
             }
-            // console.log(`[CLIENT] Timer tick for ${player}: ${currentTimerValue - 1}`);
             return currentTimerValue - 1;
         });
     }, 1000);
-  }, [setShowTimerWarning, setTimerWarningKey, isPromotingPawn, gameMoveCounter]);
+  }, [stopTurnTimer, setShowTimerWarning, setTimerWarningKey]);
+
+  useEffect(() => {
+    // This effect manages the lifecycle of the UI turn timer.
+    
+    // Conditions under which a timer should NOT be running.
+    if (onlineStatus !== 'connected' || gameInfo.gameOver || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingCommanderPromotion || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
+      stopTurnTimer();
+      return;
+    }
+
+    // If we've reached here, a timer should be running for the current player.
+    startTurnTimer(currentPlayer);
+
+    // The cleanup function of this effect will stop the timer when dependencies change.
+    return () => {
+      stopTurnTimer();
+    };
+  }, [
+    onlineStatus, 
+    gameInfo.gameOver, 
+    currentPlayer, 
+    isPromotingPawn,
+    isAwaitingAnvilDrop,
+    isAwaitingCommanderPromotion,
+    isAwaitingPawnSacrifice,
+    isAwaitingRookSacrifice,
+    isResurrectionPromotionInProgress,
+    startTurnTimer,
+    stopTurnTimer
+  ]);
 
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
@@ -644,11 +648,7 @@ setIsBlackAI(newIsBlackAI);
       }
     }
      setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: inCheck, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: false, isStalemate: false, gameOver: false }));
-     if (onlineStatus === 'connected' && !gameInfo.gameOver) {
-       startTurnTimer(nextPlayer);
-     }
-
-  }, [getPlayerDisplayName, onlineStatus, gameInfo.gameOver, startTurnTimer]);
+  }, [getPlayerDisplayName, onlineStatus]);
 
   const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null) => {
     let currentBoardState = boardForNextStep;
@@ -776,7 +776,6 @@ setIsBlackAI(newIsBlackAI);
       switch (data.type) {
         case 'promotion-required': {
             console.log('[CLIENT] "promotion-required" case hit.');
-            stopTurnTimer();
             const { square, player, promotingUserId, fullGameState } = data;
             
             setBoard(fullGameState.board);
@@ -833,20 +832,10 @@ setIsBlackAI(newIsBlackAI);
         }
         case 'commander-promo-finalized': {
             applyServerGameState(data.fullGameState, data.lastPlayer);
-            if(data.fullGameState.gameInfo.gameOver) {
-                stopTurnTimer();
-            } else {
-                startTurnTimer(data.fullGameState.currentPlayer);
-            }
             break;
         }
         case 'game-move': {
             applyServerGameState(data.fullGameState, data.lastPlayer);
-            if (data.fullGameState.gameInfo.gameOver) {
-                stopTurnTimer();
-            } else {
-                startTurnTimer(data.fullGameState.currentPlayer);
-            }
             break;
         }
         case 'awaiting-commander-promo': {
@@ -931,14 +920,13 @@ setIsBlackAI(newIsBlackAI);
                     });
                 }
             }
-            stopTurnTimer();
             setIsRankedGame(false);
             setIsMoveProcessing(false);
             setAnimatedSquareTo(null);
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, startTurnTimer, applyServerGameState]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState]);
 
 
   // Effect for cleaning up WebSocket on unmount
@@ -949,7 +937,7 @@ setIsBlackAI(newIsBlackAI);
       }
       stopTurnTimer();
     };
-  }, []);
+  }, [stopTurnTimer]);
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
     if (wsRef.current) {
@@ -1015,7 +1003,6 @@ setIsBlackAI(newIsBlackAI);
             applyServerGameState(data.gameState);
             setOnlineStatus('connected');
             toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
-            startTurnTimer('white');
             break;
           case 'room-joined':
             setRoomId(data.roomId);
@@ -1023,7 +1010,6 @@ setIsBlackAI(newIsBlackAI);
             applyServerGameState(data.gameState);
             setOnlineStatus('connected');
             toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
-            startTurnTimer('white');
             break;
           case 'ranked-match-found':
               setRankedQueueStatus('idle');
@@ -1033,7 +1019,6 @@ setIsBlackAI(newIsBlackAI);
               setIsRankedGame(true);
               setOnlineStatus('connected');
               toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
-              startTurnTimer('white');
               break;
           case 'opponent-disconnected':
             if (gameInfo.gameOver) return;
@@ -1079,7 +1064,7 @@ setIsBlackAI(newIsBlackAI);
         }
     };
   
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, startTurnTimer, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState]);
+  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState]);
   
 
   useEffect(() => {
@@ -1549,10 +1534,6 @@ setIsBlackAI(newIsBlackAI);
                     setKillStreakFlashMessageKey(k => k + 1);
                 }
             }
-        } else {
-            if (anvilsDestroyedByAICount === 0) {
-                newStreakForSelfDestructPlayer = 0;
-            }
         }
         setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer }));
 
@@ -1577,7 +1558,7 @@ setIsBlackAI(newIsBlackAI);
                 if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
                 toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
             }
-        } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer === 4) {
+        } else if (selfDestructCapturedSomething && newStreakForSelfDestructPlayer === 3) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentOfSelfDestructPlayer] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                 const pieceToResOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
@@ -1683,7 +1664,7 @@ setIsBlackAI(newIsBlackAI);
         let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
         
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
-        const pieceCapturedByAnvilFromApply = applyMoveResult.oneCapturedByAnvil; // Fixed from applyMoveResult.pieceCapturedByAnvil;
+        const pieceCapturedByAnvilFromApply = applyMoveResult.pieceCapturedByAnvil;
         const anvilPushedOffBoardFromApply = applyMoveResult.anvilPushedOffBoard;
         const conversionEventsFromApply = applyMoveResult.conversionEvents;
         const levelFromApplyMoveInternal = applyMoveResult.originalPieceLevel;
@@ -1766,25 +1747,24 @@ setIsBlackAI(newIsBlackAI);
         const capturingPlayer = currentPlayer;
         const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
         const pieceWasCapturedThisTurn = !!capturedPieceFromApply || !!pieceCapturedByAnvilFromApply;
-        let newStreakForCapturingPlayer = killStreaks[capturingPlayer] || 0;
         
         if (pieceWasCapturedThisTurn) {
-            newStreakForCapturingPlayer++;
+            killStreaks[capturingPlayer]++;
             if (!firstBloodAchieved) {
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
             } else {
-                const streakMsg = getKillStreakToastMessage(newStreakForCapturingPlayer);
+                const streakMsg = getKillStreakToastMessage(killStreaks[capturingPlayer]);
                 if (streakMsg) {
                     setKillStreakFlashMessage(streakMsg);
                     setKillStreakFlashMessageKey(k => k + 1);
                 }
             }
         } else {
-            newStreakForCapturingPlayer = 0;
+            killStreaks[capturingPlayer] = 0;
         }
-        setKillStreaks(prev => ({ ...prev, [capturingPlayer]: newStreakForCapturingPlayer }));
-
+        setKillStreaks({...killStreaks});
+        
         const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
@@ -1843,7 +1823,7 @@ setIsBlackAI(newIsBlackAI);
 
               if (humanRookResData.resurrectedPieceData?.type === 'pawn' || humanRookResData.resurrectedPieceData?.type === 'commander'){
                   const promoRow = currentPlayer === 'white' ? 0 : 7;
-                  const isExtraTurnForRookResPromo = newStreakForCapturingPlayer === 6;
+                  const isExtraTurnForRookResPromo = killStreaks[capturingPlayer] === 6;
                   if (algebraicToCoords(humanRookResData.resurrectedSquareAlg!).row === promoRow) {
                       setPlayerForPostResurrectionPromotion(currentPlayer);
                       setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo); 
@@ -1882,11 +1862,11 @@ setIsBlackAI(newIsBlackAI);
         const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && pieceThatMadeTheMove?.type === 'hero');
         const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (toR_final === 0 || toR_final === 7) && !becameInfiltratorFromApply;
         const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (toR_final === 0 || toR_final === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
-        const streakGrantsExtraTurn = newStreakForCapturingPlayer === 6;
+        const streakGrantsExtraTurn = killStreaks[capturingPlayer] === 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || applyMoveResult.extraTurn;
 
         let isEnteringAnvilDropMode = false;
-        if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 3) {
+        if (pieceWasCapturedThisTurn && killStreaks[capturingPlayer] === 3) {
           isEnteringAnvilDropMode = true;
           const anvilDropCtx = {
               boardForNextStep: finalBoardStateForTurn,
@@ -1902,7 +1882,7 @@ setIsBlackAI(newIsBlackAI);
               setPlayerToDropAnvil(capturingPlayer);
               setGameInfo(prev => ({...prev, message: `TRIPLE KILL! Place an anvil on an empty square.`}));
           }
-        } else if (pieceWasCapturedThisTurn && newStreakForCapturingPlayer === 4) {
+        } else if (pieceWasCapturedThisTurn && killStreaks[capturingPlayer] === 4) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1932,7 +1912,7 @@ setIsBlackAI(newIsBlackAI);
 
                         if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                             setPlayerForPostResurrectionPromotion(capturingPlayer);
-                            setIsExtraTurnForPostResurrectionPromotion(newStreakForCapturingPlayer === 6);
+                            setIsExtraTurnForPostResurrectionPromotion(killStreaks[capturingPlayer] === 6);
                             setIsResurrectionPromotionInProgress(true);
                             setPlayerToPromote(capturingPlayer);
                             setIsPromotingPawn(true);
@@ -2409,7 +2389,7 @@ setIsBlackAI(newIsBlackAI);
         setLastMoveFrom(aiFromAlg as AlgebraicSquare);
         setLastMoveTo(aiMoveType === 'self-destruct' ? (aiFromAlg as AlgebraicSquare) : (aiToAlg as AlgebraicSquare));
         setIsMoveProcessing(true);
-        setAnimatedSquareTo(aiMoveType === 'self-destruct' ? (aiFromAlg as AlgebraicSquare) : (aiToAlg as AlgebraicSquare));
+        setAnimatedSquareTo(aiToAlg as AlgebraicSquare);
 
         if (pieceOnFromSquareForAI?.type === 'king' && aiFromAlg && aiToAlg && Math.abs(algebraicToCoords(aiFromAlg).col - algebraicToCoords(aiToAlg).col) === 2 && aiMoveType !== 'self-destruct') {
             aiMoveType = 'castle';
@@ -2548,16 +2528,16 @@ setIsBlackAI(newIsBlackAI);
               });
           }
 
-          if (applyMoveResult.oneCapturedByAnvil) {
+          if (applyMoveResult.pieceCapturedByAnvil) {
             addEffect('poof', aiSpecialCaptureSquare || (aiToAlg as AlgebraicSquare));
             pieceCapturedByAnvilAI = true;
-            capturedPieceDataForScoring = applyMoveResult.oneCapturedByAnvil; // Also counts for resurrection
+            capturedPieceDataForScoring = applyMoveResult.pieceCapturedByAnvil; // Also counts for resurrection
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
-                finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.oneCapturedByAnvil, id: `${applyMoveResult.oneCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
+                finalCapturedPiecesForAI[currentPlayer].push({ ...applyMoveResult.pieceCapturedByAnvil, id: `${applyMoveResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
             } else {
-                toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.oneCapturedByAnvil.type}!`, duration: 8000 });
+                toast({ title: "AI Obliterated by Anvil!", description: `AI's Pawn push made an Anvil obliterate a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
             }
-            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.oneCapturedByAnvil.type}!`, duration: 8000 });
+            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${applyMoveResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
           }
           if (aiAnvilPushedOff) {
               toast({ title: "AI Anvil Removed!", description: "Anvil pushed off by AI.", duration: 8000 });
@@ -2613,26 +2593,24 @@ setIsBlackAI(newIsBlackAI);
         }
 
         if(!aiErrorOccurredRef.current) {
-            let newStreakForAIPlayer = killStreaks[currentPlayer] || 0;
             const aiCaptureOccurredThisTurnForStreak = aiMoveCapturedSomething || pieceCapturedByAnvilAI; // Use this for streak
 
             if (aiCaptureOccurredThisTurnForStreak) {
-                newStreakForAIPlayer += (moveForApplyMoveAI!.type === 'self-destruct' ? (finalCapturedPiecesForAI[currentPlayer].length - (originalGameStateForMove.capturedPieces[currentPlayer]?.length || 0)) : 1);
+                killStreaks[currentPlayer] += (moveForApplyMoveAI!.type === 'self-destruct' ? (finalCapturedPiecesForAI[currentPlayer].length - (originalGameStateForMove.capturedPieces[currentPlayer]?.length || 0)) : 1);
                 if (!firstBloodAchieved) {
                     setKillStreakFlashMessage("FIRST BLOOD!");
                     setKillStreakFlashMessageKey(k => k + 1);
                 } else {
-                    const streakMsg = getKillStreakToastMessage(newStreakForAIPlayer);
+                    const streakMsg = getKillStreakToastMessage(killStreaks[currentPlayer]);
                     if (streakMsg) {
                         setKillStreakFlashMessage(streakMsg);
                         setKillStreakFlashMessageKey(k => k + 1);
                     }
                 }
-            } else if (moveForApplyMoveAI!.type === 'self-destruct' && anvilsDestroyedByAICount > 0) {
             } else {
-                newStreakForAIPlayer = 0;
+                killStreaks[currentPlayer] = 0;
             }
-            setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAIPlayer }));
+            setKillStreaks({ ...killStreaks });
 
 
             if (aiMoveCapturedSomething || pieceCapturedByAnvilAI) {
@@ -2641,7 +2619,7 @@ setIsBlackAI(newIsBlackAI);
             }
 
             let isEnteringAnvilDropMode = false;
-            if (aiCaptureOccurredThisTurnForStreak && newStreakForAIPlayer === 3) {
+            if (aiCaptureOccurredThisTurnForStreak && killStreaks[currentPlayer] === 3) {
               isEnteringAnvilDropMode = true;
             }
 
@@ -2651,7 +2629,7 @@ setIsBlackAI(newIsBlackAI);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
                     toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 8000 });
-                } else if (newStreakForAIPlayer === 4) {
+                } else if (killStreaks[currentPlayer] === 4) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
@@ -2756,7 +2734,7 @@ setIsBlackAI(newIsBlackAI);
               const promotionRankAI = currentPlayer === 'white' ? 0 : 7;
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === promotionRankAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === promotionRankAI && moveForApplyMoveAI!.type !== 'self-destruct';
-              const streakGrantsExtraTurn = newStreakForAIPlayer === 6;
+              const streakGrantsExtraTurn = killStreaks[currentPlayer] === 6;
 
               let extraTurnForThisAIMove = aiExtraTurn || streakGrantsExtraTurn;
               let sacrificeNeededForAIQueen = false;

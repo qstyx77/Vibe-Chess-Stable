@@ -40,7 +40,7 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const rooms: Record<string, { clients: (WebSocket & { userId?: string })[]; gameState: any; isRanked: boolean; }> = {};
+const rooms: Record<string, { clients: (WebSocket & { userId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
 // Ranked matchmaking queue
@@ -83,6 +83,70 @@ const broadcastToRoom = (roomId: string, message: any) => {
         });
     }
 };
+
+const startServerTurnTimer = (roomId: string) => {
+    const room = rooms[roomId];
+    if (!room || room.gameState.gameInfo.gameOver) return;
+
+    // Clear any existing timer for this room
+    if (room.turnTimer) {
+        clearTimeout(room.turnTimer);
+    }
+
+    const currentMoveCounter = room.gameState.gameMoveCounter;
+    const playerToMove = room.gameState.currentPlayer;
+
+    room.turnTimer = setTimeout(() => {
+        const roomAfterTimeout = rooms[roomId];
+        // Check if the game state has changed since the timer was set
+        if (roomAfterTimeout && roomAfterTimeout.gameState.gameMoveCounter === currentMoveCounter && !roomAfterTimeout.gameState.gameInfo.gameOver) {
+            console.log(`[Server] Timeout! Player ${playerToMove}'s turn has expired for move ${currentMoveCounter}.`);
+            
+            const timedOutPlayer = playerToMove;
+            roomAfterTimeout.gameState.killStreaks[timedOutPlayer] = 0;
+
+            const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
+            let winnerOnTimeout = opponent;
+            let reason = 'timeout';
+
+            if (timedOutPlayer === 'white') roomAfterTimeout.gameState.whiteTimeouts++;
+            else roomAfterTimeout.gameState.blackTimeouts++;
+            
+            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTarget);
+            if (timedOutPlayerInCheck) {
+                reason = 'self-check-timeout';
+            }
+            
+            if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
+                roomAfterTimeout.gameState.gameInfo.gameOver = true;
+                roomAfterTimeout.gameState.gameInfo.winner = winnerOnTimeout;
+                roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[timedOutPlayer] || {}).username || timedOutPlayer} ran out of time. ${winnerOnTimeout} wins!`;
+
+                const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
+                broadcastToRoom(roomId, broadcastMsg);
+                if (roomAfterTimeout.turnTimer) clearTimeout(roomAfterTimeout.turnTimer);
+                return;
+            }
+
+            roomAfterTimeout.gameState.currentPlayer = opponent;
+            
+            const inCheck = isKingInCheck(roomAfterTimeout.gameState.board, opponent, roomAfterTimeout.gameState.enPassantTarget);
+            roomAfterTimeout.gameState.gameInfo.isCheck = inCheck;
+            roomAfterTimeout.gameState.gameInfo.playerWithKingInCheck = inCheck ? opponent : null;
+            roomAfterTimeout.gameState.gameInfo.message = inCheck ? "Check!" : `Timed out. It's now ${opponent}'s turn.`;
+
+            const broadcastMsg = {
+                type: 'game-move',
+                fullGameState: roomAfterTimeout.gameState,
+                lastPlayer: timedOutPlayer,
+            };
+            broadcastToRoom(roomId, broadcastMsg);
+
+            startServerTurnTimer(roomId);
+        }
+    }, 45000);
+}
+
 
 const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean) => {
     console.log(`[Server | finalizeTurn] Finalizing turn for ${movingPlayerColor}. Extra Turn: ${isExtraTurn}`);
@@ -142,6 +206,10 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
         fullGameState: room.gameState,
         lastPlayer: movingPlayerColor,
     });
+    
+    if (!room.gameState.gameInfo.gameOver) {
+        startServerTurnTimer(room.clients[0].roomId);
+    }
 };
 
 const processRankedQueue = async () => {
@@ -191,6 +259,7 @@ const processRankedQueue = async () => {
 
         player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
         player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
+        startServerTurnTimer(roomId);
     }
 };
 setInterval(processRankedQueue, 10000);
@@ -210,6 +279,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 console.log('[Server] Failed to parse message:', e);
                 return;
             }
+            
+            const room = ws.roomId ? rooms[ws.roomId] : undefined;
+
+            if (room && room.turnTimer) {
+                clearTimeout(room.turnTimer);
+            }
 
             console.log('[Server] Received message:', data.type, data.payload || data);
 
@@ -219,8 +294,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 return;
             }
             
-            const room = ws.roomId ? rooms[ws.roomId] : undefined;
-
             switch (data.type) {
                 case 'create-room': {
                     const roomId = Math.random().toString(36).substring(2, 9);
@@ -275,6 +348,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black', gameState: roomToJoin.gameState }));
                         
                         broadcastToRoom(roomIdToJoin, { type: 'player-joined', gameState: roomToJoin.gameState });
+                        startServerTurnTimer(roomIdToJoin);
                     } else {
                         ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
                     }
@@ -331,6 +405,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             fullGameState: room.gameState,
                             lastPlayer: playerWhoActed
                         });
+
+                        if (!room.gameState.gameInfo.gameOver) {
+                            startServerTurnTimer(ws.roomId);
+                        }
                     }
                     break;
                 }
@@ -388,64 +466,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn);
                     break;
                 }
-                case 'timeout': {
-                    if (room && !room.gameState.gameInfo.gameOver) {
-                        const timedOutPlayer = data.timedOutPlayer;
-
-                        if (data.gameMoveCounter !== room.gameState.gameMoveCounter) {
-                            console.log(`[Server | timeout] Stale timeout message received for move ${data.gameMoveCounter}, but server is on move ${room.gameState.gameMoveCounter}. Ignoring.`);
-                            return;
-                        }
-
-                        if (room.gameState.currentPlayer !== timedOutPlayer) {
-                            console.log(`[Server | timeout] Rejected timeout for ${timedOutPlayer}, it is ${room.gameState.currentPlayer}'s turn.`);
-                            return;
-                        }
-
-                        room.gameState.killStreaks[timedOutPlayer] = 0;
-
-                        const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
-                        let winnerOnTimeout = opponent;
-                        let reason = 'timeout';
-
-                        if (timedOutPlayer === 'white') room.gameState.whiteTimeouts++;
-                        else room.gameState.blackTimeouts++;
-                        
-                        const timedOutPlayerInCheck = isKingInCheck(room.gameState.board, timedOutPlayer, room.gameState.enPassantTarget);
-                        if (timedOutPlayerInCheck) {
-                            reason = 'self-check-timeout';
-                        }
-                        
-                        if (room.gameState.whiteTimeouts >= 3 || room.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
-                            room.gameState.gameInfo.gameOver = true;
-                            room.gameState.gameInfo.winner = winnerOnTimeout;
-                            const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
-                            broadcastToRoom(ws.roomId, broadcastMsg);
-                            return;
-                        }
-
-                        room.gameState.currentPlayer = opponent;
-                        
-                        const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
-                        if (inCheck) {
-                            room.gameState.gameInfo.message = "Check!";
-                            room.gameState.gameInfo.isCheck = true;
-                            room.gameState.gameInfo.playerWithKingInCheck = opponent;
-                        } else {
-                            room.gameState.gameInfo.message = " ";
-                            room.gameState.gameInfo.isCheck = false;
-                            room.gameState.gameInfo.playerWithKingInCheck = null;
-                        }
-
-                        const broadcastMsg = {
-                            type: 'game-move',
-                            fullGameState: room.gameState,
-                            lastPlayer: timedOutPlayer,
-                        };
-                        broadcastToRoom(ws.roomId, broadcastMsg);
-                    }
-                    break;
-                }
                 case 'game-move': {
                     if (!room || !data.payload) {
                         console.log('[Server | game-move] Rejected: no room or payload.');
@@ -477,7 +497,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
                     console.log('[Server | game-move] Result FROM applyMove:', { capturedPiece: !!capturedPiece, isPawnPromotion: !!(newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece?.type === 'pawn' && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7)) , ...restOfResult });
                     
-                    let wasCapture = !!capturedPiece || !!restOfResult.oneCapturedByAnvil;
+                    let wasCapture = !!capturedPiece || !!restOfResult.pieceCapturedByAnvil;
                     let extraTurnFromStreak = false;
                     room.gameState.resurrectedSquare = null;
 
@@ -485,8 +505,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (capturedPiece && !restOfResult.promotedToInfiltrator) {
                             room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
                         }
-                        if (restOfResult.oneCapturedByAnvil) {
-                            room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.oneCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
+                        if (restOfResult.pieceCapturedByAnvil) {
+                            room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                         }
 
                         room.gameState.killStreaks[movingPlayerColor]++;
@@ -627,6 +647,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     break;
                 }
                 default:
+                    if (room && !room.gameState.gameInfo.gameOver) {
+                         startServerTurnTimer(ws.roomId);
+                    }
                     break;
             }
         } catch (error) {
@@ -647,18 +670,24 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room) {
+                 if (room.turnTimer) {
+                    clearTimeout(room.turnTimer);
+                }
                 room.clients = room.clients.filter(client => client !== ws);
                 
-                if (room.clients.length > 0) {
-                     if (!room.gameState.gameInfo.gameOver) {
-                        const winner = room.clients.find(c => c !== ws) === room.clients[0] ? (room.gameState.players.white.userId === room.clients[0].userId ? 'white' : 'black') : (room.gameState.players.white.userId === room.clients[0].userId ? 'black' : 'white');
-                        room.gameState.gameInfo.gameOver = true;
-                        room.gameState.gameInfo.winner = winner;
-                        broadcastToRoom(ws.roomId, { type: 'opponent-disconnected', winner: winner });
-                    }
+                 if (room.clients.length > 0 && !room.gameState.gameInfo.gameOver) {
+                    const opponentClient = room.clients[0];
+                    const opponentUserId = opponentClient.userId;
+                    const winner = room.gameState.players.white.userId === opponentUserId ? 'white' : 'black';
+
+                    room.gameState.gameInfo.gameOver = true;
+                    room.gameState.gameInfo.winner = winner;
+                    room.gameState.gameInfo.message = `Opponent disconnected. ${winner} wins!`;
+                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected', winner });
                 }
                
                 if (room.clients.length === 0) {
+                    console.log(`[Server] Deleting empty room: ${ws.roomId}`);
                     delete rooms[ws.roomId];
                 }
             }
@@ -680,3 +709,4 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
