@@ -796,14 +796,14 @@ setIsBlackAI(newIsBlackAI);
 
             setIsMoveProcessing(false);
 
-            if (promotingUserId === user?.uid) {
-                console.log(`[CLIENT] This client (${user?.uid}) needs to promote.`);
+            if (player === localPlayerColor) {
+                console.log(`[CLIENT] This client (${localPlayerColor}) needs to promote.`);
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
                 console.log('[CLIENT] State set for promotion: isPromotingPawn=true');
             } else {
-                console.log(`[CLIENT] Another player (${player}, id: ${promotingUserId}) is promoting. My id is ${user?.uid}.`);
+                console.log(`[CLIENT] Another player (${player}) is promoting. My color is ${localPlayerColor}.`);
             }
             break;
         }
@@ -1749,7 +1749,9 @@ setIsBlackAI(newIsBlackAI);
         const pieceWasCapturedThisTurn = !!capturedPieceFromApply || !!pieceCapturedByAnvilFromApply;
         
         if (pieceWasCapturedThisTurn) {
-            killStreaks[capturingPlayer]++;
+            if (!wasCaptureInterruptingStreak(killStreaks[capturingPlayer])) {
+              killStreaks[capturingPlayer]++;
+            }
             if (!firstBloodAchieved) {
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
@@ -2045,6 +2047,10 @@ setIsBlackAI(newIsBlackAI);
     setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
   ]);
+  
+  const wasCaptureInterruptingStreak = (currentStreak: number): boolean => {
+      return currentStreak === 3 || currentStreak === 4 || currentStreak === 6;
+  }
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isAwaitingCommanderPromotion) {
@@ -2596,7 +2602,9 @@ setIsBlackAI(newIsBlackAI);
             const aiCaptureOccurredThisTurnForStreak = aiMoveCapturedSomething || pieceCapturedByAnvilAI; // Use this for streak
 
             if (aiCaptureOccurredThisTurnForStreak) {
-                killStreaks[currentPlayer] += (moveForApplyMoveAI!.type === 'self-destruct' ? (finalCapturedPiecesForAI[currentPlayer].length - (originalGameStateForMove.capturedPieces[currentPlayer]?.length || 0)) : 1);
+                if (!wasCaptureInterruptingStreak(killStreaks[currentPlayer])) {
+                  killStreaks[currentPlayer]++;
+                }
                 if (!firstBloodAchieved) {
                     setKillStreakFlashMessage("FIRST BLOOD!");
                     setKillStreakFlashMessageKey(k => k + 1);
