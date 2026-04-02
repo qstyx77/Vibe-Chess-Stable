@@ -24,7 +24,6 @@ import {
   isValidSquare,
   processRookResurrectionCheck,
   type RookResurrectionResult,
-  spawnAnvil,
   spawnShroom,
   boardToSimpleString,
   findKing,
@@ -1265,6 +1264,7 @@ setIsBlackAI(newIsBlackAI);
     let originalPieceLevelBeforeMove: number | undefined;
     let moveBeingMade: Move | null = null;
     let humanPlayerAchievedFirstBloodThisTurn = false;
+    let nextEnPassantTarget: AlgebraicSquare | null = null;
 
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
         if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
@@ -1606,7 +1606,7 @@ setIsBlackAI(newIsBlackAI);
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
         finalBoardStateForTurn = applyMoveResult.newBoard;
-        let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
+        nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
         
         const capturedPieceFromApply = applyMoveResult.capturedPiece;
         const pieceCapturedByAnvilFromApply = applyMoveResult.pieceCapturedByAnvil;
@@ -2241,6 +2241,7 @@ setIsBlackAI(newIsBlackAI);
       let aiExtraTurn = false;
       let rallyCryTriggeredByAI: RallyCryEvent | null = null;
       let aiSpecialCaptureSquare: AlgebraicSquare | null = null;
+      let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
 
       while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
         attemptCount++;
@@ -2364,7 +2365,7 @@ setIsBlackAI(newIsBlackAI);
         const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, ...restOfResult } = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare);
         finalBoardStateForAI = newBoard;
         
-        let nextEnPassantTargetForAI = restOfResult.enPassantTargetSet;
+        nextEnPassantTargetForAI = restOfResult.enPassantTargetSet;
         levelFromAIApplyMove = restOfResult.originalPieceLevel;
         selfCheckByAIPushBack = restOfResult.selfCheckByPushBack;
         aiAnvilPushedOff = restOfResult.anvilPushedOffBoard;
