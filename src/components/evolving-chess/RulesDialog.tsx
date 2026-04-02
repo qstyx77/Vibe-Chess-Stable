@@ -213,7 +213,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   You are prompted to place an Anvil on any empty square on the board. This action is part of your turn.
                 </PieceRule>
                 <PieceRule title="Streak of 4 (Resurrection)">
-                  One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn.
+                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn.
                 </PieceRule>
                 <PieceRule title="Streak of 6 (Extra Turn)">
                   You gain an extra turn immediately.

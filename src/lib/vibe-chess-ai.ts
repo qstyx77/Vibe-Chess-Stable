@@ -585,6 +585,9 @@ export class VibeChessAI {
         if (pieceWasCaptured || pieceCapturedByAnvil) {
             newState.killStreaks[currentPlayer] = (newState.killStreaks[currentPlayer] || 0) + (move.type === 'self-destruct' ? (newState.capturedPieces[currentPlayer].length - (originalGameState.capturedPieces[currentPlayer]?.length || 0)) : 1);
             newState.killStreaks[opponentColor] = 0;
+            if (newState.killStreaks[currentPlayer] === 3) {
+                // Anvil logic in a separate function to avoid complexity here
+            }
             if (newState.killStreaks[currentPlayer] === 4) {
                  this.handleResurrection(newState, currentPlayer);
             }
@@ -1035,14 +1038,14 @@ export class VibeChessAI {
         const opponentPlayerStreak = ks[opponentColor] || 0;
         if (aiPlayerStreak >= 2) streakScore += 10 * aiPlayerStreak;
         if (aiPlayerStreak === 3) streakScore += 50; // Anvil
-        if (aiPlayerStreak === 4) streakScore += 50; // Resurrection
+        if (aiPlayerStreak === 4) streakScore += 150; // Resurrection
         if (aiPlayerStreak >= 5) streakScore += 25;
-        if (aiPlayerStreak === 6) streakScore += 150;
+        if (aiPlayerStreak === 6) streakScore += 250; // Extra turn
         if (opponentPlayerStreak >= 2) streakScore -= 10 * opponentPlayerStreak;
         if (opponentPlayerStreak === 3) streakScore -= 50;
-        if (opponentPlayerStreak === 4) streakScore -= 50;
+        if (opponentPlayerStreak === 4) streakScore -= 150;
         if (opponentPlayerStreak >= 5) streakScore -= 25;
-        if (opponentPlayerStreak === 6) streakScore -= 150;
+        if (opponentPlayerStreak === 6) streakScore -= 250;
         return streakScore;
     }
 
