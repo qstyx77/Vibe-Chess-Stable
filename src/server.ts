@@ -494,95 +494,29 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                     const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
                     
-                    const { newBoard, capturedPiece, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
-                    console.log('[Server | game-move] Result FROM applyMove:', { capturedPiece: !!capturedPiece, isPawnPromotion: !!(newBoard[algebraicToCoords(move.to).row]?.[algebraicToCoords(move.to).col]?.piece?.type === 'pawn' && (algebraicToCoords(move.to).row === 0 || algebraicToCoords(move.to).row === 7)) , ...restOfResult });
+                    const { newBoard, capturedPiece, selfDestructCaptures, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
                     
-                    let wasCapture = !!capturedPiece || !!restOfResult.pieceCapturedByAnvil;
-                    let extraTurnFromStreak = false;
                     room.gameState.resurrectedSquare = null;
+                    
+                    let capturesThisTurn = 0;
+                    if (capturedPiece) capturesThisTurn++;
+                    if (restOfResult.pieceCapturedByAnvil) capturesThisTurn++;
+                    if (selfDestructCaptures) capturesThisTurn += selfDestructCaptures.length;
+                    
+                    let newStreak = room.gameState.killStreaks[movingPlayerColor] || 0;
 
-                    if (wasCapture) {
+                    if (capturesThisTurn > 0) {
+                        newStreak += capturesThisTurn;
+                        room.gameState.killStreaks[movingPlayerColor] = newStreak;
+                        
                         if (capturedPiece && !restOfResult.promotedToInfiltrator) {
                             room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
                         }
                         if (restOfResult.pieceCapturedByAnvil) {
                             room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
                         }
-
-                        room.gameState.killStreaks[movingPlayerColor]++;
-                        
-                        if (room.gameState.killStreaks[movingPlayerColor] === 6) {
-                            extraTurnFromStreak = true;
-                        } else if (room.gameState.killStreaks[movingPlayerColor] === 3) {
-                            const anvilContext = {
-                                playerWhoseTurnCompleted: movingPlayerColor,
-                                isExtraTurn: extraTurnFromStreak || (restOfResult as any).extraTurn,
-                                newEnPassantTarget: restOfResult.enPassantTargetSet,
-                            };
-                            room.gameState.anvilDropContext = anvilContext;
-                            
-                            const { row: toRowAnvil, col: toColAnvil } = algebraicToCoords(move.to);
-                            const pieceOnToSquareAnvil = newBoard[toRowAnvil]?.[toColAnvil]?.piece;
-                            const isPawnPromotionAnvil = pieceOnToSquareAnvil && pieceOnToSquareAnvil.type === 'pawn' && (toRowAnvil === 0 || toRowAnvil === 7) && !restOfResult.promotedToInfiltrator;
-
-                            if (isPawnPromotionAnvil) {
-                                room.gameState.promotionContext = {
-                                    extraTurn: extraTurnFromStreak,
-                                    anvilDropContext: anvilContext,
-                                };
-                                broadcastToRoom(ws.roomId, {
-                                    type: 'promotion-required',
-                                    square: move.to,
-                                    player: movingPlayerColor,
-                                    promotingUserId: movingPlayerInfo?.userId,
-                                    fullGameState: room.gameState,
-                                });
-                                return; // Stop processing, wait for promotion finalization
-                            } else {
-                                broadcastToRoom(ws.roomId, {
-                                    type: 'awaiting-anvil-drop',
-                                    player: movingPlayerColor,
-                                    fullGameState: room.gameState,
-                                });
-                                return; // Stop processing, wait for anvil drop
-                            }
-
-                        } else if (room.gameState.killStreaks[movingPlayerColor] === 4) {
-                            const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
-                            const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
-                            if (piecesToChooseFrom.length > 0) {
-                                const pieceToResurrect = chooseBestResurrectionPiece(piecesToChooseFrom);
-                                if (pieceToResurrect) {
-                                    const emptySquares: {row: number, col: number}[] = [];
-                                    for (let r_idx = 0; r_idx < 8; r_idx++) {
-                                        for (let c_idx = 0; c_idx < 8; c_idx++) {
-                                            if (!newBoard[r_idx][c_idx].piece && !newBoard[r_idx][c_idx].item) {
-                                                emptySquares.push({row: r_idx, col: c_idx});
-                                            }
-                                        }
-                                    }
-
-                                    if (emptySquares.length > 0) {
-                                        const {row: resR, col: resC} = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                                        const resurrectedPiece: Piece = {
-                                            ...pieceToResurrect,
-                                            level: 1,
-                                            id: `srv_res_${globalServerUniqueIdCounter++}`,
-                                            hasMoved: pieceToResurrect.type === 'king' || pieceToResurrect.type === 'rook' ? false : pieceToResurrect.hasMoved,
-                                            invulnerableTurnsRemaining: 0,
-                                        };
-                                        
-                                        const promotionRank = movingPlayerColor === 'white' ? 0 : 7;
-                                        if (resurrectedPiece.type === 'pawn' && resR === promotionRank) resurrectedPiece.type = 'queen';
-                                        else if (resurrectedPiece.type === 'commander' && resR === promotionRank) resurrectedPiece.type = 'hero';
-
-                                        newBoard[resR][resC].piece = resurrectedPiece;
-                                        room.gameState.resurrectedSquare = coordsToAlgebraic(resR, resC);
-
-                                        room.gameState.capturedPieces[opponentColorForRes] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
-                                    }
-                                }
-                            }
+                        if (selfDestructCaptures && selfDestructCaptures.length > 0) {
+                            selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayerColor].push({ ...p, id: `srv_sd_cap_${globalServerUniqueIdCounter++}` }));
                         }
 
                         if (!room.gameState.firstBloodAchieved) {
@@ -606,21 +540,72 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const { row: toRow, col: toCol } = algebraicToCoords(move.to);
                     const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
                     const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
-                    console.log('[Server | game-move] Flags:', { wasCapture, extraTurnFromStreak, isPawnPromotion, extraTurnFromApplyMove: (restOfResult as any).extraTurn });
-        
+                    
+                    const extraTurnFromStreak = newStreak === 6;
                     const combinedExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
                     
-                    if (isPawnPromotion) {
-                        console.log(`[Server | game-move] Promotion required for ${movingPlayerColor} at ${move.to}. Broadcasting "promotion-required".`);
-                        room.gameState.promotionContext = {
-                            extraTurn: combinedExtraTurn,
+                     if (newStreak === 3) {
+                        const anvilContext = {
+                            playerWhoseTurnCompleted: movingPlayerColor,
+                            isExtraTurn: combinedExtraTurn,
+                            newEnPassantTarget: restOfResult.enPassantTargetSet,
                         };
-                        const promotingUserId = room.gameState.players[movingPlayerColor]?.userId;
+                        room.gameState.anvilDropContext = anvilContext;
+                        if (isPawnPromotion) {
+                            room.gameState.promotionContext = {
+                                extraTurn: combinedExtraTurn,
+                                anvilDropContext: anvilContext,
+                            };
+                            broadcastToRoom(ws.roomId, {
+                                type: 'promotion-required',
+                                square: move.to,
+                                player: movingPlayerColor,
+                                fullGameState: room.gameState,
+                            });
+                            return;
+                        } else {
+                            broadcastToRoom(ws.roomId, {
+                                type: 'awaiting-anvil-drop',
+                                player: movingPlayerColor,
+                                fullGameState: room.gameState,
+                            });
+                            return;
+                        }
+                    } else if (newStreak === 4) {
+                        const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
+                        const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
+                        if (piecesToChooseFrom.length > 0) {
+                            const pieceToResurrect = chooseBestResurrectionPiece(piecesToChooseFrom);
+                            if (pieceToResurrect) {
+                                const emptySquares: {row: number, col: number}[] = [];
+                                for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) {
+                                    if (!newBoard[r_idx][c_idx].piece && !newBoard[r_idx][c_idx].item) emptySquares.push({row: r_idx, col: c_idx});
+                                }
+                                if (emptySquares.length > 0) {
+                                    const {row: resR, col: resC} = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                                    const resurrectedPiece: Piece = {
+                                        ...pieceToResurrect,
+                                        level: 1, id: `srv_res_${globalServerUniqueIdCounter++}`,
+                                        hasMoved: pieceToResurrect.type === 'king' || pieceToResurrect.type === 'rook' ? false : pieceToResurrect.hasMoved,
+                                        invulnerableTurnsRemaining: 0,
+                                    };
+                                    const promotionRank = movingPlayerColor === 'white' ? 0 : 7;
+                                    if (resurrectedPiece.type === 'pawn' && resR === promotionRank) resurrectedPiece.type = 'queen';
+                                    else if (resurrectedPiece.type === 'commander' && resR === promotionRank) resurrectedPiece.type = 'hero';
+                                    newBoard[resR][resC].piece = resurrectedPiece;
+                                    room.gameState.resurrectedSquare = coordsToAlgebraic(resR, resC);
+                                    room.gameState.capturedPieces[opponentColorForRes] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
+                                }
+                            }
+                        }
+                    }
+
+                    if (isPawnPromotion) {
+                        room.gameState.promotionContext = { extraTurn: combinedExtraTurn };
                         broadcastToRoom(ws.roomId, {
                             type: 'promotion-required',
                             square: move.to,
                             player: movingPlayerColor,
-                            promotingUserId: promotingUserId,
                             fullGameState: room.gameState
                         });
                         return; 
@@ -709,4 +694,5 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
