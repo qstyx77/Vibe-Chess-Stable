@@ -34,7 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy } from 'lucide-react';
-import type { VibeChessAI as VibeChessAIClassType } from '@/lib/vibe-chess-ai';
+import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -164,7 +164,7 @@ export default function EvolvingChessPage() {
   const [isWhiteAI, setIsWhiteAI] = useState(false);
   const [isBlackAI, setIsBlackAI] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const aiInstanceRef = useRef<VibeChessAIClassType | null>(null);
+  const aiInstanceRef = useRef<VibeChessAI | null>(null);
   const aiErrorOccurredRef = useRef(false);
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
@@ -414,7 +414,6 @@ setIsBlackAI(newIsBlackAI);
   }, [currentPlayer]);
 
   const getKillStreakToastMessage = useCallback((streak: number): string | null => {
-    if (streak === 1) return "KILL STREAK!";
     if (streak === 2) return "DOUBLE KILL!";
     if (streak === 3) return "TRIPLE KILL!";
     if (streak === 4) return "ULTRA KILL!";
@@ -1053,23 +1052,21 @@ setIsBlackAI(newIsBlackAI);
   
 
   useEffect(() => {
-    const initializeAI = async () => {
+    const initializeAI = () => {
       try {
-        const VibeChessAIModule = await import('@/lib/vibe-chess-ai');
-        const ActualVibeChessAI = VibeChessAIModule.VibeChessAI;
-        if (ActualVibeChessAI && typeof ActualVibeChessAI === 'function') {
+        if (VibeChessAI && typeof VibeChessAI === 'function') {
           aiInstanceRef.current = new VibeChessAI(2);
         } else {
           toast({
             title: "AI Initialization Error",
-            description: "Could not load the AI engine (named export not found or not a constructor).",
+            description: "Could not load the AI engine (class not found or not a constructor).",
             variant: "destructive",
             duration: 8000,
           });
         }
       } catch (err: any) {
         toast({
-          title: "AI Import Error",
+          title: "AI Initialization Error",
           description: `There was an issue loading the AI component: ${err.message}`,
           variant: "destructive",
           duration: 8000,
@@ -1476,11 +1473,16 @@ setIsBlackAI(newIsBlackAI);
         if (destroyedAnvils > 0) toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(currentPlayer)} ${pieceToMoveFromSelected.type} destroyed ${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''}!`, duration: 8000 });
         
         const selfDestructPlayer = currentPlayer;
-        const selfDestructCapturesCount = selfDestructCaptures.length;
         let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
+        let capturesThisTurnForSelfDestruct = selfDestructCaptures.length;
+        if (capturesThisTurnForSelfDestruct > 0) {
+            newStreakForSelfDestructPlayer += capturesThisTurnForSelfDestruct;
+        } else {
+            newStreakForSelfDestructPlayer = 0;
+        }
+        setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer}));
         
-        if (selfDestructCapturesCount > 0) {
-            newStreakForSelfDestructPlayer += selfDestructCapturesCount;
+        if (capturesThisTurnForSelfDestruct > 0) {
             if (!firstBloodAchieved) {
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
@@ -1493,17 +1495,25 @@ setIsBlackAI(newIsBlackAI);
             }
             setShowCaptureFlash(true);
             setCaptureFlashKey(k => k + 1);
-            setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer }));
-        } else {
-            setKillStreaks(prev => ({ ...prev, [selfDestructPlayer]: 0 }));
         }
 
         const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-        if (selfDestructCapturesCount > 0 && !firstBloodAchieved) {
+        if (capturesThisTurnForSelfDestruct > 0 && !firstBloodAchieved) {
             setFirstBloodAchieved(true);
             setPlayerWhoGotFirstBlood(selfDestructPlayer);
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
             toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
+        } else if (newStreakForSelfDestructPlayer === 3) {
+            setIsAwaitingAnvilDrop(true);
+            setPlayerToDropAnvil(selfDestructPlayer);
+            setGameInfo(prev => ({ ...prev, message: `KILL STREAK OF 3! Place an anvil on an empty square.` }));
+            const anvilDropCtx = {
+                boardForNextStep: finalBoardStateForTurn,
+                playerWhoseTurnCompleted: selfDestructPlayer,
+                isExtraTurn: false,
+                newEnPassantTarget: null
+            };
+            setAnvilDropContext(anvilDropCtx);
         } else if (newStreakForSelfDestructPlayer === 4) {
               let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
               if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1562,6 +1572,11 @@ setIsBlackAI(newIsBlackAI);
               if (onlineStatus === 'disconnected') {
                 setIsMoveProcessing(false);
               }
+              return;
+          }
+
+          if (isAwaitingAnvilDrop) {
+              setIsMoveProcessing(false);
               return;
           }
 
@@ -1684,7 +1699,6 @@ setIsBlackAI(newIsBlackAI);
 
         if (capturesThisTurn > 0) {
             newStreak += capturesThisTurn;
-            setKillStreaks(prev => ({ ...prev, [capturingPlayer]: newStreak }));
             if (!firstBloodAchieved) {
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
@@ -1696,11 +1710,9 @@ setIsBlackAI(newIsBlackAI);
                 }
             }
         } else {
-            if (killStreaks[capturingPlayer] > 0) {
-              setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
-            }
             newStreak = 0;
         }
+        setKillStreaks(prev => ({...prev, [capturingPlayer]: newStreak, [opponentPlayer]: prev[opponentPlayer]}));
         
         const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
@@ -2479,7 +2491,10 @@ setIsBlackAI(newIsBlackAI);
 
             if (capturesThisTurnAI > 0) {
                 newStreakForAI += capturesThisTurnAI;
-                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI }));
+                const wasCaptureInterruptingStreak = newStreakForAI === 3 || newStreakForAI === 4 || newStreakForAI === 6;
+                if (!wasCaptureInterruptingStreak) {
+                     setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI }));
+                }
 
                 if (!firstBloodAchieved) {
                     setKillStreakFlashMessage("FIRST BLOOD!");
@@ -2671,7 +2686,7 @@ setIsBlackAI(newIsBlackAI);
                   const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                   if (pieceAfterAIPromo?.type === 'queen') {
-                    sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, nextEnpassantTargetForAI);
+                    sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, nextEnPassantTargetForAI);
                   } else if (pieceAfterAIPromo?.type === 'rook') {
                       if ((!aiRookResData || !aiRookResData.resurrectionPerformed) && (capturedPieceDataForScoring || restOfResult.pieceCapturedByAnvil)) { // Rook resurrection only on capture
                         const newRookLevelCheck = Number(pieceAfterAIPromo.level || 1);
@@ -2747,14 +2762,14 @@ setIsBlackAI(newIsBlackAI);
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
                   }
               } else if (pieceAtDestinationAI?.type === 'queen') {
-                 sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, nextEnpassantTargetForAI);
+                 sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               } else if (aiBecameInfiltrator) {
               }
 
               if (localAIAwaitingCommanderPromo) {
-                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnpassantTargetForAI);
+                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               } else if (!sacrificeNeededForAIQueen) {
-                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnpassantTargetForAI);
+                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
               }
 
               setIsMoveProcessing(false);
