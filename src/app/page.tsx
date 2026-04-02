@@ -2208,33 +2208,7 @@ setIsBlackAI(newIsBlackAI);
     setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) is thinking...` }));
     setSelectedSquare(null); setPossibleMoves([]);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-
-    let aiFromAlg: AlgebraicSquare | null = null;
-    let aiToAlg: AlgebraicSquare | null = null;
-    let originalPieceLevelForAI: number | undefined;
-    let moveForApplyMoveAI: Move | null = null;
-    let localAIAwaitingCommanderPromo = false;
-    let levelFromAIApplyMove: number | undefined;
-    let selfCheckByAIPushBack = false;
-    let aiAnvilPushedOff = false;
-    let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | null | undefined = null;
-    let aiBecameInfiltrator = false;
-    let aiGameWonByInfiltration = false;
-    let aiExtraTurn = false;
-    let rallyCryTriggeredByAI: RallyCryEvent | null = null;
-    let aiSpecialCaptureSquare: AlgebraicSquare | null = null;
-    let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
-
-
-    let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? {...s_fbs.item} : null })));
-    let finalCapturedPiecesForAI = {
-      white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
-      black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
-    };
-    let capturedPieceDataForScoring: Piece | null = null; // To hold captured piece by AI's move
-    let shroomConsumedByAIForEval = false;
-
-
+    
     try {
       let aiMoveDataFromVibeAI: AIMoveType | null = null;
       let aiExtraTurnFromAIMethod = false;
@@ -2242,6 +2216,30 @@ setIsBlackAI(newIsBlackAI);
       const MAX_AI_ATTEMPTS = 3;
       let pieceOnFromSquareForAI: Piece | null = null;
       let isAiMoveActuallyLegal = false;
+      let aiFromAlg: AlgebraicSquare | null = null;
+      let aiToAlg: AlgebraicSquare | null = null;
+      let originalPieceLevelForAI: number | undefined;
+      let moveForApplyMoveAI: Move | null = null;
+      let localAIAwaitingCommanderPromo = false;
+      let selfCheckByAIPushBack = false;
+      let aiAnvilPushedOff = false;
+      let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | null | undefined = null;
+      let aiBecameInfiltrator = false;
+      let aiGameWonByInfiltration = false;
+      let aiExtraTurn = false;
+      let rallyCryTriggeredByAI: RallyCryEvent | null = null;
+      let aiSpecialCaptureSquare: AlgebraicSquare | null = null;
+      let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
+
+
+      let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? {...s_fbs.item} : null })));
+      let finalCapturedPiecesForAI = {
+        white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
+        black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
+      };
+      let capturedPieceDataForScoring: Piece | null = null; // To hold captured piece by AI's move
+      let shroomConsumedByAIForEval = false;
+      let levelFromAIApplyMove: number | undefined;
       
       while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
         attemptCount++;
@@ -2485,6 +2483,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
         if(!aiErrorOccurredRef.current) {
+            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
             let capturesThisTurnAI = 0;
             if (capturedPiece) capturesThisTurnAI++;
             if (restOfResult.pieceCapturedByAnvil) capturesThisTurnAI++;
