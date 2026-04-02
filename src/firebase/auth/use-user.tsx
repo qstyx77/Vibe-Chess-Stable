@@ -15,13 +15,12 @@ interface UserData {
 
 export function useUser() {
   const auth = useAuth();
-  const [user, setUser] = useState<User | null>(auth.currentUser);
+  const [user, setUser] = useState<User | null>(null); // Initialize with null
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isUserLoading, setIsUserLoading] = useState(true); // Start loading
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      setIsLoading(true);
       if (firebaseUser) {
         setUser(firebaseUser);
         const db = getFirestore();
@@ -47,7 +46,7 @@ export function useUser() {
             });
             setUserData(newUserProfile);
           }
-          setIsLoading(false);
+          setIsUserLoading(false);
         });
 
         // Return the unsubscribe function for the profile listener
@@ -56,14 +55,13 @@ export function useUser() {
       } else {
         setUser(null);
         setUserData(null);
-        setIsLoading(false);
+        setIsUserLoading(false);
       }
     });
 
     return () => unsubscribe();
   }, [auth]);
 
-  return { user, userData, isLoading };
+  return { user, userData, isUserLoading };
 }
-
     
