@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -808,9 +809,9 @@ setIsBlackAI(newIsBlackAI);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(player);
             if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "TRIPLE KILL! Place an anvil on an empty square."}));
+              setGameInfo(prev => ({...prev, message: "KILL STREAK OF 3! Place an anvil."}));
             } else {
-              setGameInfo(prev => ({...prev, message: `TRIPLE KILL! ${getPlayerDisplayName(player)} is placing an anvil.`}));
+              setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! ${getPlayerDisplayName(player)} is placing an anvil.`}));
             }
             break;
         }
@@ -1187,7 +1188,7 @@ setIsBlackAI(newIsBlackAI);
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     let moveBeingMade: Move | null = null;
     let humanPlayerAchievedFirstBloodThisTurn = false;
-    let nextEnPassantTarget: AlgebraicSquare | null = null;
+    let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
     let originalPieceLevelBeforeMove: number | undefined;
 
     const { row, col } = algebraicToCoords(algebraic);
@@ -1224,31 +1225,38 @@ setIsBlackAI(newIsBlackAI);
     }
 
     if (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) {
-      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-        saveStateToHistory();
-        const boardAfterAnvilDrop = anvilDropContext!.boardForNextStep.map(r => r.map(s => ({ ...s })));
-        boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
-        setBoard(boardAfterAnvilDrop);
+        if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+            if (onlineStatus === 'connected') {
+                const ws = wsRef.current;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
+                }
+                // For online games, just send the message and wait for the server's response.
+                // Clear the local "awaiting" state to prevent further interaction until the server responds.
+                setIsAwaitingAnvilDrop(false);
+                setPlayerToDropAnvil(null);
+                setAnvilDropContext(null);
+                return;
+            }
+    
+            // --- Offline Logic ---
+            saveStateToHistory();
+            const boardAfterAnvilDrop = anvilDropContext!.boardForNextStep.map(r => r.map(s => ({ ...s })));
+            boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
+            setBoard(boardAfterAnvilDrop);
+            
+            toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
         
-        if (onlineStatus === 'connected') {
-          const ws = wsRef.current;
-          if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
-          }
+            const context = anvilDropContext!;
+            processMoveEnd(boardAfterAnvilDrop, context.playerWhoseTurnCompleted, context.isExtraTurn, context.newEnPassantTarget);
+        
+            setIsAwaitingAnvilDrop(false);
+            setPlayerToDropAnvil(null);
+            setAnvilDropContext(null);
+        } else {
+            toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
         }
-    
-        toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
-    
-        const context = anvilDropContext!;
-        processMoveEnd(boardAfterAnvilDrop, context.playerWhoseTurnCompleted, context.isExtraTurn, context.newEnPassantTarget);
-    
-        setIsAwaitingAnvilDrop(false);
-        setPlayerToDropAnvil(null);
-        setAnvilDropContext(null);
-      } else {
-        toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
-      }
-      return;
+        return;
     }
 
     if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
@@ -1459,6 +1467,7 @@ setIsBlackAI(newIsBlackAI);
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
         const { newBoard, selfDestructCaptures, destroyedAnvils } = applyMoveResult;
+        enPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
         finalBoardStateForTurn = newBoard;
 
         if (selfDestructCaptures) {
@@ -1501,12 +1510,12 @@ setIsBlackAI(newIsBlackAI);
         } else if (newStreakForSelfDestructPlayer === 3) {
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(selfDestructPlayer);
-            setGameInfo(prev => ({ ...prev, message: `KILL STREAK OF 3! Place an anvil on an empty square.` }));
+            setGameInfo(prev => ({ ...prev, message: `KILL STREAK OF 3! Place an anvil.` }));
             const anvilDropCtx = {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: selfDestructPlayer,
                 isExtraTurn: false,
-                newEnPassantTarget: null
+                newEnPassantTarget: enPassantTargetForNextTurn
             };
             setAnvilDropContext(anvilDropCtx);
         } else if (newStreakForSelfDestructPlayer === 4) {
@@ -1576,7 +1585,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
 
-          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, null);
+          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, enPassantTargetForNextTurn);
           setIsMoveProcessing(false);
         }, 800);
         return;
@@ -1619,7 +1628,7 @@ setIsBlackAI(newIsBlackAI);
         } = applyMoveResult;
 
         finalBoardStateForTurn = boardAfterMove;
-        nextEnPassantTarget = enPassantTargetSet;
+        enPassantTargetForNextTurn = enPassantTargetSet;
 
         if (becameInfiltratorFromApply) {
           toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -1821,7 +1830,7 @@ setIsBlackAI(newIsBlackAI);
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
                 isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: nextEnPassantTarget,
+                newEnPassantTarget: enPassantTargetForNextTurn,
             };
             setAnvilDropContext(anvilDropCtx);
             if (isPawnPromotingMove) {
@@ -1829,7 +1838,7 @@ setIsBlackAI(newIsBlackAI);
             } else {
                 setIsAwaitingAnvilDrop(true);
                 setPlayerToDropAnvil(capturingPlayer);
-                setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! Place an anvil on an empty square.`}));
+                setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! Place an anvil.`}));
             }
         } else if (newStreak === 4) {
               if (!humanRookResData?.resurrectionPerformed) {
@@ -1913,7 +1922,7 @@ setIsBlackAI(newIsBlackAI);
           let sacrificeNeededForQueen = false;
 
           if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, enPassantTargetForNextTurn);
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
@@ -1921,11 +1930,11 @@ setIsBlackAI(newIsBlackAI);
             setIsPromotingPawn(true); 
             setPromotionSquare(algebraic);
           } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion && !becameInfiltratorFromApply) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, enPassantTargetForNextTurn);
           } else if (humanRookResData?.resurrectionPerformed && !isPendingHumanResurrectionPromotion) {
-             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
+             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, enPassantTargetForNextTurn);
           } else if ((becameInfiltratorFromApply) && !isPendingHumanResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, enPassantTargetForNextTurn);
           }
 
           setIsMoveProcessing(false);
@@ -2083,7 +2092,7 @@ setIsBlackAI(newIsBlackAI);
             setAnvilDropContext(contextForAnvil);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(pawnColor);
-            setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! Place an anvil on an empty square.`}));
+            setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! Place an anvil.`}));
         } else {
             const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
             const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
@@ -2163,6 +2172,10 @@ setIsBlackAI(newIsBlackAI);
 
 
   const performAiMove = useCallback(async () => {
+    let opponentPlayer;
+    let nextEnpassantTarget: AlgebraicSquare | null = null;
+    let levelFromAIApplyMove: number | undefined;
+
     const currentAiInstance = aiInstanceRef.current;
     
     // Capture the game state *before* the AI starts thinking
@@ -2229,7 +2242,7 @@ setIsBlackAI(newIsBlackAI);
       let aiExtraTurn = false;
       let rallyCryTriggeredByAI: RallyCryEvent | null = null;
       let aiSpecialCaptureSquare: AlgebraicSquare | null = null;
-      let nextEnPassantTargetForAI: AlgebraicSquare | null = null;
+      let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
 
 
       let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? {...s_fbs.item} : null })));
@@ -2239,7 +2252,6 @@ setIsBlackAI(newIsBlackAI);
       };
       let capturedPieceDataForScoring: Piece | null = null; // To hold captured piece by AI's move
       let shroomConsumedByAIForEval = false;
-      let levelFromAIApplyMove: number | undefined;
       
       while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
         attemptCount++;
@@ -2365,7 +2377,7 @@ setIsBlackAI(newIsBlackAI);
         
         finalBoardStateForAI = newBoard;
         
-        nextEnPassantTargetForAI = restOfResult.enPassantTargetSet;
+        enPassantTargetForNextTurn = restOfResult.enPassantTargetSet;
         levelFromAIApplyMove = restOfResult.originalPieceLevel;
         selfCheckByAIPushBack = restOfResult.selfCheckByPushBack;
         aiAnvilPushedOff = restOfResult.anvilPushedOffBoard;
@@ -2437,7 +2449,7 @@ setIsBlackAI(newIsBlackAI);
 
 
         if (selfCheckByAIPushBack) {
-            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
             toast({
               title: "Auto-Checkmate!",
               description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
@@ -2483,7 +2495,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
         if(!aiErrorOccurredRef.current) {
-            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
             let capturesThisTurnAI = 0;
             if (capturedPiece) capturesThisTurnAI++;
             if (restOfResult.pieceCapturedByAnvil) capturesThisTurnAI++;
@@ -2659,8 +2671,8 @@ setIsBlackAI(newIsBlackAI);
                     for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
                     
                     if (emptySquares.length > 0) {
-                      const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
-                      const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
+                      opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                      const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
                       let bestAnvilSquare: AlgebraicSquare;
                       if (oppKingPos) {
                         emptySquares.sort((a,b) => {
@@ -2685,7 +2697,7 @@ setIsBlackAI(newIsBlackAI);
                   const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                   if (pieceAfterAIPromo?.type === 'queen') {
-                    sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, nextEnPassantTargetForAI);
+                    sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, enPassantTargetForNextTurn);
                   } else if (pieceAfterAIPromo?.type === 'rook') {
                       if ((!aiRookResData || !aiRookResData.resurrectionPerformed) && (capturedPieceDataForScoring || restOfResult.pieceCapturedByAnvil)) { // Rook resurrection only on capture
                         const newRookLevelCheck = Number(pieceAfterAIPromo.level || 1);
@@ -2740,8 +2752,8 @@ setIsBlackAI(newIsBlackAI);
                   for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
                   
                   if (emptySquares.length > 0) {
-                    const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
+                    opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
                     let bestAnvilSquare: AlgebraicSquare;
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
@@ -2761,14 +2773,14 @@ setIsBlackAI(newIsBlackAI);
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
                   }
               } else if (pieceAtDestinationAI?.type === 'queen') {
-                 sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, nextEnPassantTargetForAI);
+                 sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               } else if (aiBecameInfiltrator) {
               }
 
               if (localAIAwaitingCommanderPromo) {
-                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
+                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               } else if (!sacrificeNeededForAIQueen) {
-                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, nextEnPassantTargetForAI);
+                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               }
 
               setIsMoveProcessing(false);
@@ -2794,17 +2806,17 @@ setIsBlackAI(newIsBlackAI);
         duration: 8000,
       });
   
-      const opponent = currentPlayer === 'white' ? 'black' : 'white';
+      opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
   
       if (!hasAnyLegalMoves(board, currentPlayer, enPassantTargetSquare)) {
           if (isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
-              setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponent)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponent }));
+              setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentPlayer!)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponentPlayer }));
           } else {
               setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, isStalemate: true, gameOver: true, winner: 'draw' }));
           }
       } else {
           // If there are legal moves but the AI failed, it's a forfeit.
-          setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponent)} wins!`, gameOver: true, winner: opponent }));
+          setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponentPlayer!)} wins!`, gameOver: true, winner: opponentPlayer }));
       }
   
       if (currentPlayer === 'white') setIsWhiteAI(false);
@@ -3688,4 +3700,5 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 

@@ -1,4 +1,5 @@
 
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -21,7 +22,7 @@ import {
     coordsToAlgebraic,
     algebraicToCoords,
 } from './lib/chess-utils';
-import type { BoardState, PlayerColor, Piece, Move, GameStatus } from './types';
+import type { BoardState, PlayerColor, Piece, Move, GameStatus, AlgebraicSquare } from './types';
 
 
 const server = http.createServer((req, res) => {
@@ -84,73 +85,10 @@ const broadcastToRoom = (roomId: string, message: any) => {
     }
 };
 
-const startServerTurnTimer = (roomId: string) => {
-    const room = rooms[roomId];
-    if (!room || room.gameState.gameInfo.gameOver) return;
-
-    // Clear any existing timer for this room
-    if (room.turnTimer) {
-        clearTimeout(room.turnTimer);
-    }
-
-    const currentMoveCounter = room.gameState.gameMoveCounter;
-    const playerToMove = room.gameState.currentPlayer;
-
-    room.turnTimer = setTimeout(() => {
-        const roomAfterTimeout = rooms[roomId];
-        // Check if the game state has changed since the timer was set
-        if (roomAfterTimeout && roomAfterTimeout.gameState.gameMoveCounter === currentMoveCounter && !roomAfterTimeout.gameState.gameInfo.gameOver) {
-            console.log(`[Server] Timeout! Player ${playerToMove}'s turn has expired for move ${currentMoveCounter}.`);
-            
-            const timedOutPlayer = playerToMove;
-            roomAfterTimeout.gameState.killStreaks[timedOutPlayer] = 0;
-
-            const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
-            let winnerOnTimeout = opponent;
-            let reason = 'timeout';
-
-            if (timedOutPlayer === 'white') roomAfterTimeout.gameState.whiteTimeouts++;
-            else roomAfterTimeout.gameState.blackTimeouts++;
-            
-            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTarget);
-            if (timedOutPlayerInCheck) {
-                reason = 'self-check-timeout';
-            }
-            
-            if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
-                roomAfterTimeout.gameState.gameInfo.gameOver = true;
-                roomAfterTimeout.gameState.gameInfo.winner = winnerOnTimeout;
-                roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[timedOutPlayer] || {}).username || timedOutPlayer} ran out of time. ${winnerOnTimeout} wins!`;
-
-                const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
-                broadcastToRoom(roomId, broadcastMsg);
-                if (roomAfterTimeout.turnTimer) clearTimeout(roomAfterTimeout.turnTimer);
-                return;
-            }
-
-            roomAfterTimeout.gameState.currentPlayer = opponent;
-            
-            const inCheck = isKingInCheck(roomAfterTimeout.gameState.board, opponent, roomAfterTimeout.gameState.enPassantTarget);
-            roomAfterTimeout.gameState.gameInfo.isCheck = inCheck;
-            roomAfterTimeout.gameState.gameInfo.playerWithKingInCheck = inCheck ? opponent : null;
-            roomAfterTimeout.gameState.gameInfo.message = inCheck ? "Check!" : `Timed out. It's now ${opponent}'s turn.`;
-
-            const broadcastMsg = {
-                type: 'game-move',
-                fullGameState: roomAfterTimeout.gameState,
-                lastPlayer: timedOutPlayer,
-            };
-            broadcastToRoom(roomId, broadcastMsg);
-
-            startServerTurnTimer(roomId);
-        }
-    }, 45000);
-}
-
-
-const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean) => {
-    console.log(`[Server | finalizeTurn] Finalizing turn for ${movingPlayerColor}. Extra Turn: ${isExtraTurn}`);
+const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null = null) => {
+    console.log(`[Server | finalizeTurn] Finalizing turn for ${movingPlayerColor}. Extra Turn: ${isExtraTurn}, New EP: ${newEnPassantTarget}`);
     room.gameState.gameMoveCounter++;
+    room.gameState.enPassantTarget = newEnPassantTarget;
 
     let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
     room.gameState.shroomSpawnCounter = currentShroomCounter;
@@ -211,6 +149,69 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
         startServerTurnTimer(room.clients[0].roomId);
     }
 };
+
+const startServerTurnTimer = (roomId: string) => {
+    const room = rooms[roomId];
+    if (!room || room.gameState.gameInfo.gameOver) return;
+
+    // Clear any existing timer for this room
+    if (room.turnTimer) {
+        clearTimeout(room.turnTimer);
+    }
+
+    const currentMoveCounter = room.gameState.gameMoveCounter;
+    const playerToMove = room.gameState.currentPlayer;
+
+    room.turnTimer = setTimeout(() => {
+        const roomAfterTimeout = rooms[roomId];
+        // Check if the game state has changed since the timer was set
+        if (roomAfterTimeout && roomAfterTimeout.gameState.gameMoveCounter === currentMoveCounter && !roomAfterTimeout.gameState.gameInfo.gameOver) {
+            console.log(`[Server] Timeout! Player ${playerToMove}'s turn has expired for move ${currentMoveCounter}.`);
+            
+            const timedOutPlayer = playerToMove;
+            
+            const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
+            let winnerOnTimeout = opponent;
+            let reason = 'timeout';
+
+            if (timedOutPlayer === 'white') roomAfterTimeout.gameState.whiteTimeouts++;
+            else roomAfterTimeout.gameState.blackTimeouts++;
+            
+            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTarget);
+            if (timedOutPlayerInCheck) {
+                reason = 'self-check-timeout';
+            }
+            
+            if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
+                roomAfterTimeout.gameState.gameInfo.gameOver = true;
+                roomAfterTimeout.gameState.gameInfo.winner = winnerOnTimeout;
+                roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[timedOutPlayer] || {}).username || timedOutPlayer} ran out of time. ${winnerOnTimeout} wins!`;
+
+                const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
+                broadcastToRoom(roomId, broadcastMsg);
+                if (roomAfterTimeout.turnTimer) clearTimeout(roomAfterTimeout.turnTimer);
+                return;
+            }
+
+            roomAfterTimeout.gameState.currentPlayer = opponent;
+            
+            const inCheck = isKingInCheck(roomAfterTimeout.gameState.board, opponent, roomAfterTimeout.gameState.enPassantTarget);
+            roomAfterTimeout.gameState.gameInfo.isCheck = inCheck;
+            roomAfterTimeout.gameState.gameInfo.playerWithKingInCheck = inCheck ? opponent : null;
+            roomAfterTimeout.gameState.gameInfo.message = inCheck ? "Check!" : `Timed out. It's now ${opponent}'s turn.`;
+
+            const broadcastMsg = {
+                type: 'game-move',
+                fullGameState: roomAfterTimeout.gameState,
+                lastPlayer: timedOutPlayer,
+            };
+            broadcastToRoom(roomId, broadcastMsg);
+
+            startServerTurnTimer(roomId);
+        }
+    }, 45000);
+}
+
 
 const processRankedQueue = async () => {
     if (rankedQueue.length < 2) {
@@ -443,7 +444,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 fullGameState: room.gameState,
                             });
                         } else {
-                            finalizeTurn(room, promotingPlayerColor, extraTurn || false);
+                            finalizeTurn(room, promotingPlayerColor, extraTurn || false, null);
                         }
                     } else {
                         console.log(`[Server | finalize-promotion] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
@@ -463,7 +464,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.anvilDropContext;
                     delete room.gameState.anvilDropContext;
 
-                    finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn);
+                    finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
                     break;
                 }
                 case 'game-move': {
@@ -611,7 +612,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         return; 
                     }
                 
-                    finalizeTurn(room, movingPlayerColor, combinedExtraTurn);
+                    finalizeTurn(room, movingPlayerColor, combinedExtraTurn, restOfResult.enPassantTargetSet);
 
                     break;
                 }
@@ -694,5 +695,6 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
