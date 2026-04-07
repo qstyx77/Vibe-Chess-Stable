@@ -1,4 +1,5 @@
 
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -1150,6 +1151,7 @@ export interface RookResurrectionResult {
   resurrectedPieceData?: Piece;
   resurrectedSquareAlg?: AlgebraicSquare;
   newResurrectionIdCounter?: number;
+  promotionRequiredForResurrectedPawn?: boolean;
 }
 
 
@@ -1171,6 +1173,7 @@ export function processRookResurrectionCheck(
   let resurrectedPieceResultData: Piece | undefined = undefined;
   let resurrectedSquareResultAlg: AlgebraicSquare | undefined = undefined;
   let nextResurrectionIdCounter = currentResurrectionIdCounter;
+  let promotionRequiredForResurrectedPawn = false;
 
   if (!rookMove || !rookSquareAfterMove) {
     return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, newResurrectionIdCounter: nextResurrectionIdCounter };
@@ -1227,8 +1230,7 @@ export function processRookResurrectionCheck(
 
         const promotionRank = playerWhosePieceLeveled === 'white' ? 0 : 7;
         if (resurrectedPieceData.type === 'pawn' && resR === promotionRank) {
-          resurrectedPieceData.type = 'queen'; 
-          resurrectedPieceData.id = `${resurrectedPieceData.id}_resPromo_Q`;
+            promotionRequiredForResurrectedPawn = true;
         } else if (resurrectedPieceData.type === 'commander' && resR === promotionRank) {
           resurrectedPieceData.type = 'hero';
           resurrectedPieceData.id = `${resurrectedPieceData.id}_HeroPromo_Res`;
@@ -1251,7 +1253,8 @@ export function processRookResurrectionCheck(
     resurrectionPerformed,
     resurrectedPieceData: resurrectedPieceResultData,
     resurrectedSquareAlg: resurrectedSquareResultAlg,
-    newResurrectionIdCounter: nextResurrectionIdCounter
+    newResurrectionIdCounter: nextResurrectionIdCounter,
+    promotionRequiredForResurrectedPawn
   };
 }
 
