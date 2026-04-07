@@ -267,7 +267,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-3" description="Standard horizontal/vertical move/capture (needs line of sight)." />
-                  <LevelRule level="4+" description="Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square (no piece or item) adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="4+" description="Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
