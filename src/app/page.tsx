@@ -805,6 +805,7 @@ setIsBlackAI(newIsBlackAI);
             setGameMoveCounter(fullGameState.gameMoveCounter || 0);
             setLastMoveFrom(fullGameState.lastMoveFrom || null);
             setLastMoveTo(fullGameState.lastMoveTo || null);
+            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
 
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(player);
@@ -1241,14 +1242,14 @@ setIsBlackAI(newIsBlackAI);
     
             // --- Offline Logic ---
             saveStateToHistory();
-            const boardAfterAnvilDrop = anvilDropContext!.boardForNextStep.map(r => r.map(s => ({ ...s })));
+            const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
+            const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
             boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
             setBoard(boardAfterAnvilDrop);
             
             toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
         
-            const context = anvilDropContext!;
-            processMoveEnd(boardAfterAnvilDrop, context.playerWhoseTurnCompleted, context.isExtraTurn, context.newEnPassantTarget);
+            processMoveEnd(boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
         
             setIsAwaitingAnvilDrop(false);
             setPlayerToDropAnvil(null);
@@ -1467,7 +1468,7 @@ setIsBlackAI(newIsBlackAI);
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
         const { newBoard, selfDestructCaptures, destroyedAnvils } = applyMoveResult;
-        enPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
+        const newEnPassantTarget = applyMoveResult.enPassantTargetSet;
         finalBoardStateForTurn = newBoard;
 
         if (selfDestructCaptures) {
@@ -1515,7 +1516,7 @@ setIsBlackAI(newIsBlackAI);
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: selfDestructPlayer,
                 isExtraTurn: false,
-                newEnPassantTarget: enPassantTargetForNextTurn
+                newEnPassantTarget: newEnPassantTarget
             };
             setAnvilDropContext(anvilDropCtx);
         } else if (newStreakForSelfDestructPlayer === 4) {
@@ -1585,7 +1586,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
 
-          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, enPassantTargetForNextTurn);
+          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, newEnPassantTarget);
           setIsMoveProcessing(false);
         }, 800);
         return;
@@ -1708,6 +1709,14 @@ setIsBlackAI(newIsBlackAI);
 
         if (capturesThisTurn > 0) {
             newStreak += capturesThisTurn;
+            setKillStreaks(prev => {
+                const currentOpponentStreak = prev[opponentPlayer];
+                return {
+                    ...prev,
+                    [capturingPlayer]: newStreak,
+                    [opponentPlayer]: 0 // Reset opponent's streak on capture
+                };
+            });
             if (!firstBloodAchieved) {
                 setKillStreakFlashMessage("FIRST BLOOD!");
                 setKillStreakFlashMessageKey(k => k + 1);
@@ -1719,9 +1728,12 @@ setIsBlackAI(newIsBlackAI);
                 }
             }
         } else {
+            // Reset streak only if it was a non-capturing move by this player
+            if (killStreaks[capturingPlayer] > 0) {
+                setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
+            }
             newStreak = 0;
         }
-        setKillStreaks(prev => ({...prev, [capturingPlayer]: newStreak, [opponentPlayer]: prev[opponentPlayer]}));
         
         const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
@@ -2172,7 +2184,7 @@ setIsBlackAI(newIsBlackAI);
 
 
   const performAiMove = useCallback(async () => {
-    let opponentPlayer;
+    let opponentPlayer: PlayerColor | undefined;
     let nextEnpassantTarget: AlgebraicSquare | null = null;
     let levelFromAIApplyMove: number | undefined;
 
@@ -2505,7 +2517,7 @@ setIsBlackAI(newIsBlackAI);
 
             if (capturesThisTurnAI > 0) {
                 newStreakForAI += capturesThisTurnAI;
-                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI, [opponentPlayer]: 0 }));
+                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI, [opponentPlayer!]: 0 }));
 
                 if (!firstBloodAchieved) {
                     setKillStreakFlashMessage("FIRST BLOOD!");
@@ -2671,8 +2683,8 @@ setIsBlackAI(newIsBlackAI);
                     for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
                     
                     if (emptySquares.length > 0) {
-                      opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-                      const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
+                      const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+                      const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
                       let bestAnvilSquare: AlgebraicSquare;
                       if (oppKingPos) {
                         emptySquares.sort((a,b) => {
@@ -2752,8 +2764,8 @@ setIsBlackAI(newIsBlackAI);
                   for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
                   
                   if (emptySquares.length > 0) {
-                    opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
+                    const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+                    const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
                     let bestAnvilSquare: AlgebraicSquare;
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
@@ -2944,37 +2956,34 @@ setIsBlackAI(newIsBlackAI);
   }, [flashMessage, flashMessageKey]);
 
   useEffect(() => {
-    // Check for First Blood first
-    if (firstBloodAchieved && !prevFirstBloodRef.current) {
-      setKillStreakFlashMessage("FIRST BLOOD!");
-      setKillStreakFlashMessageKey(k => k + 1);
-    }
-    // If not first blood, check for other streaks
-    else {
-      const { white: prevWhite, black: prevBlack } = prevKillStreaksRef.current;
-      const { white: currentWhite, black: currentBlack } = killStreaks;
+    const { white: prevWhite, black: prevBlack } = prevKillStreaksRef.current;
+    const { white: currentWhite, black: currentBlack } = killStreaks;
+    const firstBloodJustAchieved = firstBloodAchieved && !prevFirstBloodRef.current;
 
-      let playerWithNewStreak: PlayerColor | null = null;
-      let newStreakValue = 0;
-
-      if (currentWhite > prevWhite) {
+    let playerWithNewStreak: PlayerColor | null = null;
+    let newStreakValue = 0;
+    
+    // Determine who made the move that changed the streak
+    if (currentWhite > prevWhite) {
         playerWithNewStreak = 'white';
         newStreakValue = currentWhite;
-      } else if (currentBlack > prevBlack) {
+    } else if (currentBlack > prevBlack) {
         playerWithNewStreak = 'black';
         newStreakValue = currentBlack;
-      }
-      
-      if (playerWithNewStreak) {
-        const streakMsg = getKillStreakToastMessage(newStreakValue);
-        if (streakMsg) {
-          setKillStreakFlashMessage(streakMsg);
-          setKillStreakFlashMessageKey(k => k + 1);
-        }
-      }
     }
     
-    prevKillStreaksRef.current = killStreaks;
+    if (firstBloodJustAchieved) {
+        setKillStreakFlashMessage("FIRST BLOOD!");
+        setKillStreakFlashMessageKey(k => k + 1);
+    } else if (playerWithNewStreak) {
+        const streakMsg = getKillStreakToastMessage(newStreakValue);
+        if (streakMsg) {
+            setKillStreakFlashMessage(streakMsg);
+            setKillStreakFlashMessageKey(k => k + 1);
+        }
+    }
+
+    prevKillStreaksRef.current = { ...killStreaks };
     prevFirstBloodRef.current = firstBloodAchieved;
 
   }, [killStreaks, firstBloodAchieved, getKillStreakToastMessage]);
@@ -3700,5 +3709,6 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
 

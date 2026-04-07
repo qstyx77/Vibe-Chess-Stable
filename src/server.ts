@@ -88,7 +88,7 @@ const broadcastToRoom = (roomId: string, message: any) => {
 const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null = null) => {
     console.log(`[Server | finalizeTurn] Finalizing turn for ${movingPlayerColor}. Extra Turn: ${isExtraTurn}, New EP: ${newEnPassantTarget}`);
     room.gameState.gameMoveCounter++;
-    room.gameState.enPassantTarget = newEnPassantTarget;
+    room.gameState.enPassantTargetSquare = newEnPassantTarget;
 
     let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
     room.gameState.shroomSpawnCounter = currentShroomCounter;
@@ -105,16 +105,16 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
 
     const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
 
-    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTarget);
+    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare);
     let message = " ";
     let gameOver = false;
     let winner: PlayerColor | 'draw' | undefined = undefined;
 
-    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
+    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
         message = `Checkmate! ${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} wins!`;
         gameOver = true;
         winner = movingPlayerColor;
-    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTarget)) {
+    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
         message = "Stalemate! It's a draw.";
         gameOver = true;
         winner = 'draw';
@@ -177,7 +177,7 @@ const startServerTurnTimer = (roomId: string) => {
             if (timedOutPlayer === 'white') roomAfterTimeout.gameState.whiteTimeouts++;
             else roomAfterTimeout.gameState.blackTimeouts++;
             
-            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTarget);
+            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTargetSquare);
             if (timedOutPlayerInCheck) {
                 reason = 'self-check-timeout';
             }
@@ -195,7 +195,7 @@ const startServerTurnTimer = (roomId: string) => {
 
             roomAfterTimeout.gameState.currentPlayer = opponent;
             
-            const inCheck = isKingInCheck(roomAfterTimeout.gameState.board, opponent, roomAfterTimeout.gameState.enPassantTarget);
+            const inCheck = isKingInCheck(roomAfterTimeout.gameState.board, opponent, roomAfterTimeout.gameState.enPassantTargetSquare);
             roomAfterTimeout.gameState.gameInfo.isCheck = inCheck;
             roomAfterTimeout.gameState.gameInfo.playerWithKingInCheck = inCheck ? opponent : null;
             roomAfterTimeout.gameState.gameInfo.message = inCheck ? "Check!" : `Timed out. It's now ${opponent}'s turn.`;
@@ -239,7 +239,7 @@ const processRankedQueue = async () => {
                 currentPlayer: 'white',
                 capturedPieces: { white: [], black: [] },
                 killStreaks: { white: 0, black: 0 },
-                enPassantTarget: null,
+                enPassantTargetSquare: null,
                 gameMoveCounter: 0,
                 lastMoveFrom: null,
                 lastMoveTo: null,
@@ -308,7 +308,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             currentPlayer: 'white',
                             capturedPieces: { white: [], black: [] },
                             killStreaks: { white: 0, black: 0 },
-                            enPassantTarget: null,
+                            enPassantTargetSquare: null,
                             gameMoveCounter: 0,
                             lastMoveFrom: null,
                             lastMoveTo: null,
@@ -392,10 +392,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const opponent = playerWhoActed === 'white' ? 'black' : 'white';
                         room.gameState.currentPlayer = opponent;
                         
-                        const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTarget);
-                        if (isCheckmate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
+                        const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTargetSquare);
+                        if (isCheckmate(room.gameState.board, opponent, room.gameState.enPassantTargetSquare)) {
                             room.gameState.gameInfo = { message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, gameOver: true, winner: playerWhoActed };
-                        } else if (isStalemate(room.gameState.board, opponent, room.gameState.enPassantTarget)) {
+                        } else if (isStalemate(room.gameState.board, opponent, room.gameState.enPassantTargetSquare)) {
                             room.gameState.gameInfo = { message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isStalemate: true, gameOver: true, winner: 'draw' };
                         } else {
                             room.gameState.gameInfo = { ...room.gameState.gameInfo, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false };
@@ -495,7 +495,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                     const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
                     
-                    const { newBoard, capturedPiece, selfDestructCaptures, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTarget);
+                    const { newBoard, capturedPiece, selfDestructCaptures, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTargetSquare);
                     
                     room.gameState.resurrectedSquare = null;
                     
@@ -509,6 +509,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (capturesThisTurn > 0) {
                         newStreak += capturesThisTurn;
                         room.gameState.killStreaks[movingPlayerColor] = newStreak;
+                        room.gameState.killStreaks[opponentPlayer] = 0;
                         
                         if (capturedPiece && !restOfResult.promotedToInfiltrator) {
                             room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
@@ -532,9 +533,32 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     } else {
                         room.gameState.killStreaks[movingPlayerColor] = 0;
                     }
-                
+
                     room.gameState.board = newBoard;
-                    room.gameState.enPassantTarget = restOfResult.enPassantTargetSet || null;
+
+                     // Rook Resurrection Check
+                    const { row: toRowRook, col: toColRook } = algebraicToCoords(move.to);
+                    const movedPieceOnToSquare = newBoard[toRowRook]?.[toColRook]?.piece;
+                    if (movedPieceOnToSquare && (movedPieceOnToSquare.type === 'rook' || (move.type === 'promotion' && move.promoteTo === 'rook')) && capturesThisTurn > 0) {
+                        const oldLevelForResCheck = restOfResult.originalPieceLevel;
+                        const {
+                            boardWithResurrection,
+                            capturedPiecesAfterResurrection,
+                            resurrectionPerformed,
+                            resurrectedPieceData,
+                            resurrectedSquareAlg,
+                            newResurrectionIdCounter
+                        } = processRookResurrectionCheck(newBoard, movingPlayerColor, move, move.to, oldLevelForResCheck, room.gameState.capturedPieces, globalServerUniqueIdCounter);
+
+                        if (resurrectionPerformed) {
+                            room.gameState.board = boardWithResurrection;
+                            room.gameState.capturedPieces = capturedPiecesAfterResurrection;
+                            globalServerUniqueIdCounter = newResurrectionIdCounter || globalServerUniqueIdCounter;
+                            room.gameState.resurrectedSquare = resurrectedSquareAlg;
+                        }
+                    }
+                
+                    room.gameState.enPassantTargetSquare = restOfResult.enPassantTargetSet || null;
                     room.gameState.lastMoveFrom = move.from;
                     room.gameState.lastMoveTo = move.to;
 
@@ -695,6 +719,7 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
 
