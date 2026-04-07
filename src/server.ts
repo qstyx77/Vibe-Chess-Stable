@@ -433,7 +433,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             piece.level = Math.min(piece.level, 7);
                         }
                 
-                        const { extraTurn, anvilDropContext } = room.gameState.promotionContext || {};
+                        const { extraTurn, anvilDropContext, fromResurrection } = room.gameState.promotionContext || {};
                         delete room.gameState.promotionContext;
 
                         if (anvilDropContext) {
@@ -444,7 +444,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 fullGameState: room.gameState,
                             });
                         } else {
-                            finalizeTurn(room, promotingPlayerColor, extraTurn || false, null);
+                            finalizeTurn(room, promotingPlayerColor, extraTurn || false, fromResurrection ? room.gameState.enPassantTargetSquare : null);
                         }
                     } else {
                         console.log(`[Server | finalize-promotion] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
@@ -547,7 +547,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             resurrectionPerformed,
                             resurrectedPieceData,
                             resurrectedSquareAlg,
-                            newResurrectionIdCounter
+                            newResurrectionIdCounter,
+                            promotionRequiredForResurrectedPawn
                         } = processRookResurrectionCheck(newBoard, movingPlayerColor, move, move.to, oldLevelForResCheck, room.gameState.capturedPieces, globalServerUniqueIdCounter);
 
                         if (resurrectionPerformed) {
@@ -555,6 +556,16 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.capturedPieces = capturedPiecesAfterResurrection;
                             globalServerUniqueIdCounter = newResurrectionIdCounter || globalServerUniqueIdCounter;
                             room.gameState.resurrectedSquare = resurrectedSquareAlg;
+                             if (promotionRequiredForResurrectedPawn) {
+                                room.gameState.promotionContext = { fromResurrection: true };
+                                broadcastToRoom(ws.roomId, {
+                                    type: 'promotion-required',
+                                    square: resurrectedSquareAlg,
+                                    player: movingPlayerColor,
+                                    fullGameState: room.gameState
+                                });
+                                return;
+                            }
                         }
                     }
                 
@@ -615,7 +626,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                         invulnerableTurnsRemaining: 0,
                                     };
                                     const promotionRank = movingPlayerColor === 'white' ? 0 : 7;
-                                    if (resurrectedPiece.type === 'pawn' && resR === promotionRank) resurrectedPiece.type = 'queen';
+                                    if (resurrectedPiece.type === 'pawn' && resR === promotionRank) {
+                                        room.gameState.board[resR][resC].piece = resurrectedPiece;
+                                        room.gameState.promotionContext = { fromResurrection: true };
+                                        broadcastToRoom(ws.roomId, {
+                                            type: 'promotion-required',
+                                            square: coordsToAlgebraic(resR, resC),
+                                            player: movingPlayerColor,
+                                            fullGameState: room.gameState
+                                        });
+                                        return;
+                                    }
                                     else if (resurrectedPiece.type === 'commander' && resR === promotionRank) resurrectedPiece.type = 'hero';
                                     newBoard[resR][resC].piece = resurrectedPiece;
                                     room.gameState.resurrectedSquare = coordsToAlgebraic(resR, resC);
@@ -719,6 +740,7 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
 

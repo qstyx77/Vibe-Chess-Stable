@@ -1190,7 +1190,6 @@ setIsBlackAI(newIsBlackAI);
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     let moveBeingMade: Move | null = null;
     let humanPlayerAchievedFirstBloodThisTurn = false;
-    let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
     let originalPieceLevelBeforeMove: number | undefined;
 
     const { row, col } = algebraicToCoords(algebraic);
@@ -1233,11 +1232,9 @@ setIsBlackAI(newIsBlackAI);
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
                 }
-                // For online games, just send the message and wait for the server's response.
-                // Clear the local "awaiting" state to prevent further interaction until the server responds.
-                setIsAwaitingAnvilDrop(false);
-                setPlayerToDropAnvil(null);
-                setAnvilDropContext(null);
+                // Set processing to true to prevent further clicks, and wait for server to respond.
+                // Do NOT clear local anvil state here.
+                setIsMoveProcessing(true);
                 return;
             }
     
@@ -1468,8 +1465,8 @@ setIsBlackAI(newIsBlackAI);
         }
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
-        const { newBoard, selfDestructCaptures, destroyedAnvils } = applyMoveResult;
-        enPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
+        let { newBoard, selfDestructCaptures, destroyedAnvils, enPassantTargetSet: nextEnpassantTarget } = applyMoveResult;
+        
         finalBoardStateForTurn = newBoard;
 
         if (selfDestructCaptures) {
@@ -1517,7 +1514,7 @@ setIsBlackAI(newIsBlackAI);
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: selfDestructPlayer,
                 isExtraTurn: false,
-                newEnPassantTarget: enPassantTargetForNextTurn
+                newEnPassantTarget: nextEnpassantTarget
             };
             setAnvilDropContext(anvilDropCtx);
         } else if (newStreakForSelfDestructPlayer === 4) {
@@ -1587,7 +1584,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
 
-          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, enPassantTargetForNextTurn);
+          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, nextEnpassantTarget);
           setIsMoveProcessing(false);
         }, 800);
         return;
@@ -1629,7 +1626,7 @@ setIsBlackAI(newIsBlackAI);
         } = applyMoveResult;
         
         finalBoardStateForTurn = boardAfterMove;
-        enPassantTargetForNextTurn = applyMoveResult.enPassantTargetSet;
+        let nextEnpassantTarget = applyMoveResult.enPassantTargetSet;
 
         if (becameInfiltratorFromApply) {
           toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -1839,7 +1836,7 @@ setIsBlackAI(newIsBlackAI);
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
                 isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetForNextTurn,
+                newEnPassantTarget: nextEnpassantTarget,
             };
             setAnvilDropContext(anvilDropCtx);
             if (isPawnPromotingMove) {
@@ -1931,19 +1928,19 @@ setIsBlackAI(newIsBlackAI);
           let sacrificeNeededForQueen = false;
 
           if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, enPassantTargetForNextTurn);
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnpassantTarget);
           }
 
-          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion) {
+          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isPendingHumanResurrectionPromotion) {
             setPlayerToPromote(currentPlayer);
             setIsPromotingPawn(true); 
             setPromotionSquare(algebraic);
           } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion && !becameInfiltratorFromApply) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, enPassantTargetForNextTurn);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnpassantTarget);
           } else if (humanRookResData?.resurrectionPerformed && !isPendingHumanResurrectionPromotion) {
-             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, enPassantTargetForNextTurn);
+             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnpassantTarget);
           } else if ((becameInfiltratorFromApply) && !isPendingHumanResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, enPassantTargetForNextTurn);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnpassantTarget);
           }
 
           setIsMoveProcessing(false);
@@ -3304,7 +3301,7 @@ setIsBlackAI(newIsBlackAI);
                       width={40}
                       height={40}
                       unoptimized
-                      className="w-6 h-6 sm:w-10 sm:h-10"
+                      className="w-10 h-10"
                       data-ai-hint="chess rook"
                   />
               </div>
@@ -3696,6 +3693,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
 
 
