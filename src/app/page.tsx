@@ -797,16 +797,7 @@ setIsBlackAI(newIsBlackAI);
             const { fullGameState, player } = data;
             if (!fullGameState) return;
 
-            setBoard(fullGameState.board);
-            if (fullGameState.players) setGamePlayers(fullGameState.players);
-            setCapturedPieces(fullGameState.capturedPieces);
-            setKillStreaks(fullGameState.killStreaks);
-            setGameInfo(fullGameState.gameInfo);
-            setCurrentPlayer(fullGameState.currentPlayer);
-            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
-            setLastMoveFrom(fullGameState.lastMoveFrom || null);
-            setLastMoveTo(fullGameState.lastMoveTo || null);
-            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
+            applyServerGameState(fullGameState);
 
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(player);
@@ -829,19 +820,7 @@ setIsBlackAI(newIsBlackAI);
             const { fullGameState } = data;
             if (!fullGameState) return;
 
-            // Set the full state to ensure sync
-            setBoard(fullGameState.board);
-            if (fullGameState.players) setGamePlayers(fullGameState.players);
-            setCapturedPieces(fullGameState.capturedPieces);
-            setKillStreaks(fullGameState.killStreaks);
-            setGameInfo(fullGameState.gameInfo);
-            setCurrentPlayer(fullGameState.currentPlayer);
-            setGameMoveCounter(fullGameState.gameMoveCounter || 0);
-            setLastMoveFrom(fullGameState.lastMoveFrom || null);
-            setLastMoveTo(fullGameState.lastMoveTo || null);
-            setFirstBloodAchieved(fullGameState.firstBloodAchieved);
-            setPlayerWhoGotFirstBlood(fullGameState.playerWhoGotFirstBlood);
-            setEnPassantTargetSquare(fullGameState.enPassantTargetSquare || null);
+            applyServerGameState(fullGameState);
 
             // Crucially, set the awaiting promotion flag
             setIsAwaitingCommanderPromotion(true);
@@ -1233,7 +1212,6 @@ setIsBlackAI(newIsBlackAI);
                     ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
                 }
                 // Set processing to true to prevent further clicks, and wait for server to respond.
-                // Do NOT clear local anvil state here.
                 setIsMoveProcessing(true);
                 return;
             }
@@ -3693,6 +3671,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
 
 
