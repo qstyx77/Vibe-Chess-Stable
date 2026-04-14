@@ -798,6 +798,7 @@ setIsBlackAI(newIsBlackAI);
             if (!fullGameState) return;
 
             applyServerGameState(fullGameState);
+            setIsMoveProcessing(false); 
 
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(player);
@@ -814,6 +815,9 @@ setIsBlackAI(newIsBlackAI);
         }
         case 'game-move': {
             applyServerGameState(data.fullGameState, data.lastPlayer);
+            // After applying the new definitive state, reset any client-side "awaiting" flags.
+            setIsAwaitingAnvilDrop(false);
+            setPlayerToDropAnvil(null);
             break;
         }
         case 'awaiting-commander-promo': {
@@ -821,6 +825,7 @@ setIsBlackAI(newIsBlackAI);
             if (!fullGameState) return;
 
             applyServerGameState(fullGameState);
+            setIsMoveProcessing(false);
 
             // Crucially, set the awaiting promotion flag
             setIsAwaitingCommanderPromotion(true);
@@ -3671,6 +3676,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
 
 
