@@ -150,11 +150,85 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     }
 };
 
+const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop', actingPlayer: PlayerColor) => {
+    const room = rooms[roomId];
+    if (!room || room.gameState.gameInfo.gameOver) return;
+
+    if (room.turnTimer) {
+        clearTimeout(room.turnTimer);
+    }
+    
+    const specialActionId = (room.gameState.specialActionId || 0) + 1;
+    room.gameState.specialActionId = specialActionId;
+
+    room.turnTimer = setTimeout(() => {
+        const roomAfterTimeout = rooms[roomId];
+        if (!roomAfterTimeout || roomAfterTimeout.gameState.gameInfo.gameOver || roomAfterTimeout.gameState.specialActionId !== specialActionId) {
+            return;
+        }
+
+        console.log(`[Server] Special Action Timeout! Player ${actingPlayer} failed to perform ${actionType}.`);
+        
+        const timedOutPlayer = actingPlayer;
+        if (roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] === undefined) {
+            roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] = 0;
+        }
+        roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`]++;
+        const currentTimeoutCount = roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`];
+
+        if (currentTimeoutCount >= 3) {
+            const winnerOnTimeout = timedOutPlayer === 'white' ? 'black' : 'white';
+            roomAfterTimeout.gameState.gameInfo.gameOver = true;
+            roomAfterTimeout.gameState.gameInfo.winner = winnerOnTimeout;
+            roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[actingPlayer] || {}).username || actingPlayer} ran out of time. ${winnerOnTimeout} wins!`;
+            broadcastToRoom(roomId, { type: 'forfeit-timeout', timedOutPlayer: actingPlayer, winner: winnerOnTimeout, reason: 'timeout' });
+            if (roomAfterTimeout.turnTimer) clearTimeout(roomAfterTimeout.turnTimer);
+            return;
+        }
+
+        if (actionType === 'anvil-drop') {
+            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.anvilDropContext;
+            delete roomAfterTimeout.gameState.anvilDropContext;
+            finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+        } else if (actionType === 'commander-promo') {
+            roomAfterTimeout.gameState.isAwaitingCommanderPromotion = false;
+            const playerWhoActed = roomAfterTimeout.gameState.playerWhoGotFirstBlood;
+            const opponent = playerWhoActed === 'white' ? 'black' : 'white';
+            roomAfterTimeout.gameState.currentPlayer = opponent;
+            roomAfterTimeout.gameState.gameInfo.message = `Promotion selection timed out. It's now ${opponent}'s turn.`;
+
+            broadcastToRoom(roomId, { type: 'game-move', fullGameState: roomAfterTimeout.gameState, lastPlayer: playerWhoActed });
+            startServerTurnTimer(roomId);
+        } else if (actionType === 'pawn-promo') {
+            const { square, player, extraTurn, anvilDropContext } = roomAfterTimeout.gameState.promotionContext;
+            const { row, col } = algebraicToCoords(square);
+            const piece = roomAfterTimeout.gameState.board[row]?.[col]?.piece;
+
+            if (piece) {
+                piece.type = 'queen';
+                piece.level = Math.min(piece.level, 7);
+                delete roomAfterTimeout.gameState.promotionContext;
+
+                if (anvilDropContext) {
+                    roomAfterTimeout.gameState.anvilDropContext = anvilDropContext;
+                    broadcastToRoom(roomId, {
+                        type: 'awaiting-anvil-drop',
+                        player: player,
+                        fullGameState: roomAfterTimeout.gameState,
+                    });
+                    startSpecialActionTimer(roomId, 'anvil-drop', player);
+                } else {
+                    finalizeTurn(roomAfterTimeout, player, extraTurn, roomAfterTimeout.gameState.enPassantTargetSquare);
+                }
+            }
+        }
+    }, 15000);
+};
+
 const startServerTurnTimer = (roomId: string) => {
     const room = rooms[roomId];
     if (!room || room.gameState.gameInfo.gameOver) return;
 
-    // Clear any existing timer for this room
     if (room.turnTimer) {
         clearTimeout(room.turnTimer);
     }
@@ -164,7 +238,6 @@ const startServerTurnTimer = (roomId: string) => {
 
     room.turnTimer = setTimeout(() => {
         const roomAfterTimeout = rooms[roomId];
-        // Check if the game state has changed since the timer was set
         if (roomAfterTimeout && roomAfterTimeout.gameState.gameMoveCounter === currentMoveCounter && !roomAfterTimeout.gameState.gameInfo.gameOver) {
             console.log(`[Server] Timeout! Player ${playerToMove}'s turn has expired for move ${currentMoveCounter}.`);
             
@@ -251,6 +324,7 @@ const processRankedQueue = async () => {
                 nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
                 whiteTimeouts: 0,
                 blackTimeouts: 0,
+                specialActionId: 0,
                 players: {
                     white: { userId: player1Data.userId, elo: player1Data.elo, username: player1Data.username },
                     black: { userId: player2Data.userId, elo: player2Data.elo, username: player2Data.username }
@@ -328,6 +402,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
                             whiteTimeouts: 0,
                             blackTimeouts: 0,
+                            specialActionId: 0,
                             players: {
                                 white: data.user ? { userId: data.user.userId, username: data.user.username } : null,
                                 black: null
@@ -443,6 +518,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 player: promotingPlayerColor,
                                 fullGameState: room.gameState,
                             });
+                             startSpecialActionTimer(ws.roomId, 'anvil-drop', promotingPlayerColor);
                         } else {
                             finalizeTurn(room, promotingPlayerColor, extraTurn || false, fromResurrection ? room.gameState.enPassantTargetSquare : null);
                         }
@@ -528,6 +604,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
                             room.gameState.board = newBoard;
                             broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
+                            startSpecialActionTimer(ws.roomId, 'commander-promo', movingPlayerColor);
                             return; 
                         }
                     } else {
@@ -557,13 +634,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             globalServerUniqueIdCounter = newResurrectionIdCounter || globalServerUniqueIdCounter;
                             room.gameState.resurrectedSquare = resurrectedSquareAlg;
                              if (promotionRequiredForResurrectedPawn) {
-                                room.gameState.promotionContext = { fromResurrection: true };
+                                room.gameState.promotionContext = { fromResurrection: true, square: resurrectedSquareAlg, player: movingPlayerColor };
                                 broadcastToRoom(ws.roomId, {
                                     type: 'promotion-required',
                                     square: resurrectedSquareAlg,
                                     player: movingPlayerColor,
                                     fullGameState: room.gameState
                                 });
+                                startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
                                 return;
                             }
                         }
@@ -591,6 +669,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.promotionContext = {
                                 extraTurn: combinedExtraTurn,
                                 anvilDropContext: anvilContext,
+                                square: move.to,
+                                player: movingPlayerColor
                             };
                             broadcastToRoom(ws.roomId, {
                                 type: 'promotion-required',
@@ -598,6 +678,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 player: movingPlayerColor,
                                 fullGameState: room.gameState,
                             });
+                            startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
                             return;
                         } else {
                             broadcastToRoom(ws.roomId, {
@@ -605,6 +686,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 player: movingPlayerColor,
                                 fullGameState: room.gameState,
                             });
+                            startSpecialActionTimer(ws.roomId, 'anvil-drop', movingPlayerColor);
                             return;
                         }
                     } else if (newStreak === 4) {
@@ -628,13 +710,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     const promotionRank = movingPlayerColor === 'white' ? 0 : 7;
                                     if (resurrectedPiece.type === 'pawn' && resR === promotionRank) {
                                         room.gameState.board[resR][resC].piece = resurrectedPiece;
-                                        room.gameState.promotionContext = { fromResurrection: true };
+                                        room.gameState.promotionContext = { fromResurrection: true, square: coordsToAlgebraic(resR, resC), player: movingPlayerColor };
                                         broadcastToRoom(ws.roomId, {
                                             type: 'promotion-required',
                                             square: coordsToAlgebraic(resR, resC),
                                             player: movingPlayerColor,
                                             fullGameState: room.gameState
                                         });
+                                        startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
                                         return;
                                     }
                                     else if (resurrectedPiece.type === 'commander' && resR === promotionRank) resurrectedPiece.type = 'hero';
@@ -647,13 +730,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     }
 
                     if (isPawnPromotion) {
-                        room.gameState.promotionContext = { extraTurn: combinedExtraTurn };
+                        room.gameState.promotionContext = { extraTurn: combinedExtraTurn, square: move.to, player: movingPlayerColor };
                         broadcastToRoom(ws.roomId, {
                             type: 'promotion-required',
                             square: move.to,
                             player: movingPlayerColor,
                             fullGameState: room.gameState
                         });
+                        startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
                         return; 
                     }
                 
@@ -740,6 +824,7 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
 
