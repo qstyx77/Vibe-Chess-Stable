@@ -200,27 +200,14 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
             broadcastToRoom(roomId, { type: 'game-move', fullGameState: roomAfterTimeout.gameState, lastPlayer: playerWhoActed });
             startServerTurnTimer(roomId);
         } else if (actionType === 'pawn-promo') {
-            const { square, player, extraTurn, anvilDropContext } = roomAfterTimeout.gameState.promotionContext;
-            const { row, col } = algebraicToCoords(square);
-            const piece = roomAfterTimeout.gameState.board[row]?.[col]?.piece;
+            const { player } = roomAfterTimeout.gameState.promotionContext;
+            delete roomAfterTimeout.gameState.promotionContext;
 
-            if (piece) {
-                piece.type = 'queen';
-                piece.level = Math.min(piece.level, 7);
-                delete roomAfterTimeout.gameState.promotionContext;
+            roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[player] || {}).username || player} did not choose a promotion. Turn forfeited.`;
 
-                if (anvilDropContext) {
-                    roomAfterTimeout.gameState.anvilDropContext = anvilDropContext;
-                    broadcastToRoom(roomId, {
-                        type: 'awaiting-anvil-drop',
-                        player: player,
-                        fullGameState: roomAfterTimeout.gameState,
-                    });
-                    startSpecialActionTimer(roomId, 'anvil-drop', player);
-                } else {
-                    finalizeTurn(roomAfterTimeout, player, extraTurn, roomAfterTimeout.gameState.enPassantTargetSquare);
-                }
-            }
+            // Finalize turn for the player who failed to promote.
+            // No extra turn is granted as promotion didn't complete.
+            finalizeTurn(roomAfterTimeout, player, false, null);
         }
     }, 15000);
 };
@@ -824,6 +811,7 @@ server.listen(PORT, '0.0.0.0', () => {
     
 
     
+
 
 
 

@@ -548,11 +548,11 @@ setIsBlackAI(newIsBlackAI);
       setTurnTimer(null);
   }, []);
 
-  const startTurnTimer = useCallback((player: PlayerColor) => {
+  const startTurnTimer = useCallback((player: PlayerColor, duration: number = 45) => {
     stopTurnTimer();
 
     setActiveTimerPlayer(player);
-    setTurnTimer(45);
+    setTurnTimer(duration);
 
     turnTimerIntervalId.current = setInterval(() => {
         setTurnTimer(currentTimerValue => {
@@ -787,6 +787,7 @@ setIsBlackAI(newIsBlackAI);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
                 setIsResurrectionPromotionInProgress(!!data.fullGameState.promotionContext?.fromResurrection);
+                startTurnTimer(player, 15);
                 console.log('[CLIENT] State set for promotion: isPromotingPawn=true');
             } else {
                 console.log(`[CLIENT] Another player (${player}) is promoting. My color is ${localPlayerColor}.`);
@@ -804,6 +805,7 @@ setIsBlackAI(newIsBlackAI);
             setPlayerToDropAnvil(player);
             if (player === localPlayerColor) {
               setGameInfo(prev => ({...prev, message: "KILL STREAK OF 3! Place an anvil."}));
+              startTurnTimer(player, 15);
             } else {
               setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! ${getPlayerDisplayName(player)} is placing an anvil.`}));
             }
@@ -830,6 +832,9 @@ setIsBlackAI(newIsBlackAI);
             // Crucially, set the awaiting promotion flag
             setIsAwaitingCommanderPromotion(true);
             toast({ title: "First Blood!", description: `${getPlayerDisplayName(fullGameState.playerWhoGotFirstBlood!)} to select a Pawn to promote!`, duration: 8000});
+            if (fullGameState.playerWhoGotFirstBlood === localPlayerColor) {
+                startTurnTimer(fullGameState.playerWhoGotFirstBlood, 15);
+            }
             break;
         }
         case 'shroom-spawn': {
@@ -897,7 +902,7 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, startTurnTimer]);
 
 
   // Effect for cleaning up WebSocket on unmount
@@ -1216,8 +1221,8 @@ setIsBlackAI(newIsBlackAI);
                 if (ws && ws.readyState === WebSocket.OPEN) {
                     ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
                 }
-                // Set processing to true to prevent further clicks, and wait for server to respond.
-                setIsMoveProcessing(true);
+                // Client now waits for server to respond after setting processing to true.
+                setIsMoveProcessing(true); 
                 return;
             }
     
@@ -2162,7 +2167,6 @@ setIsBlackAI(newIsBlackAI);
 
 
   const performAiMove = useCallback(async () => {
-    let opponentPlayer: PlayerColor | undefined;
     let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
     let levelFromAIApplyMove: number | undefined;
 
@@ -2439,7 +2443,7 @@ setIsBlackAI(newIsBlackAI);
 
 
         if (selfCheckByAIPushBack) {
-            opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
             toast({
               title: "Auto-Checkmate!",
               description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
@@ -2485,7 +2489,7 @@ setIsBlackAI(newIsBlackAI);
           }
 
         if(!aiErrorOccurredRef.current) {
-            opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
             let capturesThisTurnAI = 0;
             if (capturedPiece) capturesThisTurnAI++;
             if (restOfResult.pieceCapturedByAnvil) capturesThisTurnAI++;
@@ -2785,17 +2789,17 @@ setIsBlackAI(newIsBlackAI);
         duration: 8000,
       });
   
-      const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
+      const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
   
       if (!hasAnyLegalMoves(board, currentPlayer, enPassantTargetSquare)) {
           if (isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
-              setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentColor!)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponentColor }));
+              setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentPlayer!)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponentPlayer }));
           } else {
               setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, isStalemate: true, gameOver: true, winner: 'draw' }));
           }
       } else {
           // If there are legal moves but the AI failed, it's a forfeit.
-          setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponentColor!)} wins!`, gameOver: true, winner: opponentColor }));
+          setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponentPlayer!)} wins!`, gameOver: true, winner: opponentPlayer }));
       }
   
       if (currentPlayer === 'white') setIsWhiteAI(false);
@@ -3676,6 +3680,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
 
 
