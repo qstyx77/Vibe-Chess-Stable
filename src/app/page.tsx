@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -574,33 +573,63 @@ setIsBlackAI(newIsBlackAI);
   }, [stopTurnTimer, setShowTimerWarning, setTimerWarningKey]);
 
   useEffect(() => {
-    // This effect manages the lifecycle of the UI turn timer.
-    
-    // Conditions under which a timer should NOT be running.
-    if (onlineStatus !== 'connected' || gameInfo.gameOver || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingCommanderPromotion || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
+    // This effect is the single source of truth for all UI timers in online games.
+    if (onlineStatus !== 'connected' || gameInfo.gameOver) {
       stopTurnTimer();
       return;
     }
 
-    // If we've reached here, a timer should be running for the current player.
-    startTurnTimer(currentPlayer);
+    let timerStarted = false;
 
-    // The cleanup function of this effect will stop the timer when dependencies change.
+    // --- Special Action Timers (15s) ---
+    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === localPlayerColor) {
+      startTurnTimer(playerWhoGotFirstBlood, 15);
+      timerStarted = true;
+    } else if (isAwaitingAnvilDrop && playerToDropAnvil === localPlayerColor) {
+      startTurnTimer(playerToDropAnvil, 15);
+      timerStarted = true;
+    } else if (isPromotingPawn && playerToPromote === localPlayerColor) {
+      startTurnTimer(playerToPromote, 15);
+      timerStarted = true;
+    }
+    
+    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress;
+
+    // --- Main Turn Timer (45s) ---
+    if (!timerStarted && !isAnySpecialAction) {
+      startTurnTimer(currentPlayer);
+      timerStarted = true;
+    }
+
+    // --- Stop Timer Condition ---
+    if (!timerStarted) {
+      // This will be hit if a special action is ongoing for the OTHER player,
+      // or if we are in some other state where no timer should be active.
+      stopTurnTimer();
+    }
+
     return () => {
       stopTurnTimer();
     };
   }, [
-    onlineStatus, 
-    gameInfo.gameOver, 
-    currentPlayer, 
-    isPromotingPawn,
-    isAwaitingAnvilDrop,
+    onlineStatus,
+    gameInfo.gameOver,
+    currentPlayer,
+    localPlayerColor,
+    // Special action states
     isAwaitingCommanderPromotion,
+    playerWhoGotFirstBlood,
+    isAwaitingAnvilDrop,
+    playerToDropAnvil,
+    isPromotingPawn,
+    playerToPromote,
+    // Other flags that might stop timers
     isAwaitingPawnSacrifice,
     isAwaitingRookSacrifice,
     isResurrectionPromotionInProgress,
+    // useCallback dependencies
     startTurnTimer,
-    stopTurnTimer
+    stopTurnTimer,
   ]);
 
 
@@ -787,8 +816,6 @@ setIsBlackAI(newIsBlackAI);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
                 setIsResurrectionPromotionInProgress(!!data.fullGameState.promotionContext?.fromResurrection);
-                startTurnTimer(player, 15);
-                console.log('[CLIENT] State set for promotion: isPromotingPawn=true');
             } else {
                 console.log(`[CLIENT] Another player (${player}) is promoting. My color is ${localPlayerColor}.`);
             }
@@ -805,7 +832,6 @@ setIsBlackAI(newIsBlackAI);
             setPlayerToDropAnvil(player);
             if (player === localPlayerColor) {
               setGameInfo(prev => ({...prev, message: "KILL STREAK OF 3! Place an anvil."}));
-              startTurnTimer(player, 15);
             } else {
               setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! ${getPlayerDisplayName(player)} is placing an anvil.`}));
             }
@@ -832,9 +858,6 @@ setIsBlackAI(newIsBlackAI);
             // Crucially, set the awaiting promotion flag
             setIsAwaitingCommanderPromotion(true);
             toast({ title: "First Blood!", description: `${getPlayerDisplayName(fullGameState.playerWhoGotFirstBlood!)} to select a Pawn to promote!`, duration: 8000});
-            if (fullGameState.playerWhoGotFirstBlood === localPlayerColor) {
-                startTurnTimer(fullGameState.playerWhoGotFirstBlood, 15);
-            }
             break;
         }
         case 'shroom-spawn': {
@@ -902,7 +925,7 @@ setIsBlackAI(newIsBlackAI);
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, startTurnTimer]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState]);
 
 
   // Effect for cleaning up WebSocket on unmount
@@ -2082,7 +2105,7 @@ setIsBlackAI(newIsBlackAI);
                 boardForNextStep: boardToUpdate,
                 playerWhoseTurnCompleted: pawnColor,
                 isExtraTurn: anvilDropContext!.isExtraTurn,
-                newEnPassantTarget: anvilDropContext!.newEnPassantTarget,
+                newEnPassantTarget: anvilDropContext!.newEnpassantTarget,
             };
             setAnvilDropContext(contextForAnvil);
             setIsAwaitingAnvilDrop(true);
@@ -3680,6 +3703,7 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
+
 
 
 
