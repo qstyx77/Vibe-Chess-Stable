@@ -746,34 +746,23 @@ export function applyMove(
     }
     let newLevelForPiece = (pieceNowOnToSquare.level || 1) + levelGain;
     
-    if (move.type === 'enpassant') {
-        pieceNowOnToSquare.type = 'infiltrator';
-    } else if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
-        pieceNowOnToSquare.type = 'commander';
-        pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
-    }
-
-    if (pieceNowOnToSquare.type === 'queen') {
-      newLevelForPiece = Math.min(newLevelForPiece, 7);
-    }
-    pieceNowOnToSquare.level = newLevelForPiece;
-
-
-    if (pieceNowOnToSquare.type === 'commander') {
-      rallyCryTriggered = { square: move.to, color: pieceNowOnToSquare.color };
-      const commanderColor = pieceNowOnToSquare.color;
+    // Check for Rally Cry BEFORE any type change
+    if (movingPieceOriginalRef.type === 'commander') {
+      rallyCryTriggered = { square: move.to, color: movingPieceOriginalRef.color };
+      const commanderColor = movingPieceOriginalRef.color;
       for (let r_pawn = 0; r_pawn < 8; r_pawn++) {
         for (let c_pawn = 0; c_pawn < 8; c_pawn++) {
           const squarePawn = newBoard[r_pawn][c_pawn];
+          // Check against the ID of the piece that will be on the destination square
           if (squarePawn.piece && squarePawn.piece.color === commanderColor && squarePawn.piece.type === 'pawn' && squarePawn.piece.id !== pieceNowOnToSquare.id) {
             let newPawnLevel = (squarePawn.piece.level || 1) + 1;
             squarePawn.piece.level = newPawnLevel;
           }
         }
       }
-    } else if (pieceNowOnToSquare.type === 'hero') {
-      rallyCryTriggered = { square: move.to, color: pieceNowOnToSquare.color };
-      const heroColor = pieceNowOnToSquare.color;
+    } else if (movingPieceOriginalRef.type === 'hero') {
+      rallyCryTriggered = { square: move.to, color: movingPieceOriginalRef.color };
+      const heroColor = movingPieceOriginalRef.color;
       for (let r_ally = 0; r_ally < 8; r_ally++) {
         for (let c_ally = 0; c_ally < 8; c_ally++) {
           const allySquare = newBoard[r_ally][c_ally];
@@ -787,6 +776,20 @@ export function applyMove(
         }
       }
     }
+
+    // Now, handle type changes from the capture
+    if (move.type === 'enpassant') {
+        pieceNowOnToSquare.type = 'infiltrator';
+    } else if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
+        pieceNowOnToSquare.type = 'commander';
+        pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
+    }
+
+    // Finally, set the new level, capping the queen
+    if (pieceNowOnToSquare.type === 'queen') {
+      newLevelForPiece = Math.min(newLevelForPiece, 7);
+    }
+    pieceNowOnToSquare.level = newLevelForPiece;
   }
 
 
