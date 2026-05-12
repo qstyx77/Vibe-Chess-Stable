@@ -1024,7 +1024,7 @@ setIsBlackAI(newIsBlackAI);
             const winningPlayer = localPlayerColor || (gamePlayers?.white?.userId === user?.uid ? 'white' : 'black');
             toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
             setGameInfo(prev => ({ ...prev, gameOver: true, winner: winningPlayer, message: "Opponent disconnected. You win!" }));
-            disconnectAndReset();
+            // We do NOT call disconnectAndReset() immediately to preserve state for win/loss screen
             break;
           case 'error':
             toast({ title: "Connection Error", description: data.message, variant: 'destructive', duration: 8000 });
@@ -1057,8 +1057,13 @@ setIsBlackAI(newIsBlackAI);
         if (wsRef.current) { // Check if the closure is for the current WebSocket instance
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
-                toast({ title: "Connection Closed", description: "Disconnected from game server.", duration: 8000});
-                fullGameReset();
+                // If game is over, keep state so winner can see result. Otherwise, reset.
+                if (!gameInfo.gameOver) {
+                    toast({ title: "Connection Closed", description: "Disconnected from game server.", duration: 8000});
+                    fullGameReset();
+                } else {
+                    setOnlineStatus('disconnected');
+                }
             }
         }
     };
@@ -2575,7 +2580,7 @@ setIsBlackAI(newIsBlackAI);
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'queen';
-                              resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
+                              resurrectedAI.id = `${resurrectedPiece.id}_QueenPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 8000 });
                           } else {
                                toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
@@ -2647,9 +2652,10 @@ setIsBlackAI(newIsBlackAI);
 
             setTimeout(() => {
               const pieceAtDestinationAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
-              const promotionRankAI = currentPlayer === 'white' ? 0 : 7;
-              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === promotionRankAI && moveForApplyMoveAI!.type !== 'self-destruct';
-              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === promotionRankAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const promotionRankAI = currentPlayer === 'white' ? 'white' : 'black';
+              const rankRowAI = currentPlayer === 'white' ? 0 : 7;
+              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const streakGrantsExtraTurn = newStreakForAI === 6;
 
               let extraTurnForThisAIMove = aiExtraTurn || streakGrantsExtraTurn;
@@ -2870,11 +2876,10 @@ setIsBlackAI(newIsBlackAI);
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    if (gameInfo.gameOver && gameInfo.winner && onlineStatus === 'disconnected') {
+    if (gameInfo.gameOver && gameInfo.winner && localPlayerColor === null) {
       // Per user request, do not show the "You Lost" screen for offline games.
-      // The "You Won" screen is tied to localPlayerColor, which is null in offline games,
-      // so it also will not show.
-    } else if (gameInfo.gameOver && gameInfo.winner && onlineStatus !== 'disconnected') {
+      // localPlayerColor is null in offline games.
+    } else if (gameInfo.gameOver && gameInfo.winner && localPlayerColor !== null) {
         const isResignation = gameInfo.message.includes('resigned');
         const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
         const delay = hasPrimaryAnnouncement ? 2700 : (isResignation ? 1000 : 1500);
@@ -3190,7 +3195,7 @@ setIsBlackAI(newIsBlackAI);
     setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
     setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
     setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
-    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, setOriginalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
+    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
@@ -3703,12 +3708,3 @@ setIsBlackAI(newIsBlackAI);
     </div>
   );
 }
-
-
-
-
-
-
-
-
-
