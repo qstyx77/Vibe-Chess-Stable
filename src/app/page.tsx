@@ -89,7 +89,6 @@ function adaptBoardForAI(
     const newAiRow: AISquareState[] = [];
     if (boardRow) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
-        const squareState = boardRow[c_idx];
         newAiRow.push({
           piece: squareState?.piece ? { ...squareState.piece } : null,
           item: squareState?.item ? { ...squareState.item } : null,
@@ -785,6 +784,12 @@ setIsBlackAI(newIsBlackAI);
     setEnemySelectedSquare(null);
     setEnemyPossibleMoves([]);
     setIsMoveProcessing(false);
+
+    // Clear history to prevent local-online interference
+    setHistoryStack([]);
+    const castlingRights = getCastlingRightsString(gameState.board);
+    const initialHash = boardToPositionHash(gameState.board, gameState.currentPlayer, castlingRights, gameState.enPassantTargetSquare || null);
+    if (initialHash) setPositionHistory([initialHash]); else setPositionHistory([]);
     
     // Only animate if there's a last move, otherwise it's a fresh board
     if (gameState.lastMoveTo) {
@@ -797,7 +802,7 @@ setIsBlackAI(newIsBlackAI);
       addEffect('light-beam', gameState.resurrectedSquare);
       setResurrectedSquares(prev => [...prev, { square: gameState.resurrectedSquare, player: lastPlayer }]);
     }
-  }, [addEffect]); // Setters are stable.
+  }, [addEffect]);
 
 
   const handleIncomingData = useCallback((data: any) => {
@@ -944,6 +949,9 @@ setIsBlackAI(newIsBlackAI);
       return;
     }
   
+    // Reset local game state before initiating online connection
+    fullGameReset();
+
     setOnlineStatus('connecting');
   
     const getWebSocketUrl = () => {
