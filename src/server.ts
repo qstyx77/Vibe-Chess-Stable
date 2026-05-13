@@ -1,5 +1,3 @@
-
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -357,6 +355,21 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             }
             
             switch (data.type) {
+                case 'chat-message': {
+                    if (room) {
+                        broadcastToRoom(ws.roomId, {
+                            type: 'chat-message',
+                            message: {
+                                id: `msg_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                                sender: data.sender,
+                                text: data.text,
+                                timestamp: Date.now(),
+                                color: data.color
+                            }
+                        });
+                    }
+                    break;
+                }
                 case 'create-room': {
                     const roomId = Math.random().toString(36).substring(2, 9);
                     ws.roomId = roomId;
@@ -807,14 +820,3 @@ server.listen(PORT, '0.0.0.0', () => {
     console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
     console.log(`================================================`);
 });
-
-    
-
-    
-
-
-
-
-
-
-

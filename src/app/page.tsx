@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -28,7 +27,7 @@ import {
   boardToSimpleString,
   findKing,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, RallyCryEvent } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, RallyCryEvent, ChatMessage } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -89,6 +88,7 @@ function adaptBoardForAI(
     const newAiRow: AISquareState[] = [];
     if (boardRow) {
       for (let c_idx = 0; c_idx < 8; c_idx++) {
+        const squareState = boardRow[c_idx];
         newAiRow.push({
           piece: squareState?.piece ? { ...squareState.piece } : null,
           item: squareState?.item ? { ...squareState.item } : null,
@@ -213,6 +213,11 @@ export default function EvolvingChessPage() {
   const [anvilDropContext, setAnvilDropContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
   const [anvilDropAfterPromotion, setAnvilDropAfterPromotion] = useState(false);
 
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isMessengerOpen, setIsMessengerOpen] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const isMessengerOpenRef = useRef(isMessengerOpen);
+  const localPlayerColorRef = useRef<PlayerColor | null>(null);
 
   const { toast } = useToast();
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
@@ -231,6 +236,17 @@ export default function EvolvingChessPage() {
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
   const prevFirstBloodRef = useRef(false);
+
+  useEffect(() => {
+    isMessengerOpenRef.current = isMessengerOpen;
+    if (isMessengerOpen) {
+      setHasUnreadMessages(false);
+    }
+  }, [isMessengerOpen]);
+
+  useEffect(() => {
+    localPlayerColorRef.current = localPlayerColor;
+  }, [localPlayerColor]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor) => {
     const newEffect: Effect = {
@@ -286,7 +302,7 @@ export default function EvolvingChessPage() {
     const newIsWhiteAI = false;
     const newIsBlackAI = false;
     setIsWhiteAI(newIsWhiteAI);
-setIsBlackAI(newIsBlackAI);
+    setIsBlackAI(newIsBlackAI);
 
     setGameInfo({ ...initialGameStatus });
     flashedCheckStateRef.current = null;
@@ -371,6 +387,10 @@ setIsBlackAI(newIsBlackAI);
     setPlayerToDropAnvil(null);
     setAnvilDropContext(null);
     setAnvilDropAfterPromotion(false);
+
+    setChatMessages([]);
+    setIsMessengerOpen(false);
+    setHasUnreadMessages(false);
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -808,6 +828,12 @@ setIsBlackAI(newIsBlackAI);
   const handleIncomingData = useCallback((data: any) => {
       console.log('[CLIENT] < RECEIVED WS from server:', data);
       switch (data.type) {
+        case 'chat-message':
+            setChatMessages(prev => [...prev, data.message]);
+            if (!isMessengerOpenRef.current && data.message.color !== localPlayerColorRef.current) {
+                setHasUnreadMessages(true);
+            }
+            break;
         case 'promotion-required': {
             console.log('[CLIENT] "promotion-required" case hit.');
             const { square, player } = data;
@@ -1593,7 +1619,7 @@ setIsBlackAI(newIsBlackAI);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
           const streakGrantsExtraTurn = newStreakForSelfDestructPlayer === 6;
-          if (humanPlayerAchievedFirstBloodThisTurn) {
+          if (humanPlayerAchievedFirstbloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
               if (onlineStatus === 'disconnected') {
@@ -2660,7 +2686,6 @@ setIsBlackAI(newIsBlackAI);
 
             setTimeout(() => {
               const pieceAtDestinationAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
-              const promotionRankAI = currentPlayer === 'white' ? 'white' : 'black';
               const rankRowAI = currentPlayer === 'white' ? 0 : 7;
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
@@ -2670,7 +2695,6 @@ setIsBlackAI(newIsBlackAI);
               let sacrificeNeededForAIQueen = false;
 
               const pieceOnFromSquareForAILevelCheck = finalBoardStateForAI[algebraicToCoords(aiFromAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiFromAlg as AlgebraicSquare).col]?.piece || pieceOnFromSquareForAI;
-              const originalTypeOfAIMovedPiece = pieceOnFromSquareForAILevelCheck!.type;
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
 
 
@@ -3300,6 +3324,18 @@ setIsBlackAI(newIsBlackAI);
     setPieceForInfoDisplay(piece);
   }, []);
 
+  const sendMessage = useCallback((text: string) => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const payload = {
+        type: 'chat-message',
+        sender: userData?.username || user?.displayName || 'Anonymous',
+        text,
+        color: localPlayerColor
+      };
+      wsRef.current.send(JSON.stringify(payload));
+    }
+  }, [userData, user, localPlayerColor]);
+
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
   const mobileLayout = (
@@ -3382,6 +3418,11 @@ setIsBlackAI(newIsBlackAI);
               onlineStatus={onlineStatus}
               turnTimer={turnTimer}
               activeTimerPlayer={activeTimerPlayer}
+              chatMessages={chatMessages}
+              onSendMessage={sendMessage}
+              isMessengerOpen={isMessengerOpen}
+              onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)}
+              hasUnreadMessages={hasUnreadMessages}
             />
           
           <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
@@ -3495,6 +3536,11 @@ setIsBlackAI(newIsBlackAI);
             onlineStatus={onlineStatus}
             turnTimer={turnTimer}
             activeTimerPlayer={activeTimerPlayer}
+            chatMessages={chatMessages}
+            onSendMessage={sendMessage}
+            isMessengerOpen={isMessengerOpen}
+            onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)}
+            hasUnreadMessages={hasUnreadMessages}
         />
       </div>
 

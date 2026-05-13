@@ -1,5 +1,3 @@
-
-
 export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator';
 export type ItemType = 'anvil' | 'shroom'; // Added 'shroom'
@@ -193,4 +191,12 @@ export interface AIGameState {
   enPassantTargetSquare: AlgebraicSquare | null;
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: number;
+  color?: PlayerColor;
 }
