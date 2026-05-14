@@ -210,3 +210,9 @@ body {
 .animate-chat-notify {
   animation: chat-notify 1s infinite;
 }
+
+@keyframes level-float {
+  0% { transform: translateY(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateY(-50px); opacity: 0; }
+}

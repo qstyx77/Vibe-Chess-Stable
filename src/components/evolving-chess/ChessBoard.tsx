@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
@@ -30,14 +29,16 @@ interface ChessBoardProps {
   onPieceHover: (piece: Piece | null) => void;
   effects?: Effect[];
   promotingSquare: AlgebraicSquare | null;
+  isAwaitingAnvilDrop: boolean;
+  playerToDropAnvil: PlayerColor | null;
 }
 
 export function ChessBoard({
   boardState,
   selectedSquare,
-  possibleMoves,
+  possibleMoves = [],
   enemySelectedSquare,
-  enemyPossibleMoves,
+  enemyPossibleMoves = [],
   onSquareClick,
   playerColor,
   currentPlayerColor,
@@ -56,6 +57,8 @@ export function ChessBoard({
   onPieceHover,
   effects = [],
   promotingSquare,
+  isAwaitingAnvilDrop,
+  playerToDropAnvil,
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -72,7 +75,7 @@ export function ChessBoard({
     
     switch (effect.type) {
       case 'poof':
-        effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.4s_ease-out_forwards]";
+        effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.2s_ease-out_forwards]";
         break;
       case 'explosion':
         effectClass = "after:content-['✹'] after:text-5xl after:md:text-6xl after:text-destructive after:animate-[pixel-explosion_0.6s_ease-out_forwards]";
@@ -95,6 +98,20 @@ export function ChessBoard({
           <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '100%'}}>
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/6 h-full bg-gradient-to-b from-transparent via-cyan-300/80 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" />
           </div>
+        );
+      case 'level-change':
+        const isPositive = (effect.value || 0) >= 0;
+        const sign = isPositive ? '+' : '';
+        const text = `${sign}${effect.value}`;
+        return (
+            <div 
+                className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
+                style={{ top, left }}
+            >
+                <span className="text-red-500 font-bold text-lg md:text-xl animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}>
+                    {text}
+                </span>
+            </div>
         );
     }
   
@@ -181,4 +198,3 @@ export function ChessBoard({
     </div>
   );
 }
-

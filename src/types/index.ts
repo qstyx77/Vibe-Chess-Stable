@@ -48,9 +48,10 @@ export interface GameStatus {
 
 export interface Effect {
   id: number;
-  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam';
+  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam' | 'level-change';
   square: AlgebraicSquare;
   color?: PlayerColor;
+  value?: number;
   // For conversion, might need more data
   fromColor?: PlayerColor;
   toColor?: PlayerColor;

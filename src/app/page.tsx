@@ -248,21 +248,53 @@ export default function EvolvingChessPage() {
     localPlayerColorRef.current = localPlayerColor;
   }, [localPlayerColor]);
 
-  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor) => {
+  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const newEffect: Effect = {
         id: Date.now() + Math.random(),
         type,
         square,
         color,
+        value,
     };
     setEffects(prev => [...prev, newEffect]);
   }, []);
 
+  const detectAndTriggerLevelEffects = useCallback((oldBoard: BoardState, newBoard: BoardState) => {
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const oldSq = oldBoard[r][c];
+        const newSq = newBoard[r][c];
+        
+        // We look for pieces that were on the board and are still on the board (possibly in a different square, 
+        // but it's simpler to just check if a square now has a piece with the same ID and a different level)
+        if (oldSq.piece && newSq.piece && oldSq.piece.id === newSq.piece.id) {
+            const levelDiff = newSq.piece.level - oldSq.piece.level;
+            if (levelDiff !== 0) {
+                addEffect('level-change', newSq.algebraic, undefined, levelDiff);
+            }
+        }
+        
+        // Handle cases where piece moved but level changed (e.g. capture or shroom)
+        // This is handled if we compare pieces by ID globally, but square-by-square is easier if we look at the destination.
+        // Actually, most logic in this game happens by identifying the piece on the destination square.
+      }
+    }
+  }, [addEffect]);
+
+  // Wrap setBoard to automatically detect level changes
+  const updateBoardWithEffects = useCallback((newBoard: BoardState) => {
+    setBoard(currentBoard => {
+        detectAndTriggerLevelEffects(currentBoard, newBoard);
+        return newBoard;
+    });
+  }, [detectAndTriggerLevelEffects]);
+
+
   useEffect(() => {
     if (effects.length > 0) {
       const timer = setTimeout(() => {
-        setEffects([]);
-      }, 1000);
+        setEffects(prev => prev.filter(e => Date.now() - e.id < 1500));
+      }, 1500);
       return () => clearTimeout(timer);
     }
   }, [effects]);
@@ -602,13 +634,13 @@ export default function EvolvingChessPage() {
 
     // --- Special Action Timers (15s) ---
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === localPlayerColor) {
-      startTurnTimer(playerWhoGotFirstBlood, 15);
+      startTurnTimer(playerWhoGotFirstBlood!, 15);
       timerStarted = true;
     } else if (isAwaitingAnvilDrop && playerToDropAnvil === localPlayerColor) {
-      startTurnTimer(playerToDropAnvil, 15);
+      startTurnTimer(playerToDropAnvil!, 15);
       timerStarted = true;
     } else if (isPromotingPawn && playerToPromote === localPlayerColor) {
-      startTurnTimer(playerToPromote, 15);
+      startTurnTimer(playerToPromote!, 15);
       timerStarted = true;
     }
     
@@ -718,7 +750,7 @@ export default function EvolvingChessPage() {
               const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
               if (spawnedAt) {
                   currentBoardState = newBoard;
-                  setBoard(currentBoardState);
+                  updateBoardWithEffects(currentBoardState);
                   const newNextTurn = Math.floor(Math.random() * 6) + 5;
                   toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
                   setShroomSpawnCounter(0);
@@ -772,7 +804,7 @@ export default function EvolvingChessPage() {
   }, [
     positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver,
     setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn,
-    gameMoveCounter, setBoard,
+    gameMoveCounter, updateBoardWithEffects,
     getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus,
     localPlayerColor
@@ -782,7 +814,7 @@ export default function EvolvingChessPage() {
     if (!gameState) return;
     console.log('[CLIENT] Applying server game state:', gameState);
 
-    setBoard(gameState.board);
+    updateBoardWithEffects(gameState.board);
     if (gameState.players) setGamePlayers(gameState.players);
     setCapturedPieces(gameState.capturedPieces);
     setKillStreaks(gameState.killStreaks);
@@ -822,7 +854,7 @@ export default function EvolvingChessPage() {
       addEffect('light-beam', gameState.resurrectedSquare);
       setResurrectedSquares(prev => [...prev, { square: gameState.resurrectedSquare, player: lastPlayer }]);
     }
-  }, [addEffect]);
+  }, [addEffect, updateBoardWithEffects]);
 
 
   const handleIncomingData = useCallback((data: any) => {
@@ -897,6 +929,7 @@ export default function EvolvingChessPage() {
             setBoard(currentBoard => {
                 const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
                 newBoard[row][col].item = { type: 'shroom' };
+                // Also trigger level effect if a piece was already on this square (though shroom only spawns on empty)
                 return newBoard;
             });
             setShroomSpawnCounter(0);
@@ -1210,7 +1243,7 @@ export default function EvolvingChessPage() {
             }
             if (pawnSacrificed) break;
           }
-          setBoard(boardCopyForAISacrifice);
+          updateBoardWithEffects(boardCopyForAISacrifice);
           if (sacrificedAIPawn) {
             const opponentColor = playerWhoseQueenLeveled === 'white' ? 'black' : 'white';
             setCapturedPieces(prev => ({
@@ -1235,7 +1268,7 @@ export default function EvolvingChessPage() {
     }
     processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
     return false;
-  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, onlineStatus]);
+  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, updateBoardWithEffects, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, onlineStatus]);
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
@@ -1293,7 +1326,7 @@ export default function EvolvingChessPage() {
             const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
             const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
             boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
-            setBoard(boardAfterAnvilDrop);
+            updateBoardWithEffects(boardAfterAnvilDrop);
             
             toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
         
@@ -1337,7 +1370,7 @@ export default function EvolvingChessPage() {
             const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
             boardAfterCommanderPromo[row][col].piece!.type = 'commander';
             boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
-            setBoard(boardAfterCommanderPromo);
+            updateBoardWithEffects(boardAfterCommanderPromo);
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
             
             setIsAwaitingCommanderPromotion(false);
@@ -1381,7 +1414,7 @@ export default function EvolvingChessPage() {
         addEffect('poof', algebraic);
         boardAfterSacrifice[row][col].piece = null;
 
-        setBoard(boardAfterSacrifice);
+        updateBoardWithEffects(boardAfterSacrifice);
 
         const opponentOfSacrificer = playerWhoMadeQueenMove! === 'white' ? 'black' : 'white';
         setCapturedPieces(prevCaptured => {
@@ -1600,7 +1633,7 @@ export default function EvolvingChessPage() {
                       setPlayerToPromote(selfDestructPlayer);
                       setIsPromotingPawn(true);
                       setPromotionSquare(randomSquareAlg);
-                      setBoard(finalBoardStateForTurn);
+                      updateBoardWithEffects(finalBoardStateForTurn);
                       setCapturedPieces(finalCapturedPiecesStateForTurn);
                       setIsMoveProcessing(false);
                       return;
@@ -1610,7 +1643,7 @@ export default function EvolvingChessPage() {
             }
         }
 
-        setBoard(finalBoardStateForTurn);
+        updateBoardWithEffects(finalBoardStateForTurn);
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
 
@@ -1676,7 +1709,7 @@ export default function EvolvingChessPage() {
         } = applyMoveResult;
         
         finalBoardStateForTurn = boardAfterMove;
-        let nextEnpassantTarget = applyMoveResult.enPassantTargetSet;
+        let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
 
         if (becameInfiltratorFromApply) {
           toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -1684,7 +1717,7 @@ export default function EvolvingChessPage() {
 
 
         if (gameWonByInfiltrationFromApply) {
-          setBoard(finalBoardStateForTurn);
+          updateBoardWithEffects(finalBoardStateForTurn);
           setCapturedPieces(finalCapturedPiecesStateForTurn);
           toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
@@ -1733,7 +1766,7 @@ export default function EvolvingChessPage() {
             playerWithKingInCheck: currentPlayer,
             isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
           }));
-          setBoard(finalBoardStateForTurn);
+          updateBoardWithEffects(finalBoardStateForTurn);
           setIsMoveProcessing(false);
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
@@ -1846,7 +1879,7 @@ export default function EvolvingChessPage() {
                   setPlayerToPromote(currentPlayer);
                   setIsPromotingPawn(true);
                   setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
-                  setBoard(finalBoardStateForTurn);
+                  updateBoardWithEffects(finalBoardStateForTurn);
                   setCapturedPieces(finalCapturedPiecesStateForTurn);
                   setIsMoveProcessing(false);
                   return;
@@ -1886,7 +1919,7 @@ export default function EvolvingChessPage() {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
                 isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: nextEnpassantTarget,
+                newEnPassantTarget: nextEnPassantTarget,
             };
             setAnvilDropContext(anvilDropCtx);
             if (isPawnPromotingMove) {
@@ -1931,7 +1964,7 @@ export default function EvolvingChessPage() {
                             setPlayerToPromote(capturingPlayer);
                             setIsPromotingPawn(true);
                             setPromotionSquare(randomSquareAlg);
-                            setBoard(finalBoardStateForTurn);
+                            updateBoardWithEffects(finalBoardStateForTurn);
                             setCapturedPieces(finalCapturedPiecesStateForTurn);
                             setIsMoveProcessing(false);
                             return;
@@ -1950,7 +1983,7 @@ export default function EvolvingChessPage() {
           });
         }
 
-        setBoard(finalBoardStateForTurn);
+        updateBoardWithEffects(finalBoardStateForTurn);
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
         if (isEnteringAnvilDropMode && !isPawnPromotingMove) {
@@ -1978,7 +2011,7 @@ export default function EvolvingChessPage() {
           let sacrificeNeededForQueen = false;
 
           if (!isPendingHumanResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnpassantTarget);
+             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
           }
 
           if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isPendingHumanResurrectionPromotion) {
@@ -1986,11 +2019,11 @@ export default function EvolvingChessPage() {
             setIsPromotingPawn(true); 
             setPromotionSquare(algebraic);
           } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingHumanResurrectionPromotion && !becameInfiltratorFromApply) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnpassantTarget);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           } else if (humanRookResData?.resurrectionPerformed && !isPendingHumanResurrectionPromotion) {
-             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnpassantTarget);
+             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           } else if ((becameInfiltratorFromApply) && !isPendingHumanResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnpassantTarget);
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           }
 
           setIsMoveProcessing(false);
@@ -2044,8 +2077,8 @@ export default function EvolvingChessPage() {
 
   }, [
     board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
-    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast, addEffect,
-    setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
+    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast, addEffect, updateBoardWithEffects,
+    setGameInfo, setCapturedPieces, setKillStreaks,
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
     setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
     isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
@@ -2123,7 +2156,7 @@ export default function EvolvingChessPage() {
     setAnimatedSquareTo(promotionSquare);
     
 
-    setBoard(boardToUpdate);
+    updateBoardWithEffects(boardToUpdate);
 
     setTimeout(() => {
       let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
@@ -2144,7 +2177,7 @@ export default function EvolvingChessPage() {
                 boardForNextStep: boardToUpdate,
                 playerWhoseTurnCompleted: pawnColor,
                 isExtraTurn: anvilDropContext!.isExtraTurn,
-                newEnPassantTarget: anvilDropContext!.newEnpassantTarget,
+                newEnPassantTarget: anvilDropContext!.newEnPassantTarget,
             };
             setAnvilDropContext(contextForAnvil);
             setIsAwaitingAnvilDrop(true);
@@ -2172,7 +2205,7 @@ export default function EvolvingChessPage() {
                   if (aiPromoRookResPerformed) {
                     boardToUpdate = boardWithResurrection;
                     setCapturedPieces(capturedPiecesAfterResurrection);
-                    setBoard(boardToUpdate);
+                    updateBoardWithEffects(boardToUpdate);
                     globalUniqueIdCounter = aiPromoRookIdCounter!;
                     addEffect('light-beam', aiPromoRookSquareAlg!);
                     setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
@@ -2181,7 +2214,7 @@ export default function EvolvingChessPage() {
                         const promoR_AI = currentPlayer === 'white' ? 0 : 7;
                         const {row: resRookPromoAIR, col: resRookPromoAIC} = algebraicToCoords(aiPromoRookSquareAlg!);
                         if (resRookPromoAIR === promoR_AI) {
-                            const resurrectedPieceOnBoardAI = boardWithResurrection[resRookPromoAIR]?.[resRookPromoAIC]?.piece;
+                            const resurrectedPieceOnBoardAI = boardToUpdate[resRookPromoAIR]?.[resRookPromoAIC]?.piece;
                             if (resurrectedPieceOnBoardAI) {
                                 if (resurrectedPieceOnBoardAI.type === 'pawn') {
                                     resurrectedPieceOnBoardAI.type = 'queen';
@@ -2218,7 +2251,7 @@ export default function EvolvingChessPage() {
     }, 800);
   }, [
     board, promotionSquare, toast, killStreaks, saveStateToHistory, getPlayerDisplayName, processPawnSacrificeCheck, processRookResurrectionCheck,
-    isMoveProcessing, setBoard, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
+    isMoveProcessing, updateBoardWithEffects, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
     setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces, setPlayerToPromote,
     isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
@@ -2458,7 +2491,7 @@ export default function EvolvingChessPage() {
 
 
         if (aiGameWonByInfiltration) {
-            setBoard(finalBoardStateForAI);
+            updateBoardWithEffects(finalBoardStateForAI);
             setCapturedPieces(finalCapturedPiecesForAI);
             toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, duration: 8000 });
             setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
@@ -2519,7 +2552,7 @@ export default function EvolvingChessPage() {
               playerWithKingInCheck: currentPlayer,
               isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
             }));
-            setBoard(finalBoardStateForAI);
+            updateBoardWithEffects(finalBoardStateForAI);
             setIsMoveProcessing(false);
             setIsAiThinking(false);
             setSelectedSquare(null); setPossibleMoves([]);
@@ -2681,7 +2714,7 @@ export default function EvolvingChessPage() {
               }
             }
 
-            setBoard(finalBoardStateForAI);
+            updateBoardWithEffects(finalBoardStateForAI);
             setCapturedPieces(finalCapturedPiecesForAI);
 
             setTimeout(() => {
@@ -2706,7 +2739,7 @@ export default function EvolvingChessPage() {
                       finalBoardStateForAI[promoR][promoC].piece!.type = promotedTypeAI;
                       finalBoardStateForAI[promoR][promoC].piece!.level = pieceAtDestinationAI!.level; 
                       finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
-                      setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
+                      updateBoardWithEffects(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                   }
                   toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L${finalBoardStateForAI[promoR][promoC].piece!.level})`, duration: 8000 });
 
@@ -2756,7 +2789,7 @@ export default function EvolvingChessPage() {
                             if (aiPromoRookResPerformed) {
                                 finalBoardStateForAI = boardWithResurrection;
                                 setCapturedPieces(capturedPiecesAfterResurrection);
-                                setBoard(finalBoardStateForAI);
+                                updateBoardWithEffects(finalBoardStateForAI);
                                 globalUniqueIdCounter = aiPromoRookIdCounter!;
                                 addEffect('light-beam', aiPromoRookSquareAlg!);
                                 setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
@@ -2787,7 +2820,7 @@ export default function EvolvingChessPage() {
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
-                        setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
+                        updateBoardWithEffects(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
                     if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
@@ -2873,8 +2906,8 @@ export default function EvolvingChessPage() {
   }, [
     board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
     isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, addEffect,
-    saveStateToHistory, toast, getPlayerDisplayName, hasAnyLegalMoves,
-    setGameInfo, setBoard, setCapturedPieces, setKillStreaks,
+    saveStateToHistory, toast, getPlayerDisplayName, hasAnyLegalMoves, updateBoardWithEffects,
+    setGameInfo, setCapturedPieces, setKillStreaks,
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves,
     setIsAiThinking, setIsMoveProcessing, setAnimatedSquareTo,
     setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
@@ -3573,7 +3606,7 @@ export default function EvolvingChessPage() {
           )}>
            {gameInfo.message}
         </div>
-        <div className="w-full max-w-lg">
+        <div className="w-full max-lg">
           <ChessBoard
               boardState={board}
               selectedSquare={selectedSquare}
