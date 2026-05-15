@@ -250,14 +250,26 @@ export default function EvolvingChessPage() {
   }, [localPlayerColor]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
+    const newId = Date.now() + Math.random();
     const newEffect: Effect = {
-        id: Date.now() + Math.random(),
+        id: newId,
         type,
         square,
         color,
         value,
     };
-    setEffects(prev => [...prev, newEffect]);
+
+    setEffects(prev => {
+        // STRICT DEDUPLICATION:
+        // Do not add the same type of effect to the same square if it was added recently (last 500ms)
+        const isDuplicate = prev.some(e => 
+            e.type === type && 
+            e.square === square && 
+            (newId - e.id < 500)
+        );
+        if (isDuplicate) return prev;
+        return [...prev, newEffect];
+    });
   }, []);
 
   // --- REFACTORED LEVEL CHANGE & CAPTURE DETECTION ---
@@ -273,43 +285,42 @@ export default function EvolvingChessPage() {
     }));
 
     const prevPieces = prevBoardPiecesRef.current;
-    const newEffects: Effect[] = [];
+    const newEffectsToAdd: { type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number }[] = [];
 
     // 1. Detect Level Changes & Captures
-    // Check all pieces that were previously on the board
     for (const [id, prevData] of prevPieces.entries()) {
       const currentData = currentPieces.get(id);
       
       if (currentData) {
         // Piece is still here, check level
         if (currentData.level !== prevData.level) {
-          newEffects.push({
-            id: Math.random(),
+          newEffectsToAdd.push({
             type: 'level-change',
             square: currentData.algebraic,
             value: currentData.level - prevData.level,
           });
         }
       } else {
-        // Piece is gone! This is a capture (or promotion where ID changes, but poof is usually okay there too)
-        newEffects.push({
-          id: Math.random(),
-          type: 'poof',
-          square: prevData.algebraic,
-        });
+        // Piece is gone! Handle capture / removal
+        // Filter out "disappearing" because of promotion (ID change)
+        const baseId = id.split('_')[0];
+        const stillExistsWithSuffix = Array.from(currentPieces.keys()).some(k => k.startsWith(baseId));
+        
+        if (!stillExistsWithSuffix) {
+            newEffectsToAdd.push({
+                type: 'poof',
+                square: prevData.algebraic,
+            });
+        }
       }
     }
 
-    // 2. Detect New Pieces (Ressurections or initial placements)
-    // We don't usually poof on new pieces appearing, so we just track them for next comparison
-    
-    if (newEffects.length > 0) {
-      setEffects(prev => [...prev, ...newEffects.map(e => ({ ...e, id: Date.now() + Math.random() }))]);
-    }
+    // Trigger uniquely
+    newEffectsToAdd.forEach(ne => addEffect(ne.type, ne.square, ne.color, ne.value));
 
     // Update the ref for next comparison
     prevBoardPiecesRef.current = currentPieces;
-  }, [board]);
+  }, [board, addEffect]);
 
 
   useEffect(() => {
@@ -445,6 +456,9 @@ export default function EvolvingChessPage() {
     setChatMessages([]);
     setIsMessengerOpen(false);
     setHasUnreadMessages(false);
+    
+    // Also reset pieces ref tracking
+    prevBoardPiecesRef.current = new Map();
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -2477,7 +2491,7 @@ export default function EvolvingChessPage() {
         }
         
         if (destroyedAnvils && destroyedAnvils > 0) {
-             toast({ title: "AI Smashes Anvils!", description: `${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's':''} destroyed.`, duration: 8000 });
+             toast({ title: "AI Smashes Anvils!", description: `${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''} destroyed.`, duration: 8000 });
         }
 
 
@@ -2590,7 +2604,7 @@ export default function EvolvingChessPage() {
                               resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
-                              resurrectedAI.type = 'queen';
+                              resurrectedAI.type = 'queen'; 
                               resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 8000 });
                           } else {
@@ -2634,7 +2648,7 @@ export default function EvolvingChessPage() {
                   currentPlayer,
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
-                  oldLevelForAIResCheck,
+                  oldLevelForResCheck,
                   finalCapturedPiecesForAI,
                   globalUniqueIdCounter
               );
@@ -3146,6 +3160,9 @@ export default function EvolvingChessPage() {
       setAnvilDropAfterPromotion(stateToRestore.anvilDropAfterPromotion || false);
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
+      
+      // Also clear detection refs on undo
+      prevBoardPiecesRef.current = new Map();
     } else {
       setLastMoveFrom(null);
       setLastMoveTo(null);
@@ -3689,3 +3706,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
