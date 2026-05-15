@@ -173,7 +173,7 @@ export default function EvolvingChessPage() {
   const [gameMoveCounter, setGameMoveCounter] = useState(0);
   const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
 
-  const clickGuardRef = useRef(false); // To block multiple rapid entries to handleSquareClick
+  const clickGuardRef = useRef(false);
 
   const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
   const [playerToSacrificePawn, setPlayerToSacrificePawn] = useState<PlayerColor | null>(null);
@@ -239,7 +239,6 @@ export default function EvolvingChessPage() {
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
   const prevFirstBloodRef = useRef(false);
 
-  // PrevBoardRef to detect level changes outside of state setters to prevent multi-triggers
   const prevBoardRef = useRef<BoardState>(board);
 
   useEffect(() => {
@@ -264,7 +263,6 @@ export default function EvolvingChessPage() {
     setEffects(prev => [...prev, newEffect]);
   }, []);
 
-  // UseEffect to watch for level changes exactly once per board update
   useEffect(() => {
     const oldBoard = prevBoardRef.current;
     if (oldBoard === board) return;
@@ -312,7 +310,7 @@ export default function EvolvingChessPage() {
   }, [effects]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    if (!player) return 'A player'; // Guard against undefined player
+    if (!player) return 'A player';
     if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
         const username = gamePlayers?.[player]?.username;
         if (username) {
@@ -323,7 +321,6 @@ export default function EvolvingChessPage() {
         }
     }
     
-    // Local game logic
     let baseName: string = player.charAt(0).toUpperCase() + player.slice(1);
     
     if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
@@ -441,7 +438,7 @@ export default function EvolvingChessPage() {
 
   const disconnectAndReset = useCallback(() => {
     if (wsRef.current) {
-        wsRef.current.onclose = null; // Prevent onclose handler from running again
+        wsRef.current.onclose = null;
         wsRef.current.close();
         wsRef.current = null;
     }
@@ -472,7 +469,6 @@ export default function EvolvingChessPage() {
   }, [animatedSquareTo]);
 
   useEffect(() => {
-    // Clear resurrection highlights for the player whose turn it now is.
     if (resurrectedSquares.length > 0) {
       setResurrectedSquares(prev => prev.filter(rs => rs.player !== currentPlayer));
     }
@@ -638,7 +634,6 @@ export default function EvolvingChessPage() {
   }, [stopTurnTimer, setShowTimerWarning, setTimerWarningKey]);
 
   useEffect(() => {
-    // This effect is the single source of truth for all UI timers in online games.
     if (onlineStatus !== 'connected' || gameInfo.gameOver) {
       stopTurnTimer();
       return;
@@ -646,7 +641,6 @@ export default function EvolvingChessPage() {
 
     let timerStarted = false;
 
-    // --- Special Action Timers (15s) ---
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === localPlayerColor) {
       startTurnTimer(playerWhoGotFirstBlood!, 15);
       timerStarted = true;
@@ -660,16 +654,12 @@ export default function EvolvingChessPage() {
     
     const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress;
 
-    // --- Main Turn Timer (45s) ---
     if (!timerStarted && !isAnySpecialAction) {
       startTurnTimer(currentPlayer);
       timerStarted = true;
     }
 
-    // --- Stop Timer Condition ---
     if (!timerStarted) {
-      // This will be hit if a special action is ongoing for the OTHER player,
-      // or if we are in some other state where no timer should be active.
       stopTurnTimer();
     }
 
@@ -681,18 +671,15 @@ export default function EvolvingChessPage() {
     gameInfo.gameOver,
     currentPlayer,
     localPlayerColor,
-    // Special action states
     isAwaitingCommanderPromotion,
     playerWhoGotFirstBlood,
     isAwaitingAnvilDrop,
     playerToDropAnvil,
     isPromotingPawn,
     playerToPromote,
-    // Other flags that might stop timers
     isAwaitingPawnSacrifice,
     isAwaitingRookSacrifice,
     isResurrectionPromotionInProgress,
-    // useCallback dependencies
     startTurnTimer,
     stopTurnTimer,
   ]);
@@ -749,9 +736,7 @@ export default function EvolvingChessPage() {
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
     
-    // Item Spawn Logic - only the current player triggers the check
     if (onlineStatus !== 'connected' || localPlayerColor === playerWhoseTurnCompleted) {
-      // Shroom Spawn Logic
       let currentShroomCounter = shroomSpawnCounter + 1;
       setShroomSpawnCounter(currentShroomCounter);
       if (currentShroomCounter >= nextShroomSpawnTurn) {
@@ -844,7 +829,6 @@ export default function EvolvingChessPage() {
     setWhiteTimeouts(gameState.whiteTimeouts || 0);
     setBlackTimeouts(gameState.blackTimeouts || 0);
 
-    // Reset transient UI state that shouldn't be persisted from local play
     setSelectedSquare(null);
     setPossibleMoves([]);
     setEnemySelectedSquare(null);
@@ -852,13 +836,11 @@ export default function EvolvingChessPage() {
     setIsMoveProcessing(false);
     clickGuardRef.current = false;
 
-    // Clear history to prevent local-online interference
     setHistoryStack([]);
     const castlingRights = getCastlingRightsString(gameState.board);
     const initialHash = boardToPositionHash(gameState.board, gameState.currentPlayer, castlingRights, gameState.enPassantTargetSquare || null);
     if (initialHash) setPositionHistory([initialHash]); else setPositionHistory([]);
     
-    // Only animate if there's a last move, otherwise it's a fresh board
     if (gameState.lastMoveTo) {
       setAnimatedSquareTo(gameState.lastMoveTo);
     } else {
@@ -882,7 +864,6 @@ export default function EvolvingChessPage() {
             }
             break;
         case 'promotion-required': {
-            console.log('[CLIENT] "promotion-required" case hit.');
             const { square, player } = data;
             
             applyServerGameState(data.fullGameState);
@@ -890,13 +871,10 @@ export default function EvolvingChessPage() {
             clickGuardRef.current = false;
 
             if (player === localPlayerColor) {
-                console.log(`[CLIENT] This client (${localPlayerColor}) needs to promote.`);
                 setPlayerToPromote(player);
                 setIsPromotingPawn(true);
                 setPromotionSquare(square);
                 setIsResurrectionPromotionInProgress(!!data.fullGameState.promotionContext?.fromResurrection);
-            } else {
-                console.log(`[CLIENT] Another player (${player}) is promoting. My color is ${localPlayerColor}.`);
             }
             break;
         }
@@ -923,7 +901,6 @@ export default function EvolvingChessPage() {
         }
         case 'game-move': {
             applyServerGameState(data.fullGameState, data.lastPlayer);
-            // After applying the new definitive state, reset any client-side "awaiting" flags.
             setIsAwaitingAnvilDrop(false);
             setPlayerToDropAnvil(null);
             break;
@@ -936,7 +913,6 @@ export default function EvolvingChessPage() {
             setIsMoveProcessing(false);
             clickGuardRef.current = false;
 
-            // Crucially, set the awaiting promotion flag
             setIsAwaitingCommanderPromotion(true);
             toast({ title: "First Blood!", description: `${getPlayerDisplayName(fullGameState.playerWhoGotFirstBlood!)} to select a Pawn to promote!`, duration: 8000});
             break;
@@ -1010,7 +986,6 @@ export default function EvolvingChessPage() {
   }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState]);
 
 
-  // Effect for cleaning up WebSocket on unmount
   useEffect(() => {
     return () => {
       if (wsRef.current) {
@@ -1026,7 +1001,6 @@ export default function EvolvingChessPage() {
       return;
     }
   
-    // Reset local game state before initiating online connection
     fullGameReset();
 
     setOnlineStatus('connecting');
@@ -1071,7 +1045,7 @@ export default function EvolvingChessPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data as string);
-        console.log('[CLIENT] < RECEIVED WS from server:', data); // Log all incoming messages
+        console.log('[CLIENT] < RECEIVED WS from server:', data);
         switch (data.type) {
           case 'room-created':
             setRoomId(data.roomId);
@@ -1135,10 +1109,9 @@ export default function EvolvingChessPage() {
   
     ws.onclose = (event) => {
         console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
-        if (wsRef.current) { // Check if the closure is for the current WebSocket instance
+        if (wsRef.current) {
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
-                // If game is over, keep state so winner can see result. Otherwise, reset.
                 if (!gameInfo.gameOver) {
                     toast({ title: "Connection Closed", description: "Disconnected from game server.", duration: 8000});
                     fullGameReset();
@@ -1286,7 +1259,6 @@ export default function EvolvingChessPage() {
 
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
-    // Click Guard: Prevent rapid double entry
     if (clickGuardRef.current) return;
 
     let moveBeingMade: Move | null = null;
@@ -1298,7 +1270,6 @@ export default function EvolvingChessPage() {
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
-    // --- Online "Not My Turn" block ---
     if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
         if (clickedPiece) {
             if (clickedPiece.color === localPlayerColor) {
@@ -1333,7 +1304,6 @@ export default function EvolvingChessPage() {
                 return;
             }
     
-            // --- Offline Logic ---
             saveStateToHistory();
             const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
             const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
@@ -1519,7 +1489,6 @@ export default function EvolvingChessPage() {
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
-      // Explicitly check and set en passant move type
       if (isMoveInFreshList) {
           if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
             moveBeingMade.type = 'enpassant';
@@ -1664,7 +1633,7 @@ export default function EvolvingChessPage() {
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
           const streakGrantsExtraTurn = newStreakForSelfDestructPlayer === 6;
-          if (humanPlayerAchievedFirstbloodThisTurn) {
+          if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
               if (onlineStatus === 'disconnected') {
@@ -1788,7 +1757,7 @@ export default function EvolvingChessPage() {
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
           if (onlineStatus === 'connected') {
             const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
               ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
             }
           }
@@ -2015,7 +1984,7 @@ export default function EvolvingChessPage() {
           const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
           const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
           
-          if (humanPlayerAchievedFirstbloodThisTurn) {
+          if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
               if (onlineStatus === 'disconnected') {
@@ -2115,7 +2084,6 @@ export default function EvolvingChessPage() {
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare || isAwaitingCommanderPromotion) {
-        console.log('[CLIENT] handlePromotionSelect rejected: no promotion square or awaiting commander promo.');
         return;
     }
 
@@ -2133,7 +2101,6 @@ export default function EvolvingChessPage() {
         return;
     }
 
-    // --- LOCAL GAME LOGIC ---
     let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
@@ -2748,7 +2715,7 @@ export default function EvolvingChessPage() {
                       if ((!aiRookResData || !aiRookResData.resurrectionPerformed) && (capturedPieceDataForScoring || restOfResult.pieceCapturedByAnvil)) { 
                         const newRookLevelCheck = Number(pieceAfterAIPromo.level || 1);
                         if (newRookLevelCheck >= 4) { 
-                            const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter, promotionRequiredForResurrectedPawn } = processRookResurrectionCheck(
+                            const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                                 finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, aiToAlg as AlgebraicSquare, 
                                 0, 
                                 finalCapturedPiecesForAI, globalUniqueIdCounter
@@ -3667,7 +3634,6 @@ export default function EvolvingChessPage() {
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
-      {/* Flash Messages & Overlays */}
       {showCaptureFlash && <div key={`capture-${captureFlashKey}`} className="fixed inset-0 z-10 animate-capture-pattern-flash pointer-events-none" />}
       {showCheckFlashBackground && <div key={`check-${checkFlashBackgroundKey}`} className="fixed inset-0 z-10 animate-check-pattern-flash pointer-events-none" />}
       {showCheckmatePatternFlash && <div key={`checkmate-${checkmatePatternFlashKey}`} className="fixed inset-0 z-10 animate-checkmate-pattern-flash pointer-events-none" />}
