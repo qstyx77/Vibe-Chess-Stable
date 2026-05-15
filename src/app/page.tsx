@@ -51,9 +51,6 @@ import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
-import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
-import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 let globalUniqueIdCounter = 0;
@@ -239,7 +236,7 @@ export default function EvolvingChessPage() {
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
   const prevFirstBloodRef = useRef(false);
 
-  const prevBoardRef = useRef<BoardState>(board);
+  const prevBoardPiecesRef = useRef<Map<string, { level: number, algebraic: AlgebraicSquare }>>(new Map());
 
   useEffect(() => {
     isMessengerOpenRef.current = isMessengerOpen;
@@ -263,40 +260,55 @@ export default function EvolvingChessPage() {
     setEffects(prev => [...prev, newEffect]);
   }, []);
 
+  // --- REFACTORED LEVEL CHANGE & CAPTURE DETECTION ---
   useEffect(() => {
-    const oldBoard = prevBoardRef.current;
-    if (oldBoard === board) return;
-
-    const oldPieceLevels = new Map<string, number>();
-    for (const row of oldBoard) {
-      for (const sq of row) {
-        if (sq.piece) oldPieceLevels.set(sq.piece.id, sq.piece.level);
+    const currentPieces = new Map<string, { level: number, algebraic: AlgebraicSquare }>();
+    board.forEach(row => row.forEach(sq => {
+      if (sq.piece) {
+        currentPieces.set(sq.piece.id, {
+          level: sq.piece.level,
+          algebraic: sq.algebraic
+        });
       }
-    }
+    }));
 
+    const prevPieces = prevBoardPiecesRef.current;
     const newEffects: Effect[] = [];
-    for (const row of board) {
-      for (const sq of row) {
-        if (sq.piece) {
-          const oldLevel = oldPieceLevels.get(sq.piece.id);
-          if (oldLevel !== undefined && oldLevel !== sq.piece.level) {
-            const levelDiff = sq.piece.level - oldLevel;
-            newEffects.push({
-                id: Date.now() + Math.random(),
-                type: 'level-change',
-                square: sq.algebraic,
-                value: levelDiff,
-            });
-          }
+
+    // 1. Detect Level Changes & Captures
+    // Check all pieces that were previously on the board
+    for (const [id, prevData] of prevPieces.entries()) {
+      const currentData = currentPieces.get(id);
+      
+      if (currentData) {
+        // Piece is still here, check level
+        if (currentData.level !== prevData.level) {
+          newEffects.push({
+            id: Math.random(),
+            type: 'level-change',
+            square: currentData.algebraic,
+            value: currentData.level - prevData.level,
+          });
         }
+      } else {
+        // Piece is gone! This is a capture (or promotion where ID changes, but poof is usually okay there too)
+        newEffects.push({
+          id: Math.random(),
+          type: 'poof',
+          square: prevData.algebraic,
+        });
       }
     }
 
+    // 2. Detect New Pieces (Ressurections or initial placements)
+    // We don't usually poof on new pieces appearing, so we just track them for next comparison
+    
     if (newEffects.length > 0) {
-        setEffects(prev => [...prev, ...newEffects]);
+      setEffects(prev => [...prev, ...newEffects.map(e => ({ ...e, id: Date.now() + Math.random() }))]);
     }
 
-    prevBoardRef.current = board;
+    // Update the ref for next comparison
+    prevBoardPiecesRef.current = currentPieces;
   }, [board]);
 
 
@@ -333,7 +345,6 @@ export default function EvolvingChessPage() {
     globalUniqueIdCounter = 0;
     const initialBoardState = initializeBoard();
     setBoard(initialBoardState);
-    prevBoardRef.current = initialBoardState;
     setCurrentPlayer('white');
     setSelectedSquare(null);
     setPossibleMoves([]);
@@ -1390,6 +1401,7 @@ export default function EvolvingChessPage() {
         let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
         const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalUniqueIdCounter++}`};
+        // Trigger manual poof for sacrifice because piece ID is changing/disappearing before ID tracking catches it
         addEffect('poof', algebraic);
         boardAfterSacrifice[row][col].piece = null;
 
@@ -1803,7 +1815,6 @@ export default function EvolvingChessPage() {
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
-          addEffect('poof', specialCaptureSquare || algebraic);
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
               const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
@@ -1813,7 +1824,6 @@ export default function EvolvingChessPage() {
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
-          addEffect('poof', specialCaptureSquare || algebraic);
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
@@ -2456,7 +2466,6 @@ export default function EvolvingChessPage() {
         }
         
         if (restOfResult.pieceCapturedByAnvil) {
-            addEffect('poof', aiSpecialCaptureSquare || (aiToAlg as AlgebraicSquare));
             capturedPieceDataForScoring = restOfResult.pieceCapturedByAnvil;
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
                 finalCapturedPiecesForAI[currentPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `${restOfResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
@@ -2504,7 +2513,6 @@ export default function EvolvingChessPage() {
           toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1000 });
 
           if (capturedPiece) { 
-            addEffect('poof', aiSpecialCaptureSquare || (aiToAlg as AlgebraicSquare));
             const pieceThatMadeTheMoveAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${capturedPiece.color} ${capturedPiece.type}!`, duration: 8000});
@@ -2583,7 +2591,7 @@ export default function EvolvingChessPage() {
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'queen';
-                              resurrectedAI.id = `${resurrectedPiece.id}_QueenPromo_Res_AI`;
+                              resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 8000 });
                           } else {
                                toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
