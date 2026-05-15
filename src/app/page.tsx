@@ -260,23 +260,24 @@ export default function EvolvingChessPage() {
   }, []);
 
   const detectAndTriggerLevelEffects = useCallback((oldBoard: BoardState, newBoard: BoardState) => {
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const oldSq = oldBoard[r][c];
-        const newSq = newBoard[r][c];
-        
-        // We look for pieces that were on the board and are still on the board (possibly in a different square, 
-        // but it's simpler to just check if a square now has a piece with the same ID and a different level)
-        if (oldSq.piece && newSq.piece && oldSq.piece.id === newSq.piece.id) {
-            const levelDiff = newSq.piece.level - oldSq.piece.level;
-            if (levelDiff !== 0) {
-                addEffect('level-change', newSq.algebraic, undefined, levelDiff);
-            }
+    // 1. Create a map of piece IDs to their levels on the OLD board
+    const oldPieceLevels = new Map<string, number>();
+    for (const row of oldBoard) {
+      for (const sq of row) {
+        if (sq.piece) oldPieceLevels.set(sq.piece.id, sq.piece.level);
+      }
+    }
+
+    // 2. Iterate through pieces on the NEW board and compare
+    for (const row of newBoard) {
+      for (const sq of row) {
+        if (sq.piece) {
+          const oldLevel = oldPieceLevels.get(sq.piece.id);
+          if (oldLevel !== undefined && oldLevel !== sq.piece.level) {
+            const levelDiff = sq.piece.level - oldLevel;
+            addEffect('level-change', sq.algebraic, undefined, levelDiff);
+          }
         }
-        
-        // Handle cases where piece moved but level changed (e.g. capture or shroom)
-        // This is handled if we compare pieces by ID globally, but square-by-square is easier if we look at the destination.
-        // Actually, most logic in this game happens by identifying the piece on the destination square.
       }
     }
   }, [addEffect]);
@@ -2086,10 +2087,9 @@ export default function EvolvingChessPage() {
     getPossibleMoves,
     isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey,
-    firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion, historyStack, isWhiteAI, isBlackAI,
-    onlineStatus, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel, setPromotionPawnOriginalLevel,
-    setResurrectedSquares, user,
+    firstBloodAchieved, playerWhoGotFirstBlood,
+    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
+    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
   ]);
   
@@ -2261,7 +2261,7 @@ export default function EvolvingChessPage() {
   ]);
 
 
-  const performAiMove = useCallback(async () => {
+  const performAiMove = async () => {
     let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
     let levelFromAIApplyMove: number | undefined;
 
@@ -2848,6 +2848,7 @@ export default function EvolvingChessPage() {
                     finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
                     addEffect('poof', bestAnvilSquare);
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
+                    updateBoardWithEffects(finalBoardStateForAI);
                   }
               } else if (pieceAtDestinationAI?.type === 'queen') {
                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn);
@@ -2903,22 +2904,7 @@ export default function EvolvingChessPage() {
       setIsAiThinking(false);
       return;
     }
-  }, [
-    board, currentPlayer, gameInfo.gameOver, isPromotingPawn, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
-    isWhiteAI, isBlackAI, isAiThinking, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, addEffect,
-    saveStateToHistory, toast, getPlayerDisplayName, hasAnyLegalMoves, updateBoardWithEffects,
-    setGameInfo, setCapturedPieces, setKillStreaks,
-    setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves,
-    setIsAiThinking, setIsMoveProcessing, setAnimatedSquareTo,
-    setShowCaptureFlash, setCaptureFlashKey, setIsWhiteAI, setIsBlackAI,
-    setLastMoveFrom, setLastMoveTo,
-    processPawnSacrificeCheck,
-    getPossibleMoves, isStalemate, isCheckmate,
-    getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey, gameMoveCounter,
-    firstBloodAchieved, playerWhoGotFirstBlood,
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares
-  ]);
+  };
 
 
   useEffect(() => {
@@ -3431,7 +3417,6 @@ export default function EvolvingChessPage() {
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
               playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
               isEnPassantTarget={enPassantTargetSquare}
-              resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
               onPieceHover={handlePieceHover}
               effects={effects}
               promotingSquare={promotionSquare}
@@ -3628,7 +3613,6 @@ export default function EvolvingChessPage() {
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
               playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
               isEnPassantTarget={enPassantTargetSquare}
-              resurrectedSquares={resurrectedSquares.map(rs => rs.square)}
               onPieceHover={handlePieceHover}
               effects={effects}
               promotingSquare={promotionSquare}

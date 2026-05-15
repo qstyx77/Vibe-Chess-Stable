@@ -8,9 +8,9 @@ import { algebraicToCoords } from '@/lib/chess-utils';
 interface ChessBoardProps {
   boardState: BoardState;
   selectedSquare: AlgebraicSquare | null;
-  possibleMoves: AlgebraicSquare[];
+  possibleMoves?: AlgebraicSquare[];
   enemySelectedSquare: AlgebraicSquare | null;
-  enemyPossibleMoves: AlgebraicSquare[];
+  enemyPossibleMoves?: AlgebraicSquare[];
   onSquareClick: (algebraic: AlgebraicSquare) => void;
   playerColor: PlayerColor;
   currentPlayerColor: PlayerColor;
@@ -75,7 +75,8 @@ export function ChessBoard({
     
     switch (effect.type) {
       case 'poof':
-        effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.2s_ease-out_forwards]";
+        // Fast attack burst: 0.1s
+        effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.1s_ease-out_forwards]";
         break;
       case 'explosion':
         effectClass = "after:content-['✹'] after:text-5xl after:md:text-6xl after:text-destructive after:animate-[pixel-explosion_0.6s_ease-out_forwards]";
@@ -100,15 +101,16 @@ export function ChessBoard({
           </div>
         );
       case 'level-change':
-        const isPositive = (effect.value || 0) >= 0;
+        const val = effect.value || 0;
+        const isPositive = val >= 0;
         const sign = isPositive ? '+' : '';
-        const text = `${sign}${effect.value}`;
+        const text = `${sign}${val}`;
         return (
             <div 
                 className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
                 style={{ top, left }}
             >
-                <span className="text-red-500 font-bold text-lg md:text-xl animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}>
+                <span className="text-destructive font-bold text-lg md:text-xl animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}>
                     {text}
                 </span>
             </div>
