@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -277,20 +278,24 @@ export default function EvolvingChessPage() {
     const prevPieces = prevBoardPiecesRef.current;
     const newEffectsToAdd: { type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number }[] = [];
 
+    console.log(`[ANIM_DEBUG] Effect detection running for Move: ${gameMoveCounter}. Prev count: ${prevPieces.size}, Curr count: ${currentPieces.size}`);
+
     // 1. Detect Level Changes & Appearing pieces
     for (const [id, currentData] of currentPieces.entries()) {
       const prevData = prevPieces.get(id);
       if (prevData) {
-        // Piece is still here, check level
         if (currentData.level !== prevData.level) {
-          const eventKey = `level-${id}-${currentData.level}`;
+          const eventKey = `level-${id}-${currentData.level}-${gameMoveCounter}`;
           if (!signaledEventsRef.current.has(eventKey)) {
+              console.log(`[ANIM_DEBUG] Signaling Level Change: ${id} to L${currentData.level}`);
               newEffectsToAdd.push({
                 type: 'level-change',
                 square: currentData.algebraic,
                 value: currentData.level - prevData.level,
               });
               signaledEventsRef.current.add(eventKey);
+          } else {
+              console.log(`[ANIM_DEBUG] Skipping redundant Level Change: ${eventKey}`);
           }
         }
       }
@@ -299,24 +304,27 @@ export default function EvolvingChessPage() {
     // 2. Detect Disappearing pieces (Captures)
     for (const [id, prevData] of prevPieces.entries()) {
       if (!currentPieces.has(id)) {
-        const eventKey = `capture-${id}`;
+        const eventKey = `capture-${id}-${gameMoveCounter}`;
         if (!signaledEventsRef.current.has(eventKey)) {
-            // promotion check: does a piece with the same base ID still exist?
             const baseId = id.split('_')[0];
             const isPromotion = Array.from(currentPieces.keys()).some(k => k.startsWith(baseId));
             
             if (!isPromotion) {
+                console.log(`[ANIM_DEBUG] Signaling Capture: ${id} at ${prevData.algebraic}`);
                 newEffectsToAdd.push({
                     type: 'poof',
                     square: prevData.algebraic,
                 });
+            } else {
+                console.log(`[ANIM_DEBUG] Skipping poof for Promotion: ${id}`);
             }
             signaledEventsRef.current.add(eventKey);
+        } else {
+            console.log(`[ANIM_DEBUG] Skipping redundant Capture signal: ${eventKey}`);
         }
       }
     }
 
-    // Trigger batch update
     if (newEffectsToAdd.length > 0) {
         setEffects(prev => {
             const now = Date.now();
@@ -324,21 +332,19 @@ export default function EvolvingChessPage() {
                 id: now + Math.random(),
                 ...ne
             })).filter(ne => {
-                // Final safeguard against redundant additions in the same millisecond
+                // Final safeguard against redundant additions in the same millisecond in state array
                 return !prev.some(e => e.type === ne.type && e.square === ne.square && (now - e.id < 500));
             });
             return [...prev, ...filteredNew];
         });
     }
 
-    // Update the ref for next comparison
     prevBoardPiecesRef.current = currentPieces;
 
-    // cleanup old signaled events if too many (keep memory low)
     if (signaledEventsRef.current.size > 200) {
         signaledEventsRef.current = new Set(Array.from(signaledEventsRef.current).slice(-100));
     }
-  }, [board]);
+  }, [board, gameMoveCounter]);
 
 
   useEffect(() => {
@@ -475,7 +481,7 @@ export default function EvolvingChessPage() {
     setIsMessengerOpen(false);
     setHasUnreadMessages(false);
     
-    // Also reset pieces ref tracking
+    // Reset detection memory on game reset
     prevBoardPiecesRef.current = new Map();
     signaledEventsRef.current = new Set();
   }, []);
@@ -1946,7 +1952,7 @@ export default function EvolvingChessPage() {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
                 isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: nextEnPassantTarget,
+                newEnPassantTarget: nextEnpassantTarget,
             };
             setAnvilDropContext(anvilDropCtx);
             if (isPawnPromotingMove) {
@@ -3178,7 +3184,7 @@ export default function EvolvingChessPage() {
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
       
-      // Also clear detection refs on undo
+      // Reset detection memory on undo
       prevBoardPiecesRef.current = new Map();
       signaledEventsRef.current = new Set();
     } else {
@@ -3231,8 +3237,9 @@ export default function EvolvingChessPage() {
       return;
     }
     const newIsBlackAI = !isBlackAI;
-    setIsBlackAI(newIsBlackAI);
-    toast({ title: `Black AI ${newIsBlackAI ? 'On' : 'Off'}`, duration: 1000 });
+    setIsBlackAI(newIsInnerBlackAI => !newIsInnerBlackAI);
+    const updatedBlackAI = !isBlackAI;
+    toast({ title: `Black AI ${updatedBlackAI ? 'On' : 'Off'}`, duration: 1000 });
     setSelectedSquare(null); setPossibleMoves([]);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, onlineStatus]);
