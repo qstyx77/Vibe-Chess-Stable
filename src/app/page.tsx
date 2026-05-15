@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -237,6 +236,7 @@ export default function EvolvingChessPage() {
   const prevFirstBloodRef = useRef(false);
 
   const prevBoardPiecesRef = useRef<Map<string, { level: number, algebraic: AlgebraicSquare }>>(new Map());
+  const signaledEventsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     isMessengerOpenRef.current = isMessengerOpen;
@@ -259,20 +259,10 @@ export default function EvolvingChessPage() {
         value,
     };
 
-    setEffects(prev => {
-        // STRICT DEDUPLICATION:
-        // Do not add the same type of effect to the same square if it was added recently (last 500ms)
-        const isDuplicate = prev.some(e => 
-            e.type === type && 
-            e.square === square && 
-            (newId - e.id < 500)
-        );
-        if (isDuplicate) return prev;
-        return [...prev, newEffect];
-    });
+    setEffects(prev => [...prev, newEffect]);
   }, []);
 
-  // --- REFACTORED LEVEL CHANGE & CAPTURE DETECTION ---
+  // --- airtight Level Change & Capture Detection ---
   useEffect(() => {
     const currentPieces = new Map<string, { level: number, algebraic: AlgebraicSquare }>();
     board.forEach(row => row.forEach(sq => {
@@ -287,40 +277,68 @@ export default function EvolvingChessPage() {
     const prevPieces = prevBoardPiecesRef.current;
     const newEffectsToAdd: { type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number }[] = [];
 
-    // 1. Detect Level Changes & Captures
-    for (const [id, prevData] of prevPieces.entries()) {
-      const currentData = currentPieces.get(id);
-      
-      if (currentData) {
+    // 1. Detect Level Changes & Appearing pieces
+    for (const [id, currentData] of currentPieces.entries()) {
+      const prevData = prevPieces.get(id);
+      if (prevData) {
         // Piece is still here, check level
         if (currentData.level !== prevData.level) {
-          newEffectsToAdd.push({
-            type: 'level-change',
-            square: currentData.algebraic,
-            value: currentData.level - prevData.level,
-          });
-        }
-      } else {
-        // Piece is gone! Handle capture / removal
-        // Filter out "disappearing" because of promotion (ID change)
-        const baseId = id.split('_')[0];
-        const stillExistsWithSuffix = Array.from(currentPieces.keys()).some(k => k.startsWith(baseId));
-        
-        if (!stillExistsWithSuffix) {
-            newEffectsToAdd.push({
-                type: 'poof',
-                square: prevData.algebraic,
-            });
+          const eventKey = `level-${id}-${currentData.level}`;
+          if (!signaledEventsRef.current.has(eventKey)) {
+              newEffectsToAdd.push({
+                type: 'level-change',
+                square: currentData.algebraic,
+                value: currentData.level - prevData.level,
+              });
+              signaledEventsRef.current.add(eventKey);
+          }
         }
       }
     }
 
-    // Trigger uniquely
-    newEffectsToAdd.forEach(ne => addEffect(ne.type, ne.square, ne.color, ne.value));
+    // 2. Detect Disappearing pieces (Captures)
+    for (const [id, prevData] of prevPieces.entries()) {
+      if (!currentPieces.has(id)) {
+        const eventKey = `capture-${id}`;
+        if (!signaledEventsRef.current.has(eventKey)) {
+            // promotion check: does a piece with the same base ID still exist?
+            const baseId = id.split('_')[0];
+            const isPromotion = Array.from(currentPieces.keys()).some(k => k.startsWith(baseId));
+            
+            if (!isPromotion) {
+                newEffectsToAdd.push({
+                    type: 'poof',
+                    square: prevData.algebraic,
+                });
+            }
+            signaledEventsRef.current.add(eventKey);
+        }
+      }
+    }
+
+    // Trigger batch update
+    if (newEffectsToAdd.length > 0) {
+        setEffects(prev => {
+            const now = Date.now();
+            const filteredNew = newEffectsToAdd.map(ne => ({
+                id: now + Math.random(),
+                ...ne
+            })).filter(ne => {
+                // Final safeguard against redundant additions in the same millisecond
+                return !prev.some(e => e.type === ne.type && e.square === ne.square && (now - e.id < 500));
+            });
+            return [...prev, ...filteredNew];
+        });
+    }
 
     // Update the ref for next comparison
     prevBoardPiecesRef.current = currentPieces;
-  }, [board, addEffect]);
+
+    // cleanup old signaled events if too many (keep memory low)
+    if (signaledEventsRef.current.size > 200) {
+        signaledEventsRef.current = new Set(Array.from(signaledEventsRef.current).slice(-100));
+    }
+  }, [board]);
 
 
   useEffect(() => {
@@ -459,6 +477,7 @@ export default function EvolvingChessPage() {
     
     // Also reset pieces ref tracking
     prevBoardPiecesRef.current = new Map();
+    signaledEventsRef.current = new Set();
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -1415,8 +1434,7 @@ export default function EvolvingChessPage() {
         let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
         const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalUniqueIdCounter++}`};
-        // Trigger manual poof for sacrifice because piece ID is changing/disappearing before ID tracking catches it
-        addEffect('poof', algebraic);
+        
         boardAfterSacrifice[row][col].piece = null;
 
         setBoard(boardAfterSacrifice);
@@ -2095,12 +2113,12 @@ export default function EvolvingChessPage() {
     setGameInfo, setCapturedPieces, setKillStreaks,
     setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
     setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
-    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
+    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
     isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
     getPossibleMoves,
     isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress,
     getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey,
-    firstBloodAchieved, playerWhoGotFirstBlood,
+    firstBloodAchieved, 
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
@@ -2723,7 +2741,6 @@ export default function EvolvingChessPage() {
                       }
                       const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
                       finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
-                      addEffect('poof', bestAnvilSquare);
                       toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
                     }
                   }
@@ -2785,7 +2802,6 @@ export default function EvolvingChessPage() {
                     }
                     const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
                     finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
-                    addEffect('poof', bestAnvilSquare);
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
                     setBoard(finalBoardStateForAI);
                   }
@@ -2954,7 +2970,7 @@ export default function EvolvingChessPage() {
         newStreakValue = currentBlack;
     }
     
-    if (firstBloodJustAchieved) {
+    if (firstBloodAchieved) {
         setKillStreakFlashMessage("FIRST BLOOD!");
         setKillStreakFlashMessageKey(k => k + 1);
     } else if (playerWithNewStreak) {
@@ -3125,6 +3141,7 @@ export default function EvolvingChessPage() {
       setIsAwaitingPawnSacrifice(stateToRestore.isAwaitingPawnSacrifice);
       setPlayerToSacrificePawn(stateToRestore.playerToSacrificePawn);
       setBoardForPostSacrifice(stateToRestore.boardForPostSacrifice);
+      setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
       setPlayerWhoMadeQueenMove(stateToRestore.playerWhoMadeQueenMove);
       setIsExtraTurnFromQueenMove(stateToRestore.isExtraTurnFromQueenMove);
 
@@ -3163,6 +3180,7 @@ export default function EvolvingChessPage() {
       
       // Also clear detection refs on undo
       prevBoardPiecesRef.current = new Map();
+      signaledEventsRef.current = new Set();
     } else {
       setLastMoveFrom(null);
       setLastMoveTo(null);
@@ -3706,4 +3724,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-

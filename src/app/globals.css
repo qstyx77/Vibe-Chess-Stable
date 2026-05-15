@@ -140,7 +140,7 @@ body {
 
 @keyframes poof {
   0% { opacity: 1; transform: scale(0.5); }
-  100% { opacity: 0; transform: scale(2.5); }
+  100% { opacity: 0; transform: scale(3.5); }
 }
 
 @keyframes pixel-explosion {
@@ -214,5 +214,5 @@ body {
 @keyframes level-float {
   0% { transform: translateY(0); opacity: 0; }
   20% { opacity: 1; }
-  100% { transform: translateY(-50px); opacity: 0; }
+  100% { transform: translateY(-60px); opacity: 0; }
 }

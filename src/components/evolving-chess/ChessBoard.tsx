@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
