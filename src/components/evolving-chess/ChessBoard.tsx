@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
@@ -75,7 +76,6 @@ export function ChessBoard({
     
     switch (effect.type) {
       case 'poof':
-        // Fast attack burst: 0.1s
         effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.1s_ease-out_forwards]";
         break;
       case 'explosion':
@@ -146,10 +146,10 @@ export function ChessBoard({
           const isLightSquare = (actualRowIndex + actualColIndex) % 2 === 0;
 
           const isPlayerSelected = selectedSquare === currentSquareData.algebraic;
-          const isPlayerPossibleMove = possibleMoves.includes(currentSquareData.algebraic);
+          const isPlayerPossibleMove = (possibleMoves || []).includes(currentSquareData.algebraic);
 
           const isEnemySelectedFlag = enemySelectedSquare === currentSquareData.algebraic;
-          const isEnemyPossibleMoveFlag = enemyPossibleMoves.includes(currentSquareData.algebraic);
+          const isEnemyPossibleMoveFlag = (enemyPossibleMoves || []).includes(currentSquareData.algebraic);
 
           const isThisKingInCheck = currentSquareData.piece?.type === 'king' && currentSquareData.piece?.color === playerInCheck;
 
