@@ -235,6 +235,7 @@ export default function EvolvingChessPage() {
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
   const prevFirstBloodRef = useRef(false);
 
+  // --- Animation Signaling Logic ---
   const prevBoardPiecesRef = useRef<Map<string, { level: number, algebraic: AlgebraicSquare }>>(new Map());
   const signaledEventsRef = useRef<Set<string>>(new Set());
 
@@ -262,7 +263,7 @@ export default function EvolvingChessPage() {
     setEffects(prev => [...prev, newEffect]);
   }, []);
 
-  // --- airtight Level Change & Capture Detection ---
+  // --- Centralized Level Change & Capture Detection ---
   useEffect(() => {
     const currentPieces = new Map<string, { level: number, algebraic: AlgebraicSquare }>();
     board.forEach(row => row.forEach(sq => {
@@ -331,7 +332,7 @@ export default function EvolvingChessPage() {
 
     prevBoardPiecesRef.current = currentPieces;
 
-    // Prune signaled events set to prevent memory leak
+    // Prune signaled events set periodically to prevent memory leak
     if (signaledEventsRef.current.size > 200) {
         signaledEventsRef.current = new Set(Array.from(signaledEventsRef.current).slice(-100));
     }
@@ -1560,7 +1561,7 @@ export default function EvolvingChessPage() {
         }
 
         const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
-        let { newBoard, selfDestructCaptures, destroyedAnvils, enPassantTargetSet: nextEnpassantTarget } = applyMoveResult;
+        let { newBoard, selfDestructCaptures, destroyedAnvils, enPassantTargetSet: nextEnPassantTarget } = applyMoveResult;
         
         finalBoardStateForTurn = newBoard;
 
@@ -1609,7 +1610,7 @@ export default function EvolvingChessPage() {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: selfDestructPlayer,
                 isExtraTurn: false,
-                newEnPassantTarget: nextEnpassantTarget
+                newEnPassantTarget: nextEnPassantTarget
             };
             setAnvilDropContext(anvilDropCtx);
         } else if (newStreakForSelfDestructPlayer === 4) {
@@ -1682,7 +1683,7 @@ export default function EvolvingChessPage() {
           }
 
 
-          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, nextEnpassantTarget);
+          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, nextEnPassantTarget);
           setIsMoveProcessing(false);
           clickGuardRef.current = false;
         }, 800);
@@ -1932,7 +1933,7 @@ export default function EvolvingChessPage() {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
                 isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: nextEnpassantTarget,
+                newEnPassantTarget: nextEnPassantTarget,
             };
             setAnvilDropContext(anvilDropCtx);
             if (isPawnPromotingMove) {
