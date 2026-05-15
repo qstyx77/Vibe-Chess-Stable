@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -278,8 +277,6 @@ export default function EvolvingChessPage() {
     const prevPieces = prevBoardPiecesRef.current;
     const newEffectsToAdd: { type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number }[] = [];
 
-    console.log(`[ANIM_DEBUG] Effect detection running for Move: ${gameMoveCounter}. Prev count: ${prevPieces.size}, Curr count: ${currentPieces.size}`);
-
     // 1. Detect Level Changes & Appearing pieces
     for (const [id, currentData] of currentPieces.entries()) {
       const prevData = prevPieces.get(id);
@@ -287,15 +284,12 @@ export default function EvolvingChessPage() {
         if (currentData.level !== prevData.level) {
           const eventKey = `level-${id}-${currentData.level}-${gameMoveCounter}`;
           if (!signaledEventsRef.current.has(eventKey)) {
-              console.log(`[ANIM_DEBUG] Signaling Level Change: ${id} to L${currentData.level}`);
               newEffectsToAdd.push({
                 type: 'level-change',
                 square: currentData.algebraic,
                 value: currentData.level - prevData.level,
               });
               signaledEventsRef.current.add(eventKey);
-          } else {
-              console.log(`[ANIM_DEBUG] Skipping redundant Level Change: ${eventKey}`);
           }
         }
       }
@@ -306,21 +300,17 @@ export default function EvolvingChessPage() {
       if (!currentPieces.has(id)) {
         const eventKey = `capture-${id}-${gameMoveCounter}`;
         if (!signaledEventsRef.current.has(eventKey)) {
+            // Filter out promotions (where a piece changes its ID base)
             const baseId = id.split('_')[0];
             const isPromotion = Array.from(currentPieces.keys()).some(k => k.startsWith(baseId));
             
             if (!isPromotion) {
-                console.log(`[ANIM_DEBUG] Signaling Capture: ${id} at ${prevData.algebraic}`);
                 newEffectsToAdd.push({
                     type: 'poof',
                     square: prevData.algebraic,
                 });
-            } else {
-                console.log(`[ANIM_DEBUG] Skipping poof for Promotion: ${id}`);
             }
             signaledEventsRef.current.add(eventKey);
-        } else {
-            console.log(`[ANIM_DEBUG] Skipping redundant Capture signal: ${eventKey}`);
         }
       }
     }
@@ -341,6 +331,7 @@ export default function EvolvingChessPage() {
 
     prevBoardPiecesRef.current = currentPieces;
 
+    // Prune signaled events set to prevent memory leak
     if (signaledEventsRef.current.size > 200) {
         signaledEventsRef.current = new Set(Array.from(signaledEventsRef.current).slice(-100));
     }
@@ -861,7 +852,6 @@ export default function EvolvingChessPage() {
 
   const applyServerGameState = useCallback((gameState: any, lastPlayer?: PlayerColor) => {
     if (!gameState) return;
-    console.log('[CLIENT] Applying server game state:', gameState);
 
     setBoard(gameState.board);
     if (gameState.players) setGamePlayers(gameState.players);
@@ -905,7 +895,6 @@ export default function EvolvingChessPage() {
 
 
   const handleIncomingData = useCallback((data: any) => {
-      console.log('[CLIENT] < RECEIVED WS from server:', data);
       switch (data.type) {
         case 'chat-message':
             setChatMessages(prev => [...prev, data.message]);
@@ -1073,7 +1062,6 @@ export default function EvolvingChessPage() {
     wsRef.current = ws;
   
     ws.onopen = () => {
-      console.log('[CLIENT] WebSocket connected.');
       const userInfo = user ? { userId: user.uid, username: userData?.username || user.displayName || 'Anonymous' } : null;
       let payload;
       if (action === 'create') {
@@ -1087,7 +1075,6 @@ export default function EvolvingChessPage() {
           }
       }
       if (payload) {
-          console.log('[CLIENT] > SENDING WS to server:', payload);
           ws.send(JSON.stringify(payload));
       }
     };
@@ -1095,8 +1082,7 @@ export default function EvolvingChessPage() {
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data as string);
-        console.log('[CLIENT] < RECEIVED WS from server:', data);
-        switch (data.type) {
+        switch (data) {
           case 'room-created':
             setRoomId(data.roomId);
             setLocalPlayerColor(data.color);
@@ -1158,7 +1144,6 @@ export default function EvolvingChessPage() {
     };
   
     ws.onclose = (event) => {
-        console.log(`[CLIENT] WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
         if (wsRef.current) {
             wsRef.current = null;
             if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
@@ -1389,7 +1374,6 @@ export default function EvolvingChessPage() {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
                     const payload = JSON.stringify({ type: 'commander-promo', square: algebraic });
-                    console.log('[CLIENT] > SENDING WS to server:', payload);
                     ws.send(payload);
                 }
                 clickGuardRef.current = true;
@@ -1457,7 +1441,6 @@ export default function EvolvingChessPage() {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
                 const payload = JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } });
-                console.log('[CLIENT] > SENDING WS to server:', payload);
                 ws.send(payload);
             }
         }
@@ -1571,7 +1554,6 @@ export default function EvolvingChessPage() {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
               const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
-              console.log('[CLIENT] > SENDING WS to server:', payload);
               ws.send(payload);
             }
             return;
@@ -1717,7 +1699,6 @@ export default function EvolvingChessPage() {
             const ws = wsRef.current;
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade });
-                console.log('[CLIENT] > SENDING WS to server:', payload);
                 ws.send(payload);
             }
             return;
@@ -1926,7 +1907,6 @@ export default function EvolvingChessPage() {
                 const ws = wsRef.current;
                 if(ws && ws.readyState === WebSocket.OPEN) {
                     const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
-                    console.log('[CLIENT] > SENDING WS to server:', payload);
                     ws.send(payload);
                 }
             } else {
@@ -2139,7 +2119,6 @@ export default function EvolvingChessPage() {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
           const payload = JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } });
-          console.log('[CLIENT] > SENDING WS to server:', payload);
           ws.send(payload);
         }
         setIsPromotingPawn(false);
@@ -2672,7 +2651,7 @@ export default function EvolvingChessPage() {
                   currentPlayer,
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
-                  oldLevelForResCheck,
+                  oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
                   globalUniqueIdCounter
               );
@@ -2809,7 +2788,6 @@ export default function EvolvingChessPage() {
                     const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
                     finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
-                    setBoard(finalBoardStateForAI);
                   }
               } else if (pieceAtDestinationAI?.type === 'queen') {
                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn);
