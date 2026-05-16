@@ -10,6 +10,7 @@ interface ChessPieceDisplayProps {
   isSacrificeTarget?: boolean;
   isCommanderPromoTarget?: boolean;
   isPromoting?: boolean;
+  isConverting?: boolean;
 }
 
 export function ChessPieceDisplay({
@@ -20,14 +21,15 @@ export function ChessPieceDisplay({
   isSacrificeTarget = false,
   isCommanderPromoTarget = false,
   isPromoting = false,
+  isConverting = false,
 }: ChessPieceDisplayProps) {
   const unicode = getPieceUnicode(piece);
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   
-  let conversionClass = '';
-  if (isPromoting) {
-    conversionClass = piece.color === 'white' ? 'animate-color-flash-wtb' : 'animate-color-flash-btw';
+  let animationClass = '';
+  if (isConverting) {
+    animationClass = piece.color === 'white' ? 'animate-color-flash-wtb' : 'animate-color-flash-btw';
   }
 
 
@@ -57,7 +59,7 @@ export function ChessPieceDisplay({
           isAnimating && !isSacrificeTarget && !isCommanderPromoTarget && "animate-piece-slide",
           (isSacrificeTarget || isCommanderPromoTarget) && "animate-pulse",
           isPromoting && "animate-ping",
-          conversionClass,
+          animationClass,
           animationOriginClass
         )}
       >

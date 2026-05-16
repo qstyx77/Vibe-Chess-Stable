@@ -29,6 +29,7 @@ interface ChessSquareProps {
   isEnPassantTarget?: boolean;
   onPieceHover: (piece: Piece | null) => void;
   isPromoting: boolean;
+  isConverting: boolean;
 }
 
 export function ChessSquare({
@@ -54,6 +55,7 @@ export function ChessSquare({
   isEnPassantTarget = false,
   onPieceHover,
   isPromoting,
+  isConverting,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -145,6 +147,7 @@ export function ChessSquare({
             isSacrificeTarget={isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn}
             isCommanderPromoTarget={isCommanderPromoTarget}
             isPromoting={isPromoting}
+            isConverting={isConverting}
           />
         </div>
       )}

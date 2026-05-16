@@ -1,5 +1,3 @@
-
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -451,11 +449,13 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (typeof knightLevel === 'number' && !isNaN(knightLevel) && knightLevel >= 3) {
         if ((dRowKnight === 0 && dColKnight === 3) || (dRowKnight === 3 && dColKnight === 0)) {
             if (dRowKnight === 3) {
-                if (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom') ||
-                    board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.piece || (board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item && board[fromRow + 2 * Math.sign(toRow - fromRow)]?.[fromCol]?.item?.type !== 'shroom')) return false;
+                const step = Math.sign(toRow - fromRow);
+                if (board[fromRow + step]?.[fromCol]?.piece || (board[fromRow + step]?.[fromCol]?.item && board[fromRow + step]?.[fromCol]?.item?.type !== 'shroom') ||
+                    board[fromRow + 2 * step]?.[fromCol]?.piece || (board[fromRow + 2 * step]?.[fromCol]?.item && board[fromRow + 2 * step]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
-                if (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + Math.sign(toCol - fromCol)]?.item?.type !== 'shroom') ||
-                    board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.piece || (board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item && board[fromRow]?.[fromCol + 2 * Math.sign(toCol - fromCol)]?.item?.type !== 'shroom')) return false;
+                const step = Math.sign(toCol - fromCol);
+                if (board[fromRow]?.[fromCol + step]?.piece || (board[fromRow]?.[fromCol + step]?.item && board[fromRow]?.[fromCol + step]?.item?.type !== 'shroom') ||
+                    board[fromRow]?.[fromCol + 2 * step]?.piece || (board[fromRow]?.[fromCol + 2 * step]?.item && board[fromRow]?.[fromCol + 2 * step]?.item?.type !== 'shroom')) return false;
             }
             return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
@@ -538,7 +538,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const maxKingDistance = (typeof kingActualLevelForValidity === 'number' && !isNaN(kingActualLevelForValidity) && kingActualLevelForValidity >= 2) ? 2 : 1;
 
       if (typeof kingActualLevelForValidity === 'number' && !isNaN(kingActualLevelForValidity) && kingActualLevelForValidity >= 5) {
-        if ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2)) {
+        if ((dRowKing === 2 && dColKing === 1) || (dRowKnight === 1 && dColKnight === 2)) {
           return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
       }
@@ -953,21 +953,25 @@ export function applyMove(
             const adjacentSquareState_conv = newBoard[adjRow_conv]?.[adjCol_conv];
             const pieceOnAdjSquare_conv = adjacentSquareState_conv?.piece;
             if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && (!adjacentSquareState_conv?.item || adjacentSquareState_conv.item.type === 'shroom')) {
-                if (Math.random() < 0.5) {
                 const originalPieceCopy_conv = { ...pieceOnAdjSquare_conv };
-                const convertedPiece_conv: Piece = {
-                    ...pieceOnAdjSquare_conv,
-                    color: bishopColor_conv,
-                    id: `conv_${pieceOnAdjSquare_conv.id}_${Date.now()}`
-                };
-                newBoard[adjRow_conv][adjCol_conv].piece = convertedPiece_conv;
+                let convertedPiece_conv: Piece;
+                if (Math.random() < 0.5) {
+                    convertedPiece_conv = {
+                        ...pieceOnAdjSquare_conv,
+                        color: bishopColor_conv,
+                        id: `conv_${pieceOnAdjSquare_conv.id}_${Date.now()}`
+                    };
+                    newBoard[adjRow_conv][adjCol_conv].piece = convertedPiece_conv;
+                } else {
+                    convertedPiece_conv = { ...originalPieceCopy_conv }; // Attempted but failed
+                }
+                
                 conversionEvents.push({
                     originalPiece: originalPieceCopy_conv,
                     convertedPiece: convertedPiece_conv,
                     byPiece: { ...pieceNowOnToSquare },
                     at: coordsToAlgebraic(adjRow_conv, adjCol_conv)
                 });
-                }
             }
             }
         }
@@ -1317,5 +1321,3 @@ export function findKing(board: BoardState, color: PlayerColor): { row: number; 
     }
     return null;
 }
-
-    

@@ -943,6 +943,15 @@ export default function EvolvingChessPage() {
             applyServerGameState(data.fullGameState, data.lastPlayer);
             setIsAwaitingAnvilDrop(false);
             setPlayerToDropAnvil(null);
+            
+            if (data.conversionEvents && data.conversionEvents.length > 0) {
+              data.conversionEvents.forEach((event: ConversionEvent) => {
+                if (event.originalPiece.color !== event.convertedPiece.color) {
+                  toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+                }
+                addEffect('conversion', event.at, event.byPiece.color);
+              });
+            }
             break;
         }
         case 'awaiting-commander-promo': {
@@ -1023,7 +1032,7 @@ export default function EvolvingChessPage() {
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect]);
 
 
   useEffect(() => {
@@ -1993,7 +2002,9 @@ export default function EvolvingChessPage() {
 
         if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
           conversionEventsFromApply.forEach(event => {
-            toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+            if (event.originalPiece.color !== event.convertedPiece.color) {
+              toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+            }
             addEffect('conversion', event.at, event.byPiece.color);
           });
         }
@@ -2540,7 +2551,9 @@ export default function EvolvingChessPage() {
           }
           if (restOfResult.conversionEvents && restOfResult.conversionEvents.length > 0) {
             restOfResult.conversionEvents.forEach(event => {
-                toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+                if (event.originalPiece.color !== event.convertedPiece.color) {
+                  toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+                }
                 addEffect('conversion', event.at, event.byPiece.color);
             });
           }
@@ -2652,7 +2665,7 @@ export default function EvolvingChessPage() {
                   currentPlayer,
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
-                  oldLevelForResCheck,
+                  oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
                   globalUniqueIdCounter
               );

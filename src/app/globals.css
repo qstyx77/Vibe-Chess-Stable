@@ -176,11 +176,11 @@ body {
 }
 
 .animate-color-flash-wtb {
-  animation: color-flash-white-to-black 0.1s linear 5;
+  animation: color-flash-white-to-black 0.2s linear 5; /* 1.0s total struggle */
 }
 
 .animate-color-flash-btw {
-  animation: color-flash-black-to-white 0.1s linear 5;
+  animation: color-flash-black-to-white 0.2s linear 5; /* 1.0s total struggle */
 }
 
 

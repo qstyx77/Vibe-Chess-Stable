@@ -191,7 +191,8 @@ export function ChessBoard({
               playerToPromoteCommander={playerToPromoteCommander}
               isEnPassantTarget={isEnPassantTarget === currentSquareData.algebraic}
               onPieceHover={onPieceHover}
-              isPromoting={promotingSquare === currentSquareData.algebraic || isConvertingSquare}
+              isPromoting={promotingSquare === currentSquareData.algebraic}
+              isConverting={isConvertingSquare}
             />
           );
         })

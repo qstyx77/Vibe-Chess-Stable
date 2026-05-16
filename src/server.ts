@@ -571,7 +571,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                     const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
                     
-                    const { newBoard, capturedPiece, selfDestructCaptures, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTargetSquare);
+                    const { newBoard, capturedPiece, selfDestructCaptures, conversionEvents, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTargetSquare);
                     
                     room.gameState.resurrectedSquare = null;
                     
@@ -742,6 +742,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     }
                 
                     finalizeTurn(room, movingPlayerColor, combinedExtraTurn, restOfResult.enPassantTargetSet);
+
+                    broadcastToRoom(ws.roomId, {
+                        type: 'game-move',
+                        fullGameState: room.gameState,
+                        lastPlayer: movingPlayerColor,
+                        conversionEvents: conversionEvents
+                    });
 
                     break;
                 }
