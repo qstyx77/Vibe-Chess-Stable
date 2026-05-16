@@ -977,7 +977,7 @@ export default function EvolvingChessPage() {
             let message = "";
             let isResignation = data.type === 'resign';
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
-            else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
+            else if (reason === 'stalemate') message = `Stalemate! It's a delay.`;
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
             else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
             else if (reason === 'self-check') {
@@ -2652,7 +2652,7 @@ export default function EvolvingChessPage() {
                   currentPlayer,
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
-                  oldLevelForAIResCheck,
+                  oldLevelForResCheck,
                   finalCapturedPiecesForAI,
                   globalUniqueIdCounter
               );
@@ -2789,15 +2789,20 @@ export default function EvolvingChessPage() {
                     const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
                     finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
+                    
+                    // In single-player, we finalize the turn after AI anvil drop
+                    processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
                   }
               } else if (pieceAtDestinationAI?.type === 'queen') {
                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               } 
 
-              if (localAIAwaitingCommanderPromo) {
-                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
-              } else if (!sacrificeNeededForAIQueen) {
-                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
+              if (!isEnteringAnvilDropMode) {
+                  if (localAIAwaitingCommanderPromo) {
+                    processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
+                  } else if (!sacrificeNeededForAIQueen) {
+                      processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
+                  }
               }
 
               setIsMoveProcessing(false);

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect } from '@/types';
@@ -158,4 +157,3 @@ export function ChessSquare({
     </button>
   );
 }
-

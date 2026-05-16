@@ -165,6 +165,7 @@ export function ChessBoard({
                                                currentSquareData.piece?.level === 1 &&
                                                currentSquareData.piece?.color === playerToPromoteCommander;
           
+          const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
 
           return (
             <ChessSquare
@@ -190,7 +191,7 @@ export function ChessBoard({
               playerToPromoteCommander={playerToPromoteCommander}
               isEnPassantTarget={isEnPassantTarget === currentSquareData.algebraic}
               onPieceHover={onPieceHover}
-              isPromoting={promotingSquare === currentSquareData.algebraic}
+              isPromoting={promotingSquare === currentSquareData.algebraic || isConvertingSquare}
             />
           );
         })

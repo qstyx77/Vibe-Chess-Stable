@@ -1,4 +1,3 @@
-
 import type { Piece, ViewMode, PlayerColor } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
@@ -108,4 +107,3 @@ export function ChessPieceDisplay({
     </div>
   );
 }
-
