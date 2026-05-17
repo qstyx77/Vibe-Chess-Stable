@@ -271,7 +271,7 @@ export default function EvolvingChessPage() {
     }
   }, [effects]);
 
-  // Robust animation and level indicator detection
+  // Robust animation and level indicator detection with logging
   useEffect(() => {
     if (!board || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -293,6 +293,7 @@ export default function EvolvingChessPage() {
                 if (diff !== 0) {
                     const levelSig = `level-${currSq.piece.id}-${currSq.piece.level}-${moveKey}`;
                     if (!signaledEventsRef.current.has(levelSig)) {
+                        console.log(`[ANIM_DEBUG] Signaling level change effect for ${currSq.piece.id} at ${alg}, diff: ${diff}`);
                         newEffects.push({
                             id: Date.now() + Math.random(),
                             type: 'level-change',
@@ -308,6 +309,7 @@ export default function EvolvingChessPage() {
             if (prevSq.piece && !currSq.piece) {
                 const captureSig = `capture-${prevSq.piece.id}-${moveKey}`;
                 if (!signaledEventsRef.current.has(captureSig)) {
+                    console.log(`[ANIM_DEBUG] Signaling capture burst for ${prevSq.piece.id} at ${alg}`);
                     newEffects.push({
                         id: Date.now() + Math.random(),
                         type: 'poof',
@@ -1565,14 +1567,10 @@ export default function EvolvingChessPage() {
         if (destroyedAnvils > 0) toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(currentPlayer)} ${pieceToMoveFromSelected.type} destroyed ${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''} destroyed!`, duration: 8000 });
         
         const selfDestructPlayer = currentPlayer;
-        let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
+        const oldStreak = killStreaks[selfDestructPlayer] || 0;
         let capturesThisTurnForSelfDestruct = selfDestructCaptures ? selfDestructCaptures.length : 0;
+        const newStreakForSelfDestructPlayer = capturesThisTurnForSelfDestruct > 0 ? (oldStreak + capturesThisTurnForSelfDestruct) : 0;
         
-        if (capturesThisTurnForSelfDestruct > 0) {
-            newStreakForSelfDestructPlayer += capturesThisTurnForSelfDestruct;
-        } else {
-            newStreakForSelfDestructPlayer = 0;
-        }
         setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer}));
         
         if (capturesThisTurnForSelfDestruct > 0) {
@@ -1585,18 +1583,20 @@ export default function EvolvingChessPage() {
             setFirstBloodAchieved(true);
             setPlayerWhoGotFirstBlood(selfDestructPlayer);
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-        } else if (newStreakForSelfDestructPlayer === 3) {
+        }
+
+        if (oldStreak < 3 && newStreakForSelfDestructPlayer >= 3) {
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(selfDestructPlayer);
-            setGameInfo(prev => ({ ...prev, message: `KILL STREAK OF 3! Place an anvil.` }));
+            setGameInfo(prev => ({ ...prev, message: `KILL STREAK REACHED! Place an anvil.` }));
             const anvilDropCtx = {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: selfDestructPlayer,
-                isExtraTurn: false,
+                isExtraTurn: newStreakForSelfDestructPlayer >= 6,
                 newEnPassantTarget: nextEnPassantTarget
             };
             setAnvilDropContext(anvilDropCtx);
-        } else if (newStreakForSelfDestructPlayer === 4) {
+        } else if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
             let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
@@ -1624,7 +1624,7 @@ export default function EvolvingChessPage() {
 
                   if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                       setPlayerForPostResurrectionPromotion(selfDestructPlayer);
-                      setIsExtraTurnForPostResurrectionPromotion(newStreakForSelfDestructPlayer === 6);
+                      setIsExtraTurnForPostResurrectionPromotion(newStreakForSelfDestructPlayer >= 6);
                       setIsResurrectionPromotionInProgress(true);
                       setPlayerToPromote(selfDestructPlayer);
                       setIsPromotingPawn(true);
@@ -1652,7 +1652,7 @@ export default function EvolvingChessPage() {
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
-          const streakGrantsExtraTurn = newStreakForSelfDestructPlayer === 6;
+          const streakGrantsExtraTurn = newStreakForSelfDestructPlayer >= 6;
           if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
@@ -1863,7 +1863,7 @@ export default function EvolvingChessPage() {
               });
 
               if (humanRookResData.promotionRequiredForResurrectedPawn) {
-                  const isExtraTurnForRookResPromo = newStreak === 6;
+                  const isExtraTurnForRookResPromo = newStreak >= 6;
                   setPlayerForPostResurrectionPromotion(currentPlayer);
                   setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo);
                   setIsResurrectionPromotionInProgress(true);
@@ -1899,11 +1899,11 @@ export default function EvolvingChessPage() {
         const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && pieceThatMadeTheMove?.type === 'hero');
         const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
         const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
-        const streakGrantsExtraTurn = newStreak === 6;
+        const streakGrantsExtraTurn = newStreak >= 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
 
         let isEnteringAnvilDropMode = false;
-        if (newStreak === 3) {
+        if (newStreak >= 3 && (killStreaks[capturingPlayer] || 0) < 3) {
             isEnteringAnvilDropMode = true;
             const anvilDropCtx = {
                 boardForNextStep: finalBoardStateForTurn,
@@ -1917,9 +1917,9 @@ export default function EvolvingChessPage() {
             } else {
                 setIsAwaitingAnvilDrop(true);
                 setPlayerToDropAnvil(capturingPlayer);
-                setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! Place an anvil.`}));
+                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
             }
-        } else if (newStreak === 4) {
+        } else if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1949,7 +1949,7 @@ export default function EvolvingChessPage() {
 
                         if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                             setPlayerForPostResurrectionPromotion(capturingPlayer);
-                            setIsExtraTurnForPostResurrectionPromotion(newStreak === 6);
+                            setIsExtraTurnForPostResurrectionPromotion(newStreak >= 6);
                             setIsResurrectionPromotionInProgress(true);
                             setPlayerToPromote(capturingPlayer);
                             setIsPromotingPawn(true);
@@ -2158,7 +2158,7 @@ export default function EvolvingChessPage() {
       if (isResurrectionPromotionInProgress) {
         toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
-        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer === 6, enPassantTargetSquare);
+        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer >= 6, enPassantTargetSquare);
         setIsResurrectionPromotionInProgress(false);
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
@@ -2176,11 +2176,11 @@ export default function EvolvingChessPage() {
             setAnvilDropContext(contextForAnvil);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(pawnColor);
-            setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! Place an anvil.`}));
+            setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
         } else {
             const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
             const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
-            const streakGrantsExtraTurn = currentStreakForPromotingPlayer === 6;
+            const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
             const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
             let sacrificeNeededForQueen = false;
@@ -2540,23 +2540,21 @@ export default function EvolvingChessPage() {
             if (restOfResult.pieceCapturedByAnvil) capturesThisTurnAI++;
             if (selfDestructCaptures) capturesThisTurnAI += selfDestructCaptures.length;
             
-            let newStreakForAI = killStreaks[currentPlayer] || 0;
+            const oldStreakForAI = killStreaks[currentPlayer] || 0;
+            const newStreakForAI = capturesThisTurnAI > 0 ? (oldStreakForAI + capturesThisTurnAI) : 0;
 
             if (capturesThisTurnAI > 0) {
-                newStreakForAI += capturesThisTurnAI;
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI, [opponentPlayer!]: 0 }));
-
                 setShowCaptureFlash(true);
                 setCaptureFlashKey(k => k + 1);
             } else {
                 if (killStreaks[currentPlayer] > 0) {
                     setKillStreaks(prev => ({...prev, [currentPlayer]: 0}));
                 }
-                newStreakForAI = 0;
             }
             
             let isEnteringAnvilDropMode = false;
-            if (newStreakForAI === 3) {
+            if (oldStreakForAI < 3 && newStreakForAI >= 3) {
               isEnteringAnvilDropMode = true;
             }
 
@@ -2565,7 +2563,7 @@ export default function EvolvingChessPage() {
                     setFirstBloodAchieved(true);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
-                } else if (newStreakForAI === 4) {
+                } else if (oldStreakForAI < 4 && newStreakForAI >= 4) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {
@@ -2662,7 +2660,7 @@ export default function EvolvingChessPage() {
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
-              let extraTurnForThisAIMove = aiExtraTurn || (newStreakForAI === 6);
+              let extraTurnForThisAIMove = aiExtraTurn || (newStreakForAI >= 6);
               let sacrificeNeededForAIQueen = false;
 
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
@@ -2921,31 +2919,28 @@ export default function EvolvingChessPage() {
   }, [flashMessage, flashMessageKey]);
 
   useEffect(() => {
-    const { white: prevWhite, black: prevBlack } = prevKillStreaksRef.current;
     const { white: currentWhite, black: currentBlack } = killStreaks;
-    const firstBloodJustAchieved = firstBloodAchieved && !prevFirstBloodRef.current && !firstBloodFlashedRef.current;
+    const firstBloodJustAchieved = firstBloodAchieved && !firstBloodFlashedRef.current;
 
-    let playerWithNewStreak: PlayerColor | null = null;
-    let newStreakValue = 0;
-    
-    if (currentWhite > prevWhite) {
-        playerWithNewStreak = 'white';
-        newStreakValue = currentWhite;
-    } else if (currentBlack > prevBlack) {
-        playerWithNewStreak = 'black';
-        newStreakValue = currentBlack;
-    }
-    
     if (firstBloodJustAchieved) {
         setFlashMessage("FIRST BLOOD!");
         setFlashMessageKey(k => k + 1);
         firstBloodFlashedRef.current = true;
         toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoGotFirstBlood!)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
-    } else if (playerWithNewStreak) {
-        const streakMsg = getKillStreakToastMessage(newStreakValue);
-        if (streakMsg) {
-            setKillStreakFlashMessage(streakMsg);
-            setKillStreakFlashMessageKey(k => k + 1);
+    } else {
+        const { white: prevWhite, black: prevBlack } = prevKillStreaksRef.current;
+        let playerWithNewStreak: PlayerColor | null = null;
+        let newStreakValue = 0;
+        
+        if (currentWhite > prevWhite) { playerWithNewStreak = 'white'; newStreakValue = currentWhite; }
+        else if (currentBlack > prevBlack) { playerWithNewStreak = 'black'; newStreakValue = currentBlack; }
+        
+        if (playerWithNewStreak) {
+            const streakMsg = getKillStreakToastMessage(newStreakValue);
+            if (streakMsg) {
+                setKillStreakFlashMessage(streakMsg);
+                setKillStreakFlashMessageKey(k => k + 1);
+            }
         }
     }
 
