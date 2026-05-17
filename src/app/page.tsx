@@ -236,10 +236,6 @@ export default function EvolvingChessPage() {
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
   const prevFirstBloodRef = useRef(false);
 
-  // --- Animation Signaling Logic ---
-  const prevBoardPiecesRef = useRef<Map<string, { level: number, algebraic: AlgebraicSquare }>>(new Map());
-  const signaledEventsRef = useRef<Set<string>>(new Set());
-
   useEffect(() => {
     isMessengerOpenRef.current = isMessengerOpen;
     if (isMessengerOpen) {
@@ -263,82 +259,6 @@ export default function EvolvingChessPage() {
 
     setEffects(prev => [...prev, newEffect]);
   }, []);
-
-  // --- Centralized Level Change & Capture Detection ---
-  useEffect(() => {
-    const currentPieces = new Map<string, { level: number, algebraic: AlgebraicSquare }>();
-    board.forEach(row => row.forEach(sq => {
-      if (sq.piece) {
-        currentPieces.set(sq.piece.id, {
-          level: sq.piece.level,
-          algebraic: sq.algebraic
-        });
-      }
-    }));
-
-    const prevPieces = prevBoardPiecesRef.current;
-    const newEffectsToAdd: { type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number }[] = [];
-
-    // 1. Detect Level Changes & Appearing pieces
-    for (const [id, currentData] of currentPieces.entries()) {
-      const prevData = prevPieces.get(id);
-      if (prevData) {
-        if (currentData.level !== prevData.level) {
-          const eventKey = `level-${id}-${currentData.level}-${gameMoveCounter}`;
-          if (!signaledEventsRef.current.has(eventKey)) {
-              newEffectsToAdd.push({
-                type: 'level-change',
-                square: currentData.algebraic,
-                value: currentData.level - prevData.level,
-              });
-              signaledEventsRef.current.add(eventKey);
-          }
-        }
-      }
-    }
-
-    // 2. Detect Disappearing pieces (Captures)
-    for (const [id, prevData] of prevPieces.entries()) {
-      if (!currentPieces.has(id)) {
-        const eventKey = `capture-${id}-${gameMoveCounter}`;
-        if (!signaledEventsRef.current.has(eventKey)) {
-            // Filter out promotions (where a piece changes its ID base)
-            const baseId = id.split('_')[0];
-            const isPromotion = Array.from(currentPieces.keys()).some(k => k.startsWith(baseId));
-            
-            if (!isPromotion) {
-                newEffectsToAdd.push({
-                    type: 'poof',
-                    square: prevData.algebraic,
-                });
-            }
-            signaledEventsRef.current.add(eventKey);
-        }
-      }
-    }
-
-    if (newEffectsToAdd.length > 0) {
-        setEffects(prev => {
-            const now = Date.now();
-            const filteredNew = newEffectsToAdd.map(ne => ({
-                id: now + Math.random(),
-                ...ne
-            })).filter(ne => {
-                // Final safeguard against redundant additions in the same millisecond in state array
-                return !prev.some(e => e.type === ne.type && e.square === ne.square && (now - e.id < 500));
-            });
-            return [...prev, ...filteredNew];
-        });
-    }
-
-    prevBoardPiecesRef.current = currentPieces;
-
-    // Prune signaled events set periodically to prevent memory leak
-    if (signaledEventsRef.current.size > 200) {
-        signaledEventsRef.current = new Set(Array.from(signaledEventsRef.current).slice(-100));
-    }
-  }, [board, gameMoveCounter]);
-
 
   useEffect(() => {
     if (effects.length > 0) {
@@ -473,10 +393,6 @@ export default function EvolvingChessPage() {
     setChatMessages([]);
     setIsMessengerOpen(false);
     setHasUnreadMessages(false);
-    
-    // Reset detection memory on game reset
-    prevBoardPiecesRef.current = new Map();
-    signaledEventsRef.current = new Set();
   }, []);
 
   const disconnectAndReset = useCallback(() => {
@@ -1592,16 +1508,6 @@ export default function EvolvingChessPage() {
         setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer}));
         
         if (capturesThisTurnForSelfDestruct > 0) {
-            if (!firstBloodAchieved) {
-                setKillStreakFlashMessage("FIRST BLOOD!");
-                setKillStreakFlashMessageKey(k => k + 1);
-            } else {
-                const streakMsg = getKillStreakToastMessage(newStreakForSelfDestructPlayer);
-                if (streakMsg) {
-                    setKillStreakFlashMessage(streakMsg);
-                    setKillStreakFlashMessageKey(k => k + 1);
-                }
-            }
             setShowCaptureFlash(true);
             setCaptureFlashKey(k => k + 1);
         }
@@ -1765,8 +1671,8 @@ export default function EvolvingChessPage() {
         }
 
 
-        if (queenLevelReducedEventsInternal && queenLevelReducedEventsInternal.length > 0) {
-            queenLevelReducedEventsInternal.forEach(event => {
+        if (queenLevelReducedEventsFromApply && queenLevelReducedEventsFromApply.length > 0) {
+            queenLevelReducedEventsFromApply.forEach(event => {
                 const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
                 toast({
                 title: "King's Dominion!",
@@ -1824,16 +1730,6 @@ export default function EvolvingChessPage() {
                     [opponentPlayer]: 0 
                 };
             });
-            if (!firstBloodAchieved) {
-                setKillStreakFlashMessage("FIRST BLOOD!");
-                setKillStreakFlashMessageKey(k => k + 1);
-            } else {
-                const streakMsg = getKillStreakToastMessage(newStreak);
-                if (streakMsg) {
-                    setKillStreakFlashMessage(streakMsg);
-                    setKillStreakFlashMessageKey(k => k + 1);
-                }
-            }
         } else {
             if (killStreaks[capturingPlayer] > 0) {
                 setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
@@ -2323,7 +2219,6 @@ export default function EvolvingChessPage() {
       let aiGameWonByInfiltration = false;
       let aiExtraTurn = false;
       let rallyCryTriggeredByAI: RallyCryEvent | null = null;
-      let aiSpecialCaptureSquare: AlgebraicSquare | null = null;
       
 
 
@@ -2453,7 +2348,6 @@ export default function EvolvingChessPage() {
         aiGameWonByInfiltration = restOfResult.infiltrationWin || false;
         aiExtraTurn = restOfResult.extraTurn || false;
         rallyCryTriggeredByAI = restOfResult.rallyCryTriggered;
-        aiSpecialCaptureSquare = restOfResult.specialCaptureSquare;
 
         if (selfDestructCaptures && selfDestructCaptures.length > 0) {
             selfDestructCaptures.forEach(p => finalCapturedPiecesForAI[currentPlayer].push(p));
@@ -2572,16 +2466,6 @@ export default function EvolvingChessPage() {
                 newStreakForAI += capturesThisTurnAI;
                 setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI, [opponentPlayer!]: 0 }));
 
-                if (!firstBloodAchieved) {
-                    setKillStreakFlashMessage("FIRST BLOOD!");
-                    setKillStreakFlashMessageKey(k => k + 1);
-                } else {
-                    const streakMsg = getKillStreakToastMessage(newStreakForAI);
-                    if (streakMsg) {
-                        setKillStreakFlashMessage(streakMsg);
-                        setKillStreakFlashMessageKey(k => k + 1);
-                    }
-                }
                 setShowCaptureFlash(true);
                 setCaptureFlashKey(k => k + 1);
             } else {
@@ -2619,7 +2503,7 @@ export default function EvolvingChessPage() {
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'hero';
-                              resurrectedPiece.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
+                              resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'queen'; 
@@ -2666,7 +2550,7 @@ export default function EvolvingChessPage() {
                   currentPlayer,
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
-                  oldLevelForResCheck,
+                  oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
                   globalUniqueIdCounter
               );
@@ -3181,10 +3065,6 @@ export default function EvolvingChessPage() {
       setAnvilDropAfterPromotion(stateToRestore.anvilDropAfterPromotion || false);
 
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
-      
-      // Reset detection memory on undo
-      prevBoardPiecesRef.current = new Map();
-      signaledEventsRef.current = new Set();
     } else {
       setLastMoveFrom(null);
       setLastMoveTo(null);
@@ -3198,7 +3078,7 @@ export default function EvolvingChessPage() {
     setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
     setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
     setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
-    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, setBoardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
+    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
