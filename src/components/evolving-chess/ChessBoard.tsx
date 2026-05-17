@@ -38,15 +38,26 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
   const { row, col } = algebraicToCoords(effect.square);
   const top = `${(visuallyFlipBoardForLogic ? 7 - row : row) * 12.5}%`;
   const left = `${(visuallyFlipBoardForLogic ? 7 - col : col) * 12.5}%`;
-  let effectClass = '';
   
   switch (effect.type) {
     case 'poof':
-      effectClass = "after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.1s_ease-out_forwards]";
-      break;
+      return (
+        <div 
+          className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60] after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.1s_ease-out_forwards]"
+          style={{ top, left }}
+        />
+      );
     case 'explosion':
-      effectClass = "after:content-['✹'] after:text-5xl after:md:text-6xl after:text-destructive after:animate-[pixel-explosion_0.6s_ease-out_forwards]";
-      break;
+      return (
+          <div 
+              className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[70]"
+              style={{ top, left }}
+          >
+              <span className="text-4xl md:text-5xl animate-[self-destruct-flicker_0.7s_ease-out_forwards]">
+                  💥
+              </span>
+          </div>
+      );
     case 'shockwave':
       const shockwaveColor = effect.color === 'white' ? 'hsl(var(--foreground))' : 'hsl(var(--secondary))';
       return (
@@ -81,14 +92,9 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
               </span>
           </div>
       );
+    default:
+      return null;
   }
-
-  return (
-    <div 
-      className={cn("absolute w-[12.5%] h-[12.5%] pointer-events-none after:absolute after:inset-0 after:flex after:items-center after:justify-center", effectClass)}
-      style={{ top, left }}
-    />
-  );
 };
 
 export function ChessBoard({

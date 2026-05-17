@@ -148,6 +148,13 @@ body {
   100% { opacity: 0; transform: scale(4); }
 }
 
+@keyframes self-destruct-flicker {
+  0% { opacity: 0; transform: scale(0.1); }
+  10%, 30%, 50%, 70% { opacity: 1; transform: scale(1.2); filter: brightness(1.5); }
+  20%, 40%, 60% { opacity: 0.7; transform: scale(0.9); }
+  100% { opacity: 0; transform: scale(3.5); }
+}
+
 @keyframes shockwave-pulse {
   from {
     transform: scale(0);
