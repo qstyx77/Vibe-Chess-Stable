@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1764,8 +1765,8 @@ export default function EvolvingChessPage() {
         }
 
 
-        if (queenLevelReducedEventsFromApply && queenLevelReducedEventsFromApply.length > 0) {
-            queenLevelReducedEventsFromApply.forEach(event => {
+        if (queenLevelReducedEventsInternal && queenLevelReducedEventsInternal.length > 0) {
+            queenLevelReducedEventsInternal.forEach(event => {
                 const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
                 toast({
                 title: "King's Dominion!",
@@ -2618,7 +2619,7 @@ export default function EvolvingChessPage() {
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'hero';
-                              resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
+                              resurrectedPiece.id = `${resurrectedAI.id}_HeroPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
                           } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
                               resurrectedAI.type = 'queen'; 
@@ -2665,7 +2666,7 @@ export default function EvolvingChessPage() {
                   currentPlayer,
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
-                  oldLevelForAIResCheck,
+                  oldLevelForResCheck,
                   finalCapturedPiecesForAI,
                   globalUniqueIdCounter
               );
@@ -2973,7 +2974,7 @@ export default function EvolvingChessPage() {
         newStreakValue = currentBlack;
     }
     
-    if (firstBloodAchieved) {
+    if (firstBloodJustAchieved) {
         setKillStreakFlashMessage("FIRST BLOOD!");
         setKillStreakFlashMessageKey(k => k + 1);
     } else if (playerWithNewStreak) {
