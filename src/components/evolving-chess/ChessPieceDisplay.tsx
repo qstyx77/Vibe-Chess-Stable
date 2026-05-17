@@ -38,9 +38,7 @@ export function ChessPieceDisplay({
   }
 
   const shouldRotateBlackPieceForTabletop = viewMode === 'tabletop' && piece.color === 'black';
-  const isAnimating = isJustMoved;
 
-  const animationOriginClass = "origin-bottom";
   const isCommanderLike = piece.type === 'commander' || piece.type === 'hero';
   const isInfiltrator = piece.type === 'infiltrator';
 
@@ -56,11 +54,10 @@ export function ChessPieceDisplay({
         className={cn(
           "relative flex items-center justify-center w-full h-full",
           pieceColorClass,
-          isAnimating && !isSacrificeTarget && !isCommanderPromoTarget && "animate-piece-slide",
           (isSacrificeTarget || isCommanderPromoTarget) && "animate-pulse",
           isPromoting && "animate-ping",
           animationClass,
-          animationOriginClass
+          "origin-bottom"
         )}
       >
         <span className={cn(

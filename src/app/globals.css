@@ -123,21 +123,6 @@ body {
 
 /* --- GAME ANIMATIONS --- */
 
-@keyframes piece-slide {
-  from {
-    transform: translateY(20%) scale(0.95);
-    opacity: 0.5;
-  }
-  to {
-    transform: translateY(0) scale(1);
-    opacity: 1;
-  }
-}
-
-.animate-piece-slide {
-  animation: piece-slide 0.4s ease-out forwards;
-}
-
 @keyframes poof {
   0% { opacity: 1; transform: scale(0.5); }
   100% { opacity: 0; transform: scale(3.5); }

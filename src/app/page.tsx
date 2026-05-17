@@ -43,13 +43,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Card, CardContent } from '@/components/ui/card';
 import { AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { AuthWidget } from '@/components/auth/AuthWidget';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
-import { Card, CardContent } from '@/components/ui/card';
 
 
 let globalUniqueIdCounter = 0;
@@ -271,7 +271,7 @@ export default function EvolvingChessPage() {
     }
   }, [effects]);
 
-  // Robust animation and level indicator detection with logging
+  // Robust animation and level indicator detection
   useEffect(() => {
     if (!board || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -293,7 +293,6 @@ export default function EvolvingChessPage() {
                 if (diff !== 0) {
                     const levelSig = `level-${currSq.piece.id}-${currSq.piece.level}-${moveKey}`;
                     if (!signaledEventsRef.current.has(levelSig)) {
-                        console.log(`[ANIM_DEBUG] Signaling level change effect for ${currSq.piece.id} at ${alg}, diff: ${diff}`);
                         newEffects.push({
                             id: Date.now() + Math.random(),
                             type: 'level-change',
@@ -305,11 +304,16 @@ export default function EvolvingChessPage() {
                 }
             }
 
-            // 2. Detect Captures (Piece disappears)
-            if (prevSq.piece && !currSq.piece) {
-                const captureSig = `capture-${prevSq.piece.id}-${moveKey}`;
+            // 2. Detect Captures (Piece disappears or is replaced)
+            // Skip the square the piece moved FROM to avoid the "snap" animation
+            const isFromSquare = alg === lastMoveFrom;
+            const isDisappeared = prevSq.piece && !currSq.piece && !isFromSquare;
+            const isReplaced = prevSq.piece && currSq.piece && prevSq.piece.id !== currSq.piece.id;
+
+            if (isDisappeared || isReplaced) {
+                const capturedPieceId = prevSq.piece!.id;
+                const captureSig = `capture-${capturedPieceId}-${moveKey}`;
                 if (!signaledEventsRef.current.has(captureSig)) {
-                    console.log(`[ANIM_DEBUG] Signaling capture burst for ${prevSq.piece.id} at ${alg}`);
                     newEffects.push({
                         id: Date.now() + Math.random(),
                         type: 'poof',
@@ -325,7 +329,7 @@ export default function EvolvingChessPage() {
         setEffects(prev => [...prev, ...newEffects]);
     }
     prevBoardRef.current = board;
-  }, [board, gameMoveCounter]);
+  }, [board, gameMoveCounter, lastMoveFrom, lastMoveTo]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player';
@@ -608,8 +612,8 @@ export default function EvolvingChessPage() {
     const opponentIsStalemated = isStalemate(currentBoard, opponentColor, null);
     if (opponentIsStalemated) {
       setGameInfo(prev => ({ ...prev, message: `Stalemate! It's a draw.`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-       if (onlineStatus === 'connected') {
-         const ws = wsRef.current;
+      if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'stalemate' }));
         }
@@ -907,9 +911,9 @@ export default function EvolvingChessPage() {
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(player);
             if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "KILL STREAK OF 3! Place an anvil."}));
+              setGameInfo(prev => ({...prev, message: "KILL STREAK REACHED! Place an anvil."}));
             } else {
-              setGameInfo(prev => ({...prev, message: `KILL STREAK OF 3! ${getPlayerDisplayName(player)} is placing an anvil.`}));
+              setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! ${getPlayerDisplayName(player)} is placing an anvil.`}));
             }
             break;
         }
@@ -963,7 +967,7 @@ export default function EvolvingChessPage() {
             let message = "";
             let isResignation = data.type === 'resign';
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
-            else if (reason === 'stalemate') message = `Stalemate! It's a delay.`;
+            else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
             else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
             else if (reason === 'self-check') {
@@ -1585,6 +1589,7 @@ export default function EvolvingChessPage() {
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
         }
 
+        // Use scaled threshold logic to handle overshooting
         if (oldStreak < 3 && newStreakForSelfDestructPlayer >= 3) {
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(selfDestructPlayer);
@@ -1596,7 +1601,9 @@ export default function EvolvingChessPage() {
                 newEnPassantTarget: nextEnPassantTarget
             };
             setAnvilDropContext(anvilDropCtx);
-        } else if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
+        } 
+        
+        if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
             let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
@@ -1919,7 +1926,9 @@ export default function EvolvingChessPage() {
                 setPlayerToDropAnvil(capturingPlayer);
                 setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
             }
-        } else if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
+        } 
+        
+        if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -2563,7 +2572,9 @@ export default function EvolvingChessPage() {
                     setFirstBloodAchieved(true);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
-                } else if (oldStreakForAI < 4 && newStreakForAI >= 4) {
+                }
+                
+                if (oldStreakForAI < 4 && newStreakForAI >= 4) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
                   if (piecesOfAICapturedByOpponent.length > 0) {

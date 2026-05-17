@@ -971,6 +971,7 @@ export function applyMove(
             if (isValidSquare(adjRow_conv, adjCol_conv)) {
             const adjacentSquareState_conv = newBoard[adjRow_conv]?.[adjCol_conv];
             const pieceOnAdjSquare_conv = adjacentSquareState_conv?.piece;
+            
             if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && (!adjacentSquareState_conv?.item || adjacentSquareState_conv.item.type === 'shroom')) {
                 const originalPieceCopy_conv = { ...pieceOnAdjSquare_conv };
                 let convertedPiece_conv: Piece;
