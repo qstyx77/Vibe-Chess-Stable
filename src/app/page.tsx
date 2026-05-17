@@ -1871,7 +1871,7 @@ export default function EvolvingChessPage() {
                   setIsPromotingPawn(true);
                   setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
                   setBoard(finalBoardStateForTurn);
-                  setCapturedPieces(finalCapturedPiecesForTurn);
+                  setCapturedPieces(finalCapturedPiecesStateForTurn);
                   setIsMoveProcessing(false);
                   clickGuardRef.current = false;
                   return;
@@ -1897,8 +1897,8 @@ export default function EvolvingChessPage() {
         
         const originalPieceDataFromBoard = board[algebraicToCoords(selectedSquare).row]?.[algebraicToCoords(selectedSquare).col]?.piece;
         const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && pieceThatMadeTheMove?.type === 'hero');
-        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (toRow === 0 || toRow === 7) && !becameInfiltratorFromApply;
-        const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (toRow === 0 || toRow === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
+        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
+        const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
         const streakGrantsExtraTurn = newStreak === 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
 
@@ -1977,7 +1977,7 @@ export default function EvolvingChessPage() {
         }
 
         setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesForTurn);
+        setCapturedPieces(finalCapturedPiecesStateForTurn);
 
         if (isEnteringAnvilDropMode && !isPawnPromotingMove) {
             setIsMoveProcessing(false); 
