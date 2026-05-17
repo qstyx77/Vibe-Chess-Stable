@@ -33,7 +33,6 @@ interface ChessBoardProps {
   playerToDropAnvil: PlayerColor | null;
 }
 
-// Defined OUTSIDE of ChessBoard to prevent unmounting/re-triggering animations on parent render
 const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
   const { row, col } = algebraicToCoords(effect.square);
   const top = `${(visuallyFlipBoardForLogic ? 7 - row : row) * 12.5}%`;

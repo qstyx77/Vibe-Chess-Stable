@@ -295,8 +295,8 @@ export function isSquareAttacked(
                 } else if (attackingPiece.type === 'king') {
                     const { row: kingR_from, col: kingC_from } = algebraicToCoords(coordsToAlgebraic(r, c));
                     const currentKingActualLevel = Number(attackingPiece.level || 1);
-                    let maxDistance = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 2 && !simplifyKingCheck) ? 2 : 1;
-                    let canKnightMove = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 5 && !simplifyKingCheck);
+                    const maxDistance = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 2 && !simplifyKingCheck) ? 2 : 1;
+                    const canKnightMove = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 5 && !simplifyKingCheck);
 
                     const dr_king = targetR - kingR_from;
                     const dc_king = targetC - kingC_from;
@@ -569,7 +569,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     
     const specialQueenHunters: PieceType[] = ['commander', 'hero', 'infiltrator'];
     if (targetPiece.type === 'queen' && specialQueenHunters.includes(attackingPiece.type)) {
-        return false; // These units can capture queens regardless of L7 or level diff
+        return false; 
     }
 
     if (targetPiece.type === 'queen' && targetLevel >= 7) {
@@ -665,7 +665,6 @@ export function applyMove(
             }
         }
 
-        // Hero Rally Cry on self-destruct captures
         if (movingPieceOriginalRef.type === 'hero' && selfDestructCaptures.length > 0) {
             rallyCryTriggered = { square: move.from, color: movingPieceOriginalRef.color };
             const heroColor = movingPieceOriginalRef.color;
@@ -730,7 +729,7 @@ export function applyMove(
       const kingRow = fromRow;
       const rookOriginalCol = toCol > fromCol ? 7 : 0;
       const rookTargetCol = toCol > fromCol ? 5 : 3;
-      const rookSquareData = newBoard[kingRow]?.[rookOriginalCol]; // Use newBoard here
+      const rookSquareData = newBoard[kingRow]?.[rookOriginalCol];
       if (rookSquareData?.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === pieceNowOnToSquare.color) {
         const movedRookPiece = { ...rookSquareData.piece, hasMoved: true };
         newBoard[kingRow][rookTargetCol].piece = movedRookPiece;
@@ -765,14 +764,12 @@ export function applyMove(
     }
     let newLevelForPiece = (pieceNowOnToSquare.level || 1) + levelGain;
     
-    // Check for Rally Cry BEFORE any type change
     if (movingPieceOriginalRef.type === 'commander') {
       rallyCryTriggered = { square: move.to, color: movingPieceOriginalRef.color };
       const commanderColor = movingPieceOriginalRef.color;
       for (let r_pawn = 0; r_pawn < 8; r_pawn++) {
         for (let c_pawn = 0; c_pawn < 8; c_pawn++) {
           const squarePawn = newBoard[r_pawn][c_pawn];
-          // Check against the ID of the piece that will be on the destination square
           if (squarePawn.piece && squarePawn.piece.color === commanderColor && squarePawn.piece.type === 'pawn' && squarePawn.piece.id !== pieceNowOnToSquare.id) {
             let newPawnLevel = (squarePawn.piece.level || 1) + 1;
             squarePawn.piece.level = newPawnLevel;
@@ -796,7 +793,6 @@ export function applyMove(
       }
     }
 
-    // Now, handle type changes from the capture
     if (move.type === 'enpassant') {
         pieceNowOnToSquare.type = 'infiltrator';
     } else if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
@@ -804,7 +800,6 @@ export function applyMove(
         pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;
     }
 
-    // Finally, set the new level, capping the queen
     if (pieceNowOnToSquare.type === 'queen') {
       newLevelForPiece = Math.min(newLevelForPiece, 7);
     }
@@ -812,7 +807,6 @@ export function applyMove(
   }
 
 
-  // Promotion-specific leveling and typing
   if (movingPieceOriginalRef.type === 'pawn' && (toRow === 0 || toRow === 7) && !promotedToInfiltrator) {
     if (originalPieceLevel >= 5) {
         extraTurn = true;
@@ -983,7 +977,7 @@ export function applyMove(
                     };
                     newBoard[adjRow_conv][adjCol_conv].piece = convertedPiece_conv;
                 } else {
-                    convertedPiece_conv = { ...originalPieceCopy_conv }; // Attempted but failed
+                    convertedPiece_conv = { ...originalPieceCopy_conv };
                 }
                 
                 conversionEvents.push({
@@ -1261,8 +1255,6 @@ export function processRookResurrectionCheck(
         } else if (resurrectedPieceData.type === 'commander' && resR === promotionRank) {
           resurrectedPieceData.type = 'hero';
           resurrectedPieceData.id = `${resurrectedPieceData.id}_HeroPromo_Res`;
-        } else if (resurrectedPieceData.type === 'infiltrator' && resR === promotionRank) {
-           // Infiltration win if an infiltrator is resurrected onto the back rank
         }
 
         boardWithResurrection[resR][resC].piece = resurrectedPieceData;

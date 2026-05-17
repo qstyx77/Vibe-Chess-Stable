@@ -278,6 +278,9 @@ export default function EvolvingChessPage() {
         return;
     }
 
+    const currentPieceIds = new Set<string>();
+    board.forEach(row => row.forEach(sq => { if (sq.piece) currentPieceIds.add(sq.piece.id); }));
+
     const newEffects: Effect[] = [];
     const moveKey = `move-${gameMoveCounter}`;
 
@@ -304,15 +307,9 @@ export default function EvolvingChessPage() {
                 }
             }
 
-            // 2. Detect Captures (Piece disappears or is replaced)
-            // Skip the square the piece moved FROM to avoid the "snap" animation
-            const isFromSquare = alg === lastMoveFrom;
-            const isDisappeared = prevSq.piece && !currSq.piece && !isFromSquare;
-            const isReplaced = prevSq.piece && currSq.piece && prevSq.piece.id !== currSq.piece.id;
-
-            if (isDisappeared || isReplaced) {
-                const capturedPieceId = prevSq.piece!.id;
-                const captureSig = `capture-${capturedPieceId}-${moveKey}`;
+            // 2. Detect True Captures (Piece is gone from the entire board)
+            if (prevSq.piece && !currentPieceIds.has(prevSq.piece.id)) {
+                const captureSig = `capture-${prevSq.piece.id}-${moveKey}`;
                 if (!signaledEventsRef.current.has(captureSig)) {
                     newEffects.push({
                         id: Date.now() + Math.random(),
@@ -928,10 +925,10 @@ export default function EvolvingChessPage() {
             
             if (data.conversionEvents && data.conversionEvents.length > 0) {
               data.conversionEvents.forEach((event: ConversionEvent) => {
+                addEffect('conversion', event.at, event.byPiece.color);
                 if (event.originalPiece.color !== event.convertedPiece.color) {
                   toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
                 }
-                addEffect('conversion', event.at, event.byPiece.color);
               });
             }
             break;
@@ -1539,7 +1536,6 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true);
         setAnimatedSquareTo(algebraic);
         
-        // Trigger 9-square explosion animation
         const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
@@ -1589,7 +1585,6 @@ export default function EvolvingChessPage() {
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
         }
 
-        // Use scaled threshold logic to handle overshooting
         if (oldStreak < 3 && newStreakForSelfDestructPlayer >= 3) {
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(selfDestructPlayer);
@@ -1978,10 +1973,10 @@ export default function EvolvingChessPage() {
 
         if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
           conversionEventsFromApply.forEach(event => {
+            addEffect('conversion', event.at, event.byPiece.color);
             if (event.originalPiece.color !== event.convertedPiece.color) {
               toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
             }
-            addEffect('conversion', event.at, event.byPiece.color);
           });
         }
 
@@ -2412,7 +2407,6 @@ export default function EvolvingChessPage() {
         };
         
         if (moveForApplyMoveAI.type === 'self-destruct') {
-          // Trigger 9-square explosion animation for AI
           const { row: cR, col: cC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
           for (let dr = -1; dr <= 1; dr++) {
               for (let dc = -1; dc <= 1; dc++) {
@@ -2535,10 +2529,10 @@ export default function EvolvingChessPage() {
           }
           if (restOfResult.conversionEvents && restOfResult.conversionEvents.length > 0) {
             restOfResult.conversionEvents.forEach(event => {
+                addEffect('conversion', event.at, event.byPiece.color);
                 if (event.originalPiece.color !== event.convertedPiece.color) {
                   toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
                 }
-                addEffect('conversion', event.at, event.byPiece.color);
             });
           }
 
