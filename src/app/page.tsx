@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -880,7 +879,7 @@ export default function EvolvingChessPage() {
             clickGuardRef.current = false;
 
             setIsAwaitingCommanderPromotion(true);
-            toast({ title: "First Blood!", description: `${getPlayerDisplayName(fullGameState.playerWhoGotFirstBlood!)} to select a Pawn to promote!`, duration: 8000});
+            // toast for First Blood will be handled by the killStreaks effect
             break;
         }
         case 'shroom-spawn': {
@@ -1494,7 +1493,7 @@ export default function EvolvingChessPage() {
         if (selfDestructCaptures) {
           selfDestructCaptures.forEach(p => finalCapturedPiecesStateForTurn[currentPlayer].push(p));
         }
-        if (destroyedAnvils > 0) toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(currentPlayer)} ${pieceToMoveFromSelected.type} destroyed ${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''}!`, duration: 8000 });
+        if (destroyedAnvils > 0) toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(currentPlayer)} ${pieceToMoveFromSelected.type} destroyed ${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''} destroyed!`, duration: 8000 });
         
         const selfDestructPlayer = currentPlayer;
         let newStreakForSelfDestructPlayer = killStreaks[selfDestructPlayer] || 0;
@@ -1517,7 +1516,7 @@ export default function EvolvingChessPage() {
             setFirstBloodAchieved(true);
             setPlayerWhoGotFirstBlood(selfDestructPlayer);
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-            toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(selfDestructPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
+            // toast for First Blood will be handled by the killStreaks effect
         } else if (newStreakForSelfDestructPlayer === 3) {
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(selfDestructPlayer);
@@ -1649,7 +1648,7 @@ export default function EvolvingChessPage() {
 
         if (gameWonByInfiltrationFromApply) {
           setBoard(finalBoardStateForTurn);
-          setCapturedPieces(finalCapturedPiecesStateForTurn);
+          setCapturedPieces(finalCapturedPiecesForTurn);
           toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
           setIsMoveProcessing(false);
@@ -1821,7 +1820,7 @@ export default function EvolvingChessPage() {
                 setPlayerWhoGotFirstBlood(capturingPlayer);
                 const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI) || (capturingPlayer === 'black' && isBlackAI));
                 if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-                toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(capturingPlayer)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
+                // toast for First Blood will be handled by the killStreaks effect
             }
         }
         
@@ -2485,7 +2484,7 @@ export default function EvolvingChessPage() {
                     setFirstBloodAchieved(true);
                     setPlayerWhoGotFirstBlood(currentPlayer);
                     localAIAwaitingCommanderPromo = true;
-                    toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(currentPlayer)} (AI) promotes a Pawn to Commander!`, duration: 8000 });
+                    // toast for First Blood will be handled by the killStreaks effect
                 } else if (newStreakForAI === 4) {
                   const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
                   let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
@@ -2859,8 +2858,9 @@ export default function EvolvingChessPage() {
     }
     
     if (firstBloodJustAchieved) {
-        setKillStreakFlashMessage("FIRST BLOOD!");
-        setKillStreakFlashMessageKey(k => k + 1);
+        setFlashMessage("FIRST BLOOD!");
+        setFlashMessageKey(k => k + 1);
+        toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoGotFirstBlood!)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
     } else if (playerWithNewStreak) {
         const streakMsg = getKillStreakToastMessage(newStreakValue);
         if (streakMsg) {
@@ -2872,7 +2872,7 @@ export default function EvolvingChessPage() {
     prevKillStreaksRef.current = { ...killStreaks };
     prevFirstBloodRef.current = firstBloodAchieved;
 
-  }, [killStreaks, firstBloodAchieved, getKillStreakToastMessage]);
+  }, [killStreaks, firstBloodAchieved, getKillStreakToastMessage, playerWhoGotFirstBlood, getPlayerDisplayName, toast]);
 
   useEffect(() => {
     let timerId: NodeJS.Timeout | null = null;
