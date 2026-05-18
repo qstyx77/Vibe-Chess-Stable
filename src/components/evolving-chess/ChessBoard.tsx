@@ -31,6 +31,7 @@ interface ChessBoardProps {
   promotingSquare: AlgebraicSquare | null;
   isAwaitingAnvilDrop: boolean;
   playerToDropAnvil: PlayerColor | null;
+  isAwaitingHolyShield?: boolean;
 }
 
 const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
@@ -122,6 +123,7 @@ export function ChessBoard({
   promotingSquare,
   isAwaitingAnvilDrop,
   playerToDropAnvil,
+  isAwaitingHolyShield,
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -135,7 +137,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && "cursor-not-allowed",
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield) && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
       onMouseLeave={() => onPieceHover(null)}
@@ -171,6 +173,8 @@ export function ChessBoard({
                                                currentSquareData.piece?.color === playerToPromoteCommander;
           
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
+          
+          const isShieldTarget = isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.id !== boardState[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id;
 
           return (
             <ChessSquare
@@ -182,7 +186,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare}
+              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare && !isShieldTarget}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
@@ -198,6 +202,7 @@ export function ChessBoard({
               onPieceHover={onPieceHover}
               isPromoting={promotingSquare === currentSquareData.algebraic}
               isConverting={isConvertingSquare}
+              isShieldTarget={isShieldTarget}
             />
           );
         })

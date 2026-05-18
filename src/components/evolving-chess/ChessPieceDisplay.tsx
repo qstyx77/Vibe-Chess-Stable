@@ -60,6 +60,12 @@ export function ChessPieceDisplay({
           "origin-bottom"
         )}
       >
+        {piece.isShielded && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-[110%] h-[110%] border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_white]" />
+          </div>
+        )}
+
         <span className={cn(
           "font-sans select-none relative z-[1]",
           piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl'

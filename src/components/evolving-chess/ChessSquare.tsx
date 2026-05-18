@@ -30,6 +30,7 @@ interface ChessSquareProps {
   onPieceHover: (piece: Piece | null) => void;
   isPromoting: boolean;
   isConverting: boolean;
+  isShieldTarget?: boolean;
 }
 
 export function ChessSquare({
@@ -56,6 +57,7 @@ export function ChessSquare({
   onPieceHover,
   isPromoting,
   isConverting,
+  isShieldTarget = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -93,9 +95,11 @@ export function ChessSquare({
     selectionRingClass = 'ring-2 ring-inset ring-accent';
   } else if (isEnemySelected && !disabled) {
     selectionRingClass = 'ring-2 ring-inset ring-blue-600';
+  } else if (isShieldTarget) {
+    selectionRingClass = 'ring-4 ring-inset ring-white animate-pulse';
   }
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget;
 
 
   return (

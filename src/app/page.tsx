@@ -23,6 +23,7 @@ import {
   type RookResurrectionResult,
   spawnShroom,
   findKing,
+  applyArchbishop,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -207,6 +208,9 @@ export default function EvolvingChessPage() {
   const [anvilDropContext, setAnvilDropContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
   const [anvilDropAfterPromotion, setAnvilDropAfterPromotion] = useState(false);
 
+  const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
+  const [shieldContext, setShieldContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
@@ -233,8 +237,8 @@ export default function EvolvingChessPage() {
   const signaledEventsRef = useRef<Set<string>>(new Set());
 
   // --- Derived State & Consolidated Helpers ---
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer);
-  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield;
+  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
   const getRankedButtonText = () => {
@@ -372,7 +376,11 @@ export default function EvolvingChessPage() {
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
   
   const fullGameReset = useCallback(() => {
-    const initialBoardState = initializeBoard();
+    let initialBoardState = initializeBoard();
+    if (userData && userData.eloRating >= 1500) {
+        initialBoardState = applyArchbishop(initialBoardState, 'white');
+    }
+    // For local play/AI, we check both or just assume white if single player
     setBoard(initialBoardState);
     setCurrentPlayer('white');
     setSelectedSquare(null);
@@ -470,11 +478,14 @@ export default function EvolvingChessPage() {
     setAnvilDropContext(null);
     setAnvilDropAfterPromotion(false);
 
+    setIsAwaitingHolyShield(false);
+    setShieldContext(null);
+
     setChatMessages([]);
     setIsMessengerOpen(false);
     setHasUnreadMessages(false);
     prevBoardRef.current = null;
-  }, []);
+  }, [userData]);
 
   const disconnectAndReset = useCallback(() => {
     if (wsRef.current) {
@@ -581,6 +592,8 @@ export default function EvolvingChessPage() {
       playerToDropAnvil: playerToDropAnvil,
       anvilDropContext: anvilDropContext,
       anvilDropAfterPromotion: anvilDropAfterPromotion,
+      isAwaitingHolyShield: isAwaitingHolyShield,
+      shieldContext: shieldContext,
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -597,6 +610,7 @@ export default function EvolvingChessPage() {
     shroomSpawnCounter, nextShroomSpawnTurn,
     resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, anvilDropAfterPromotion,
+    isAwaitingHolyShield, shieldContext,
   ]);
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
@@ -690,9 +704,12 @@ export default function EvolvingChessPage() {
     } else if (isPromotingPawn && playerToPromote === localPlayerColor) {
       startTurnTimer(playerToPromote!, 15);
       timerStarted = true;
+    } else if (isAwaitingHolyShield && localPlayerColor === currentPlayer) {
+      startTurnTimer(currentPlayer!, 15);
+      timerStarted = true;
     }
     
-    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress;
+    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield;
 
     if (!timerStarted && !isAnySpecialAction) {
       startTurnTimer(currentPlayer);
@@ -720,6 +737,7 @@ export default function EvolvingChessPage() {
     isAwaitingPawnSacrifice,
     isAwaitingRookSacrifice,
     isResurrectionPromotionInProgress,
+    isAwaitingHolyShield,
     startTurnTimer,
     stopTurnTimer,
   ]);
@@ -998,6 +1016,25 @@ export default function EvolvingChessPage() {
     const clickedSquareState = board[row]?.[col];
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
+
+    if (isAwaitingHolyShield && currentPlayer === localPlayerColor) {
+      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.id !== board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id) {
+          saveStateToHistory();
+          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = shieldContext!;
+          const boardAfterShield = boardForNextStep.map(r => r.map(s => ({
+              ...s,
+              piece: s.piece ? { ...s.piece, isShielded: s.piece.id === clickedPiece.id ? true : s.piece.isShielded } : null
+          })));
+          setBoard(boardAfterShield);
+          toast({ title: "Holy Shield!", description: `${clickedPiece.type} is now shielded!` });
+          setIsAwaitingHolyShield(false);
+          setShieldContext(null);
+          processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+      } else {
+          toast({ title: "Invalid Shield Target", description: "Select another friendly piece that didn't capture this turn.", variant: "destructive" });
+      }
+      return;
+    }
 
     if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
         if (clickedPiece) {
@@ -1291,14 +1328,28 @@ export default function EvolvingChessPage() {
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
         }
 
-        if (oldStreak < 3 && newStreakForSelfDestructPlayer >= 3) {
+        const streakGrantsExtraTurn = newStreakForSelfDestructPlayer >= 6;
+
+        let enteringSpecialMode = false;
+        if (oldStreak < 2 && newStreakForSelfDestructPlayer >= 2) {
+            const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer);
+            if (hasArchbishop) {
+                enteringSpecialMode = true;
+                setIsAwaitingHolyShield(true);
+                setShieldContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                setGameInfo(prev => ({ ...prev, message: "HOLY SHIELD! Select an ally to protect." }));
+            }
+        }
+
+        if (!enteringSpecialMode && oldStreak < 3 && newStreakForSelfDestructPlayer >= 3) {
+            enteringSpecialMode = true;
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(selfDestructPlayer);
             setGameInfo(prev => ({ ...prev, message: `KILL STREAK REACHED! Place an anvil.` }));
             const anvilDropCtx = {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: selfDestructPlayer,
-                isExtraTurn: newStreakForSelfDestructPlayer >= 6,
+                isExtraTurn: streakGrantsExtraTurn,
                 newEnPassantTarget: nextEnPassantTarget
             };
             setAnvilDropContext(anvilDropCtx);
@@ -1315,7 +1366,7 @@ export default function EvolvingChessPage() {
                   const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                   const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
                   const newUniqueSuffix = globalUniqueIdCounter++;
-                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
+                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
 
                   const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
                   if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -1360,7 +1411,6 @@ export default function EvolvingChessPage() {
           setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
-          const streakGrantsExtraTurn = newStreakForSelfDestructPlayer >= 6;
           if (humanPlayerAchievedFirstBloodThisTurn) {
               setIsAwaitingCommanderPromotion(true);
               setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
@@ -1371,7 +1421,7 @@ export default function EvolvingChessPage() {
               return;
           }
 
-          if (isAwaitingAnvilDrop) {
+          if (isAwaitingAnvilDrop || isAwaitingHolyShield) {
               setIsMoveProcessing(false);
               clickGuardRef.current = false;
               return;
@@ -1607,9 +1657,30 @@ export default function EvolvingChessPage() {
         const streakGrantsExtraTurn = newStreak >= 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
 
-        let isEnteringAnvilDropMode = false;
-        if (newStreak >= 3 && (killStreaks[capturingPlayer] || 0) < 3) {
-            isEnteringAnvilDropMode = true;
+        let enteringSpecialMode = false;
+        
+        if (newStreak >= 2 && (killStreaks[capturingPlayer] || 0) < 2) {
+            const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
+            if (hasArchbishop) {
+                enteringSpecialMode = true;
+                const shieldCtx = {
+                    boardForNextStep: finalBoardStateForTurn,
+                    playerWhoseTurnCompleted: capturingPlayer,
+                    isExtraTurn: combinedExtraTurn,
+                    newEnPassantTarget: nextEnPassantTarget,
+                };
+                setShieldContext(shieldCtx);
+                if (isPawnPromotingMove) {
+                    // Holy Shield will be triggered after promotion
+                } else {
+                    setIsAwaitingHolyShield(true);
+                    setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+                }
+            }
+        }
+
+        if (!enteringSpecialMode && newStreak >= 3 && (killStreaks[capturingPlayer] || 0) < 3) {
+            enteringSpecialMode = true;
             const anvilDropCtx = {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
@@ -1638,7 +1709,7 @@ export default function EvolvingChessPage() {
                         const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                         const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
                         const newUniqueSuffix = globalUniqueIdCounter++;
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0 };
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
 
                         const promoRow = capturingPlayer === 'white' ? 0 : 7;
                         if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -1686,7 +1757,7 @@ export default function EvolvingChessPage() {
         setBoard(finalBoardStateForTurn);
         setCapturedPieces(finalCapturedPiecesStateForTurn);
 
-        if (isEnteringAnvilDropMode && !isPawnPromotingMove) {
+        if (enteringSpecialMode && !isPawnPromotingMove) {
             setIsMoveProcessing(false); 
             clickGuardRef.current = false;
             return;
@@ -1794,6 +1865,7 @@ export default function EvolvingChessPage() {
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
+    isAwaitingHolyShield, shieldContext, lastMoveTo,
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -1845,6 +1917,7 @@ export default function EvolvingChessPage() {
       id: isResurrectionPromotionInProgress ? `${originalPieceId}_resPromo_${pieceType}` : `${originalPieceId}_promo_${pieceType}`,
       hasMoved: true,
       invulnerableTurnsRemaining: 0,
+      isShielded: false
     };
     if (pieceType === 'queen') {
         boardToUpdate[row][col].piece!.level = Math.min(currentLevelOfPieceOnSquare, 7);
@@ -1872,24 +1945,45 @@ export default function EvolvingChessPage() {
       } else {
         toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
 
-        if (anvilDropAfterPromotion) {
+        const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
+        const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
+        const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
+        const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
+
+        let enteringSpecialMode = false;
+        
+        if (currentStreakForPromotingPlayer >= 2) {
+            const hasArchbishop = boardToUpdate.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === pawnColor);
+            if (hasArchbishop) {
+                enteringSpecialMode = true;
+                const shieldCtx = {
+                    boardForNextStep: boardToUpdate,
+                    playerWhoseTurnCompleted: pawnColor,
+                    isExtraTurn: combinedExtraTurn,
+                    newEnPassantTarget: enPassantTargetSquare,
+                };
+                setShieldContext(shieldCtx);
+                setIsAwaitingHolyShield(true);
+                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+            }
+        }
+
+        if (!enteringSpecialMode && anvilDropAfterPromotion) {
             setAnvilDropAfterPromotion(false);
+            enteringSpecialMode = true;
             const contextForAnvil = {
                 boardForNextStep: boardToUpdate,
                 playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: anvilDropContext!.isExtraTurn,
-                newEnPassantTarget: anvilDropContext!.newEnPassantTarget,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
             };
             setAnvilDropContext(contextForAnvil);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(pawnColor);
             setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-        } else {
-            const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
-            const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
-            const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
-            const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
+        }
 
+        if (!enteringSpecialMode) {
             let sacrificeNeededForQueen = false;
 
             if (pieceType === 'queen') {
@@ -1939,7 +2033,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext
+    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield
   ]);
 
 
@@ -1962,7 +2056,7 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop ) {
+    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield ) {
       setIsAiThinking(false);
       return;
     }
@@ -2256,9 +2350,52 @@ export default function EvolvingChessPage() {
                 }
             }
             
-            let isEnteringAnvilDropMode = false;
-            if (oldStreakForAI < 3 && newStreakForAI >= 3) {
-              isEnteringAnvilDropMode = true;
+            let enteringSpecialModeAI = false;
+            
+            if (newStreakForAI >= 2 && oldStreakForAI < 2) {
+                 const hasArchbishopAI = finalBoardStateForAI.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer);
+                 if (hasArchbishopAI) {
+                     enteringSpecialModeAI = true;
+                     const alliesToShield = [];
+                     for (let r_sh = 0; r_sh < 8; r_sh++) {
+                         for (let c_sh = 0; c_sh < 8; c_sh++) {
+                             const sq_sh = finalBoardStateForAI[r_sh][c_sh];
+                             if (sq_sh.piece && sq_sh.piece.color === currentPlayer && sq_sh.piece.id !== pieceOnFromSquareForAI?.id) {
+                                 alliesToShield.push(sq_sh.piece);
+                             }
+                         }
+                     }
+                     if (alliesToShield.length > 0) {
+                         const targetToShield = alliesToShield[Math.floor(Math.random() * alliesToShield.length)];
+                         finalBoardStateForAI.forEach(row_sh => row_sh.forEach(sq_sh => {
+                             if (sq_sh.piece?.id === targetToShield.id) sq_sh.piece.isShielded = true;
+                         }));
+                         toast({ title: "AI Holy Shield!", description: `AI shielded their ${targetToShield.type}!` });
+                     }
+                 }
+            }
+
+            if (!enteringSpecialModeAI && oldStreakForAI < 3 && newStreakForAI >= 3) {
+                enteringSpecialModeAI = true;
+                const emptySquares: AlgebraicSquare[] = [];
+                for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
+                if (emptySquares.length > 0) {
+                    const oppKingPos = this.findKing(finalBoardStateForAI, opponentPlayer);
+                    let bestAnvilSquare: AlgebraicSquare;
+                    if (oppKingPos) {
+                      emptySquares.sort((a,b) => {
+                        const { row: rA, col: cA } = algebraicToCoords(a);
+                        const { row: rB, col: cB } = algebraicToCoords(b);
+                        return (Math.abs(rA - oppKingPos.row) + Math.abs(cA - oppKingPos.col)) - (Math.abs(rB - oppKingPos.row) + Math.abs(cB - oppKingPos.col));
+                      });
+                      bestAnvilSquare = emptySquares[0];
+                    } else {
+                      bestAnvilSquare = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                    }
+                    const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
+                    finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
+                    toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
+                }
             }
 
             if (capturesThisTurnAI > 0) {
@@ -2279,7 +2416,7 @@ export default function EvolvingChessPage() {
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
-                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${Date.now()}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${Date.now()}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -2383,33 +2520,6 @@ export default function EvolvingChessPage() {
 
                   if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
                   
-                  if (isEnteringAnvilDropMode) {
-                    const emptySquares: AlgebraicSquare[] = [];
-                    for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
-                    
-                    if (emptySquares.length > 0) {
-                      const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
-                      const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
-                      let bestAnvilSquare: AlgebraicSquare;
-                      if (oppKingPos) {
-                        emptySquares.sort((a,b) => {
-                          const { row: rA, col: cA } = algebraicToCoords(a);
-                          const { row: rB, col: cB } = algebraicToCoords(b);
-                          const distA = Math.abs(rA - oppKingPos.row) + Math.abs(cA - oppKingPos.col);
-                          const distB = Math.abs(rB - oppKingPos.row) + Math.abs(cB - oppKingPos.col);
-                          return distA - distB;
-                        });
-                        bestAnvilSquare = emptySquares[0];
-                      } else {
-                        bestAnvilSquare = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                      }
-                      const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
-                      finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
-                      toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
-                    }
-                  }
-
-
                   const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
 
                   if (pieceAfterAIPromo?.type === 'queen') {
@@ -2425,42 +2535,14 @@ export default function EvolvingChessPage() {
                     }
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
                     if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
-              } else if (isEnteringAnvilDropMode) {
-                  const emptySquares: AlgebraicSquare[] = [];
-                  for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
-                  
-                  if (emptySquares.length > 0) {
-                    const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentColor);
-                    let bestAnvilSquare: AlgebraicSquare;
-                    if (oppKingPos) {
-                      emptySquares.sort((a,b) => {
-                        const { row: rA, col: cA } = algebraicToCoords(a);
-                        const { row: rB, col: cB } = algebraicToCoords(b);
-                        const distA = Math.abs(rA - oppKingPos.row) + Math.abs(cA - oppKingPos.col);
-                        const distB = Math.abs(rB - oppKingPos.row) + Math.abs(cB - oppKingPos.col);
-                        return distA - distB;
-                      });
-                      bestAnvilSquare = emptySquares[0];
-                    } else {
-                      bestAnvilSquare = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                    }
-                    const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
-                    finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
-                    toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
-                    
-                    processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
-                  }
               } else if (pieceAtDestinationAI?.type === 'queen') {
                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               } 
 
-              if (!isEnteringAnvilDropMode) {
-                  if (localAIAwaitingCommanderPromo) {
-                    processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
-                  } else if (!sacrificeNeededForAIQueen) {
-                      processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
-                  }
+              if (localAIAwaitingCommanderPromo) {
+                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
+              } else if (!sacrificeNeededForAIQueen) {
+                  processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               }
 
               setIsMoveProcessing(false);
@@ -2510,12 +2592,12 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -2698,7 +2780,7 @@ export default function EvolvingChessPage() {
   }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
-    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop) {
+    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield) {
       toast({ title: "Undo Failed", description: "Undo is disabled in online games and during special turns.", duration: 8000 });
       return;
     }
@@ -2716,7 +2798,7 @@ export default function EvolvingChessPage() {
     let playableStatesFound = 0;
     for (let i = historyStack.length - 1; i >= 0; i--) {
         const state = historyStack[i];
-        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop) {
+        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield) {
             playableStatesFound++;
             if (playableStatesFound >= turnsToUndo) {
                 targetIndex = i;
@@ -2728,7 +2810,7 @@ export default function EvolvingChessPage() {
     if (targetIndex === -1 && playableStatesFound > 0) {
         for (let i = historyStack.length - 1; i >= 0; i--) {
             const state = historyStack[i];
-            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop) {
+            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield) {
                 targetIndex = i;
                 break;
             }
@@ -2822,6 +2904,9 @@ export default function EvolvingChessPage() {
       setAnvilDropContext(stateToRestore.anvilDropContext || null);
       setAnvilDropAfterPromotion(stateToRestore.anvilDropAfterPromotion || false);
 
+      setIsAwaitingHolyShield(stateToRestore.isAwaitingHolyShield || false);
+      setShieldContext(stateToRestore.shieldContext || null);
+
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
     } else {
       setLastMoveFrom(null);
@@ -2842,6 +2927,7 @@ export default function EvolvingChessPage() {
     setShroomSpawnCounter, setNextShroomSpawnTurn,
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
     setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare, isAwaitingAnvilDrop,
+    isAwaitingHolyShield, shieldContext,
   ]);
 
 
@@ -3255,6 +3341,7 @@ export default function EvolvingChessPage() {
               promotingSquare={promotionSquare}
               isAwaitingAnvilDrop={isAwaitingAnvilDrop}
               playerToDropAnvil={playerToDropAnvil}
+              isAwaitingHolyShield={isAwaitingHolyShield}
             />
           </div>
           
@@ -3306,7 +3393,7 @@ export default function EvolvingChessPage() {
                 <Trophy /> L.board
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop} aria-label="Undo Move" className="h-7 px-2 text-xs">
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield} aria-label="Undo Move" className="h-7 px-2 text-xs">
               <Undo2 /> Undo
             </Button>
           </div>
@@ -3435,6 +3522,7 @@ export default function EvolvingChessPage() {
               promotingSquare={promotionSquare}
               isAwaitingAnvilDrop={isAwaitingAnvilDrop}
               playerToDropAnvil={playerToDropAnvil}
+              isAwaitingHolyShield={isAwaitingHolyShield}
           />
         </div>
       </div>
@@ -3473,7 +3561,7 @@ export default function EvolvingChessPage() {
                   <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield} aria-label="Undo Move" className="h-7 px-2 text-xs">
                 <Undo2 /> Undo
               </Button>
             </div>

@@ -22,6 +22,28 @@ export function initializeBoard(): BoardState {
   return board;
 }
 
+export function applyArchbishop(board: BoardState, player: PlayerColor): BoardState {
+  const bishops: {r: number, c: number}[] = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c].piece;
+      if (p && p.type === 'bishop' && p.color === player) {
+        bishops.push({r, c});
+      }
+    }
+  }
+  if (bishops.length > 0) {
+    const chosen = bishops[Math.floor(Math.random() * bishops.length)];
+    const original = board[chosen.r][chosen.c].piece!;
+    board[chosen.r][chosen.c].piece = {
+      ...original,
+      type: 'archbishop',
+      id: `${original.id}_Archbishop`
+    };
+  }
+  return board;
+}
+
 export function algebraicToCoords(algebraic: AlgebraicSquare): { row: number, col: number } {
   const col = algebraic.charCodeAt(0) - 97;
   const row = 8 - parseInt(algebraic[1]);
@@ -45,6 +67,7 @@ function getPieceChar(piece: Piece | null): string {
     case 'king': char = 'K'; break;
     case 'hero': char = 'H'; break;
     case 'infiltrator': char = 'I'; break;
+    case 'archbishop': char = 'A'; break;
     default:
       return '??';
   }
@@ -75,7 +98,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const piece = square?.piece;
       const item = square?.item;
       if (piece) {
-        pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}`;
+        pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}`;
       } else {
         pieceHash += '--';
       }
@@ -212,6 +235,25 @@ function getPossibleMovesInternal(
           }
         }
       }
+  } else if (piece.type === 'bishop' || piece.type === 'archbishop') {
+      const dirs: [number, number][] = [[1,1], [1,-1], [-1,1], [-1,-1]];
+      dirs.forEach(([dr, dc]) => {
+          for (let i = 1; i < 8; i++) {
+              const R = fromRow + i * dr; const C = fromCol + i * dc;
+              if (!isValidSquare(R, C)) break;
+              const targetSq = board[R][C];
+              if (targetSq.item && targetSq.item.type !== 'shroom') break;
+              const targetP = targetSq.piece;
+              if (!targetP) {
+                  possible.push(coordsToAlgebraic(R, C));
+              } else {
+                  if (targetP.color !== pieceColor && !isPieceInvulnerableToAttack(targetP, piece)) {
+                      possible.push(coordsToAlgebraic(R, C));
+                  }
+                  break;
+              }
+          }
+      });
   } else {
     for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
@@ -229,13 +271,13 @@ function getPossibleMovesInternal(
         for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
             const targetSquareState = board[r_idx]?.[c_idx];
-            if (targetSquareState?.piece && targetSquareState.piece.color === piece.color && targetSquareState.piece.type === 'bishop' && (!targetSquareState.item || targetSquareState.item.type === 'shroom')) {
+            if (targetSquareState?.piece && targetSquareState.piece.color === piece.color && (targetSquareState.piece.type === 'bishop' || targetSquareState.piece.type === 'archbishop') && (!targetSquareState.item || targetSquareState.item.type === 'shroom')) {
               possible.push(coordsToAlgebraic(r_idx, c_idx));
             }
         }
         }
     }
-    if (piece.type === 'bishop' && pieceActualLevelForSwap >= 4) {
+    if ((piece.type === 'bishop' || piece.type === 'archbishop') && pieceActualLevelForSwap >= 4) {
         for (let r_idx = 0; r_idx < 8; r_idx++) {
         for (let c_idx = 0; c_idx < 8; c_idx++) {
             const targetSquareState = board[r_idx]?.[c_idx];
@@ -363,11 +405,11 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     (piece.type === 'knight' || piece.type === 'hero') &&
     (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >= 4) &&
     targetPieceOnSquare &&
-    targetPieceOnSquare.type === 'bishop' &&
+    (targetPieceOnSquare.type === 'bishop' || targetPieceOnSquare.type === 'archbishop') &&
     targetPieceOnSquare.color === piece.color;
 
   const isBishopKnightOrHeroSwap =
-    piece.type === 'bishop' &&
+    (piece.type === 'bishop' || piece.type === 'archbishop') &&
     (typeof pieceActualLevel === 'number' && !isNaN(pieceActualLevel) && pieceActualLevel >= 4) &&
     targetPieceOnSquare &&
     (targetPieceOnSquare.type === 'knight' || targetPieceOnSquare.type === 'hero') &&
@@ -476,6 +518,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
     case 'bishop':
+    case 'archbishop':
       const bishopLevel = Number(piece.level || 1);
       if (Math.abs(toRow - fromRow) !== Math.abs(toCol - fromCol)) return false;
       const dRowDirBishop = Math.sign(toRow - fromRow);
@@ -566,6 +609,10 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (typeof targetLevel !== 'number' || isNaN(targetLevel) || typeof attackerLevel !== 'number' || isNaN(attackerLevel)) {
         return false;
     }
+
+    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') {
+        return true;
+    }
     
     const specialQueenHunters: PieceType[] = ['commander', 'hero', 'infiltrator'];
     if (targetPiece.type === 'queen' && specialQueenHunters.includes(attackingPiece.type)) {
@@ -578,7 +625,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
         }
     }
 
-    if (targetPiece.type === 'bishop' && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander' || attackingPiece.type === 'infiltrator')) {
+    if ((targetPiece.type === 'bishop' || targetPiece.type === 'archbishop') && targetLevel >= 3 && (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander' || attackingPiece.type === 'infiltrator')) {
       return true;
     }
     if (targetPiece.invulnerableTurnsRemaining && targetPiece.invulnerableTurnsRemaining > 0) {
@@ -626,16 +673,16 @@ export function applyMove(
 
   const movingPieceActualLevelForSwap = Number(movingPieceOriginalRef.level || 1);
   if (typeof movingPieceActualLevelForSwap === 'number' && !isNaN(movingPieceActualLevelForSwap) &&
-    (((movingPieceOriginalRef.type === 'knight' || movingPieceOriginalRef.type === 'hero') && movingPieceActualLevelForSwap >= 4 && targetPieceOriginal?.type === 'bishop' && targetPieceOriginal.color === movingPieceOriginalRef.color) ||
-    (movingPieceOriginalRef.type === 'bishop' && movingPieceActualLevelForSwap >= 4 && (targetPieceOriginal?.type === 'knight' || targetPieceOriginal?.type === 'hero') && targetPieceOriginal.color === movingPieceOriginalRef.color))
+    (((movingPieceOriginalRef.type === 'knight' || movingPieceOriginalRef.type === 'hero') && movingPieceActualLevelForSwap >= 4 && (targetPieceOriginal?.type === 'bishop' || targetPieceOriginal?.type === 'archbishop') && targetPieceOriginal.color === movingPieceOriginalRef.color) ||
+    ((movingPieceOriginalRef.type === 'bishop' || movingPieceOriginalRef.type === 'archbishop') && movingPieceActualLevelForSwap >= 4 && (targetPieceOriginal?.type === 'knight' || targetPieceOriginal?.type === 'hero') && targetPieceOriginal.color === movingPieceOriginalRef.color))
   ) {
     if (targetItemOriginal?.type === 'shroom') {
         shroomConsumedThisMove = true;
         newBoard[toRow][toCol].item = null; 
         movingPieceOriginalRef.level = Math.min( (movingPieceOriginalRef.type === 'queen' ? 7 : Infinity) , (movingPieceOriginalRef.level || 1) + 1);
     }
-    const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true };
-    const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true };
+    const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true, isShielded: false };
+    const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true, isShielded: false };
     newBoard[toRow][toCol].piece = movingPieceCopy;
     newBoard[fromRow][fromCol].piece = targetPieceCopy;
     return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
@@ -656,7 +703,7 @@ export function applyMove(
                     }
                     const victimPiece = victimSquare.piece;
                     if (victimPiece && victimPiece.color !== movingPieceOriginalRef.color && victimPiece.type !== 'king') {
-                         if (!isPieceInvulnerableToAttack(victimPiece, movingPieceOriginalRef) || (victimPiece.type === 'queen' && ['commander', 'hero', 'infiltrator'].includes(movingPieceOriginalRef.type))) {
+                         if (!isPieceInvulnerableToAttack(victimPiece, { ...movingPieceOriginalRef, type: 'self-destruct' }) || (victimPiece.type === 'queen' && ['commander', 'hero', 'infiltrator'].includes(movingPieceOriginalRef.type))) {
                             selfDestructCaptures.push({ ...victimPiece, id: `${victimPiece.id}_sd_${Date.now()}` });
                             victimSquare.piece = null;
                         }
@@ -700,7 +747,7 @@ export function applyMove(
   }
 
 
-  const movingPieceForToSquare = { ...movingPieceOriginalRef };
+  const movingPieceForToSquare = { ...movingPieceOriginalRef, isShielded: false };
   newBoard[toRow][toCol].piece = movingPieceForToSquare;
   newBoard[fromRow][fromCol].piece = null;
 
@@ -731,7 +778,7 @@ export function applyMove(
       const rookTargetCol = toCol > fromCol ? 5 : 3;
       const rookSquareData = newBoard[kingRow]?.[rookOriginalCol];
       if (rookSquareData?.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === pieceNowOnToSquare.color) {
-        const movedRookPiece = { ...rookSquareData.piece, hasMoved: true };
+        const movedRookPiece = { ...rookSquareData.piece, hasMoved: true, isShielded: false };
         newBoard[kingRow][rookTargetCol].piece = movedRookPiece;
         newBoard[kingRow][rookOriginalCol].piece = null;
 
@@ -756,6 +803,7 @@ export function applyMove(
       case 'hero': levelGain = 2; break;
       case 'knight': levelGain = 2; break;
       case 'bishop': levelGain = 2; break;
+      case 'archbishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
       case 'king': levelGain = 1; break;
@@ -822,6 +870,7 @@ export function applyMove(
                 finalPromotionLevel = 4; break;
             case 'knight':
             case 'bishop':
+            case 'archbishop':
             case 'rook':
             case 'hero':
                 finalPromotionLevel = 3; break;
@@ -933,7 +982,7 @@ export function applyMove(
                     if (isValidSquare(pushTargetRow_pb, pushTargetCol_pb)) {
                         const destinationSquareState = newBoard[pushTargetRow_pb][pushTargetCol_pb];
                         if (!destinationSquareState.piece && (!destinationSquareState.item || destinationSquareState.item.type === 'shroom')) {
-                            destinationSquareState.piece = { ...adjacentSquareState.piece! };
+                            destinationSquareState.piece = { ...adjacentSquareState.piece!, isShielded: false };
                             if (destinationSquareState.item?.type === 'shroom') { 
                                 destinationSquareState.item = null;
                                 destinationSquareState.piece.level = (destinationSquareState.piece.level || 1) + 1;
@@ -955,7 +1004,7 @@ export function applyMove(
         }
     }
 
-    if (pieceNowOnToSquare.type === 'bishop' && pieceNowOnToSquareActualLevel >= 5) {
+    if ((pieceNowOnToSquare.type === 'bishop' || pieceNowOnToSquare.type === 'archbishop') && pieceNowOnToSquareActualLevel >= 5) {
         const bishopColor_conv = pieceNowOnToSquare.color;
         for (let dr_conv = -1; dr_conv <= 1; dr_conv++) {
         for (let dc_conv = -1; dc_conv <= 1; dc_conv++) {
@@ -973,7 +1022,8 @@ export function applyMove(
                     convertedPiece_conv = {
                         ...pieceOnAdjSquare_conv,
                         color: bishopColor_conv,
-                        id: `conv_${pieceOnAdjSquare_conv.id}_${Date.now()}`
+                        id: `conv_${pieceOnAdjSquare_conv.id}_${Date.now()}`,
+                        isShielded: false
                     };
                     newBoard[adjRow_conv][adjCol_conv].piece = convertedPiece_conv;
                 } else {
@@ -1053,8 +1103,8 @@ function filterLegalMoves(
 
 
     if (typeof pieceToMoveActualLevelForSwap === 'number' && !isNaN(pieceToMoveActualLevelForSwap) &&
-        (((pieceToMoveCopy.type === 'knight' || pieceToMoveCopy.type === 'hero') && pieceToMoveActualLevelForSwap >= 4 && targetPieceForSim?.type === 'bishop' && targetPieceForSim.color === pieceToMoveCopy.color) ||
-         (pieceToMoveCopy.type === 'bishop' && pieceToMoveActualLevelForSwap >= 4 && (targetPieceForSim?.type === 'knight' || targetPieceForSim?.type === 'hero') && targetPieceForSim.color === pieceToMoveCopy.color))
+        (((pieceToMoveCopy.type === 'knight' || pieceToMoveCopy.type === 'hero') && pieceToMoveActualLevelForSwap >= 4 && (targetPieceForSim?.type === 'bishop' || targetPieceForSim?.type === 'archbishop') && targetPieceForSim.color === pieceToMoveCopy.color) ||
+         ((pieceToMoveCopy.type === 'bishop' || pieceToMoveCopy.type === 'archbishop') && pieceToMoveActualLevelForSwap >= 4 && (targetPieceForSim?.type === 'knight' || targetPieceForSim?.type === 'hero') && targetPieceForSim.color === pieceToMoveCopy.color))
     ) {
         moveTypeForApply = 'swap';
     } else if (pieceToMoveCopy.type === 'king' && Math.abs(algebraicToCoords(pieceOriginalSquare).col - toC) === 2) {
@@ -1127,6 +1177,7 @@ export function getPieceUnicode(piece: Piece): string {
     case 'queen': return isWhite ? '♕' : '♛';
     case 'rook': return isWhite ? '♖' : '♜';
     case 'bishop': return isWhite ? '♗' : '♝';
+    case 'archbishop': return '🙏';
     case 'knight': return isWhite ? '♘' : '♞';
     case 'hero': return isWhite ? '♘' : '♞';
     case 'pawn':
@@ -1152,6 +1203,7 @@ export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor, e
                 pieceStr += `(L${Number(piece.level || 1)}`;
                 if (piece.hasMoved) pieceStr += `,M`;
                 if (piece.invulnerableTurnsRemaining && piece.invulnerableTurnsRemaining > 0) pieceStr += `,I${piece.invulnerableTurnsRemaining}`;
+                if (piece.isShielded) pieceStr += `,S`;
                 pieceStr += `)`;
                 boardStr += pieceStr + " ";
             } else if (item) {
@@ -1218,8 +1270,8 @@ export function processRookResurrectionCheck(
 
     if (piecesToChooseFrom.length > 0) {
       piecesToChooseFrom.sort((a, b) => {
-        const valueA = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0, infiltrator: 1}[a.type] || 0;
-        const valueB = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, rook: 5, queen: 9, king: 0, infiltrator: 1}[b.type] || 0;
+        const valueA = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, archbishop: 3, rook: 5, queen: 9, king: 0, infiltrator: 1}[a.type] || 0;
+        const valueB = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, archbishop: 3, rook: 5, queen: 9, king: 0, infiltrator: 1}[b.type] || 0;
         return valueB - valueA;
       });
       const pieceToResurrectOriginal = piecesToChooseFrom[0];
@@ -1246,6 +1298,7 @@ export function processRookResurrectionCheck(
           id: `${pieceToResurrectOriginal.id}_res_${nextResurrectionIdCounter}_${Date.now()}`,
           hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved,
           invulnerableTurnsRemaining: 0,
+          isShielded: false
         };
         nextResurrectionIdCounter++;
 

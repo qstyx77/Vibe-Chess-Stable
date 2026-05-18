@@ -1,5 +1,5 @@
 export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop';
 export type ItemType = 'anvil' | 'shroom'; // Added 'shroom'
 
 export interface Item {
@@ -13,6 +13,7 @@ export interface Piece {
   level: number;
   hasMoved: boolean;
   invulnerableTurnsRemaining?: number;
+  isShielded?: boolean;
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -161,6 +162,8 @@ export interface GameSnapshot {
   playerToDropAnvil: PlayerColor | null;
   anvilDropContext: { boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null;
   anvilDropAfterPromotion: boolean;
+  isAwaitingHolyShield?: boolean;
+  shieldContext?: { boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null;
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation
