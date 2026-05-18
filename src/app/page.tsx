@@ -2,7 +2,6 @@
 
 import type { ReactNode } from 'react';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import Image from 'next/image';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
@@ -19,15 +18,13 @@ import {
   getCastlingRightsString,
   boardToPositionHash,
   type ConversionEvent,
-  isPieceInvulnerableToAttack,
   isValidSquare,
   processRookResurrectionCheck,
   type RookResurrectionResult,
   spawnShroom,
-  boardToSimpleString,
   findKing,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, SquareState, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, RallyCryEvent, ChatMessage } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -53,7 +50,6 @@ import Link from 'next/link';
 
 
 let globalUniqueIdCounter = 0;
-let globalServerUniqueIdCounter = 10000;
 
 const initialGameStatus: GameStatus = {
   message: " ",
@@ -218,7 +214,6 @@ export default function EvolvingChessPage() {
   const localPlayerColorRef = useRef<PlayerColor | null>(null);
 
   const { toast } = useToast();
-  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
 
   const [inputRoomId, setInputRoomId] = useState('');
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
@@ -233,10 +228,41 @@ export default function EvolvingChessPage() {
   const [isRankedGame, setIsRankedGame] = useState(false);
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
   const prevKillStreaksRef = useRef<{ white: number; black: number }>({ white: 0, black: 0 });
-  const prevFirstBloodRef = useRef(false);
   const firstBloodFlashedRef = useRef(false);
   const prevBoardRef = useRef<BoardState | null>(null);
   const signaledEventsRef = useRef<Set<string>>(new Set());
+
+  // --- Derived State & Consolidated Helpers ---
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer);
+  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion;
+  const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
+
+  const getRankedButtonText = () => {
+    if(rankedQueueStatus === 'searching') return 'Searching...';
+    return 'Ranked';
+  }
+
+  const getStatusMessage = () => {
+    if (rankedQueueStatus === 'searching') {
+        return <p className="text-sm font-medium text-primary mt-1 animate-pulse">Searching for a ranked match...</p>;
+    }
+    if (onlineStatus === 'waiting' && roomId) {
+      return (
+        <p className="text-sm font-medium text-primary mt-1">
+          Waiting... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
+        </p>
+      );
+    }
+    if (onlineStatus === 'connected' && localPlayerColor) {
+      return <p className="text-sm font-medium text-primary mt-1">Connection established! You are playing as {localPlayerColor}.</p>;
+    }
+    if (onlineStatus === 'connecting') {
+        return <p className="text-sm font-medium text-primary mt-1">Connecting...</p>;
+    }
+    return null;
+  };
+
+  // --- Effects & Logic ---
 
   useEffect(() => {
     isMessengerOpenRef.current = isMessengerOpen;
@@ -271,7 +297,6 @@ export default function EvolvingChessPage() {
     }
   }, [effects]);
 
-  // Robust animation and level indicator detection
   useEffect(() => {
     if (!board || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -290,7 +315,6 @@ export default function EvolvingChessPage() {
             const currSq = board[r][c];
             const alg = currSq.algebraic;
 
-            // 1. Detect Level Changes
             if (currSq.piece && prevSq.piece && currSq.piece.id === prevSq.piece.id) {
                 const diff = currSq.piece.level - prevSq.piece.level;
                 if (diff !== 0) {
@@ -307,7 +331,6 @@ export default function EvolvingChessPage() {
                 }
             }
 
-            // 2. Detect True Captures (Piece is gone from the entire board)
             if (prevSq.piece && !currentPieceIds.has(prevSq.piece.id)) {
                 const captureSig = `capture-${prevSq.piece.id}-${moveKey}`;
                 if (!signaledEventsRef.current.has(captureSig)) {
@@ -349,7 +372,6 @@ export default function EvolvingChessPage() {
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
   
   const fullGameReset = useCallback(() => {
-    globalUniqueIdCounter = 0;
     const initialBoardState = initializeBoard();
     setBoard(initialBoardState);
     setCurrentPlayer('white');
@@ -359,10 +381,8 @@ export default function EvolvingChessPage() {
     setEnemyPossibleMoves([]);
     setGameMoveCounter(0);
 
-    const newIsWhiteAI = false;
-    const newIsBlackAI = false;
-    setIsWhiteAI(newIsWhiteAI);
-    setIsBlackAI(newIsBlackAI);
+    setIsWhiteAI(false);
+    setIsBlackAI(false);
 
     setGameInfo({ ...initialGameStatus });
     flashedCheckStateRef.current = null;
@@ -371,7 +391,6 @@ export default function EvolvingChessPage() {
     const initialCastlingRights = getCastlingRightsString(initialBoardState);
     const initialHash = boardToPositionHash(initialBoardState, 'white', initialCastlingRights, null);
     if(initialHash) setPositionHistory([initialHash]); else setPositionHistory([]);
-
 
     setFlashMessage(null);
     setKillStreakFlashMessage(null);
@@ -874,319 +893,6 @@ export default function EvolvingChessPage() {
   }, [addEffect]);
 
 
-  const handleIncomingData = useCallback((data: any) => {
-      switch (data.type) {
-        case 'chat-message':
-            setChatMessages(prev => [...prev, data.message]);
-            if (!isMessengerOpenRef.current && data.message.color !== localPlayerColorRef.current) {
-                setHasUnreadMessages(true);
-            }
-            break;
-        case 'promotion-required': {
-            const { square, player } = data;
-            
-            applyServerGameState(data.fullGameState);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-
-            if (player === localPlayerColor) {
-                setPlayerToPromote(player);
-                setIsPromotingPawn(true);
-                setPromotionSquare(square);
-                setIsResurrectionPromotionInProgress(!!data.fullGameState.promotionContext?.fromResurrection);
-            }
-            break;
-        }
-        case 'awaiting-anvil-drop': {
-            const { fullGameState, player } = data;
-            if (!fullGameState) return;
-
-            applyServerGameState(fullGameState);
-            setIsMoveProcessing(false); 
-            clickGuardRef.current = false;
-
-            setIsAwaitingAnvilDrop(true);
-            setPlayerToDropAnvil(player);
-            if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "KILL STREAK REACHED! Place an anvil."}));
-            } else {
-              setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! ${getPlayerDisplayName(player)} is placing an anvil.`}));
-            }
-            break;
-        }
-        case 'commander-promo-finalized': {
-            applyServerGameState(data.fullGameState, data.lastPlayer);
-            break;
-        }
-        case 'game-move': {
-            applyServerGameState(data.fullGameState, data.lastPlayer);
-            setIsAwaitingAnvilDrop(false);
-            setPlayerToDropAnvil(null);
-            
-            if (data.conversionEvents && data.conversionEvents.length > 0) {
-              data.conversionEvents.forEach((event: ConversionEvent) => {
-                addEffect('conversion', event.at, event.byPiece.color);
-                if (event.originalPiece.color !== event.convertedPiece.color) {
-                  toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
-                }
-              });
-            }
-            break;
-        }
-        case 'awaiting-commander-promo': {
-            const { fullGameState } = data;
-            if (!fullGameState) return;
-
-            applyServerGameState(fullGameState);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-
-            setIsAwaitingCommanderPromotion(true);
-            break;
-        }
-        case 'shroom-spawn': {
-            const { square, nextTurn } = data;
-            const { row, col } = algebraicToCoords(square);
-            setBoard(currentBoard => {
-                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-                newBoard[row][col].item = { type: 'shroom' };
-                return newBoard;
-            });
-            setShroomSpawnCounter(0);
-            setNextShroomSpawnTurn(nextTurn);
-            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
-            break;
-        }
-        case 'forfeit-timeout':
-        case 'game-over':
-        case 'resign': {
-            const { winner, reason, timedOutPlayer, resigningPlayer, eloChanges } = data;
-            let message = "";
-            let isResignation = data.type === 'resign';
-            if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
-            else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
-            else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
-            else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
-            else if (reason === 'self-check') {
-                toast({
-                    title: "Auto-Checkmate!",
-                    description: `${getPlayerDisplayName(timedOutPlayer!)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(winner)} wins!`,
-                    variant: "destructive",
-                    duration: 8000,
-                });
-                message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
-            }
-            else if (reason === 'self-check-timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} lost by running out of time in check!`;
-            else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
-            else if (isResignation) message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
-            
-            setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
-            
-            if (isRankedGame && eloChanges && user) {
-                const playerEloChange = eloChanges[user.uid];
-                if (playerEloChange) {
-                    const eloChange = playerEloChange.newElo - playerEloChange.oldElo;
-                    const newWins = winner === localPlayerColor ? playerEloChange.wins + 1 : playerEloChange.wins;
-                    const newLosses = winner !== localPlayerColor && winner !== 'draw' ? playerEloChange.losses + 1 : playerEloChange.losses;
-
-                    toast({
-                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
-                        description: `Wins: ${newWins}, Losses: ${newLosses}`,
-                        duration: 8000,
-                    });
-                    
-                    const userDocRef = doc(firestore, 'users', user.uid);
-                    updateDocumentNonBlocking(userDocRef, {
-                        eloRating: playerEloChange.newElo,
-                        wins: newWins,
-                        losses: newLosses
-                    });
-                }
-            }
-            setIsRankedGame(false);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-            setAnimatedSquareTo(null);
-            break;
-        }
-    }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect]);
-
-
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      stopTurnTimer();
-    };
-  }, [stopTurnTimer]);
-
-  const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
-    if (wsRef.current) {
-      disconnectAndReset();
-      return;
-    }
-  
-    fullGameReset();
-
-    setOnlineStatus('connecting');
-  
-    const getWebSocketUrl = () => {
-      if (typeof window === 'undefined') return '';
-      const hostname = window.location.hostname;
-      const websocketHostname = hostname.replace(/^(\d+)-/, '8080-');
-      return `wss://${websocketHostname}`;
-    };
-  
-    const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive', duration: 8000 });
-      setOnlineStatus('disconnected');
-      return;
-    }
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-  
-    ws.onopen = () => {
-      const userInfo = user ? { userId: user.uid, username: userData?.username || user.displayName || 'Anonymous' } : null;
-      let payload;
-      if (action === 'create') {
-        payload = { type: 'create-room', user: userInfo };
-      } else if (action === 'join' && inputRoomId) {
-        payload = { type: 'join-room', roomId: inputRoomId, user: userInfo };
-      } else if (action === 'ranked') {
-          if(user) {
-              setRankedQueueStatus('searching');
-              payload = { type: 'join-ranked-queue', userId: user.uid, username: userData?.username, elo: userData?.eloRating };
-          }
-      }
-      if (payload) {
-          ws.send(JSON.stringify(payload));
-      }
-    };
-  
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string);
-        switch (data.type) {
-          case 'room-created':
-            setRoomId(data.roomId);
-            setLocalPlayerColor(data.color);
-            setOnlineStatus('waiting');
-            applyServerGameState(data.gameState);
-            toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}`, duration: 8000 });
-            break;
-          case 'player-joined':
-            applyServerGameState(data.gameState);
-            setOnlineStatus('connected');
-            toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
-            break;
-          case 'room-joined':
-            setRoomId(data.roomId);
-            setLocalPlayerColor(data.color);
-            applyServerGameState(data.gameState);
-            setOnlineStatus('connected');
-            toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
-            break;
-          case 'ranked-match-found':
-              setRankedQueueStatus('idle');
-              setRoomId(data.roomId);
-              setLocalPlayerColor(data.color);
-              applyServerGameState(data.gameState);
-              setIsRankedGame(true);
-              setOnlineStatus('connected');
-              toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
-              break;
-          case 'opponent-disconnected':
-            if (gameInfo.gameOver) return;
-            const winningPlayer = localPlayerColor || (gamePlayers?.white?.userId === user?.uid ? 'white' : 'black');
-            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
-            setGameInfo(prev => ({ ...prev, gameOver: true, winner: winningPlayer, message: "Opponent disconnected. You win!" }));
-            break;
-          case 'error':
-            toast({ title: "Connection Error", description: data.message, variant: 'destructive', duration: 8000 });
-            if(wsRef.current) {
-              wsRef.current.onclose = null;
-              wsRef.current.close();
-              wsRef.current = null;
-            }
-            setOnlineStatus('disconnected');
-            setRankedQueueStatus('idle');
-            break;
-          default:
-            handleIncomingData(data);
-            break;
-        }
-      } catch (err) {
-        console.error('[CLIENT] Error parsing WebSocket message:', err);
-      }
-    };
-  
-    ws.onerror = (err) => {
-      console.error('[CLIENT] WebSocket error:', err);
-      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
-      setOnlineStatus('disconnected');
-      setRankedQueueStatus('idle');
-    };
-  
-    ws.onclose = (event) => {
-        if (wsRef.current) {
-            wsRef.current = null;
-            if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
-                if (!gameInfo.gameOver) {
-                    toast({ title: "Connection Closed", description: "Disconnected from game server.", duration: 8000});
-                    fullGameReset();
-                } else {
-                    setOnlineStatus('disconnected');
-                }
-            }
-        }
-    };
-  
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState]);
-  
-
-  useEffect(() => {
-    const initializeAI = () => {
-      try {
-        aiInstanceRef.current = new VibeChessAI(2);
-      } catch (err: any) {
-        toast({
-          title: "AI Initialization Error",
-          description: `There was an issue loading the AI component: ${err.message}`,
-          variant: "destructive",
-          duration: 8000,
-        });
-      }
-    };
-    initializeAI();
-  }, [toast]);
-
-
-  useEffect(() => {
-    setBoardOrientation(determineBoardOrientation());
-  }, [determineBoardOrientation]);
-
-  const hasAnyLegalMoves = useCallback((board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean => {
-    for (let r = 0; r < 8; r++) {
-      for (let c = 0; c < 8; c++) {
-        const squareState = board[r]?.[c];
-        if(!squareState) continue;
-        const piece = squareState.piece;
-        if (piece && piece.color === playerColor) {
-          const pieceSquareAlgebraic = squareState.algebraic;
-          const legalMoves = getPossibleMoves(board, pieceSquareAlgebraic, enPassantTargetSquare);
-          if (legalMoves.length > 0) {
-            return true;
-          }
-        }
-      }
-    }
-    return false;
-  }, []);
-
   const processPawnSacrificeCheck = useCallback((
     boardAfterPrimaryMove: BoardState,
     playerWhoseQueenLeveled: PlayerColor,
@@ -1599,7 +1305,7 @@ export default function EvolvingChessPage() {
         } 
         
         if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
-            let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
+            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
               if (pieceToResurrectOriginal) {
@@ -1830,9 +1536,6 @@ export default function EvolvingChessPage() {
         }
         if (anvilPushedOffBoardFromApply) {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
-        }
-        if (rallyCryTriggered) {
-          addEffect('shockwave', rallyCryTriggered.square, rallyCryTriggered.color);
         }
         
 
@@ -2198,13 +1901,12 @@ export default function EvolvingChessPage() {
                   const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                     boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
                     0, 
-                    capturedPieces, globalServerUniqueIdCounter
+                    capturedPieces, 20000
                   );
                   if (aiPromoRookResPerformed) {
                     boardToUpdate = boardWithResurrection;
                     setCapturedPieces(capturedPiecesAfterResurrection);
                     setBoard(boardToUpdate);
-                    globalUniqueIdCounter = aiPromoRookIdCounter!;
                     addEffect('light-beam', aiPromoRookSquareAlg!);
                     setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
                     toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new Rook resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L1)`, duration: 8000 });
@@ -2292,7 +1994,6 @@ export default function EvolvingChessPage() {
       let aiBecameInfiltrator = false;
       let aiGameWonByInfiltration = false;
       let aiExtraTurn = false;
-      let rallyCryTriggeredByAI: RallyCryEvent | null = null;
       
 
 
@@ -2359,9 +2060,9 @@ export default function EvolvingChessPage() {
                 if (targetSquareForOverride?.piece) {
                     overrideMoveType = 'capture';
                 }
-                const promotionRankOverride = currentPlayer === 'white' ? 0 : 7;
+                const promotionRankOverride = currentPlayer === 'white' ? 'white' : 'black';
                 let promoteToOverrideType: PieceType | undefined = undefined;
-                if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === promotionRankOverride) {
+                if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === (currentPlayer === 'white' ? 0 : 7)) {
                     overrideMoveType = 'promotion';
                     promoteToOverrideType = fbSquareState.piece!.type === 'commander' ? 'hero' : 'queen';
                 }
@@ -2430,14 +2131,13 @@ export default function EvolvingChessPage() {
         aiBecameInfiltrator = restOfResult.promotedToInfiltrator || false;
         aiGameWonByInfiltration = restOfResult.infiltrationWin || false;
         aiExtraTurn = restOfResult.extraTurn || false;
-        rallyCryTriggeredByAI = restOfResult.rallyCryTriggered;
 
         if (selfDestructCaptures && selfDestructCaptures.length > 0) {
             selfDestructCaptures.forEach(p => finalCapturedPiecesForAI[currentPlayer].push(p));
         }
 
-        if (rallyCryTriggeredByAI) {
-            addEffect('shockwave', rallyCryTriggeredByAI.square, rallyCryTriggeredByAI.color);
+        if (restOfResult.rallyCryTriggered) {
+            addEffect('shockwave', restOfResult.rallyCryTriggered.square, restOfResult.rallyCryTriggered.color);
         }
 
         if (aiBecameInfiltrator) {
@@ -2475,7 +2175,7 @@ export default function EvolvingChessPage() {
         if (restOfResult.pieceCapturedByAnvil) {
             capturedPieceDataForScoring = restOfResult.pieceCapturedByAnvil;
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
-                finalCapturedPiecesForAI[currentPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `${restOfResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${globalUniqueIdCounter++}` });
+                finalCapturedPiecesForAI[currentPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `${restOfResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
             }
             toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${restOfResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
         }
@@ -2524,7 +2224,7 @@ export default function EvolvingChessPage() {
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${capturedPiece.color} ${capturedPiece.type}!`, duration: 8000});
             } else {
-                finalCapturedPiecesForAI[currentPlayer].push({ ...capturedPiece, id: `${capturedPiece.id}_cap_ai_${globalUniqueIdCounter++}` });
+                finalCapturedPiecesForAI[currentPlayer].push({ ...capturedPiece, id: `${capturedPiece.id}_cap_ai_${Date.now()}` });
             }
           }
           if (restOfResult.conversionEvents && restOfResult.conversionEvents.length > 0) {
@@ -2579,8 +2279,7 @@ export default function EvolvingChessPage() {
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
-                          const newUniqueSuffixAI = globalUniqueIdCounter++;
-                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${newUniqueSuffixAI}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${Date.now()}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0 };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -2634,12 +2333,11 @@ export default function EvolvingChessPage() {
                   aiToAlg as AlgebraicSquare,
                   oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
-                  globalUniqueIdCounter
+                  15000
               );
               if (aiRookResData.resurrectionPerformed) {
                   finalBoardStateForAI = aiRookResData.boardWithResurrection;
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
-                  globalUniqueIdCounter = aiRookResData.newResurrectionIdCounter!;
                   addEffect('light-beam', aiRookResData!.resurrectedSquareAlg!);
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   toast({ title: "AI Rook's Call!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 8000 });
@@ -2716,27 +2414,8 @@ export default function EvolvingChessPage() {
 
                   if (pieceAfterAIPromo?.type === 'queen') {
                     sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, enPassantTargetForNextTurn);
-                  } else if (pieceAfterAIPromo?.type === 'rook') {
-                      if ((!aiRookResData || !aiRookResData.resurrectionPerformed) && (capturedPieceDataForScoring || restOfResult.pieceCapturedByAnvil)) { 
-                        const newRookLevelCheck = Number(pieceAfterAIPromo.level || 1);
-                        if (newRookLevelCheck >= 4) { 
-                            const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
-                                finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, aiToAlg as AlgebraicSquare, 
-                                0, 
-                                finalCapturedPiecesForAI, globalUniqueIdCounter
-                            );
-                            if (aiPromoRookResPerformed) {
-                                finalBoardStateForAI = boardWithResurrection;
-                                setCapturedPieces(capturedPiecesAfterResurrection);
-                                setBoard(finalBoardStateForAI);
-                                globalUniqueIdCounter = aiPromoRookIdCounter!;
-                                addEffect('light-beam', aiPromoRookSquareAlg!);
-                                setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: currentPlayer }]);
-                                toast({ title: "AI Rook's Call (Post-Promo)!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L1)`, duration: 8000 });
-                            }
-                        }
-                      }
                   }
+
               } else if (isAICommanderPromoting) {
                     const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
@@ -2950,7 +2629,6 @@ export default function EvolvingChessPage() {
     }
 
     prevKillStreaksRef.current = { ...killStreaks };
-    prevFirstBloodRef.current = firstBloodAchieved;
 
   }, [killStreaks, firstBloodAchieved, getKillStreakToastMessage, playerWhoGotFirstBlood, getPlayerDisplayName, toast]);
 
@@ -3195,60 +2873,11 @@ export default function EvolvingChessPage() {
       return;
     }
     const newIsBlackAI = !isBlackAI;
-    setIsBlackAI(newIsInnerBlackAI => !newIsInnerBlackAI);
-    const updatedBlackAI = !isBlackAI;
-    toast({ title: `Black AI ${updatedBlackAI ? 'On' : 'Off'}`, duration: 1000 });
+    setIsBlackAI(!isBlackAI);
+    toast({ title: `Black AI ${!isBlackAI ? 'On' : 'Off'}`, duration: 1000 });
     setSelectedSquare(null); setPossibleMoves([]);
     setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, onlineStatus]);
-
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer);
-
-  const getButtonText = () => {
-    if (onlineStatus === 'connecting') return 'Connecting...';
-    if (onlineStatus === 'connected' || onlineStatus === 'waiting') return `Disconnect`;
-    return 'Create Online Game';
-  };
-
-  const getRankedButtonText = () => {
-    if(rankedQueueStatus === 'searching') return 'Searching...';
-    return 'Ranked';
-  }
-
-  const handleRankedPlay = () => {
-    if (rankedQueueStatus === 'searching') {
-        if(wsRef.current) {
-            const payload = JSON.stringify({ type: 'leave-ranked-queue' });
-            wsRef.current.send(payload);
-        }
-        setRankedQueueStatus('idle');
-        disconnectAndReset();
-        toast({ title: "Search Cancelled", description: "You have left the ranked queue.", duration: 8000 });
-    } else {
-        handleOnlinePlay('ranked');
-    }
-  }
-
-
-  const getStatusMessage = () => {
-    if (rankedQueueStatus === 'searching') {
-        return <p className="text-sm font-medium text-primary mt-1 animate-pulse">Searching for a ranked match...</p>;
-    }
-    if (onlineStatus === 'waiting' && roomId) {
-      return (
-        <p className="text-sm font-medium text-primary mt-1">
-          Waiting... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
-        </p>
-      );
-    }
-    if (onlineStatus === 'connected' && localPlayerColor) {
-      return <p className="text-sm font-medium text-primary mt-1">Connection established! You are playing as {localPlayerColor}.</p>;
-    }
-    if (onlineStatus === 'connecting') {
-        return <p className="text-sm font-medium text-primary mt-1">Connecting...</p>;
-    }
-    return null;
-  };
 
   const handlePieceHover = useCallback((piece: Piece | null) => {
     setPieceForInfoDisplay(piece);
@@ -3266,7 +2895,314 @@ export default function EvolvingChessPage() {
     }
   }, [userData, user, localPlayerColor]);
 
-  const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
+  const handleIncomingData = useCallback((data: any) => {
+      switch (data.type) {
+        case 'chat-message':
+            setChatMessages(prev => [...prev, data.message]);
+            if (!isMessengerOpenRef.current && data.message.color !== localPlayerColorRef.current) {
+                setHasUnreadMessages(true);
+            }
+            break;
+        case 'promotion-required': {
+            const { square, player } = data;
+            
+            applyServerGameState(data.fullGameState);
+            setIsMoveProcessing(false);
+            clickGuardRef.current = false;
+
+            if (player === localPlayerColor) {
+                setPlayerToPromote(player);
+                setIsPromotingPawn(true);
+                setPromotionSquare(square);
+                setIsResurrectionPromotionInProgress(!!data.fullGameState.promotionContext?.fromResurrection);
+            }
+            break;
+        }
+        case 'awaiting-anvil-drop': {
+            const { fullGameState, player } = data;
+            if (!fullGameState) return;
+
+            applyServerGameState(fullGameState);
+            setIsMoveProcessing(false); 
+            clickGuardRef.current = false;
+
+            setIsAwaitingAnvilDrop(true);
+            setPlayerToDropAnvil(player);
+            if (player === localPlayerColor) {
+              setGameInfo(prev => ({...prev, message: "KILL STREAK REACHED! Place an anvil."}));
+            } else {
+              setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! ${getPlayerDisplayName(player)} is placing an anvil.`}));
+            }
+            break;
+        }
+        case 'commander-promo-finalized': {
+            applyServerGameState(data.fullGameState, data.lastPlayer);
+            break;
+        }
+        case 'game-move': {
+            applyServerGameState(data.fullGameState, data.lastPlayer);
+            setIsAwaitingAnvilDrop(false);
+            setPlayerToDropAnvil(null);
+            
+            if (data.conversionEvents && data.conversionEvents.length > 0) {
+              data.conversionEvents.forEach((event: ConversionEvent) => {
+                addEffect('conversion', event.at, event.byPiece.color);
+                if (event.originalPiece.color !== event.convertedPiece.color) {
+                  toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+                }
+              });
+            }
+            break;
+        }
+        case 'awaiting-commander-promo': {
+            const { fullGameState } = data;
+            if (!fullGameState) return;
+
+            applyServerGameState(fullGameState);
+            setIsMoveProcessing(false);
+            clickGuardRef.current = false;
+
+            setIsAwaitingCommanderPromotion(true);
+            break;
+        }
+        case 'shroom-spawn': {
+            const { square, nextTurn } = data;
+            const { row, col } = algebraicToCoords(square);
+            setBoard(currentBoard => {
+                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+                newBoard[row][col].item = { type: 'shroom' };
+                return newBoard;
+            });
+            setShroomSpawnCounter(0);
+            setNextShroomSpawnTurn(nextTurn);
+            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
+            break;
+        }
+        case 'forfeit-timeout':
+        case 'game-over':
+        case 'resign': {
+            const { winner, reason, timedOutPlayer, resigningPlayer, eloChanges } = data;
+            let message = "";
+            let isResignation = data.type === 'resign';
+            if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
+            else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
+            else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
+            else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
+            else if (reason === 'self-check') {
+                toast({
+                    title: "Auto-Checkmate!",
+                    description: `${getPlayerDisplayName(timedOutPlayer!)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(winner)} wins!`,
+                    variant: "destructive",
+                    duration: 8000,
+                });
+                message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
+            }
+            else if (reason === 'self-check-timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} lost by running out of time in check!`;
+            else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
+            else if (isResignation) message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
+            
+            setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
+            
+            if (isRankedGame && eloChanges && user) {
+                const playerEloChange = eloChanges[user.uid];
+                if (playerEloChange) {
+                    const eloChange = playerEloChange.newElo - playerEloChange.oldElo;
+                    const newWins = winner === localPlayerColor ? playerEloChange.wins + 1 : playerEloChange.wins;
+                    const newLosses = winner !== localPlayerColor && winner !== 'draw' ? playerEloChange.losses + 1 : playerEloChange.losses;
+
+                    toast({
+                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
+                        description: `Wins: ${newWins}, Losses: ${newLosses}`,
+                        duration: 8000,
+                    });
+                    
+                    const userDocRef = doc(firestore, 'users', user.uid);
+                    updateDocumentNonBlocking(userDocRef, {
+                        eloRating: playerEloChange.newElo,
+                        wins: newWins,
+                        losses: newLosses
+                    });
+                }
+            }
+            setIsRankedGame(false);
+            setIsMoveProcessing(false);
+            clickGuardRef.current = false;
+            setAnimatedSquareTo(null);
+            break;
+        }
+    }
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect]);
+
+  const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
+    if (wsRef.current) {
+      disconnectAndReset();
+      return;
+    }
+  
+    fullGameReset();
+
+    setOnlineStatus('connecting');
+  
+    const getWebSocketUrl = () => {
+      if (typeof window === 'undefined') return '';
+      const hostname = window.location.hostname;
+      const websocketHostname = hostname.replace(/^(\d+)-/, '8080-');
+      return `wss://${websocketHostname}`;
+    };
+  
+    const wsUrl = getWebSocketUrl();
+    if (!wsUrl) {
+      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive', duration: 8000 });
+      setOnlineStatus('disconnected');
+      return;
+    }
+    
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+  
+    ws.onopen = () => {
+      const userInfo = user ? { userId: user.uid, username: userData?.username || user.displayName || 'Anonymous' } : null;
+      let payload;
+      if (action === 'create') {
+        payload = { type: 'create-room', user: userInfo };
+      } else if (action === 'join' && inputRoomId) {
+        payload = { type: 'join-room', roomId: inputRoomId, user: userInfo };
+      } else if (action === 'ranked') {
+          if(user) {
+              setRankedQueueStatus('searching');
+              payload = { type: 'join-ranked-queue', userId: user.uid, username: userData?.username, elo: userData?.eloRating };
+          }
+      }
+      if (payload) {
+          ws.send(JSON.stringify(payload));
+      }
+    };
+  
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data as string);
+        switch (data.type) {
+          case 'room-created':
+            setRoomId(data.roomId);
+            setLocalPlayerColor(data.color);
+            setOnlineStatus('waiting');
+            applyServerGameState(data.gameState);
+            toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}`, duration: 8000 });
+            break;
+          case 'player-joined':
+            applyServerGameState(data.gameState);
+            setOnlineStatus('connected');
+            toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
+            break;
+          case 'room-joined':
+            setRoomId(data.roomId);
+            setLocalPlayerColor(data.color);
+            applyServerGameState(data.gameState);
+            setOnlineStatus('connected');
+            toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
+            break;
+          case 'ranked-match-found':
+              setRankedQueueStatus('idle');
+              setRoomId(data.roomId);
+              setLocalPlayerColor(data.color);
+              applyServerGameState(data.gameState);
+              setIsRankedGame(true);
+              setOnlineStatus('connected');
+              toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
+              break;
+          case 'opponent-disconnected':
+            if (gameInfo.gameOver) return;
+            const winningPlayer = localPlayerColor || (gamePlayers?.white?.userId === user?.uid ? 'white' : 'black');
+            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
+            setGameInfo(prev => ({ ...prev, gameOver: true, winner: winningPlayer, message: "Opponent disconnected. You win!" }));
+            break;
+          case 'error':
+            toast({ title: "Connection Error", description: data.message, variant: 'destructive', duration: 8000 });
+            if(wsRef.current) {
+              wsRef.current.onclose = null;
+              wsRef.current.close();
+              wsRef.current = null;
+            }
+            setOnlineStatus('disconnected');
+            setRankedQueueStatus('idle');
+            break;
+          default:
+            handleIncomingData(data);
+            break;
+        }
+      } catch (err) {
+        console.error('[CLIENT] Error parsing WebSocket message:', err);
+      }
+    };
+  
+    ws.onerror = (err) => {
+      console.error('[CLIENT] WebSocket error:', err);
+      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
+      setOnlineStatus('disconnected');
+      setRankedQueueStatus('idle');
+    };
+  
+    ws.onclose = () => {
+        if (wsRef.current) {
+            wsRef.current = null;
+            if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
+                if (!gameInfo.gameOver) {
+                    toast({ title: "Connection Closed", description: "Disconnected from game server.", duration: 8000});
+                    fullGameReset();
+                } else {
+                    setOnlineStatus('disconnected');
+                }
+            }
+        }
+    };
+  
+  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState]);
+
+  const handleRankedPlay = () => {
+    if (rankedQueueStatus === 'searching') {
+        if(wsRef.current) {
+            const payload = JSON.stringify({ type: 'leave-ranked-queue' });
+            wsRef.current.send(payload);
+        }
+        setRankedQueueStatus('idle');
+        disconnectAndReset();
+        toast({ title: "Search Cancelled", description: "You have left the ranked queue.", duration: 8000 });
+    } else {
+        handleOnlinePlay('ranked');
+    }
+  }
+
+  useEffect(() => {
+    const initializeAI = () => {
+      try {
+        aiInstanceRef.current = new VibeChessAI(2);
+      } catch (err: any) {
+        toast({
+          title: "AI Initialization Error",
+          description: `There was an issue loading the AI component: ${err.message}`,
+          variant: "destructive",
+          duration: 8000,
+        });
+      }
+    };
+    initializeAI();
+  }, [toast]);
+
+
+  useEffect(() => {
+    setBoardOrientation(determineBoardOrientation());
+  }, [determineBoardOrientation]);
+
+
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+      stopTurnTimer();
+    };
+  }, [stopTurnTimer]);
+
 
   const mobileLayout = (
     <div className="relative z-20 flex flex-col flex-grow w-full p-1 lg:hidden">
@@ -3406,7 +3342,7 @@ export default function EvolvingChessPage() {
               aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
               >
               {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
-              {getButtonText()}
+              {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
               </Button>
               <div className="flex gap-1 items-center">
               <Input
@@ -3438,7 +3374,6 @@ export default function EvolvingChessPage() {
 
   const desktopLayout = (
     <div className="hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
-      {/* Left Column */}
       <div className="w-1/4 flex-shrink-0">
         <GameControls
             currentPlayer={currentPlayer}
@@ -3459,7 +3394,6 @@ export default function EvolvingChessPage() {
         />
       </div>
 
-      {/* Center Column */}
       <div className="w-1/2 flex flex-col items-center gap-2">
         <div className="w-full flex items-center justify-center">
             <img
@@ -3505,7 +3439,6 @@ export default function EvolvingChessPage() {
         </div>
       </div>
 
-      {/* Right Column */}
       <div className="w-1/4 flex flex-col gap-4">
         <AuthWidget />
         <Card>
@@ -3580,7 +3513,7 @@ export default function EvolvingChessPage() {
                 aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
                 >
                 {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
-                {getButtonText()}
+                {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
                 </Button>
                 <div className="flex gap-1 items-center w-full">
                 <Input

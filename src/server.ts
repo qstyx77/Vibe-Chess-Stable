@@ -1,10 +1,6 @@
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
-import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
-import { initializeApp } from 'firebase/app';
-import { firebaseConfig } from './firebase/config';
-
 
 import { 
     initializeBoard, 
@@ -12,19 +8,15 @@ import {
     isKingInCheck, 
     isCheckmate, 
     isStalemate, 
-    getCastlingRightsString, 
-    boardToPositionHash, 
-    spawnAnvil, 
     spawnShroom, 
     processRookResurrectionCheck,
-    coordsToAlgebraic,
     algebraicToCoords,
+    coordsToAlgebraic,
 } from './lib/chess-utils';
-import type { BoardState, PlayerColor, Piece, Move, GameStatus, AlgebraicSquare } from './types';
+import type { PlayerColor, Piece, AlgebraicSquare } from './types';
 
 
 const server = http.createServer((req, res) => {
-    // Add a guard to handle cases where req.url is undefined
     const urlString = req.url || '';
     const url = new URL(urlString, `http://${req.headers.host}`);
 
@@ -39,11 +31,10 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const rooms: Record<string, { clients: (WebSocket & { userId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; }> = {};
+const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
-// Ranked matchmaking queue
-const rankedQueue: { ws: WebSocket & { userId?: string }; userId: string; elo: number; username: string; timestamp: number }[] = [];
+const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; timestamp: number }[] = [];
 
 const pieceValues: Record<string, number> = {
     'pawn': 1, 'commander': 1, 'infiltrator': 1,
@@ -69,12 +60,10 @@ const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'l
     return Math.round(playerElo + K * (actualScore - expectedScore));
 };
 
-
 const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
     if (room && room.clients) {
         const payload = JSON.stringify(message);
-        console.log(`[Server | broadcastToRoom] Broadcasting to room ${roomId}:`, message.type);
         room.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(payload);
@@ -83,8 +72,53 @@ const broadcastToRoom = (roomId: string, message: any) => {
     }
 };
 
+const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string, details: any = {}) => {
+    const room = rooms[roomId];
+    if (!room || room.gameState.gameInfo.gameOver) return;
+
+    room.gameState.gameInfo.gameOver = true;
+    room.gameState.gameInfo.winner = winner;
+    
+    let message = "";
+    if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner]?.username || winner)} wins!`;
+    else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
+    else if (reason === 'infiltration') message = `${room.gameState.players[winner as PlayerColor]?.username || winner} wins by Infiltration!`;
+    else if (reason === 'timeout') message = `Timeout. ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
+    else if (reason === 'resign') message = `${room.gameState.players[details.resigningPlayer]?.username || details.resigningPlayer} resigned. ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
+    
+    room.gameState.gameInfo.message = message;
+
+    let eloChanges = null;
+    if (room.isRanked) {
+        const whiteId = room.gameState.players.white.userId;
+        const blackId = room.gameState.players.black.userId;
+        const whiteElo = room.gameState.players.white.elo;
+        const blackElo = room.gameState.players.black.elo;
+
+        let whiteResult: 'win' | 'loss' | 'draw' = winner === 'white' ? 'win' : (winner === 'black' ? 'loss' : 'draw');
+        let blackResult: 'win' | 'loss' | 'draw' = winner === 'black' ? 'win' : (winner === 'white' ? 'loss' : 'draw');
+
+        const newWhiteElo = calculateElo(whiteElo, blackElo, whiteResult);
+        const newBlackElo = calculateElo(blackElo, whiteElo, blackResult);
+
+        eloChanges = {
+            [whiteId]: { oldElo: whiteElo, newElo: newWhiteElo, wins: room.gameState.players.white.wins || 0, losses: room.gameState.players.white.losses || 0 },
+            [blackId]: { oldElo: blackElo, newElo: newBlackElo, wins: room.gameState.players.black.wins || 0, losses: room.gameState.players.black.losses || 0 }
+        };
+    }
+
+    broadcastToRoom(roomId, {
+        type: 'game-over',
+        winner,
+        reason,
+        eloChanges,
+        ...details
+    });
+
+    if (room.turnTimer) clearTimeout(room.turnTimer);
+};
+
 const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null = null) => {
-    console.log(`[Server | finalizeTurn] Finalizing turn for ${movingPlayerColor}. Extra Turn: ${isExtraTurn}, New EP: ${newEnPassantTarget}`);
     room.gameState.gameMoveCounter++;
     room.gameState.enPassantTargetSquare = newEnPassantTarget;
 
@@ -102,50 +136,34 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     }
 
     const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
-
     const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare);
-    let message = " ";
-    let gameOver = false;
-    let winner: PlayerColor | 'draw' | undefined = undefined;
 
     if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
-        message = `Checkmate! ${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} wins!`;
-        gameOver = true;
-        winner = movingPlayerColor;
+        onGameOver(room.clients[0].roomId, movingPlayerColor, 'checkmate');
+        return;
     } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
-        message = "Stalemate! It's a draw.";
-        gameOver = true;
-        winner = 'draw';
-    } else if (inCheck) {
-        message = "Check!";
+        onGameOver(room.clients[0].roomId, 'draw', 'stalemate');
+        return;
     }
 
     room.gameState.gameInfo = {
-        message: message,
+        message: inCheck ? "Check!" : " ",
         isCheck: inCheck,
         playerWithKingInCheck: inCheck ? nextPlayer : null,
-        isCheckmate: gameOver && winner === movingPlayerColor,
-        isStalemate: gameOver && winner === 'draw',
-        gameOver: gameOver,
-        winner: winner,
+        isCheckmate: false,
+        isStalemate: false,
+        gameOver: false,
     };
 
     room.gameState.currentPlayer = nextPlayer;
 
-    if (gameOver && room.isRanked) {
-        // Elo logic would go here
-    }
-
-    console.log(`[Server | finalizeTurn] Broadcasting "game-move" to room ${room.clients[0].roomId}.`);
     broadcastToRoom(room.clients[0].roomId, {
         type: 'game-move',
         fullGameState: room.gameState,
         lastPlayer: movingPlayerColor,
     });
     
-    if (!room.gameState.gameInfo.gameOver) {
-        startServerTurnTimer(room.clients[0].roomId);
-    }
+    startServerTurnTimer(room.clients[0].roomId);
 };
 
 const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop', actingPlayer: PlayerColor) => {
@@ -165,8 +183,6 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
             return;
         }
 
-        console.log(`[Server] Special Action Timeout! Player ${actingPlayer} failed to perform ${actionType}.`);
-        
         const timedOutPlayer = actingPlayer;
         if (roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] === undefined) {
             roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] = 0;
@@ -176,11 +192,7 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
 
         if (currentTimeoutCount >= 3) {
             const winnerOnTimeout = timedOutPlayer === 'white' ? 'black' : 'white';
-            roomAfterTimeout.gameState.gameInfo.gameOver = true;
-            roomAfterTimeout.gameState.gameInfo.winner = winnerOnTimeout;
-            roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[actingPlayer] || {}).username || actingPlayer} ran out of time. ${winnerOnTimeout} wins!`;
-            broadcastToRoom(roomId, { type: 'forfeit-timeout', timedOutPlayer: actingPlayer, winner: winnerOnTimeout, reason: 'timeout' });
-            if (roomAfterTimeout.turnTimer) clearTimeout(roomAfterTimeout.turnTimer);
+            onGameOver(roomId, winnerOnTimeout, 'timeout', { timedOutPlayer });
             return;
         }
 
@@ -193,18 +205,10 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
             const playerWhoActed = roomAfterTimeout.gameState.playerWhoGotFirstBlood;
             const opponent = playerWhoActed === 'white' ? 'black' : 'white';
             roomAfterTimeout.gameState.currentPlayer = opponent;
-            roomAfterTimeout.gameState.gameInfo.message = `Promotion selection timed out. It's now ${opponent}'s turn.`;
-
-            broadcastToRoom(roomId, { type: 'game-move', fullGameState: roomAfterTimeout.gameState, lastPlayer: playerWhoActed });
-            startServerTurnTimer(roomId);
+            finalizeTurn(roomAfterTimeout, playerWhoActed, false, null);
         } else if (actionType === 'pawn-promo') {
             const { player } = roomAfterTimeout.gameState.promotionContext;
             delete roomAfterTimeout.gameState.promotionContext;
-
-            roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[player] || {}).username || player} did not choose a promotion. Turn forfeited.`;
-
-            // Finalize turn for the player who failed to promote.
-            // No extra turn is granted as promotion didn't complete.
             finalizeTurn(roomAfterTimeout, player, false, null);
         }
     }, 15000);
@@ -224,73 +228,43 @@ const startServerTurnTimer = (roomId: string) => {
     room.turnTimer = setTimeout(() => {
         const roomAfterTimeout = rooms[roomId];
         if (roomAfterTimeout && roomAfterTimeout.gameState.gameMoveCounter === currentMoveCounter && !roomAfterTimeout.gameState.gameInfo.gameOver) {
-            console.log(`[Server] Timeout! Player ${playerToMove}'s turn has expired for move ${currentMoveCounter}.`);
-            
             const timedOutPlayer = playerToMove;
-            
             const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
-            let winnerOnTimeout = opponent;
-            let reason = 'timeout';
 
             if (timedOutPlayer === 'white') roomAfterTimeout.gameState.whiteTimeouts++;
             else roomAfterTimeout.gameState.blackTimeouts++;
             
             const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTargetSquare);
-            if (timedOutPlayerInCheck) {
-                reason = 'self-check-timeout';
-            }
             
             if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
-                roomAfterTimeout.gameState.gameInfo.gameOver = true;
-                roomAfterTimeout.gameState.gameInfo.winner = winnerOnTimeout;
-                roomAfterTimeout.gameState.gameInfo.message = `${(roomAfterTimeout.gameState.players[timedOutPlayer] || {}).username || timedOutPlayer} ran out of time. ${winnerOnTimeout} wins!`;
-
-                const broadcastMsg = { type: 'forfeit-timeout', timedOutPlayer, winner: winnerOnTimeout, reason };
-                broadcastToRoom(roomId, broadcastMsg);
-                if (roomAfterTimeout.turnTimer) clearTimeout(roomAfterTimeout.turnTimer);
+                onGameOver(roomId, opponent, timedOutPlayerInCheck ? 'self-check-timeout' : 'timeout', { timedOutPlayer });
                 return;
             }
 
             roomAfterTimeout.gameState.currentPlayer = opponent;
-            
-            const inCheck = isKingInCheck(roomAfterTimeout.gameState.board, opponent, roomAfterTimeout.gameState.enPassantTargetSquare);
-            roomAfterTimeout.gameState.gameInfo.isCheck = inCheck;
-            roomAfterTimeout.gameState.gameInfo.playerWithKingInCheck = inCheck ? opponent : null;
-            roomAfterTimeout.gameState.gameInfo.message = inCheck ? "Check!" : `Timed out. It's now ${opponent}'s turn.`;
-
-            const broadcastMsg = {
-                type: 'game-move',
-                fullGameState: roomAfterTimeout.gameState,
-                lastPlayer: timedOutPlayer,
-            };
-            broadcastToRoom(roomId, broadcastMsg);
-
-            startServerTurnTimer(roomId);
+            finalizeTurn(roomAfterTimeout, timedOutPlayer, false, roomAfterTimeout.gameState.enPassantTargetSquare);
         }
     }, 45000);
 }
 
 
 const processRankedQueue = async () => {
-    if (rankedQueue.length < 2) {
-        return;
-    }
-
-    rankedQueue.sort((a, b) => a.elo - b.elo);
+    if (rankedQueue.length < 2) return;
 
     while (rankedQueue.length >= 2) {
-        const player1Data = rankedQueue.shift()!;
-        const player2Data = rankedQueue.shift()!;
+        const p1 = rankedQueue.shift()!;
+        const p2 = rankedQueue.shift()!;
 
         const roomId = `ranked_${Math.random().toString(36).substring(2, 9)}`;
-        const player1Ws = player1Data.ws;
-        const player2Ws = player2Data.ws;
+        const isP1White = Math.random() < 0.5;
+        const whitePlayer = isP1White ? p1 : p2;
+        const blackPlayer = isP1White ? p2 : p1;
 
-        player1Ws.roomId = roomId;
-        player2Ws.roomId = roomId;
+        whitePlayer.ws.roomId = roomId;
+        blackPlayer.ws.roomId = roomId;
 
         rooms[roomId] = {
-            clients: [player1Ws, player2Ws],
+            clients: [whitePlayer.ws, blackPlayer.ws],
             isRanked: true,
             gameState: {
                 board: initializeBoard(),
@@ -311,56 +285,33 @@ const processRankedQueue = async () => {
                 blackTimeouts: 0,
                 specialActionId: 0,
                 players: {
-                    white: { userId: player1Data.userId, elo: player1Data.elo, username: player1Data.username },
-                    black: { userId: player2Data.userId, elo: player2Data.elo, username: player2Data.username }
+                    white: { userId: whitePlayer.userId, elo: whitePlayer.elo, username: whitePlayer.username },
+                    black: { userId: blackPlayer.userId, elo: blackPlayer.elo, username: blackPlayer.username }
                 }
             }
         };
 
-        player1Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
-        player2Ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
+        whitePlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
+        blackPlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
         startServerTurnTimer(roomId);
     }
 };
-setInterval(processRankedQueue, 10000);
+setInterval(processRankedQueue, 5000);
 
 
 wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
-    console.log('[Server] A client connected.');
-    ws.roomId = undefined;
-    ws.userId = undefined;
-
     ws.on('message', async (message) => {
         try {
-            let data;
-            try {
-                data = JSON.parse(message.toString());
-            } catch (e) {
-                console.log('[Server] Failed to parse message:', e);
-                return;
-            }
-            
+            const data = JSON.parse(message.toString());
             const room = ws.roomId ? rooms[ws.roomId] : undefined;
 
-            if (room && room.turnTimer) {
-                clearTimeout(room.turnTimer);
-            }
-
-            console.log('[Server] Received message:', data.type, data.payload || data);
-
-
-            if (!ws.roomId && data.type !== 'create-room' && data.type !== 'join-room' && data.type !== 'join-ranked-queue') {
-                console.log(`[Server] Message of type ${data.type} rejected because client is not in a room.`);
-                return;
-            }
-            
             switch (data.type) {
-                case 'chat-message': {
+                case 'chat-message':
                     if (room) {
-                        broadcastToRoom(ws.roomId, {
+                        broadcastToRoom(ws.roomId!, {
                             type: 'chat-message',
                             message: {
-                                id: `msg_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+                                id: `msg_${Date.now()}`,
                                 sender: data.sender,
                                 text: data.text,
                                 timestamp: Date.now(),
@@ -369,11 +320,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         });
                     }
                     break;
-                }
                 case 'create-room': {
                     const roomId = Math.random().toString(36).substring(2, 9);
                     ws.roomId = roomId;
-                    if (data.user) { ws.userId = data.user.userId; }
+                    ws.userId = data.user?.userId;
                     rooms[roomId] = {
                         clients: [ws],
                         isRanked: false,
@@ -389,15 +339,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             firstBloodAchieved: false,
                             playerWhoGotFirstBlood: null,
                             isAwaitingCommanderPromotion: false,
-                            resurrectedSquare: null,
-                            gameInfo: {
-                                message: " ",
-                                isCheck: false,
-                                playerWithKingInCheck: null,
-                                isCheckmate: false,
-                                isStalemate: false,
-                                gameOver: false,
-                            },
+                            gameInfo: { message: " ", isCheck: false, gameOver: false },
                             shroomSpawnCounter: 0,
                             nextShroomSpawnTurn: Math.floor(Math.random() * 6) + 5,
                             whiteTimeouts: 0,
@@ -409,421 +351,127 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             }
                         }
                     };
-                    ws.send(JSON.stringify({ type: 'room-created', roomId: roomId, color: 'white', gameState: rooms[roomId].gameState }));
+                    ws.send(JSON.stringify({ type: 'room-created', roomId, color: 'white', gameState: rooms[roomId].gameState }));
                     break;
                 }
                 case 'join-room': {
-                    const roomIdToJoin = data.roomId;
-                    const roomToJoin = rooms[roomIdToJoin];
+                    const roomToJoin = rooms[data.roomId];
                     if (roomToJoin && roomToJoin.clients.length < 2) {
-                        ws.roomId = roomIdToJoin;
-                        if (data.user) { ws.userId = data.user.userId; }
+                        ws.roomId = data.roomId;
+                        ws.userId = data.user?.userId;
                         roomToJoin.clients.push(ws);
                         roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username } : null;
-
-                        ws.send(JSON.stringify({ type: 'room-joined', roomId: roomIdToJoin, color: 'black', gameState: roomToJoin.gameState }));
-                        
-                        broadcastToRoom(roomIdToJoin, { type: 'player-joined', gameState: roomToJoin.gameState });
-                        startServerTurnTimer(roomIdToJoin);
+                        ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
+                        broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
+                        startServerTurnTimer(data.roomId);
                     } else {
-                        ws.send(JSON.stringify({ type: 'error', message: 'Room not found or is full.' }));
+                        ws.send(JSON.stringify({ type: 'error', message: 'Room not found or full.' }));
                     }
                     break;
                 }
-                case 'join-ranked-queue': {
-                    const { userId, username, elo } = data;
-                    if (!userId) {
-                        ws.send(JSON.stringify({ type: 'error', message: 'User ID is required for ranked play.' }));
-                        return;
-                    }
-                    ws.userId = userId;
-
-                    const existingPlayer = rankedQueue.find(p => p.ws === ws);
-                    if (!existingPlayer) {
-                        rankedQueue.push({ ws, userId, elo, username, timestamp: Date.now() });
+                case 'join-ranked-queue':
+                    ws.userId = data.userId;
+                    if (!rankedQueue.some(p => p.ws === ws)) {
+                        rankedQueue.push({ ws, userId: data.userId, elo: data.elo, username: data.username, timestamp: Date.now() });
                     }
                     break;
-                }
-                case 'leave-ranked-queue': {
-                    const index = rankedQueue.findIndex(p => p.ws === ws);
-                    if (index > -1) {
-                        rankedQueue.splice(index, 1);
+                case 'leave-ranked-queue':
+                    const idx = rankedQueue.findIndex(p => p.ws === ws);
+                    if (idx > -1) rankedQueue.splice(idx, 1);
+                    break;
+                case 'commander-promo':
+                    if (room && data.square) {
+                        const { row, col } = algebraicToCoords(data.square);
+                        const piece = room.gameState.board[row]?.[col]?.piece;
+                        if (piece && piece.type === 'pawn') {
+                            piece.type = 'commander';
+                            room.gameState.isAwaitingCommanderPromotion = false;
+                            const opponent = piece.color === 'white' ? 'black' : 'white';
+                            room.gameState.currentPlayer = opponent;
+                            broadcastToRoom(ws.roomId!, { type: 'commander-promo-finalized', fullGameState: room.gameState, lastPlayer: piece.color });
+                            startServerTurnTimer(ws.roomId!);
+                        }
                     }
                     break;
-                }
-                case 'commander-promo': {
-                    if (!room || !data.square) break;
-
-                    const { row, col } = require('./lib/chess-utils.js').algebraicToCoords(data.square);
-                    const piece = room.gameState.board[row]?.[col]?.piece;
-                    const playerWhoActed = room.gameState.playerWhoGotFirstBlood;
-                    
-                    if (piece && piece.color === playerWhoActed && piece.type === 'pawn' && piece.level === 1) {
-                        piece.type = 'commander';
-                        piece.id = `${piece.id}_CMD_SRV`;
+                case 'finalize-promotion':
+                    if (room && data.payload) {
+                        const { square, promoteTo } = data.payload;
+                        const { row, col } = algebraicToCoords(square);
+                        const piece = room.gameState.board[row]?.[col]?.piece;
+                        if (piece) {
+                            piece.type = promoteTo;
+                            const { extraTurn, anvilDropContext } = room.gameState.promotionContext || {};
+                            delete room.gameState.promotionContext;
+                            if (anvilDropContext) {
+                                room.gameState.anvilDropContext = anvilDropContext;
+                                broadcastToRoom(ws.roomId!, { type: 'awaiting-anvil-drop', player: piece.color, fullGameState: room.gameState });
+                                startSpecialActionTimer(ws.roomId!, 'anvil-drop', piece.color);
+                            } else {
+                                finalizeTurn(room, piece.color, extraTurn);
+                            }
+                        }
+                    }
+                    break;
+                case 'game-move':
+                    if (room && data.payload) {
+                        const movingPlayer = room.gameState.currentPlayer;
+                        const { newBoard, capturedPiece, selfDestructCaptures, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare);
+                        room.gameState.board = newBoard;
+                        let caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         
-                        room.gameState.isAwaitingCommanderPromotion = false;
-                        
-                        const opponent = playerWhoActed === 'white' ? 'black' : 'white';
-                        room.gameState.currentPlayer = opponent;
-                        
-                        const inCheck = isKingInCheck(room.gameState.board, opponent, room.gameState.enPassantTargetSquare);
-                        if (isCheckmate(room.gameState.board, opponent, room.gameState.enPassantTargetSquare)) {
-                            room.gameState.gameInfo = { message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, gameOver: true, winner: playerWhoActed };
-                        } else if (isStalemate(room.gameState.board, opponent, room.gameState.enPassantTargetSquare)) {
-                            room.gameState.gameInfo = { message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isStalemate: true, gameOver: true, winner: 'draw' };
-                        } else {
-                            room.gameState.gameInfo = { ...room.gameState.gameInfo, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false };
-                        }
-                        
-                        broadcastToRoom(ws.roomId, {
-                            type: 'commander-promo-finalized',
-                            fullGameState: room.gameState,
-                            lastPlayer: playerWhoActed
-                        });
-
-                        if (!room.gameState.gameInfo.gameOver) {
-                            startServerTurnTimer(ws.roomId);
-                        }
-                    }
-                    break;
-                }
-                case 'finalize-promotion': {
-                    console.log('[Server | finalize-promotion] Received:', data.payload);
-                    if (!room || !data.payload) {
-                        console.log('[Server | finalize-promotion] Rejected: no room or payload.');
-                        break;
-                    }
-                
-                    const { square, promoteTo } = data.payload;
-                    const { row, col } = algebraicToCoords(square);
-                    const piece = room.gameState.board[row]?.[col]?.piece;
-                
-                    if (piece && (piece.type === 'pawn' || piece.type === 'commander')) {
-                        console.log(`[Server | finalize-promotion] Promoting piece at ${square} to ${promoteTo}.`);
-                        const promotingPlayerColor = piece.color;
-                
-                        piece.type = promoteTo;
-                        if(promoteTo === 'queen') {
-                            piece.level = Math.min(piece.level, 7);
-                        }
-                
-                        const { extraTurn, anvilDropContext, fromResurrection } = room.gameState.promotionContext || {};
-                        delete room.gameState.promotionContext;
-
-                        if (anvilDropContext) {
-                            room.gameState.anvilDropContext = anvilDropContext;
-                            broadcastToRoom(ws.roomId, {
-                                type: 'awaiting-anvil-drop',
-                                player: promotingPlayerColor,
-                                fullGameState: room.gameState,
-                            });
-                             startSpecialActionTimer(ws.roomId, 'anvil-drop', promotingPlayerColor);
-                        } else {
-                            finalizeTurn(room, promotingPlayerColor, extraTurn || false, fromResurrection ? room.gameState.enPassantTargetSquare : null);
-                        }
-                    } else {
-                        console.log(`[Server | finalize-promotion] Finalize-promotion failed: no valid piece found at ${square}. Piece is:`, piece);
-                    }
-                    break;
-                }
-                case 'anvil-drop': {
-                    if (!room || !data.square) break;
-
-                    const { row, col } = algebraicToCoords(data.square);
-                    if (room.gameState.board[row]?.[col]?.piece || room.gameState.board[row]?.[col]?.item) {
-                        ws.send(JSON.stringify({ type: 'error', message: 'Invalid anvil placement.' }));
-                        return;
-                    }
-                    room.gameState.board[row][col].item = { type: 'anvil' };
-
-                    const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.anvilDropContext;
-                    delete room.gameState.anvilDropContext;
-
-                    finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-                    break;
-                }
-                case 'game-move': {
-                    if (!room || !data.payload) {
-                        console.log('[Server | game-move] Rejected: no room or payload.');
-                        return;
-                    }
-
-                    const movingPlayerColor = room.gameState.currentPlayer;
-                    const movingPlayerInfo = room.gameState.players[movingPlayerColor];
-                    if (room.clients.length > 1 && movingPlayerInfo && movingPlayerInfo.userId && movingPlayerInfo.userId !== ws.userId) {
-                        console.log(`[Server | game-move] Rejected: Out of turn move by ${ws.userId}. It is ${movingPlayerColor}'s turn (${movingPlayerInfo.userId}).`);
-                        return;
-                    }
-
-                    console.log(`[Server | game-move] Processing move for player: ${movingPlayerColor}`, data.payload);
-
-                    const { payload: move } = data;
-
-                    const { from } = move;
-                    const { row: fromRow, col: fromCol } = algebraicToCoords(from);
-                    const pieceBeingMoved = room.gameState.board[fromRow]?.[fromCol]?.piece;
-
-                    if (!pieceBeingMoved || pieceBeingMoved.color !== movingPlayerColor) {
-                        ws.send(JSON.stringify({ type: 'error', message: 'Invalid move: Not your piece or empty square.' }));
-                        return;
-                    }
-
-                    const opponentPlayer = movingPlayerColor === 'white' ? 'black' : 'white';
-                    
-                    const { newBoard, capturedPiece, selfDestructCaptures, conversionEvents, ...restOfResult } = applyMove(room.gameState.board, move, room.gameState.enPassantTargetSquare);
-                    
-                    room.gameState.resurrectedSquare = null;
-                    
-                    let capturesThisTurn = 0;
-                    if (capturedPiece) capturesThisTurn++;
-                    if (restOfResult.pieceCapturedByAnvil) capturesThisTurn++;
-                    if (selfDestructCaptures) capturesThisTurn += selfDestructCaptures.length;
-                    
-                    let newStreak = room.gameState.killStreaks[movingPlayerColor] || 0;
-
-                    if (capturesThisTurn > 0) {
-                        newStreak += capturesThisTurn;
-                        room.gameState.killStreaks[movingPlayerColor] = newStreak;
-                        room.gameState.killStreaks[opponentPlayer] = 0;
-                        
-                        if (capturedPiece && !restOfResult.promotedToInfiltrator) {
-                            room.gameState.capturedPieces[movingPlayerColor].push({ ...capturedPiece, id: `srv_cap_${globalServerUniqueIdCounter++}` });
-                        }
-                        if (restOfResult.pieceCapturedByAnvil) {
-                            room.gameState.capturedPieces[movingPlayerColor].push({ ...restOfResult.pieceCapturedByAnvil, id: `srv_anvil_cap_${globalServerUniqueIdCounter++}`});
-                        }
-                        if (selfDestructCaptures && selfDestructCaptures.length > 0) {
-                            selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayerColor].push({ ...p, id: `srv_sd_cap_${globalServerUniqueIdCounter++}` }));
-                        }
-
-                        if (!room.gameState.firstBloodAchieved) {
+                        if (caps > 0 && !room.gameState.firstBloodAchieved) {
                             room.gameState.firstBloodAchieved = true;
-                            room.gameState.playerWhoGotFirstBlood = movingPlayerColor;
+                            room.gameState.playerWhoGotFirstBlood = movingPlayer;
                             room.gameState.isAwaitingCommanderPromotion = true;
-                            room.gameState.gameInfo = { ...room.gameState.gameInfo, message: `${(room.gameState.players[movingPlayerColor] || {}).username || movingPlayerColor} to select Commander!` };
-                            room.gameState.board = newBoard;
-                            broadcastToRoom(ws.roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                            startSpecialActionTimer(ws.roomId, 'commander-promo', movingPlayerColor);
-                            return; 
-                        }
-                    } else {
-                        room.gameState.killStreaks[movingPlayerColor] = 0;
-                    }
-
-                    room.gameState.board = newBoard;
-
-                     // Rook Resurrection Check
-                    const { row: toRowRook, col: toColRook } = algebraicToCoords(move.to);
-                    const movedPieceOnToSquare = newBoard[toRowRook]?.[toColRook]?.piece;
-                    if (movedPieceOnToSquare && (movedPieceOnToSquare.type === 'rook' || (move.type === 'promotion' && move.promoteTo === 'rook')) && capturesThisTurn > 0) {
-                        const oldLevelForResCheck = restOfResult.originalPieceLevel;
-                        const {
-                            boardWithResurrection,
-                            capturedPiecesAfterResurrection,
-                            resurrectionPerformed,
-                            resurrectedPieceData,
-                            resurrectedSquareAlg,
-                            newResurrectionIdCounter,
-                            promotionRequiredForResurrectedPawn
-                        } = processRookResurrectionCheck(newBoard, movingPlayerColor, move, move.to, oldLevelForResCheck, room.gameState.capturedPieces, globalServerUniqueIdCounter);
-
-                        if (resurrectionPerformed) {
-                            room.gameState.board = boardWithResurrection;
-                            room.gameState.capturedPieces = capturedPiecesAfterResurrection;
-                            globalServerUniqueIdCounter = newResurrectionIdCounter || globalServerUniqueIdCounter;
-                            room.gameState.resurrectedSquare = resurrectedSquareAlg;
-                             if (promotionRequiredForResurrectedPawn) {
-                                room.gameState.promotionContext = { fromResurrection: true, square: resurrectedSquareAlg, player: movingPlayerColor };
-                                broadcastToRoom(ws.roomId, {
-                                    type: 'promotion-required',
-                                    square: resurrectedSquareAlg,
-                                    player: movingPlayerColor,
-                                    fullGameState: room.gameState
-                                });
-                                startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
-                                return;
-                            }
-                        }
-                    }
-                
-                    room.gameState.enPassantTargetSquare = restOfResult.enPassantTargetSet || null;
-                    room.gameState.lastMoveFrom = move.from;
-                    room.gameState.lastMoveTo = move.to;
-
-                    const { row: toRow, col: toCol } = algebraicToCoords(move.to);
-                    const pieceOnToSquare = newBoard[toRow]?.[toCol]?.piece;
-                    const isPawnPromotion = pieceOnToSquare && pieceOnToSquare.type === 'pawn' && (toRow === 0 || toRow === 7) && !restOfResult.promotedToInfiltrator;
-                    
-                    const extraTurnFromStreak = newStreak === 6;
-                    const combinedExtraTurn = restOfResult.promotedToInfiltrator ? false : ((restOfResult as any).extraTurn || extraTurnFromStreak);
-                    
-                     if (newStreak === 3) {
-                        const anvilContext = {
-                            playerWhoseTurnCompleted: movingPlayerColor,
-                            isExtraTurn: combinedExtraTurn,
-                            newEnPassantTarget: restOfResult.enPassantTargetSet,
-                        };
-                        room.gameState.anvilDropContext = anvilContext;
-                        if (isPawnPromotion) {
-                            room.gameState.promotionContext = {
-                                extraTurn: combinedExtraTurn,
-                                anvilDropContext: anvilContext,
-                                square: move.to,
-                                player: movingPlayerColor
-                            };
-                            broadcastToRoom(ws.roomId, {
-                                type: 'promotion-required',
-                                square: move.to,
-                                player: movingPlayerColor,
-                                fullGameState: room.gameState,
-                            });
-                            startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
-                            return;
-                        } else {
-                            broadcastToRoom(ws.roomId, {
-                                type: 'awaiting-anvil-drop',
-                                player: movingPlayerColor,
-                                fullGameState: room.gameState,
-                            });
-                            startSpecialActionTimer(ws.roomId, 'anvil-drop', movingPlayerColor);
+                            broadcastToRoom(ws.roomId!, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
+                            startSpecialActionTimer(ws.roomId!, 'commander-promo', movingPlayer);
                             return;
                         }
-                    } else if (newStreak === 4) {
-                        const opponentColorForRes = movingPlayerColor === 'white' ? 'black' : 'white';
-                        const piecesToChooseFrom = room.gameState.capturedPieces[opponentColorForRes] || [];
-                        if (piecesToChooseFrom.length > 0) {
-                            const pieceToResurrect = chooseBestResurrectionPiece(piecesToChooseFrom);
-                            if (pieceToResurrect) {
-                                const emptySquares: {row: number, col: number}[] = [];
-                                for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) {
-                                    if (!newBoard[r_idx][c_idx].piece && !newBoard[r_idx][c_idx].item) emptySquares.push({row: r_idx, col: c_idx});
-                                }
-                                if (emptySquares.length > 0) {
-                                    const {row: resR, col: resC} = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                                    const resurrectedPiece: Piece = {
-                                        ...pieceToResurrect,
-                                        level: 1, id: `srv_res_${globalServerUniqueIdCounter++}`,
-                                        hasMoved: pieceToResurrect.type === 'king' || pieceToResurrect.type === 'rook' ? false : pieceToResurrect.hasMoved,
-                                        invulnerableTurnsRemaining: 0,
-                                    };
-                                    const promotionRank = movingPlayerColor === 'white' ? 0 : 7;
-                                    if (resurrectedPiece.type === 'pawn' && resR === promotionRank) {
-                                        room.gameState.board[resR][resC].piece = resurrectedPiece;
-                                        room.gameState.promotionContext = { fromResurrection: true, square: coordsToAlgebraic(resR, resC), player: movingPlayerColor };
-                                        broadcastToRoom(ws.roomId, {
-                                            type: 'promotion-required',
-                                            square: coordsToAlgebraic(resR, resC),
-                                            player: movingPlayerColor,
-                                            fullGameState: room.gameState
-                                        });
-                                        startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
-                                        return;
-                                    }
-                                    else if (resurrectedPiece.type === 'commander' && resR === promotionRank) resurrectedPiece.type = 'hero';
-                                    newBoard[resR][resC].piece = resurrectedPiece;
-                                    room.gameState.resurrectedSquare = coordsToAlgebraic(resR, resC);
-                                    room.gameState.capturedPieces[opponentColorForRes] = piecesToChooseFrom.filter(p => p.id !== pieceToResurrect.id);
-                                }
-                            }
+
+                        if (rest.infiltrationWin) {
+                            onGameOver(ws.roomId!, movingPlayer, 'infiltration');
+                            return;
                         }
+
+                        const { row: tr, col: tc } = algebraicToCoords(data.payload.to);
+                        const piece = newBoard[tr][tc].piece;
+                        if (piece && piece.type === 'pawn' && (tr === 0 || tr === 7)) {
+                            room.gameState.promotionContext = { square: data.payload.to, player: movingPlayer };
+                            broadcastToRoom(ws.roomId!, { type: 'promotion-required', square: data.payload.to, player: movingPlayer, fullGameState: room.gameState });
+                            startSpecialActionTimer(ws.roomId!, 'pawn-promo', movingPlayer);
+                            return;
+                        }
+
+                        finalizeTurn(room, movingPlayer, rest.extraTurn, rest.enPassantTargetSet);
                     }
-
-                    if (isPawnPromotion) {
-                        room.gameState.promotionContext = { extraTurn: combinedExtraTurn, square: move.to, player: movingPlayerColor };
-                        broadcastToRoom(ws.roomId, {
-                            type: 'promotion-required',
-                            square: move.to,
-                            player: movingPlayerColor,
-                            fullGameState: room.gameState
-                        });
-                        startSpecialActionTimer(ws.roomId, 'pawn-promo', movingPlayerColor);
-                        return; 
-                    }
-                
-                    finalizeTurn(room, movingPlayerColor, combinedExtraTurn, restOfResult.enPassantTargetSet);
-
-                    broadcastToRoom(ws.roomId, {
-                        type: 'game-move',
-                        fullGameState: room.gameState,
-                        lastPlayer: movingPlayerColor,
-                        conversionEvents: conversionEvents
-                    });
-
                     break;
-                }
                 case 'resign':
                     if (room) {
                         const resigningPlayer = data.resigningPlayer;
                         const winner = resigningPlayer === 'white' ? 'black' : 'white';
-                        room.gameState.gameInfo = { ...room.gameState.gameInfo, gameOver: true, winner: winner };
-                        broadcastToRoom(ws.roomId, { ...data, winner });
-                    }
-                    break;
-                case 'forfeit-timeout': {
-                    if (room && data.winner && !room.gameState.gameInfo.gameOver) {
-                        room.gameState.gameInfo.gameOver = true;
-                        room.gameState.gameInfo.winner = data.winner;
-                        broadcastToRoom(ws.roomId, data);
-                    }
-                    break;
-                }
-                default:
-                    if (room && !room.gameState.gameInfo.gameOver) {
-                         startServerTurnTimer(ws.roomId);
+                        onGameOver(ws.roomId!, winner, 'resign', { resigningPlayer });
                     }
                     break;
             }
-        } catch (error) {
-            console.error('[Server] CRITICAL ERROR in message handler:', error);
-            if (ws.roomId && rooms[ws.roomId]) {
-                broadcastToRoom(ws.roomId, { type: 'error', message: 'A critical server error occurred. The game may be unstable.' });
-            }
+        } catch (err) {
+            console.error('[Server] Msg Error:', err);
         }
     });
 
     ws.on('close', () => {
-        console.log(`[Server] Client disconnected. UserID: ${ws.userId}, RoomID: ${ws.roomId}`);
-        const queueIndex = rankedQueue.findIndex(p => p.ws === ws);
-        if (queueIndex > -1) {
-            rankedQueue.splice(queueIndex, 1);
-        }
-
+        const qIdx = rankedQueue.findIndex(p => p.ws === ws);
+        if (qIdx > -1) rankedQueue.splice(qIdx, 1);
         if (ws.roomId) {
             const room = rooms[ws.roomId];
-            if (room) {
-                 if (room.turnTimer) {
-                    clearTimeout(room.turnTimer);
-                }
-                room.clients = room.clients.filter(client => client !== ws);
-                
-                 if (room.clients.length > 0 && !room.gameState.gameInfo.gameOver) {
-                    const opponentClient = room.clients[0];
-                    const opponentUserId = opponentClient.userId;
-                    const winner = room.gameState.players.white.userId === opponentUserId ? 'white' : 'black';
-
-                    room.gameState.gameInfo.gameOver = true;
-                    room.gameState.gameInfo.winner = winner;
-                    room.gameState.gameInfo.message = `Opponent disconnected. ${winner} wins!`;
-                    broadcastToRoom(ws.roomId, { type: 'opponent-disconnected', winner });
-                }
-               
-                if (room.clients.length === 0) {
-                    console.log(`[Server] Deleting empty room: ${ws.roomId}`);
-                    delete rooms[ws.roomId];
-                }
+            if (room && !room.gameState.gameInfo.gameOver) {
+                const winner = room.gameState.players.white.userId === ws.userId ? 'black' : 'white';
+                onGameOver(ws.roomId, winner, 'timeout');
             }
         }
-    });
-
-    ws.on('error', (err) => {
-        console.error('[Server] WebSocket error:', err);
     });
 });
 
 const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => {
-    console.log(`================================================`);
-    console.log(`  GAME SERVER IS UP AND LISTENING ON PORT ${PORT}`);
-    console.log(`================================================`);
+    console.log(`Server listening on port ${PORT}`);
 });
