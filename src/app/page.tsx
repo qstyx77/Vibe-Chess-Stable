@@ -1599,7 +1599,7 @@ export default function EvolvingChessPage() {
         } 
         
         if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
-            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
+            let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
               if (pieceToResurrectOriginal) {
@@ -3273,25 +3273,11 @@ export default function EvolvingChessPage() {
       <div className="flex flex-col items-center justify-between flex-grow gap-1">
           <div className="w-full flex items-center justify-between">
               <div className="w-1/3"></div>
-              <div className="w-1/3 flex items-center justify-center gap-0">
-                   <Image
-                      src="/images/rook-title.gif"
-                      alt="Vibe Chess Rook"
-                      width={40}
-                      height={40}
-                      unoptimized
-                      className="transform scale-x-[-1] w-6 h-6 sm:w-10 sm:h-10"
-                      data-ai-hint="chess rook"
-                  />
-                  <h1 className="text-xl md:text-3xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
-                  <Image
-                      src="/images/rook-title.gif"
-                      alt="Vibe Chess Rook"
-                      width={40}
-                      height={40}
-                      unoptimized
-                      className="w-10 h-10"
-                      data-ai-hint="chess rook"
+              <div className="w-1/3 flex items-center justify-center">
+                  <img
+                      src="/images/Vibe_Title.gif"
+                      alt="VIBE CHESS"
+                      className="h-10 w-auto object-contain"
                   />
               </div>
                <div className="w-1/3 flex justify-end">
@@ -3475,25 +3461,11 @@ export default function EvolvingChessPage() {
 
       {/* Center Column */}
       <div className="w-1/2 flex flex-col items-center gap-2">
-        <div className="w-full flex items-center justify-center gap-0">
-            <Image
-                src="/images/rook-title.gif"
-                alt="Vibe Chess Rook"
-                width={40}
-                height={40}
-                unoptimized
-                className="transform scale-x-[-1] w-10 h-10"
-                data-ai-hint="chess rook"
-            />
-            <h1 className="text-3xl font-bold text-accent font-pixel text-center animate-pixel-title-flash px-1">VIBE CHESS</h1>
-            <Image
-                src="/images/rook-title.gif"
-                alt="Vibe Chess Rook"
-                width={40}
-                height={40}
-                unoptimized
-                className="w-10 h-10"
-                data-ai-hint="chess rook"
+        <div className="w-full flex items-center justify-center">
+            <img
+                src="/images/Vibe_Title.gif"
+                alt="VIBE CHESS"
+                className="h-16 w-auto object-contain"
             />
         </div>
         <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
