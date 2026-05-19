@@ -1018,7 +1018,8 @@ export function applyMove(
             if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && (!adjacentSquareState_conv?.item || adjacentSquareState_conv.item.type === 'shroom')) {
                 const originalPieceCopy_conv = { ...pieceOnAdjSquare_conv };
                 let convertedPiece_conv: Piece;
-                if (Math.random() < 0.5) {
+                const roll = Math.random();
+                if (roll < 0.5) {
                     convertedPiece_conv = {
                         ...pieceOnAdjSquare_conv,
                         color: bishopColor_conv,
@@ -1030,6 +1031,7 @@ export function applyMove(
                     convertedPiece_conv = { ...originalPieceCopy_conv };
                 }
                 
+                // CRITICAL: We trigger struggle animation regardless of success
                 conversionEvents.push({
                     originalPiece: originalPieceCopy_conv,
                     convertedPiece: convertedPiece_conv,
