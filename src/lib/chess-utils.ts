@@ -14,10 +14,10 @@ export function initializeBoard(): BoardState {
   }
 
   for (let c = 0; c < 8; c++) {
-    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0 };
-    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0 };
-    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0 };
-    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0 };
+    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
+    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
+    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
+    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
   }
   return board;
 }
@@ -38,7 +38,8 @@ export function applyArchbishop(board: BoardState, player: PlayerColor): BoardSt
     board[chosen.r][chosen.c].piece = {
       ...original,
       type: 'archbishop',
-      id: `${original.id}_Archbishop`
+      id: `${original.id}_Archbishop`,
+      isShielded: false
     };
   }
   return board;
@@ -1031,7 +1032,6 @@ export function applyMove(
                     convertedPiece_conv = { ...originalPieceCopy_conv };
                 }
                 
-                // CRITICAL: We trigger struggle animation regardless of success
                 conversionEvents.push({
                     originalPiece: originalPieceCopy_conv,
                     convertedPiece: convertedPiece_conv,
@@ -1140,7 +1140,7 @@ export function getPossibleMoves(board: BoardState, fromSquare: AlgebraicSquare,
 }
 
 
-function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
+export function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const squareState = board[r]?.[c];
@@ -1257,7 +1257,7 @@ export function processRookResurrectionCheck(
   const { row: rookR, col: rookC } = algebraicToCoords(rookSquareAfterMove);
   const rookOnBoard = boardWithResurrection[rookR]?.[rookC]?.piece;
 
-  if (!rookOnBoard || rookOnBoard.type !== 'rook' || rookOnBoard.color !== playerWhosePieceLeveled) {
+  if (!rookOnBoard || rookOnBoard.type !== 'rook' || rookOnBoard.color !== playerWhoseQueenLeveled) {
     return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, newResurrectionIdCounter: nextResurrectionIdCounter };
   }
 
@@ -1267,7 +1267,7 @@ export function processRookResurrectionCheck(
     : (Number(originalLevelOfPiece || 0));
 
   if (typeof newRookLevel === 'number' && !isNaN(newRookLevel) && newRookLevel >= 4 && newRookLevel > oldLevelOfThisPieceType) {
-    const opponentColor = playerWhosePieceLeveled === 'white' ? 'black' : 'white';
+    const opponentColor = playerWhoseQueenLeveled === 'white' ? 'black' : 'white';
     const piecesToChooseFrom = capturedPiecesAfterResurrection[opponentColor] ? [...capturedPiecesAfterResurrection[opponentColor]] : [];
 
     if (piecesToChooseFrom.length > 0) {
@@ -1304,7 +1304,7 @@ export function processRookResurrectionCheck(
         };
         nextResurrectionIdCounter++;
 
-        const promotionRank = playerWhosePieceLeveled === 'white' ? 0 : 7;
+        const promotionRank = playerWhoseQueenLeveled === 'white' ? 0 : 7;
         if (resurrectedPieceData.type === 'pawn' && resR === promotionRank) {
             promotionRequiredForResurrectedPawn = true;
         } else if (resurrectedPieceData.type === 'commander' && resR === promotionRank) {

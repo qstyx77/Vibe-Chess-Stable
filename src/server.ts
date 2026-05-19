@@ -12,6 +12,7 @@ import {
     processRookResurrectionCheck,
     algebraicToCoords,
     coordsToAlgebraic,
+    applyArchbishop,
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare } from './types';
 

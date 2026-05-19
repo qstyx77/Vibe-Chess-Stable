@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
@@ -24,6 +24,7 @@ import {
   spawnShroom,
   findKing,
   applyArchbishop,
+  hasAnyLegalMoves,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -124,6 +125,8 @@ function adaptBoardForAI(
 export default function EvolvingChessPage() {
   const { user, userData } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
+
   const [board, setBoard] = useState<BoardState>(initializeBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
@@ -217,8 +220,6 @@ export default function EvolvingChessPage() {
   const isMessengerOpenRef = useRef(isMessengerOpen);
   const localPlayerColorRef = useRef<PlayerColor | null>(null);
 
-  const { toast } = useToast();
-
   const [inputRoomId, setInputRoomId] = useState('');
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
@@ -241,10 +242,30 @@ export default function EvolvingChessPage() {
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
+  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    if (!player) return 'A player';
+    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
+        const username = gamePlayers?.[player]?.username;
+        if (username) {
+            if (player === localPlayerColor) {
+                return `${username} (You)`;
+            }
+            return username;
+        }
+    }
+    
+    let baseName: string = player.charAt(0).toUpperCase() + player.slice(1);
+    
+    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
+    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
+
+    return baseName;
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
+
   const getRankedButtonText = () => {
     if(rankedQueueStatus === 'searching') return 'Searching...';
     return 'Ranked';
-  }
+  };
 
   const getStatusMessage = () => {
     if (rankedQueueStatus === 'searching') {
@@ -362,32 +383,11 @@ export default function EvolvingChessPage() {
     prevBoardRef.current = board;
   }, [board, gameMoveCounter, lastMoveFrom, lastMoveTo]);
 
-  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    if (!player) return 'A player';
-    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
-        const username = gamePlayers?.[player]?.username;
-        if (username) {
-            if (player === localPlayerColor) {
-                return `${username} (You)`;
-            }
-            return username;
-        }
-    }
-    
-    let baseName: string = player.charAt(0).toUpperCase() + player.slice(1);
-    
-    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
-    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
-
-    return baseName;
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
-  
   const fullGameReset = useCallback(() => {
     let initialBoardState = initializeBoard();
     if (userData && userData.eloRating >= 1500) {
         initialBoardState = applyArchbishop(initialBoardState, 'white');
     }
-    // For local play/AI, we check both or just assume white if single player
     setBoard(initialBoardState);
     setCurrentPlayer('white');
     setSelectedSquare(null);
@@ -1691,7 +1691,6 @@ export default function EvolvingChessPage() {
                 };
                 setShieldContext(shieldCtx);
                 if (isPawnPromotingMove) {
-                    // Holy Shield will be triggered after promotion
                 } else {
                     setIsAwaitingHolyShield(true);
                     setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
@@ -1719,7 +1718,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginal) {
@@ -2550,7 +2549,7 @@ export default function EvolvingChessPage() {
                     const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
-                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][commissionerIndex].piece!.id}_HeroPromo_AI`;
+                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
@@ -2893,7 +2892,7 @@ export default function EvolvingChessPage() {
       setPlayerWhoMadeQueenMove(stateToRestore.playerWhoMadeQueenMove);
       setIsExtraTurnFromQueenMove(stateToRestore.isExtraTurnFromQueenMove);
 
-      setIsAwaitingRookSacrifice(stateToRestore.isAwaitingPawnSacrifice); // Should be isAwaitingRookSacrifice
+      setIsAwaitingRookSacrifice(stateToRestore.isAwaitingRookSacrifice);
       setPlayerToSacrificeForRook(stateToRestore.playerToSacrificeForRook);
       setRookToMakeInvulnerable(stateToRestore.rookToMakeInvulnerable);
       setBoardForRookSacrifice(stateToRestore.boardForRookSacrifice);
