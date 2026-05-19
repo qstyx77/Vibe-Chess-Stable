@@ -34,20 +34,7 @@ const wss = new WebSocket.Server({ server });
 const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
-const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; timestamp: number }[] = [];
-
-const pieceValues: Record<string, number> = {
-    'pawn': 1, 'commander': 1, 'infiltrator': 1,
-    'knight': 3, 'hero': 3, 'bishop': 3,
-    'rook': 5,
-    'queen': 9,
-    'king': 0
-};
-
-const chooseBestResurrectionPiece = (capturedPieces: Piece[]): Piece | null => {
-    if (!capturedPieces || capturedPieces.length === 0) return null;
-    return [...capturedPieces].sort((a,b) => (pieceValues[b.type] || 0) - (pieceValues[a.type] || 0))[0];
-};
+const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; timestamp: number }[] = [];
 
 const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'loss' | 'draw') => {
     const K = 32;
@@ -79,8 +66,11 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
     room.gameState.gameInfo.gameOver = true;
     room.gameState.gameInfo.winner = winner;
     
+    const whitePlayer = room.gameState.players.white;
+    const blackPlayer = room.gameState.players.black;
+    
     let message = "";
-    if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner]?.username || winner)} wins!`;
+    if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
     else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
     else if (reason === 'infiltration') message = `${room.gameState.players[winner as PlayerColor]?.username || winner} wins by Infiltration!`;
     else if (reason === 'timeout') message = `Timeout. ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
@@ -90,10 +80,10 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
 
     let eloChanges = null;
     if (room.isRanked) {
-        const whiteId = room.gameState.players.white.userId;
-        const blackId = room.gameState.players.black.userId;
-        const whiteElo = room.gameState.players.white.elo;
-        const blackElo = room.gameState.players.black.elo;
+        const whiteId = whitePlayer.userId;
+        const blackId = blackPlayer.userId;
+        const whiteElo = whitePlayer.elo;
+        const blackElo = blackPlayer.elo;
 
         let whiteResult: 'win' | 'loss' | 'draw' = winner === 'white' ? 'win' : (winner === 'black' ? 'loss' : 'draw');
         let blackResult: 'win' | 'loss' | 'draw' = winner === 'black' ? 'win' : (winner === 'white' ? 'loss' : 'draw');
@@ -102,8 +92,18 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
         const newBlackElo = calculateElo(blackElo, whiteElo, blackResult);
 
         eloChanges = {
-            [whiteId]: { oldElo: whiteElo, newElo: newWhiteElo, wins: room.gameState.players.white.wins || 0, losses: room.gameState.players.white.losses || 0 },
-            [blackId]: { oldElo: blackElo, newElo: newBlackElo, wins: room.gameState.players.black.wins || 0, losses: room.gameState.players.black.losses || 0 }
+            [whiteId]: { 
+              oldElo: whiteElo, 
+              newElo: newWhiteElo, 
+              wins: whitePlayer.wins || 0, 
+              losses: whitePlayer.losses || 0 
+            },
+            [blackId]: { 
+              oldElo: blackElo, 
+              newElo: newBlackElo, 
+              wins: blackPlayer.wins || 0, 
+              losses: blackPlayer.losses || 0 
+            }
         };
     }
 
@@ -166,7 +166,7 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     startServerTurnTimer(room.clients[0].roomId);
 };
 
-const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop', actingPlayer: PlayerColor) => {
+const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop' | 'holy-shield', actingPlayer: PlayerColor) => {
     const room = rooms[roomId];
     if (!room || room.gameState.gameInfo.gameOver) return;
 
@@ -184,15 +184,15 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
         }
 
         const timedOutPlayer = actingPlayer;
+        const opponent = timedOutPlayer === 'white' ? 'black' : 'white';
+        
         if (roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] === undefined) {
             roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] = 0;
         }
         roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`]++;
-        const currentTimeoutCount = roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`];
-
-        if (currentTimeoutCount >= 3) {
-            const winnerOnTimeout = timedOutPlayer === 'white' ? 'black' : 'white';
-            onGameOver(roomId, winnerOnTimeout, 'timeout', { timedOutPlayer });
+        
+        if (roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] >= 3) {
+            onGameOver(roomId, opponent, 'timeout', { timedOutPlayer });
             return;
         }
 
@@ -200,16 +200,16 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.anvilDropContext;
             delete roomAfterTimeout.gameState.anvilDropContext;
             finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+        } else if (actionType === 'holy-shield') {
+            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.shieldContext;
+            delete roomAfterTimeout.gameState.shieldContext;
+            finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
         } else if (actionType === 'commander-promo') {
             roomAfterTimeout.gameState.isAwaitingCommanderPromotion = false;
-            const playerWhoActed = roomAfterTimeout.gameState.playerWhoGotFirstBlood;
-            const opponent = playerWhoActed === 'white' ? 'black' : 'white';
             roomAfterTimeout.gameState.currentPlayer = opponent;
-            finalizeTurn(roomAfterTimeout, playerWhoActed, false, null);
+            finalizeTurn(roomAfterTimeout, actingPlayer, false, null);
         } else if (actionType === 'pawn-promo') {
-            const { player } = roomAfterTimeout.gameState.promotionContext;
-            delete roomAfterTimeout.gameState.promotionContext;
-            finalizeTurn(roomAfterTimeout, player, false, null);
+            finalizeTurn(roomAfterTimeout, actingPlayer, false, null);
         }
     }, 15000);
 };
@@ -285,11 +285,14 @@ const processRankedQueue = async () => {
                 blackTimeouts: 0,
                 specialActionId: 0,
                 players: {
-                    white: { userId: whitePlayer.userId, elo: whitePlayer.elo, username: whitePlayer.username },
-                    black: { userId: blackPlayer.userId, elo: blackPlayer.elo, username: blackPlayer.username }
+                    white: { userId: whitePlayer.userId, elo: whitePlayer.elo, username: whitePlayer.username, wins: whitePlayer.wins, losses: whitePlayer.losses },
+                    black: { userId: blackPlayer.userId, elo: blackPlayer.elo, username: blackPlayer.username, wins: blackPlayer.wins, losses: blackPlayer.losses }
                 }
             }
         };
+
+        if (whitePlayer.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'white');
+        if (blackPlayer.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'black');
 
         whitePlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
         blackPlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
@@ -346,11 +349,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             blackTimeouts: 0,
                             specialActionId: 0,
                             players: {
-                                white: data.user ? { userId: data.user.userId, username: data.user.username } : null,
+                                white: data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses } : null,
                                 black: null
                             }
                         }
                     };
+                    if (data.user?.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'white');
                     ws.send(JSON.stringify({ type: 'room-created', roomId, color: 'white', gameState: rooms[roomId].gameState }));
                     break;
                 }
@@ -360,7 +364,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         ws.roomId = data.roomId;
                         ws.userId = data.user?.userId;
                         roomToJoin.clients.push(ws);
-                        roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username } : null;
+                        roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses } : null;
+                        if (data.user?.elo >= 1500) roomToJoin.gameState.board = applyArchbishop(roomToJoin.gameState.board, 'black');
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
                         broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
                         startServerTurnTimer(data.roomId);
@@ -372,7 +377,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 case 'join-ranked-queue':
                     ws.userId = data.userId;
                     if (!rankedQueue.some(p => p.ws === ws)) {
-                        rankedQueue.push({ ws, userId: data.userId, elo: data.elo, username: data.username, timestamp: Date.now() });
+                        rankedQueue.push({ ws, userId: data.userId, elo: data.elo, username: data.username, wins: data.wins, losses: data.losses, timestamp: Date.now() });
                     }
                     break;
                 case 'leave-ranked-queue':
@@ -393,6 +398,27 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                     }
                     break;
+                case 'anvil-drop':
+                    if (room && data.square) {
+                        const { row, col } = algebraicToCoords(data.square);
+                        room.gameState.board[row][col].item = { type: 'anvil' };
+                        const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.anvilDropContext;
+                        delete room.gameState.anvilDropContext;
+                        finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+                    }
+                    break;
+                case 'holy-shield':
+                    if (room && data.square) {
+                        const { row, col } = algebraicToCoords(data.square);
+                        const piece = room.gameState.board[row]?.[col]?.piece;
+                        if (piece) {
+                            piece.isShielded = true;
+                            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.shieldContext;
+                            delete room.gameState.shieldContext;
+                            finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+                        }
+                    }
+                    break;
                 case 'finalize-promotion':
                     if (room && data.payload) {
                         const { square, promoteTo } = data.payload;
@@ -400,9 +426,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece) {
                             piece.type = promoteTo;
-                            const { extraTurn, anvilDropContext } = room.gameState.promotionContext || {};
+                            const { extraTurn, anvilDropContext, shieldContext } = room.gameState.promotionContext || {};
                             delete room.gameState.promotionContext;
-                            if (anvilDropContext) {
+                            if (shieldContext) {
+                                room.gameState.shieldContext = shieldContext;
+                                broadcastToRoom(ws.roomId!, { type: 'awaiting-shield-selection', player: piece.color, fullGameState: room.gameState });
+                                startSpecialActionTimer(ws.roomId!, 'holy-shield', piece.color);
+                            } else if (anvilDropContext) {
                                 room.gameState.anvilDropContext = anvilDropContext;
                                 broadcastToRoom(ws.roomId!, { type: 'awaiting-anvil-drop', player: piece.color, fullGameState: room.gameState });
                                 startSpecialActionTimer(ws.roomId!, 'anvil-drop', piece.color);
@@ -417,8 +447,28 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const movingPlayer = room.gameState.currentPlayer;
                         const { newBoard, capturedPiece, selfDestructCaptures, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare);
                         room.gameState.board = newBoard;
-                        let caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         
+                        const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
+                        
+                        // Update captured pieces on server
+                        if (capturedPiece) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
+                        if (selfDestructCaptures) selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayer].push(p));
+                        if (rest.pieceCapturedByAnvil) room.gameState.capturedPieces[movingPlayer].push(rest.pieceCapturedByAnvil);
+
+                        // Sync highlight coordinates
+                        room.gameState.lastMoveFrom = data.payload.from;
+                        room.gameState.lastMoveTo = data.payload.to;
+
+                        // Sync Killstreaks
+                        const oldStreak = room.gameState.killStreaks[movingPlayer];
+                        if (caps > 0) {
+                            room.gameState.killStreaks[movingPlayer] += caps;
+                            room.gameState.killStreaks[movingPlayer === 'white' ? 'black' : 'white'] = 0;
+                        } else {
+                            room.gameState.killStreaks[movingPlayer] = 0;
+                        }
+                        const newStreak = room.gameState.killStreaks[movingPlayer];
+
                         if (caps > 0 && !room.gameState.firstBloodAchieved) {
                             room.gameState.firstBloodAchieved = true;
                             room.gameState.playerWhoGotFirstBlood = movingPlayer;
@@ -434,9 +484,37 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         const { row: tr, col: tc } = algebraicToCoords(data.payload.to);
-                        const piece = newBoard[tr][tc].piece;
-                        if (piece && piece.type === 'pawn' && (tr === 0 || tr === 7)) {
-                            room.gameState.promotionContext = { square: data.payload.to, player: movingPlayer };
+                        const landedPiece = newBoard[tr][tc].piece;
+                        const isPromotion = landedPiece && landedPiece.type === 'pawn' && (tr === 0 || tr === 7);
+
+                        // Special Mechanics checks (Anvil / Shield)
+                        let enteringSpecialMode = false;
+                        if (newStreak >= 2 && oldStreak < 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
+                            enteringSpecialMode = true;
+                            room.gameState.shieldContext = { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: rest.extraTurn, newEnPassantTarget: rest.enPassantTargetSet };
+                            if (!isPromotion) {
+                                broadcastToRoom(ws.roomId!, { type: 'awaiting-shield-selection', player: movingPlayer, fullGameState: room.gameState });
+                                startSpecialActionTimer(ws.roomId!, 'holy-shield', movingPlayer);
+                                return;
+                            }
+                        }
+                        if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
+                            enteringSpecialMode = true;
+                            room.gameState.anvilDropContext = { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: rest.extraTurn, newEnPassantTarget: rest.enPassantTargetSet };
+                            if (!isPromotion) {
+                                broadcastToRoom(ws.roomId!, { type: 'awaiting-anvil-drop', player: movingPlayer, fullGameState: room.gameState });
+                                startSpecialActionTimer(ws.roomId!, 'anvil-drop', movingPlayer);
+                                return;
+                            }
+                        }
+
+                        if (isPromotion) {
+                            room.gameState.promotionContext = { 
+                              player: movingPlayer, 
+                              extraTurn: rest.extraTurn,
+                              anvilDropContext: room.gameState.anvilDropContext,
+                              shieldContext: room.gameState.shieldContext
+                            };
                             broadcastToRoom(ws.roomId!, { type: 'promotion-required', square: data.payload.to, player: movingPlayer, fullGameState: room.gameState });
                             startSpecialActionTimer(ws.roomId!, 'pawn-promo', movingPlayer);
                             return;

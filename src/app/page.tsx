@@ -1020,6 +1020,17 @@ export default function EvolvingChessPage() {
     if (isAwaitingHolyShield && currentPlayer === localPlayerColor) {
       if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.id !== board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id) {
           saveStateToHistory();
+          
+          if (onlineStatus === 'connected') {
+              const ws = wsRef.current;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
+              }
+              clickGuardRef.current = true;
+              setIsMoveProcessing(true);
+              return;
+          }
+
           const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = shieldContext!;
           const boardAfterShield = boardForNextStep.map(r => r.map(s => ({
               ...s,
@@ -1865,7 +1876,7 @@ export default function EvolvingChessPage() {
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
-    isAwaitingHolyShield, shieldContext, lastMoveTo,
+    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -3093,8 +3104,8 @@ export default function EvolvingChessPage() {
                 const playerEloChange = eloChanges[user.uid];
                 if (playerEloChange) {
                     const eloChange = playerEloChange.newElo - playerEloChange.oldElo;
-                    const newWins = winner === localPlayerColor ? playerEloChange.wins + 1 : playerEloChange.wins;
-                    const newLosses = winner !== localPlayerColor && winner !== 'draw' ? playerEloChange.losses + 1 : playerEloChange.losses;
+                    const newWins = winner === localPlayerColor ? (playerEloChange.wins || 0) + 1 : (playerEloChange.wins || 0);
+                    const newLosses = winner !== localPlayerColor && winner !== 'draw' ? (playerEloChange.losses || 0) + 1 : (playerEloChange.losses || 0);
 
                     toast({
                         title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
@@ -3147,7 +3158,14 @@ export default function EvolvingChessPage() {
     wsRef.current = ws;
   
     ws.onopen = () => {
-      const userInfo = user ? { userId: user.uid, username: userData?.username || user.displayName || 'Anonymous' } : null;
+      const userInfo = user ? { 
+        userId: user.uid, 
+        username: userData?.username || user.displayName || 'Anonymous',
+        elo: userData?.eloRating || 1200,
+        wins: userData?.wins || 0,
+        losses: userData?.losses || 0
+      } : null;
+      
       let payload;
       if (action === 'create') {
         payload = { type: 'create-room', user: userInfo };
@@ -3156,7 +3174,14 @@ export default function EvolvingChessPage() {
       } else if (action === 'ranked') {
           if(user) {
               setRankedQueueStatus('searching');
-              payload = { type: 'join-ranked-queue', userId: user.uid, username: userData?.username, elo: userData?.eloRating };
+              payload = { 
+                type: 'join-ranked-queue', 
+                userId: user.uid, 
+                username: userData?.username || user.displayName || 'Anonymous', 
+                elo: userData?.eloRating || 1200,
+                wins: userData?.wins || 0,
+                losses: userData?.losses || 0
+              };
           }
       }
       if (payload) {
@@ -3652,14 +3677,22 @@ export default function EvolvingChessPage() {
       )}
 
       {showWinScreen && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
+         <div 
+           className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" 
+           style={{ animation: 'flash-loss 3s forwards' }}
+           onClick={() => fullGameReset()}
+         >
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
               YOU WON
             </p>
         </div>
       )}
       {showLossScreen && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none" style={{ animation: 'flash-loss 3s forwards' }}>
+         <div 
+           className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" 
+           style={{ animation: 'flash-loss 3s forwards' }}
+           onClick={() => fullGameReset()}
+         >
             <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
               YOU LOST
             </p>
