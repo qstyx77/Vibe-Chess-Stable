@@ -1257,7 +1257,7 @@ export function processRookResurrectionCheck(
   const { row: rookR, col: rookC } = algebraicToCoords(rookSquareAfterMove);
   const rookOnBoard = boardWithResurrection[rookR]?.[rookC]?.piece;
 
-  if (!rookOnBoard || rookOnBoard.type !== 'rook' || rookOnBoard.color !== playerWhoseQueenLeveled) {
+  if (!rookOnBoard || rookOnBoard.type !== 'rook' || rookOnBoard.color !== playerWhosePieceLeveled) {
     return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, newResurrectionIdCounter: nextResurrectionIdCounter };
   }
 
@@ -1267,7 +1267,7 @@ export function processRookResurrectionCheck(
     : (Number(originalLevelOfPiece || 0));
 
   if (typeof newRookLevel === 'number' && !isNaN(newRookLevel) && newRookLevel >= 4 && newRookLevel > oldLevelOfThisPieceType) {
-    const opponentColor = playerWhoseQueenLeveled === 'white' ? 'black' : 'white';
+    const opponentColor = playerWhosePieceLeveled === 'white' ? 'black' : 'white';
     const piecesToChooseFrom = capturedPiecesAfterResurrection[opponentColor] ? [...capturedPiecesAfterResurrection[opponentColor]] : [];
 
     if (piecesToChooseFrom.length > 0) {
@@ -1304,7 +1304,7 @@ export function processRookResurrectionCheck(
         };
         nextResurrectionIdCounter++;
 
-        const promotionRank = playerWhoseQueenLeveled === 'white' ? 0 : 7;
+        const promotionRank = playerWhosePieceLeveled === 'white' ? 0 : 7;
         if (resurrectedPieceData.type === 'pawn' && resR === promotionRank) {
             promotionRequiredForResurrectedPawn = true;
         } else if (resurrectedPieceData.type === 'commander' && resR === promotionRank) {

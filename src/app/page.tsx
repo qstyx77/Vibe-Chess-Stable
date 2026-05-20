@@ -2406,24 +2406,21 @@ export default function EvolvingChessPage() {
 
             if (!enteringSpecialModeAI && oldStreakForAI < 3 && newStreakForAI >= 3) {
                 enteringSpecialModeAI = true;
-                const emptySquares: AlgebraicSquare[] = [];
-                for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
+                const emptySquares: [number, number][] = [];
+                for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push([r_anvil, c_anvil]);
                 if (emptySquares.length > 0) {
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer, null);
-                    let bestAnvilSquare: AlgebraicSquare;
+                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
+                    let bestAnvilCoords: [number, number];
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
-                        const { row: rA, col: cA } = algebraicToCoords(a);
-                        const { row: rB, col: cB } = algebraicToCoords(b);
-                        return (Math.abs(rA - oppKingPos.row) + Math.abs(cA - oppKingPos.col)) - (Math.abs(rB - oppKingPos.row) + Math.abs(cB - oppKingPos.col));
+                        return (Math.abs(a[0] - oppKingPos.row) + Math.abs(a[1] - oppKingPos.col)) - (Math.abs(b[0] - oppKingPos.row) + Math.abs(b[1] - oppKingPos.col));
                       });
-                      bestAnvilSquare = emptySquares[0];
+                      bestAnvilCoords = emptySquares[0];
                     } else {
-                      bestAnvilSquare = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                      bestAnvilCoords = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                     }
-                    const { row: anvilR, col: anvilC } = algebraicToCoords(bestAnvilSquare);
-                    finalBoardStateForAI[anvilR][anvilC].item = { type: 'anvil' };
-                    toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${bestAnvilSquare}.`});
+                    finalBoardStateForAI[bestAnvilCoords[0]][bestAnvilCoords[1]].item = { type: 'anvil' };
+                    toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${coordsToAlgebraic(bestAnvilCoords[0], bestAnvilCoords[1])}.`});
                 }
             }
 
@@ -2459,7 +2456,7 @@ export default function EvolvingChessPage() {
                           } else {
                                toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
                           }
-                          finalBoardStateForTurn[resRAI][resCAI].piece = resurrectedAI;
+                          finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                           addEffect('light-beam', randSqAI_alg);
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
                           finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalAI.id);
