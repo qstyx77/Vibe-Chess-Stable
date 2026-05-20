@@ -335,7 +335,7 @@ export default function EvolvingChessPage() {
     }));
 
     const currentPieceIds = new Set<string>();
-    board.forEach(row => row.forEach(sq => { if (sq.piece) currentPieceIds.add(sq.piece.id); }));
+    board.forEach(row => row.forEach(currSq => { if (sq.piece) currentPieceIds.add(sq.piece.id); }));
 
     const newEffects: Effect[] = [];
     const moveKey = `move-${gameMoveCounter}`;
@@ -1718,7 +1718,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginal) {
@@ -2062,8 +2062,10 @@ export default function EvolvingChessPage() {
 
     const currentAiInstance = aiInstanceRef.current;
     
+    console.log("[AI_LOOP] Starting performAiMove for", currentPlayer);
 
     if (!currentAiInstance) {
+      console.warn("[AI_LOOP] AI instance missing!");
       toast({
         title: "AI Error",
         description: "AI engine is not ready or was lost. Please wait or reset the game.",
@@ -2076,10 +2078,12 @@ export default function EvolvingChessPage() {
     }
 
     if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield ) {
+      console.log("[AI_LOOP] AI turn skipped due to game state:", { gameOver: gameInfo.gameOver, isPromotingPawn, isMoveProcessing });
       setIsAiThinking(false);
       return;
     }
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) {
+        console.log("[AI_LOOP] Waiting for commander promotion before AI moves.");
         setIsAiThinking(false);
         return;
     }
@@ -2115,18 +2119,21 @@ export default function EvolvingChessPage() {
         white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
         black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
       };
-      let capturedPieceDataForScoring: Piece | null = null; 
       
       while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
         attemptCount++;
+        console.log(`[AI_LOOP] Attempt ${attemptCount} starting...`);
         await new Promise(resolve => setTimeout(resolve, 50 * attemptCount)); 
         const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
         const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
         aiMoveDataFromVibeAI = aiResult?.move;
 
+        console.log(`[AI_LOOP] AI returned move:`, aiMoveDataFromVibeAI);
+
         if (!aiMoveDataFromVibeAI || !aiMoveDataFromVibeAI.from || !aiMoveDataFromVibeAI.to ||
             !Array.isArray(aiMoveDataFromVibeAI.from) || aiMoveDataFromVibeAI.from.length !== 2 ||
             !Array.isArray(aiMoveDataFromVibeAI.to) || aiMoveDataFromVibeAI.to.length !== 2) {
+            console.warn(`[AI_LOOP] AI returned malformed move data on attempt ${attemptCount}.`);
             continue; 
         }
 
@@ -2137,6 +2144,7 @@ export default function EvolvingChessPage() {
         originalPieceLevelForAI = Number(pieceOnFromSquareForAI?.level || 1);
 
         if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) {
+            console.warn(`[AI_LOOP] AI attempted to move piece it does not control at ${aiFromAlg}`);
             continue; 
         }
 
@@ -2150,11 +2158,12 @@ export default function EvolvingChessPage() {
               isAiMoveActuallyLegal = true;
             }
         }
-
+        console.log(`[AI_LOOP] Move ${aiFromAlg} to ${aiToAlg} validated as: ${isAiMoveActuallyLegal}`);
       }
 
 
       if (!isAiMoveActuallyLegal) { 
+        console.warn("[AI_LOOP] AI failed to provide a valid move after max attempts. Entering fallback logic.");
         toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking any valid move.", duration: 8000 });
         
         let foundFallbackMove = false;
@@ -2185,6 +2194,7 @@ export default function EvolvingChessPage() {
                 aiMoveDataFromVibeAI = { from: [r,c], to: [newToCoords.row, newToCoords.col], type: overrideMoveType, promoteTo: promoteToOverrideType };
                 isAiMoveActuallyLegal = true;
                 foundFallbackMove = true;
+                console.log(`[AI_LOOP] Fallback move found: ${aiFromAlg} to ${aiToAlg}`);
                 break; 
               }
             }
@@ -2193,6 +2203,7 @@ export default function EvolvingChessPage() {
         }
 
         if (!foundFallbackMove) {
+          console.error("[AI_LOOP] No legal moves found for AI in fallback search.");
           aiErrorOccurredRef.current = true;
         }
       }
@@ -2286,7 +2297,6 @@ export default function EvolvingChessPage() {
         }
         
         if (restOfResult.pieceCapturedByAnvil) {
-            capturedPieceDataForScoring = restOfResult.pieceCapturedByAnvil;
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
                 finalCapturedPiecesForAI[currentPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `${restOfResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
             }
@@ -2399,7 +2409,7 @@ export default function EvolvingChessPage() {
                 const emptySquares: AlgebraicSquare[] = [];
                 for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push(coordsToAlgebraic(r_anvil, c_anvil));
                 if (emptySquares.length > 0) {
-                    const oppKingPos = this.findKing(finalBoardStateForAI, opponentPlayer);
+                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer, null);
                     let bestAnvilSquare: AlgebraicSquare;
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
@@ -2449,7 +2459,7 @@ export default function EvolvingChessPage() {
                           } else {
                                toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
                           }
-                          finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
+                          finalBoardStateForTurn[resRAI][resCAI].piece = resurrectedAI;
                           addEffect('light-beam', randSqAI_alg);
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
                           finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalAI.id);
@@ -2569,16 +2579,20 @@ export default function EvolvingChessPage() {
               setIsAiThinking(false);
             }, 800);
         } else {
+          console.error("[AI_LOOP] AI suggested move failed at final execution step.");
           aiErrorOccurredRef.current = true;
         }
       } else { 
+        console.error("[AI_LOOP] AI failed to provide a valid move data.");
         aiErrorOccurredRef.current = true;
       }
     } catch (error) {
+      console.error("[AI_LOOP] Uncaught exception in performAiMove:", error);
       aiErrorOccurredRef.current = true;
     }
 
     if (aiErrorOccurredRef.current) {
+      console.error(`[AI_LOOP] AI (${getPlayerDisplayName(currentPlayer)}) Forfeiting turn.`);
       toast({
         title: `AI (${getPlayerDisplayName(currentPlayer)}) Error/Forfeit`,
         description: "AI move forfeited due to an internal error or no legal moves.",
