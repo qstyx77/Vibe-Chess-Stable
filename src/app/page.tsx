@@ -238,10 +238,6 @@ export default function EvolvingChessPage() {
   const signaledEventsRef = useRef<Set<string>>(new Set());
 
   // --- Derived State & Consolidated Helpers ---
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield;
-  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield;
-  const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
-
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player';
     if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
@@ -261,6 +257,10 @@ export default function EvolvingChessPage() {
 
     return baseName;
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
+
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield;
+  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield;
+  const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
 
   const getRankedButtonText = () => {
     if(rankedQueueStatus === 'searching') return 'Searching...';
@@ -335,7 +335,7 @@ export default function EvolvingChessPage() {
     }));
 
     const currentPieceIds = new Set<string>();
-    board.forEach(row => row.forEach(currSq => { if (sq.piece) currentPieceIds.add(sq.piece.id); }));
+    board.forEach(row => row.forEach(currSq => { if (currSq.piece) currentPieceIds.add(currSq.piece.id); }));
 
     const newEffects: Effect[] = [];
     const moveKey = `move-${gameMoveCounter}`;
@@ -694,7 +694,7 @@ export default function EvolvingChessPage() {
             return currentTimerValue - 1;
         });
     }, 1000);
-  }, [stopTurnTimer, setShowTimerWarning, setTimerWarningKey]);
+  }, [stopTurnTimer]);
 
   useEffect(() => {
     if (onlineStatus !== 'connected' || gameInfo.gameOver) {
@@ -2303,7 +2303,7 @@ export default function EvolvingChessPage() {
             toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${restOfResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
         }
         if (aiAnvilPushedOff) {
-            toast({ title: "AI Anvil Removed!", description: "Anvil pushed off by AI.", duration: 8000 });
+            toast({ title: "AI Anvil Removed!", description: "AI Anvil pushed off by AI.", duration: 8000 });
         }
         
         if (destroyedAnvils && destroyedAnvils > 0) {
