@@ -238,6 +238,7 @@ function getPossibleMovesInternal(
       }
   } else if (piece.type === 'bishop' || piece.type === 'archbishop') {
       const dirs: [number, number][] = [[1,1], [1,-1], [-1,1], [-1,-1]];
+      const bishopLevel = Number(piece.level || 1);
       dirs.forEach(([dr, dc]) => {
           for (let i = 1; i < 8; i++) {
               const R = fromRow + i * dr; const C = fromCol + i * dc;
@@ -248,10 +249,20 @@ function getPossibleMovesInternal(
               if (!targetP) {
                   possible.push(coordsToAlgebraic(R, C));
               } else {
-                  if (targetP.color !== pieceColor && !isPieceInvulnerableToAttack(targetP, piece)) {
-                      possible.push(coordsToAlgebraic(R, C));
+                  if (targetP.color !== pieceColor) {
+                      if (!isPieceInvulnerableToAttack(targetP, piece)) {
+                          possible.push(coordsToAlgebraic(R, C));
+                      }
+                      break;
+                  } else {
+                      // Friendly piece
+                      if (bishopLevel >= 2) {
+                          // Phase through friendly pieces: don't break, keep searching
+                          continue;
+                      } else {
+                          break;
+                      }
                   }
-                  break;
               }
           }
       });
