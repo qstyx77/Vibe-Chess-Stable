@@ -4,6 +4,7 @@ import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, 
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
+import { ShroomIcon } from './IconLibrary';
 
 interface ChessSquareProps {
   squareData: SquareState;
@@ -138,7 +139,9 @@ export function ChessSquare({
           "absolute inset-0 flex items-center justify-center pointer-events-none z-0",
           shouldRotateItemForTabletop && "rotate-180"
         )}>
-          <span className="text-4xl md:text-5xl opacity-70" role="img" aria-label="shroom">🍄</span>
+          <div className="w-4/5 h-4/5 opacity-70">
+            <ShroomIcon />
+          </div>
         </div>
       )}
       {piece && (

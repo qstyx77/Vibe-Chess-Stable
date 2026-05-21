@@ -49,6 +49,7 @@ import { AuthWidget } from '@/components/auth/AuthWidget';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
+import { ExplosionIcon } from '@/components/evolving-chess/IconLibrary';
 
 
 let globalUniqueIdCounter = 0;
@@ -121,6 +122,73 @@ function adaptBoardForAI(
   };
 }
 
+
+const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
+  const { row, col } = algebraicToCoords(effect.square);
+  const top = `${(visuallyFlipBoardForLogic ? 7 - row : row) * 12.5}%`;
+  const left = `${(visuallyFlipBoardForLogic ? 7 - col : col) * 12.5}%`;
+  
+  switch (effect.type) {
+    case 'poof':
+      return (
+        <div 
+          className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
+          style={{ top, left }}
+        >
+          <div className="w-4/5 h-4/5 animate-[poof_0.1s_ease-out_forwards]">
+            <ExplosionIcon className="text-foreground" />
+          </div>
+        </div>
+      );
+    case 'explosion':
+      return (
+          <div 
+              className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[70]"
+              style={{ top, left }}
+          >
+              <div className="w-full h-full animate-[self-destruct-flicker_0.7s_ease-out_forwards]">
+                <ExplosionIcon className="text-destructive" />
+              </div>
+          </div>
+      );
+    case 'shockwave':
+      const shockwaveColor = effect.color === 'white' ? 'hsl(var(--foreground))' : 'hsl(var(--secondary))';
+      return (
+         <div
+          className="absolute w-[12.5%] h-[12.5%] pointer-events-none"
+          style={{ top, left }}
+        >
+          <div 
+            className="absolute top-1/2 left-1/2 w-[300%] h-[300%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 animate-[shockwave-pulse_0.7s_ease-out_forwards]"
+            style={{ borderColor: shockwaveColor }}
+          />
+        </div>
+      );
+     case 'light-beam':
+      return (
+        <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 50 }}>
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/4 h-[400%] bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" />
+        </div>
+      );
+    case 'level-change':
+      const val = effect.value || 0;
+      const isPositive = val >= 0;
+      const sign = isPositive ? '+' : '';
+      const text = `${sign}${val}`;
+      return (
+          <div 
+              className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
+              style={{ top, left }}
+          >
+              <span className="text-destructive font-bold text-xl md:text-2xl animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}>
+                  {text}
+              </span>
+          </div>
+      );
+    default:
+      return null;
+  }
+};
 
 export default function EvolvingChessPage() {
   const { user, userData } = useUser();

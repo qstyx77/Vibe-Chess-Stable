@@ -1,6 +1,7 @@
 import type { Piece, ViewMode, PlayerColor } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
+import { StarIcon, SkullIcon, PrayerHandsIcon } from './IconLibrary';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
@@ -23,7 +24,11 @@ export function ChessPieceDisplay({
   isPromoting = false,
   isConverting = false,
 }: ChessPieceDisplayProps) {
-  const unicode = getPieceUnicode(piece);
+  let unicode = getPieceUnicode(piece);
+  
+  if (piece.type === 'archbishop') {
+    unicode = piece.color === 'white' ? '♗' : '♝';
+  }
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   
@@ -73,6 +78,18 @@ export function ChessPieceDisplay({
           {unicode}
         </span>
 
+        {piece.type === 'archbishop' && (
+          <span
+            className="absolute text-sm leading-none z-[2]"
+            style={{
+              top: '0.1rem',
+              left: '0.1rem',
+            }}
+          >
+            <PrayerHandsIcon className="w-4 h-4 text-primary" />
+          </span>
+        )}
+
         {isCommanderLike && (
           <span
             className="absolute text-sm leading-none z-[2]"
@@ -82,7 +99,7 @@ export function ChessPieceDisplay({
             }}
             aria-label={piece.type === 'hero' ? "Hero Star" : "Commander Star"}
           >
-            🌟
+            <StarIcon className="w-4 h-4 text-yellow-400" />
           </span>
         )}
 
@@ -95,7 +112,7 @@ export function ChessPieceDisplay({
             }}
             aria-label="Infiltrator Skull"
           >
-            💀
+            <SkullIcon className="w-4 h-4 text-destructive" />
           </span>
         )}
 
