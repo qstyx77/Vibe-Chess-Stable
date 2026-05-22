@@ -72,9 +72,13 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
     
     let message = "";
     if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
+    else if (reason === 'auto-checkmate') message = `Auto-Checkmate! ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
+    else if (reason === 'self-check') message = `Checkmate! ${room.gameState.players[winner as PlayerColor]?.username || winner} wins by self-check!`;
     else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
+    else if (reason === 'threefold-repetition') message = "Draw by Threefold Repetition!";
     else if (reason === 'infiltration') message = `${room.gameState.players[winner as PlayerColor]?.username || winner} wins by Infiltration!`;
     else if (reason === 'timeout') message = `Timeout. ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
+    else if (reason === 'self-check-timeout') message = `${room.gameState.players[details.timedOutPlayer]?.username || details.timedOutPlayer} ran out of time in check. ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
     else if (reason === 'resign') message = `${room.gameState.players[details.resigningPlayer]?.username || details.resigningPlayer} resigned. ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
     
     room.gameState.gameInfo.message = message;
@@ -441,6 +445,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 finalizeTurn(room, piece.color, extraTurn);
                             }
                         }
+                    }
+                    break;
+                case 'forfeit-timeout':
+                    if (room) {
+                        onGameOver(ws.roomId!, data.winner, data.reason, { timedOutPlayer: data.timedOutPlayer });
                     }
                     break;
                 case 'game-move':

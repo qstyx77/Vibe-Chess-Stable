@@ -329,6 +329,7 @@ export default function EvolvingChessPage() {
   const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield;
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
+  const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
 
   const getRankedButtonText = () => {
     if(rankedQueueStatus === 'searching') return 'Searching...';
@@ -3501,7 +3502,7 @@ export default function EvolvingChessPage() {
               <BookOpen /> Rules
             </Button>
             <Link href="/leaderboard">
-              <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
                 <Trophy /> L.board
               </Button>
             </Link>
@@ -3669,7 +3670,7 @@ export default function EvolvingChessPage() {
                 <BookOpen /> Rules
               </Button>
               <Link href="/leaderboard">
-                <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs">
+                <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
                   <Trophy /> L.board
                 </Button>
               </Link>
