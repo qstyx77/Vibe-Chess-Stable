@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -3169,7 +3170,7 @@ export default function EvolvingChessPage() {
             let message = "";
             let isResignation = data.type === 'resign';
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
-            else if (reason === 'stalemate') message = `Stalemate! It's a draw.`;
+            else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
             else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
             else if (reason === 'self-check') {
@@ -3572,7 +3573,7 @@ export default function EvolvingChessPage() {
   );
 
   const desktopLayout = (
-    <div className="hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
+    <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
       <div className="w-1/4 flex-shrink-0">
         <GameControls
             currentPlayer={currentPlayer}

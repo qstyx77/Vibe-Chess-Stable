@@ -1,9 +1,11 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 import { algebraicToCoords } from '@/lib/chess-utils';
+import { ExplosionIcon } from './IconLibrary';
 
 interface ChessBoardProps {
   boardState: BoardState;
@@ -43,9 +45,13 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
     case 'poof':
       return (
         <div 
-          className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60] after:content-['💥'] after:text-2xl after:md:text-3xl after:text-foreground after:animate-[poof_0.1s_ease-out_forwards]"
+          className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
           style={{ top, left }}
-        />
+        >
+          <div className="w-4/5 h-4/5 animate-[poof_0.1s_ease-out_forwards]">
+            <ExplosionIcon className="text-foreground" />
+          </div>
+        </div>
       );
     case 'explosion':
       return (
@@ -53,9 +59,9 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
               className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[70]"
               style={{ top, left }}
           >
-              <span className="text-4xl md:text-5xl animate-[self-destruct-flicker_0.7s_ease-out_forwards]">
-                  💥
-              </span>
+              <div className="w-full h-full animate-[self-destruct-flicker_0.7s_ease-out_forwards]">
+                <ExplosionIcon className="text-destructive" />
+              </div>
           </div>
       );
     case 'shockwave':
