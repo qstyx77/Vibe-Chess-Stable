@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -3430,10 +3429,10 @@ export default function EvolvingChessPage() {
           <div className="w-full">
             <ChessBoard
               boardState={board}
-              selectedSquare={selectedSquare}
-              possibleMoves={possibleMoves}
-              enemySelectedSquare={enemySelectedSquare}
-              enemyPossibleMoves={enemyPossibleMoves}
+              selectedSquare={isAwaitingAnvilDrop ? null : selectedSquare}
+              possibleMoves={isAwaitingAnvilDrop ? [] : possibleMoves}
+              enemySelectedSquare={isAwaitingAnvilDrop ? null : enemySelectedSquare}
+              enemyPossibleMoves={isAwaitingAnvilDrop ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -3442,8 +3441,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={lastMoveFrom}
-              lastMoveTo={lastMoveTo}
+              lastMoveFrom={isAwaitingAnvilDrop ? null : lastMoveFrom}
+              lastMoveTo={isAwaitingAnvilDrop ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -3611,10 +3610,10 @@ export default function EvolvingChessPage() {
         <div className="w-full max-lg">
           <ChessBoard
               boardState={board}
-              selectedSquare={selectedSquare}
-              possibleMoves={possibleMoves}
-              enemySelectedSquare={enemySelectedSquare}
-              enemyPossibleMoves={enemyPossibleMoves}
+              selectedSquare={isAwaitingAnvilDrop ? null : selectedSquare}
+              possibleMoves={isAwaitingAnvilDrop ? [] : possibleMoves}
+              enemySelectedSquare={isAwaitingAnvilDrop ? null : enemySelectedSquare}
+              enemyPossibleMoves={isAwaitingAnvilDrop ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -3623,8 +3622,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={lastMoveFrom}
-              lastMoveTo={lastMoveTo}
+              lastMoveFrom={isAwaitingAnvilDrop ? null : lastMoveFrom}
+              lastMoveTo={isAwaitingAnvilDrop ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
