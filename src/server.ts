@@ -14,6 +14,7 @@ import {
     coordsToAlgebraic,
     applyArchbishop,
     applyPalace,
+    applyArcher,
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare } from './types';
 
@@ -172,7 +173,7 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     startServerTurnTimer(room.clients[0].roomId);
 };
 
-const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop' | 'holy-shield', actingPlayer: PlayerColor) => {
+const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop' | 'holy-shield' | 'archer-snipe', actingPlayer: PlayerColor) => {
     const room = rooms[roomId];
     if (!room || room.gameState.gameInfo.gameOver) return;
 
@@ -209,6 +210,10 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
         } else if (actionType === 'holy-shield') {
             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.shieldContext;
             delete roomAfterTimeout.gameState.shieldContext;
+            finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+        } else if (actionType === 'archer-snipe') {
+            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.archerSnipeContext;
+            delete roomAfterTimeout.gameState.archerSnipeContext;
             finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
         } else if (actionType === 'commander-promo') {
             roomAfterTimeout.gameState.isAwaitingCommanderPromotion = false;
@@ -299,8 +304,10 @@ const processRankedQueue = async () => {
 
         if (whitePlayer.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'white');
         if (whitePlayer.elo >= 1800) rooms[roomId].gameState.board = applyPalace(rooms[roomId].gameState.board, 'white');
+        if (whitePlayer.elo >= 2100) rooms[roomId].gameState.board = applyArcher(rooms[roomId].gameState.board, 'white');
         if (blackPlayer.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'black');
         if (blackPlayer.elo >= 1800) rooms[roomId].gameState.board = applyPalace(rooms[roomId].gameState.board, 'black');
+        if (blackPlayer.elo >= 2100) rooms[roomId].gameState.board = applyArcher(rooms[roomId].gameState.board, 'black');
 
         whitePlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
         blackPlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
@@ -364,6 +371,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     };
                     if (data.user?.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'white');
                     if (data.user?.elo >= 1800) rooms[roomId].gameState.board = applyPalace(rooms[roomId].gameState.board, 'white');
+                    if (data.user?.elo >= 2100) rooms[roomId].gameState.board = applyArcher(rooms[roomId].gameState.board, 'white');
                     ws.send(JSON.stringify({ type: 'room-created', roomId, color: 'white', gameState: rooms[roomId].gameState }));
                     break;
                 }
@@ -376,6 +384,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses } : null;
                         if (data.user?.elo >= 1500) roomToJoin.gameState.board = applyArchbishop(roomToJoin.gameState.board, 'black');
                         if (data.user?.elo >= 1800) roomToJoin.gameState.board = applyPalace(roomToJoin.gameState.board, 'black');
+                        if (data.user?.elo >= 2100) roomToJoin.gameState.board = applyArcher(roomToJoin.gameState.board, 'black');
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
                         broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
                         startServerTurnTimer(data.roomId);
@@ -429,6 +438,24 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                     }
                     break;
+                case 'archer-snipe':
+                    if (room && data.square) {
+                        const { row, col } = algebraicToCoords(data.square);
+                        const targetPiece = room.gameState.board[row]?.[col]?.piece;
+                        if (targetPiece) {
+                            const movingPlayer = room.gameState.currentPlayer;
+                            const archer = room.gameState.board.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)?.piece;
+                            if (archer) {
+                                archer.level += 2;
+                            }
+                            room.gameState.capturedPieces[movingPlayer].push(targetPiece);
+                            room.gameState.board[row][col].piece = null;
+                            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.archerSnipeContext;
+                            delete room.gameState.archerSnipeContext;
+                            finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+                        }
+                    }
+                    break;
                 case 'finalize-promotion':
                     if (room && data.payload) {
                         const { square, promoteTo } = data.payload;
@@ -436,9 +463,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece) {
                             piece.type = promoteTo;
-                            const { extraTurn, anvilDropContext, shieldContext } = room.gameState.promotionContext || {};
+                            const { extraTurn, anvilDropContext, shieldContext, archerSnipeContext } = room.gameState.promotionContext || {};
                             delete room.gameState.promotionContext;
-                            if (shieldContext) {
+                            if (archerSnipeContext) {
+                                room.gameState.archerSnipeContext = archerSnipeContext;
+                                broadcastToRoom(ws.roomId!, { type: 'awaiting-archer-snipe', player: piece.color, fullGameState: room.gameState });
+                                startSpecialActionTimer(ws.roomId!, 'archer-snipe', piece.color);
+                            } else if (shieldContext) {
                                 room.gameState.shieldContext = shieldContext;
                                 broadcastToRoom(ws.roomId!, { type: 'awaiting-shield-selection', player: piece.color, fullGameState: room.gameState });
                                 startSpecialActionTimer(ws.roomId!, 'holy-shield', piece.color);
@@ -502,7 +533,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const landedPiece = newBoard[tr][tc].piece;
                         const isPromotion = landedPiece && landedPiece.type === 'pawn' && (tr === 0 || tr === 7);
 
-                        // Special Mechanics checks (Anvil / Shield)
+                        // Special Mechanics checks (Anvil / Shield / Archer)
                         let enteringSpecialMode = false;
                         if (newStreak >= 2 && oldStreak < 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
                             enteringSpecialMode = true;
@@ -510,6 +541,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             if (!isPromotion) {
                                 broadcastToRoom(ws.roomId!, { type: 'awaiting-shield-selection', player: movingPlayer, fullGameState: room.gameState });
                                 startSpecialActionTimer(ws.roomId!, 'holy-shield', movingPlayer);
+                                return;
+                            }
+                        }
+                        if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
+                            enteringSpecialMode = true;
+                            room.gameState.archerSnipeContext = { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: rest.extraTurn, newEnPassantTarget: rest.enPassantTargetSet };
+                            if (!isPromotion) {
+                                broadcastToRoom(ws.roomId!, { type: 'awaiting-archer-snipe', player: movingPlayer, fullGameState: room.gameState });
+                                startSpecialActionTimer(ws.roomId!, 'archer-snipe', movingPlayer);
                                 return;
                             }
                         }
@@ -528,7 +568,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                               player: movingPlayer, 
                               extraTurn: rest.extraTurn,
                               anvilDropContext: room.gameState.anvilDropContext,
-                              shieldContext: room.gameState.shieldContext
+                              shieldContext: room.gameState.shieldContext,
+                              archerSnipeContext: room.gameState.archerSnipeContext
                             };
                             broadcastToRoom(ws.roomId!, { type: 'promotion-required', square: data.payload.to, player: movingPlayer, fullGameState: room.gameState });
                             startSpecialActionTimer(ws.roomId!, 'pawn-promo', movingPlayer);

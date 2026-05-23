@@ -1,5 +1,5 @@
 export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer';
 export type ItemType = 'anvil' | 'shroom'; // Added 'shroom'
 
 export interface Item {
@@ -164,6 +164,9 @@ export interface GameSnapshot {
   anvilDropAfterPromotion: boolean;
   isAwaitingHolyShield?: boolean;
   shieldContext?: { boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null;
+  
+  isAwaitingArcherSnipe?: boolean;
+  archerSnipeContext?: { boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null;
 }
 
 // AI-specific types, can be used by both AI and page.tsx for adaptation

@@ -25,6 +25,7 @@ import {
   findKing,
   applyArchbishop,
   applyPalace,
+  applyArcher,
   hasAnyLegalMoves,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage } from '@/types';
@@ -50,7 +51,6 @@ import { AuthWidget } from '@/components/auth/AuthWidget';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
-import { ExplosionIcon } from '@/components/evolving-chess/IconLibrary';
 
 
 let globalUniqueIdCounter = 0;
@@ -123,73 +123,6 @@ function adaptBoardForAI(
   };
 }
 
-
-const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
-  const { row, col } = algebraicToCoords(effect.square);
-  const top = `${(visuallyFlipBoardForLogic ? 7 - row : row) * 12.5}%`;
-  const left = `${(visuallyFlipBoardForLogic ? 7 - col : col) * 12.5}%`;
-  
-  switch (effect.type) {
-    case 'poof':
-      return (
-        <div 
-          className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
-          style={{ top, left }}
-        >
-          <div className="w-4/5 h-4/5 animate-[poof_0.1s_ease-out_forwards]">
-            <ExplosionIcon className="text-foreground" />
-          </div>
-        </div>
-      );
-    case 'explosion':
-      return (
-          <div 
-              className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[70]"
-              style={{ top, left }}
-          >
-              <div className="w-full h-full animate-[self-destruct-flicker_0.7s_ease-out_forwards]">
-                <ExplosionIcon className="text-destructive" />
-              </div>
-          </div>
-      );
-    case 'shockwave':
-      const shockwaveColor = effect.color === 'white' ? 'hsl(var(--foreground))' : 'hsl(var(--secondary))';
-      return (
-         <div
-          className="absolute w-[12.5%] h-[12.5%] pointer-events-none"
-          style={{ top, left }}
-        >
-          <div 
-            className="absolute top-1/2 left-1/2 w-[300%] h-[300%] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 animate-[shockwave-pulse_0.7s_ease-out_forwards]"
-            style={{ borderColor: shockwaveColor }}
-          />
-        </div>
-      );
-     case 'light-beam':
-      return (
-        <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 50 }}>
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/4 h-[400%] bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" />
-        </div>
-      );
-    case 'level-change':
-      const val = effect.value || 0;
-      const isPositive = val >= 0;
-      const sign = isPositive ? '+' : '';
-      const text = `${sign}${val}`;
-      return (
-          <div 
-              className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]"
-              style={{ top, left }}
-          >
-              <span className="text-destructive font-bold text-xl md:text-2xl animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}>
-                  {text}
-              </span>
-          </div>
-      );
-    default:
-      return null;
-  }
-};
 
 export default function EvolvingChessPage() {
   const { user, userData } = useUser();
@@ -283,6 +216,9 @@ export default function EvolvingChessPage() {
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
   const [shieldContext, setShieldContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
 
+  const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
+  const [archerSnipeContext, setArcherSnipeContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
+
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
@@ -327,8 +263,8 @@ export default function EvolvingChessPage() {
     return baseName;
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield;
-  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield;
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield || (isAwaitingArcherSnipe && localPlayerColor !== currentPlayer);
+  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
   const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
 
@@ -462,6 +398,9 @@ export default function EvolvingChessPage() {
       if (userData.eloRating >= 1800) {
           initialBoardState = applyPalace(initialBoardState, 'white');
       }
+      if (userData.eloRating >= 2100) {
+          initialBoardState = applyArcher(initialBoardState, 'white');
+      }
     }
     setBoard(initialBoardState);
     setCurrentPlayer('white');
@@ -564,6 +503,9 @@ export default function EvolvingChessPage() {
 
     setIsAwaitingHolyShield(false);
     setShieldContext(null);
+
+    setIsAwaitingArcherSnipe(false);
+    setArcherSnipeContext(null);
 
     setChatMessages([]);
     setIsMessengerOpen(false);
@@ -678,6 +620,8 @@ export default function EvolvingChessPage() {
       anvilDropAfterPromotion: anvilDropAfterPromotion,
       isAwaitingHolyShield: isAwaitingHolyShield,
       shieldContext: shieldContext,
+      isAwaitingArcherSnipe: isAwaitingArcherSnipe,
+      archerSnipeContext: archerSnipeContext,
     };
     setHistoryStack(prevHistory => {
       const newHistory = [...prevHistory, snapshot];
@@ -694,7 +638,7 @@ export default function EvolvingChessPage() {
     shroomSpawnCounter, nextShroomSpawnTurn,
     resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, anvilDropAfterPromotion,
-    isAwaitingHolyShield, shieldContext,
+    isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
   ]);
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
@@ -791,9 +735,12 @@ export default function EvolvingChessPage() {
     } else if (isAwaitingHolyShield && localPlayerColor === currentPlayer) {
       startTurnTimer(currentPlayer!, 15);
       timerStarted = true;
+    } else if (isAwaitingArcherSnipe && localPlayerColor === currentPlayer) {
+      startTurnTimer(currentPlayer!, 15);
+      timerStarted = true;
     }
     
-    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield;
+    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe;
 
     if (!timerStarted && !isAnySpecialAction) {
       startTurnTimer(currentPlayer);
@@ -822,6 +769,7 @@ export default function EvolvingChessPage() {
     isAwaitingRookSacrifice,
     isResurrectionPromotionInProgress,
     isAwaitingHolyShield,
+    isAwaitingArcherSnipe,
     startTurnTimer,
     stopTurnTimer,
   ]);
@@ -1101,6 +1049,49 @@ export default function EvolvingChessPage() {
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
+    if (isAwaitingArcherSnipe && currentPlayer === localPlayerColor) {
+      if (clickedPiece && clickedPiece.color !== currentPlayer && clickedPiece.level === 1 && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
+          saveStateToHistory();
+          
+          if (onlineStatus === 'connected') {
+              const ws = wsRef.current;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
+              }
+              clickGuardRef.current = true;
+              setIsMoveProcessing(true);
+              return;
+          }
+
+          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = archerSnipeContext!;
+          const boardAfterSnipe = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+          
+          const archerOnBoard = boardAfterSnipe.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer);
+          if (archerOnBoard?.piece) {
+              archerOnBoard.piece.level += 2; // Sniper capture bonus
+          }
+
+          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${globalUniqueIdCounter++}` };
+          setCapturedPieces(prev => ({
+              ...prev,
+              [currentPlayer]: [...(prev[currentPlayer] || []), uniqueCapturedPiece]
+          }));
+
+          boardAfterSnipe[row][col].piece = null;
+          setBoard(boardAfterSnipe);
+          
+          addEffect('poof', algebraic);
+          toast({ title: "Archer Snipe!", description: `${getPlayerDisplayName(currentPlayer)} sniped the ${clickedPiece.type}!` });
+          
+          setIsAwaitingArcherSnipe(false);
+          setArcherSnipeContext(null);
+          processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+      } else {
+          toast({ title: "Invalid Snipe Target", description: "Select an enemy Level 1 piece (not King/Queen).", variant: "destructive" });
+      }
+      return;
+    }
+
     if (isAwaitingHolyShield && currentPlayer === localPlayerColor) {
       if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.id !== board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id) {
           saveStateToHistory();
@@ -1331,7 +1322,7 @@ export default function EvolvingChessPage() {
         return;
       }
 
-      if (selectedSquare === algebraic && !(pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
+      if (selectedSquare === algebraic && !(pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
         setSelectedSquare(null);
         setPossibleMoves([]);
         setEnemySelectedSquare(null);
@@ -1359,7 +1350,7 @@ export default function EvolvingChessPage() {
       }
 
 
-      if (selectedSquare === algebraic && (pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
+      if (selectedSquare === algebraic && (pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
         const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
         tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
         if (isKingInCheck(tempBoardForCheck, currentPlayer, enPassantTargetSquare)) {
@@ -1450,6 +1441,16 @@ export default function EvolvingChessPage() {
             setAnvilDropContext(anvilDropCtx);
         } 
         
+        if (!enteringSpecialMode && oldStreak < 5 && newStreakForSelfDestructPlayer >= 5) {
+            const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer);
+            if (hasArcher) {
+                enteringSpecialMode = true;
+                setIsAwaitingArcherSnipe(true);
+                setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                setGameInfo(prev => ({ ...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture." }));
+            }
+        }
+
         if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
             let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1516,7 +1517,7 @@ export default function EvolvingChessPage() {
               return;
           }
 
-          if (isAwaitingAnvilDrop || isAwaitingHolyShield) {
+          if (isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe) {
               setIsMoveProcessing(false);
               clickGuardRef.current = false;
               return;
@@ -1791,6 +1792,25 @@ export default function EvolvingChessPage() {
                 setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
             }
         } 
+
+        if (!enteringSpecialMode && newStreak >= 5 && (killStreaks[capturingPlayer] || 0) < 5) {
+            const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === capturingPlayer);
+            if (hasArcher) {
+                enteringSpecialMode = true;
+                const snipeCtx = {
+                    boardForNextStep: finalBoardStateForTurn,
+                    playerWhoseTurnCompleted: capturingPlayer,
+                    isExtraTurn: combinedExtraTurn,
+                    newEnPassantTarget: nextEnPassantTarget,
+                };
+                setArcherSnipeContext(snipeCtx);
+                if (isPawnPromotingMove) {
+                } else {
+                    setIsAwaitingArcherSnipe(true);
+                    setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                }
+            }
+        }
         
         if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
@@ -1960,7 +1980,8 @@ export default function EvolvingChessPage() {
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
-    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor
+    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor,
+    isAwaitingArcherSnipe, archerSnipeContext
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -2063,6 +2084,22 @@ export default function EvolvingChessPage() {
             }
         }
 
+        if (!enteringSpecialMode && currentStreakForPromotingPlayer >= 5) {
+            const hasArcher = boardToUpdate.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === pawnColor);
+            if (hasArcher) {
+                enteringSpecialMode = true;
+                const snipeCtx = {
+                    boardForNextStep: boardToUpdate,
+                    playerWhoseTurnCompleted: pawnColor,
+                    isExtraTurn: combinedExtraTurn,
+                    newEnPassantTarget: enPassantTargetSquare,
+                };
+                setArcherSnipeContext(snipeCtx);
+                setIsAwaitingArcherSnipe(true);
+                setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+            }
+        }
+
         if (!enteringSpecialMode && anvilDropAfterPromotion) {
             setAnvilDropAfterPromotion(false);
             enteringSpecialMode = true;
@@ -2128,7 +2165,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield
+    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe
   ]);
 
 
@@ -2153,7 +2190,7 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield ) {
+    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe) {
       console.log("[AI_LOOP] AI turn skipped due to game state:", { gameOver: gameInfo.gameOver, isPromotingPawn, isMoveProcessing });
       setIsAiThinking(false);
       return;
@@ -2699,12 +2736,12 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -2887,7 +2924,7 @@ export default function EvolvingChessPage() {
   }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
-    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield) {
+    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe) {
       toast({ title: "Undo Failed", description: "Undo is disabled in online games and during special turns.", duration: 8000 });
       return;
     }
@@ -2905,7 +2942,7 @@ export default function EvolvingChessPage() {
     let playableStatesFound = 0;
     for (let i = historyStack.length - 1; i >= 0; i--) {
         const state = historyStack[i];
-        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield) {
+        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield && !state.isAwaitingArcherSnipe) {
             playableStatesFound++;
             if (playableStatesFound >= turnsToUndo) {
                 targetIndex = i;
@@ -2917,7 +2954,7 @@ export default function EvolvingChessPage() {
     if (targetIndex === -1 && playableStatesFound > 0) {
         for (let i = historyStack.length - 1; i >= 0; i--) {
             const state = historyStack[i];
-            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield) {
+            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield && !state.isAwaitingArcherSnipe) {
                 targetIndex = i;
                 break;
             }
@@ -3014,6 +3051,9 @@ export default function EvolvingChessPage() {
       setIsAwaitingHolyShield(stateToRestore.isAwaitingHolyShield || false);
       setShieldContext(stateToRestore.shieldContext || null);
 
+      setIsAwaitingArcherSnipe(stateToRestore.isAwaitingArcherSnipe || false);
+      setArcherSnipeContext(stateToRestore.archerSnipeContext || null);
+
       toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
     } else {
       setLastMoveFrom(null);
@@ -3034,7 +3074,7 @@ export default function EvolvingChessPage() {
     setShroomSpawnCounter, setNextShroomSpawnTurn,
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
     setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare, isAwaitingAnvilDrop,
-    isAwaitingHolyShield, shieldContext,
+    isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
   ]);
 
 
@@ -3111,6 +3151,22 @@ export default function EvolvingChessPage() {
             }
             break;
         }
+        case 'awaiting-archer-snipe': {
+            const { fullGameState, player } = data;
+            if (!fullGameState) return;
+
+            applyServerGameState(fullGameState);
+            setIsMoveProcessing(false); 
+            clickGuardRef.current = false;
+
+            setIsAwaitingArcherSnipe(true);
+            if (player === localPlayerColor) {
+              setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy."}));
+            } else {
+              setGameInfo(prev => ({...prev, message: `ARCHER SNIPE! ${getPlayerDisplayName(player)} is aiming...`}));
+            }
+            break;
+        }
         case 'awaiting-anvil-drop': {
             const { fullGameState, player } = data;
             if (!fullGameState) return;
@@ -3136,6 +3192,7 @@ export default function EvolvingChessPage() {
             applyServerGameState(data.fullGameState, data.lastPlayer);
             setIsAwaitingAnvilDrop(false);
             setPlayerToDropAnvil(null);
+            setIsAwaitingArcherSnipe(false);
             
             if (data.conversionEvents && data.conversionEvents.length > 0) {
               data.conversionEvents.forEach((event: ConversionEvent) => {
@@ -3438,10 +3495,10 @@ export default function EvolvingChessPage() {
           <div className="w-full">
             <ChessBoard
               boardState={board}
-              selectedSquare={isAwaitingAnvilDrop ? null : selectedSquare}
-              possibleMoves={isAwaitingAnvilDrop ? [] : possibleMoves}
-              enemySelectedSquare={isAwaitingAnvilDrop ? null : enemySelectedSquare}
-              enemyPossibleMoves={isAwaitingAnvilDrop ? [] : enemyPossibleMoves}
+              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : selectedSquare}
+              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? [] : possibleMoves}
+              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : enemySelectedSquare}
+              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -3450,8 +3507,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={isAwaitingAnvilDrop ? null : lastMoveFrom}
-              lastMoveTo={isAwaitingAnvilDrop ? null : lastMoveTo}
+              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveFrom}
+              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -3463,6 +3520,7 @@ export default function EvolvingChessPage() {
               isAwaitingAnvilDrop={isAwaitingAnvilDrop}
               playerToDropAnvil={playerToDropAnvil}
               isAwaitingHolyShield={isAwaitingHolyShield}
+              isAwaitingArcherSnipe={isAwaitingArcherSnipe}
             />
           </div>
           
@@ -3514,7 +3572,7 @@ export default function EvolvingChessPage() {
                 <Trophy /> L.board
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield} aria-label="Undo Move" className="h-7 px-2 text-xs">
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe} aria-label="Undo Move" className="h-7 px-2 text-xs">
               <Undo2 /> Undo
             </Button>
           </div>
@@ -3619,10 +3677,10 @@ export default function EvolvingChessPage() {
         <div className="w-full max-lg">
           <ChessBoard
               boardState={board}
-              selectedSquare={isAwaitingAnvilDrop ? null : selectedSquare}
-              possibleMoves={isAwaitingAnvilDrop ? [] : possibleMoves}
-              enemySelectedSquare={isAwaitingAnvilDrop ? null : enemySelectedSquare}
-              enemyPossibleMoves={isAwaitingAnvilDrop ? [] : enemyPossibleMoves}
+              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : selectedSquare}
+              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? [] : possibleMoves}
+              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : enemySelectedSquare}
+              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -3631,8 +3689,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={isAwaitingAnvilDrop ? null : lastMoveFrom}
-              lastMoveTo={isAwaitingAnvilDrop ? null : lastMoveTo}
+              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveFrom}
+              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -3644,6 +3702,7 @@ export default function EvolvingChessPage() {
               isAwaitingAnvilDrop={isAwaitingAnvilDrop}
               playerToDropAnvil={playerToDropAnvil}
               isAwaitingHolyShield={isAwaitingHolyShield}
+              isAwaitingArcherSnipe={isAwaitingArcherSnipe}
           />
         </div>
       </div>
@@ -3682,7 +3741,7 @@ export default function EvolvingChessPage() {
                   <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe} aria-label="Undo Move" className="h-7 px-2 text-xs">
                 <Undo2 /> Undo
               </Button>
             </div>

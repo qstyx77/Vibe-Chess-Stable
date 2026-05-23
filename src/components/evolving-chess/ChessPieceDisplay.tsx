@@ -1,7 +1,7 @@
 import type { Piece, ViewMode, PlayerColor } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
-import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon } from './IconLibrary';
+import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon, BowIcon } from './IconLibrary';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
@@ -12,6 +12,7 @@ interface ChessPieceDisplayProps {
   isCommanderPromoTarget?: boolean;
   isPromoting?: boolean;
   isConverting?: boolean;
+  isSnipeTarget?: boolean;
 }
 
 export function ChessPieceDisplay({
@@ -23,6 +24,7 @@ export function ChessPieceDisplay({
   isCommanderPromoTarget = false,
   isPromoting = false,
   isConverting = false,
+  isSnipeTarget = false,
 }: ChessPieceDisplayProps) {
   let unicode = getPieceUnicode(piece);
   
@@ -30,6 +32,8 @@ export function ChessPieceDisplay({
     unicode = piece.color === 'white' ? '♗' : '♝';
   } else if (piece.type === 'palace') {
     unicode = piece.color === 'white' ? '♖' : '♜';
+  } else if (piece.type === 'archer') {
+    unicode = piece.color === 'white' ? '♘' : '♞';
   }
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
@@ -61,7 +65,7 @@ export function ChessPieceDisplay({
         className={cn(
           "relative flex items-center justify-center w-full h-full",
           pieceColorClass,
-          (isSacrificeTarget || isCommanderPromoTarget) && "animate-pulse",
+          (isSacrificeTarget || isCommanderPromoTarget || isSnipeTarget) && "animate-pulse",
           isPromoting && "animate-ping",
           animationClass,
           "origin-bottom"
@@ -101,6 +105,18 @@ export function ChessPieceDisplay({
             }}
           >
             <CastleIcon className="w-4 h-4 text-primary" />
+          </span>
+        )}
+
+        {piece.type === 'archer' && (
+          <span
+            className="absolute text-sm leading-none z-[2]"
+            style={{
+              top: '0.1rem',
+              left: '0.1rem',
+            }}
+          >
+            <BowIcon className="w-4 h-4 text-primary" />
           </span>
         )}
 

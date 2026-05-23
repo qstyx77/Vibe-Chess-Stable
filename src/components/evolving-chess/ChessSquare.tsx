@@ -32,6 +32,7 @@ interface ChessSquareProps {
   isPromoting: boolean;
   isConverting: boolean;
   isShieldTarget?: boolean;
+  isSnipeTarget?: boolean;
 }
 
 export function ChessSquare({
@@ -59,6 +60,7 @@ export function ChessSquare({
   isPromoting,
   isConverting,
   isShieldTarget = false,
+  isSnipeTarget = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -98,9 +100,11 @@ export function ChessSquare({
     selectionRingClass = 'ring-2 ring-inset ring-blue-600';
   } else if (isShieldTarget) {
     selectionRingClass = 'ring-4 ring-inset ring-white animate-pulse';
+  } else if (isSnipeTarget) {
+    selectionRingClass = 'ring-4 ring-inset ring-primary animate-pulse';
   }
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget;
 
 
   return (
@@ -155,6 +159,7 @@ export function ChessSquare({
             isCommanderPromoTarget={isCommanderPromoTarget}
             isPromoting={isPromoting}
             isConverting={isConverting}
+            isSnipeTarget={isSnipeTarget}
           />
         </div>
       )}

@@ -34,6 +34,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       break;
     case 'knight':
     case 'hero':
+    case 'archer':
       if (l >= 1) abilities.push("Standard L-shape move.");
       if (l >= 2) abilities.push("Can move 1 square cardinally.");
       if (l >= 3) abilities.push("Can jump 3 squares cardinally.");
@@ -43,13 +44,16 @@ const getPieceAbilities = (piece: Piece): string[] => {
           abilities.push("Hero's Rallying Cry on capture (levels up all other pieces).");
           abilities.push("Queen Hunter.");
       }
+      if (type === 'archer') {
+          abilities.push("Archer Snipe: KS 5 grants global Level 1 capture.");
+      }
       break;
     case 'bishop':
     case 'archbishop':
       if (l >= 1) abilities.push("Standard diagonal move.");
       if (l >= 2) abilities.push("Phase through friendly pieces.");
       if (l >= 3) abilities.push("Immune to Pawn/Commander/Infiltrator capture.");
-      if (l >= 4) abilities.push("Swap with friendly Knight/Hero.");
+      if (l >= 4) abilities.push("Swap with friendly Knight/Hero/Archer.");
       if (l >= 5) abilities.push("50% chance to Convert adjacent enemies.");
       if (type === 'archbishop') {
         abilities.push("Holy Shield: KS 2 grants protection to an ally.");
