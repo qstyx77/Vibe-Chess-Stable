@@ -45,6 +45,29 @@ export function applyArchbishop(board: BoardState, player: PlayerColor): BoardSt
   return board;
 }
 
+export function applyPalace(board: BoardState, player: PlayerColor): BoardState {
+  const rooks: {r: number, c: number}[] = [];
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c].piece;
+      if (p && p.type === 'rook' && p.color === player) {
+        rooks.push({r, c});
+      }
+    }
+  }
+  if (rooks.length > 0) {
+    const chosen = rooks[Math.floor(Math.random() * rooks.length)];
+    const original = board[chosen.r][chosen.c].piece!;
+    board[chosen.r][chosen.c].piece = {
+      ...original,
+      type: 'palace',
+      id: `${original.id}_Palace`,
+      isShielded: false
+    };
+  }
+  return board;
+}
+
 export function algebraicToCoords(algebraic: AlgebraicSquare): { row: number, col: number } {
   const col = algebraic.charCodeAt(0) - 97;
   const row = 8 - parseInt(algebraic[1]);
@@ -64,6 +87,7 @@ function getPieceChar(piece: Piece | null): string {
     case 'knight': char = 'N'; break;
     case 'bishop': char = 'B'; break;
     case 'rook': char = 'R'; break;
+    case 'palace': char = 'R'; break;
     case 'queen': char = 'Q'; break;
     case 'king': char = 'K'; break;
     case 'hero': char = 'H'; break;
@@ -79,13 +103,13 @@ export function getCastlingRightsString(board: BoardState): string {
   let rights = "";
   const wKingSquare = board[7]?.[4];
   if (wKingSquare?.piece?.type === 'king' && wKingSquare.piece.color === 'white' && !wKingSquare.piece.hasMoved) {
-    if (board[7]?.[7]?.piece?.type === 'rook' && !board[7][7].piece.hasMoved) rights += "K";
-    if (board[7]?.[0]?.piece?.type === 'rook' && !board[7][0].piece.hasMoved) rights += "Q";
+    if ((board[7]?.[7]?.piece?.type === 'rook' || board[7]?.[7]?.piece?.type === 'palace') && !board[7][7].piece.hasMoved) rights += "K";
+    if ((board[7]?.[0]?.piece?.type === 'rook' || board[7]?.[0]?.piece?.type === 'palace') && !board[7][0].piece.hasMoved) rights += "Q";
   }
   const bKingSquare = board[0]?.[4];
   if (bKingSquare?.piece?.type === 'king' && bKingSquare.piece.color === 'black' && !bKingSquare.piece.hasMoved) {
-    if (board[0]?.[7]?.piece?.type === 'rook' && !board[0][7].piece.hasMoved) rights += "k";
-    if (board[0]?.[0]?.piece?.type === 'rook' && !board[0][0].piece.hasMoved) rights += "q";
+    if ((board[0]?.[7]?.piece?.type === 'rook' || board[0]?.[7]?.piece?.type === 'palace') && !board[0][7].piece.hasMoved) rights += "k";
+    if ((board[0]?.[0]?.piece?.type === 'rook' || board[0]?.[0]?.piece?.type === 'palace') && !board[0][0].piece.hasMoved) rights += "q";
   }
   return rights.length === 0 ? "-" : rights;
 }
@@ -194,7 +218,7 @@ function getPossibleMovesInternal(
         const kingRow = pieceColor === 'white' ? 7 : 0;
         if (fromRow === kingRow && fromCol === 4) {
             const krSquare = board[kingRow]?.[7];
-            if (krSquare?.piece?.type === 'rook' && !krSquare.piece.hasMoved &&
+            if ((krSquare?.piece?.type === 'rook' || krSquare?.piece?.type === 'palace') && !krSquare.piece.hasMoved &&
                 !board[kingRow]?.[5]?.piece && (!board[kingRow]?.[5]?.item || board[kingRow]?.[5]?.item?.type === 'shroom') &&
                 !board[kingRow]?.[6]?.piece && (!board[kingRow]?.[6]?.item || board[kingRow]?.[6]?.item?.type === 'shroom')
                 ) {
@@ -205,7 +229,7 @@ function getPossibleMovesInternal(
                 }
             }
             const qrSquare = board[kingRow]?.[0];
-            if (qrSquare?.piece?.type === 'rook' && !qrSquare.piece.hasMoved &&
+            if ((qrSquare?.piece?.type === 'rook' || qrSquare?.piece?.type === 'palace') && !qrSquare.piece.hasMoved &&
                 !board[kingRow]?.[1]?.piece && (!board[kingRow]?.[1]?.item || board[kingRow]?.[1]?.item?.type === 'shroom') &&
                 !board[kingRow]?.[2]?.piece && (!board[kingRow]?.[2]?.item || board[kingRow]?.[2]?.item?.type === 'shroom') &&
                 !board[kingRow]?.[3]?.piece && (!board[kingRow]?.[3]?.item || board[kingRow]?.[3]?.item?.type === 'shroom')
@@ -263,6 +287,27 @@ function getPossibleMovesInternal(
                           break;
                       }
                   }
+              }
+          }
+      });
+  } else if (piece.type === 'rook' || piece.type === 'palace') {
+      const dirs: [number, number][] = [[0,1], [0,-1], [1,0], [-1,0]];
+      dirs.forEach(([dr, dc]) => {
+          for (let i = 1; i < 8; i++) {
+              const R = fromRow + i * dr; const C = fromCol + i * dc;
+              if (!isValidSquare(R, C)) break;
+              const targetSq = board[R][C];
+              if (targetSq.item && targetSq.item.type !== 'shroom') break;
+              const targetP = targetSq.piece;
+              if (!targetP) {
+                  possible.push(coordsToAlgebraic(R, C));
+              } else {
+                  if (targetP.color !== pieceColor) {
+                      if (!isPieceInvulnerableToAttack(targetP, piece)) {
+                          possible.push(coordsToAlgebraic(R, C));
+                      }
+                  }
+                  break;
               }
           }
       });
@@ -508,7 +553,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
                     board[fromRow + 2 * step]?.[fromCol]?.piece || (board[fromRow + 2 * step]?.[fromCol]?.item && board[fromRow + 2 * step]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
                 const step = Math.sign(toCol - fromCol);
-                if (board[fromRow]?.[fromCol + step]?.piece || (board[fromRow]?.[fromCol + step]?.item && board[fromRow]?.[fromCol + step]?.item?.type !== 'shroom') ||
+                if (board[fromRow]?.[fromCol + step]?.piece || (board[fromRow]?.[fromCol + step]?.item && board[fromRow]?.[col + step]?.item?.type !== 'shroom') ||
                     board[fromRow]?.[fromCol + 2 * step]?.piece || (board[fromRow]?.[fromCol + 2 * step]?.item && board[fromRow]?.[fromCol + 2 * step]?.item?.type !== 'shroom')) return false;
             }
             return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
@@ -516,6 +561,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       return false;
     case 'rook':
+    case 'palace':
       if (fromRow !== toRow && fromCol !== toCol) return false;
       if (fromRow === toRow) {
         const step = toCol > fromCol ? 1 : -1;
@@ -789,7 +835,10 @@ export function applyMove(
       const rookOriginalCol = toCol > fromCol ? 7 : 0;
       const rookTargetCol = toCol > fromCol ? 5 : 3;
       const rookSquareData = newBoard[kingRow]?.[rookOriginalCol];
-      if (rookSquareData?.piece && rookSquareData.piece.type === 'rook' && rookSquareData.piece.color === pieceNowOnToSquare.color) {
+      if (rookSquareData?.piece && (rookSquareData.piece.type === 'rook' || rookSquareData.piece.type === 'palace') && rookSquareData.piece.color === pieceNowOnToSquare.color) {
+        if (rookSquareData.piece.type === 'palace') {
+            pieceNowOnToSquare.level = (pieceNowOnToSquare.level || 1) + 1;
+        }
         const movedRookPiece = { ...rookSquareData.piece, hasMoved: true, isShielded: false };
         newBoard[kingRow][rookTargetCol].piece = movedRookPiece;
         newBoard[kingRow][rookOriginalCol].piece = null;
@@ -817,6 +866,7 @@ export function applyMove(
       case 'bishop': levelGain = 2; break;
       case 'archbishop': levelGain = 2; break;
       case 'rook': levelGain = 2; break;
+      case 'palace': levelGain = 2; break;
       case 'queen': levelGain = 3; break;
       case 'king': levelGain = 1; break;
       case 'infiltrator': levelGain = 1; break;
@@ -884,6 +934,7 @@ export function applyMove(
             case 'bishop':
             case 'archbishop':
             case 'rook':
+            case 'palace':
             case 'hero':
                 finalPromotionLevel = 3; break;
         }
@@ -1189,6 +1240,7 @@ export function getPieceUnicode(piece: Piece): string {
     case 'king': return isWhite ? '♔' : '♚';
     case 'queen': return isWhite ? '♕' : '♛';
     case 'rook': return isWhite ? '♖' : '♜';
+    case 'palace': return isWhite ? '♖' : '♜';
     case 'bishop': return isWhite ? '♗' : '♝';
     case 'archbishop': return '🙏';
     case 'knight': return isWhite ? '♘' : '♞';
@@ -1268,12 +1320,12 @@ export function processRookResurrectionCheck(
   const { row: rookR, col: rookC } = algebraicToCoords(rookSquareAfterMove);
   const rookOnBoard = boardWithResurrection[rookR]?.[rookC]?.piece;
 
-  if (!rookOnBoard || rookOnBoard.type !== 'rook' || rookOnBoard.color !== playerWhosePieceLeveled) {
+  if (!rookOnBoard || (rookOnBoard.type !== 'rook' && rookOnBoard.type !== 'palace') || rookOnBoard.color !== playerWhosePieceLeveled) {
     return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, newResurrectionIdCounter: nextResurrectionIdCounter };
   }
 
   const newRookLevel = Number(rookOnBoard.level || 1);
-  const oldLevelOfThisPieceType = (rookMove?.type === 'promotion' && rookMove?.promoteTo === 'rook')
+  const oldLevelOfThisPieceType = (rookMove?.type === 'promotion' && (rookMove?.promoteTo === 'rook' || rookMove?.promoteTo === 'palace'))
     ? 0
     : (Number(originalLevelOfPiece || 0));
 
@@ -1283,8 +1335,8 @@ export function processRookResurrectionCheck(
 
     if (piecesToChooseFrom.length > 0) {
       piecesToChooseFrom.sort((a, b) => {
-        const valueA = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, archbishop: 3, rook: 5, queen: 9, king: 0, infiltrator: 1}[a.type] || 0;
-        const valueB = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, archbishop: 3, rook: 5, queen: 9, king: 0, infiltrator: 1}[b.type] || 0;
+        const valueA = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, archbishop: 3, rook: 5, palace: 6, queen: 9, king: 0, infiltrator: 1}[a.type] || 0;
+        const valueB = {pawn: 1, commander: 1, hero: 3, knight: 3, bishop: 3, archbishop: 3, rook: 5, palace: 6, queen: 9, king: 0, infiltrator: 1}[b.type] || 0;
         return valueB - valueA;
       });
       const pieceToResurrectOriginal = piecesToChooseFrom[0];
@@ -1307,9 +1359,9 @@ export function processRookResurrectionCheck(
 
         const resurrectedPieceData: Piece = {
           ...pieceToResurrectOriginal,
-          level: 1,
+          level: rookOnBoard.type === 'palace' ? pieceToResurrectOriginal.level : 1,
           id: `${pieceToResurrectOriginal.id}_res_${nextResurrectionIdCounter}_${Date.now()}`,
-          hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' ? false : pieceToResurrectOriginal.hasMoved,
+          hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved,
           invulnerableTurnsRemaining: 0,
           isShielded: false
         };

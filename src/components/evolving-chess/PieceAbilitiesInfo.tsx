@@ -56,8 +56,13 @@ const getPieceAbilities = (piece: Piece): string[] => {
       }
       break;
     case 'rook':
+    case 'palace':
       abilities.push("Standard horizontal/vertical move.");
       if (l >= 4) abilities.push("Resurrects piece on level up via capture.");
+      if (type === 'palace') {
+        abilities.push("Master Resurrector: Allies return at their original level.");
+        abilities.push("Royal Sanctuary: Castling levels up the King.");
+      }
       break;
     case 'queen':
       abilities.push("Standard Queen movement.");

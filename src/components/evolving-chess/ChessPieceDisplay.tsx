@@ -1,7 +1,7 @@
 import type { Piece, ViewMode, PlayerColor } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
-import { StarIcon, SkullIcon, PrayerHandsIcon } from './IconLibrary';
+import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon } from './IconLibrary';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
@@ -28,6 +28,8 @@ export function ChessPieceDisplay({
   
   if (piece.type === 'archbishop') {
     unicode = piece.color === 'white' ? '♗' : '♝';
+  } else if (piece.type === 'palace') {
+    unicode = piece.color === 'white' ? '♖' : '♜';
   }
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
@@ -87,6 +89,18 @@ export function ChessPieceDisplay({
             }}
           >
             <PrayerHandsIcon className="w-4 h-4 text-primary" />
+          </span>
+        )}
+
+        {piece.type === 'palace' && (
+          <span
+            className="absolute text-sm leading-none z-[2]"
+            style={{
+              top: '0.1rem',
+              left: '0.1rem',
+            }}
+          >
+            <CastleIcon className="w-4 h-4 text-primary" />
           </span>
         )}
 
