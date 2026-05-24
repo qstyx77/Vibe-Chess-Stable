@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1528,7 +1529,7 @@ export default function EvolvingChessPage() {
         }
 
         if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
-            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
+            let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
               if (pieceToResurrectOriginal) {
@@ -2767,7 +2768,7 @@ export default function EvolvingChessPage() {
               } else if (isAICommanderPromoting) {
                     const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
-                        finalBoardStateForAI[promoR][commaC].piece!.type = 'hero';
+                        finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
@@ -2851,15 +2852,17 @@ export default function EvolvingChessPage() {
   }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
 
   useEffect(() => {
-    if (gameInfo.gameOver && gameInfo.winner && localPlayerColor !== null) {
+    if (gameInfo.gameOver && gameInfo.winner) {
         const isResignation = gameInfo.message.includes('resigned');
         const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
         const delay = hasPrimaryAnnouncement ? 2700 : (isResignation ? 1000 : 1500);
         const timerId = setTimeout(() => {
-            if (gameInfo.winner === localPlayerColor) {
-                setShowWinScreen(true);
-            } else if (gameInfo.winner !== 'draw' && gameInfo.winner !== undefined) {
-                setShowLossScreen(true);
+            if (localPlayerColor !== null) {
+                if (gameInfo.winner === localPlayerColor) {
+                    setShowWinScreen(true);
+                } else if (gameInfo.winner !== 'draw' && gameInfo.winner !== undefined) {
+                    setShowLossScreen(true);
+                }
             }
             setShowSummary(true);
         }, delay + 1000);
