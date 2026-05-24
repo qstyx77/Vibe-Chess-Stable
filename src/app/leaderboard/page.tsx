@@ -2,8 +2,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, limit, getFirestore } from 'firebase/firestore';
+import { useFirestore, useCollection, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
+import { collection, query, orderBy, limit, getFirestore, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -30,6 +30,19 @@ export default function LeaderboardPage() {
   }, [firestore]);
 
   const { data: topPlayers, isLoading, error } = useCollection<UserData>(usersQuery);
+
+  // TEMPORARY: Playtest Sync Logic
+  // Sets ELO to 2100 for anyone appearing on the leaderboard to test unlockable pieces
+  useEffect(() => {
+    if (topPlayers && topPlayers.length > 0 && firestore) {
+      topPlayers.forEach(player => {
+        if (player.eloRating !== 2100) {
+          const userRef = doc(firestore, 'users', player.id);
+          updateDocumentNonBlocking(userRef, { eloRating: 2100 });
+        }
+      });
+    }
+  }, [topPlayers, firestore]);
 
   return (
     <div className="container mx-auto p-4 max-w-2xl">
