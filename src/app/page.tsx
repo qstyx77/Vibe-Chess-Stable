@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -127,7 +126,7 @@ function adaptBoardForAI(
 
 
 export default function EvolvingChessPage() {
-  const { user, userData } = useUser();
+  const { user, userData, isUserLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -574,6 +573,18 @@ export default function EvolvingChessPage() {
     setEloResult(null);
     setShowSummary(false);
   }, [userData]);
+
+  // Reset board on login to account for ELO and unlocked pieces
+  const loginResetRef = useRef(false);
+  useEffect(() => {
+    if (!isUserLoading && user && userData && !loginResetRef.current) {
+      fullGameReset();
+      loginResetRef.current = true;
+    }
+    if (!user) {
+      loginResetRef.current = false;
+    }
+  }, [user, userData, isUserLoading, fullGameReset]);
 
   const disconnectAndReset = useCallback(() => {
     if (wsRef.current) {
