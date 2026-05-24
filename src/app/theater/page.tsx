@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -50,38 +51,64 @@ export default function TheaterPage() {
       })));
 
       try {
-        if (token.includes('🛡️')) {
-          const match = token.match(/([a-h][1-8])/);
+        if (token.includes('[Spawn]🍄@')) {
+          const match = token.match(/@([a-h][1-8])/);
+          if (match) {
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            nextBoard[row][col].item = { type: 'shroom' };
+          }
+        } else if (token.includes('🛡️')) {
+          const match = token.match(/>([a-h][1-8])/);
           if (match) {
             const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
             if (nextBoard[row][col].piece) nextBoard[row][col].piece!.isShielded = true;
           }
         } else if (token.includes('[A]@')) {
-          const match = token.match(/([a-h][1-8])/);
+          const match = token.match(/@([a-h][1-8])/);
           if (match) {
             const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
             nextBoard[row][col].item = { type: 'anvil' };
           }
         } else if (token.includes('+^')) {
-          const match = token.match(/([A-Z]{0,2})\(L(\d)\)@?([a-h][1-8])/);
+          const match = token.match(/([A-Z]{0,2})\(L(\d)\)@([a-h][1-8])/);
           if (match) {
             const [_, typeKey, levelStr, dest] = match;
             const type = PIECE_TYPES[typeKey] || 'pawn';
             const level = parseInt(levelStr);
             const { row, col } = algebraicToCoords(dest as AlgebraicSquare);
             nextBoard[row][col].piece = { id: `res_${Date.now()}_${Math.random()}`, type, color: player, level, hasMoved: true, isShielded: false };
-          } else {
-             const fallbackMatch = token.match(/([a-h][1-8])/);
-             if (fallbackMatch) {
-                const { row, col } = algebraicToCoords(fallbackMatch[1] as AlgebraicSquare);
-                nextBoard[row][col].piece = { id: `res_${Date.now()}_${Math.random()}`, type: 'pawn', color: player, level: 1, hasMoved: true, isShielded: false };
-             }
           }
-        } else if (token.includes('!!!')) {
+        } else if (token.includes('[Sacrifice]@')) {
           const match = token.match(/@([a-h][1-8])/);
           if (match) {
             const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
             nextBoard[row][col].piece = null;
+          }
+        } else if (token.includes('[Promo-C]@')) {
+          const match = token.match(/@([a-h][1-8])/);
+          if (match) {
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            if (nextBoard[row][col].piece) nextBoard[row][col].piece!.type = 'commander';
+          }
+        } else if (token.includes('!!!')) {
+          const match = token.match(/([a-h][1-8])!!!/);
+          if (match) {
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            nextBoard[row][col].piece = null;
+            // Explosion radius removal
+            for (let dr = -1; dr <= 1; dr++) {
+              for (let dc = -1; dc <= 1; dc++) {
+                if (isValidSquare(row + dr, col + dc)) {
+                  const target = nextBoard[row + dr][col + dc];
+                  if (target.piece && target.piece.color !== player && target.piece.type !== 'king') {
+                    nextBoard[row + dr][col + dc].piece = null;
+                  }
+                  if (target.item?.type === 'anvil') {
+                    nextBoard[row + dr][col + dc].item = null;
+                  }
+                }
+              }
+            }
           }
         } else if (token.includes('O-O')) {
           const kingRow = player === 'white' ? 7 : 0;
@@ -99,28 +126,28 @@ export default function TheaterPage() {
               nextBoard[kingRow][newRookCol].piece = { ...rook, hasMoved: true };
               nextBoard[kingRow][oldRookCol].piece = null;
           }
-        } else {
-          // Move logic: [Piece](L#)[x]Dest
-          const match = token.match(/^([A-Z]{0,2})\(L(\d)\)(x?)([a-h][1-8])/);
+        } else if (token.includes('[AR-Snipe]')) {
+          const match = token.match(/x([a-h][1-8])/);
           if (match) {
-            const [_, typeKey, levelStr, isCapture, dest] = match;
-            const type = PIECE_TYPES[typeKey] || 'pawn';
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            nextBoard[row][col].piece = null;
+          }
+        } else {
+          // Deterministic Move Logic: Piece(Level)Source[x|-]Dest
+          const match = token.match(/^([A-Z]{0,2})\(L(\d)\)([a-h][1-8])([x-])([a-h][1-8])/);
+          if (match) {
+            const [_, typeKey, levelStr, from, sep, to] = match;
             const level = parseInt(levelStr);
-            const { row: toR, col: toC } = algebraicToCoords(dest as AlgebraicSquare);
-            
-            let fromR = -1, fromC = -1;
-            for (let r = 0; r < 8; r++) {
-              for (let c = 0; c < 8; c++) {
-                const p = nextBoard[r][c].piece;
-                if (p && p.color === player && p.type === type) {
-                  fromR = r; fromC = c; break; 
-                }
-              }
-              if (fromR !== -1) break;
-            }
+            const { row: fromR, col: fromC } = algebraicToCoords(from as AlgebraicSquare);
+            const { row: toR, col: toC } = algebraicToCoords(to as AlgebraicSquare);
 
-            if (fromR !== -1) {
-              const movingPiece = nextBoard[fromR][fromC].piece!;
+            const movingPiece = nextBoard[fromR][fromC].piece;
+            if (movingPiece) {
+              // Consume shroom if landing on one
+              if (nextBoard[toR][toC].item?.type === 'shroom') {
+                nextBoard[toR][toC].item = null;
+              }
+              // Set the state at destination
               nextBoard[toR][toC].piece = { ...movingPiece, level, hasMoved: true, isShielded: false };
               nextBoard[fromR][fromC].piece = null;
             }
@@ -133,7 +160,8 @@ export default function TheaterPage() {
       board = nextBoard;
       snapshots.push(board);
       
-      if (!token.includes('!!')) {
+      // Update player turn only if it's not an extra turn event or environment event
+      if (!token.includes('!!') && !token.includes('[Spawn]🍄@') && !token.includes('[A]@') && !token.includes('🛡️')) {
         player = player === 'white' ? 'black' : 'white';
       }
     }
@@ -235,7 +263,7 @@ export default function TheaterPage() {
               <Send className="mr-2 h-4 w-4" /> Reconstruct Match
             </Button>
             <p className="text-[10px] text-muted-foreground text-center italic">
-              Theater Mode uses a simplified rendering engine. Some visual effects may be approximated.
+              Theater Mode uses VCN v2 with explicit source tracking for high accuracy reconstruction.
             </p>
           </CardContent>
         </Card>

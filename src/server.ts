@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -449,7 +450,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (piece) {
                             piece.isShielded = true;
                             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.shieldContext;
-                            room.gameState.lastVCNMove = `🛡️${data.square}`;
+                            const abPos = room.gameState.board.flat().find((sq: any) => sq.piece?.type === 'archbishop' && sq.piece.color === playerWhoseTurnCompleted)?.algebraic || '??';
+                            room.gameState.lastVCNMove = `🛡️@${abPos}>${data.square}`;
                             delete room.gameState.shieldContext;
                             finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
                         }
@@ -461,14 +463,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const targetPiece = room.gameState.board[row]?.[col]?.piece;
                         if (targetPiece) {
                             const movingPlayer = room.gameState.currentPlayer;
-                            const archer = room.gameState.board.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)?.piece;
-                            if (archer) {
-                                archer.level += 2;
+                            const archerSq = room.gameState.board.flat().find((sq: any) => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer);
+                            if (archerSq?.piece) {
+                                archerSq.piece.level += 2;
                             }
                             room.gameState.capturedPieces[movingPlayer].push(targetPiece);
                             room.gameState.board[row][col].piece = null;
                             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.archerSnipeContext;
-                            room.gameState.lastVCNMove = `[AR-Snipe]x${data.square}`;
+                            room.gameState.lastVCNMove = `[AR-Snipe]@${archerSq?.algebraic || '??'}x${data.square}`;
                             delete room.gameState.archerSnipeContext;
                             finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
                         }
@@ -533,14 +535,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
-                        // VCN Logic for standard move
+                        // VCN Logic for standard move (Explicit From-To)
                         const { row: tr, col: tc } = algebraicToCoords(data.payload.to);
                         const landedPiece = newBoard[tr][tc].piece;
                         if (landedPiece) {
                              const char = getVCNChar(landedPiece.type);
                              const level = `(L${landedPiece.level})`;
-                             const sep = capturedPiece ? 'x' : '';
-                             let vcn = `${char}${level}${sep}${data.payload.to}`;
+                             const sep = capturedPiece ? 'x' : '-';
+                             let vcn = `${char}${level}${data.payload.from}${sep}${data.payload.to}`;
                              if (data.payload.type === 'castle') vcn = data.payload.to.startsWith('g') ? 'O-O' : 'O-O-O';
                              if (rest.extraTurn) vcn += '!!';
                              room.gameState.lastVCNMove = vcn;

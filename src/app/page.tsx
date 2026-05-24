@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -320,10 +321,11 @@ export default function EvolvingChessPage() {
 
     const char = getVCNChar(piece.type);
     const level = `(L${piece.level})`;
-    const sep = result.capturedPiece ? 'x' : '';
+    const sep = result.capturedPiece ? 'x' : '-';
     const dest = move.to;
+    const from = move.from;
     
-    let notation = `${char}${level}${sep}${dest}`;
+    let notation = `${char}${level}${from}${sep}${dest}`;
     if (move.type === 'castle') notation = move.to.startsWith('g') ? 'O-O' : 'O-O-O';
     if (result.infiltrationWin) notation += '🚩';
     if (gameInfo.isCheckmate) notation += '#';
@@ -904,6 +906,7 @@ export default function EvolvingChessPage() {
                   toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
                   setShroomSpawnCounter(0);
                   setNextShroomSpawnTurn(newNextTurn);
+                  setVcnLog(prev => [...prev, `[Spawn]🍄@${spawnedAt}`]);
               }
           }
       }
@@ -1056,12 +1059,14 @@ export default function EvolvingChessPage() {
           let pawnSacrificed = false;
           const boardCopyForAISacrifice = boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
           let sacrificedAIPawn: Piece | null = null;
+          let sacrificedPawnPos: AlgebraicSquare | null = null;
 
           for (let r_idx = 0; r_idx < 8; r_idx++) {
             for (let c_idx = 0; c_idx < 8; c_idx++) {
               const pieceAtSquare = boardCopyForAISacrifice[r_idx][c_idx].piece;
               if (pieceAtSquare && (pieceAtSquare.type === 'pawn' || pieceAtSquare.type === 'commander') && pieceAtSquare.color === playerWhoseQueenLeveled) {
                 sacrificedAIPawn = { ...pieceAtSquare, id: `${pieceAtSquare.id}_sac_AI_${globalUniqueIdCounter++}` };
+                sacrificedPawnPos = coordsToAlgebraic(r_idx, c_idx);
                 boardCopyForAISacrifice[r_idx][c_idx].piece = null;
                 pawnSacrificed = true;
                 break;
@@ -1078,7 +1083,7 @@ export default function EvolvingChessPage() {
             }));
           }
           toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn/Commander for L7 Queen!`, duration: 8000 });
-          setVcnLog(prev => [...prev, `[Sacrifice]@${coordsToAlgebraic(toR, toC)}`]);
+          setVcnLog(prev => [...prev, `[Sacrifice]@${sacrificedPawnPos}`]);
           processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
           return false;
         } else {
@@ -1148,7 +1153,8 @@ export default function EvolvingChessPage() {
           setArcherSnipeContext(null);
           
           // VCN Snipe
-          setVcnLog(prev => [...prev, `[AR-Snipe]x${algebraic}`]);
+          const archerPos = board.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer)?.algebraic || '??';
+          setVcnLog(prev => [...prev, `[AR-Snipe]@${archerPos}x${algebraic}`]);
           
           processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -1182,7 +1188,8 @@ export default function EvolvingChessPage() {
           setShieldContext(null);
           
           // VCN Shield
-          setVcnLog(prev => [...prev, `🛡️${algebraic}`]);
+          const abPos = board.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
+          setVcnLog(prev => [...prev, `🛡️@${abPos}>${algebraic}`]);
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -1278,7 +1285,7 @@ export default function EvolvingChessPage() {
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
             
             // VCN Commander
-            setVcnLog(prev => [...prev, `[Promo-C]@${algebraic}`]);
+            setVcnLog(prev => [...prev, `[Promo-C] @${algebraic}`]);
 
             setIsAwaitingCommanderPromotion(false);
             setPlayerWhoGotFirstBlood(null);
@@ -1554,6 +1561,8 @@ export default function EvolvingChessPage() {
                   setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
                   finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
+                  setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedPiece.type)}(L${resurrectedPiece.level})@${randomSquareAlg}`]);
+
                   if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                       setPlayerForPostResurrectionPromotion(selfDestructPlayer);
                       setIsExtraTurnForPostResurrectionPromotion(newStreakForSelfDestructPlayer >= 6);
@@ -1577,10 +1586,10 @@ export default function EvolvingChessPage() {
         }
 
         setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesForAI);
+        setCapturedPieces(finalCapturedPiecesStateForTurn);
 
         // VCN Explosion
-        setVcnLog(prev => [...prev, `${getVCNChar(pieceToMoveFromSelected.type)}(L${pieceToMoveFromSelected.level})!!!@${selectedSquare}${streakGrantsExtraTurn ? '!!' : ''}`]);
+        setVcnLog(prev => [...prev, `${getVCNChar(pieceToMoveFromSelected.type)}(L${pieceToMoveFromSelected.level})${selectedSquare}!!!@${selectedSquare}${streakGrantsExtraTurn ? '!!' : ''}`]);
 
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]);
@@ -2176,7 +2185,7 @@ export default function EvolvingChessPage() {
             if (hasArcher) {
                 enteringSpecialMode = true;
                 const snipeCtx = {
-                    boardForNextStep: boardToUpdate,
+                    boardToUpdate,
                     playerWhoseTurnCompleted: pawnColor,
                     isExtraTurn: combinedExtraTurn,
                     newEnPassantTarget: enPassantTargetSquare,
@@ -2604,7 +2613,9 @@ export default function EvolvingChessPage() {
                          }));
                          const targetAlg = coordsToAlgebraic(shieldChoice.r, shieldChoice.c);
                          toast({ title: "AI Holy Shield!", description: `AI shielded their ${shieldChoice.piece.type}!` });
-                         setVcnLog(prev => [...prev, `🛡️${targetAlg}`]);
+                         
+                         const abPos = finalBoardStateForAI.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
+                         setVcnLog(prev => [...prev, `🛡️@${abPos}>${targetAlg}`]);
                      }
                  }
             }
@@ -2733,7 +2744,7 @@ export default function EvolvingChessPage() {
             
             // VCN AI
             if (moveForApplyMoveAI!.type === 'self-destruct') {
-              setVcnLog(prev => [...prev, `${getVCNChar(pieceOnFromSquareForAI!.type)}(L${pieceOnFromSquareForAI!.level})!!!@${aiFromAlg}${aiExtraTurn ? '!!' : ''}`]);
+              setVcnLog(prev => [...prev, `${getVCNChar(pieceOnFromSquareForAI!.type)}(L${pieceOnFromSquareForAI!.level})${aiFromAlg}!!!@${aiFromAlg}${aiExtraTurn ? '!!' : ''}`]);
             } else {
               addToVCN(moveForApplyMoveAI!, applyMoveResult, currentPlayer, aiExtraTurn);
             }
@@ -3339,6 +3350,7 @@ export default function EvolvingChessPage() {
             setShroomSpawnCounter(0);
             setNextShroomSpawnTurn(nextTurn);
             toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
+            setVcnLog(prev => [...prev, `[Spawn]🍄@${square}`]);
             break;
         }
         case 'forfeit-timeout':
