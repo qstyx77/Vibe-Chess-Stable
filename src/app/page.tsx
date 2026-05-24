@@ -34,7 +34,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -1529,7 +1529,7 @@ export default function EvolvingChessPage() {
         }
 
         if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
-            let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
+            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
               if (pieceToResurrectOriginal) {
@@ -3676,6 +3676,11 @@ export default function EvolvingChessPage() {
             <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
               <BookOpen /> Rules
             </Button>
+            <Link href="/theater">
+              <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
+                <MonitorPlay /> Theater
+              </Button>
+            </Link>
             <Link href="/leaderboard">
               <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
                 <Trophy /> L.board
@@ -3845,6 +3850,11 @@ export default function EvolvingChessPage() {
               <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
                 <BookOpen /> Rules
               </Button>
+              <Link href="/theater">
+                <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
+                  <MonitorPlay /> Theater
+                </Button>
+              </Link>
               <Link href="/leaderboard">
                 <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
                   <Trophy /> L.board
