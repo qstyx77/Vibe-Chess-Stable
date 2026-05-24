@@ -16,7 +16,7 @@ import {
     applyPalace,
     applyArcher,
 } from './lib/chess-utils';
-import type { PlayerColor, Piece, AlgebraicSquare } from './types';
+import type { PlayerColor, Piece, AlgebraicSquare, PieceType } from './types';
 
 
 const server = http.createServer((req, res) => {
@@ -48,6 +48,20 @@ const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'l
     else actualScore = 0.5;
 
     return Math.round(playerElo + K * (actualScore - expectedScore));
+};
+
+const getVCNChar = (type: PieceType) => {
+    switch (type) {
+      case 'commander': return 'C';
+      case 'infiltrator': return 'I';
+      case 'hero': return 'H';
+      case 'archer': return 'AR';
+      case 'archbishop': return 'AB';
+      case 'palace': return 'PL';
+      case 'knight': return 'N';
+      case 'pawn': return '';
+      default: return type.charAt(0).toUpperCase();
+    }
 };
 
 const broadcastToRoom = (roomId: string, message: any) => {
@@ -412,6 +426,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.isAwaitingCommanderPromotion = false;
                             const opponent = piece.color === 'white' ? 'black' : 'white';
                             room.gameState.currentPlayer = opponent;
+                            room.gameState.lastVCNMove = `[Promo-C]@${data.square}`;
                             broadcastToRoom(ws.roomId!, { type: 'commander-promo-finalized', fullGameState: room.gameState, lastPlayer: piece.color });
                             startServerTurnTimer(ws.roomId!);
                         }
@@ -422,6 +437,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const { row, col } = algebraicToCoords(data.square);
                         room.gameState.board[row][col].item = { type: 'anvil' };
                         const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.anvilDropContext;
+                        room.gameState.lastVCNMove = `+[A]@${data.square}`;
                         delete room.gameState.anvilDropContext;
                         finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
                     }
@@ -433,6 +449,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (piece) {
                             piece.isShielded = true;
                             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.shieldContext;
+                            room.gameState.lastVCNMove = `🛡️${data.square}`;
                             delete room.gameState.shieldContext;
                             finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
                         }
@@ -451,6 +468,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.capturedPieces[movingPlayer].push(targetPiece);
                             room.gameState.board[row][col].piece = null;
                             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.archerSnipeContext;
+                            room.gameState.lastVCNMove = `[AR-Snipe]x${data.square}`;
                             delete room.gameState.archerSnipeContext;
                             finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
                         }
@@ -515,6 +533,19 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
+                        // VCN Logic for standard move
+                        const { row: tr, col: tc } = algebraicToCoords(data.payload.to);
+                        const landedPiece = newBoard[tr][tc].piece;
+                        if (landedPiece) {
+                             const char = getVCNChar(landedPiece.type);
+                             const level = `(L${landedPiece.level})`;
+                             const sep = capturedPiece ? 'x' : '';
+                             let vcn = `${char}${level}${sep}${data.payload.to}`;
+                             if (data.payload.type === 'castle') vcn = data.payload.to.startsWith('g') ? 'O-O' : 'O-O-O';
+                             if (rest.extraTurn) vcn += '!!';
+                             room.gameState.lastVCNMove = vcn;
+                        }
+
                         if (caps > 0 && !room.gameState.firstBloodAchieved) {
                             room.gameState.firstBloodAchieved = true;
                             room.gameState.playerWhoGotFirstBlood = movingPlayer;
@@ -529,8 +560,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             return;
                         }
 
-                        const { row: tr, col: tc } = algebraicToCoords(data.payload.to);
-                        const landedPiece = newBoard[tr][tc].piece;
                         const isPromotion = landedPiece && landedPiece.type === 'pawn' && (tr === 0 || tr === 7);
 
                         // Special Mechanics checks (Anvil / Shield / Archer)
@@ -598,7 +627,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {
-                const winner = room.gameState.players.white.userId === ws.userId ? 'black' : 'white';
+                const winner = room.gameState.players.white?.userId === ws.userId ? 'black' : 'white';
                 onGameOver(ws.roomId, winner, 'timeout');
             }
         }

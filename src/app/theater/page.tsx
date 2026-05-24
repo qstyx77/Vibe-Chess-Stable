@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
@@ -38,7 +37,6 @@ export default function TheaterPage() {
     const snapshots: BoardState[] = [initializeBoard()];
     let board = initializeBoard();
     
-    // Clean notation: remove turn numbers and "..." markers
     const cleaned = vcnInput.replace(/\d+\./g, '').replace(/\.\.\./g, '');
     const tokens = cleaned.split(/\s+/).filter(t => t.length > 0);
 
@@ -52,23 +50,55 @@ export default function TheaterPage() {
       })));
 
       try {
-        if (token.startsWith('🛡️')) {
-          const dest = token.slice(2) as AlgebraicSquare;
-          const { row, col } = algebraicToCoords(dest);
-          if (nextBoard[row][col].piece) nextBoard[row][col].piece!.isShielded = true;
+        if (token.includes('🛡️')) {
+          const match = token.match(/([a-h][1-8])/);
+          if (match) {
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            if (nextBoard[row][col].piece) nextBoard[row][col].piece!.isShielded = true;
+          }
         } else if (token.includes('[A]@')) {
-          const dest = token.split('@')[1] as AlgebraicSquare;
-          const { row, col } = algebraicToCoords(dest);
-          nextBoard[row][col].item = { type: 'anvil' };
+          const match = token.match(/([a-h][1-8])/);
+          if (match) {
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            nextBoard[row][col].item = { type: 'anvil' };
+          }
         } else if (token.includes('+^')) {
-          const parts = token.split(' ');
-          const dest = parts[parts.length-1] as AlgebraicSquare;
-          const { row, col } = algebraicToCoords(dest);
-          nextBoard[row][col].piece = { id: `res_${Date.now()}`, type: 'pawn', color: player, level: 1, hasMoved: true };
+          const match = token.match(/([A-Z]{0,2})\(L(\d)\)@?([a-h][1-8])/);
+          if (match) {
+            const [_, typeKey, levelStr, dest] = match;
+            const type = PIECE_TYPES[typeKey] || 'pawn';
+            const level = parseInt(levelStr);
+            const { row, col } = algebraicToCoords(dest as AlgebraicSquare);
+            nextBoard[row][col].piece = { id: `res_${Date.now()}_${Math.random()}`, type, color: player, level, hasMoved: true, isShielded: false };
+          } else {
+             const fallbackMatch = token.match(/([a-h][1-8])/);
+             if (fallbackMatch) {
+                const { row, col } = algebraicToCoords(fallbackMatch[1] as AlgebraicSquare);
+                nextBoard[row][col].piece = { id: `res_${Date.now()}_${Math.random()}`, type: 'pawn', color: player, level: 1, hasMoved: true, isShielded: false };
+             }
+          }
         } else if (token.includes('!!!')) {
-          const dest = token.split('@')[1] as AlgebraicSquare;
-          const { row, col } = algebraicToCoords(dest);
-          nextBoard[row][col].piece = null;
+          const match = token.match(/@([a-h][1-8])/);
+          if (match) {
+            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            nextBoard[row][col].piece = null;
+          }
+        } else if (token.includes('O-O')) {
+          const kingRow = player === 'white' ? 7 : 0;
+          const isKingside = !token.includes('O-O-O');
+          const oldKingCol = 4;
+          const newKingCol = isKingside ? 6 : 2;
+          const oldRookCol = isKingside ? 7 : 0;
+          const newRookCol = isKingside ? 5 : 3;
+
+          const king = nextBoard[kingRow][oldKingCol].piece;
+          const rook = nextBoard[kingRow][oldRookCol].piece;
+          if (king && rook) {
+              nextBoard[kingRow][newKingCol].piece = { ...king, hasMoved: true };
+              nextBoard[kingRow][oldKingCol].piece = null;
+              nextBoard[kingRow][newRookCol].piece = { ...rook, hasMoved: true };
+              nextBoard[kingRow][oldRookCol].piece = null;
+          }
         } else {
           // Move logic: [Piece](L#)[x]Dest
           const match = token.match(/^([A-Z]{0,2})\(L(\d)\)(x?)([a-h][1-8])/);
@@ -78,12 +108,11 @@ export default function TheaterPage() {
             const level = parseInt(levelStr);
             const { row: toR, col: toC } = algebraicToCoords(dest as AlgebraicSquare);
             
-            // Find most likely piece
             let fromR = -1, fromC = -1;
             for (let r = 0; r < 8; r++) {
               for (let c = 0; c < 8; c++) {
                 const p = nextBoard[r][c].piece;
-                if (p && p.color === player && p.type === type && p.level === level) {
+                if (p && p.color === player && p.type === type) {
                   fromR = r; fromC = c; break; 
                 }
               }
@@ -92,7 +121,7 @@ export default function TheaterPage() {
 
             if (fromR !== -1) {
               const movingPiece = nextBoard[fromR][fromC].piece!;
-              nextBoard[toR][toC].piece = { ...movingPiece, hasMoved: true, isShielded: false };
+              nextBoard[toR][toC].piece = { ...movingPiece, level, hasMoved: true, isShielded: false };
               nextBoard[fromR][fromC].piece = null;
             }
           }
@@ -104,7 +133,6 @@ export default function TheaterPage() {
       board = nextBoard;
       snapshots.push(board);
       
-      // Turn alternation (unless extra turn marker found)
       if (!token.includes('!!')) {
         player = player === 'white' ? 'black' : 'white';
       }
@@ -146,6 +174,9 @@ export default function TheaterPage() {
           <ChessBoard
             boardState={currentBoard}
             selectedSquare={null}
+            possibleMoves={[]}
+            enemySelectedSquare={null}
+            enemyPossibleMoves={[]}
             onSquareClick={() => {}}
             playerColor="white"
             currentPlayerColor="white"
