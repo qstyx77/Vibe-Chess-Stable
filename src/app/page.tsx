@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -269,7 +270,9 @@ export default function EvolvingChessPage() {
     return baseName;
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield || (isAwaitingArcherSnipe && localPlayerColor !== currentPlayer);
+  const isLocalActionTurn = onlineStatus === 'disconnected' || localPlayerColor === currentPlayer;
+
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe;
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
   const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
@@ -1126,7 +1129,7 @@ export default function EvolvingChessPage() {
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
-    if (isAwaitingArcherSnipe && currentPlayer === localPlayerColor) {
+    if (isAwaitingArcherSnipe && isLocalActionTurn) {
       if (clickedPiece && clickedPiece.color !== currentPlayer && clickedPiece.level === 1 && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
           saveStateToHistory();
           
@@ -1169,12 +1172,14 @@ export default function EvolvingChessPage() {
           
           processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
-          toast({ title: "Invalid Snipe Target", description: "Select an enemy Level 1 piece (not King/Queen).", variant: "destructive" });
+          if (isLocalActionTurn) {
+            toast({ title: "Invalid Snipe Target", description: "Select an enemy Level 1 piece (not King/Queen).", variant: "destructive" });
+          }
       }
       return;
     }
 
-    if (isAwaitingHolyShield && currentPlayer === localPlayerColor) {
+    if (isAwaitingHolyShield && isLocalActionTurn) {
       if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.id !== board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id) {
           saveStateToHistory();
           
@@ -1204,7 +1209,9 @@ export default function EvolvingChessPage() {
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
-          toast({ title: "Invalid Shield Target", description: "Select another friendly piece that didn't capture this turn.", variant: "destructive" });
+          if (isLocalActionTurn) {
+            toast({ title: "Invalid Shield Target", description: "Select another friendly piece that didn't capture this turn.", variant: "destructive" });
+          }
       }
       return;
     }
@@ -1260,7 +1267,9 @@ export default function EvolvingChessPage() {
             setPlayerToDropAnvil(null);
             setAnvilDropContext(null);
         } else {
-            toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
+            if (isLocalActionTurn) {
+                toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
+            }
         }
         return;
     }
@@ -1296,7 +1305,7 @@ export default function EvolvingChessPage() {
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
             
             // VCN Commander
-            setVcnLog(prev => [...prev, `[Promo-C] @${algebraic}`]);
+            setVcnLog(prev => [...prev, `[Promo-C]@${algebraic}`]);
 
             setIsAwaitingCommanderPromotion(false);
             setPlayerWhoGotFirstBlood(null);
@@ -1322,7 +1331,9 @@ export default function EvolvingChessPage() {
             }
             return;
         } else {
-            toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 8000});
+            if (isLocalActionTurn) {
+                toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 8000});
+            }
         }
         return;
     }
@@ -1372,7 +1383,9 @@ export default function EvolvingChessPage() {
 
         processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice, enPassantTargetSquare);
       } else {
-        toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 8000 });
+        if (isLocalActionTurn) {
+            toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 8000 });
+        }
       }
       return;
     }
@@ -2087,7 +2100,7 @@ export default function EvolvingChessPage() {
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
-    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor,
+    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
     isAwaitingArcherSnipe, archerSnipeContext, addToVCN
   ]);
   
@@ -3299,6 +3312,22 @@ export default function EvolvingChessPage() {
             }
             break;
         }
+        case 'awaiting-shield-selection': {
+            const { fullGameState, player } = data;
+            if (!fullGameState) return;
+
+            applyServerGameState(fullGameState);
+            setIsMoveProcessing(false); 
+            clickGuardRef.current = false;
+
+            setIsAwaitingHolyShield(true);
+            if (player === localPlayerColor) {
+              setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+            } else {
+              setGameInfo(prev => ({...prev, message: `HOLY SHIELD! ${getPlayerDisplayName(player)} is shielding an ally...`}));
+            }
+            break;
+        }
         case 'awaiting-anvil-drop': {
             const { fullGameState, player } = data;
             if (!fullGameState) return;
@@ -3328,6 +3357,7 @@ export default function EvolvingChessPage() {
             setIsAwaitingAnvilDrop(false);
             setPlayerToDropAnvil(null);
             setIsAwaitingArcherSnipe(false);
+            setIsAwaitingHolyShield(false);
             
             if (data.conversionEvents && data.conversionEvents.length > 0) {
               data.conversionEvents.forEach((event: ConversionEvent) => {
