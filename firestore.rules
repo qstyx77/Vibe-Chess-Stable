@@ -20,10 +20,11 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     // Users can be read by any authenticated user for the leaderboard.
-    // Users can only create, update, or delete their own document.
+    // TEMPORARY: Allow any signed-in user to update ELO ratings for playtesting special pieces.
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      allow create, delete: if isOwner(userId);
+      allow update: if isSignedIn(); 
     }
     
     // Leaderboard is a public document that can be read by anyone.
