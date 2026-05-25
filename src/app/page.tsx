@@ -454,12 +454,15 @@ export default function EvolvingChessPage() {
     if (userData) {
       if (userData.eloRating >= 1500) {
           initialBoardState = applyArchbishop(initialBoardState, 'white');
+          initialBoardState = applyArchbishop(initialBoardState, 'black');
       }
       if (userData.eloRating >= 1800) {
           initialBoardState = applyPalace(initialBoardState, 'white');
+          initialBoardState = applyPalace(initialBoardState, 'black');
       }
       if (userData.eloRating >= 2100) {
           initialBoardState = applyArcher(initialBoardState, 'white');
+          initialBoardState = applyArcher(initialBoardState, 'black');
       }
     }
     setBoard(initialBoardState);
@@ -888,7 +891,7 @@ export default function EvolvingChessPage() {
          if (onlineStatus === 'connected') {
           const ws = wsRef.current;
           if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'stalemate' }));
+            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
           }
         }
         return;
@@ -2649,7 +2652,7 @@ export default function EvolvingChessPage() {
                 const emptySquares: [number, number][] = [];
                 for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push([r_anvil, c_anvil]);
                 if (emptySquares.length > 0) {
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
+                    const oppKingPos = this.findKing(finalBoardStateForAI, opponentPlayer);
                     let bestAnvilCoords: [number, number];
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
@@ -2809,7 +2812,7 @@ export default function EvolvingChessPage() {
                     const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
-                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
+                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_HeroPromo_AI`;
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
