@@ -2449,6 +2449,9 @@ export default function EvolvingChessPage() {
 
 
       if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI && aiFromAlg && aiToAlg) {
+        const { row: aiToR, col: aiToC } = algebraicToCoords(aiToAlg as AlgebraicSquare);
+        const { row: aiFromR, col: aiFromC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
+
         saveStateToHistory();
         let aiMoveType = (aiMoveDataFromVibeAI.type || 'move') as Move['type'];
         let aiPromoteTo = aiMoveDataFromVibeAI.promoteTo as PieceType | undefined;
@@ -2519,7 +2522,7 @@ export default function EvolvingChessPage() {
         }
 
         if (restOfResult.shroomConsumed) {
-            const movedPieceDataAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
+            const movedPieceDataAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
                 if(movedPieceDataAI) {
                 toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 8000 });
                 }
@@ -2584,7 +2587,7 @@ export default function EvolvingChessPage() {
           toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1000 });
 
           if (capturedPiece) { 
-            const pieceThatMadeTheMoveAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
+            const pieceThatMadeTheMoveAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${capturedPiece.color} ${capturedPiece.type}!`, duration: 8000});
             } else {
@@ -2729,7 +2732,6 @@ export default function EvolvingChessPage() {
             }
 
 
-            const { row: aiToR, col: aiToC } = algebraicToCoords(aiToAlg as AlgebraicSquare);
             const aiMovedPieceOnToSquare = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
             let aiRookResData: RookResurrectionResult | null = null;
 
@@ -2780,10 +2782,10 @@ export default function EvolvingChessPage() {
             }
 
             setTimeout(() => {
-              const pieceAtDestinationAI = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
+              const pieceAtDestinationAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
               const rankRowAI = currentPlayer === 'white' ? 0 : 7;
-              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
-              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && algebraicToCoords(aiToAlg as AlgebraicSquare).row === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
               let extraTurnForThisAIMove = aiExtraTurn || (newStreakForAI >= 6);
               let sacrificeNeededForAIQueen = false;
@@ -2805,7 +2807,7 @@ export default function EvolvingChessPage() {
 
                   if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
                   
-                  const pieceAfterAIPromo = finalBoardStateForAI[algebraicToCoords(aiToAlg as AlgebraicSquare).row]?.[algebraicToCoords(aiToAlg as AlgebraicSquare).col]?.piece;
+                  const pieceAfterAIPromo = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
 
                   if (pieceAfterAIPromo?.type === 'queen') {
                     sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, enPassantTargetForNextTurn);
@@ -2815,7 +2817,7 @@ export default function EvolvingChessPage() {
                     const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
-                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_HeroPromo_AI`;
+                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
@@ -4064,3 +4066,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
