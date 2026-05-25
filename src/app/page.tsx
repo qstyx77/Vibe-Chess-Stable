@@ -2652,7 +2652,7 @@ export default function EvolvingChessPage() {
                 const emptySquares: [number, number][] = [];
                 for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push([r_anvil, c_anvil]);
                 if (emptySquares.length > 0) {
-                    const oppKingPos = this.findKing(finalBoardStateForAI, opponentPlayer);
+                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
                     let bestAnvilCoords: [number, number];
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
