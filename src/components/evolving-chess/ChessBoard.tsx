@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
@@ -181,7 +182,13 @@ export function ChessBoard({
           
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
           
-          const isShieldTarget = isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.id !== boardState[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id;
+          let isShieldTarget = false;
+          if (isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor) {
+              const capturingPieceId = lastMoveTo ? boardState[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
+              if (currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== capturingPieceId) {
+                  isShieldTarget = true;
+              }
+          }
 
           const isSnipeTarget = isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level === 1 && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
 

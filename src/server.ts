@@ -447,7 +447,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room && data.square) {
                         const { row, col } = algebraicToCoords(data.square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece) {
+                        const capturingPieceId = room.gameState.board[algebraicToCoords(room.gameState.lastMoveTo!).row][algebraicToCoords(room.gameState.lastMoveTo!).col].piece?.id;
+                        if (piece && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== capturingPieceId) {
                             piece.isShielded = true;
                             const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.shieldContext;
                             const abPos = room.gameState.board.flat().find((sq: any) => sq.piece?.type === 'archbishop' && sq.piece.color === playerWhoseTurnCompleted)?.algebraic || '??';

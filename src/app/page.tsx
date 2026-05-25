@@ -1183,7 +1183,8 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingHolyShield && isLocalActionTurn) {
-      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.id !== board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id) {
+      const capturingPieceId = board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id;
+      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen' && clickedPiece.id !== capturingPieceId) {
           saveStateToHistory();
           
           if (onlineStatus === 'connected') {
@@ -1213,7 +1214,7 @@ export default function EvolvingChessPage() {
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
           if (isLocalActionTurn) {
-            toast({ title: "Invalid Shield Target", description: "Select another friendly piece that didn't capture this turn.", variant: "destructive" });
+            toast({ title: "Invalid Shield Target", description: "Cannot shield Kings, Queens, or the piece that just captured.", variant: "destructive" });
           }
       }
       return;
@@ -2343,6 +2344,7 @@ export default function EvolvingChessPage() {
       let moveForApplyMoveAI: Move | null = null;
       let localAIAwaitingCommanderPromo = false;
       let selfCheckByAIPushBack = false;
+      let aiAnvilPushed = false;
       let aiAnvilPushedOff = false;
       let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | null | undefined = null;
       let aiBecameInfiltrator = false;
@@ -2628,7 +2630,8 @@ export default function EvolvingChessPage() {
                      for (let r_sh = 0; r_sh < 8; r_sh++) {
                          for (let c_sh = 0; c_sh < 8; c_sh++) {
                              const sq_sh = finalBoardStateForAI[r_sh][c_sh];
-                             if (sq_sh.piece && sq_sh.piece.color === currentPlayer && sq_sh.piece.id !== pieceOnFromSquareForAI?.id) {
+                             const capturingPieceIdAI = finalBoardStateForAI[aiToR][aiToC].piece?.id;
+                             if (sq_sh.piece && sq_sh.piece.color === currentPlayer && sq_sh.piece.type !== 'king' && sq_sh.piece.type !== 'queen' && sq_sh.piece.id !== capturingPieceIdAI) {
                                  alliesToShield.push({ piece: sq_sh.piece, r: r_sh, c: c_sh });
                              }
                          }
@@ -2900,14 +2903,14 @@ export default function EvolvingChessPage() {
         const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
         const delay = hasPrimaryAnnouncement ? 2700 : (isResignation ? 1000 : 1500);
         const timerId = setTimeout(() => {
-            if (localPlayerColor !== null) {
+             setShowSummary(true);
+             if (localPlayerColor !== null) {
                 if (gameInfo.winner === localPlayerColor) {
                     setShowWinScreen(true);
                 } else if (gameInfo.winner !== 'draw' && gameInfo.winner !== undefined) {
                     setShowLossScreen(true);
                 }
             }
-            setShowSummary(true);
         }, delay + 1000);
         return () => clearTimeout(timerId);
     } else {
@@ -2978,7 +2981,7 @@ export default function EvolvingChessPage() {
     const { white: currentWhite, black: currentBlack } = killStreaks;
     const firstBloodJustAchieved = firstBloodAchieved && !firstBloodFlashedRef.current;
 
-    if (firstBloodJustAchieved) {
+    if (firstBloodAchieved && !firstBloodFlashedRef.current) {
         setFlashMessage("FIRST BLOOD!");
         setFlashMessageKey(k => k + 1);
         firstBloodFlashedRef.current = true;
