@@ -48,7 +48,7 @@ export interface GameStatus {
 }
 
 export interface Effect {
-  id: number;
+  id: string | number;
   type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam' | 'level-change';
   square: AlgebraicSquare;
   color?: PlayerColor;

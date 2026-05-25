@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -54,8 +53,6 @@ import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 
-
-let globalUniqueIdCounter = 0;
 
 const initialGameStatus: GameStatus = {
   message: " ",
@@ -174,6 +171,8 @@ export default function EvolvingChessPage() {
   const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
 
   const clickGuardRef = useRef(false);
+  const uniqueIdCounterRef = useRef(20000);
+  const effectCounterRef = useRef(0);
 
   const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
   const [playerToSacrificePawn, setPlayerToSacrificePawn] = useState<PlayerColor | null>(null);
@@ -209,6 +208,7 @@ export default function EvolvingChessPage() {
   const [whiteTimeouts, setWhiteTimeouts] = useState(0);
   const [blackTimeouts, setBlackTimeouts] = useState(0);
   const [effects, setEffects] = useState<Effect[]>([]);
+  const effectCleanupTimersRef = useRef<Record<string, NodeJS.Timeout>>({});
 
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [playerToDropAnvil, setPlayerToDropAnvil] = useState<PlayerColor | null>(null);
@@ -362,31 +362,27 @@ export default function EvolvingChessPage() {
     }
   }, [isMessengerOpen]);
 
-  useEffect(() => {
-    localPlayerColorRef.current = localPlayerColor;
-  }, [localPlayerColor]);
+  useEffect(() => { localPlayerColorRef.current = localPlayerColor; }, [localPlayerColor]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
-    const newId = Date.now() + Math.random();
-    const newEffect: Effect = {
-        id: newId,
-        type,
-        square,
-        color,
-        value,
-    };
+    const id = `eff-${Date.now()}-${effectCounterRef.current++}`;
+    const newEffect: Effect = { id, type, square, color, value };
 
     setEffects(prev => [...prev, newEffect]);
+
+    const timer = setTimeout(() => {
+        setEffects(current => current.filter(e => e.id !== id));
+        delete effectCleanupTimersRef.current[id];
+    }, 1500);
+
+    effectCleanupTimersRef.current[id] = timer;
   }, []);
 
   useEffect(() => {
-    if (effects.length > 0) {
-      const timer = setTimeout(() => {
-        setEffects(prev => prev.filter(e => Date.now() - e.id < 1500));
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [effects]);
+    return () => {
+        Object.values(effectCleanupTimersRef.current).forEach(clearTimeout);
+    };
+  }, []);
 
   // Unified Board State Diffing for Animations
   useEffect(() => {
@@ -403,10 +399,9 @@ export default function EvolvingChessPage() {
     const currentPieceIds = new Set<string>();
     board.forEach(row => row.forEach(currSq => { if (currSq.piece) currentPieceIds.add(currSq.piece.id); }));
 
-    const newEffects: Effect[] = [];
+    const newEffectsToAdd: {type: Effect['type'], square: AlgebraicSquare, val?: number}[] = [];
     const moveKey = `move-${gameMoveCounter}`;
 
-    // Detection 1: Level changes (using ID map to follow moving pieces)
     board.forEach(row => row.forEach(currSq => {
       if (currSq.piece) {
         const prevLevel = prevPieceLevels.get(currSq.piece.id);
@@ -415,12 +410,7 @@ export default function EvolvingChessPage() {
           if (diff !== 0) {
             const levelSig = `level-${currSq.piece.id}-${currSq.piece.level}-${moveKey}`;
             if (!signaledEventsRef.current.has(levelSig)) {
-              newEffects.push({
-                id: Date.now() + Math.random(),
-                type: 'level-change',
-                square: currSq.algebraic,
-                value: diff,
-              });
+              newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff });
               signaledEventsRef.current.add(levelSig);
             }
           }
@@ -428,26 +418,21 @@ export default function EvolvingChessPage() {
       }
     }));
 
-    // Detection 2: Captures (IDs that completely disappeared)
     prevBoardRef.current.forEach(row => row.forEach(prevSq => {
       if (prevSq.piece && !currentPieceIds.has(prevSq.piece.id)) {
         const captureSig = `capture-${prevSq.piece.id}-${moveKey}`;
         if (!signaledEventsRef.current.has(captureSig)) {
-          newEffects.push({
-            id: Date.now() + Math.random(),
-            type: 'poof',
-            square: prevSq.algebraic,
-          });
+          newEffectsToAdd.push({ type: 'poof', square: prevSq.algebraic });
           signaledEventsRef.current.add(captureSig);
         }
       }
     }));
 
-    if (newEffects.length > 0) {
-        setEffects(prev => [...prev, ...newEffects]);
+    if (newEffectsToAdd.length > 0) {
+        newEffectsToAdd.forEach(e => addEffect(e.type, e.square, undefined, e.val));
     }
     prevBoardRef.current = board;
-  }, [board, gameMoveCounter, lastMoveFrom, lastMoveTo]);
+  }, [board, gameMoveCounter, lastMoveFrom, lastMoveTo, addEffect]);
 
   const fullGameReset = useCallback(() => {
     let initialBoardState = initializeBoard();
@@ -1082,7 +1067,7 @@ export default function EvolvingChessPage() {
             for (let c_idx = 0; c_idx < 8; c_idx++) {
               const pieceAtSquare = boardCopyForAISacrifice[r_idx][c_idx].piece;
               if (pieceAtSquare && (pieceAtSquare.type === 'pawn' || pieceAtSquare.type === 'commander') && pieceAtSquare.color === playerWhoseQueenLeveled) {
-                sacrificedAIPawn = { ...pieceAtSquare, id: `${pieceAtSquare.id}_sac_AI_${globalUniqueIdCounter++}` };
+                sacrificedAIPawn = { ...pieceAtSquare, id: `${pieceAtSquare.id}_sac_AI_${uniqueIdCounterRef.current++}` };
                 sacrificedPawnPos = coordsToAlgebraic(r_idx, c_idx);
                 boardCopyForAISacrifice[r_idx][c_idx].piece = null;
                 pawnSacrificed = true;
@@ -1154,7 +1139,7 @@ export default function EvolvingChessPage() {
               archerOnBoard.piece.level += 2; // Sniper capture bonus
           }
 
-          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${globalUniqueIdCounter++}` };
+          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
           setCapturedPieces(prev => ({
               ...prev,
               [currentPlayer]: [...(prev[currentPlayer] || []), uniqueCapturedPiece]
@@ -1183,7 +1168,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingHolyShield && isLocalActionTurn) {
-      const capturingPieceId = board[algebraicToCoords(lastMoveTo!).row][algebraicToCoords(lastMoveTo!).col].piece?.id;
+      const capturingPieceId = lastMoveTo ? board[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
       if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen' && clickedPiece.id !== capturingPieceId) {
           saveStateToHistory();
           
@@ -1304,7 +1289,7 @@ export default function EvolvingChessPage() {
 
             const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
             boardAfterCommanderPromo[row][col].piece!.type = 'commander';
-            boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${globalUniqueIdCounter++}`;
+            boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
             setBoard(boardAfterCommanderPromo);
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
             
@@ -1348,7 +1333,7 @@ export default function EvolvingChessPage() {
         saveStateToHistory();
         let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
-        const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${globalUniqueIdCounter++}`};
+        const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${uniqueIdCounterRef.current++}`};
         
         boardAfterSacrifice[row][col].piece = null;
 
@@ -1573,8 +1558,7 @@ export default function EvolvingChessPage() {
                 if (emptySquares.length > 0) {
                   const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                   const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                  const newUniqueSuffix = globalUniqueIdCounter++;
-                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
+                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
 
                   const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
                   if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -1785,7 +1769,7 @@ export default function EvolvingChessPage() {
 
         if (capturedPieceFromApply) {
           if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
-              const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${globalUniqueIdCounter++}` };
+              const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
               finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
           } else {
             toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 8000});
@@ -1793,7 +1777,7 @@ export default function EvolvingChessPage() {
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
-          finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${globalUniqueIdCounter++}` });
+          finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -1817,12 +1801,12 @@ export default function EvolvingChessPage() {
               algebraic,
               oldLevelForResurrectionCheck,
               finalCapturedPiecesStateForTurn,
-              globalUniqueIdCounter
+              uniqueIdCounterRef.current
             );
             if (humanRookResData.resurrectionPerformed) {
               finalBoardStateForTurn = humanRookResData.boardWithResurrection;
               finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
-              globalUniqueIdCounter = humanRookResData.newResurrectionIdCounter!;
+              uniqueIdCounterRef.current = humanRookResData.newResurrectionIdCounter!;
               addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
               setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
               const resType = movedPieceOnToSquareHuman.type === 'palace' ? 'Master' : 'Rook\'s';
@@ -1943,8 +1927,7 @@ export default function EvolvingChessPage() {
                       if (emptySquares.length > 0) {
                         const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                         const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const newUniqueSuffix = globalUniqueIdCounter++;
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${newUniqueSuffix}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
 
                         const promoRow = capturingPlayer === 'white' ? 0 : 7;
                         if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -2251,11 +2234,12 @@ export default function EvolvingChessPage() {
                   const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                     boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
                     0, 
-                    capturedPieces, 20000
+                    capturedPieces, uniqueIdCounterRef.current
                   );
                   if (aiPromoRookResPerformed) {
                     boardToUpdate = boardWithResurrection;
                     setCapturedPieces(capturedPiecesAfterResurrection);
+                    uniqueIdCounterRef.current = aiPromoRookIdCounter!;
                     setBoard(boardToUpdate);
                     addEffect('light-beam', aiPromoRookSquareAlg!);
                     setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
@@ -2344,7 +2328,6 @@ export default function EvolvingChessPage() {
       let moveForApplyMoveAI: Move | null = null;
       let localAIAwaitingCommanderPromo = false;
       let selfCheckByAIPushBack = false;
-      let aiAnvilPushed = false;
       let aiAnvilPushedOff = false;
       let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | null | undefined = null;
       let aiBecameInfiltrator = false;
@@ -2421,7 +2404,6 @@ export default function EvolvingChessPage() {
                 if (targetSquareForOverride?.piece) {
                     overrideMoveType = 'capture';
                 }
-                const promotionRankOverride = currentPlayer === 'white' ? 'white' : 'black';
                 let promoteToOverrideType: PieceType | undefined = undefined;
                 if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === (currentPlayer === 'white' ? 0 : 7)) {
                     overrideMoveType = 'promotion';
@@ -2693,7 +2675,7 @@ export default function EvolvingChessPage() {
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
-                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${Date.now()}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' || pieceToResurrectOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalAI, level: 1, id: `${pieceToResurrectOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalAI.type === 'king' || pieceToResurrectOriginalAI.type === 'rook' || pieceToResurrectOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -2748,16 +2730,17 @@ export default function EvolvingChessPage() {
                   aiToAlg as AlgebraicSquare,
                   oldLevelForAIResCheck,
                   finalCapturedPiecesForAI,
-                  15000
+                  uniqueIdCounterRef.current
               );
               if (aiRookResData.resurrectionPerformed) {
                   finalBoardStateForAI = aiRookResData.boardWithResurrection;
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
+                  uniqueIdCounterRef.current = aiRookResData.newResurrectionIdCounter!;
                   addEffect('light-beam', aiRookResData!.resurrectedSquareAlg!);
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   const resType = aiMovedPieceOnToSquare.type === 'palace' ? 'Master' : 'Rook\'s';
                   toast({ title: `AI ${resType} Call!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L${aiRookResData.resurrectedPieceData!.level})`, duration: 8000 });
-                  setVcnLog(prev => [...prev, `+^${getVCNChar(aiRookResData!.resurrectedPieceData!.type)}(L${aiRookResData!.resurrectedPieceData!.level})@${aiRookResData!.resurrectedSquareAlg!}`]);
+                  setVcnLog(prev => [...prev, `+^${getVCNChar(aiRookResData!.resurrectedPieceData!.type)}(L${aiRookResData.resurrectedPieceData!.level})@${aiRookResData!.resurrectedSquareAlg!}`]);
 
                   if (aiRookResData.promotionRequiredForResurrectedPawn) {
                         const { row: promoR_AI, col: promoC_AI } = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
@@ -3774,7 +3757,7 @@ export default function EvolvingChessPage() {
               onClick={handleRankedPlay}
               disabled={!user || onlineStatus !== 'disconnected'}
               className="h-7 px-2 text-xs"
-              aria-label="Play Ranked Match"
+               aria-label="Play Ranked Match"
               >
               <Trophy />
               {getRankedButtonText()}
@@ -3952,7 +3935,7 @@ export default function EvolvingChessPage() {
                 onClick={handleRankedPlay}
                 disabled={!user || onlineStatus !== 'disconnected'}
                 className="h-7 px-2 text-xs w-full"
-                aria-label="Play Ranked Match"
+                 aria-label="Play Ranked Match"
                 >
                 <Trophy />
                 {getRankedButtonText()}
@@ -4066,4 +4049,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
