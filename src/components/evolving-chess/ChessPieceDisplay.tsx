@@ -53,6 +53,14 @@ export function ChessPieceDisplay({
   const isCommanderLike = piece.type === 'commander' || piece.type === 'hero';
   const isInfiltrator = piece.type === 'infiltrator';
 
+  // Power Glow Tier Calculation
+  const level = piece.level || 1;
+  let powerGlowClass = '';
+  if (level >= 6) {
+    powerGlowClass = 'animate-ascended-glow';
+  } else if (level >= 4) {
+    powerGlowClass = 'animate-power-glow';
+  }
 
   return (
     <div
@@ -68,6 +76,7 @@ export function ChessPieceDisplay({
           (isSacrificeTarget || isCommanderPromoTarget || isSnipeTarget) && "animate-pulse",
           isPromoting && "animate-ping",
           animationClass,
+          powerGlowClass, // Applying the glow based on level
           "origin-bottom"
         )}
       >
