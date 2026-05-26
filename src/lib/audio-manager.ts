@@ -218,27 +218,24 @@ class AudioManager {
   }
 
   playVictory() {
-    // Twice as long, Key of C Major
-    const notes = [
-      523.25,  // C5
-      659.25,  // E5
-      783.99,  // G5
-      1046.50, // C6
-      783.99,  // G5
-      1046.50, // C6
-      1318.51, // E6
-      1567.98, // G6
-      1318.51, // E6
-      1567.98, // G6
-      2093.00, // C7
-      1567.98, // G6
-      2093.00, // C7
-      2637.02, // E7
-      3135.96, // G7
-      4186.01  // C8
+    // Triumphant 8-bit fanfare: 48 notes (triple density), strictly ascending, Key of C
+    // Interval is approx 85ms for a total duration of ~4 seconds.
+    const cMajorScale = [
+      65.41, 73.42, 82.41, 87.31, 98.00, 110.00, 123.47,  // C2 scale
+      130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94, // C3 scale
+      261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, // C4 scale
+      523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, // C5 scale
+      1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, // C6 scale
+      2093.00, 2349.32, 2637.02, 2793.83, 3135.96, 3520.00, 3951.07, // C7 scale
+      4186.01, 4698.63, 5274.04, 5587.65, 6271.93, 7040.00, 7902.13  // C8 scale
     ];
+    
+    // We only need 48 notes
+    const notes = cMajorScale.slice(0, 48);
+
     notes.forEach((f, i) => {
-      setTimeout(() => this.playTone(f, 'square', 0.5, 0.4), i * 170);
+      // Fast, rising square wave tones
+      setTimeout(() => this.playTone(f, 'square', 0.3, 0.4), i * 85);
     });
   }
 
