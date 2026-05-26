@@ -16,10 +16,14 @@ export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
 
 export const ShroomIcon = ({ className = "w-full h-full" }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M12 3c-4.97 0-9 2.5-9 6 0 1.5 2 3.5 4 4.5v5c0 1.38 1.12 2.5 2.5 2.5h5c1.38 0 2.5-1.12 2.5-2.5v-5c2-1 4-3 4-4.5 0-3.5-4.03-6-9-6z" />
-    <circle cx="8" cy="8" r="1.5" fill="white" fillOpacity="0.6" />
-    <circle cx="15" cy="9" r="2" fill="white" fillOpacity="0.6" />
-    <circle cx="12" cy="12" r="1" fill="white" fillOpacity="0.6" />
+    {/* Squat Cap */}
+    <path d="M2 14c0-5 4.5-8 10-8s10 3 10 8c0 1-1 1-1 1H3s-1 0-1-1z" />
+    {/* Thick Stem */}
+    <path d="M9 15v4c0 1.5 1 2.5 3 2.5s3-1 3-2.5v-4H9z" />
+    {/* Spots */}
+    <circle cx="8" cy="10" r="1.5" fill="white" fillOpacity="0.8" />
+    <circle cx="12" cy="8.5" r="1" fill="white" fillOpacity="0.8" />
+    <circle cx="16" cy="11.5" r="2" fill="white" fillOpacity="0.8" />
   </svg>
 );
 
