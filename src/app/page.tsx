@@ -2530,7 +2530,7 @@ export default function EvolvingChessPage() {
         aiExtraTurn = restOfResult.extraTurn || false;
 
         if (selfDestructCaptures && selfDestructCaptures.length > 0) {
-            selfDestructCaptures.forEach(p => finalCapturedPiecesForAI[currentPlayer].push(p));
+            finalCapturedPiecesForAI[currentPlayer].push(...selfDestructCaptures);
         }
 
         if (restOfResult.rallyCryTriggered) {
@@ -2668,10 +2668,10 @@ export default function EvolvingChessPage() {
                  if (hasArchbishopAI) {
                      enteringSpecialModeAI = true;
                      const alliesToShield = [];
+                     const capturingPieceIdAI = finalBoardStateForAI[aiToR][aiToC].piece?.id;
                      for (let r_sh = 0; r_sh < 8; r_sh++) {
                          for (let c_sh = 0; c_sh < 8; c_sh++) {
                              const sq_sh = finalBoardStateForAI[r_sh][c_sh];
-                             const capturingPieceIdAI = finalBoardStateForAI[aiToR][aiToC].piece?.id;
                              if (sq_sh.piece && sq_sh.piece.color === currentPlayer && sq_sh.piece.type !== 'king' && sq_sh.piece.type !== 'queen' && sq_sh.piece.id !== capturingPieceIdAI) {
                                  alliesToShield.push({ piece: sq_sh.piece, r: r_sh, c: c_sh });
                              }
@@ -2947,8 +2947,18 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     if (gameInfo.gameOver && gameInfo.winner) {
-        if (gameInfo.winner === localPlayerColor) audioManager.playVictory();
-        else audioManager.playDefeat();
+        const isHumanWinner = () => {
+          if (gameInfo.winner === 'draw') return false;
+          if (onlineStatus !== 'disconnected') {
+            return gameInfo.winner === localPlayerColor;
+          }
+          if (gameInfo.winner === 'white') return !isWhiteAI;
+          if (gameInfo.winner === 'black') return !isBlackAI;
+          return false;
+        };
+
+        if (isHumanWinner()) audioManager.playVictory();
+        else if (gameInfo.winner !== 'draw') audioManager.playDefeat();
 
         const isResignation = gameInfo.message.includes('resigned');
         const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
@@ -2969,7 +2979,7 @@ export default function EvolvingChessPage() {
       setShowLossScreen(false);
       setShowSummary(false);
     }
-  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.message, localPlayerColor]);
+  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.message, localPlayerColor, onlineStatus, isWhiteAI, isBlackAI]);
 
   useEffect(() => {
     let currentCheckStateString: string | null = null;

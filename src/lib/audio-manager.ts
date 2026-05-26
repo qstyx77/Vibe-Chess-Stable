@@ -218,24 +218,45 @@ class AudioManager {
   }
 
   playVictory() {
-    // Triumphant 8-bit fanfare: 48 notes (triple density), strictly ascending, Key of C
-    // Interval is approx 85ms for a total duration of ~4 seconds.
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+
+    const totalDuration = 3; // Exactly 3 seconds
+    const noteCount = 48; // Tripled notes
+    const interval = totalDuration / noteCount; // 0.0625s
+    const now = this.ctx.currentTime;
+
     const cMajorScale = [
-      65.41, 73.42, 82.41, 87.31, 98.00, 110.00, 123.47,  // C2 scale
-      130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94, // C3 scale
-      261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, // C4 scale
-      523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, // C5 scale
-      1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, // C6 scale
-      2093.00, 2349.32, 2637.02, 2793.83, 3135.96, 3520.00, 3951.07, // C7 scale
-      4186.01, 4698.63, 5274.04, 5587.65, 6271.93, 7040.00, 7902.13  // C8 scale
+      65.41, 73.42, 82.41, 87.31, 98.00, 110.00, 123.47,  // C2
+      130.81, 146.83, 164.81, 174.61, 196.00, 220.00, 246.94, // C3
+      261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, // C4
+      523.25, 587.33, 659.25, 698.46, 783.99, 880.00, 987.77, // C5
+      1046.50, 1174.66, 1318.51, 1396.91, 1567.98, 1760.00, 1975.53, // C6
+      2093.00, 2349.32, 2637.02, 2793.83, 3135.96, 3520.00, 3951.07, // C7
+      4186.01, 4698.63, 5274.04, 5587.65, 6271.93, 7040.00, 7902.13  // C8
     ];
     
-    // We only need 48 notes
-    const notes = cMajorScale.slice(0, 48);
+    const notes = cMajorScale.slice(0, noteCount);
 
     notes.forEach((f, i) => {
-      // Fast, rising square wave tones
-      setTimeout(() => this.playTone(f, 'square', 0.3, 0.4), i * 85);
+      const startTime = now + (i * interval);
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(f, startTime);
+      
+      // Fast attack and decay for that 8-bit sound
+      gain.gain.setValueAtTime(0, startTime);
+      gain.gain.linearRampToValueAtTime(0.4, startTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + interval * 1.5);
+      
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      
+      osc.start(startTime);
+      osc.stop(startTime + interval * 1.5);
     });
   }
 
