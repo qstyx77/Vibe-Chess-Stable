@@ -33,7 +33,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2 } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -53,6 +53,8 @@ import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audio-manager';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Slider } from '@/components/ui/slider';
 
 
 const initialGameStatus: GameStatus = {
@@ -250,6 +252,9 @@ export default function EvolvingChessPage() {
   const [eloResult, setEloResult] = useState<any | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
+  // --- Audio State ---
+  const [volume, setVolume] = useState(100);
+
   // --- Derived State & Consolidated Helpers ---
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player';
@@ -366,7 +371,7 @@ export default function EvolvingChessPage() {
   useEffect(() => { localPlayerColorRef.current = localPlayerColor; }, [localPlayerColor]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
-    const id = `eff-${Date.now()}-${effectCounterRef.current++}`;
+    const id = `eff-${Date.now()}-${Math.random()}-${effectCounterRef.current++}`;
     const newEffect: Effect = { id, type, square, color, value };
 
     setEffects(prev => [...prev, newEffect]);
@@ -2181,6 +2186,8 @@ export default function EvolvingChessPage() {
     clickGuardRef.current = true;
     setAnimatedSquareTo(promotionSquare);
     
+    // Play immediately when selected
+    audioManager.playLevelUp();
 
     setBoard(boardToUpdate);
 
@@ -2188,7 +2195,6 @@ export default function EvolvingChessPage() {
       let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
 
       if (isResurrectionPromotionInProgress) {
-        audioManager.playLevelUp();
         toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
         processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer >= 6, enPassantTargetSquare);
@@ -2196,7 +2202,6 @@ export default function EvolvingChessPage() {
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
       } else {
-        audioManager.playLevelUp();
         toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
 
         const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
@@ -2502,6 +2507,17 @@ export default function EvolvingChessPage() {
         const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare);
         const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, ...restOfResult } = applyMoveResult;
         
+        // Immediate sounds for AI
+        if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {
+           const pieceThatMadeTheMoveAI = newBoard[aiToR]?.[aiToC]?.piece;
+           if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') audioManager.playObliterate();
+           else audioManager.playCapture();
+        } else if (moveForApplyMoveAI.type === 'castle') {
+           audioManager.playMove();
+        } else if (moveForApplyMoveAI.type !== 'self-destruct') {
+           audioManager.playMove();
+        }
+
         finalBoardStateForAI = newBoard;
         
         enPassantTargetForNextTurn = restOfResult.enPassantTargetSet;
@@ -2608,15 +2624,11 @@ export default function EvolvingChessPage() {
           if (capturedPiece) { 
             const pieceThatMadeTheMoveAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
-                audioManager.playObliterate();
-                toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${capturedPiece.color} ${capturedPiece.type}!`, duration: 8000});
+                // Already played obliterate up top
             } else {
-                audioManager.playCapture();
                 audioManager.playLevelUp();
                 finalCapturedPiecesForAI[currentPlayer].push({ ...capturedPiece, id: `${capturedPiece.id}_cap_ai_${Date.now()}` });
             }
-          } else {
-            audioManager.playMove();
           }
 
           if (restOfResult.conversionEvents && restOfResult.conversionEvents.length > 0) {
@@ -2789,7 +2801,7 @@ export default function EvolvingChessPage() {
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   const resType = aiMovedPieceOnToSquare.type === 'palace' ? 'Master' : 'Rook\'s';
                   toast({ title: `AI ${resType} Call!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L${aiRookResData.resurrectedPieceData!.level})`, duration: 8000 });
-                  setVcnLog(prev => [...prev, `+^${getVCNChar(aiRookResData!.resurrectedPieceData!.type)}(L${aiRookResData.resurrectedPieceData!.level})@${aiRookResData!.resurrectedSquareAlg!}`]);
+                  setVcnLog(prev => [...prev, `+^${getVCNChar(aiRookResData!.resurrectedPieceData!.type)}(L${aiRookResData!.resurrectedPieceData!.level})@${aiRookResData!.resurrectedSquareAlg!}`]);
 
                   if (aiRookResData.promotionRequiredForResurrectedPawn) {
                         const { row: promoR_AI, col: promoC_AI } = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
@@ -3654,6 +3666,12 @@ export default function EvolvingChessPage() {
     }
   }
 
+  const handleVolumeChange = (val: number[]) => {
+    const newVol = val[0];
+    setVolume(newVol);
+    audioManager.setVolume(newVol);
+  };
+
   useEffect(() => {
     const initializeAI = () => {
       try {
@@ -3785,6 +3803,32 @@ export default function EvolvingChessPage() {
             <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
               <BookOpen /> Rules
             </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
+                  <Settings /> Settings
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 bg-card border-border">
+                <div className="space-y-4 py-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-pixel uppercase">SFX Volume</span>
+                    <Volume2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <Slider
+                    defaultValue={[volume]}
+                    max={200}
+                    step={1}
+                    onValueChange={handleVolumeChange}
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground uppercase font-bold">
+                    <span>Mute</span>
+                    <span>100%</span>
+                    <span>Max</span>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Link href="/theater">
               <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
                 <MonitorPlay /> Theater
@@ -3959,6 +4003,32 @@ export default function EvolvingChessPage() {
               <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
                 <BookOpen /> Rules
               </Button>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
+                    <Settings /> Settings
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 bg-card border-border">
+                  <div className="space-y-4 py-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-pixel uppercase">SFX Volume</span>
+                      <Volume2 className="h-4 w-4 text-primary" />
+                    </div>
+                    <Slider
+                      defaultValue={[volume]}
+                      max={200}
+                      step={1}
+                      onValueChange={handleVolumeChange}
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground uppercase font-bold">
+                      <span>Mute</span>
+                      <span>100%</span>
+                      <span>Max</span>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
               <Link href="/theater">
                 <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
                   <MonitorPlay /> Theater

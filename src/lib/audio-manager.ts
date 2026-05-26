@@ -7,13 +7,15 @@ class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private isInitialized: boolean = false;
+  private currentVolumePercent: number = 100; // 0 to 200
 
   private init() {
     if (this.isInitialized) return;
     try {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.value = 0.15; // Set global volume
+      // Base volume is 0.15. 100% volume = 0.15 gain.
+      this.masterGain.gain.value = (this.currentVolumePercent / 100) * 0.15;
       this.masterGain.connect(this.ctx.destination);
       this.isInitialized = true;
     } catch (e) {
@@ -25,6 +27,17 @@ class AudioManager {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+  }
+
+  setVolume(percent: number) {
+    this.currentVolumePercent = percent;
+    if (this.masterGain && this.ctx) {
+      this.masterGain.gain.setTargetAtTime((percent / 100) * 0.15, this.ctx.currentTime, 0.05);
+    }
+  }
+
+  getVolume() {
+    return this.currentVolumePercent;
   }
 
   private playTone(freq: number, type: OscillatorType, duration: number, volume: number = 1, fade: boolean = true) {
@@ -94,16 +107,19 @@ class AudioManager {
   }
 
   playObliterate() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
     this.playNoise(0.5, 1.0, 'low');
-    const now = this.ctx?.currentTime || 0;
-    const osc = this.ctx!.createOscillator();
-    const gain = this.ctx!.createGain();
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
     osc.frequency.setValueAtTime(100, now);
     osc.frequency.exponentialRampToValueAtTime(20, now + 0.4);
     gain.gain.setValueAtTime(0.5, now);
     gain.gain.linearRampToValueAtTime(0, now + 0.5);
     osc.connect(gain);
-    gain.connect(this.masterGain!);
+    gain.connect(this.masterGain);
     osc.start();
     osc.stop(now + 0.5);
   }
@@ -116,41 +132,46 @@ class AudioManager {
   }
 
   playShield() {
-    const now = this.ctx?.currentTime || 0;
     this.playTone(880, 'sine', 0.8, 0.6);
     this.playTone(885, 'sine', 0.8, 0.4);
   }
 
   playSnipe() {
-    const now = this.ctx?.currentTime || 0;
-    const osc = this.ctx!.createOscillator();
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
     osc.frequency.setValueAtTime(200, now);
     osc.frequency.exponentialRampToValueAtTime(2000, now + 0.1);
-    const gain = this.ctx!.createGain();
+    const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0.3, now);
     gain.gain.linearRampToValueAtTime(0, now + 0.2);
     osc.connect(gain);
-    gain.connect(this.masterGain!);
+    gain.connect(this.masterGain);
     osc.start();
     osc.stop(now + 0.2);
   }
 
   playConversion() {
-    const now = this.ctx?.currentTime || 0;
-    const osc = this.ctx!.createOscillator();
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
     osc.type = 'sine';
     osc.frequency.setValueAtTime(400, now);
-    const lfo = this.ctx!.createOscillator();
+    const lfo = this.ctx.createOscillator();
     lfo.frequency.value = 15;
-    const lfoGain = this.ctx!.createGain();
+    const lfoGain = this.ctx.createGain();
     lfoGain.gain.value = 100;
     lfo.connect(lfoGain);
     lfoGain.connect(osc.frequency);
-    const gain = this.ctx!.createGain();
+    const gain = this.ctx.createGain();
     gain.gain.setValueAtTime(0.4, now);
     gain.gain.linearRampToValueAtTime(0, now + 0.6);
     osc.connect(gain);
-    gain.connect(this.masterGain!);
+    gain.connect(this.masterGain);
     lfo.start();
     osc.start();
     lfo.stop(now + 0.6);
@@ -193,7 +214,8 @@ class AudioManager {
   }
 
   playVictory() {
-    const notes = [523, 659, 783, 1046];
+    // Longer, happier major-scale arpeggio
+    const notes = [523.25, 659.25, 783.99, 1046.50, 987.77, 1046.50, 1318.51, 1567.98, 2093.00];
     notes.forEach((f, i) => {
       setTimeout(() => this.playTone(f, 'square', 0.4, 0.4), i * 150);
     });
