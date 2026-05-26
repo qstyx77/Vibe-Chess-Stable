@@ -98,7 +98,7 @@ class AudioManager {
   // --- SOUND TRIGGERS ---
 
   playMove() {
-    this.playTone(150, 'triangle', 0.1, 0.5);
+    this.playTone(300, 'triangle', 0.1, 0.5);
   }
 
   playCapture() {
@@ -208,16 +208,37 @@ class AudioManager {
     this.playTone(60, 'triangle', 0.05, 0.8);
   }
 
+  playTickDanger() {
+    this.playTone(120, 'sawtooth', 0.1, 0.6);
+  }
+
   playCheck() {
     this.playTone(220, 'sawtooth', 0.1, 0.4);
     setTimeout(() => this.playTone(225, 'sawtooth', 0.2, 0.4), 100);
   }
 
   playVictory() {
-    // Longer, happier major-scale arpeggio
-    const notes = [523.25, 659.25, 783.99, 1046.50, 987.77, 1046.50, 1318.51, 1567.98, 2093.00];
+    // Twice as long, Key of C Major
+    const notes = [
+      523.25,  // C5
+      659.25,  // E5
+      783.99,  // G5
+      1046.50, // C6
+      783.99,  // G5
+      1046.50, // C6
+      1318.51, // E6
+      1567.98, // G6
+      1318.51, // E6
+      1567.98, // G6
+      2093.00, // C7
+      1567.98, // G6
+      2093.00, // C7
+      2637.02, // E7
+      3135.96, // G7
+      4186.01  // C8
+    ];
     notes.forEach((f, i) => {
-      setTimeout(() => this.playTone(f, 'square', 0.4, 0.4), i * 150);
+      setTimeout(() => this.playTone(f, 'square', 0.5, 0.4), i * 170);
     });
   }
 
