@@ -52,6 +52,7 @@ import { AuthWidget } from '@/components/auth/AuthWidget';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
+import { audioManager } from '@/lib/audio-manager';
 
 
 const initialGameStatus: GameStatus = {
@@ -773,6 +774,9 @@ export default function EvolvingChessPage() {
             if (currentTimerValue === 11) {
                 setShowTimerWarning(true);
                 setTimerWarningKey(k => k + 1);
+                audioManager.playTick();
+            } else if (currentTimerValue < 11 && currentTimerValue > 0) {
+                audioManager.playTick();
             }
             return currentTimerValue - 1;
         });
@@ -906,6 +910,7 @@ export default function EvolvingChessPage() {
                   setBoard(currentBoardState);
                   const newNextTurn = Math.floor(Math.random() * 6) + 5;
                   toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
+                  audioManager.playShroom();
                   setShroomSpawnCounter(0);
                   setNextShroomSpawnTurn(newNextTurn);
                   setVcnLog(prev => [...prev, `[Spawn]🍄@${spawnedAt}`]);
@@ -1003,6 +1008,7 @@ export default function EvolvingChessPage() {
 
     if (gameState.resurrectedSquare && lastPlayer) {
       addEffect('light-beam', gameState.resurrectedSquare);
+      audioManager.playResurrect();
       setResurrectedSquares(prev => [...prev, { square: gameState.resurrectedSquare, player: lastPlayer }]);
     }
   }, [addEffect]);
@@ -1083,6 +1089,7 @@ export default function EvolvingChessPage() {
               ...prev,
               [opponentColor]: [...(prev[opponentColor] || []), sacrificedAIPawn!]
             }));
+            audioManager.playCapture();
           }
           toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn/Commander for L7 Queen!`, duration: 8000 });
           setVcnLog(prev => [...prev, `[Sacrifice]@${sacrificedPawnPos}`]);
@@ -1149,6 +1156,7 @@ export default function EvolvingChessPage() {
           setBoard(boardAfterSnipe);
           
           addEffect('poof', algebraic);
+          audioManager.playSnipe();
           toast({ title: "Archer Snipe!", description: `${getPlayerDisplayName(currentPlayer)} sniped the ${clickedPiece.type}!` });
           
           setIsAwaitingArcherSnipe(false);
@@ -1188,6 +1196,7 @@ export default function EvolvingChessPage() {
               piece: s.piece ? { ...s.piece, isShielded: s.piece.id === clickedPiece.id ? true : s.piece.isShielded } : null
           })));
           setBoard(boardAfterShield);
+          audioManager.playShield();
           toast({ title: "Holy Shield!", description: `${clickedPiece.type} is now shielded!` });
           setIsAwaitingHolyShield(false);
           setShieldContext(null);
@@ -1244,6 +1253,7 @@ export default function EvolvingChessPage() {
             const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
             boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
             setBoard(boardAfterAnvilDrop);
+            audioManager.playAnvil();
             
             toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
         
@@ -1291,6 +1301,7 @@ export default function EvolvingChessPage() {
             boardAfterCommanderPromo[row][col].piece!.type = 'commander';
             boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
             setBoard(boardAfterCommanderPromo);
+            audioManager.playLevelUp();
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
             
             // VCN Commander
@@ -1338,6 +1349,7 @@ export default function EvolvingChessPage() {
         boardAfterSacrifice[row][col].piece = null;
 
         setBoard(boardAfterSacrifice);
+        audioManager.playCapture();
 
         const opponentOfSacrificer = playerWhoMadeQueenMove! === 'white' ? 'black' : 'white';
         setCapturedPieces(prevCaptured => {
@@ -1470,6 +1482,7 @@ export default function EvolvingChessPage() {
                 }
             }
         }
+        audioManager.playExplosion();
 
         moveBeingMade = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
         
@@ -1570,6 +1583,7 @@ export default function EvolvingChessPage() {
                   }
                   finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                   addEffect('light-beam', randomSquareAlg);
+                  audioManager.playResurrect();
                   setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
                   finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
@@ -1595,6 +1609,7 @@ export default function EvolvingChessPage() {
 
         if (rallyCryTriggered) {
           addEffect('shockwave', rallyCryTriggered.square, rallyCryTriggered.color);
+          audioManager.playRally();
         }
 
         setBoard(finalBoardStateForTurn);
@@ -1693,6 +1708,8 @@ export default function EvolvingChessPage() {
         if (shroomConsumedFromApply) {
             const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
             if(movedPieceData) {
+                audioManager.playShroom();
+                audioManager.playLevelUp();
                 toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 8000 });
             }
         }
@@ -1768,20 +1785,29 @@ export default function EvolvingChessPage() {
         const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
 
         if (capturedPieceFromApply) {
-          if (!(pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator')) {
-              const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
-              finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
-          } else {
+          if (pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator') {
+            audioManager.playObliterate();
             toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 8000});
+          } else {
+            audioManager.playCapture();
+            audioManager.playLevelUp();
+            const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
+            finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
           }
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
+          audioManager.playObliterate();
           finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
+        } else if (moveBeingMade.type === 'castle') {
+           audioManager.playMove();
+        } else {
+           audioManager.playMove();
         }
+
         if (anvilPushedOffBoardFromApply) {
             toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
         }
@@ -1808,6 +1834,7 @@ export default function EvolvingChessPage() {
               finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
               uniqueIdCounterRef.current = humanRookResData.newResurrectionIdCounter!;
               addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
+              audioManager.playResurrect();
               setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
               const resType = movedPieceOnToSquareHuman.type === 'palace' ? 'Master' : 'Rook\'s';
               toast({
@@ -1939,6 +1966,7 @@ export default function EvolvingChessPage() {
                         }
                         finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                         addEffect('light-beam', randomSquareAlg);
+                        audioManager.playResurrect();
                         setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
                         finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
@@ -1968,6 +1996,7 @@ export default function EvolvingChessPage() {
           conversionEventsFromApply.forEach(event => {
             addEffect('conversion', event.at, event.byPiece.color);
             if (event.originalPiece.color !== event.convertedPiece.color) {
+              audioManager.playConversion();
               toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
             }
           });
@@ -2159,6 +2188,7 @@ export default function EvolvingChessPage() {
       let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
 
       if (isResurrectionPromotionInProgress) {
+        audioManager.playLevelUp();
         toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
         processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer >= 6, enPassantTargetSquare);
@@ -2166,6 +2196,7 @@ export default function EvolvingChessPage() {
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
       } else {
+        audioManager.playLevelUp();
         toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
 
         const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
@@ -2242,6 +2273,7 @@ export default function EvolvingChessPage() {
                     uniqueIdCounterRef.current = aiPromoRookIdCounter!;
                     setBoard(boardToUpdate);
                     addEffect('light-beam', aiPromoRookSquareAlg!);
+                    audioManager.playResurrect();
                     setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
                     toast({ title: `AI ${pieceType === 'palace' ? 'Master' : 'Rook'}'s Call (Post-Promo)!`, description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new ${pieceType} resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L${aiPromoRookPieceData!.level})`, duration: 8000 });
                     setVcnLog(prev => [...prev, `+^${getVCNChar(aiPromoRookPieceData!.type)}(L${aiPromoRookPieceData!.level})@${aiPromoRookSquareAlg!}`]);
@@ -2274,7 +2306,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe
+    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe
   ]);
 
 
@@ -2464,6 +2496,7 @@ export default function EvolvingChessPage() {
                   }
               }
           }
+          audioManager.playExplosion();
         }
 
         const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare);
@@ -2486,6 +2519,7 @@ export default function EvolvingChessPage() {
 
         if (restOfResult.rallyCryTriggered) {
             addEffect('shockwave', restOfResult.rallyCryTriggered.square, restOfResult.rallyCryTriggered.color);
+            audioManager.playRally();
         }
 
         if (aiBecameInfiltrator) {
@@ -2506,6 +2540,8 @@ export default function EvolvingChessPage() {
         if (restOfResult.shroomConsumed) {
             const movedPieceDataAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
                 if(movedPieceDataAI) {
+                audioManager.playShroom();
+                audioManager.playLevelUp();
                 toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 8000 });
                 }
         }
@@ -2526,6 +2562,7 @@ export default function EvolvingChessPage() {
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
                 finalCapturedPiecesForAI[currentPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `${restOfResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
             }
+            audioManager.playObliterate();
             toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${restOfResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
         }
         if (aiAnvilPushedOff) {
@@ -2571,15 +2608,22 @@ export default function EvolvingChessPage() {
           if (capturedPiece) { 
             const pieceThatMadeTheMoveAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
             if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
+                audioManager.playObliterate();
                 toast({ title: "Obliterated!", description: `${getPlayerDisplayName(currentPlayer)}'s Infiltrator obliterated ${capturedPiece.color} ${capturedPiece.type}!`, duration: 8000});
             } else {
+                audioManager.playCapture();
+                audioManager.playLevelUp();
                 finalCapturedPiecesForAI[currentPlayer].push({ ...capturedPiece, id: `${capturedPiece.id}_cap_ai_${Date.now()}` });
             }
+          } else {
+            audioManager.playMove();
           }
+
           if (restOfResult.conversionEvents && restOfResult.conversionEvents.length > 0) {
             restOfResult.conversionEvents.forEach(event => {
                 addEffect('conversion', event.at, event.byPiece.color);
                 if (event.originalPiece.color !== event.convertedPiece.color) {
+                  audioManager.playConversion();
                   toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
                 }
             });
@@ -2627,6 +2671,7 @@ export default function EvolvingChessPage() {
                              if (sq_sh.piece?.id === shieldChoice.piece.id) sq_sh.piece.isShielded = true;
                          }));
                          const targetAlg = coordsToAlgebraic(shieldChoice.r, shieldChoice.c);
+                         audioManager.playShield();
                          toast({ title: "AI Holy Shield!", description: `AI shielded their ${shieldChoice.piece.type}!` });
                          
                          const abPos = finalBoardStateForAI.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
@@ -2652,6 +2697,7 @@ export default function EvolvingChessPage() {
                     }
                     finalBoardStateForAI[bestAnvilCoords[0]][bestAnvilCoords[1]].item = { type: 'anvil' };
                     const anvilAlg = coordsToAlgebraic(bestAnvilCoords[0], bestAnvilCoords[1]);
+                    audioManager.playAnvil();
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${anvilAlg}.`});
                     setVcnLog(prev => [...prev, `+[A]@${anvilAlg}`]);
                 }
@@ -2691,6 +2737,7 @@ export default function EvolvingChessPage() {
                           }
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                           addEffect('light-beam', randSqAI_alg);
+                          audioManager.playResurrect();
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
                           finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalAI.id);
                           setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedAI.type)}(L${resurrectedAI.level})@${randSqAI_alg}`]);
@@ -2708,6 +2755,7 @@ export default function EvolvingChessPage() {
                     if(finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.type === 'pawn' && finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.level === 1) {
                         finalBoardStateForAI[pawnR][pawnC].piece!.type = 'commander';
                         finalBoardStateForAI[pawnR][pawnC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_CMD_AI`;
+                        audioManager.playLevelUp();
                         setVcnLog(prev => [...prev, `[Promo-C]@${coordsToAlgebraic(pawnR, pawnC)}`]);
                     }
                 }
@@ -2737,6 +2785,7 @@ export default function EvolvingChessPage() {
                   finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
                   uniqueIdCounterRef.current = aiRookResData.newResurrectionIdCounter!;
                   addEffect('light-beam', aiRookResData!.resurrectedSquareAlg!);
+                  audioManager.playResurrect();
                   setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
                   const resType = aiMovedPieceOnToSquare.type === 'palace' ? 'Master' : 'Rook\'s';
                   toast({ title: `AI ${resType} Call!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L${aiRookResData.resurrectedPieceData!.level})`, duration: 8000 });
@@ -2784,6 +2833,7 @@ export default function EvolvingChessPage() {
                       finalBoardStateForAI[promoR][promoC].piece!.type = promotedTypeAI;
                       finalBoardStateForAI[promoR][promoC].piece!.level = pieceAtDestinationAI!.level; 
                       finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
+                      audioManager.playLevelUp();
                       setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                   }
                   toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L${finalBoardStateForAI[promoR][promoC].piece!.level})`, duration: 8000 });
@@ -2801,6 +2851,7 @@ export default function EvolvingChessPage() {
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
+                        audioManager.playLevelUp();
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
                     toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
@@ -2884,6 +2935,9 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     if (gameInfo.gameOver && gameInfo.winner) {
+        if (gameInfo.winner === localPlayerColor) audioManager.playVictory();
+        else audioManager.playDefeat();
+
         const isResignation = gameInfo.message.includes('resigned');
         const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
         const delay = hasPrimaryAnnouncement ? 2700 : (isResignation ? 1000 : 1500);
@@ -2938,6 +2992,7 @@ export default function EvolvingChessPage() {
           setFlashMessage('CHECK!');
           setShowCheckFlashBackground(true);
           setCheckFlashBackgroundKey(k => k + 1);
+          audioManager.playCheck();
         }
         setFlashMessageKey(k => k + 1);
         flashedCheckStateRef.current = currentCheckStateString;
@@ -3354,6 +3409,7 @@ export default function EvolvingChessPage() {
               data.conversionEvents.forEach((event: ConversionEvent) => {
                 addEffect('conversion', event.at, event.byPiece.color);
                 if (event.originalPiece.color !== event.convertedPiece.color) {
+                  audioManager.playConversion();
                   toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
                 }
               });
@@ -3381,6 +3437,7 @@ export default function EvolvingChessPage() {
             });
             setShroomSpawnCounter(0);
             setNextShroomSpawnTurn(nextTurn);
+            audioManager.playShroom();
             toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
             setVcnLog(prev => [...prev, `[Spawn]🍄@${square}`]);
             break;
@@ -3514,6 +3571,7 @@ export default function EvolvingChessPage() {
           case 'player-joined':
             applyServerGameState(data.gameState);
             setOnlineStatus('connected');
+            audioManager.playStart();
             toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
             break;
           case 'room-joined':
@@ -3521,6 +3579,7 @@ export default function EvolvingChessPage() {
             setLocalPlayerColor(data.color);
             applyServerGameState(data.gameState);
             setOnlineStatus('connected');
+            audioManager.playStart();
             toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
             break;
           case 'ranked-match-found':
@@ -3530,6 +3589,7 @@ export default function EvolvingChessPage() {
               applyServerGameState(data.gameState);
               setIsRankedGame(true);
               setOnlineStatus('connected');
+              audioManager.playStart();
               toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
               break;
           case 'opponent-disconnected':
