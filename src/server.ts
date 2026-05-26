@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -16,6 +15,7 @@ import {
     applyArchbishop,
     applyPalace,
     applyArcher,
+    isQueenSacrificeRequired,
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType } from './types';
 
@@ -140,9 +140,58 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
     if (room.turnTimer) clearTimeout(room.turnTimer);
 };
 
+const triggerNextSpecialAction = (room: any, actingPlayer: PlayerColor) => {
+    const roomId = room.clients[0].roomId;
+    
+    // Check Chain: 1. Commander Promo -> 2. Pawn Promo -> 3. KS Action -> 4. Queen Sacrifice
+    if (room.gameState.pendingCommanderPromo) {
+        broadcastToRoom(roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
+        startSpecialActionTimer(roomId, 'commander-promo', actingPlayer);
+        return;
+    }
+
+    if (room.gameState.pendingPromotion) {
+        const { square } = room.gameState.pendingPromotion;
+        broadcastToRoom(roomId, { type: 'promotion-required', square, player: actingPlayer, fullGameState: room.gameState });
+        startSpecialActionTimer(roomId, 'pawn-promo', actingPlayer);
+        return;
+    }
+
+    if (room.gameState.pendingKSAction) {
+        const { type, context } = room.gameState.pendingKSAction;
+        if (type === 'holy-shield') {
+            room.gameState.shieldContext = context;
+            broadcastToRoom(roomId, { type: 'awaiting-shield-selection', player: actingPlayer, fullGameState: room.gameState });
+            startSpecialActionTimer(roomId, 'holy-shield', actingPlayer);
+        } else if (type === 'anvil-drop') {
+            room.gameState.anvilDropContext = context;
+            broadcastToRoom(roomId, { type: 'awaiting-anvil-drop', player: actingPlayer, fullGameState: room.gameState });
+            startSpecialActionTimer(roomId, 'anvil-drop', actingPlayer);
+        } else if (type === 'archer-snipe') {
+            room.gameState.archerSnipeContext = context;
+            broadcastToRoom(roomId, { type: 'awaiting-archer-snipe', player: actingPlayer, fullGameState: room.gameState });
+            startSpecialActionTimer(roomId, 'archer-snipe', actingPlayer);
+        }
+        delete room.gameState.pendingKSAction;
+        return;
+    }
+
+    if (room.gameState.pendingQueenSacrifice) {
+        room.gameState.isAwaitingPawnSacrifice = true;
+        broadcastToRoom(roomId, { type: 'awaiting-pawn-sacrifice', player: actingPlayer, fullGameState: room.gameState });
+        startSpecialActionTimer(roomId, 'queen-sacrifice', actingPlayer);
+        delete room.gameState.pendingQueenSacrifice;
+        return;
+    }
+
+    finalizeTurn(room, actingPlayer, room.gameState.isPendingExtraTurn, room.gameState.pendingEnPassantTarget);
+};
+
 const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null = null) => {
     room.gameState.gameMoveCounter++;
     room.gameState.enPassantTargetSquare = newEnPassantTarget;
+    delete room.gameState.isPendingExtraTurn;
+    delete room.gameState.pendingEnPassantTarget;
 
     let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
     room.gameState.shroomSpawnCounter = currentShroomCounter;
@@ -188,7 +237,7 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     startServerTurnTimer(room.clients[0].roomId);
 };
 
-const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' | 'pawn-promo' | 'anvil-drop' | 'holy-shield' | 'archer-snipe', actingPlayer: PlayerColor) => {
+const startSpecialActionTimer = (roomId: string, actionType: string, actingPlayer: PlayerColor) => {
     const room = rooms[roomId];
     if (!room || room.gameState.gameInfo.gameOver) return;
 
@@ -218,25 +267,22 @@ const startSpecialActionTimer = (roomId: string, actionType: 'commander-promo' |
             return;
         }
 
-        if (actionType === 'anvil-drop') {
-            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.anvilDropContext;
-            delete roomAfterTimeout.gameState.anvilDropContext;
-            finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-        } else if (actionType === 'holy-shield') {
-            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.shieldContext;
-            delete roomAfterTimeout.gameState.shieldContext;
-            finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-        } else if (actionType === 'archer-snipe') {
-            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = roomAfterTimeout.gameState.archerSnipeContext;
-            delete roomAfterTimeout.gameState.archerSnipeContext;
-            finalizeTurn(roomAfterTimeout, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+        // Auto-finalize current special action if timed out
+        if (actionType === 'queen-sacrifice') {
+            roomAfterTimeout.gameState.isAwaitingPawnSacrifice = false;
         } else if (actionType === 'commander-promo') {
-            roomAfterTimeout.gameState.isAwaitingCommanderPromotion = false;
-            roomAfterTimeout.gameState.currentPlayer = opponent;
-            finalizeTurn(roomAfterTimeout, actingPlayer, false, null);
+            roomAfterTimeout.gameState.pendingCommanderPromo = false;
         } else if (actionType === 'pawn-promo') {
-            finalizeTurn(roomAfterTimeout, actingPlayer, false, null);
+            delete roomAfterTimeout.gameState.pendingPromotion;
+        } else if (actionType === 'anvil-drop') {
+            delete roomAfterTimeout.gameState.pendingKSAction;
+        } else if (actionType === 'holy-shield') {
+            delete roomAfterTimeout.gameState.pendingKSAction;
+        } else if (actionType === 'archer-snipe') {
+            delete roomAfterTimeout.gameState.pendingKSAction;
         }
+
+        triggerNextSpecialAction(roomAfterTimeout, actingPlayer);
     }, 15000);
 };
 
@@ -272,7 +318,6 @@ const startServerTurnTimer = (roomId: string) => {
         }
     }, 45000);
 }
-
 
 const processRankedQueue = async () => {
     if (rankedQueue.length < 2) return;
@@ -424,12 +469,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece && piece.type === 'pawn') {
                             piece.type = 'commander';
-                            room.gameState.isAwaitingCommanderPromotion = false;
-                            const opponent = piece.color === 'white' ? 'black' : 'white';
-                            room.gameState.currentPlayer = opponent;
+                            room.gameState.pendingCommanderPromo = false;
                             room.gameState.lastVCNMove = `[Promo-C]@${data.square}`;
-                            broadcastToRoom(ws.roomId!, { type: 'commander-promo-finalized', fullGameState: room.gameState, lastPlayer: piece.color });
-                            startServerTurnTimer(ws.roomId!);
+                            triggerNextSpecialAction(room, piece.color);
                         }
                     }
                     break;
@@ -437,24 +479,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room && data.square) {
                         const { row, col } = algebraicToCoords(data.square);
                         room.gameState.board[row][col].item = { type: 'anvil' };
-                        const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.anvilDropContext;
                         room.gameState.lastVCNMove = `+[A]@${data.square}`;
-                        delete room.gameState.anvilDropContext;
-                        finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+                        triggerNextSpecialAction(room, room.gameState.currentPlayer);
                     }
                     break;
                 case 'holy-shield':
                     if (room && data.square) {
                         const { row, col } = algebraicToCoords(data.square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        const capturingPieceId = room.gameState.board[algebraicToCoords(room.gameState.lastMoveTo!).row][algebraicToCoords(room.gameState.lastMoveTo!).col].piece?.id;
-                        if (piece && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== capturingPieceId) {
+                        if (piece) {
                             piece.isShielded = true;
-                            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.shieldContext;
-                            const abPos = room.gameState.board.flat().find((sq: any) => sq.piece?.type === 'archbishop' && sq.piece.color === playerWhoseTurnCompleted)?.algebraic || '??';
-                            room.gameState.lastVCNMove = `🛡️@${abPos}>${data.square}`;
-                            delete room.gameState.shieldContext;
-                            finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+                            triggerNextSpecialAction(room, room.gameState.currentPlayer);
                         }
                     }
                     break;
@@ -464,16 +499,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const targetPiece = room.gameState.board[row]?.[col]?.piece;
                         if (targetPiece) {
                             const movingPlayer = room.gameState.currentPlayer;
-                            const archerSq = room.gameState.board.flat().find((sq: any) => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer);
-                            if (archerSq?.piece) {
-                                archerSq.piece.level += 2;
-                            }
                             room.gameState.capturedPieces[movingPlayer].push(targetPiece);
                             room.gameState.board[row][col].piece = null;
-                            const { playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = room.gameState.archerSnipeContext;
-                            room.gameState.lastVCNMove = `[AR-Snipe]@${archerSq?.algebraic || '??'}x${data.square}`;
-                            delete room.gameState.archerSnipeContext;
-                            finalizeTurn(room, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+                            triggerNextSpecialAction(room, movingPlayer);
                         }
                     }
                     break;
@@ -484,49 +512,41 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece) {
                             piece.type = promoteTo;
-                            const { extraTurn, anvilDropContext, shieldContext, archerSnipeContext } = room.gameState.promotionContext || {};
-                            delete room.gameState.promotionContext;
-                            if (archerSnipeContext) {
-                                room.gameState.archerSnipeContext = archerSnipeContext;
-                                broadcastToRoom(ws.roomId!, { type: 'awaiting-archer-snipe', player: piece.color, fullGameState: room.gameState });
-                                startSpecialActionTimer(ws.roomId!, 'archer-snipe', piece.color);
-                            } else if (shieldContext) {
-                                room.gameState.shieldContext = shieldContext;
-                                broadcastToRoom(ws.roomId!, { type: 'awaiting-shield-selection', player: piece.color, fullGameState: room.gameState });
-                                startSpecialActionTimer(ws.roomId!, 'holy-shield', piece.color);
-                            } else if (anvilDropContext) {
-                                room.gameState.anvilDropContext = anvilDropContext;
-                                broadcastToRoom(ws.roomId!, { type: 'awaiting-anvil-drop', player: piece.color, fullGameState: room.gameState });
-                                startSpecialActionTimer(ws.roomId!, 'anvil-drop', piece.color);
-                            } else {
-                                finalizeTurn(room, piece.color, extraTurn);
-                            }
+                            delete room.gameState.pendingPromotion;
+                            triggerNextSpecialAction(room, piece.color);
                         }
                     }
                     break;
-                case 'forfeit-timeout':
-                    if (room) {
-                        onGameOver(ws.roomId!, data.winner, data.reason, { timedOutPlayer: data.timedOutPlayer });
+                case 'pawn-sacrifice':
+                    if (room && data.payload) {
+                        const { square } = data.payload;
+                        const { row, col } = algebraicToCoords(square);
+                        const victim = room.gameState.board[row]?.[col]?.piece;
+                        if (victim) {
+                            room.gameState.capturedPieces[victim.color === 'white' ? 'black' : 'white'].push(victim);
+                            room.gameState.board[row][col].piece = null;
+                            room.gameState.isAwaitingPawnSacrifice = false;
+                            triggerNextSpecialAction(room, victim.color);
+                        }
                     }
                     break;
                 case 'game-move':
                     if (room && data.payload) {
                         const movingPlayer = room.gameState.currentPlayer;
+                        const movingPieceStart = room.gameState.board[algebraicToCoords(data.payload.from).row][algebraicToCoords(data.payload.from).col].piece;
+                        const originalLevel = movingPieceStart?.level || 1;
+                        
                         const { newBoard, capturedPiece, selfDestructCaptures, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare);
                         room.gameState.board = newBoard;
                         
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
-                        
-                        // Update captured pieces on server
                         if (capturedPiece) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
                         if (selfDestructCaptures) selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayer].push(p));
                         if (rest.pieceCapturedByAnvil) room.gameState.capturedPieces[movingPlayer].push(rest.pieceCapturedByAnvil);
 
-                        // Sync highlight coordinates
                         room.gameState.lastMoveFrom = data.payload.from;
                         room.gameState.lastMoveTo = data.payload.to;
 
-                        // Sync Killstreaks
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) {
                             room.gameState.killStreaks[movingPlayer] += caps;
@@ -536,79 +556,35 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
-                        // VCN Logic for standard move (Explicit From-To)
-                        const { row: tr, col: tc } = algebraicToCoords(data.payload.to);
-                        const landedPiece = newBoard[tr][tc].piece;
-                        if (landedPiece) {
-                             const char = getVCNChar(landedPiece.type);
-                             const level = `(L${landedPiece.level})`;
-                             const sep = capturedPiece ? 'x' : '-';
-                             let vcn = `${char}${level}${data.payload.from}${sep}${data.payload.to}`;
-                             if (data.payload.type === 'castle') vcn = data.payload.to.startsWith('g') ? 'O-O' : 'O-O-O';
-                             if (rest.extraTurn) vcn += '!!';
-                             room.gameState.lastVCNMove = vcn;
-                        }
+                        // Chain logic: Build pending actions
+                        room.gameState.isPendingExtraTurn = rest.extraTurn || (newStreak >= 6);
+                        room.gameState.pendingEnPassantTarget = rest.enPassantTargetSet;
 
                         if (caps > 0 && !room.gameState.firstBloodAchieved) {
                             room.gameState.firstBloodAchieved = true;
                             room.gameState.playerWhoGotFirstBlood = movingPlayer;
-                            room.gameState.isAwaitingCommanderPromotion = true;
-                            broadcastToRoom(ws.roomId!, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
-                            startSpecialActionTimer(ws.roomId!, 'commander-promo', movingPlayer);
-                            return;
+                            room.gameState.pendingCommanderPromo = true;
                         }
 
-                        if (rest.infiltrationWin) {
-                            onGameOver(ws.roomId!, movingPlayer, 'infiltration');
-                            return;
+                        const { row: tr } = algebraicToCoords(data.payload.to);
+                        const landedPiece = newBoard[tr][algebraicToCoords(data.payload.to).col].piece;
+                        if (landedPiece && landedPiece.type === 'pawn' && (tr === 0 || tr === 7)) {
+                            room.gameState.pendingPromotion = { square: data.payload.to };
                         }
 
-                        const isPromotion = landedPiece && landedPiece.type === 'pawn' && (tr === 0 || tr === 7);
-
-                        // Special Mechanics checks (Anvil / Shield / Archer)
-                        let enteringSpecialMode = false;
                         if (newStreak >= 2 && oldStreak < 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
-                            enteringSpecialMode = true;
-                            room.gameState.shieldContext = { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: rest.extraTurn, newEnPassantTarget: rest.enPassantTargetSet };
-                            if (!isPromotion) {
-                                broadcastToRoom(ws.roomId!, { type: 'awaiting-shield-selection', player: movingPlayer, fullGameState: room.gameState });
-                                startSpecialActionTimer(ws.roomId!, 'holy-shield', movingPlayer);
-                                return;
-                            }
-                        }
-                        if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
-                            enteringSpecialMode = true;
-                            room.gameState.archerSnipeContext = { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: rest.extraTurn, newEnPassantTarget: rest.enPassantTargetSet };
-                            if (!isPromotion) {
-                                broadcastToRoom(ws.roomId!, { type: 'awaiting-archer-snipe', player: movingPlayer, fullGameState: room.gameState });
-                                startSpecialActionTimer(ws.roomId!, 'archer-snipe', movingPlayer);
-                                return;
-                            }
-                        }
-                        if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
-                            enteringSpecialMode = true;
-                            room.gameState.anvilDropContext = { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: rest.extraTurn, newEnPassantTarget: rest.enPassantTargetSet };
-                            if (!isPromotion) {
-                                broadcastToRoom(ws.roomId!, { type: 'awaiting-anvil-drop', player: movingPlayer, fullGameState: room.gameState });
-                                startSpecialActionTimer(ws.roomId!, 'anvil-drop', movingPlayer);
-                                return;
-                            }
+                            room.gameState.pendingKSAction = { type: 'holy-shield', context: { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: room.gameState.isPendingExtraTurn, newEnPassantTarget: rest.enPassantTargetSet } };
+                        } else if (newStreak >= 5 && oldStreak < 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
+                            room.gameState.pendingKSAction = { type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: room.gameState.isPendingExtraTurn, newEnPassantTarget: rest.enPassantTargetSet } };
+                        } else if (newStreak >= 3 && oldStreak < 3) {
+                            room.gameState.pendingKSAction = { type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: room.gameState.isPendingExtraTurn, newEnPassantTarget: rest.enPassantTargetSet } };
                         }
 
-                        if (isPromotion) {
-                            room.gameState.promotionContext = { 
-                              player: movingPlayer, 
-                              extraTurn: rest.extraTurn,
-                              anvilDropContext: room.gameState.anvilDropContext,
-                              shieldContext: room.gameState.shieldContext,
-                              archerSnipeContext: room.gameState.archerSnipeContext
-                            };
-                            broadcastToRoom(ws.roomId!, { type: 'promotion-required', square: data.payload.to, player: movingPlayer, fullGameState: room.gameState });
-                            startSpecialActionTimer(ws.roomId!, 'pawn-promo', movingPlayer);
-                            return;
+                        if (isQueenSacrificeRequired(newBoard, movingPlayer, data.payload, originalLevel)) {
+                            room.gameState.pendingQueenSacrifice = true;
                         }
 
-                        finalizeTurn(room, movingPlayer, rest.extraTurn, rest.enPassantTargetSet);
+                        triggerNextSpecialAction(room, movingPlayer);
                     }
                     break;
                 case 'resign':

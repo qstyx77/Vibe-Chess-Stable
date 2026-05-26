@@ -165,7 +165,6 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
   return `${pieceHash}_${itemHash}_${currentPlayer[0]}_${castlingRights}_${enPassantTargetStr}`;
 }
 
-
 function getPossibleMovesInternal(
     board: BoardState,
     fromSquare: AlgebraicSquare,
@@ -179,7 +178,6 @@ function getPossibleMovesInternal(
   const pieceColor = piece.color;
   const opponentColor = pieceColor === 'white' ? 'black' : 'white';
   const currentLevel = Number(piece.level || 1);
-
 
   if (piece.type === 'king') {
     const maxDistance = (typeof currentLevel === 'number' && !isNaN(currentLevel) && currentLevel >= 2) ? 2 : 1;
@@ -475,7 +473,6 @@ export function isSquareAttacked(
     return false;
 }
 
-
 export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   if (from === to && !((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && (Number(piece.level || 1)) >= 5)) return false;
 
@@ -489,7 +486,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   const targetPieceOnSquare = targetSquareState?.piece;
   const pieceActualLevel = Number(piece.level || 1);
-
 
   const isKnightOrHeroBishopSwap =
     (piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') &&
@@ -505,12 +501,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     (targetPieceOnSquare.type === 'knight' || targetPieceOnSquare.type === 'hero' || targetPieceOnSquare.type === 'archer') &&
     targetPieceOnSquare.color === piece.color;
 
-
   if (isKnightOrHeroBishopSwap || isBishopKnightOrHeroSwap) {
     return true;
   }
   
-
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) {
     return false;
   }
@@ -749,7 +743,6 @@ export function applyMove(
   const selfDestructCaptures: Piece[] = [];
   let destroyedAnvils = 0;
 
-
   const movingPieceOriginalRef = newBoard[fromRow]?.[fromCol]?.piece;
   if (!movingPieceOriginalRef) {
     return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
@@ -838,7 +831,6 @@ export function applyMove(
     capturedPiece = { ...targetPieceOriginal };
   }
 
-
   const movingPieceForToSquare = { ...movingPieceOriginalRef, isShielded: false };
   newBoard[toRow][toCol].piece = movingPieceForToSquare;
   newBoard[fromRow][fromCol].piece = null;
@@ -860,7 +852,6 @@ export function applyMove(
   if (!pieceNowOnToSquare) { 
     return { newBoard, capturedPiece, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: shroomConsumedThisMove, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
-
 
   if (pieceNowOnToSquare.type === 'king' && !movingPieceOriginalRef.hasMoved && move.type === 'castle') { 
     const kingStartCol = 4;
@@ -951,7 +942,6 @@ export function applyMove(
     pieceNowOnToSquare.level = newLevelForPiece;
   }
 
-
   if (movingPieceOriginalRef.type === 'pawn' && (toRow === 0 || toRow === 7) && !promotedToInfiltrator) {
     if (originalPieceLevel >= 5) {
         extraTurn = true;
@@ -990,11 +980,9 @@ export function applyMove(
     }
   }
 
-
   if (pieceNowOnToSquare.type === 'infiltrator' && ( (pieceNowOnToSquare.color === 'white' && toRow === 0) || (pieceNowOnToSquare.color === 'black' && toRow === 7) ) ) {
     infiltrationWin = true;
   }
-
 
   if (
     pieceNowOnToSquare.type === 'king' &&
@@ -1034,7 +1022,6 @@ export function applyMove(
       }
     }
   }
-
 
   const pieceNowOnToSquareActualLevel = Number(pieceNowOnToSquare.level || 1);
   let pushBackOccurredForSelfCheck = false;
@@ -1166,7 +1153,6 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassa
   return isSquareAttacked(board, kingPosAlg, opponentColor, false, null, enPassantTargetSquare);
 }
 
-
 function filterLegalMoves(
   board: BoardState,
   pieceOriginalSquare: AlgebraicSquare,
@@ -1201,7 +1187,6 @@ function filterLegalMoves(
         moveTypeForApply = 'capture';
     }
 
-
     if (typeof pieceToMoveActualLevelForSwap === 'number' && !isNaN(pieceToMoveActualLevelForSwap) &&
         (((pieceToMoveCopy.type === 'knight' || pieceToMoveCopy.type === 'hero' || pieceToMoveCopy.type === 'archer') && pieceToMoveActualLevelForSwap >= 4 && (targetPieceForSim?.type === 'bishop' || targetPieceForSim?.type === 'archbishop') && targetPieceForSim.color === pieceToMoveCopy.color) ||
          ((pieceToMoveCopy.type === 'bishop' || pieceToMoveCopy.type === 'archbishop') && pieceToMoveActualLevelForSwap >= 4 && (targetPieceForSim?.type === 'knight' || targetPieceForSim?.type === 'hero' || targetPieceForSim?.type === 'archer') && targetPieceForSim.color === pieceToMoveCopy.color))
@@ -1212,7 +1197,6 @@ function filterLegalMoves(
     } else if ((pieceToMoveCopy.type === 'pawn' || pieceToMoveCopy.type === 'commander') && (toR === 0 || toR === 7)) {
         moveTypeForApply = 'promotion';
     }
-
 
     const simulatedMove: Move = {
       from: pieceOriginalSquare,
@@ -1227,7 +1211,6 @@ function filterLegalMoves(
   });
 }
 
-
 export function getPossibleMoves(board: BoardState, fromSquare: AlgebraicSquare, enPassantTargetSquare: AlgebraicSquare | null): AlgebraicSquare[] {
     const { row, col } = algebraicToCoords(fromSquare);
     const squareState = board[row]?.[col];
@@ -1236,7 +1219,6 @@ export function getPossibleMoves(board: BoardState, fromSquare: AlgebraicSquare,
     const pseudoMoves = getPossibleMovesInternal(board, fromSquare, piece, true, enPassantTargetSquare);
     return filterLegalMoves(board, fromSquare, pseudoMoves, piece.color, enPassantTargetSquare);
 }
-
 
 export function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   for (let r = 0; r < 8; r++) {
@@ -1256,7 +1238,6 @@ export function hasAnyLegalMoves(board: BoardState, playerColor: PlayerColor, en
   return false;
 }
 
-
 export function isCheckmate(board: BoardState, kingInCheckColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   if (!isKingInCheck(board, kingInCheckColor, enPassantTargetSquare)) {
     return false;
@@ -1267,7 +1248,6 @@ export function isCheckmate(board: BoardState, kingInCheckColor: PlayerColor, en
 export function isStalemate(board: BoardState, playerColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   return !isKingInCheck(board, playerColor, enPassantTargetSquare) && !hasAnyLegalMoves(board, playerColor, enPassantTargetSquare);
 }
-
 
 export function getPieceUnicode(piece: Piece): string {
   if (!piece) return '';
@@ -1319,6 +1299,26 @@ export function boardToSimpleString(board: BoardState, forPlayer: PlayerColor, e
     return boardStr.trim();
 }
 
+export function isQueenSacrificeRequired(board: BoardState, player: PlayerColor, move: Move, originalLevel?: number): boolean {
+    const { row: toR, col: toC } = algebraicToCoords(move.to);
+    const piece = board[toR]?.[toC]?.piece;
+    if (!piece || piece.type !== 'queen' || piece.color !== player || piece.level < 7) return false;
+    
+    // Only require sacrifice if it just became level 7 (or was already 7 and moved/promoted)
+    const reachedLevel7 = (originalLevel !== undefined && originalLevel < 7 && piece.level >= 7) || (move.type === 'promotion' && move.promoteTo === 'queen');
+    
+    if (!reachedLevel7) return false;
+
+    for (const row of board) {
+        for (const sq of row) {
+            if (sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === player && sq.piece.id !== piece.id) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 export interface RookResurrectionResult {
   boardWithResurrection: BoardState;
   capturedPiecesAfterResurrection: { white: Piece[]; black: Piece[] };
@@ -1328,7 +1328,6 @@ export interface RookResurrectionResult {
   newResurrectionIdCounter?: number;
   promotionRequiredForResurrectedPawn?: boolean;
 }
-
 
 export function processRookResurrectionCheck(
   boardAfterPrimaryMove: BoardState,
