@@ -82,7 +82,11 @@ export default function TheaterPage() {
       let highlight: string = '';
 
       try {
-        if (token.includes('[Spawn]🍄@')) {
+        if (token.includes('[TO]')) {
+          highlight = 'TIME OUT FORFEIT';
+        } else if (token.includes('[RS]')) {
+          highlight = 'PLAYER RESIGNED';
+        } else if (token.includes('[Spawn]🍄@')) {
           const match = token.match(/@([a-h][1-8])/);
           if (match) {
             const square = match[1] as AlgebraicSquare;
@@ -215,9 +219,9 @@ export default function TheaterPage() {
       board = nextBoard;
       steps.push({ board, effect, highlight, token });
       
-      // Update player turn only if it's NOT an extra turn event or sequential action
+      // Update player turn only if it's NOT an extra turn event or terminal event
       const nonSwitchingTokens = [
-        '!!', '[Spawn]🍄@', '[A]@', '🛡️', '[Promo-C]@', '[Sacrifice]@', '+^', '!!!', '[AR-Snipe]'
+        '!!', '[Spawn]🍄@', '[A]@', '🛡️', '[Promo-C]@', '[Sacrifice]@', '+^', '!!!', '[AR-Snipe]', '[TO]', '[RS]'
       ];
       const shouldSwitch = !nonSwitchingTokens.some(t => token.includes(t));
       

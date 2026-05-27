@@ -59,7 +59,7 @@ import { Slider } from '@/components/ui/slider';
 
 
 const initialGameStatus: GameStatus = {
-  message: " ",
+  message: " ",
   isCheck: false,
   playerWithKingInCheck: null,
   isCheckmate: false,
@@ -860,7 +860,7 @@ export default function EvolvingChessPage() {
 
     const inCheck = isKingInCheck(updatedBoard, nextPlayer, newEnPassantTarget);
     let newPlayerWithKingInCheck: PlayerColor | null = null;
-    let currentMessage = " ";
+    let currentMessage = " ";
 
     if (inCheck) {
       newPlayerWithKingInCheck = nextPlayer;
@@ -1333,7 +1333,7 @@ export default function EvolvingChessPage() {
             } else if (isStalemate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
                 setGameInfo({ message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
             } else {
-                 setGameInfo(prev => ({...prev, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false }));
+                 setGameInfo(prev => ({...prev, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false }));
             }
             return;
         } else {
@@ -2824,7 +2824,6 @@ export default function EvolvingChessPage() {
 
             setTimeout(() => {
               const pieceAtDestinationAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-              const rankRowAI = currentPlayer === 'white' ? '0' : '7'; // Fix rank check based on logic context
               const rankCheckRowAI = currentPlayer === 'white' ? 0 : 7;
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
@@ -3039,7 +3038,6 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     const { white: currentWhite, black: currentBlack } = killStreaks;
-    const firstBloodJustAchieved = firstBloodAchieved && !firstBloodFlashedRef.current;
 
     if (firstBloodAchieved && !firstBloodFlashedRef.current) {
         setFlashMessage("FIRST BLOOD!");
@@ -3468,6 +3466,13 @@ export default function EvolvingChessPage() {
             const { winner, reason, timedOutPlayer, resigningPlayer, eloChanges } = data;
             let message = "";
             let isResignation = data.type === 'resign';
+
+            if (data.type === 'resign') {
+                setVcnLog(prev => [...prev, '[RS]']);
+            } else if (reason === 'timeout' || reason === 'self-check-timeout') {
+                setVcnLog(prev => [...prev, '[TO]']);
+            }
+
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
             else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
@@ -3486,7 +3491,7 @@ export default function EvolvingChessPage() {
             else if (isResignation) message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
-            if (eloChanges) setEloResult(eloChanges);
+            if (eloResult === null && eloChanges) setEloResult(eloChanges);
             
             if (isRankedGame && eloChanges && user) {
                 const playerEloChange = eloChanges[user.uid];
@@ -3516,7 +3521,7 @@ export default function EvolvingChessPage() {
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect, eloResult]);
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
     if (wsRef.current) {
