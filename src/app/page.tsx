@@ -34,7 +34,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2 } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2, BrainCircuit } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -255,6 +255,7 @@ export default function EvolvingChessPage() {
 
   // --- Audio State ---
   const [volume, setVolume] = useState(100);
+  const [aiDifficulty, setAiDifficulty] = useState(4);
 
   // --- Derived State & Consolidated Helpers ---
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
@@ -2697,7 +2698,7 @@ export default function EvolvingChessPage() {
                 const emptySquares: [number, number][] = [];
                 for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push([r_anvil, c_anvil]);
                 if (emptySquares.length > 0) {
-                    const oppKingPos = this.findKing(finalBoardStateForAI, opponentPlayer);
+                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
                     let bestAnvilCoords: [number, number];
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
@@ -3691,7 +3692,7 @@ export default function EvolvingChessPage() {
   useEffect(() => {
     const initializeAI = () => {
       try {
-        aiInstanceRef.current = new VibeChessAI(4);
+        aiInstanceRef.current = new VibeChessAI(aiDifficulty);
       } catch (err: any) {
         toast({
           title: "AI Initialization Error",
@@ -3702,7 +3703,7 @@ export default function EvolvingChessPage() {
       }
     };
     initializeAI();
-  }, [toast]);
+  }, [toast, aiDifficulty]);
 
 
   useEffect(() => {
@@ -3826,21 +3827,34 @@ export default function EvolvingChessPage() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-64 bg-card border-border">
-                <div className="space-y-4 py-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-pixel uppercase">SFX Volume</span>
-                    <Volume2 className="h-4 w-4 text-primary" />
+                <div className="space-y-6 py-2">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-pixel uppercase">SFX Volume</span>
+                      <Volume2 className="h-4 w-4 text-primary" />
+                    </div>
+                    <Slider
+                      defaultValue={[volume]}
+                      max={200}
+                      step={1}
+                      onValueChange={handleVolumeChange}
+                    />
                   </div>
-                  <Slider
-                    defaultValue={[volume]}
-                    max={200}
-                    step={1}
-                    onValueChange={handleVolumeChange}
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground uppercase font-bold">
-                    <span>Mute</span>
-                    <span>100%</span>
-                    <span>Max</span>
+                  <div className="space-y-4 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-pixel uppercase">AI Depth</span>
+                      <BrainCircuit className="h-4 w-4 text-primary" />
+                    </div>
+                    <Slider
+                      defaultValue={[aiDifficulty]}
+                      min={2}
+                      max={6}
+                      step={1}
+                      onValueChange={(val) => setAiDifficulty(val[0])}
+                    />
+                    <p className="text-[9px] text-muted-foreground italic leading-tight text-center">
+                      The smarter the AI setting, the longer the AI takes to move.
+                    </p>
                   </div>
                 </div>
               </PopoverContent>
@@ -4026,21 +4040,34 @@ export default function EvolvingChessPage() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-64 bg-card border-border">
-                  <div className="space-y-4 py-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-pixel uppercase">SFX Volume</span>
-                      <Volume2 className="h-4 w-4 text-primary" />
+                  <div className="space-y-6 py-2">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-pixel uppercase">SFX Volume</span>
+                        <Volume2 className="h-4 w-4 text-primary" />
+                      </div>
+                      <Slider
+                        defaultValue={[volume]}
+                        max={200}
+                        step={1}
+                        onValueChange={handleVolumeChange}
+                      />
                     </div>
-                    <Slider
-                      defaultValue={[volume]}
-                      max={200}
-                      step={1}
-                      onValueChange={handleVolumeChange}
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground uppercase font-bold">
-                      <span>Mute</span>
-                      <span>100%</span>
-                      <span>Max</span>
+                    <div className="space-y-4 border-t pt-4">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-pixel uppercase">AI Depth</span>
+                        <BrainCircuit className="h-4 w-4 text-primary" />
+                      </div>
+                      <Slider
+                        defaultValue={[aiDifficulty]}
+                        min={2}
+                        max={6}
+                        step={1}
+                        onValueChange={(val) => setAiDifficulty(val[0])}
+                      />
+                      <p className="text-[9px] text-muted-foreground italic leading-tight text-center">
+                        The smarter the AI setting, the longer the AI takes to move.
+                      </p>
                     </div>
                   </div>
                 </PopoverContent>
@@ -4195,3 +4222,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
