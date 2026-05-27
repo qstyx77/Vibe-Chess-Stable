@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { 
   initializeBoard, 
@@ -15,6 +15,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Play, Pause, ChevronLeft, ChevronRight, RotateCcw, MonitorPlay, ArrowLeft, Send } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const PIECE_TYPES: Record<string, PieceType> = {
   'C': 'commander', 'I': 'infiltrator', 'H': 'hero', 'AR': 'archer',
@@ -22,23 +23,50 @@ const PIECE_TYPES: Record<string, PieceType> = {
   'R': 'rook', 'Q': 'queen', 'K': 'king', '': 'pawn'
 };
 
+interface HistoryStep {
+    board: BoardState;
+    effect?: { type: Effect['type']; square: AlgebraicSquare; color?: PlayerColor };
+    highlight?: string;
+    token?: string;
+}
+
 export default function TheaterPage() {
   const [vcnInput, setVcnInput] = useState('');
-  const [history, setHistory] = useState<BoardState[]>([]);
+  const [history, setHistory] = useState<HistoryStep[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const playTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [activeEffects, setActiveEffects] = useState<Effect[]>([]);
+  const effectCounterRef = useRef(0);
 
-  const currentBoard = useMemo(() => {
-    if (history.length === 0) return initializeBoard();
+  const currentStep = useMemo(() => {
+    if (history.length === 0) return { board: initializeBoard() };
     return history[currentIndex];
   }, [history, currentIndex]);
 
+  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor) => {
+    const id = `theatre-eff-${Date.now()}-${Math.random()}-${effectCounterRef.current++}`;
+    const newEffect: Effect = { id, type, square, color };
+    setActiveEffects(prev => [...prev, newEffect]);
+    setTimeout(() => {
+        setActiveEffects(current => current.filter(e => e.id !== id));
+    }, 1500);
+  }, []);
+
+  // Trigger effects when step changes
+  useEffect(() => {
+    const step = history[currentIndex];
+    if (step?.effect) {
+        addEffect(step.effect.type, step.effect.square, step.effect.color);
+    }
+  }, [currentIndex, history, addEffect]);
+
   const loadGame = () => {
-    const snapshots: BoardState[] = [initializeBoard()];
+    const steps: HistoryStep[] = [{ board: initializeBoard(), highlight: 'START' }];
     let board = initializeBoard();
     
-    const cleaned = vcnInput.replace(/\d+\./g, '').replace(/\.\.\./g, '');
+    // Clean notation: remove turn numbers and ellipses
+    const cleaned = vcnInput.replace(/\d+\./g, ' ').replace(/\.\.\./g, ' ');
     const tokens = cleaned.split(/\s+/).filter(t => t.length > 0);
 
     let player: PlayerColor = 'white';
@@ -50,24 +78,33 @@ export default function TheaterPage() {
         item: sq.item ? { ...sq.item } : null
       })));
 
+      let effect: HistoryStep['effect'] = undefined;
+      let highlight: string = '';
+
       try {
         if (token.includes('[Spawn]🍄@')) {
           const match = token.match(/@([a-h][1-8])/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             nextBoard[row][col].item = { type: 'shroom' };
+            highlight = 'SHROOM SPAWNED';
           }
         } else if (token.includes('🛡️')) {
           const match = token.match(/>([a-h][1-8])/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             if (nextBoard[row][col].piece) nextBoard[row][col].piece!.isShielded = true;
+            highlight = 'HOLY SHIELD';
           }
         } else if (token.includes('[A]@')) {
           const match = token.match(/@([a-h][1-8])/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             nextBoard[row][col].item = { type: 'anvil' };
+            highlight = 'ANVIL DROPPED';
           }
         } else if (token.includes('+^')) {
           const match = token.match(/([A-Z]{0,2})\(L(\d)\)@([a-h][1-8])/);
@@ -75,26 +112,36 @@ export default function TheaterPage() {
             const [_, typeKey, levelStr, dest] = match;
             const type = PIECE_TYPES[typeKey] || 'pawn';
             const level = parseInt(levelStr);
-            const { row, col } = algebraicToCoords(dest as AlgebraicSquare);
+            const square = dest as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             nextBoard[row][col].piece = { id: `res_${Date.now()}_${Math.random()}`, type, color: player, level, hasMoved: true, isShielded: false };
+            effect = { type: 'light-beam', square };
+            highlight = 'RESURRECTION';
           }
         } else if (token.includes('[Sacrifice]@')) {
           const match = token.match(/@([a-h][1-8])/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             nextBoard[row][col].piece = null;
+            highlight = 'QUEEN\'S SACRIFICE';
           }
         } else if (token.includes('[Promo-C]@')) {
           const match = token.match(/@([a-h][1-8])/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             if (nextBoard[row][col].piece) nextBoard[row][col].piece!.type = 'commander';
+            highlight = 'COMMANDER PROMOTED';
           }
         } else if (token.includes('!!!')) {
           const match = token.match(/([a-h][1-8])!!!/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             nextBoard[row][col].piece = null;
+            effect = { type: 'explosion', square };
+            highlight = 'SELF-DESTRUCT';
             // Explosion radius removal
             for (let dr = -1; dr <= 1; dr++) {
               for (let dc = -1; dc <= 1; dc++) {
@@ -126,11 +173,14 @@ export default function TheaterPage() {
               nextBoard[kingRow][newRookCol].piece = { ...rook, hasMoved: true };
               nextBoard[kingRow][oldRookCol].piece = null;
           }
+          highlight = isKingside ? 'KINGSIDE CASTLE' : 'QUEENSIDE CASTLE';
         } else if (token.includes('[AR-Snipe]')) {
           const match = token.match(/x([a-h][1-8])/);
           if (match) {
-            const { row, col } = algebraicToCoords(match[1] as AlgebraicSquare);
+            const square = match[1] as AlgebraicSquare;
+            const { row, col } = algebraicToCoords(square);
             nextBoard[row][col].piece = null;
+            highlight = 'ARCHER SNIPE';
           }
         } else {
           // Deterministic Move Logic: Piece(Level)Source[x|-]Dest
@@ -146,10 +196,15 @@ export default function TheaterPage() {
               // Consume shroom if landing on one
               if (nextBoard[toR][toC].item?.type === 'shroom') {
                 nextBoard[toR][toC].item = null;
+                highlight = 'SHROOM CONSUMED';
               }
               // Set the state at destination
               nextBoard[toR][toC].piece = { ...movingPiece, level, hasMoved: true, isShielded: false };
               nextBoard[fromR][fromC].piece = null;
+              
+              if (sep === 'x') highlight = highlight ? `${highlight} & CAPTURE` : 'CAPTURE';
+              if (token.includes('~')) highlight = 'CONVERSION';
+              if (token.includes('📢')) highlight = 'RALLYING CRY';
             }
           }
         }
@@ -158,15 +213,20 @@ export default function TheaterPage() {
       }
 
       board = nextBoard;
-      snapshots.push(board);
+      steps.push({ board, effect, highlight, token });
       
-      // Update player turn only if it's not an extra turn event or environment event
-      if (!token.includes('!!') && !token.includes('[Spawn]🍄@') && !token.includes('[A]@') && !token.includes('🛡️')) {
+      // Update player turn only if it's NOT an extra turn event or sequential action
+      const nonSwitchingTokens = [
+        '!!', '[Spawn]🍄@', '[A]@', '🛡️', '[Promo-C]@', '[Sacrifice]@', '+^', '!!!', '[AR-Snipe]'
+      ];
+      const shouldSwitch = !nonSwitchingTokens.some(t => token.includes(t));
+      
+      if (shouldSwitch) {
         player = player === 'white' ? 'black' : 'white';
       }
     }
     
-    setHistory(snapshots);
+    setHistory(steps);
     setCurrentIndex(0);
     setIsPlaying(false);
   };
@@ -199,8 +259,17 @@ export default function TheaterPage() {
 
       <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl items-start justify-center">
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
+          
+          <div className="w-full text-center h-8 flex items-center justify-center">
+            {currentStep.highlight && (
+                <div className="px-3 py-1 bg-primary/20 border border-primary/50 text-primary font-pixel text-[10px] uppercase animate-pulse">
+                    {currentStep.highlight}
+                </div>
+            )}
+          </div>
+
           <ChessBoard
-            boardState={currentBoard}
+            boardState={currentStep.board}
             selectedSquare={null}
             possibleMoves={[]}
             enemySelectedSquare={null}
@@ -221,6 +290,7 @@ export default function TheaterPage() {
             promotingSquare={null}
             isAwaitingAnvilDrop={false}
             playerToDropAnvil={null}
+            effects={activeEffects}
           />
           
           <div className="flex items-center gap-4 bg-card p-3 border rounded-none">
@@ -263,7 +333,7 @@ export default function TheaterPage() {
               <Send className="mr-2 h-4 w-4" /> Reconstruct Match
             </Button>
             <p className="text-[10px] text-muted-foreground text-center italic">
-              Theater Mode uses VCN v2 with explicit source tracking for high accuracy reconstruction.
+              Theater Mode now supports full mechanic tracking and visual effects.
             </p>
           </CardContent>
         </Card>
