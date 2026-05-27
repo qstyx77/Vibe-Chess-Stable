@@ -2220,11 +2220,8 @@ export default function EvolvingChessPage() {
                     newEnPassantTarget: enPassantTargetSquare,
                 };
                 setShieldContext(shieldCtx);
-                if (isPawnPromotingMove) {
-                } else {
-                    setIsAwaitingHolyShield(true);
-                    setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-                }
+                setIsAwaitingHolyShield(true);
+                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
             }
         }
 
@@ -2233,7 +2230,7 @@ export default function EvolvingChessPage() {
             if (hasArcher) {
                 enteringSpecialMode = true;
                 const snipeCtx = {
-                    boardToUpdate,
+                    boardForNextStep: boardToUpdate,
                     playerWhoseTurnCompleted: pawnColor,
                     isExtraTurn: combinedExtraTurn,
                     newEnPassantTarget: enPassantTargetSquare,
@@ -2312,7 +2309,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe
+    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe
   ]);
 
 
@@ -4222,4 +4219,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-
