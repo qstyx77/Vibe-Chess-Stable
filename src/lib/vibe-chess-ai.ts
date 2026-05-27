@@ -29,7 +29,7 @@ export class VibeChessAI {
     directions: Record<'rook' | 'bishop' | 'queen', [number, number][]>;
 
 
-    constructor(depth = 3) {
+    constructor(depth = 4) {
         this.maxDepth = depth;
         this.positionCache = new Map();
         this.maxCacheSize = 10000;

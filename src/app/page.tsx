@@ -2034,21 +2034,21 @@ export default function EvolvingChessPage() {
 
 
           const isPendingResurrectionPromotion = isResurrectionPromotionInProgress;
-          let sacrificeNeededForQueen = false;
+          let sacrificeNeeded = false;
 
           if (!isPendingResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeededForQueen = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
+             sacrificeNeeded = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
           }
 
-          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen && !isPendingResurrectionPromotion) {
+          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeeded && !isPendingResurrectionPromotion) {
             setPlayerToPromote(currentPlayer);
             setIsPromotingPawn(true); 
             setPromotionSquare(algebraic);
-          } else if (!isPawnPromotingMove && !sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingResurrectionPromotion && !becameInfiltratorFromApply) {
+          } else if (!isPawnPromotingMove && !sacrificeNeeded && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingResurrectionPromotion && !becameInfiltratorFromApply) {
             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           } else if (humanRookResData?.resurrectionPerformed && !isPendingResurrectionPromotion) {
              processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          } else if ((becameInfiltratorFromApply) && !isPendingResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeededForQueen) {
+          } else if ((becameInfiltratorFromApply) && !isPendingResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeeded) {
             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
           }
 
@@ -2219,8 +2219,11 @@ export default function EvolvingChessPage() {
                     newEnPassantTarget: enPassantTargetSquare,
                 };
                 setShieldContext(shieldCtx);
-                setIsAwaitingHolyShield(true);
-                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+                if (isPawnPromotingMove) {
+                } else {
+                    setIsAwaitingHolyShield(true);
+                    setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+                }
             }
         }
 
@@ -2256,10 +2259,10 @@ export default function EvolvingChessPage() {
         }
 
         if (!enteringSpecialMode) {
-            let sacrificeNeededForQueen = false;
+            let sacrificeNeeded = false;
 
             if (pieceType === 'queen') {
-              sacrificeNeededForQueen = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn, enPassantTargetSquare);
+              sacrificeNeeded = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn, enPassantTargetSquare);
             } else if (pieceType === 'rook' || pieceType === 'palace') {
               if (promotionMoveWasCapture) { 
                 const newRookLevel = Number(boardToUpdate[row][col].piece!.level || 1);
@@ -2284,7 +2287,7 @@ export default function EvolvingChessPage() {
               }
             }
 
-            if (!sacrificeNeededForQueen && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress && !isAwaitingCommanderPromotion) {
+            if (!sacrificeNeeded && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress && !isAwaitingCommanderPromotion) {
                processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn, enPassantTargetSquare);
             }
         }
@@ -2694,7 +2697,7 @@ export default function EvolvingChessPage() {
                 const emptySquares: [number, number][] = [];
                 for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push([r_anvil, c_anvil]);
                 if (emptySquares.length > 0) {
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
+                    const oppKingPos = this.findKing(finalBoardStateForAI, opponentPlayer);
                     let bestAnvilCoords: [number, number];
                     if (oppKingPos) {
                       emptySquares.sort((a,b) => {
@@ -3688,7 +3691,7 @@ export default function EvolvingChessPage() {
   useEffect(() => {
     const initializeAI = () => {
       try {
-        aiInstanceRef.current = new VibeChessAI(2);
+        aiInstanceRef.current = new VibeChessAI(4);
       } catch (err: any) {
         toast({
           title: "AI Initialization Error",
