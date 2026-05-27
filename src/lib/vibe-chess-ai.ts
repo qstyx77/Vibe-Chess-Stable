@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil } from '@/lib/chess-utils';
 
@@ -586,7 +587,6 @@ export class VibeChessAI {
         const opponentColor = currentPlayer === 'white' ? 'black' : 'white';
         if (pieceWasCaptured || pieceCapturedByAnvil) {
             newState.killStreaks[currentPlayer] = (newState.killStreaks[currentPlayer] || 0) + (move.type === 'self-destruct' ? (newState.capturedPieces[currentPlayer].length - (originalGameState.capturedPieces[currentPlayer]?.length || 0)) : 1);
-            newState.killStreaks[opponentColor] = 0;
             if (newState.killStreaks[currentPlayer] === 3) {
                 // Anvil logic in a separate function to avoid complexity here
             }

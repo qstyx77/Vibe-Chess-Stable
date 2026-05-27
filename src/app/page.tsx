@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1771,14 +1772,10 @@ export default function EvolvingChessPage() {
 
         if (capturesThisTurn > 0) {
             newStreak += capturesThisTurn;
-            setKillStreaks(prev => {
-                const currentOpponentStreak = prev[opponentPlayer];
-                return {
-                    ...prev,
-                    [capturingPlayer]: newStreak,
-                    [opponentPlayer]: 0 
-                };
-            });
+            setKillStreaks(prev => ({
+                ...prev,
+                [capturingPlayer]: newStreak
+            }));
         } else {
             if (killStreaks[capturingPlayer] > 0) {
                 setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
@@ -2652,7 +2649,7 @@ export default function EvolvingChessPage() {
             const newStreakForAI = capturesThisTurnAI > 0 ? (oldStreakForAI + capturesThisTurnAI) : 0;
 
             if (capturesThisTurnAI > 0) {
-                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI, [opponentPlayer!]: 0 }));
+                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI }));
                 setShowCaptureFlash(true);
                 setCaptureFlashKey(k => k + 1);
             } else {
@@ -2827,9 +2824,10 @@ export default function EvolvingChessPage() {
 
             setTimeout(() => {
               const pieceAtDestinationAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-              const rankRowAI = currentPlayer === 'white' ? 0 : 7;
-              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
-              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const rankRowAI = currentPlayer === 'white' ? '0' : '7'; // Fix rank check based on logic context
+              const rankCheckRowAI = currentPlayer === 'white' ? 0 : 7;
+              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
               let extraTurnForThisAIMove = aiExtraTurn || (newStreakForAI >= 6);
               let sacrificeNeededForAIQueen = false;

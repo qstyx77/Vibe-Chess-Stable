@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -550,7 +551,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) {
                             room.gameState.killStreaks[movingPlayer] += caps;
-                            room.gameState.killStreaks[movingPlayer === 'white' ? 'black' : 'white'] = 0;
                         } else {
                             room.gameState.killStreaks[movingPlayer] = 0;
                         }
