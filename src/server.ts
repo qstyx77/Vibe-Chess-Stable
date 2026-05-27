@@ -17,6 +17,8 @@ import {
     applyPalace,
     applyArcher,
     isQueenSacrificeRequired,
+    getPossibleMoves,
+    isValidSquare,
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType } from './types';
 
@@ -50,20 +52,6 @@ const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'l
     else actualScore = 0.5;
 
     return Math.round(playerElo + K * (actualScore - expectedScore));
-};
-
-const getVCNChar = (type: PieceType) => {
-    switch (type) {
-      case 'commander': return 'C';
-      case 'infiltrator': return 'I';
-      case 'hero': return 'H';
-      case 'archer': return 'AR';
-      case 'archbishop': return 'AB';
-      case 'palace': return 'PL';
-      case 'knight': return 'N';
-      case 'pawn': return '';
-      default: return type.charAt(0).toUpperCase();
-    }
 };
 
 const broadcastToRoom = (roomId: string, message: any) => {
@@ -144,7 +132,6 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
 const triggerNextSpecialAction = (room: any, actingPlayer: PlayerColor) => {
     const roomId = room.clients[0].roomId;
     
-    // Check Chain: 1. Commander Promo -> 2. Pawn Promo -> 3. KS Action -> 4. Queen Sacrifice
     if (room.gameState.pendingCommanderPromo) {
         broadcastToRoom(roomId, { type: 'awaiting-commander-promo', fullGameState: room.gameState });
         startSpecialActionTimer(roomId, 'commander-promo', actingPlayer);
@@ -193,6 +180,7 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     room.gameState.enPassantTargetSquare = newEnPassantTarget;
     delete room.gameState.isPendingExtraTurn;
     delete room.gameState.pendingEnPassantTarget;
+    delete room.gameState.resurrectedSquare; // Clear visual flags after turn finalize
 
     let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
     room.gameState.shroomSpawnCounter = currentShroomCounter;
@@ -268,18 +256,13 @@ const startSpecialActionTimer = (roomId: string, actionType: string, actingPlaye
             return;
         }
 
-        // Auto-finalize current special action if timed out
         if (actionType === 'queen-sacrifice') {
             roomAfterTimeout.gameState.isAwaitingPawnSacrifice = false;
         } else if (actionType === 'commander-promo') {
             roomAfterTimeout.gameState.pendingCommanderPromo = false;
         } else if (actionType === 'pawn-promo') {
             delete roomAfterTimeout.gameState.pendingPromotion;
-        } else if (actionType === 'anvil-drop') {
-            delete roomAfterTimeout.gameState.pendingKSAction;
-        } else if (actionType === 'holy-shield') {
-            delete roomAfterTimeout.gameState.pendingKSAction;
-        } else if (actionType === 'archer-snipe') {
+        } else if (actionType === 'anvil-drop' || actionType === 'holy-shield' || actionType === 'archer-snipe') {
             delete roomAfterTimeout.gameState.pendingKSAction;
         }
 
@@ -309,7 +292,7 @@ const startServerTurnTimer = (roomId: string) => {
             
             const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTargetSquare);
             
-            if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || timedOutPlayerInCheck) {
+            if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || (timedOutPlayerInCheck && roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] > 0)) {
                 onGameOver(roomId, opponent, timedOutPlayerInCheck ? 'self-check-timeout' : 'timeout', { timedOutPlayer });
                 return;
             }
@@ -383,6 +366,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
         try {
             const data = JSON.parse(message.toString());
             const room = ws.roomId ? rooms[ws.roomId] : undefined;
+            const actingColor: PlayerColor = room && room.clients[0].userId === ws.userId ? 'white' : 'black';
 
             switch (data.type) {
                 case 'chat-message':
@@ -466,97 +450,173 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     break;
                 case 'commander-promo':
                     if (room && data.square) {
+                        if (!room.gameState.pendingCommanderPromo || actingColor !== room.gameState.playerWhoGotFirstBlood) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Commander Promotion.' }));
+                            return;
+                        }
                         const { row, col } = algebraicToCoords(data.square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece && piece.type === 'pawn') {
+                        if (piece && piece.type === 'pawn' && piece.level === 1 && piece.color === actingColor) {
                             piece.type = 'commander';
-                            room.gameState.pendingCommanderPromo = false;
-                            room.gameState.lastVCNMove = `[Promo-C]@${data.square}`;
-                            triggerNextSpecialAction(room, piece.color);
+                            delete room.gameState.pendingCommanderPromo;
+                            broadcastToRoom(ws.roomId!, { type: 'commander-promo-finalized', fullGameState: room.gameState, lastPlayer: actingColor });
+                            triggerNextSpecialAction(room, actingColor);
                         }
                     }
                     break;
                 case 'anvil-drop':
                     if (room && data.square) {
+                        if (!room.gameState.anvilDropContext || actingColor !== room.gameState.anvilDropContext.playerWhoseTurnCompleted) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Anvil Drop.' }));
+                            return;
+                        }
                         const { row, col } = algebraicToCoords(data.square);
-                        room.gameState.board[row][col].item = { type: 'anvil' };
-                        room.gameState.lastVCNMove = `+[A]@${data.square}`;
-                        triggerNextSpecialAction(room, room.gameState.currentPlayer);
+                        if (!room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
+                            room.gameState.board[row][col].item = { type: 'anvil' };
+                            delete room.gameState.anvilDropContext;
+                            triggerNextSpecialAction(room, actingColor);
+                        }
                     }
                     break;
                 case 'holy-shield':
                     if (room && data.square) {
+                        if (!room.gameState.shieldContext || actingColor !== room.gameState.shieldContext.playerWhoseTurnCompleted) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Shield Action.' }));
+                            return;
+                        }
                         const { row, col } = algebraicToCoords(data.square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece) {
+                        if (piece && piece.color === actingColor && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== room.gameState.shieldContext.capturingPieceId) {
                             piece.isShielded = true;
-                            triggerNextSpecialAction(room, room.gameState.currentPlayer);
+                            delete room.gameState.shieldContext;
+                            triggerNextSpecialAction(room, actingColor);
                         }
                     }
                     break;
                 case 'archer-snipe':
                     if (room && data.square) {
+                        if (!room.gameState.archerSnipeContext || actingColor !== room.gameState.archerSnipeContext.playerWhoseTurnCompleted) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Archer Snipe.' }));
+                            return;
+                        }
                         const { row, col } = algebraicToCoords(data.square);
                         const targetPiece = room.gameState.board[row]?.[col]?.piece;
-                        if (targetPiece) {
-                            const movingPlayer = room.gameState.currentPlayer;
-                            room.gameState.capturedPieces[movingPlayer].push(targetPiece);
+                        if (targetPiece && targetPiece.color !== actingColor && targetPiece.level === 1 && targetPiece.type !== 'king' && targetPiece.type !== 'queen') {
+                            room.gameState.capturedPieces[actingColor].push(targetPiece);
                             room.gameState.board[row][col].piece = null;
-                            triggerNextSpecialAction(room, movingPlayer);
+                            delete room.gameState.archerSnipeContext;
+                            triggerNextSpecialAction(room, actingColor);
                         }
                     }
                     break;
                 case 'finalize-promotion':
                     if (room && data.payload) {
                         const { square, promoteTo } = data.payload;
+                        if (!room.gameState.pendingPromotion || actingColor !== room.gameState.pendingPromotion.player) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Promotion.' }));
+                            return;
+                        }
                         const { row, col } = algebraicToCoords(square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece) {
+                        if (piece && (piece.type === 'pawn' || piece.type === 'commander' || room.gameState.pendingPromotion.fromResurrection)) {
                             piece.type = promoteTo;
+                            if (promoteTo === 'queen') piece.level = Math.min(piece.level, 7);
                             delete room.gameState.pendingPromotion;
-                            triggerNextSpecialAction(room, piece.color);
+                            triggerNextSpecialAction(room, actingColor);
                         }
                     }
                     break;
                 case 'pawn-sacrifice':
                     if (room && data.payload) {
                         const { square } = data.payload;
+                        if (!room.gameState.isAwaitingPawnSacrifice || actingColor !== room.gameState.currentPlayer) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Sacrifice.' }));
+                            return;
+                        }
                         const { row, col } = algebraicToCoords(square);
                         const victim = room.gameState.board[row]?.[col]?.piece;
-                        if (victim) {
-                            room.gameState.capturedPieces[victim.color === 'white' ? 'black' : 'white'].push(victim);
+                        if (victim && (victim.type === 'pawn' || victim.type === 'commander') && victim.color === actingColor) {
+                            room.gameState.capturedPieces[actingColor === 'white' ? 'black' : 'white'].push(victim);
                             room.gameState.board[row][col].piece = null;
                             room.gameState.isAwaitingPawnSacrifice = false;
-                            triggerNextSpecialAction(room, victim.color);
+                            triggerNextSpecialAction(room, actingColor);
                         }
                     }
                     break;
                 case 'game-move':
                     if (room && data.payload) {
                         const movingPlayer = room.gameState.currentPlayer;
-                        const movingPieceStart = room.gameState.board[algebraicToCoords(data.payload.from).row][algebraicToCoords(data.payload.from).col].piece;
-                        const originalLevel = movingPieceStart?.level || 1;
+                        if (actingColor !== movingPlayer) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Not your turn.' }));
+                            return;
+                        }
+
+                        const { from, to, type: moveType } = data.payload;
+                        const fromCoords = algebraicToCoords(from);
+                        const movingPieceStart = room.gameState.board[fromCoords.row][fromCoords.col].piece;
                         
+                        if (!movingPieceStart || movingPieceStart.color !== actingColor) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'No piece at source.' }));
+                            return;
+                        }
+
+                        // VALIDATION
+                        let isLegal = false;
+                        if (moveType === 'self-destruct') {
+                            const level = movingPieceStart.level || 1;
+                            const isDestructiveType = ['knight', 'hero', 'archer'].includes(movingPieceStart.type);
+                            if (from === to && isDestructiveType && level >= 5) {
+                                const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s})));
+                                tempBoard[fromCoords.row][fromCoords.col].piece = null;
+                                if (!isKingInCheck(tempBoard, actingColor, null)) isLegal = true;
+                            }
+                        } else {
+                            const legalMoves = getPossibleMoves(room.gameState.board, from, room.gameState.enPassantTargetSquare);
+                            if (legalMoves.includes(to)) isLegal = true;
+                        }
+
+                        if (!isLegal) {
+                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal move attempted.' }));
+                            return;
+                        }
+
+                        const originalLevel = movingPieceStart.level || 1;
                         const { newBoard, capturedPiece, selfDestructCaptures, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare);
-                        room.gameState.board = newBoard;
                         
+                        let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         if (capturedPiece) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
                         if (selfDestructCaptures) selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayer].push(p));
                         if (rest.pieceCapturedByAnvil) room.gameState.capturedPieces[movingPlayer].push(rest.pieceCapturedByAnvil);
 
-                        room.gameState.lastMoveFrom = data.payload.from;
-                        room.gameState.lastMoveTo = data.payload.to;
+                        // Rook Resurrection Server Parity
+                        const toCoords = algebraicToCoords(to);
+                        const pieceAtDest = finalizedBoard[toCoords.row][toCoords.col].piece;
+                        if (pieceAtDest && (pieceAtDest.type === 'rook' || pieceAtDest.type === 'palace') && caps > 0) {
+                            const resResult = processRookResurrectionCheck(
+                                finalizedBoard, movingPlayer, data.payload, to,
+                                originalLevel, room.gameState.capturedPieces, globalServerUniqueIdCounter
+                            );
+                            if (resResult.resurrectionPerformed) {
+                                finalizedBoard = resResult.boardWithResurrection;
+                                room.gameState.capturedPieces = resResult.capturedPiecesAfterResurrection;
+                                globalServerUniqueIdCounter = resResult.newResurrectionIdCounter!;
+                                room.gameState.resurrectedSquare = resResult.resurrectedSquareAlg;
+                                if (resResult.promotionRequiredForResurrectedPawn) {
+                                    room.gameState.pendingPromotion = { square: resResult.resurrectedSquareAlg, player: movingPlayer, fromResurrection: true };
+                                }
+                            }
+                        }
+
+                        room.gameState.board = finalizedBoard;
+                        room.gameState.lastMoveFrom = from;
+                        room.gameState.lastMoveTo = to;
 
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
-                        if (caps > 0) {
-                            room.gameState.killStreaks[movingPlayer] += caps;
-                        } else {
-                            room.gameState.killStreaks[movingPlayer] = 0;
-                        }
+                        if (caps > 0) room.gameState.killStreaks[movingPlayer] += caps;
+                        else room.gameState.killStreaks[movingPlayer] = 0;
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
-                        // Chain logic: Build pending actions
                         room.gameState.isPendingExtraTurn = rest.extraTurn || (newStreak >= 6);
                         room.gameState.pendingEnPassantTarget = rest.enPassantTargetSet;
 
@@ -566,21 +626,21 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.pendingCommanderPromo = true;
                         }
 
-                        const { row: tr } = algebraicToCoords(data.payload.to);
-                        const landedPiece = newBoard[tr][algebraicToCoords(data.payload.to).col].piece;
-                        if (landedPiece && landedPiece.type === 'pawn' && (tr === 0 || tr === 7)) {
-                            room.gameState.pendingPromotion = { square: data.payload.to };
+                        const landedPiece = finalizedBoard[toCoords.row][toCoords.col].piece;
+                        if (landedPiece && landedPiece.type === 'pawn' && (toCoords.row === 0 || toCoords.row === 7)) {
+                            room.gameState.pendingPromotion = { square: to, player: movingPlayer };
                         }
 
-                        if (newStreak >= 2 && oldStreak < 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
-                            room.gameState.pendingKSAction = { type: 'holy-shield', context: { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: room.gameState.isPendingExtraTurn, newEnPassantTarget: rest.enPassantTargetSet } };
-                        } else if (newStreak >= 5 && oldStreak < 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
-                            room.gameState.pendingKSAction = { type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: room.gameState.isPendingExtraTurn, newEnPassantTarget: rest.enPassantTargetSet } };
+                        if (newStreak >= 2 && oldStreak < 2 && finalizedBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
+                            const capturerId = finalizedBoard[toCoords.row][toCoords.col].piece?.id;
+                            room.gameState.pendingKSAction = { type: 'holy-shield', context: { capturingPieceId: capturerId, playerWhoseTurnCompleted: movingPlayer } };
+                        } else if (newStreak >= 5 && oldStreak < 5 && finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
+                            room.gameState.pendingKSAction = { type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer } };
                         } else if (newStreak >= 3 && oldStreak < 3) {
-                            room.gameState.pendingKSAction = { type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer, isExtraTurn: room.gameState.isPendingExtraTurn, newEnPassantTarget: rest.enPassantTargetSet } };
+                            room.gameState.pendingKSAction = { type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer } };
                         }
 
-                        if (isQueenSacrificeRequired(newBoard, movingPlayer, data.payload, originalLevel)) {
+                        if (isQueenSacrificeRequired(finalizedBoard, movingPlayer, data.payload, originalLevel)) {
                             room.gameState.pendingQueenSacrifice = true;
                         }
 
@@ -602,7 +662,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
     ws.on('close', () => {
         const qIdx = rankedQueue.findIndex(p => p.ws === ws);
-        if (qIdx > -1) rankedQueue.splice(qIdx, 1);
+        if (qIdx > -1) rankedQueue.splice(idx, 1);
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {
