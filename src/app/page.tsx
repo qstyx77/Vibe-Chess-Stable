@@ -1326,14 +1326,18 @@ export default function EvolvingChessPage() {
             setLastMoveFrom(null);
             setLastMoveTo(algebraic);
 
-            setCurrentPlayer(opponent);
-            const inCheck = isKingInCheck(boardAfterCommanderPromo, opponent, enPassantTargetSquare);
-             if (isCheckmate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
-                setGameInfo({ message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoActed });
-            } else if (isStalemate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
-                setGameInfo({ message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
-            } else {
-                 setGameInfo(prev => ({...prev, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false }));
+            // Re-check for sequence completion after Commander Selection
+            // For offline, we check if promotion is also pending
+            if (!isPromotingPawn && !isAwaitingHolyShield && !isAwaitingAnvilDrop && !isAwaitingArcherSnipe) {
+                setCurrentPlayer(opponent);
+                const inCheck = isKingInCheck(boardAfterCommanderPromo, opponent, enPassantTargetSquare);
+                 if (isCheckmate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
+                    setGameInfo({ message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoActed });
+                } else if (isStalemate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
+                    setGameInfo({ message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
+                } else {
+                     setGameInfo(prev => ({...prev, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false }));
+                }
             }
             return;
         } else {
@@ -1856,7 +1860,7 @@ export default function EvolvingChessPage() {
                   setIsPromotingPawn(true);
                   setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
                   setBoard(finalBoardStateForTurn);
-                  setCapturedPieces(finalCapturedPiecesStateForTurn);
+                  setCapturedPieces(finalCapturedPiecesForTurn);
                   setIsMoveProcessing(false);
                   clickGuardRef.current = false;
                   return;
@@ -1866,18 +1870,10 @@ export default function EvolvingChessPage() {
         }
 
         if (capturesThisTurn > 0 && !firstBloodAchieved) {
-            if (onlineStatus === 'connected') {
-                const ws = wsRef.current;
-                if(ws && ws.readyState === WebSocket.OPEN) {
-                    const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
-                    ws.send(payload);
-                }
-            } else {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood(capturingPlayer);
-                const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI) || (capturingPlayer === 'black' && isBlackAI));
-                if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-            }
+            setFirstBloodAchieved(true);
+            setPlayerWhoGotFirstBlood(capturingPlayer);
+            const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
+            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
         }
         
         const originalPieceDataFromBoard = board[algebraicToCoords(selectedSquare).row]?.[algebraicToCoords(selectedSquare).col]?.piece;
@@ -1982,7 +1978,7 @@ export default function EvolvingChessPage() {
                             setIsPromotingPawn(true);
                             setPromotionSquare(randomSquareAlg);
                             setBoard(finalBoardStateForTurn);
-                            setCapturedPieces(finalCapturedPiecesStateForTurn);
+                            setCapturedPieces(finalCapturedPiecesForTurn);
                             setIsMoveProcessing(false);
                             clickGuardRef.current = false;
                             return;
@@ -2013,7 +2009,7 @@ export default function EvolvingChessPage() {
         if (enteringSpecialMode && !isPawnPromotingMove) {
             setIsMoveProcessing(false); 
             clickGuardRef.current = false;
-            return;
+            // No return here, sequence it below
         }
 
         setTimeout(() => {
@@ -2029,6 +2025,12 @@ export default function EvolvingChessPage() {
                 setIsMoveProcessing(false);
                 clickGuardRef.current = false;
               }
+              return; // Sequenced selection
+          }
+
+          if (isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe) {
+              setIsMoveProcessing(false); 
+              clickGuardRef.current = false;
               return;
           }
 
@@ -2119,7 +2121,7 @@ export default function EvolvingChessPage() {
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
     isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
-    isAwaitingArcherSnipe, archerSnipeContext, addToVCN
+    isAwaitingArcherSnipe, archerSnipeContext, addToVCN, isWhiteAI, isBlackAI
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
