@@ -24,6 +24,7 @@ import {
   applyArchbishop,
   applyPalace,
   applyArcher,
+  findKing,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, ViewMode, Effect, ResurrectedSquareInfo } from '@/types';
 import { useToast } from "@/hooks/use-toast";
@@ -387,15 +388,9 @@ export default function DungeonPage() {
             <ArrowLeft className="mr-2 h-4 w-4" /> Exit Run
           </Button>
         </Link>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Swords className="text-primary h-6 w-6" />
-            <h1 className="text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1>
-          </div>
-          <div className="bg-muted px-3 py-1 rounded-sm border border-border flex items-center gap-2">
-            <Swords className="h-4 w-4 text-primary" />
-            <span className="font-pixel text-[10px]">{playerArmy.length} Survived</span>
-          </div>
+        <div className="flex items-center gap-2">
+          <Swords className="text-primary h-6 w-6" />
+          <h1 className="text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1>
         </div>
         <div className="w-24"></div>
       </div>
