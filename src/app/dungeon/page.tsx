@@ -414,7 +414,7 @@ export default function DungeonPage() {
           setSelectedSquare(null);
           setPossibleMoves([]);
           setIsMoveProcessing(false);
-          clickGuardRef.current = false;
+          clickGuard.current = false;
           
           if (firstBloodThisTurn) {
               setFirstBloodAchieved(true);
