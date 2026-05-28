@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -29,7 +28,7 @@ import {
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, ViewMode, Effect, ResurrectedSquareInfo } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, BookOpen, Swords, ArrowLeft, Trophy, Skull } from 'lucide-react';
+import { RefreshCw, BookOpen, Swords, ArrowLeft, Trophy, Skull, BrainCircuit } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -48,7 +47,6 @@ import { useUser } from '@/firebase';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audio-manager';
 
-// --- PIECE DEPLOYMENT MAPPING ---
 const whiteStartPositions: Record<PieceType, AlgebraicSquare[]> = {
   rook: ['a1', 'h1'],
   knight: ['b1', 'g1'],
@@ -64,7 +62,6 @@ const whiteStartPositions: Record<PieceType, AlgebraicSquare[]> = {
   archer: ['b1', 'g1'],
 };
 
-// --- DUNGEON GENERATOR ---
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
@@ -75,8 +72,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     board.push(row);
   }
 
-  // Deploy Player Army (White)
-  const deployed = new Set<string>();
   playerArmy.forEach(p => {
     const preferredSquares = whiteStartPositions[p.type] || [];
     let placed = false;
@@ -89,7 +84,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
       }
     }
     if (!placed) {
-      // Find nearest empty square on rank 1 or 2
       for (let r = 7; r >= 6; r--) {
         for (let c = 0; c < 8; c++) {
           if (!board[r][c].piece) {
@@ -103,29 +97,28 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     }
   });
 
-  // Deploy Enemies (Black)
   const isBossLevel = level % 10 === 0;
   if (isBossLevel) {
     const bossLevel = level / 10;
     switch (bossLevel) {
-      case 1: // Hydra
+      case 1: 
         board[0][4].piece = { id: 'boss-hydra', type: 'rook', color: 'black', level: 6, hasMoved: false, isShielded: false };
         board[0][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false };
         board[0][5].piece = { id: 'hydra-guard-2', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false };
         break;
-      case 2: // Necromancer
+      case 2: 
         board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false };
         for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false };
         break;
-      case 3: // Colossus
+      case 3: 
         board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true };
         for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false };
         break;
-      case 4: // Mirage
+      case 4: 
         board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false };
         for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false };
         break;
-      case 5: // Vibe Entity
+      case 5: 
         board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true };
         for(let i=0; i<8; i++) {
           const type: PieceType = i % 2 === 0 ? 'hero' : 'archbishop';
@@ -135,7 +128,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         break;
     }
   } else {
-    // Standard Scaling
     const pieceCount = Math.min(16, 4 + Math.floor(level / 2));
     const avgLevel = Math.max(1, Math.floor(level / 5));
     for (let i = 0; i < pieceCount; i++) {
@@ -165,21 +157,17 @@ export default function DungeonPage() {
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
+  const [isAiThinking, setIsAiThinking] = useState(false);
   const [effects, setEffects] = useState<Effect[]>([]);
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
   const [lastMoveFrom, setLastMoveFrom] = useState<AlgebraicSquare | null>(null);
   const [lastMoveTo, setLastMoveTo] = useState<AlgebraicSquare | null>(null);
-  const [shroomCounter, setShroomCounter] = useState(0);
-  const [nextShroom, setNextShroom] = useState(5);
-  const [killStreaks, setKillStreaks] = useState({ white: 0, black: 0 });
   
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
 
-  // --- INITIALIZATION ---
   const startRun = useCallback(() => {
     let army: Piece[] = [];
-    // Start with a full board for Level 1
     const initial = initializeBoard();
     if (userData) {
       if (userData.eloRating >= 1500) applyArchbishop(initial, 'white');
@@ -197,7 +185,6 @@ export default function DungeonPage() {
     setGameInfo({ message: "Level 1 - Clear the board!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
-    setKillStreaks({ white: 0, black: 0 });
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
   }, [userData]);
@@ -226,25 +213,21 @@ export default function DungeonPage() {
     audioManager.playLevelUp();
   }, [board, level, toast]);
 
-  // --- EFFECTS ---
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
     setEffects(prev => [...prev, { id, type, square, color, value }]);
     setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
   }, []);
 
-  // --- GAME LOGIC ---
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean) => {
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
-    // Check Wipeout
     const enemyCount = boardAfter.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
     if (enemyCount === 0) {
       advanceLevel();
       return;
     }
 
-    // Check Player Loss
     const playerKing = findKing(boardAfter, 'white');
     if (!playerKing || isCheckmate(boardAfter, 'white', null)) {
       setGameInfo(prev => ({ ...prev, message: "YOUR KING HAS FALLEN", gameOver: true, winner: 'black' }));
@@ -252,14 +235,6 @@ export default function DungeonPage() {
     }
 
     setCurrentPlayer(nextP);
-    
-    // Special Boss Logic
-    if (nextP === 'black' && level === 20) { // Necromancer Resurrect
-      const necro = boardAfter.flat().find(sq => sq.piece?.id === 'boss-necro');
-      if (necro) {
-        // Simple logic for necro resurrection
-      }
-    }
   }, [level, advanceLevel]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
@@ -279,7 +254,6 @@ export default function DungeonPage() {
         const result = applyMove(board, { from: selectedSquare, to: algebraic }, null);
         const { newBoard, capturedPiece } = result;
 
-        // BOSS: Hydra Split
         if (capturedPiece?.id === 'boss-hydra') {
            const empty = [];
            for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
@@ -293,7 +267,6 @@ export default function DungeonPage() {
            toast({ title: "Hydra Split!", description: "The beast splits into two knights!" });
         }
 
-        // BOSS: Mirage Blink
         if (currentPlayer === 'white' && level === 40) {
            const mirage = newBoard.flat().find(sq => sq.piece?.id === 'boss-mirage');
            if (mirage && Math.random() < 0.3) {
@@ -339,46 +312,60 @@ export default function DungeonPage() {
     }
   };
 
-  // --- AI TURN ---
   useEffect(() => {
-    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && aiInstance.current) {
+    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && aiInstance.current) {
       const think = async () => {
+        setIsAiThinking(true);
         setIsMoveProcessing(true);
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         const stateForAi = {
           board: board.map(r => r.map(s => ({ piece: s.piece, item: s.item }))),
           currentPlayer: 'black' as PlayerColor,
           killStreaks: { white: 0, black: 0 },
           capturedPieces: { white: [], black: [] },
           gameMoveCounter: 0,
-          enPassantTargetSquare: null
+          enPassantTargetSquare: null,
+          gameOver: false,
+          firstBloodAchieved: true,
+          playerWhoGotFirstBlood: 'white'
         };
         
-        const best = aiInstance.current!.getBestMove(stateForAi, 'black');
-        if (best.move) {
-           const from = coordsToAlgebraic(best.move.from[0], best.move.from[1]);
-           const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
-           setLastMoveFrom(from);
-           setLastMoveTo(to);
-           setAnimatedSquareTo(to);
-           
-           const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.promoteTo }, null);
-           setBoard(result.newBoard);
-           if (result.capturedPiece) audioManager.playCapture();
-           else audioManager.playMove();
-           
-           setTimeout(() => {
-             setIsMoveProcessing(false);
-             processMoveEnd(result.newBoard, 'black', result.extraTurn);
-           }, 800);
-        } else {
-          // AI can't move? Check if it's wiped
+        try {
+          const best = aiInstance.current!.getBestMove(stateForAi, 'black');
+          if (best.move) {
+             const from = coordsToAlgebraic(best.move.from[0], best.move.from[1]);
+             const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
+             setLastMoveFrom(from);
+             setLastMoveTo(to);
+             setAnimatedSquareTo(to);
+             
+             const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.promoteTo }, null);
+             setBoard(result.newBoard);
+             if (result.capturedPiece) audioManager.playCapture();
+             else audioManager.playMove();
+             
+             setTimeout(() => {
+               setIsAiThinking(false);
+               setIsMoveProcessing(false);
+               processMoveEnd(result.newBoard, 'black', result.extraTurn);
+             }, 800);
+          } else {
+            setIsAiThinking(false);
+            setIsMoveProcessing(false);
+            processMoveEnd(board, 'black', false);
+          }
+        } catch (e) {
+          console.error("Dungeon AI Error:", e);
+          setIsAiThinking(false);
           setIsMoveProcessing(false);
           processMoveEnd(board, 'black', false);
         }
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, board, processMoveEnd]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
@@ -397,8 +384,9 @@ export default function DungeonPage() {
 
       <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl items-start justify-center">
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
-          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel", gameInfo.gameOver && "animate-pulse text-destructive")}>
-            {gameInfo.message}
+          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center gap-2", gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
+            {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
+            {isAiThinking ? "Enemy is thinking..." : gameInfo.message}
           </div>
 
           <ChessBoard
@@ -410,7 +398,7 @@ export default function DungeonPage() {
             onSquareClick={handleSquareClick}
             playerColor="white"
             currentPlayerColor={currentPlayer}
-            isInteractionDisabled={isMoveProcessing || gameInfo.gameOver}
+            isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking}
             playerInCheck={gameInfo.playerWithKingInCheck}
             viewMode="flipping"
             animatedSquareTo={animatedSquareTo}
