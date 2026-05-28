@@ -183,7 +183,11 @@ export default function DungeonPage() {
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
-    setFirstBloodAchieved(army.some(p => p.type === 'commander' || p.type === 'hero'));
+    
+    const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
+    setFirstBloodAchieved(hasCommander);
+    setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
+    
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
   }, [userData]);
@@ -214,7 +218,11 @@ export default function DungeonPage() {
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
-    setFirstBloodAchieved(survivors.some(p => p.type === 'commander' || p.type === 'hero'));
+    
+    const hasCommander = survivors.some(p => p.type === 'commander' || p.type === 'hero');
+    setFirstBloodAchieved(hasCommander);
+    setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
+
     setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
@@ -245,7 +253,7 @@ export default function DungeonPage() {
     if (nextP === 'black' && level === 20 && moveCounter.current % 10 === 0) {
         const necromancer = boardAfter.flat().find(sq => sq.piece?.id === 'boss-necro');
         if (necromancer) {
-            const fallen = capturedPieces.white; // Necromancer takes YOUR pieces
+            const fallen = capturedPieces.white; 
             if (fallen.length > 0) {
                 const empty = [];
                 for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!boardAfter[r][c].piece && !boardAfter[r][c].item) empty.push({r,c});
@@ -271,10 +279,10 @@ export default function DungeonPage() {
     const sq = board[row][col];
     const piece = sq.piece;
 
-    // Handle Archer Snipe
+    // Special Action Handlers
     if (isAwaitingArcherSnipe) {
         if (piece && piece.color === 'black' && piece.level === 1) {
-            const nextBoard = board.map(r => r.map(s => ({...s})));
+            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             nextBoard[row][col].piece = null;
             setBoard(nextBoard);
             setCapturedPieces(prev => ({ ...prev, white: [...prev.white, piece] }));
@@ -285,35 +293,39 @@ export default function DungeonPage() {
         return;
     }
 
-    // Handle Holy Shield
     if (isAwaitingHolyShield) {
         if (piece && piece.color === 'white' && piece.type !== 'king') {
-            piece.isShielded = true;
+            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            nextBoard[row][col].piece!.isShielded = true;
+            setBoard(nextBoard);
             setIsAwaitingHolyShield(false);
             audioManager.playShield();
-            processMoveEnd(board, 'white', specialActionContext.extra);
+            processMoveEnd(nextBoard, 'white', specialActionContext.extra);
         }
         return;
     }
 
-    // Handle Anvil Drop
     if (isAwaitingAnvilDrop) {
         if (!sq.piece && !sq.item) {
-            sq.item = { type: 'anvil' };
+            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            nextBoard[row][col].item = { type: 'anvil' };
+            setBoard(nextBoard);
             setIsAwaitingAnvilDrop(false);
             audioManager.playAnvil();
-            processMoveEnd(board, 'white', specialActionContext.extra);
+            processMoveEnd(nextBoard, 'white', specialActionContext.extra);
         }
         return;
     }
 
-    // Handle Commander Promo
     if (isAwaitingCommanderPromotion) {
         if (piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) {
-            piece.type = 'commander';
+            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            nextBoard[row][col].piece!.type = 'commander';
+            nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
+            setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
             audioManager.playLevelUp();
-            processMoveEnd(board, 'white', false);
+            processMoveEnd(nextBoard, 'white', false);
         }
         return;
     }
@@ -330,7 +342,6 @@ export default function DungeonPage() {
         const result = applyMove(board, { from: selectedSquare, to: algebraic }, null);
         const { newBoard, capturedPiece } = result;
 
-        // Visual effects for mechanics
         if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
         if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
 
@@ -347,16 +358,14 @@ export default function DungeonPage() {
            toast({ title: "Hydra Split!", description: "The beast splits into two knights!" });
         }
 
+        let firstBloodThisTurn = false;
         if (capturedPiece) {
           audioManager.playCapture();
           setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece] }));
           setKillStreaks(prev => {
               const next = { ...prev, [currentPlayer]: prev[currentPlayer] + 1 };
-              // First Blood Check
               if (currentPlayer === 'white' && !firstBloodAchieved) {
-                  setFirstBloodAchieved(true);
-                  setIsAwaitingCommanderPromotion(true);
-                  setPlayerWhoGotFirstBlood('white');
+                  firstBloodThisTurn = true;
               }
               return next;
           });
@@ -372,27 +381,32 @@ export default function DungeonPage() {
           setIsMoveProcessing(false);
           clickGuard.current = false;
           
-          if (!isAwaitingCommanderPromotion) {
-              const streak = killStreaks[currentPlayer];
-              if (currentPlayer === 'white') {
-                  if (streak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                      setIsAwaitingHolyShield(true);
-                      setSpecialActionContext({ extra: result.extraTurn });
-                      return;
-                  }
-                  if (streak === 3) {
-                      setIsAwaitingAnvilDrop(true);
-                      setSpecialActionContext({ extra: result.extraTurn });
-                      return;
-                  }
-                  if (streak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-                      setIsAwaitingArcherSnipe(true);
-                      setSpecialActionContext({ extra: result.extraTurn });
-                      return;
-                  }
-              }
-              processMoveEnd(newBoard, currentPlayer, result.extraTurn);
+          if (firstBloodThisTurn) {
+              setFirstBloodAchieved(true);
+              setPlayerWhoGotFirstBlood('white');
+              setIsAwaitingCommanderPromotion(true);
+              return;
           }
+
+          const streak = killStreaks[currentPlayer] + (capturedPiece ? 1 : 0);
+          if (currentPlayer === 'white') {
+              if (streak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
+                  setIsAwaitingHolyShield(true);
+                  setSpecialActionContext({ extra: result.extraTurn });
+                  return;
+              }
+              if (streak === 3) {
+                  setIsAwaitingAnvilDrop(true);
+                  setSpecialActionContext({ extra: result.extraTurn });
+                  return;
+              }
+              if (streak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
+                  setIsAwaitingArcherSnipe(true);
+                  setSpecialActionContext({ extra: result.extraTurn });
+                  return;
+              }
+          }
+          processMoveEnd(newBoard, currentPlayer, result.extraTurn);
         }, 800);
         return;
       }
@@ -408,7 +422,8 @@ export default function DungeonPage() {
   };
 
   useEffect(() => {
-    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && aiInstance.current) {
+    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe;
+    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && !isSpecialActionActive && aiInstance.current) {
       const think = async () => {
         setIsAiThinking(true);
         setIsMoveProcessing(true);
@@ -469,7 +484,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
@@ -488,13 +503,13 @@ export default function DungeonPage() {
 
       <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl items-start justify-center">
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
-          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center gap-2", gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
+          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
-            {isAwaitingCommanderPromotion && "SELECT A PAWN TO PROMOTE!"}
-            {isAwaitingAnvilDrop && "PLACE AN ANVIL!"}
-            {isAwaitingHolyShield && "SELECT AN ALLY TO SHIELD!"}
-            {isAwaitingArcherSnipe && "SNIPE A LEVEL 1 ENEMY!"}
+            {isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" :
+             isAwaitingAnvilDrop ? "PLACE AN ANVIL!" :
+             isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" :
+             isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" :
+             isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
 
           <ChessBoard
