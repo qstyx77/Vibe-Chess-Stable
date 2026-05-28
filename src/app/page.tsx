@@ -34,7 +34,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2, BrainCircuit } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2, BrainCircuit, Swords } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -1210,7 +1210,7 @@ export default function EvolvingChessPage() {
           
           // VCN Shield
           const abPos = board.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
-          setVcnLog(prev => [...prev, `🛡️@${abPos}>${algebraic}`]);
+          setVcnLog(prev => [...prev, `🛡️@${abPos}>${targetAlg}`]);
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -3849,6 +3849,11 @@ export default function EvolvingChessPage() {
                 <MonitorPlay /> Theater
               </Button>
             </Link>
+            <Link href="/dungeon">
+              <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
+                <Swords /> Dungeon
+              </Button>
+            </Link>
             <Link href="/leaderboard">
               <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
                 <Trophy /> L.board
@@ -4060,6 +4065,11 @@ export default function EvolvingChessPage() {
               <Link href="/theater">
                 <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
                   <MonitorPlay /> Theater
+                </Button>
+              </Link>
+              <Link href="/dungeon">
+                <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
+                  <Swords /> Dungeon
                 </Button>
               </Link>
               <Link href="/leaderboard">
