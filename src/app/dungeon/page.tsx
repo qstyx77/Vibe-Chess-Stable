@@ -57,6 +57,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     board.push(row);
   }
 
+  // Place player army
   playerArmy.forEach(p => {
     const preferredSquares = whiteStartPositions[p.type] || [];
     let placed = false;
@@ -113,15 +114,46 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         break;
     }
   } else {
-    const pieceCount = Math.min(16, 4 + Math.floor(level / 2));
-    const avgLevel = Math.max(1, Math.floor(level / 5));
-    for (let i = 0; i < pieceCount; i++) {
-      const r = Math.floor(i / 8);
-      const c = i % 8;
-      const types: PieceType[] = ['pawn', 'pawn', 'pawn', 'knight', 'bishop', 'rook'];
-      const type = level < 5 ? 'pawn' : types[Math.floor(Math.random() * types.length)];
-      board[r][c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: avgLevel + (Math.random() > 0.7 ? 1 : 0), hasMoved: false, isShielded: false };
+    const pieceCount = Math.min(16, 2 + Math.floor(level / 3));
+    const avgLevel = Math.max(1, Math.floor(level / 7) + 1);
+    
+    // Choose a procedural formation
+    const formations = ['rank', 'diamond', 'triangle', 'scatter'];
+    const formation = formations[Math.floor(Math.random() * formations.length)];
+    
+    const possibleSquares: {r: number, c: number}[] = [];
+    if (formation === 'rank') {
+       for(let r=0; r<2; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
+    } else if (formation === 'diamond') {
+       for(let r=0; r<5; r++) for(let c=0; c<8; c++) {
+         if (Math.abs(r - 2) + Math.abs(c - 3.5) <= 3) possibleSquares.push({r,c});
+       }
+    } else if (formation === 'triangle') {
+       for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
+    } else {
+       for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
     }
+
+    // Shuffle and pick squares
+    const chosenSquares = possibleSquares.sort(() => Math.random() - 0.5).slice(0, pieceCount);
+    
+    chosenSquares.forEach((pos, i) => {
+      const types: PieceType[] = ['pawn', 'pawn', 'pawn', 'knight', 'bishop', 'rook'];
+      if (level > 15) types.push('commander', 'infiltrator');
+      if (level > 25) types.push('queen', 'archbishop', 'archer');
+      
+      const type = types[Math.floor(Math.random() * types.length)];
+      const pLevel = avgLevel + (Math.random() > 0.6 ? 1 : 0);
+      
+      board[pos.r][pos.c].piece = { 
+        id: `enemy-${level}-${i}`, 
+        type, 
+        color: 'black', 
+        level: pLevel, 
+        hasMoved: false, 
+        isShielded: false 
+      };
+    });
   }
 
   return board;
@@ -215,7 +247,10 @@ export default function DungeonPage() {
     setPlayerArmy(survivors);
     const newBoard = generateDungeonFloor(nextLevel, survivors);
     setBoard(newBoard);
-    setCapturedPieces({ white: [], black: [] });
+    
+    // Reset only the Enemy Captured Pieces (player's kills), keep the Allied Graveyard persistent
+    setCapturedPieces(prev => ({ white: [], black: prev.black }));
+    
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
     
@@ -379,13 +414,18 @@ export default function DungeonPage() {
           setSelectedSquare(null);
           setPossibleMoves([]);
           setIsMoveProcessing(false);
-          clickGuard.current = false;
+          clickGuardRef.current = false;
           
           if (firstBloodThisTurn) {
               setFirstBloodAchieved(true);
               setPlayerWhoGotFirstBlood('white');
-              setIsAwaitingCommanderPromotion(true);
-              return;
+              
+              // Skip commander promotion if no level 1 pawns exist to promote
+              const hasLevel1Pawn = newBoard.flat().some(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
+              if (hasLevel1Pawn) {
+                  setIsAwaitingCommanderPromotion(true);
+                  return;
+              }
           }
 
           const streak = killStreaks[currentPlayer] + (capturedPiece ? 1 : 0);
