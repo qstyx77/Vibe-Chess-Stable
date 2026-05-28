@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -3492,7 +3491,7 @@ export default function EvolvingChessPage() {
             else if (isResignation) message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
-            if (eloResult === null && eloChanges) setEloResult(eloChanges);
+            if (eloResult === null && eloChanges) setEloResult(eloResult);
             
             if (isRankedGame && eloChanges && user) {
                 const playerEloChange = eloChanges[user.uid];
@@ -3845,7 +3844,7 @@ export default function EvolvingChessPage() {
                     <Slider
                       defaultValue={[aiDifficulty]}
                       min={2}
-                      max={6}
+                      max={8}
                       step={1}
                       onValueChange={(val) => setAiDifficulty(val[0])}
                     />
@@ -4058,7 +4057,7 @@ export default function EvolvingChessPage() {
                       <Slider
                         defaultValue={[aiDifficulty]}
                         min={2}
-                        max={6}
+                        max={8}
                         step={1}
                         onValueChange={(val) => setAiDifficulty(val[0])}
                       />
