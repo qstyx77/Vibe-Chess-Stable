@@ -581,8 +581,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
                     board[fromRow + 2 * step]?.[fromCol]?.piece || (board[fromRow + 2 * step]?.[fromCol]?.item && board[fromRow + 2 * step]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
                 const step = Math.sign(toCol - fromCol);
-                if (board[fromRow]?.[fromCol + step]?.piece || (board[fromRow]?.[fromCol + step]?.item && board[fromRow]?.[fromCol + step]?.item?.type !== 'shroom') ||
-                    board[fromRow]?.[fromCol + 2 * step]?.piece || (board[fromRow]?.[fromCol + 2 * step]?.item && board[fromRow]?.[fromCol + 2 * step]?.item?.type !== 'shroom')) return false;
+                if (board[fromRow]?.[col + step]?.piece || (board[fromRow]?.[col + step]?.item && board[fromRow]?.[col + step]?.item?.type !== 'shroom') ||
+                    board[fromRow]?.[col + 2 * step]?.piece || (board[fromRow]?.[col + 2 * step]?.item && board[fromRow]?.[col + 2 * step]?.item?.type !== 'shroom')) return false;
             }
             return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
@@ -1147,7 +1147,7 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassa
     if (kingPosAlg) break;
   }
   if (!kingPosAlg) {
-    return true;
+    return false; // Critical: If no king found, cannot be in check (Standard for Dungeon mode)
   }
   const opponentColor = kingColor === 'white' ? 'black' : 'white';
   return isSquareAttacked(board, kingPosAlg, opponentColor, false, null, enPassantTargetSquare);

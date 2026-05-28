@@ -197,12 +197,15 @@ export default function DungeonPage() {
 
   const startRun = useCallback(() => {
     let army: Piece[] = [];
-    const initial = initializeBoard();
+    let initial = initializeBoard();
+    
+    // Apply ELO pieces based on global profile stats
     if (userData) {
-      if (userData.eloRating >= 1500) applyArchbishop(initial, 'white');
-      if (userData.eloRating >= 1800) applyPalace(initial, 'white');
-      if (userData.eloRating >= 2100) applyArcher(initial, 'white');
+      if (userData.eloRating >= 1500) initial = applyArchbishop(initial, 'white');
+      if (userData.eloRating >= 1800) initial = applyPalace(initial, 'white');
+      if (userData.eloRating >= 2100) initial = applyArcher(initial, 'white');
     }
+    
     initial.flat().forEach(sq => {
       if (sq.piece && sq.piece.color === 'white') army.push(sq.piece);
     });
