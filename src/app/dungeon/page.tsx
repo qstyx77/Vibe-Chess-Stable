@@ -162,6 +162,8 @@ export default function DungeonPage() {
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
   const [lastMoveFrom, setLastMoveFrom] = useState<AlgebraicSquare | null>(null);
   const [lastMoveTo, setLastMoveTo] = useState<AlgebraicSquare | null>(null);
+  const [pieceForInfoDisplay, setPieceForInfoDisplay] = useState<Piece | null>(null);
+  const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
   
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
@@ -185,6 +187,7 @@ export default function DungeonPage() {
     setGameInfo({ message: "Level 1 - Clear the board!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
+    setKillStreaks({ white: 0, black: 0 });
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
   }, [userData]);
@@ -208,6 +211,7 @@ export default function DungeonPage() {
     setBoard(newBoard);
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
+    setKillStreaks({ white: 0, black: 0 });
     setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
@@ -217,6 +221,10 @@ export default function DungeonPage() {
     const id = `eff-${Date.now()}-${Math.random()}`;
     setEffects(prev => [...prev, { id, type, square, color, value }]);
     setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
+  }, []);
+
+  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    return player === 'white' ? 'Hero' : 'Dungeon';
   }, []);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean) => {
@@ -235,7 +243,7 @@ export default function DungeonPage() {
     }
 
     setCurrentPlayer(nextP);
-  }, [level, advanceLevel]);
+  }, [advanceLevel]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver || isPromotingPawn) return;
@@ -287,8 +295,10 @@ export default function DungeonPage() {
         if (capturedPiece) {
           audioManager.playCapture();
           setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece] }));
+          setKillStreaks(prev => ({ ...prev, [currentPlayer]: prev[currentPlayer] + 1 }));
         } else {
           audioManager.playMove();
+          setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
         }
 
         setBoard(newBoard);
@@ -321,10 +331,13 @@ export default function DungeonPage() {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         const stateForAi = {
-          board: board.map(r => r.map(s => ({ piece: s.piece, item: s.item }))),
+          board: board.map(r => r.map(s => ({ piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
           currentPlayer: 'black' as PlayerColor,
-          killStreaks: { white: 0, black: 0 },
-          capturedPieces: { white: [], black: [] },
+          killStreaks: { ...killStreaks },
+          capturedPieces: {
+            white: capturedPieces.white.map(p => ({ ...p })),
+            black: capturedPieces.black.map(p => ({ ...p }))
+          },
           gameMoveCounter: 0,
           enPassantTargetSquare: null,
           gameOver: false,
@@ -343,8 +356,14 @@ export default function DungeonPage() {
              
              const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.promoteTo }, null);
              setBoard(result.newBoard);
-             if (result.capturedPiece) audioManager.playCapture();
-             else audioManager.playMove();
+             if (result.capturedPiece) {
+               audioManager.playCapture();
+               setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.capturedPiece!] }));
+               setKillStreaks(prev => ({ ...prev, black: prev.black + 1 }));
+             } else {
+               audioManager.playMove();
+               setKillStreaks(prev => ({ ...prev, black: 0 }));
+             }
              
              setTimeout(() => {
                setIsAiThinking(false);
@@ -365,7 +384,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
@@ -386,7 +405,7 @@ export default function DungeonPage() {
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
           <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center gap-2", gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isAiThinking ? "Enemy is thinking..." : gameInfo.message}
+            {isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
 
           <ChessBoard
@@ -407,7 +426,7 @@ export default function DungeonPage() {
             isAwaitingPawnSacrifice={false}
             playerToSacrificePawn={null}
             isEnPassantTarget={null}
-            onPieceHover={() => {}}
+            onPieceHover={setPieceForInfoDisplay}
             effects={effects}
             promotingSquare={promotionSquare}
             isAwaitingAnvilDrop={false}
@@ -415,51 +434,49 @@ export default function DungeonPage() {
           />
         </div>
 
-        <Card className="w-full lg:w-1/4 rounded-none border-primary/20">
-          <CardHeader>
-            <CardTitle className="text-sm font-pixel text-center uppercase flex items-center justify-center gap-2">
-              <Skull className="h-4 w-4" /> Lost in Dungeon
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-4 gap-2 min-h-[200px] bg-muted/20 p-2 border border-dashed">
-               {capturedPieces.black.map(p => (
-                 <div key={p.id} className="w-8 h-8 opacity-40 grayscale flex items-center justify-center border rounded-none">
-                    <span className="text-xl font-sans">{p.type[0].toUpperCase()}</span>
-                 </div>
-               ))}
-               {capturedPieces.black.length === 0 && (
-                 <div className="col-span-4 flex items-center justify-center text-[10px] text-muted-foreground italic font-pixel">
-                    No losses... yet.
-                 </div>
-               )}
-            </div>
-            
-            {gameInfo.gameOver && (
-              <div className="space-y-2">
-                <Button className="w-full font-bold uppercase" onClick={() => startRun()}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Retry Run
+        <div className="w-full lg:w-1/4 h-full min-h-[400px]">
+          <GameControls
+            currentPlayer={currentPlayer}
+            capturedPieces={capturedPieces}
+            isGameOver={gameInfo.gameOver}
+            killStreaks={killStreaks}
+            pieceForInfoDisplay={pieceForInfoDisplay}
+            localPlayerColor="white"
+            getPlayerDisplayName={getPlayerDisplayName}
+            onlineStatus="disconnected"
+            turnTimer={null}
+            activeTimerPlayer={null}
+            chatMessages={[]}
+            onSendMessage={() => {}}
+            isMessengerOpen={false}
+            onToggleMessenger={() => {}}
+            hasUnreadMessages={false}
+          />
+          
+          {gameInfo.gameOver && (
+            <div className="mt-4 space-y-2">
+              <Button className="w-full font-bold uppercase" onClick={() => startRun()}>
+                <RefreshCw className="mr-2 h-4 w-4" /> Retry Run
+              </Button>
+              <Link href="/">
+                <Button variant="outline" className="w-full font-bold uppercase">
+                  Back to Lobby
                 </Button>
-                <Link href="/">
-                  <Button variant="outline" className="w-full font-bold uppercase">
-                    Back to Lobby
-                  </Button>
-                </Link>
-              </div>
-            )}
-
-            <div className="p-3 bg-primary/10 border border-primary/30 rounded-none">
-              <p className="text-[9px] font-pixel leading-relaxed">
-                <span className="text-primary font-bold">LEGENDARY BOSSES:</span><br/>
-                F10: THE HYDRA<br/>
-                F20: THE NECROMANCER<br/>
-                F30: THE COLOSSUS<br/>
-                F40: THE MIRAGE<br/>
-                F50: THE ENTITY
-              </p>
+              </Link>
             </div>
-          </CardContent>
-        </Card>
+          )}
+
+          <div className="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-none">
+            <p className="text-[9px] font-pixel leading-relaxed">
+              <span className="text-primary font-bold">LEGENDARY BOSSES:</span><br/>
+              F10: THE HYDRA<br/>
+              F20: THE NECROMANCER<br/>
+              F30: THE COLOSSUS<br/>
+              F40: THE MIRAGE<br/>
+              F50: THE ENTITY
+            </p>
+          </div>
+        </div>
       </div>
 
       <RulesDialog isOpen={false} onOpenChange={() => {}} />
