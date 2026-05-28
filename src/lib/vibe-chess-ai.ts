@@ -396,7 +396,7 @@ export class VibeChessAI {
                 if (this.canMoveTo(gs, r + dir, c)) moves.push({ from: [r,c], to: [r + dir, c], type: (r+dir === 0 || r+dir === 7) ? 'promotion' : 'move' });
                 if (!p.hasMoved && this.canMoveTo(gs, r+dir, c) && this.canMoveTo(gs, r+2*dir, c)) moves.push({ from:[r,c], to:[r+2*dir, c], type:'move' });
                 [-1, 1].forEach(dc => {
-                    if (this.canCaptureAt(gs, r+dir, c+dc, p.color)) moves.push({ from:[r,c], to:[r+dir, c+dc], type: (r+dir === 0 || r+dir === 7) ? 'promotion' : 'capture' });
+                    if (this.canCaptureAt(gs, r+dir, c+dc, p.color, p)) moves.push({ from:[r,c], to:[r+dir, c+dc], type: (r+dir === 0 || r+dir === 7) ? 'promotion' : 'capture' });
                 });
                 if (level >= 2 && this.canMoveTo(gs, r - dir, c)) moves.push({ from:[r,c], to:[r-dir, c], type:'move' });
                 if (level >= 3) [-1, 1].forEach(dc => { if(this.canMoveTo(gs, r, c+dc)) moves.push({ from:[r,c], to:[r, c+dc], type:'move' }); });
@@ -407,7 +407,7 @@ export class VibeChessAI {
             case 'archer':
                 this.knightMoves.forEach(([dr, dc]) => {
                     const nr = r + dr, nc = c + dc;
-                    if (this.canMoveOrCapture(gs, nr, nc, p.color)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' });
+                    if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' });
                 });
                 if (level >= 5) moves.push({ from:[r,c], to:[r,c], type:'self-destruct' });
                 break;
@@ -429,7 +429,7 @@ export class VibeChessAI {
             case 'king':
                 this.kingMoves.forEach(([dr, dc]) => {
                     const nr = r + dr, nc = c + dc;
-                    if (this.canMoveOrCapture(gs, nr, nc, p.color)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' });
+                    if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' });
                 });
                 break;
         }
@@ -461,17 +461,20 @@ export class VibeChessAI {
         return isValidSquareUtil(r, c) && !gs.board[r][c].piece && (!gs.board[r][c].item || gs.board[r][c].item?.type === 'shroom');
     }
 
-    canCaptureAt(gs: AIGameState, r: number, c: number, color: PlayerColor) {
+    canCaptureAt(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) {
         if (!isValidSquareUtil(r, c)) return false;
         const target = gs.board[r][c].piece;
-        return !!(target && target.color !== color);
+        if (!target || target.color === color) return false;
+        return !isPieceInvulnerableToAttackUtil(target, attacker);
     }
 
-    canMoveOrCapture(gs: AIGameState, r: number, c: number, color: PlayerColor) {
+    canMoveOrCapture(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) {
         if (!isValidSquareUtil(r, c)) return false;
         const sq = gs.board[r][c];
         if (sq.item && sq.item.type !== 'shroom') return false;
-        return !sq.piece || sq.piece.color !== color;
+        if (!sq.piece) return true;
+        if (sq.piece.color === color) return false;
+        return !isPieceInvulnerableToAttackUtil(sq.piece, attacker);
     }
 
     isInCheck(gs: AIGameState, color: PlayerColor): boolean {

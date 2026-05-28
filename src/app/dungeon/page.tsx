@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
@@ -14,34 +14,19 @@ import {
   isCheckmate,
   isStalemate,
   coordsToAlgebraic,
-  getCastlingRightsString,
-  boardToPositionHash,
   isValidSquare,
   processRookResurrectionCheck,
-  type RookResurrectionResult,
   spawnShroom,
   applyArchbishop,
   applyPalace,
   applyArcher,
   findKing,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, ViewMode, Effect, ResurrectedSquareInfo } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, BookOpen, Swords, ArrowLeft, Trophy, Skull, BrainCircuit } from 'lucide-react';
+import { RefreshCw, Swords, ArrowLeft, BrainCircuit } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import Link from 'next/link';
@@ -164,9 +149,19 @@ export default function DungeonPage() {
   const [lastMoveTo, setLastMoveTo] = useState<AlgebraicSquare | null>(null);
   const [pieceForInfoDisplay, setPieceForInfoDisplay] = useState<Piece | null>(null);
   const [killStreaks, setKillStreaks] = useState<{ white: number, black: number }>({ white: 0, black: 0 });
+  const [firstBloodAchieved, setFirstBloodAchieved] = useState(false);
+  const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
+  const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   
+  // Special action states
+  const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
+  const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
+  const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
+  const [specialActionContext, setSpecialActionContext] = useState<any>(null);
+
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
+  const moveCounter = useRef(0);
 
   const startRun = useCallback(() => {
     let army: Piece[] = [];
@@ -188,6 +183,7 @@ export default function DungeonPage() {
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
+    setFirstBloodAchieved(army.some(p => p.type === 'commander' || p.type === 'hero'));
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
   }, [userData]);
@@ -195,6 +191,12 @@ export default function DungeonPage() {
   useEffect(() => {
     if (!board.length) startRun();
   }, [startRun, board.length]);
+
+  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
+    const id = `eff-${Date.now()}-${Math.random()}`;
+    setEffects(prev => [...prev, { id, type, square, color, value }]);
+    setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
+  }, []);
 
   const advanceLevel = useCallback(() => {
     const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
@@ -212,16 +214,11 @@ export default function DungeonPage() {
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
+    setFirstBloodAchieved(survivors.some(p => p.type === 'commander' || p.type === 'hero'));
     setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
   }, [board, level, toast]);
-
-  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
-    const id = `eff-${Date.now()}-${Math.random()}`;
-    setEffects(prev => [...prev, { id, type, square, color, value }]);
-    setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
-  }, []);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     return player === 'white' ? 'Hero' : 'Dungeon';
@@ -230,27 +227,97 @@ export default function DungeonPage() {
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean) => {
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
+    // Check floor clear
     const enemyCount = boardAfter.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
     if (enemyCount === 0) {
       advanceLevel();
       return;
     }
 
+    // Check player defeat
     const playerKing = findKing(boardAfter, 'white');
     if (!playerKing || isCheckmate(boardAfter, 'white', null)) {
       setGameInfo(prev => ({ ...prev, message: "YOUR KING HAS FALLEN", gameOver: true, winner: 'black' }));
       return;
     }
 
+    // Necromancer (Floor 20) mechanic: resurrect every 5 turns
+    if (nextP === 'black' && level === 20 && moveCounter.current % 10 === 0) {
+        const necromancer = boardAfter.flat().find(sq => sq.piece?.id === 'boss-necro');
+        if (necromancer) {
+            const fallen = capturedPieces.white; // Necromancer takes YOUR pieces
+            if (fallen.length > 0) {
+                const empty = [];
+                for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!boardAfter[r][c].piece && !boardAfter[r][c].item) empty.push({r,c});
+                if (empty.length) {
+                    const pos = empty[Math.floor(Math.random()*empty.length)];
+                    const p = fallen[fallen.length-1];
+                    boardAfter[pos.r][pos.c].piece = { ...p, color: 'black', level: 1, id: `nec-${Date.now()}` };
+                    addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
+                    audioManager.playResurrect();
+                    toast({ title: "Necromancy!", description: "The boss resurrects a minion!" });
+                }
+            }
+        }
+    }
+
     setCurrentPlayer(nextP);
-  }, [advanceLevel]);
+  }, [advanceLevel, capturedPieces.white, level, toast, addEffect]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
-    if (clickGuard.current || gameInfo.gameOver || isPromotingPawn) return;
+    if (clickGuard.current || gameInfo.gameOver) return;
 
     const { row, col } = algebraicToCoords(algebraic);
     const sq = board[row][col];
-    
+    const piece = sq.piece;
+
+    // Handle Archer Snipe
+    if (isAwaitingArcherSnipe) {
+        if (piece && piece.color === 'black' && piece.level === 1) {
+            const nextBoard = board.map(r => r.map(s => ({...s})));
+            nextBoard[row][col].piece = null;
+            setBoard(nextBoard);
+            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, piece] }));
+            setIsAwaitingArcherSnipe(false);
+            audioManager.playSnipe();
+            processMoveEnd(nextBoard, 'white', specialActionContext.extra);
+        }
+        return;
+    }
+
+    // Handle Holy Shield
+    if (isAwaitingHolyShield) {
+        if (piece && piece.color === 'white' && piece.type !== 'king') {
+            piece.isShielded = true;
+            setIsAwaitingHolyShield(false);
+            audioManager.playShield();
+            processMoveEnd(board, 'white', specialActionContext.extra);
+        }
+        return;
+    }
+
+    // Handle Anvil Drop
+    if (isAwaitingAnvilDrop) {
+        if (!sq.piece && !sq.item) {
+            sq.item = { type: 'anvil' };
+            setIsAwaitingAnvilDrop(false);
+            audioManager.playAnvil();
+            processMoveEnd(board, 'white', specialActionContext.extra);
+        }
+        return;
+    }
+
+    // Handle Commander Promo
+    if (isAwaitingCommanderPromotion) {
+        if (piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) {
+            piece.type = 'commander';
+            setIsAwaitingCommanderPromotion(false);
+            audioManager.playLevelUp();
+            processMoveEnd(board, 'white', false);
+        }
+        return;
+    }
+
     if (selectedSquare) {
       if (possibleMoves.includes(algebraic)) {
         setIsMoveProcessing(true);
@@ -258,9 +325,14 @@ export default function DungeonPage() {
         setAnimatedSquareTo(algebraic);
         setLastMoveFrom(selectedSquare);
         setLastMoveTo(algebraic);
+        moveCounter.current++;
 
         const result = applyMove(board, { from: selectedSquare, to: algebraic }, null);
         const { newBoard, capturedPiece } = result;
+
+        // Visual effects for mechanics
+        if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
+        if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
 
         if (capturedPiece?.id === 'boss-hydra') {
            const empty = [];
@@ -275,27 +347,19 @@ export default function DungeonPage() {
            toast({ title: "Hydra Split!", description: "The beast splits into two knights!" });
         }
 
-        if (currentPlayer === 'white' && level === 40) {
-           const mirage = newBoard.flat().find(sq => sq.piece?.id === 'boss-mirage');
-           if (mirage && Math.random() < 0.3) {
-             const empty = [];
-             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!newBoard[r][c].piece) empty.push({r, c});
-             if (empty.length) {
-               const pos = empty[Math.floor(Math.random()*empty.length)];
-               const {row: or, col: oc} = algebraicToCoords(mirage.algebraic);
-               newBoard[pos.r][pos.c].piece = newBoard[or][oc].piece;
-               newBoard[or][oc].piece = null;
-               addEffect('poof', mirage.algebraic);
-               addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
-               toast({ title: "Mirage Blink!", description: "The phantom Queen vanishes!" });
-             }
-           }
-        }
-
         if (capturedPiece) {
           audioManager.playCapture();
           setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece] }));
-          setKillStreaks(prev => ({ ...prev, [currentPlayer]: prev[currentPlayer] + 1 }));
+          setKillStreaks(prev => {
+              const next = { ...prev, [currentPlayer]: prev[currentPlayer] + 1 };
+              // First Blood Check
+              if (currentPlayer === 'white' && !firstBloodAchieved) {
+                  setFirstBloodAchieved(true);
+                  setIsAwaitingCommanderPromotion(true);
+                  setPlayerWhoGotFirstBlood('white');
+              }
+              return next;
+          });
         } else {
           audioManager.playMove();
           setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
@@ -307,7 +371,28 @@ export default function DungeonPage() {
           setPossibleMoves([]);
           setIsMoveProcessing(false);
           clickGuard.current = false;
-          processMoveEnd(newBoard, currentPlayer, result.extraTurn);
+          
+          if (!isAwaitingCommanderPromotion) {
+              const streak = killStreaks[currentPlayer];
+              if (currentPlayer === 'white') {
+                  if (streak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
+                      setIsAwaitingHolyShield(true);
+                      setSpecialActionContext({ extra: result.extraTurn });
+                      return;
+                  }
+                  if (streak === 3) {
+                      setIsAwaitingAnvilDrop(true);
+                      setSpecialActionContext({ extra: result.extraTurn });
+                      return;
+                  }
+                  if (streak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
+                      setIsAwaitingArcherSnipe(true);
+                      setSpecialActionContext({ extra: result.extraTurn });
+                      return;
+                  }
+              }
+              processMoveEnd(newBoard, currentPlayer, result.extraTurn);
+          }
         }, 800);
         return;
       }
@@ -406,6 +491,10 @@ export default function DungeonPage() {
           <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center gap-2", gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
             {isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+            {isAwaitingCommanderPromotion && "SELECT A PAWN TO PROMOTE!"}
+            {isAwaitingAnvilDrop && "PLACE AN ANVIL!"}
+            {isAwaitingHolyShield && "SELECT AN ALLY TO SHIELD!"}
+            {isAwaitingArcherSnipe && "SNIPE A LEVEL 1 ENEMY!"}
           </div>
 
           <ChessBoard
@@ -429,8 +518,10 @@ export default function DungeonPage() {
             onPieceHover={setPieceForInfoDisplay}
             effects={effects}
             promotingSquare={promotionSquare}
-            isAwaitingAnvilDrop={false}
-            playerToDropAnvil={null}
+            isAwaitingAnvilDrop={isAwaitingAnvilDrop}
+            playerToDropAnvil={currentPlayer === 'white' ? 'white' : null}
+            isAwaitingHolyShield={isAwaitingHolyShield}
+            isAwaitingArcherSnipe={isAwaitingArcherSnipe}
           />
         </div>
 
@@ -469,11 +560,11 @@ export default function DungeonPage() {
           <div className="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-none">
             <p className="text-[9px] font-pixel leading-relaxed">
               <span className="text-primary font-bold">LEGENDARY BOSSES:</span><br/>
-              F10: THE HYDRA<br/>
-              F20: THE NECROMANCER<br/>
-              F30: THE COLOSSUS<br/>
-              F40: THE MIRAGE<br/>
-              F50: THE ENTITY
+              F10: THE HYDRA (Splits)<br/>
+              F20: THE NECROMANCER (Resurrects)<br/>
+              F30: THE COLOSSUS (Shielded King)<br/>
+              F40: THE MIRAGE (Teleports)<br/>
+              F50: THE ENTITY (Godlike)
             </p>
           </div>
         </div>
