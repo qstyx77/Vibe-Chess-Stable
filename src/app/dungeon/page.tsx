@@ -160,7 +160,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
 }
 
 export default function DungeonPage() {
-  const { userData } = useUser();
+  const { userData, isUserLoading } = useUser();
   const { toast } = useToast();
 
   const [level, setLevel] = useState(1);
@@ -228,8 +228,9 @@ export default function DungeonPage() {
   }, [userData]);
 
   useEffect(() => {
-    if (!board.length) startRun();
-  }, [startRun, board.length]);
+    // Ensure Elo-unlocked pieces are included by waiting for user data to load
+    if (!board.length && !isUserLoading) startRun();
+  }, [startRun, board.length, isUserLoading]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
