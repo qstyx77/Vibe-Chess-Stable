@@ -318,6 +318,9 @@ export default function DungeonPage() {
     const sq = board[row][col];
     const piece = sq.piece;
 
+    // Display piece info on click
+    setPieceForInfoDisplay(piece || null);
+
     // Special Action Handlers
     if (isAwaitingArcherSnipe) {
         if (piece && piece.color === 'black' && piece.level === 1) {
