@@ -1,4 +1,4 @@
-mn den runpm  devrnde # Firebase Studio
+ run devmn den runpm  devrnde # Firebase Studio
 
 This is a NextJS starter in Firebase Studio.
 
