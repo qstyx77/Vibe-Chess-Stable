@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -900,7 +901,7 @@ export default function EvolvingChessPage() {
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
     
-    if (onlineStatus !== 'connected' || localPlayerColor === playerWhoseTurnCompleted) {
+    if (onlineStatus !== 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
       let currentShroomCounter = shroomSpawnCounter + 1;
       setShroomSpawnCounter(currentShroomCounter);
       if (currentShroomCounter >= nextShroomSpawnTurn) {
@@ -1314,30 +1315,16 @@ export default function EvolvingChessPage() {
             setVcnLog(prev => [...prev, `[Promo-C]@${algebraic}`]);
 
             setIsAwaitingCommanderPromotion(false);
+            const actingPlayerForComplete = playerWhoGotFirstBlood!;
             setPlayerWhoGotFirstBlood(null);
-            
-            const playerWhoActed = currentPlayer;
-            const opponent = playerWhoActed === 'white' ? 'black' : 'white';
             
             setSelectedSquare(null);
             setPossibleMoves([]);
             setEnemySelectedSquare(null);
             setEnemyPossibleMoves([]);
-            setLastMoveFrom(null);
-            setLastMoveTo(algebraic);
 
-            // Re-check for sequence completion after Commander Selection
-            // For offline, we check if promotion is also pending
             if (!isPromotingPawn && !isAwaitingHolyShield && !isAwaitingAnvilDrop && !isAwaitingArcherSnipe) {
-                setCurrentPlayer(opponent);
-                const inCheck = isKingInCheck(boardAfterCommanderPromo, opponent, enPassantTargetSquare);
-                 if (isCheckmate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
-                    setGameInfo({ message: `Checkmate! ${playerWhoActed} wins!`, isCheck: true, playerWithKingInCheck: opponent, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoActed });
-                } else if (isStalemate(boardAfterCommanderPromo, opponent, enPassantTargetSquare)) {
-                    setGameInfo({ message: "Stalemate! It's a draw.", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
-                } else {
-                     setGameInfo(prev => ({...prev, message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? opponent : null, gameOver: false }));
-                }
+                processMoveEnd(boardAfterCommanderPromo, actingPlayerForComplete, false, enPassantTargetSquare);
             }
             return;
         } else {
