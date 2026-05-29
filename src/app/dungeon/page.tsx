@@ -249,8 +249,7 @@ export default function DungeonPage() {
     setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
   }, []);
 
-  const advanceLevel = useCallback(() => {
-    const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+  const advanceLevel = useCallback((survivorsFromLastBoard: Piece[]) => {
     const nextLevel = level + 1;
     
     if (nextLevel > 50) {
@@ -259,8 +258,8 @@ export default function DungeonPage() {
     }
 
     setLevel(nextLevel);
-    setPlayerArmy(survivors);
-    const newBoard = generateDungeonFloor(nextLevel, survivors);
+    setPlayerArmy(survivorsFromLastBoard);
+    const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
     
     // Reset only the Enemy Captured Pieces (player's kills), keep the Allied Graveyard persistent
@@ -272,14 +271,14 @@ export default function DungeonPage() {
     setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     setEnPassantTargetSquare(null);
     
-    const hasCommander = survivors.some(p => p.type === 'commander' || p.type === 'hero');
+    const hasCommander = survivorsFromLastBoard.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
 
     setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
-  }, [board, level, toast]);
+  }, [level, toast]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     return player === 'white' ? 'Hero' : 'Dungeon';
@@ -290,10 +289,12 @@ export default function DungeonPage() {
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     setEnPassantTargetSquare(nextEpSquare);
     
-    // Check floor clear
+    // Check floor clear - Includes survivors and newly converted allies
+    const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
+    
     if (enemyCount === 0) {
-      advanceLevel();
+      advanceLevel(survivors);
       return;
     }
 
@@ -469,7 +470,8 @@ export default function DungeonPage() {
 
         if (pInfil) {
             setBoard(newBoard);
-            advanceLevel();
+            const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+            advanceLevel(survivors);
             return;
         }
 
