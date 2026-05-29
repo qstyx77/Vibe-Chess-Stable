@@ -393,10 +393,16 @@ export class VibeChessAI {
             case 'pawn':
             case 'commander':
                 const dir = p.color === 'white' ? -1 : 1;
-                if (this.canMoveTo(gs, r + dir, c)) moves.push({ from: [r,c], to: [r + dir, c], type: (r+dir === 0 || r+dir === 7) ? 'promotion' : 'move' });
+                if (this.canMoveTo(gs, r + dir, c)) {
+                    const isPromo = (r + dir === 0 || r + dir === 7);
+                    moves.push({ from: [r,c], to: [r + dir, c], type: isPromo ? 'promotion' : 'move', promoteTo: isPromo ? 'queen' : undefined });
+                }
                 if (!p.hasMoved && this.canMoveTo(gs, r+dir, c) && this.canMoveTo(gs, r+2*dir, c)) moves.push({ from:[r,c], to:[r+2*dir, c], type:'move' });
                 [-1, 1].forEach(dc => {
-                    if (this.canCaptureAt(gs, r+dir, c+dc, p.color, p)) moves.push({ from:[r,c], to:[r+dir, c+dc], type: (r+dir === 0 || r+dir === 7) ? 'promotion' : 'capture' });
+                    if (this.canCaptureAt(gs, r+dir, c+dc, p.color, p)) {
+                        const isPromo = (r + dir === 0 || r + dir === 7);
+                        moves.push({ from:[r,c], to:[r+dir, c+dc], type: isPromo ? 'promotion' : 'capture', promoteTo: isPromo ? 'queen' : undefined });
+                    }
                 });
                 if (level >= 2 && this.canMoveTo(gs, r - dir, c)) moves.push({ from:[r,c], to:[r-dir, c], type:'move' });
                 if (level >= 3) [-1, 1].forEach(dc => { if(this.canMoveTo(gs, r, c+dc)) moves.push({ from:[r,c], to:[r, c+dc], type:'move' }); });

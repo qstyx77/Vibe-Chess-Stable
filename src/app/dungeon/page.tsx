@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -118,7 +117,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     const pieceCount = Math.min(16, 2 + Math.floor(level / 3));
     const avgLevel = Math.max(1, Math.floor(level / 7) + 1);
     
-    // Choose a procedural formation
     const formations = ['rank', 'diamond', 'triangle', 'scatter'];
     const formation = formations[Math.floor(Math.random() * formations.length)];
     
@@ -135,7 +133,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
        for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
     }
 
-    // Shuffle and pick squares
     const chosenSquares = possibleSquares.sort(() => Math.random() - 0.5).slice(0, pieceCount);
     
     chosenSquares.forEach((pos, i) => {
@@ -213,7 +210,6 @@ export default function DungeonPage() {
     setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
   }, []);
 
-  // Board diffing engine for automatic animations
   useEffect(() => {
     if (!board.length || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -223,14 +219,12 @@ export default function DungeonPage() {
     const currentPieceIds = new Set(board.flat().filter(sq => sq.piece).map(sq => sq.piece!.id));
     const prevPieces = prevBoardRef.current.flat().filter(sq => sq.piece);
 
-    // Poof for captured pieces
     prevPieces.forEach(prevSq => {
         if (!currentPieceIds.has(prevSq.piece!.id)) {
             addEffect('poof', prevSq.algebraic);
         }
     });
 
-    // Level indicators
     board.flat().forEach(currSq => {
         if (currSq.piece) {
             const prevSq = prevBoardRef.current!.flat().find(ps => ps.piece?.id === currSq.piece!.id);
@@ -249,7 +243,6 @@ export default function DungeonPage() {
     let army: Piece[] = [];
     let initial = initializeBoard();
     
-    // Apply ELO pieces based on global profile stats
     if (userData) {
       if (userData.eloRating >= 1500) initial = applyArchbishop(initial, 'white');
       if (userData.eloRating >= 1800) initial = applyPalace(initial, 'white');
@@ -299,7 +292,6 @@ export default function DungeonPage() {
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
     
-    // Only reset enemy captured pieces, keep player losses persistent
     setCapturedPieces(prev => ({ white: [], black: prev.black }));
     
     setCurrentPlayer('white');
@@ -335,7 +327,11 @@ export default function DungeonPage() {
       return;
     }
 
-    // Mushroom Spawning
+    if (extra) {
+      toast({ title: "EXTRA TURN!", description: `${getPlayerDisplayName(turnPlayer)} gains another move!`, duration: 2000 });
+      audioManager.playLevelUp();
+    }
+
     const newCounter = shroomSpawnCounter + 1;
     setShroomSpawnCounter(newCounter);
     if (newCounter >= nextShroomSpawnTurn) {
@@ -380,7 +376,7 @@ export default function DungeonPage() {
     });
 
     setCurrentPlayer(nextP);
-  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
+  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn, getPlayerDisplayName]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -488,7 +484,6 @@ export default function DungeonPage() {
       const { row: fromR, col: fromC } = algebraicToCoords(selectedSquare);
       const movingPiece = board[fromR][fromC].piece;
 
-      // Self-Destruct trigger
       if (selectedSquare === algebraic && movingPiece && (movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5) {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
           audioManager.playExplosion();
@@ -562,7 +557,6 @@ export default function DungeonPage() {
            audioManager.playLevelUp();
         }
 
-        // Rook Resurrection
         if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
             const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic}, algebraic, originalLevel, capturedPieces, Date.now());
             if (resResult.resurrectionPerformed) {
@@ -611,7 +605,6 @@ export default function DungeonPage() {
           setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
         }
 
-        // Queen Sacrifice check
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
             if (hasPawns) {
@@ -686,7 +679,7 @@ export default function DungeonPage() {
           const best = aiInstance.current!.getBestMove(stateForAi, 'black');
           
           if (best.move) {
-             setEnemyStuckTurns(0); // Reset stuck counter if move is found
+             setEnemyStuckTurns(0);
              const from = coordsToAlgebraic(best.move.from[0], best.move.from[1]);
              const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
              
@@ -697,7 +690,8 @@ export default function DungeonPage() {
              setLastMoveTo(to);
              setAnimatedSquareTo(to);
              
-             const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.promoteTo }, enPassantTargetSquare);
+             const promoteTo = best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined;
+             const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo }, enPassantTargetSquare);
              
              if (result.infiltrationWin) {
                 setBoard(result.newBoard);
@@ -710,6 +704,15 @@ export default function DungeonPage() {
              const { row: toR, col: toC } = algebraicToCoords(to);
              const landedPieceAI = nextBoard[toR][toC].piece;
 
+             if (best.move.type === 'promotion') {
+                 toast({ title: "Enemy Promotion!", description: `Dungeon Pawn promoted to ${promoteTo} (L${landedPieceAI?.level})!` });
+                 audioManager.playLevelUp();
+             }
+             if (landedPieceAI?.type === 'hero' && originalP?.type === 'commander') {
+                 toast({ title: "Enemy Hero Ascended!", description: "Dungeon Commander has promoted to a Hero!" });
+                 audioManager.playLevelUp();
+             }
+
              if (result.rallyCryTriggered) {
                addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
                audioManager.playRally();
@@ -719,7 +722,6 @@ export default function DungeonPage() {
                audioManager.playConversion();
              }
 
-             // Rook Resurrection for AI
              if (landedPieceAI && (landedPieceAI.type === 'rook' || landedPieceAI.type === 'palace') && result.capturedPiece) {
                 const resResultAI = processRookResurrectionCheck(nextBoard, 'black', {from, to}, to, originalLevel, capturedPieces, Date.now());
                 if (resResultAI.resurrectionPerformed) {
@@ -744,7 +746,6 @@ export default function DungeonPage() {
                const newStreak = (killStreaks.black || 0) + 1;
                setKillStreaks(prev => ({ ...prev, black: newStreak }));
 
-               // Automatic AI response for killstreaks
                if (newStreak === 2) {
                    const allies = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type !== 'king').map(sq => sq.piece!);
                    if (allies.length > 0) {
@@ -762,7 +763,7 @@ export default function DungeonPage() {
                }
              } else {
                audioManager.playMove();
-               setKillStreaks(prev => ({ ...prev, black: 0 }));
+               setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
              }
              
              setTimeout(() => {
@@ -771,7 +772,6 @@ export default function DungeonPage() {
                processMoveEnd(nextBoard, 'black', result.extraTurn, result.enPassantTargetSet);
              }, 800);
           } else {
-            // Stuck detection for last enemy
             if (enemyPieces.length === 1) {
                 const nextStuck = enemyStuckTurns + 1;
                 setEnemyStuckTurns(nextStuck);
