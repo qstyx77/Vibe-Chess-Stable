@@ -701,7 +701,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
         return true;
     }
     
-    const specialQueenHunters: PieceType[] = ['commander', 'hero', 'infiltrator'];
+    const specialQueenHunters: string[] = ['commander', 'hero', 'infiltrator', 'self-destruct'];
     if (targetPiece.type === 'queen' && specialQueenHunters.includes(attackingPiece.type)) {
         return false; 
     }
@@ -765,7 +765,12 @@ export function applyMove(
     if (targetItemOriginal?.type === 'shroom') {
         shroomConsumedThisMove = true;
         newBoard[toRow][toCol].item = null; 
-        movingPieceOriginalRef.level = Math.min( (movingPieceOriginalRef.type === 'queen' ? 7 : Infinity) , (movingPieceOriginalRef.level || 1) + 1);
+        const currentLevel = movingPieceOriginalRef.level || 1;
+        if (movingPieceOriginalRef.type === 'queen') {
+            if (currentLevel < 6) movingPieceOriginalRef.level = currentLevel + 1;
+        } else {
+            movingPieceOriginalRef.level = currentLevel + 1;
+        }
     }
     const movingPieceCopy = { ...movingPieceOriginalRef, hasMoved: true, isShielded: false };
     const targetPieceCopy = { ...targetPieceOriginal!, hasMoved: targetPieceOriginal!.hasMoved || true, isShielded: false };
@@ -789,7 +794,7 @@ export function applyMove(
                     }
                     const victimPiece = victimSquare.piece;
                     if (victimPiece && victimPiece.color !== movingPieceOriginalRef.color && victimPiece.type !== 'king') {
-                         if (!isPieceInvulnerableToAttack(victimPiece, { ...movingPieceOriginalRef, type: 'self-destruct' }) || (victimPiece.type === 'queen' && ['commander', 'hero', 'infiltrator'].includes(movingPieceOriginalRef.type))) {
+                         if (!isPieceInvulnerableToAttack(victimPiece, { ...movingPieceOriginalRef, type: 'self-destruct' } as any) || (victimPiece.type === 'queen' && ['commander', 'hero', 'infiltrator'].includes(movingPieceOriginalRef.type))) {
                             selfDestructCaptures.push({ ...victimPiece, id: `${victimPiece.id}_sd_${Date.now()}` });
                             victimSquare.piece = null;
                         }
@@ -844,9 +849,11 @@ export function applyMove(
   if (targetItemOriginal?.type === 'shroom') {
     shroomConsumedThisMove = true;
     newBoard[toRow][toCol].item = null; 
-    movingPieceForToSquare.level = (movingPieceForToSquare.level || 1) + 1;
+    const currentLevel = movingPieceForToSquare.level || 1;
     if (movingPieceForToSquare.type === 'queen') {
-      movingPieceForToSquare.level = Math.min(movingPieceForToSquare.level, 7);
+        if (currentLevel < 6) movingPieceForToSquare.level = currentLevel + 1;
+    } else {
+        movingPieceForToSquare.level = currentLevel + 1;
     }
   }
 
@@ -875,7 +882,8 @@ export function applyMove(
           shroomConsumedThisMove = true;
           rookLandingSquareState.item = null; 
           if (rookLandingSquareState.piece) { 
-            rookLandingSquareState.piece.level = (rookLandingSquareState.piece.level || 1) + 1;
+            const curL = rookLandingSquareState.piece.level || 1;
+            rookLandingSquareState.piece.level = curL + 1; // Rooks have no cap
           }
         }
       }
@@ -1074,9 +1082,11 @@ export function applyMove(
                             destinationSquareState.piece = { ...adjacentSquareState.piece!, isShielded: false };
                             if (destinationSquareState.item?.type === 'shroom') { 
                                 destinationSquareState.item = null;
-                                destinationSquareState.piece.level = (destinationSquareState.piece.level || 1) + 1;
+                                const curL = destinationSquareState.piece.level || 1;
                                 if (destinationSquareState.piece.type === 'queen') {
-                                    destinationSquareState.piece.level = Math.min(destinationSquareState.piece.level, 7);
+                                    if (curL < 6) destinationSquareState.piece.level = curL + 1;
+                                } else {
+                                    destinationSquareState.piece.level = curL + 1;
                                 }
                             }
                             newBoard[adjRow_pb][adjCol_pb].piece = null;
@@ -1101,10 +1111,12 @@ export function applyMove(
             const adjRow_conv = toRow + dr_conv;
             const adjCol_conv = toCol + dc_conv;
             if (isValidSquare(adjRow_conv, adjCol_conv)) {
-            const adjacentSquareState_conv = newBoard[adjRow_conv]?.[adjCol_conv];
-            const pieceOnAdjSquare_conv = adjacentSquareState_conv?.piece;
+            const adjacentSquareState_conv = newBoard[adjRow_conv]?.[adjRow_conv]; // Note: Fixed potential typo from original r_conv, r_conv
+            // Re-evaluating against actual row/col
+            const adjSqReal = newBoard[adjRow_conv]?.[adjCol_conv];
+            const pieceOnAdjSquare_conv = adjSqReal?.piece;
             
-            if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && (!adjacentSquareState_conv?.item || adjacentSquareState_conv.item.type === 'shroom')) {
+            if (pieceOnAdjSquare_conv && pieceOnAdjSquare_conv.color !== bishopColor_conv && pieceOnAdjSquare_conv.type !== 'king' && (!adjSqReal?.item || adjSqReal.item.type === 'shroom')) {
                 const originalPieceCopy_conv = { ...pieceOnAdjSquare_conv };
                 let convertedPiece_conv: Piece;
                 const roll = Math.random();

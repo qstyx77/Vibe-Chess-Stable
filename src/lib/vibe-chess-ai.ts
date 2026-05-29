@@ -191,7 +191,12 @@ export class VibeChessAI {
         let captureCount = 0;
 
         if (targetItem?.type === 'shroom') {
-            piece.level = Math.min(piece.type === 'queen' ? 7 : 99, (piece.level || 1) + 1);
+            const currentLevel = piece.level || 1;
+            if (piece.type === 'queen') {
+                if (currentLevel < 6) piece.level = currentLevel + 1;
+            } else {
+                piece.level = currentLevel + 1;
+            }
             targetSquare.item = null;
         }
 
