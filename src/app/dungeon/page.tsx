@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -515,7 +514,16 @@ export default function DungeonPage() {
                       }
                   }
               } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+                  const hasVictims = newBoard.flat().some(sq => 
+                      sq.piece && 
+                      sq.piece.color === 'black' && 
+                      sq.piece.level === 1 && 
+                      sq.piece.type !== 'king' && 
+                      sq.piece.type !== 'queen'
+                  );
+                  if (hasVictims) {
+                    triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+                  }
               }
           }
         } else audioManager.playMove();

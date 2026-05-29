@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -657,7 +656,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             const capturerId = finalizedBoard[toCoords.row][toCoords.col].piece?.id;
                             room.gameState.pendingKSAction = { type: 'holy-shield', context: { capturingPieceId: capturerId, playerWhoseTurnCompleted: movingPlayer } };
                         } else if (newStreak >= 5 && oldStreak < 5 && finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
-                            room.gameState.pendingKSAction = { type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer } };
+                            const opponentColorForSnipe = movingPlayer === 'white' ? 'black' : 'white';
+                            const hasVictims = finalizedBoard.flat().some(sq => 
+                                sq.piece && 
+                                sq.piece.color === opponentColorForSnipe && 
+                                sq.piece.level === 1 && 
+                                sq.piece.type !== 'king' && 
+                                sq.piece.type !== 'queen'
+                            );
+                            if (hasVictims) {
+                              room.gameState.pendingKSAction = { type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer } };
+                            }
                         } else if (newStreak >= 3 && oldStreak < 3) {
                             room.gameState.pendingKSAction = { type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer } };
                         }

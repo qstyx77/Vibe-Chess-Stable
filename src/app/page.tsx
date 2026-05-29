@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1210,7 +1209,7 @@ export default function EvolvingChessPage() {
           
           // VCN Shield
           const abPos = board.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
-          setVcnLog(prev => [...prev, `🛡️@${abPos}>${targetAlg}`]);
+          setVcnLog(prev => [...prev, `🛡️@${abPos}>${algebraic}`]);
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -1551,10 +1550,21 @@ export default function EvolvingChessPage() {
         if (!enteringSpecialMode && oldStreak < 5 && newStreakForSelfDestructPlayer >= 5) {
             const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer);
             if (hasArcher) {
-                enteringSpecialMode = true;
-                setIsAwaitingArcherSnipe(true);
-                setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                setGameInfo(prev => ({ ...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture." }));
+                const opponentPlayerForSnipe = selfDestructPlayer === 'white' ? 'black' : 'white';
+                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
+                    sq.piece && 
+                    sq.piece.color === opponentPlayerForSnipe && 
+                    sq.piece.level === 1 && 
+                    sq.piece.type !== 'king' && 
+                    sq.piece.type !== 'queen'
+                );
+                
+                if (hasLevel1Victims) {
+                  enteringSpecialMode = true;
+                  setIsAwaitingArcherSnipe(true);
+                  setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                  setGameInfo(prev => ({ ...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture." }));
+                }
             }
         }
 
@@ -1686,7 +1696,7 @@ export default function EvolvingChessPage() {
 
         if (gameWonByInfiltrationFromApply) {
           setBoard(finalBoardStateForTurn);
-          setCapturedPieces(finalCapturedPiecesStateForTurn);
+          setCapturedPieces(finalCapturedPiecesForTurn);
           toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
           setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
           setIsMoveProcessing(false);
@@ -1912,18 +1922,28 @@ export default function EvolvingChessPage() {
         if (!enteringSpecialMode && newStreak >= 5 && (killStreaks[capturingPlayer] || 0) < 5) {
             const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === capturingPlayer);
             if (hasArcher) {
-                enteringSpecialMode = true;
-                const snipeCtx = {
-                    boardForNextStep: finalBoardStateForTurn,
-                    playerWhoseTurnCompleted: capturingPlayer,
-                    isExtraTurn: combinedExtraTurn,
-                    newEnPassantTarget: nextEnPassantTarget,
-                };
-                setArcherSnipeContext(snipeCtx);
-                if (isPawnPromotingMove) {
-                } else {
-                    setIsAwaitingArcherSnipe(true);
-                    setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
+                    sq.piece && 
+                    sq.piece.color === opponentPlayer && 
+                    sq.piece.level === 1 && 
+                    sq.piece.type !== 'king' && 
+                    sq.piece.type !== 'queen'
+                );
+                
+                if (hasLevel1Victims) {
+                  enteringSpecialMode = true;
+                  const snipeCtx = {
+                      boardForNextStep: finalBoardStateForTurn,
+                      playerWhoseTurnCompleted: capturingPlayer,
+                      isExtraTurn: combinedExtraTurn,
+                      newEnPassantTarget: nextEnPassantTarget,
+                  };
+                  setArcherSnipeContext(snipeCtx);
+                  if (isPawnPromotingMove) {
+                  } else {
+                      setIsAwaitingArcherSnipe(true);
+                      setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                  }
                 }
             }
         }
@@ -1988,7 +2008,7 @@ export default function EvolvingChessPage() {
         }
 
         setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesStateForTurn);
+        setCapturedPieces(finalCapturedPiecesForTurn);
         
         // VCN Standard
         addToVCN(moveBeingMade, applyMoveResult, currentPlayer, combinedExtraTurn);
@@ -2216,16 +2236,27 @@ export default function EvolvingChessPage() {
         if (!enteringSpecialMode && currentStreakForPromotingPlayer >= 5) {
             const hasArcher = boardToUpdate.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === pawnColor);
             if (hasArcher) {
-                enteringSpecialMode = true;
-                const snipeCtx = {
-                    boardForNextStep: boardToUpdate,
-                    playerWhoseTurnCompleted: pawnColor,
-                    isExtraTurn: combinedExtraTurn,
-                    newEnPassantTarget: enPassantTargetSquare,
-                };
-                setArcherSnipeContext(snipeCtx);
-                setIsAwaitingArcherSnipe(true);
-                setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                const opponentColorForSnipe = pawnColor === 'white' ? 'black' : 'white';
+                const hasVictims = boardToUpdate.flat().some(sq => 
+                    sq.piece && 
+                    sq.piece.color === opponentColorForSnipe && 
+                    sq.piece.level === 1 && 
+                    sq.piece.type !== 'king' && 
+                    sq.piece.type !== 'queen'
+                );
+                
+                if (hasVictims) {
+                  enteringSpecialMode = true;
+                  const snipeCtx = {
+                      boardForNextStep: boardToUpdate,
+                      playerWhoseTurnCompleted: pawnColor,
+                      isExtraTurn: combinedExtraTurn,
+                      newEnPassantTarget: enPassantTargetSquare,
+                  };
+                  setArcherSnipeContext(snipeCtx);
+                  setIsAwaitingArcherSnipe(true);
+                  setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                }
             }
         }
 
