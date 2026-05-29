@@ -203,6 +203,43 @@ export default function DungeonPage() {
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
   const moveCounter = useRef(0);
+  const prevBoardRef = useRef<BoardState | null>(null);
+
+  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
+    const id = `eff-${Date.now()}-${Math.random()}`;
+    setEffects(prev => [...prev, { id, type, square, color, value }]);
+    setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
+  }, []);
+
+  // Board diffing engine for automatic animations
+  useEffect(() => {
+    if (!board.length || !prevBoardRef.current) {
+        prevBoardRef.current = board;
+        return;
+    }
+
+    const currentPieceIds = new Set(board.flat().filter(sq => sq.piece).map(sq => sq.piece!.id));
+    const prevPieces = prevBoardRef.current.flat().filter(sq => sq.piece);
+
+    // Poof for captured pieces
+    prevPieces.forEach(prevSq => {
+        if (!currentPieceIds.has(prevSq.piece!.id)) {
+            addEffect('poof', prevSq.algebraic);
+        }
+    });
+
+    // Level indicators
+    board.flat().forEach(currSq => {
+        if (currSq.piece) {
+            const prevSq = prevBoardRef.current!.flat().find(ps => ps.piece?.id === currSq.piece!.id);
+            if (prevSq && prevSq.piece!.level !== currSq.piece!.level) {
+                addEffect('level-change', currSq.algebraic, undefined, currSq.piece!.level - prevSq.piece!.level);
+            }
+        }
+    });
+
+    prevBoardRef.current = board;
+  }, [board, addEffect]);
 
   const startRun = useCallback(() => {
     let army: Piece[] = [];
@@ -223,7 +260,7 @@ export default function DungeonPage() {
     setLevel(1);
     const newBoard = generateDungeonFloor(1, army);
     setBoard(newBoard);
-    setGameInfo({ message: "Level 1 - Wipe them out!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+    setGameInfo({ message: "Welcome to the Dungeon", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
@@ -243,17 +280,12 @@ export default function DungeonPage() {
     if (!board.length && !isUserLoading && userData) startRun();
   }, [startRun, board.length, isUserLoading, userData]);
 
-  const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
-    const id = `eff-${Date.now()}-${Math.random()}`;
-    setEffects(prev => [...prev, { id, type, square, color, value }]);
-    setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
-  }, []);
-
   const advanceLevel = useCallback((survivorsFromLastBoard: Piece[]) => {
     const nextLevel = level + 1;
     
     if (nextLevel > 50) {
       setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' }));
+      audioManager.playVictory();
       return;
     }
 
@@ -262,7 +294,6 @@ export default function DungeonPage() {
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
     
-    // Reset only the Enemy Captured Pieces (player's kills), keep the Allied Graveyard persistent
     setCapturedPieces(prev => ({ white: [], black: prev.black }));
     
     setCurrentPlayer('white');
@@ -289,7 +320,6 @@ export default function DungeonPage() {
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     setEnPassantTargetSquare(nextEpSquare);
     
-    // Check floor clear - Includes survivors and newly converted allies
     const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
     
@@ -313,7 +343,6 @@ export default function DungeonPage() {
         }
     }
 
-    // Check player defeat
     const playerKing = findKing(nextBoard, 'white');
     if (!playerKing || isCheckmate(nextBoard, 'white', nextEpSquare)) {
       setGameInfo({ 
@@ -325,11 +354,13 @@ export default function DungeonPage() {
         gameOver: true, 
         winner: 'black' 
       });
+      audioManager.playDefeat();
       return;
     }
 
-    // Recognize Check for the current turn player
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare);
+    if (inCheck) audioManager.playCheck();
+    
     const message = inCheck ? "Check!" : `Level ${level} - Wipe them out!`;
 
     setGameInfo({
@@ -447,6 +478,26 @@ export default function DungeonPage() {
     }
 
     if (selectedSquare) {
+      const { row: fromR, col: fromC } = algebraicToCoords(selectedSquare);
+      const movingPiece = board[fromR][fromC].piece;
+
+      // Self-Destruct trigger
+      if (selectedSquare === algebraic && movingPiece && (movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5) {
+          const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
+          audioManager.playExplosion();
+          const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+          
+          setBoard(result.newBoard);
+          if (result.selfDestructCaptures) {
+              setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!] }));
+          }
+          setSelectedSquare(null);
+          setPossibleMoves([]);
+          processMoveEnd(result.newBoard, 'white', result.extraTurn, enPassantTargetSquare);
+          return;
+      }
+
       if (possibleMoves.includes(algebraic)) {
         setIsMoveProcessing(true);
         clickGuard.current = true;
@@ -465,6 +516,7 @@ export default function DungeonPage() {
         if (selfCheckByPushBack) {
             setBoard(newBoard);
             setGameInfo({ message: "PUSH-BACK SELF-CHECK! RUN OVER", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
+            audioManager.playDefeat();
             return;
         }
 
@@ -482,8 +534,14 @@ export default function DungeonPage() {
             toast({ title: "Level Up!", description: `${movedP?.type} consumed a Shroom 🍄 and leveled up to L${movedP?.level}!` });
         }
 
-        if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
-        if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+        if (result.rallyCryTriggered) {
+          addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
+          audioManager.playRally();
+        }
+        if (result.conversionEvents.length > 0) {
+          result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+          audioManager.playConversion();
+        }
         if (result.queenLevelReducedEvents) {
             toast({ title: "King's Dominion!", description: "Enemy Queen level reduced!" });
         }
@@ -514,7 +572,7 @@ export default function DungeonPage() {
 
         if (capturedPiece) {
           audioManager.playCapture();
-          setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece!] }));
+          setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
           
           const newStreak = (killStreaks[currentPlayer] || 0) + 1;
           setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
@@ -632,6 +690,7 @@ export default function DungeonPage() {
              if (result.infiltrationWin) {
                 setBoard(result.newBoard);
                 setGameInfo({ message: "DUNGEON INFILTRATION! RUN OVER", gameOver: true, winner: 'black' });
+                audioManager.playDefeat();
                 return;
              }
 
@@ -639,8 +698,14 @@ export default function DungeonPage() {
              const { row: toR, col: toC } = algebraicToCoords(to);
              const landedPieceAI = nextBoard[toR][toC].piece;
 
-             if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
-             if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+             if (result.rallyCryTriggered) {
+               addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
+               audioManager.playRally();
+             }
+             if (result.conversionEvents.length > 0) {
+               result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+               audioManager.playConversion();
+             }
 
              // Rook Resurrection for AI
              if (landedPieceAI && (landedPieceAI.type === 'rook' || landedPieceAI.type === 'palace') && result.capturedPiece) {
