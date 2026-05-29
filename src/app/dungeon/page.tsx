@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -185,7 +186,6 @@ export default function DungeonPage() {
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
-  const [promotionMoveWasCapture, setPromotionMoveWasCapture] = useState(false);
   const [promotionPawnOriginalLevel, setPromotionPawnOriginalLevel] = useState<number | null>(null);
   
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
@@ -195,6 +195,9 @@ export default function DungeonPage() {
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
+  const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
+  const [playerToSacrificePawn, setPlayerToSacrificePawn] = useState<PlayerColor | null>(null);
+  const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
   const [specialActionContext, setSpecialActionContext] = useState<any>(null);
 
   const aiInstance = useRef<VibeChessAI | null>(null);
@@ -237,8 +240,8 @@ export default function DungeonPage() {
   }, [userData]);
 
   useEffect(() => {
-    if (!board.length && !isUserLoading) startRun();
-  }, [startRun, board.length, isUserLoading]);
+    if (!board.length && !isUserLoading && userData) startRun();
+  }, [startRun, board.length, isUserLoading, userData]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
@@ -378,8 +381,22 @@ export default function DungeonPage() {
 
     setPieceForInfoDisplay(piece || null);
 
+    if (isAwaitingPawnSacrifice) {
+        if (piece && piece.color === 'white' && (piece.type === 'pawn' || piece.type === 'commander')) {
+            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            const sacrificed = nextBoard[row][col].piece!;
+            nextBoard[row][col].piece = null;
+            setCapturedPieces(prev => ({ ...prev, black: [...prev.black, sacrificed] }));
+            setBoard(nextBoard);
+            setIsAwaitingPawnSacrifice(false);
+            audioManager.playCapture();
+            processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+        }
+        return;
+    }
+
     if (isAwaitingArcherSnipe) {
-        if (piece && piece.color === 'black' && piece.level === 1) {
+        if (piece && piece.color === 'black' && piece.level === 1 && piece.type !== 'king' && piece.type !== 'queen') {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             nextBoard[row][col].piece = null;
             setBoard(nextBoard);
@@ -438,10 +455,23 @@ export default function DungeonPage() {
         moveCounter.current++;
 
         const originalP = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
-        setPromotionPawnOriginalLevel(originalP?.level || 1);
+        const originalLevel = originalP?.level || 1;
+        setPromotionPawnOriginalLevel(originalLevel);
 
         const result = applyMove(board, { from: selectedSquare, to: algebraic }, enPassantTargetSquare);
-        const { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp } = result;
+        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, selfCheckByPushBack, infiltrationWin: pInfil } = result;
+
+        if (selfCheckByPushBack) {
+            setBoard(newBoard);
+            setGameInfo({ message: "PUSH-BACK SELF-CHECK! RUN OVER", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
+            return;
+        }
+
+        if (pInfil) {
+            setBoard(newBoard);
+            advanceLevel();
+            return;
+        }
 
         if (shroomConsumed) {
             audioManager.playShroom();
@@ -452,6 +482,9 @@ export default function DungeonPage() {
 
         if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
         if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+        if (result.queenLevelReducedEvents) {
+            toast({ title: "King's Dominion!", description: "Enemy Queen level reduced!" });
+        }
 
         const landedPiece = newBoard[row][col].piece;
         const isInteractivePromo = landedPiece?.type === 'pawn' && (row === 0 || row === 7);
@@ -462,44 +495,57 @@ export default function DungeonPage() {
            audioManager.playLevelUp();
         }
 
+        // Rook Resurrection
+        if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
+            const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic}, algebraic, originalLevel, capturedPieces, Date.now());
+            if (resResult.resurrectionPerformed) {
+                newBoard = resResult.boardWithResurrection;
+                setCapturedPieces(resResult.capturedPiecesAfterResurrection);
+                addEffect('light-beam', resResult.resurrectedSquareAlg!);
+                audioManager.playResurrect();
+                toast({ title: "Resurrection!", description: `Fallen ${resResult.resurrectedPieceData?.type} returns!` });
+            }
+        }
+
         let firstBloodThisTurn = false;
-        let triggeredStreakAction = false;
+        let triggeredSpecial = false;
 
         if (capturedPiece) {
           audioManager.playCapture();
-          setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece] }));
+          setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece!] }));
           
           const newStreak = (killStreaks[currentPlayer] || 0) + 1;
           setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
           
           if (currentPlayer === 'white') {
               if (!firstBloodAchieved) {
-                  firstBloodThisTurn = true;
+                  const hasCommanderOrHero = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'commander' || sq.piece.type === 'hero'));
+                  if (!hasCommanderOrHero) firstBloodThisTurn = true;
               }
               
               if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                  triggeredStreakAction = true;
-                  setTimeout(() => {
-                      setIsAwaitingHolyShield(true);
-                      setSpecialActionContext({ extra: result.extraTurn });
-                  }, 800);
+                  triggeredSpecial = true;
+                  setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
               } else if (newStreak === 3) {
-                  triggeredStreakAction = true;
-                  setTimeout(() => {
-                      setIsAwaitingAnvilDrop(true);
-                      setSpecialActionContext({ extra: result.extraTurn });
-                  }, 800);
+                  triggeredSpecial = true;
+                  setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
               } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-                  triggeredStreakAction = true;
-                  setTimeout(() => {
-                      setIsAwaitingArcherSnipe(true);
-                      setSpecialActionContext({ extra: result.extraTurn });
-                  }, 800);
+                  triggeredSpecial = true;
+                  setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
               }
           }
         } else {
           audioManager.playMove();
           setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
+        }
+
+        // Queen Sacrifice check
+        if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
+            const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+            if (hasPawns) {
+                triggeredSpecial = true;
+                setTimeout(() => { setIsAwaitingPawnSacrifice(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
+            }
         }
 
         setBoard(newBoard);
@@ -525,7 +571,7 @@ export default function DungeonPage() {
              return;
           }
 
-          if (!triggeredStreakAction) {
+          if (!triggeredSpecial) {
               processMoveEnd(newBoard, currentPlayer, result.extraTurn, nextEp);
           }
         }, 800);
@@ -543,7 +589,7 @@ export default function DungeonPage() {
   };
 
   useEffect(() => {
-    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn;
+    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice;
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && !isSpecialActionActive && aiInstance.current) {
       const think = async () => {
         setIsAiThinking(true);
@@ -576,13 +622,18 @@ export default function DungeonPage() {
              setAnimatedSquareTo(to);
              
              const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.promoteTo }, enPassantTargetSquare);
+             
+             if (result.infiltrationWin) {
+                setBoard(result.newBoard);
+                setGameInfo({ message: "DUNGEON INFILTRATION! RUN OVER", gameOver: true, winner: 'black' });
+                return;
+             }
+
              setBoard(result.newBoard);
              
              if (result.shroomConsumed) {
                 audioManager.playShroom();
                 audioManager.playLevelUp();
-                const movedP = result.newBoard[to[0]][to[1]].piece;
-                toast({ title: "Enemy Level Up!", description: `Dungeon ${movedP?.type} consumed a Shroom 🍄!` });
              }
 
              if (result.capturedPiece) {
@@ -613,7 +664,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, toast, enPassantTargetSquare]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
@@ -638,6 +689,7 @@ export default function DungeonPage() {
              isAwaitingAnvilDrop ? "PLACE AN ANVIL!" :
              isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" :
              isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" :
+             isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" :
              isPromotingPawn ? "PROMOTE YOUR PAWN!" :
              isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
@@ -657,8 +709,8 @@ export default function DungeonPage() {
             animatedSquareTo={animatedSquareTo}
             lastMoveFrom={lastMoveFrom}
             lastMoveTo={lastMoveTo}
-            isAwaitingPawnSacrifice={false}
-            playerToSacrificePawn={null}
+            isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+            playerToSacrificePawn={playerToSacrificePawn}
             isEnPassantTarget={enPassantTargetSquare}
             onPieceHover={setPieceForInfoDisplay}
             effects={effects}
