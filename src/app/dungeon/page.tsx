@@ -352,7 +352,7 @@ export default function DungeonPage() {
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
 
-    setGameInfo({ message: `Level {nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+    setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
   }, [level, toast]);
@@ -611,6 +611,8 @@ export default function DungeonPage() {
            audioManager.playLevelUp();
         }
 
+        let triggeredSpecial = false;
+
         if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
             const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic}, algebraic, originalLevel, capturedPieces, Date.now());
             if (resResult.resurrectionPerformed) {
@@ -619,11 +621,16 @@ export default function DungeonPage() {
                 addEffect('light-beam', resResult.resurrectedSquareAlg!);
                 audioManager.playResurrect();
                 toast({ title: "Resurrection!", description: `Fallen ${resResult.resurrectedPieceData?.type} returns!` });
+                
+                if (resResult.promotionRequiredForResurrectedPawn) {
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(resResult.resurrectedSquareAlg!);
+                    triggeredSpecial = true;
+                }
             }
         }
 
         let firstBloodThisTurn = false;
-        let triggeredSpecial = false;
 
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
         const newStreak = (killStreaks[currentPlayer] || 0) + streakGain;
@@ -664,6 +671,16 @@ export default function DungeonPage() {
                           addEffect('light-beam', chosenSq.algebraic);
                           audioManager.playResurrect();
                           toast({ title: "Streak Resurrection!", description: `Fallen ${pieceToRes.type} restored!` });
+                          
+                          const enemyBackRank = 0;
+                          if (pieceToRes.type === 'pawn' && rr === enemyBackRank) {
+                              setIsPromotingPawn(true);
+                              setPromotionSquare(chosenSq.algebraic);
+                              triggeredSpecial = true;
+                          } else if (pieceToRes.type === 'commander' && rr === enemyBackRank) {
+                              newBoard[rr][rc].piece!.type = 'hero';
+                              newBoard[rr][rc].piece!.id += '_streak_hero';
+                          }
                       }
                   }
               } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
@@ -800,6 +817,15 @@ export default function DungeonPage() {
                     addEffect('light-beam', resResultAI.resurrectedSquareAlg!);
                     audioManager.playResurrect();
                     toast({ title: "Dungeon Resurrection!", description: `Enemy ${resResultAI.resurrectedPieceData?.type} has been resurrected!` });
+                    
+                    if (resResultAI.promotionRequiredForResurrectedPawn) {
+                        const { row: pr, col: pc } = algebraicToCoords(resResultAI.resurrectedSquareAlg!);
+                        if (nextBoard[pr][pc].piece) {
+                            nextBoard[pr][pc].piece!.type = 'queen';
+                            nextBoard[pr][pc].piece!.id += '_res_promo';
+                            toast({ title: "Enemy Promotion!", description: "Resurrected Dungeon Pawn promoted to Queen!" });
+                        }
+                    }
                 }
              }
 
@@ -844,10 +870,22 @@ export default function DungeonPage() {
                        const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
-                           chosenSq.piece = pieceToRes;
+                           const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
+                           nextBoard[rr][rc].piece = pieceToRes;
                            setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
                            addEffect('light-beam', chosenSq.algebraic);
                            audioManager.playResurrect();
+                           
+                           const playerBackRank = 7;
+                           if (pieceToRes.type === 'pawn' && rr === playerBackRank) {
+                               nextBoard[rr][rc].piece!.type = 'queen';
+                               nextBoard[rr][rc].piece!.id += '_streak_promo';
+                               toast({ title: "Enemy Promotion!", description: "Resurrected Dungeon Pawn promoted to Queen!" });
+                           } else if (pieceToRes.type === 'commander' && rr === playerBackRank) {
+                               nextBoard[rr][rc].piece!.type = 'hero';
+                               nextBoard[rr][rc].piece!.id += '_streak_hero';
+                               toast({ title: "Enemy Hero Ascended!", description: "Resurrected Dungeon Commander promoted to Hero!" });
+                           }
                        }
                    }
                } else if (newStreak === 5 && hasArcher) {
