@@ -81,10 +81,14 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   if (bishops[0]) placePieceAt(bishops[0], 'c1');
   if (bishops[1]) placePieceAt(bishops[1], 'f1');
 
-  // Phase 2: Sequential Frontline (Rank 2 - a2 to h2)
-  const rank2: AlgebraicSquare[] = ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'];
+  // Phase 2: Frontline Placement with King Protection
+  // Prioritize protecting the King (at e1) by filling the squares directly in front of him first.
+  const priorityGuard: AlgebraicSquare[] = ['e2', 'd2', 'f2'];
+  const sideSlots: AlgebraicSquare[] = ['a2', 'b2', 'c2', 'g2', 'h2'].sort(() => Math.random() - 0.5) as AlgebraicSquare[];
+  const placementOrder = [...priorityGuard, ...sideSlots];
+
   let frontlineIdx = 0;
-  for (const alg of rank2) {
+  for (const alg of placementOrder) {
     while (frontlineIdx < frontline.length && placedIds.has(frontline[frontlineIdx].id)) {
         frontlineIdx++;
     }
