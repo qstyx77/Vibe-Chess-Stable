@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing } from '@/lib/chess-utils';
 
@@ -340,7 +341,8 @@ export class VibeChessAI {
         gs.board.forEach(row => row.forEach(sq => {
             if (sq.piece && sq.piece.color === color) {
                 if (target === 'all' || (target === 'pawn' && sq.piece.type === 'pawn')) {
-                    sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + 1);
+                    // Queen cannot reach Level 7 via rallying cry
+                    sq.piece.level = Math.min(sq.piece.type === 'queen' ? 6 : 99, (sq.piece.level || 1) + 1);
                 }
             }
         }));

@@ -807,7 +807,8 @@ export function applyMove(
                     if (allySquare.piece && allySquare.piece.color === heroColor) {
                         let newAllyLevel = (allySquare.piece.level || 1) + 1;
                         if (allySquare.piece.type === 'queen') {
-                            newAllyLevel = Math.min(newAllyLevel, 7);
+                            // Queen cannot reach Level 7 via rallying cry
+                            newAllyLevel = Math.min(newAllyLevel, 6);
                         }
                         allySquare.piece.level = newAllyLevel;
                     }
@@ -922,7 +923,8 @@ export function applyMove(
           if (allySquare.piece && allySquare.piece.color === heroColor && allySquare.piece.id !== pieceNowOnToSquare.id) {
             let newAllyLevel = (allySquare.piece.level || 1) + 1;
             if (allySquare.piece.type === 'queen') {
-              newAllyLevel = Math.min(newAllyLevel, 7);
+              // Queen cannot reach Level 7 via rallying cry
+              newAllyLevel = Math.min(newAllyLevel, 6);
             }
             allySquare.piece.level = newAllyLevel;
           }
