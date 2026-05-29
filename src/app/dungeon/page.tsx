@@ -214,7 +214,7 @@ export default function DungeonPage() {
     setLevel(1);
     const newBoard = generateDungeonFloor(1, army);
     setBoard(newBoard);
-    setGameInfo({ message: "Level 1 - Clear the board!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+    setGameInfo({ message: "Level 1 - Wipe them out!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
@@ -281,13 +281,6 @@ export default function DungeonPage() {
       return;
     }
 
-    // Check player defeat
-    const playerKing = findKing(boardAfter, 'white');
-    if (!playerKing || isCheckmate(boardAfter, 'white', null)) {
-      setGameInfo(prev => ({ ...prev, message: "YOUR KING HAS FALLEN", gameOver: true, winner: 'black' }));
-      return;
-    }
-
     // Necromancer (Floor 20) mechanic: resurrect every 5 turns
     if (nextP === 'black' && level === 20 && moveCounter.current % 10 === 0) {
         const necromancer = boardAfter.flat().find(sq => sq.piece?.id === 'boss-necro');
@@ -307,6 +300,34 @@ export default function DungeonPage() {
             }
         }
     }
+
+    // Check player defeat
+    const playerKing = findKing(boardAfter, 'white');
+    if (!playerKing || isCheckmate(boardAfter, 'white', null)) {
+      setGameInfo({ 
+        message: "YOUR KING HAS FALLEN", 
+        isCheck: true, 
+        playerWithKingInCheck: 'white', 
+        isCheckmate: true, 
+        isStalemate: false, 
+        gameOver: true, 
+        winner: 'black' 
+      });
+      return;
+    }
+
+    // Recognize Check for the current turn player
+    const inCheck = isKingInCheck(boardAfter, nextP, null);
+    const message = inCheck ? "Check!" : `Level ${level} - Wipe them out!`;
+
+    setGameInfo({
+      message,
+      isCheck: inCheck,
+      playerWithKingInCheck: inCheck ? nextP : null,
+      isCheckmate: false,
+      isStalemate: false,
+      gameOver: false,
+    });
 
     setCurrentPlayer(nextP);
   }, [advanceLevel, capturedPieces.white, level, toast, addEffect]);
@@ -550,7 +571,7 @@ export default function DungeonPage() {
 
       <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl items-start justify-center">
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
-          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
+          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.isCheck && !gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
             {isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" :
              isAwaitingAnvilDrop ? "PLACE AN ANVIL!" :
