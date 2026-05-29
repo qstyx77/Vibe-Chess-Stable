@@ -66,7 +66,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     return false;
   };
 
-  // Phase 1: Anchors & Classic Placement (any time the piece configuration is available)
+  // Phase 1: Anchors & Classic Placement
   // King and Rooks anchored for castling
   placePieceAt(king, 'e1');
   if (rooks[0]) placePieceAt(rooks[0], 'a1');
@@ -98,7 +98,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     }
   }
 
-  // Phase 3: Leftover assignment (Heavies first, filling gaps and then overflow ranks)
+  // Phase 3: Strategic Leftover Backfill (Heavies first, center-out)
   const piecePriority = (type: PieceType) => {
     const values: Record<string, number> = {
         queen: 90, palace: 60, rook: 50, 
@@ -112,12 +112,12 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     .filter(p => !placedIds.has(p.id))
     .sort((a, b) => piecePriority(b.type) - piecePriority(a.type));
 
-  // prioritized order for filling leftovers
+  // prioritized order for filling leftovers (Center-out strategic placement)
   const fillOrder: AlgebraicSquare[] = [
-    'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', // Rank 1 gaps
-    'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', // Rank 2 gaps
-    'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', // Rank 3 (Overflow)
-    'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', // Rank 4 (Extreme Overflow)
+    'd1', 'e1', 'c1', 'f1', 'b1', 'g1', 'a1', 'h1', // Rank 1
+    'd2', 'e2', 'c2', 'f2', 'b2', 'g2', 'a2', 'h2', // Rank 2
+    'd3', 'e3', 'c3', 'f3', 'b3', 'g3', 'a3', 'h3', // Rank 3
+    'd4', 'e4', 'c4', 'f4', 'b4', 'g4', 'a4', 'h4', // Rank 4
   ];
 
   let fillIdx = 0;
@@ -246,6 +246,8 @@ export default function DungeonPage() {
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
   const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
   const [playerToSacrificePawn, setPlayerToSacrificePawn] = useState<PlayerColor | null>(null);
+  const [playerWhoMadeQueenMove, setPlayerWhoMadeQueenMove] = useState<PlayerColor | null>(null);
+  const [isExtraTurnFromQueenMove, setIsExtraTurnFromQueenMove] = useState<boolean>(false);
   const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
   const [specialActionContext, setSpecialActionContext] = useState<any>(null);
 
@@ -338,7 +340,6 @@ export default function DungeonPage() {
     }
 
     setLevel(nextLevel);
-    // Survivors already have their shields removed by generateDungeonFloor via placePieceAt
     setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
@@ -443,7 +444,7 @@ export default function DungeonPage() {
       type: pieceType,
       id: `${pieceBeingPromoted.id}_promo_${Date.now()}`,
       hasMoved: true,
-      isShielded: false, // Shields also stripped on promotion
+      isShielded: false, 
     };
 
     if (pieceType === 'queen') {
@@ -470,15 +471,19 @@ export default function DungeonPage() {
     setPieceForInfoDisplay(piece || null);
 
     if (isAwaitingPawnSacrifice) {
-        if (piece && piece.color === 'white' && (piece.type === 'pawn' || piece.type === 'commander')) {
-            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+        if (piece && piece.color === playerToSacrificePawn && (piece.type === 'pawn' || piece.type === 'commander')) {
+            const nextBoard = (boardForPostSacrifice || board).map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const sacrificed = nextBoard[row][col].piece!;
             nextBoard[row][col].piece = null;
             setCapturedPieces(prev => ({ ...prev, black: [...prev.black, sacrificed] }));
             setBoard(nextBoard);
+            
             setIsAwaitingPawnSacrifice(false);
+            setPlayerWhoMadeQueenMove(null);
+            setBoardForPostSacrifice(null);
+            
             audioManager.playCapture();
-            processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
         }
         return;
     }
@@ -700,7 +705,11 @@ export default function DungeonPage() {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
             if (hasPawns) {
                 triggeredSpecial = true;
-                setTimeout(() => { setIsAwaitingPawnSacrifice(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+                setBoardForPostSacrifice(newBoard);
+                setPlayerWhoMadeQueenMove('white');
+                setPlayerToSacrificePawn('white');
+                setIsExtraTurnFromQueenMove(result.extraTurn || newStreak >= 6);
+                setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800);
             }
         }
 
