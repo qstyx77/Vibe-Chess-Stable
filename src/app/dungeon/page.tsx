@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -404,8 +405,9 @@ export default function DungeonPage() {
     setPromotionSquare(null);
 
     const extraTurnFromPromo = (promotionPawnOriginalLevel || 1) >= 5;
-    processMoveEnd(nextBoard, 'white', extraTurnFromPromo, null);
-  }, [board, promotionSquare, promotionPawnOriginalLevel, processMoveEnd]);
+    const finalStreak = killStreaks['white'];
+    processMoveEnd(nextBoard, 'white', extraTurnFromPromo || finalStreak >= 6, null);
+  }, [board, promotionSquare, promotionPawnOriginalLevel, processMoveEnd, killStreaks]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -490,13 +492,18 @@ export default function DungeonPage() {
           const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
           for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
           
-          setBoard(result.newBoard);
-          if (result.selfDestructCaptures) {
+          let nextBoard = result.newBoard;
+          if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) {
               setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!] }));
+              const streakGain = result.selfDestructCaptures.length;
+              const newStreak = (killStreaks.white || 0) + streakGain;
+              setKillStreaks(prev => ({ ...prev, white: newStreak }));
           }
+
+          setBoard(nextBoard);
           setSelectedSquare(null);
           setPossibleMoves([]);
-          processMoveEnd(result.newBoard, 'white', result.extraTurn, enPassantTargetSquare);
+          processMoveEnd(nextBoard, 'white', result.extraTurn || (killStreaks.white + (result.selfDestructCaptures?.length || 0)) >= 6, enPassantTargetSquare);
           return;
       }
 
@@ -571,12 +578,14 @@ export default function DungeonPage() {
         let firstBloodThisTurn = false;
         let triggeredSpecial = false;
 
-        if (capturedPiece) {
+        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
+        const newStreak = (killStreaks[currentPlayer] || 0) + streakGain;
+        setKillStreaks(prev => ({ ...prev, [currentPlayer]: streakGain > 0 ? newStreak : 0 }));
+
+        if (streakGain > 0) {
           audioManager.playCapture();
-          setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
-          
-          const newStreak = (killStreaks[currentPlayer] || 0) + 1;
-          setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
+          if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
+          if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, result.pieceCapturedByAnvil!] }));
           
           if (currentPlayer === 'white') {
               if (!firstBloodAchieved) {
@@ -591,25 +600,39 @@ export default function DungeonPage() {
               
               if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
                   triggeredSpecial = true;
-                  setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
+                  setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
               } else if (newStreak === 3) {
                   triggeredSpecial = true;
-                  setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
+                  setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+              } else if (newStreak === 4) {
+                  const graveyard = capturedPieces.black;
+                  if (graveyard.length > 0) {
+                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_H_${Date.now()}` };
+                      const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
+                      if (empty.length > 0) {
+                          const chosenSq = empty[Math.floor(Math.random() * empty.length)];
+                          const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
+                          newBoard[rr][rc].piece = pieceToRes;
+                          setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
+                          addEffect('light-beam', chosenSq.algebraic);
+                          audioManager.playResurrect();
+                          toast({ title: "Streak Resurrection!", description: `Fallen ${pieceToRes.type} restored!` });
+                      }
+                  }
               } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
                   triggeredSpecial = true;
-                  setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
+                  setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
               }
           }
         } else {
           audioManager.playMove();
-          setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
         }
 
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
             if (hasPawns) {
                 triggeredSpecial = true;
-                setTimeout(() => { setIsAwaitingPawnSacrifice(true); setSpecialActionContext({ extra: result.extraTurn }); }, 800);
+                setTimeout(() => { setIsAwaitingPawnSacrifice(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
             }
         }
 
@@ -634,7 +657,7 @@ export default function DungeonPage() {
           }
 
           if (!triggeredSpecial) {
-              processMoveEnd(newBoard, currentPlayer, result.extraTurn, nextEp);
+              processMoveEnd(newBoard, currentPlayer, result.extraTurn || newStreak >= 6, nextEp);
           }
         }, 800);
         return;
@@ -740,14 +763,21 @@ export default function DungeonPage() {
                 audioManager.playLevelUp();
              }
 
-             if (result.capturedPiece) {
-               audioManager.playCapture();
-               setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.capturedPiece!] }));
-               const newStreak = (killStreaks.black || 0) + 1;
-               setKillStreaks(prev => ({ ...prev, black: newStreak }));
+             const streakGain = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
+             const newStreak = (killStreaks.black || 0) + streakGain;
+             setKillStreaks(prev => ({ ...prev, black: streakGain > 0 ? newStreak : 0 }));
 
-               if (newStreak === 2) {
-                   const allies = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type !== 'king').map(sq => sq.piece!);
+             if (streakGain > 0) {
+               audioManager.playCapture();
+               if (result.capturedPiece) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.capturedPiece!] }));
+               if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.pieceCapturedByAnvil!] }));
+               if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...result.selfDestructCaptures!] }));
+
+               const hasArchbishop = nextBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'black');
+               const hasArcher = nextBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'black');
+
+               if (newStreak === 2 && hasArchbishop) {
+                   const allies = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type !== 'king' && sq.piece.id !== landedPieceAI?.id).map(sq => sq.piece!);
                    if (allies.length > 0) {
                        const chosen = allies[Math.floor(Math.random() * allies.length)];
                        nextBoard.flat().forEach(sq => { if (sq.piece?.id === chosen.id) sq.piece.isShielded = true; });
@@ -760,16 +790,38 @@ export default function DungeonPage() {
                        chosen.item = { type: 'anvil' };
                        audioManager.playAnvil();
                    }
+               } else if (newStreak === 4) {
+                   const graveyard = capturedPieces.white;
+                   if (graveyard.length > 0) {
+                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_D_${Date.now()}` };
+                       const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
+                       if (empty.length > 0) {
+                           const chosenSq = empty[Math.floor(Math.random() * empty.length)];
+                           chosenSq.piece = pieceToRes;
+                           setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
+                           addEffect('light-beam', chosenSq.algebraic);
+                           audioManager.playResurrect();
+                       }
+                   }
+               } else if (newStreak === 5 && hasArcher) {
+                   const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                   if (victims.length > 0) {
+                       const victimSq = victims[Math.floor(Math.random() * victims.length)];
+                       const captured = { ...victimSq.piece! };
+                       nextBoard.flat().forEach(sq => { if (sq.algebraic === victimSq.algebraic) sq.piece = null; });
+                       setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] }));
+                       audioManager.playSnipe();
+                       addEffect('poof', victimSq.algebraic);
+                   }
                }
              } else {
                audioManager.playMove();
-               setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
              }
              
              setTimeout(() => {
                setIsAiThinking(false);
                setIsMoveProcessing(false);
-               processMoveEnd(nextBoard, 'black', result.extraTurn, result.enPassantTargetSet);
+               processMoveEnd(nextBoard, 'black', result.extraTurn || newStreak >= 6, result.enPassantTargetSet);
              }, 800);
           } else {
             if (enemyPieces.length === 1) {
