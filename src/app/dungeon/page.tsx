@@ -619,6 +619,10 @@ export default function DungeonPage() {
           if (best.move) {
              const from = coordsToAlgebraic(best.move.from[0], best.move.from[1]);
              const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
+             
+             const originalP = board[best.move.from[0]][best.move.from[1]].piece;
+             const originalLevel = originalP?.level || 1;
+
              setLastMoveFrom(from);
              setLastMoveTo(to);
              setAnimatedSquareTo(to);
@@ -631,7 +635,26 @@ export default function DungeonPage() {
                 return;
              }
 
-             setBoard(result.newBoard);
+             let nextBoard = result.newBoard;
+             const { row: toR, col: toC } = algebraicToCoords(to);
+             const landedPieceAI = nextBoard[toR][toC].piece;
+
+             if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
+             if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+
+             // Rook Resurrection for AI
+             if (landedPieceAI && (landedPieceAI.type === 'rook' || landedPieceAI.type === 'palace') && result.capturedPiece) {
+                const resResultAI = processRookResurrectionCheck(nextBoard, 'black', {from, to}, to, originalLevel, capturedPieces, Date.now());
+                if (resResultAI.resurrectionPerformed) {
+                    nextBoard = resResultAI.boardWithResurrection;
+                    setCapturedPieces(resResultAI.capturedPiecesAfterResurrection);
+                    addEffect('light-beam', resResultAI.resurrectedSquareAlg!);
+                    audioManager.playResurrect();
+                    toast({ title: "Dungeon Resurrection!", description: `Enemy ${resResultAI.resurrectedPieceData?.type} has been resurrected!` });
+                }
+             }
+
+             setBoard(nextBoard);
              
              if (result.shroomConsumed) {
                 audioManager.playShroom();
@@ -641,7 +664,25 @@ export default function DungeonPage() {
              if (result.capturedPiece) {
                audioManager.playCapture();
                setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.capturedPiece!] }));
-               setKillStreaks(prev => ({ ...prev, black: prev.black + 1 }));
+               const newStreak = (killStreaks.black || 0) + 1;
+               setKillStreaks(prev => ({ ...prev, black: newStreak }));
+
+               // Automatic AI response for killstreaks
+               if (newStreak === 2) {
+                   const allies = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type !== 'king').map(sq => sq.piece!);
+                   if (allies.length > 0) {
+                       const chosen = allies[Math.floor(Math.random() * allies.length)];
+                       nextBoard.flat().forEach(sq => { if (sq.piece?.id === chosen.id) sq.piece.isShielded = true; });
+                       audioManager.playShield();
+                   }
+               } else if (newStreak === 3) {
+                   const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
+                   if (empty.length > 0) {
+                       const chosen = empty[Math.floor(Math.random() * empty.length)];
+                       chosen.item = { type: 'anvil' };
+                       audioManager.playAnvil();
+                   }
+               }
              } else {
                audioManager.playMove();
                setKillStreaks(prev => ({ ...prev, black: 0 }));
@@ -650,7 +691,7 @@ export default function DungeonPage() {
              setTimeout(() => {
                setIsAiThinking(false);
                setIsMoveProcessing(false);
-               processMoveEnd(result.newBoard, 'black', result.extraTurn, result.enPassantTargetSet);
+               processMoveEnd(nextBoard, 'black', result.extraTurn, result.enPassantTargetSet);
              }, 800);
           } else {
             setIsAiThinking(false);
@@ -666,7 +707,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
