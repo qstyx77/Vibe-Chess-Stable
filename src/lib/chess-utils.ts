@@ -582,8 +582,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
                     board[fromRow + 2 * step]?.[fromCol]?.piece || (board[fromRow + 2 * step]?.[fromCol]?.item && board[fromRow + 2 * step]?.[fromCol]?.item?.type !== 'shroom')) return false;
             } else {
                 const step = Math.sign(toCol - fromCol);
-                if (board[fromRow]?.[fromCol + step]?.piece || (board[fromRow]?.[fromCol + step]?.item && board[fromRow]?.[fromCol + step]?.item?.type !== 'shroom') ||
-                    board[fromRow]?.[fromCol + 2 * step]?.piece || (board[fromRow]?.[fromCol + 2 * step]?.item && board[fromRow]?.[fromCol + 2 * step]?.item?.type !== 'shroom')) return false;
+                if (board[fromRow]?.[col + step]?.piece || (board[fromRow]?.[col + step]?.item && board[fromRow]?.[col + step]?.item?.type !== 'shroom') ||
+                    board[fromRow]?.[col + 2 * step]?.piece || (board[fromRow]?.[col + 2 * step]?.item && board[fromRow]?.[col + 2 * step]?.item?.type !== 'shroom')) return false;
             }
             return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
@@ -692,10 +692,6 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (!targetPiece || !attackingPiece) return false;
     const targetLevel = Number(targetPiece.level || 1);
     const attackerLevel = Number(attackingPiece.level || 1);
-
-    if (typeof targetLevel !== 'number' || isNaN(targetLevel) || typeof attackerLevel !== 'number' || isNaN(attackerLevel)) {
-        return false;
-    }
 
     if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') {
         return true;
@@ -812,7 +808,6 @@ export function applyMove(
                     if (allySquare.piece && allySquare.piece.color === heroColor) {
                         let newAllyLevel = (allySquare.piece.level || 1) + 1;
                         if (allySquare.piece.type === 'queen') {
-                            // Queen cannot reach Level 7 via rallying cry
                             newAllyLevel = Math.min(newAllyLevel, 6);
                         }
                         allySquare.piece.level = newAllyLevel;
@@ -883,7 +878,7 @@ export function applyMove(
           rookLandingSquareState.item = null; 
           if (rookLandingSquareState.piece) { 
             const curL = rookLandingSquareState.piece.level || 1;
-            rookLandingSquareState.piece.level = curL + 1; // Rooks have no cap
+            rookLandingSquareState.piece.level = curL + 1;
           }
         }
       }
@@ -931,7 +926,6 @@ export function applyMove(
           if (allySquare.piece && allySquare.piece.color === heroColor && allySquare.piece.id !== pieceNowOnToSquare.id) {
             let newAllyLevel = (allySquare.piece.level || 1) + 1;
             if (allySquare.piece.type === 'queen') {
-              // Queen cannot reach Level 7 via rallying cry
               newAllyLevel = Math.min(newAllyLevel, 6);
             }
             allySquare.piece.level = newAllyLevel;
@@ -948,7 +942,20 @@ export function applyMove(
     }
 
     if (pieceNowOnToSquare.type === 'queen') {
-      newLevelForPiece = Math.min(newLevelForPiece, 7);
+      let canSacrifice = false;
+      for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+              const sq = newBoard[r][c];
+              if (sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === pieceNowOnToSquare.color && sq.piece.id !== pieceNowOnToSquare.id) {
+                  canSacrifice = true;
+                  break;
+              }
+          }
+          if (canSacrifice) break;
+      }
+      if (newLevelForPiece >= 7) {
+          newLevelForPiece = canSacrifice ? 7 : 6;
+      }
     }
     pieceNowOnToSquare.level = newLevelForPiece;
   }
@@ -980,7 +987,20 @@ export function applyMove(
     if (move.promoteTo) {
         pieceNowOnToSquare.type = move.promoteTo;
         if (move.promoteTo === 'queen') {
-            pieceNowOnToSquare.level = Math.min(pieceNowOnToSquare.level, 7);
+            let canSacrifice = false;
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const sq = newBoard[r][c];
+                    if (sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === pieceNowOnToSquare.color && sq.piece.id !== pieceNowOnToSquare.id) {
+                        canSacrifice = true;
+                        break;
+                    }
+                }
+                if (canSacrifice) break;
+            }
+            if (pieceNowOnToSquare.level >= 7) {
+                pieceNowOnToSquare.level = canSacrifice ? 7 : 6;
+            }
         }
     }
   } else if (movingPieceOriginalRef.type === 'commander' && (toRow === 0 || toRow === 7)) {
@@ -1111,8 +1131,6 @@ export function applyMove(
             const adjRow_conv = toRow + dr_conv;
             const adjCol_conv = toCol + dc_conv;
             if (isValidSquare(adjRow_conv, adjCol_conv)) {
-            const adjacentSquareState_conv = newBoard[adjRow_conv]?.[adjRow_conv]; // Note: Fixed potential typo from original r_conv, r_conv
-            // Re-evaluating against actual row/col
             const adjSqReal = newBoard[adjRow_conv]?.[adjCol_conv];
             const pieceOnAdjSquare_conv = adjSqReal?.piece;
             
@@ -1162,7 +1180,7 @@ export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassa
     if (kingPosAlg) break;
   }
   if (!kingPosAlg) {
-    return false; // Critical: If no king found, cannot be in check (Standard for Dungeon mode)
+    return false;
   }
   const opponentColor = kingColor === 'white' ? 'black' : 'white';
   return isSquareAttacked(board, kingPosAlg, opponentColor, false, null, enPassantTargetSquare);
@@ -1319,7 +1337,6 @@ export function isQueenSacrificeRequired(board: BoardState, player: PlayerColor,
     const piece = board[toR]?.[toC]?.piece;
     if (!piece || piece.type !== 'queen' || piece.color !== player || piece.level < 7) return false;
     
-    // Only require sacrifice if it just became level 7 (or was already 7 and moved/promoted)
     const reachedLevel7 = (originalLevel !== undefined && originalLevel < 7 && piece.level >= 7) || (move.type === 'promotion' && move.promoteTo === 'queen');
     
     if (!reachedLevel7) return false;
