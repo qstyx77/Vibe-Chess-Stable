@@ -33,21 +33,6 @@ import { useUser } from '@/firebase';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audio-manager';
 
-const whiteStartPositions: Record<PieceType, AlgebraicSquare[]> = {
-  rook: ['a1', 'h1'],
-  knight: ['b1', 'g1'],
-  bishop: ['c1', 'f1'],
-  queen: ['d1'],
-  king: ['e1'],
-  pawn: ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'],
-  commander: ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'],
-  hero: ['b1', 'g1'],
-  infiltrator: ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'],
-  archbishop: ['c1', 'f1'],
-  palace: ['a1', 'h1'],
-  archer: ['b1', 'g1'],
-};
-
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
@@ -58,31 +43,76 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     board.push(row);
   }
 
-  // Place player army
-  playerArmy.forEach(p => {
-    const preferredSquares = whiteStartPositions[p.type] || [];
-    let placed = false;
-    for (const alg of preferredSquares) {
-      const { row, col } = algebraicToCoords(alg);
-      if (!board[row][col].piece) {
+  // Categorize survivors for intelligent placement
+  const king = playerArmy.find(p => p.type === 'king');
+  const rooks = playerArmy.filter(p => p.type === 'rook' || p.type === 'palace');
+  const frontline = playerArmy.filter(p => p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator');
+  
+  const placedIds = new Set<string>();
+
+  const placePiece = (p: Piece, alg: AlgebraicSquare) => {
+    const { row, col } = algebraicToCoords(alg);
+    if (isValidSquare(row, col) && !board[row][col].piece) {
+        // Reset hasMoved to false for every fresh floor to enable castling/double-moves
         board[row][col].piece = { ...p, hasMoved: false };
-        placed = true;
-        break;
-      }
+        placedIds.add(p.id);
+        return true;
     }
-    if (!placed) {
-      for (let r = 7; r >= 6; r--) {
-        for (let c = 0; c < 8; c++) {
-          if (!board[r][c].piece) {
-            board[r][c].piece = { ...p, hasMoved: false };
-            placed = true;
+    return false;
+  };
+
+  // Phase 1: Anchors (Castling Trio)
+  if (king) placePiece(king, 'e1');
+  if (rooks[0]) placePiece(rooks[0], 'a1');
+  if (rooks[1]) placePiece(rooks[1], 'h1');
+
+  // Phase 2: Sequential Frontline (Rank 2 - a2 to h2)
+  const rank2: AlgebraicSquare[] = ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'];
+  let frontlineIdx = 0;
+  for (const alg of rank2) {
+    while (frontlineIdx < frontline.length && placedIds.has(frontline[frontlineIdx].id)) {
+        frontlineIdx++;
+    }
+    if (frontlineIdx < frontline.length) {
+        placePiece(frontline[frontlineIdx], alg);
+        frontlineIdx++;
+    }
+  }
+
+  // Phase 3: The rest of the army (Heavies, then overflow)
+  const piecePriority = (type: PieceType) => {
+    const values: Record<string, number> = {
+        queen: 90, palace: 60, rook: 50, 
+        archbishop: 40, hero: 35, archer: 35, bishop: 30, knight: 30,
+        commander: 10, infiltrator: 10, pawn: 10
+    };
+    return values[type] || 0;
+  };
+
+  const remainingPieces = playerArmy
+    .filter(p => !placedIds.has(p.id))
+    .sort((a, b) => piecePriority(b.type) - piecePriority(a.type));
+
+  const fillOrder: AlgebraicSquare[] = [
+    'b1', 'c1', 'd1', 'f1', 'g1', // Rank 1 gaps
+    'a1', 'h1', // Rank 1 rook spots if they were missing
+    'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', // Rank 2 gaps
+    'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', // Rank 3 (Overflow)
+    'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', // Rank 4 (Extreme Overflow)
+  ];
+
+  let fillIdx = 0;
+  for (const p of remainingPieces) {
+    while (fillIdx < fillOrder.length) {
+        const alg = fillOrder[fillIdx] as AlgebraicSquare;
+        const { row, col } = algebraicToCoords(alg);
+        if (!board[row][col].piece) {
+            placePiece(p, alg);
             break;
-          }
         }
-        if (placed) break;
-      }
+        fillIdx++;
     }
-  });
+  }
 
   const isBossLevel = level % 10 === 0;
   if (isBossLevel) {
