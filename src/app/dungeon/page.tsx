@@ -191,6 +191,8 @@ export default function DungeonPage() {
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
 
+  const [enemyStuckTurns, setEnemyStuckTurns] = useState(0);
+
   // Special action states
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
@@ -242,6 +244,8 @@ export default function DungeonPage() {
   }, [board, addEffect]);
 
   const startRun = useCallback(() => {
+    if (isUserLoading || !userData) return;
+    
     let army: Piece[] = [];
     let initial = initializeBoard();
     
@@ -267,6 +271,7 @@ export default function DungeonPage() {
     setShroomSpawnCounter(0);
     setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     setEnPassantTargetSquare(null);
+    setEnemyStuckTurns(0);
     
     const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
@@ -274,7 +279,7 @@ export default function DungeonPage() {
     
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
-  }, [userData]);
+  }, [userData, isUserLoading]);
 
   useEffect(() => {
     if (!board.length && !isUserLoading && userData) startRun();
@@ -294,6 +299,7 @@ export default function DungeonPage() {
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
     
+    // Only reset enemy captured pieces, keep player losses persistent
     setCapturedPieces(prev => ({ white: [], black: prev.black }));
     
     setCurrentPlayer('white');
@@ -301,6 +307,7 @@ export default function DungeonPage() {
     setShroomSpawnCounter(0);
     setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     setEnPassantTargetSquare(null);
+    setEnemyStuckTurns(0);
     
     const hasCommander = survivorsFromLastBoard.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
@@ -579,8 +586,13 @@ export default function DungeonPage() {
           
           if (currentPlayer === 'white') {
               if (!firstBloodAchieved) {
-                  const hasCommanderOrHero = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'commander' || sq.piece.type === 'hero'));
-                  if (!hasCommanderOrHero) firstBloodThisTurn = true;
+                  const hasLevel1Pawn = newBoard.flat().some(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
+                  if (hasLevel1Pawn) {
+                      firstBloodThisTurn = true;
+                  } else {
+                      setFirstBloodAchieved(true);
+                      setPlayerWhoGotFirstBlood('white');
+                  }
               }
               
               if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
@@ -618,11 +630,8 @@ export default function DungeonPage() {
           if (firstBloodThisTurn) {
               setFirstBloodAchieved(true);
               setPlayerWhoGotFirstBlood('white');
-              const hasLevel1Pawn = newBoard.flat().some(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
-              if (hasLevel1Pawn) {
-                  setIsAwaitingCommanderPromotion(true);
-                  return;
-              }
+              setIsAwaitingCommanderPromotion(true);
+              return;
           }
 
           if (isInteractivePromo) {
@@ -673,8 +682,11 @@ export default function DungeonPage() {
         };
         
         try {
+          const enemyPieces = board.flat().filter(sq => sq.piece && sq.piece.color === 'black');
           const best = aiInstance.current!.getBestMove(stateForAi, 'black');
+          
           if (best.move) {
+             setEnemyStuckTurns(0); // Reset stuck counter if move is found
              const from = coordsToAlgebraic(best.move.from[0], best.move.from[1]);
              const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
              
@@ -759,6 +771,37 @@ export default function DungeonPage() {
                processMoveEnd(nextBoard, 'black', result.extraTurn, result.enPassantTargetSet);
              }, 800);
           } else {
+            // Stuck detection for last enemy
+            if (enemyPieces.length === 1) {
+                const nextStuck = enemyStuckTurns + 1;
+                setEnemyStuckTurns(nextStuck);
+                
+                if (nextStuck >= 3) {
+                    const stuckPos = enemyPieces[0].algebraic;
+                    const { row: sR, col: sC } = algebraicToCoords(stuckPos);
+                    
+                    toast({ title: "Desperate Detonation!", description: "Last enemy trapped! Self-destructing...", variant: "destructive" });
+                    
+                    const result = applyMove(board, { from: stuckPos, to: stuckPos, type: 'self-destruct' }, enPassantTargetSquare);
+                    audioManager.playExplosion();
+                    for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(sR + dr, sC + dc)) addEffect('explosion', coordsToAlgebraic(sR + dr, sC + dc));
+                    
+                    setBoard(result.newBoard);
+                    if (result.selfDestructCaptures) {
+                        setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...result.selfDestructCaptures!] }));
+                    }
+                    
+                    setTimeout(() => {
+                        setIsAiThinking(false);
+                        setIsMoveProcessing(false);
+                        processMoveEnd(result.newBoard, 'black', false, enPassantTargetSquare);
+                    }, 800);
+                    return;
+                }
+            } else {
+                setEnemyStuckTurns(0);
+            }
+
             setIsAiThinking(false);
             setIsMoveProcessing(false);
             processMoveEnd(board, 'black', false, enPassantTargetSquare);
@@ -772,7 +815,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
