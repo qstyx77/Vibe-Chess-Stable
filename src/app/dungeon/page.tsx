@@ -185,6 +185,9 @@ export default function DungeonPage() {
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   
+  const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
+  const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
+
   // Special action states
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
@@ -218,6 +221,8 @@ export default function DungeonPage() {
     setCapturedPieces({ white: [], black: [] });
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
+    setShroomSpawnCounter(0);
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     
     const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
@@ -228,7 +233,6 @@ export default function DungeonPage() {
   }, [userData]);
 
   useEffect(() => {
-    // Ensure Elo-unlocked pieces are included by waiting for user data to load
     if (!board.length && !isUserLoading) startRun();
   }, [startRun, board.length, isUserLoading]);
 
@@ -257,6 +261,8 @@ export default function DungeonPage() {
     
     setCurrentPlayer('white');
     setKillStreaks({ white: 0, black: 0 });
+    setShroomSpawnCounter(0);
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     
     const hasCommander = survivors.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
@@ -272,38 +278,55 @@ export default function DungeonPage() {
   }, []);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean) => {
+    let nextBoard = boardAfter;
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
     // Check floor clear
-    const enemyCount = boardAfter.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
+    const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
     if (enemyCount === 0) {
       advanceLevel();
       return;
     }
 
+    // Mushroom Spawning
+    const newCounter = shroomSpawnCounter + 1;
+    setShroomSpawnCounter(newCounter);
+    if (newCounter >= nextShroomSpawnTurn) {
+        const { newBoard: boardWithShroom, spawnedAt } = spawnShroom(nextBoard);
+        if (spawnedAt) {
+            nextBoard = boardWithShroom;
+            setBoard(nextBoard);
+            setShroomSpawnCounter(0);
+            setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
+            audioManager.playShroom();
+        }
+    }
+
     // Necromancer (Floor 20) mechanic: resurrect every 5 turns
     if (nextP === 'black' && level === 20 && moveCounter.current % 10 === 0) {
-        const necromancer = boardAfter.flat().find(sq => sq.piece?.id === 'boss-necro');
+        const necromancer = nextBoard.flat().find(sq => sq.piece?.id === 'boss-necro');
         if (necromancer) {
             const fallen = capturedPieces.white; 
             if (fallen.length > 0) {
                 const empty = [];
-                for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!boardAfter[r][c].piece && !boardAfter[r][c].item) empty.push({r,c});
+                for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!nextBoard[r][c].piece && !nextBoard[r][c].item) empty.push({r,c});
                 if (empty.length) {
                     const pos = empty[Math.floor(Math.random()*empty.length)];
                     const p = fallen[fallen.length-1];
-                    boardAfter[pos.r][pos.c].piece = { ...p, color: 'black', level: 1, id: `nec-${Date.now()}` };
+                    nextBoard[pos.r][pos.c].piece = { ...p, color: 'black', level: 1, id: `nec-${Date.now()}` };
                     addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
                     audioManager.playResurrect();
                     toast({ title: "Necromancy!", description: "The boss resurrects a minion!" });
+                    setBoard([...nextBoard]);
                 }
             }
         }
     }
 
     // Check player defeat
-    const playerKing = findKing(boardAfter, 'white');
-    if (!playerKing || isCheckmate(boardAfter, 'white', null)) {
+    const playerKing = findKing(nextBoard, 'white');
+    if (!playerKing || isCheckmate(nextBoard, 'white', null)) {
       setGameInfo({ 
         message: "YOUR KING HAS FALLEN", 
         isCheck: true, 
@@ -317,7 +340,7 @@ export default function DungeonPage() {
     }
 
     // Recognize Check for the current turn player
-    const inCheck = isKingInCheck(boardAfter, nextP, null);
+    const inCheck = isKingInCheck(nextBoard, nextP, null);
     const message = inCheck ? "Check!" : `Level ${level} - Wipe them out!`;
 
     setGameInfo({
@@ -330,7 +353,7 @@ export default function DungeonPage() {
     });
 
     setCurrentPlayer(nextP);
-  }, [advanceLevel, capturedPieces.white, level, toast, addEffect]);
+  }, [advanceLevel, capturedPieces.white, level, toast, addEffect, shroomSpawnCounter, nextShroomSpawnTurn]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -403,7 +426,14 @@ export default function DungeonPage() {
         moveCounter.current++;
 
         const result = applyMove(board, { from: selectedSquare, to: algebraic }, null);
-        const { newBoard, capturedPiece } = result;
+        const { newBoard, capturedPiece, shroomConsumed } = result;
+
+        if (shroomConsumed) {
+            audioManager.playShroom();
+            audioManager.playLevelUp();
+            const movedP = newBoard[row][col].piece;
+            toast({ title: "Level Up!", description: `${movedP?.type} consumed a Shroom 🍄 and leveled up to L${movedP?.level}!` });
+        }
 
         if (result.rallyCryTriggered) addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color);
         if (result.conversionEvents.length > 0) result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
@@ -422,16 +452,40 @@ export default function DungeonPage() {
         }
 
         let firstBloodThisTurn = false;
+        let triggeredStreakAction = false;
+
         if (capturedPiece) {
           audioManager.playCapture();
           setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...prev[currentPlayer], capturedPiece] }));
-          setKillStreaks(prev => {
-              const next = { ...prev, [currentPlayer]: prev[currentPlayer] + 1 };
-              if (currentPlayer === 'white' && !firstBloodAchieved) {
+          
+          const newStreak = (killStreaks[currentPlayer] || 0) + 1;
+          setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
+          
+          if (currentPlayer === 'white') {
+              if (!firstBloodAchieved) {
                   firstBloodThisTurn = true;
               }
-              return next;
-          });
+              
+              if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
+                  triggeredStreakAction = true;
+                  setTimeout(() => {
+                      setIsAwaitingHolyShield(true);
+                      setSpecialActionContext({ extra: result.extraTurn });
+                  }, 800);
+              } else if (newStreak === 3) {
+                  triggeredStreakAction = true;
+                  setTimeout(() => {
+                      setIsAwaitingAnvilDrop(true);
+                      setSpecialActionContext({ extra: result.extraTurn });
+                  }, 800);
+              } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
+                  triggeredStreakAction = true;
+                  setTimeout(() => {
+                      setIsAwaitingArcherSnipe(true);
+                      setSpecialActionContext({ extra: result.extraTurn });
+                  }, 800);
+              }
+          }
         } else {
           audioManager.playMove();
           setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
@@ -447,8 +501,6 @@ export default function DungeonPage() {
           if (firstBloodThisTurn) {
               setFirstBloodAchieved(true);
               setPlayerWhoGotFirstBlood('white');
-              
-              // Skip commander promotion if no level 1 pawns exist to promote
               const hasLevel1Pawn = newBoard.flat().some(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
               if (hasLevel1Pawn) {
                   setIsAwaitingCommanderPromotion(true);
@@ -456,25 +508,9 @@ export default function DungeonPage() {
               }
           }
 
-          const streak = killStreaks[currentPlayer] + (capturedPiece ? 1 : 0);
-          if (currentPlayer === 'white') {
-              if (streak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                  setIsAwaitingHolyShield(true);
-                  setSpecialActionContext({ extra: result.extraTurn });
-                  return;
-              }
-              if (streak === 3) {
-                  setIsAwaitingAnvilDrop(true);
-                  setSpecialActionContext({ extra: result.extraTurn });
-                  return;
-              }
-              if (streak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-                  setIsAwaitingArcherSnipe(true);
-                  setSpecialActionContext({ extra: result.extraTurn });
-                  return;
-              }
+          if (!triggeredStreakAction) {
+              processMoveEnd(newBoard, currentPlayer, result.extraTurn);
           }
-          processMoveEnd(newBoard, currentPlayer, result.extraTurn);
         }, 800);
         return;
       }
@@ -524,6 +560,14 @@ export default function DungeonPage() {
              
              const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.promoteTo }, null);
              setBoard(result.newBoard);
+             
+             if (result.shroomConsumed) {
+                audioManager.playShroom();
+                audioManager.playLevelUp();
+                const movedP = result.newBoard[to[0]][to[1]].piece;
+                toast({ title: "Enemy Level Up!", description: `Dungeon ${movedP?.type} consumed a Shroom 🍄!` });
+             }
+
              if (result.capturedPiece) {
                audioManager.playCapture();
                setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.capturedPiece!] }));
@@ -552,7 +596,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, toast]);
 
   return (
     <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
