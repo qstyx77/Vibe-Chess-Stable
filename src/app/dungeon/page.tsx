@@ -45,12 +45,16 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
 
   // Categorize survivors for intelligent placement
   const king = playerArmy.find(p => p.type === 'king');
+  const queens = playerArmy.filter(p => p.type === 'queen');
   const rooks = playerArmy.filter(p => p.type === 'rook' || p.type === 'palace');
+  const knights = playerArmy.filter(p => p.type === 'knight' || p.type === 'hero' || p.type === 'archer');
+  const bishops = playerArmy.filter(p => p.type === 'bishop' || p.type === 'archbishop');
   const frontline = playerArmy.filter(p => p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator');
   
   const placedIds = new Set<string>();
 
-  const placePiece = (p: Piece, alg: AlgebraicSquare) => {
+  const placePieceAt = (p: Piece | undefined, alg: AlgebraicSquare) => {
+    if (!p) return false;
     const { row, col } = algebraicToCoords(alg);
     if (isValidSquare(row, col) && !board[row][col].piece) {
         // Reset hasMoved to false for every fresh floor to enable castling/double-moves
@@ -61,10 +65,20 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     return false;
   };
 
-  // Phase 1: Anchors (Castling Trio)
-  if (king) placePiece(king, 'e1');
-  if (rooks[0]) placePiece(rooks[0], 'a1');
-  if (rooks[1]) placePiece(rooks[1], 'h1');
+  // Phase 1: Anchors & Classic Placement (any time the piece configuration is available)
+  // King and Rooks anchored for castling
+  placePieceAt(king, 'e1');
+  if (rooks[0]) placePieceAt(rooks[0], 'a1');
+  if (rooks[1]) placePieceAt(rooks[1], 'h1');
+  
+  // Queen always goes next to the King if available
+  if (queens[0]) placePieceAt(queens[0], 'd1');
+
+  // Fill remaining classic slots if survivors exist
+  if (knights[0]) placePieceAt(knights[0], 'b1');
+  if (knights[1]) placePieceAt(knights[1], 'g1');
+  if (bishops[0]) placePieceAt(bishops[0], 'c1');
+  if (bishops[1]) placePieceAt(bishops[1], 'f1');
 
   // Phase 2: Sequential Frontline (Rank 2 - a2 to h2)
   const rank2: AlgebraicSquare[] = ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'];
@@ -74,12 +88,12 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         frontlineIdx++;
     }
     if (frontlineIdx < frontline.length) {
-        placePiece(frontline[frontlineIdx], alg);
+        placePieceAt(frontline[frontlineIdx], alg);
         frontlineIdx++;
     }
   }
 
-  // Phase 3: The rest of the army (Heavies, then overflow)
+  // Phase 3: Leftover assignment (Heavies first, filling gaps and then overflow ranks)
   const piecePriority = (type: PieceType) => {
     const values: Record<string, number> = {
         queen: 90, palace: 60, rook: 50, 
@@ -93,9 +107,9 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     .filter(p => !placedIds.has(p.id))
     .sort((a, b) => piecePriority(b.type) - piecePriority(a.type));
 
+  // prioritized order for filling leftovers
   const fillOrder: AlgebraicSquare[] = [
-    'b1', 'c1', 'd1', 'f1', 'g1', // Rank 1 gaps
-    'a1', 'h1', // Rank 1 rook spots if they were missing
+    'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1', // Rank 1 gaps
     'a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2', // Rank 2 gaps
     'a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', // Rank 3 (Overflow)
     'a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4', // Rank 4 (Extreme Overflow)
@@ -107,7 +121,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         const alg = fillOrder[fillIdx] as AlgebraicSquare;
         const { row, col } = algebraicToCoords(alg);
         if (!board[row][col].piece) {
-            placePiece(p, alg);
+            placePieceAt(p, alg);
             break;
         }
         fillIdx++;
