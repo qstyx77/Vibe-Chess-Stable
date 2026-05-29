@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -423,7 +424,7 @@ export function isSquareAttacked(
                         }
                     }
                 } else if (attackingPiece.type === 'king') {
-                    const { row: kingR_from, col: kingC_from } = algebraicToCoords(coordsToAlgebraic(r, c));
+                    const { row: kingR_from, col: kingC_from } = algebraicToCoords(attackingSquareAlgebraic);
                     const currentKingActualLevel = Number(attackingPiece.level || 1);
                     const maxDistance = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 2 && !simplifyKingCheck) ? 2 : 1;
                     const canKnightMove = (typeof currentKingActualLevel === 'number' && !isNaN(currentKingActualLevel) && currentKingActualLevel >= 5 && !simplifyKingCheck);
@@ -460,7 +461,7 @@ export function isSquareAttacked(
                         }
                     }
                 } else {
-                    const pseudoMoves = getPossibleMovesInternal(board, coordsToAlgebraic(r,c), attackingPiece, false, enPassantTargetSquare);
+                    const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare);
                     if (pseudoMoves.includes(squareToAttack)) {
                          if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece)) {
                             return true;
@@ -667,7 +668,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const maxKingDistance = (typeof kingActualLevelForValidity === 'number' && !isNaN(kingActualLevelForValidity) && kingActualLevelForValidity >= 2) ? 2 : 1;
 
       if (typeof kingActualLevelForValidity === 'number' && !isNaN(kingActualLevelForValidity) && kingActualLevelForValidity >= 5) {
-        if ((dRowKing === 2 && dColKing === 1) || (dRowKnight === 1 && dColKnight === 2)) {
+        if ((dRowKing === 2 && dColKing === 1) || (dRowKing === 1 && dColKing === 2)) {
           return !targetSquareState?.item || targetSquareState.item.type === 'shroom';
         }
       }

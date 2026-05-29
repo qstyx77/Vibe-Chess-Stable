@@ -58,7 +58,8 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     const { row, col } = algebraicToCoords(alg);
     if (isValidSquare(row, col) && !board[row][col].piece) {
         // Reset hasMoved to false for every fresh floor to enable castling/double-moves
-        board[row][col].piece = { ...p, hasMoved: false };
+        // Also strip Holy Shields as requested
+        board[row][col].piece = { ...p, hasMoved: false, isShielded: false };
         placedIds.add(p.id);
         return true;
     }
@@ -333,6 +334,7 @@ export default function DungeonPage() {
     }
 
     setLevel(nextLevel);
+    // Survivors already have their shields removed by generateDungeonFloor via placePieceAt
     setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
@@ -350,7 +352,7 @@ export default function DungeonPage() {
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
 
-    setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+    setGameInfo({ message: `Level {nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
   }, [level, toast]);
@@ -437,6 +439,7 @@ export default function DungeonPage() {
       type: pieceType,
       id: `${pieceBeingPromoted.id}_promo_${Date.now()}`,
       hasMoved: true,
+      isShielded: false, // Shields also stripped on promotion
     };
 
     if (pieceType === 'queen') {
