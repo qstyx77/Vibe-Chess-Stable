@@ -365,8 +365,8 @@ export default function DungeonPage() {
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     const extraTurnFromPromo = (promotionPawnOriginalLevel || 1) >= 5;
-    const finalStreak = killStreaks['white'];
-    processMoveEnd(nextBoard, 'white', extraTurnFromPromo || finalStreak >= 6, null);
+    const oldStreak = killStreaks['white'];
+    processMoveEnd(nextBoard, 'white', extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6), null);
   }, [board, promotionSquare, promotionPawnOriginalLevel, processMoveEnd, killStreaks]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
@@ -446,6 +446,7 @@ export default function DungeonPage() {
           const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
           for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
           let nextBoard = result.newBoard;
+          const oldStreak = killStreaks.white;
           if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) {
               setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!] }));
               const streakGain = result.selfDestructCaptures.length;
@@ -455,7 +456,7 @@ export default function DungeonPage() {
           setBoard(nextBoard);
           setSelectedSquare(null);
           setPossibleMoves([]);
-          processMoveEnd(nextBoard, 'white', result.extraTurn || (killStreaks.white + (result.selfDestructCaptures?.length || 0)) >= 6, enPassantTargetSquare);
+          processMoveEnd(nextBoard, 'white', result.extraTurn || (oldStreak < 6 && (killStreaks.white + (result.selfDestructCaptures?.length || 0)) >= 6), enPassantTargetSquare);
           return;
       }
       if (possibleMoves.includes(algebraic)) {
@@ -486,8 +487,11 @@ export default function DungeonPage() {
         }
         let firstBloodThisTurn = false;
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
-        const newStreak = (killStreaks[currentPlayer] || 0) + streakGain;
+        const oldStreak = killStreaks[currentPlayer] || 0;
+        const newStreak = oldStreak + streakGain;
         setKillStreaks(prev => ({ ...prev, [currentPlayer]: streakGain > 0 ? newStreak : 0 }));
+        const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
+
         if (streakGain > 0) {
           audioManager.playCapture();
           if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
@@ -499,9 +503,9 @@ export default function DungeonPage() {
                   else { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
               }
               if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); }, 800);
               } else if (newStreak === 3) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); }, 800);
               } else if (newStreak === 4) {
                   const graveyard = capturedPieces.black;
                   if (graveyard.length > 0) {
@@ -525,21 +529,21 @@ export default function DungeonPage() {
                       sq.piece.type !== 'queen'
                   );
                   if (hasVictims) {
-                    triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || newStreak >= 6 }); }, 800);
+                    triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); }, 800);
                   }
               }
           }
         } else audioManager.playMove();
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
-            if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || newStreak >= 6); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
+            if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || milestoneExtraTurn); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
         }
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
           if (firstBloodThisTurn) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); setIsAwaitingCommanderPromotion(true); return; }
           if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
-          if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || newStreak >= 6, nextEp);
+          if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
         }, 800);
         return;
       }
@@ -588,7 +592,9 @@ export default function DungeonPage() {
              setBoard(nextBoard);
              if (result.shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); }
              const streakGain = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
-             const newStreak = (killStreaks.black || 0) + streakGain;
+             const oldStreak = killStreaks.black || 0;
+             const newStreak = oldStreak + streakGain;
+             const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
              if (streakGain > 0 && !firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('black'); }
              setKillStreaks(prev => ({ ...prev, black: streakGain > 0 ? newStreak : 0 }));
              if (streakGain > 0) {
@@ -623,7 +629,7 @@ export default function DungeonPage() {
                    if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece! }; nextBoard.flat().forEach(sq => { if (sq.algebraic === victimSq.algebraic) sq.piece = null; }); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
                }
              } else audioManager.playMove();
-             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || newStreak >= 6, result.enPassantTargetSet); }, 800);
+             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || milestoneExtraTurn, result.enPassantTargetSet); }, 800);
           } else {
             if (board.flat().filter(sq => sq.piece && sq.piece.color === 'black').length === 1) {
                 const nextStuck = enemyStuckTurns + 1; setEnemyStuckTurns(nextStuck);
@@ -663,7 +669,7 @@ export default function DungeonPage() {
           </div>
         </div>
         <div className="w-full lg:w-1/4 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-hide">
-          <div className="shrink-0">
+          <div className="flex-1 min-h-0">
             <GameControls
               currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false}
             />

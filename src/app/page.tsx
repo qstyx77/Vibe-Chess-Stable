@@ -279,7 +279,7 @@ export default function EvolvingChessPage() {
 
   const isLocalActionTurn = onlineStatus === 'disconnected' || localPlayerColor === currentPlayer;
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil !== currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe;
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe;
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
   const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
@@ -712,6 +712,43 @@ export default function EvolvingChessPage() {
     isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
   ]);
 
+  const stopTurnTimer = useCallback(() => {
+      if (turnTimerIntervalId.current) {
+          clearInterval(turnTimerIntervalId.current);
+          turnTimerIntervalId.current = null;
+      }
+      setActiveTimerPlayer(null);
+      setTurnTimer(null);
+  }, []);
+
+  const startTurnTimer = useCallback((player: PlayerColor, duration: number = 45) => {
+    stopTurnTimer();
+
+    setActiveTimerPlayer(player);
+    setTurnTimer(duration);
+
+    turnTimerIntervalId.current = setInterval(() => {
+        setTurnTimer(currentTimerValue => {
+            if (currentTimerValue === null || currentTimerValue <= 0) {
+                 if (turnTimerIntervalId.current) {
+                    clearInterval(turnTimerIntervalId.current);
+                    turnTimerIntervalId.current = null;
+                 }
+                 return 0;
+            }
+            
+            if (currentTimerValue === 11) {
+                setShowTimerWarning(true);
+                setTimerWarningKey(k => k + 1);
+                audioManager.playTick();
+            } else if (currentTimerValue < 11 && currentTimerValue > 0) {
+                audioManager.playTick();
+            }
+            return currentTimerValue - 1;
+        });
+    }, 1000);
+  }, [stopTurnTimer]);
+
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
     setPossibleMoves([]);
@@ -751,103 +788,6 @@ export default function EvolvingChessPage() {
       setGameInfo(prev => ({ ...prev, message, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false }));
     }
   }, [toast, getPlayerDisplayName, onlineStatus]);
-
-  const stopTurnTimer = useCallback(() => {
-      if (turnTimerIntervalId.current) {
-          clearInterval(turnTimerIntervalId.current);
-          turnTimerIntervalId.current = null;
-      }
-      setActiveTimerPlayer(null);
-      setTurnTimer(null);
-  }, []);
-
-  const startTurnTimer = useCallback((player: PlayerColor, duration: number = 45) => {
-    stopTurnTimer();
-
-    setActiveTimerPlayer(player);
-    setTurnTimer(duration);
-
-    turnTimerIntervalId.current = setInterval(() => {
-        setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === null || currentTimerValue <= 0) {
-                 if (turnTimerIntervalId.current) {
-                    clearInterval(turnTimerIntervalId.current);
-                    turnTimerIntervalId.current = null;
-                 }
-                 return 0;
-            }
-            
-            if (currentTimerValue === 11) {
-                setShowTimerWarning(true);
-                setTimerWarningKey(k => k + 1);
-                audioManager.playTick();
-            } else if (currentTimerValue < 11 && currentTimerValue > 0) {
-                audioManager.playTick();
-            }
-            return currentTimerValue - 1;
-        });
-    }, 1000);
-  }, [stopTurnTimer]);
-
-  useEffect(() => {
-    if (onlineStatus !== 'connected' || gameInfo.gameOver) {
-      stopTurnTimer();
-      return;
-    }
-
-    let timerStarted = false;
-
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === localPlayerColor) {
-      startTurnTimer(playerWhoGotFirstBlood!, 15);
-      timerStarted = true;
-    } else if (isAwaitingAnvilDrop && playerToDropAnvil === localPlayerColor) {
-      startTurnTimer(playerToDropAnvil!, 15);
-      timerStarted = true;
-    } else if (isPromotingPawn && playerToPromote === localPlayerColor) {
-      startTurnTimer(playerToPromote!, 15);
-      timerStarted = true;
-    } else if (isAwaitingHolyShield && localPlayerColor === currentPlayer) {
-      startTurnTimer(currentPlayer!, 15);
-      timerStarted = true;
-    } else if (isAwaitingArcherSnipe && localPlayerColor === currentPlayer) {
-      startTurnTimer(currentPlayer!, 15);
-      timerStarted = true;
-    }
-    
-    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe;
-
-    if (!timerStarted && !isAnySpecialAction) {
-      startTurnTimer(currentPlayer);
-      timerStarted = true;
-    }
-
-    if (!timerStarted) {
-      stopTurnTimer();
-    }
-
-    return () => {
-      stopTurnTimer();
-    };
-  }, [
-    onlineStatus,
-    gameInfo.gameOver,
-    currentPlayer,
-    localPlayerColor,
-    isAwaitingCommanderPromotion,
-    playerWhoGotFirstBlood,
-    isAwaitingAnvilDrop,
-    playerToDropAnvil,
-    isPromotingPawn,
-    playerToPromote,
-    isAwaitingPawnSacrifice,
-    isAwaitingRookSacrifice,
-    isResurrectionPromotionInProgress,
-    isAwaitingHolyShield,
-    isAwaitingArcherSnipe,
-    startTurnTimer,
-    stopTurnTimer,
-  ]);
-
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
@@ -973,6 +913,66 @@ export default function EvolvingChessPage() {
     getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
     shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus,
     localPlayerColor
+  ]);
+
+
+  useEffect(() => {
+    if (onlineStatus !== 'connected' || gameInfo.gameOver) {
+      stopTurnTimer();
+      return;
+    }
+
+    let timerStarted = false;
+
+    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === localPlayerColor) {
+      startTurnTimer(playerWhoGotFirstBlood!, 15);
+      timerStarted = true;
+    } else if (isAwaitingAnvilDrop && playerToDropAnvil === localPlayerColor) {
+      startTurnTimer(playerToDropAnvil!, 15);
+      timerStarted = true;
+    } else if (isPromotingPawn && playerToPromote === localPlayerColor) {
+      startTurnTimer(playerToPromote!, 15);
+      timerStarted = true;
+    } else if (isAwaitingHolyShield && localPlayerColor === currentPlayer) {
+      startTurnTimer(currentPlayer!, 15);
+      timerStarted = true;
+    } else if (isAwaitingArcherSnipe && localPlayerColor === currentPlayer) {
+      startTurnTimer(currentPlayer!, 15);
+      timerStarted = true;
+    }
+    
+    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe;
+
+    if (!timerStarted && !isAnySpecialAction) {
+      startTurnTimer(currentPlayer);
+      timerStarted = true;
+    }
+
+    if (!timerStarted) {
+      stopTurnTimer();
+    }
+
+    return () => {
+      stopTurnTimer();
+    };
+  }, [
+    onlineStatus,
+    gameInfo.gameOver,
+    currentPlayer,
+    localPlayerColor,
+    isAwaitingCommanderPromotion,
+    playerWhoGotFirstBlood,
+    isAwaitingAnvilDrop,
+    playerToDropAnvil,
+    isPromotingPawn,
+    playerToPromote,
+    isAwaitingPawnSacrifice,
+    isAwaitingRookSacrifice,
+    isResurrectionPromotionInProgress,
+    isAwaitingHolyShield,
+    isAwaitingArcherSnipe,
+    startTurnTimer,
+    stopTurnTimer,
   ]);
 
   const applyServerGameState = useCallback((gameState: any, lastPlayer?: PlayerColor) => {
@@ -1450,7 +1450,7 @@ export default function EvolvingChessPage() {
           } else if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
               moveBeingMade.type = 'capture';
           } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
-              moveBeingMade.type = 'castle';
+              moveTypeForApply: 'castle';
           }
       }
 
@@ -1520,7 +1520,7 @@ export default function EvolvingChessPage() {
             if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
         }
 
-        const streakGrantsExtraTurn = newStreakForSelfDestructPlayer >= 6;
+        const streakGrantsExtraTurn = oldStreak < 6 && newStreakForSelfDestructPlayer >= 6;
 
         let enteringSpecialMode = false;
         if (oldStreak < 2 && newStreakForSelfDestructPlayer >= 2) {
@@ -1598,7 +1598,7 @@ export default function EvolvingChessPage() {
 
                   if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                       setPlayerForPostResurrectionPromotion(selfDestructPlayer);
-                      setIsExtraTurnForPostResurrectionPromotion(newStreakForSelfDestructPlayer >= 6);
+                      setIsExtraTurnForPostResurrectionPromotion(oldStreak < 6 && newStreakForSelfDestructPlayer >= 6);
                       setIsResurrectionPromotionInProgress(true);
                       setPlayerToPromote(selfDestructPlayer);
                       setIsPromotingPawn(true);
@@ -1766,13 +1766,13 @@ export default function EvolvingChessPage() {
         const capturingPlayer = currentPlayer;
         const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
         
-        let newStreak = killStreaks[capturingPlayer] || 0;
+        const oldStreak = killStreaks[capturingPlayer] || 0;
         let capturesThisTurn = 0;
         if (capturedPieceFromApply) capturesThisTurn++;
         if (pieceCapturedByAnvilFromApply) capturesThisTurn++;
 
+        const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
         if (capturesThisTurn > 0) {
-            newStreak += capturesThisTurn;
             setKillStreaks(prev => ({
                 ...prev,
                 [capturingPlayer]: newStreak
@@ -1781,7 +1781,6 @@ export default function EvolvingChessPage() {
             if (killStreaks[capturingPlayer] > 0) {
                 setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
             }
-            newStreak = 0;
         }
         
         const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
@@ -1849,7 +1848,7 @@ export default function EvolvingChessPage() {
               setVcnLog(prev => [...prev, `+^${getVCNChar(humanRookResData!.resurrectedPieceData!.type)}(L${humanRookResData!.resurrectedPieceData!.level})@${humanRookResData!.resurrectedSquareAlg!}`]);
 
               if (humanRookResData.promotionRequiredForResurrectedPawn) {
-                  const isExtraTurnForRookResPromo = newStreak >= 6;
+                  const isExtraTurnForRookResPromo = oldStreak < 6 && newStreak >= 6;
                   setPlayerForPostResurrectionPromotion(currentPlayer);
                   setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo);
                   setIsResurrectionPromotionInProgress(true);
@@ -1877,12 +1876,12 @@ export default function EvolvingChessPage() {
         const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && pieceThatMadeTheMove?.type === 'hero');
         const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
         const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
-        const streakGrantsExtraTurn = newStreak >= 6;
+        const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
 
         let enteringSpecialMode = false;
         
-        if (newStreak >= 2 && (killStreaks[capturingPlayer] || 0) < 2) {
+        if (newStreak >= 2 && oldStreak < 2) {
             const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
             if (hasArchbishop) {
                 enteringSpecialMode = true;
@@ -1901,7 +1900,7 @@ export default function EvolvingChessPage() {
             }
         }
 
-        if (!enteringSpecialMode && newStreak >= 3 && (killStreaks[capturingPlayer] || 0) < 3) {
+        if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
             enteringSpecialMode = true;
             const anvilDropCtx = {
                 boardForNextStep: finalBoardStateForTurn,
@@ -1919,7 +1918,7 @@ export default function EvolvingChessPage() {
             }
         } 
 
-        if (!enteringSpecialMode && newStreak >= 5 && (killStreaks[capturingPlayer] || 0) < 5) {
+        if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5) {
             const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === capturingPlayer);
             if (hasArcher) {
                 const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
@@ -1948,7 +1947,7 @@ export default function EvolvingChessPage() {
             }
         }
         
-        if (newStreak >= 4 && (killStreaks[capturingPlayer] || 0) < 4) {
+        if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
                   let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
@@ -1979,7 +1978,7 @@ export default function EvolvingChessPage() {
 
                         if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
                             setPlayerForPostResurrectionPromotion(capturingPlayer);
-                            setIsExtraTurnForPostResurrectionPromotion(newStreak >= 6);
+                            setIsExtraTurnForPostResurrectionPromotion(oldStreak < 6 && newStreak >= 6);
                             setIsResurrectionPromotionInProgress(true);
                             setPlayerToPromote(capturingPlayer);
                             setIsPromotingPawn(true);
@@ -2198,12 +2197,13 @@ export default function EvolvingChessPage() {
     setBoard(boardToUpdate);
 
     setTimeout(() => {
-      let currentStreakForPromotingPlayer = killStreaks[pawnColor] || 0;
+      const oldStreak = killStreaks[pawnColor] || 0;
+      let currentStreakForPromotingPlayer = oldStreak;
 
       if (isResurrectionPromotionInProgress) {
         toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
         currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
-        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion || currentStreakForPromotingPlayer >= 6, enPassantTargetSquare);
+        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion, enPassantTargetSquare);
         setIsResurrectionPromotionInProgress(false);
         setPlayerForPostResurrectionPromotion(null);
         setIsExtraTurnForPostResurrectionPromotion(false);
@@ -2212,12 +2212,12 @@ export default function EvolvingChessPage() {
 
         const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
         const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
-        const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
+        const streakGrantsExtraTurn = oldStreak < 6 && currentStreakForPromotingPlayer >= 6;
         const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
         let enteringSpecialMode = false;
         
-        if (currentStreakForPromotingPlayer >= 2) {
+        if (currentStreakForPromotingPlayer >= 2 && oldStreak < 2) {
             const hasArchbishop = boardToUpdate.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === pawnColor);
             if (hasArchbishop) {
                 enteringSpecialMode = true;
@@ -2233,7 +2233,7 @@ export default function EvolvingChessPage() {
             }
         }
 
-        if (!enteringSpecialMode && currentStreakForPromotingPlayer >= 5) {
+        if (!enteringSpecialMode && currentStreakForPromotingPlayer >= 5 && oldStreak < 5) {
             const hasArcher = boardToUpdate.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === pawnColor);
             if (hasArcher) {
                 const opponentColorForSnipe = pawnColor === 'white' ? 'black' : 'white';
@@ -2848,7 +2848,7 @@ export default function EvolvingChessPage() {
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
-              let extraTurnForThisAIMove = aiExtraTurn || (newStreakForAI >= 6);
+              let extraTurnForThisAIMove = aiExtraTurn || (oldStreak < 6 && newStreakForAI >= 6);
               let sacrificeNeededForAIQueen = false;
 
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;

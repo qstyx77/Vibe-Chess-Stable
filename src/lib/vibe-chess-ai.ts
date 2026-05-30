@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing } from '@/lib/chess-utils';
 
@@ -200,8 +199,10 @@ export class VibeChessAI {
             if (originalGameState.board[fR][fC].piece?.level! >= 5) nextState.extraTurn = true;
         }
         if (captureOccurred) {
-            nextState.killStreaks[currentPlayer] += captureCount;
-            if (nextState.killStreaks[currentPlayer] >= 6) nextState.extraTurn = true;
+            const oldStreak = originalGameState.killStreaks[currentPlayer] || 0;
+            const newStreak = oldStreak + captureCount;
+            nextState.killStreaks[currentPlayer] = newStreak;
+            if (oldStreak < 6 && newStreak >= 6) nextState.extraTurn = true;
         } else nextState.killStreaks[currentPlayer] = 0;
         if (piece.type === 'infiltrator' && tR === (piece.color === 'white' ? 0 : 7)) { nextState.gameOver = true; nextState.winner = currentPlayer; }
         if (!nextState.gameOver && !nextState.extraTurn) nextState.currentPlayer = opponentColor;

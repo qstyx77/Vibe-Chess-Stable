@@ -638,7 +638,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         else room.gameState.killStreaks[movingPlayer] = 0;
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
-                        room.gameState.isPendingExtraTurn = rest.extraTurn || (newStreak >= 6);
+                        room.gameState.isPendingExtraTurn = rest.extraTurn || (oldStreak < 6 && newStreak >= 6);
                         room.gameState.pendingEnPassantTarget = rest.enPassantTargetSet;
 
                         if (caps > 0 && !room.gameState.firstBloodAchieved) {

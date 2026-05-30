@@ -530,12 +530,9 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       if (
         fromCol === toCol && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom') && !piece.hasMoved &&
-        ((piece.color === 'white' && fromRow === 6 && toRow === 4 && !board[5]?.[fromCol]?.piece && (!board[5]?.[fromCol]?.item || board[5]?.[fromCol]?.item?.type === 'shroom')) ||
-         (piece.color === 'black' && fromRow === 1 && toRow === 3 && !board[2]?.[fromCol]?.piece && (!board[2]?.[fromCol]?.item || board[2]?.[fromCol]?.item?.type === 'shroom')))
+        ((piece.color === 'white' && (fromRow === 6 || fromRow === 7) && toRow === fromRow - 2 && !board[fromRow - 1]?.[fromCol]?.piece && (!board[fromRow - 1]?.[fromCol]?.item || board[fromRow - 1]?.[fromCol]?.item?.type === 'shroom')) ||
+         (piece.color === 'black' && (fromRow === 1 || fromRow === 0) && toRow === fromRow + 2 && !board[fromRow + 1]?.[fromCol]?.piece && (!board[fromRow + 1]?.[fromCol]?.item || board[fromRow + 1]?.[fromCol]?.item?.type === 'shroom')))
       ) {
-        return true;
-      }
-      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetSquareState?.piece && targetSquareState.piece.color !== piece.color && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
         return true;
       }
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
