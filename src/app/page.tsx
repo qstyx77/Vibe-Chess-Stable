@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1124,6 +1125,7 @@ export default function EvolvingChessPage() {
     let moveBeingMade: Move | null = null;
     let humanPlayerAchievedFirstBloodThisTurn = false;
     let originalPieceLevelBeforeMove: number | undefined;
+    let enteringSpecialMode = false;
 
     const { row, col } = algebraicToCoords(algebraic);
     const clickedSquareState = board[row]?.[col];
@@ -1522,13 +1524,13 @@ export default function EvolvingChessPage() {
 
         const streakGrantsExtraTurn = oldStreak < 6 && newStreakForSelfDestructPlayer >= 6;
 
-        let enteringSpecialMode = false;
         if (oldStreak < 2 && newStreakForSelfDestructPlayer >= 2) {
             const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer);
             if (hasArchbishop) {
                 enteringSpecialMode = true;
+                const shieldCtx = { boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget };
+                setShieldContext(shieldCtx);
                 setIsAwaitingHolyShield(true);
-                setShieldContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget });
                 setGameInfo(prev => ({ ...prev, message: "HOLY SHIELD! Select an ally to protect." }));
             }
         }
@@ -1626,7 +1628,6 @@ export default function EvolvingChessPage() {
         setVcnLog(prev => [...prev, `${getVCNChar(pieceToMoveFromSelected.type)}(L${pieceToMoveFromSelected.level})${selectedSquare}!!!@${selectedSquare}${streakGrantsExtraTurn ? '!!' : ''}`]);
 
         setTimeout(() => {
-          setSelectedSquare(null); setPossibleMoves([]);
           setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
 
           if (humanPlayerAchievedFirstBloodThisTurn) {
@@ -1639,7 +1640,7 @@ export default function EvolvingChessPage() {
               return;
           }
 
-          if (isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe) {
+          if (enteringSpecialMode) {
               setIsMoveProcessing(false);
               clickGuardRef.current = false;
               return;
@@ -1879,8 +1880,6 @@ export default function EvolvingChessPage() {
         const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
 
-        let enteringSpecialMode = false;
-        
         if (newStreak >= 2 && oldStreak < 2) {
             const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
             if (hasArchbishop) {
@@ -2034,7 +2033,7 @@ export default function EvolvingChessPage() {
               return; // Sequenced selection
           }
 
-          if (isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe) {
+          if (enteringSpecialMode) {
               setIsMoveProcessing(false); 
               clickGuardRef.current = false;
               return;
@@ -2212,64 +2211,53 @@ export default function EvolvingChessPage() {
 
         const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
         const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
-        const streakGrantsExtraTurn = oldStreak < 6 && currentStreakForPromotingPlayer >= 6;
+        
+        // Use contexts set in handleSquareClick as triggers to avoid stale state re-calc
+        const hasTriggeredShield = shieldContext !== null;
+        const hasTriggeredAnvil = anvilDropContext !== null;
+        const hasTriggeredSnipe = archerSnipeContext !== null;
+
+        const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
         const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
 
         let enteringSpecialMode = false;
         
-        if (currentStreakForPromotingPlayer >= 2 && oldStreak < 2) {
-            const hasArchbishop = boardToUpdate.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === pawnColor);
-            if (hasArchbishop) {
-                enteringSpecialMode = true;
-                const shieldCtx = {
-                    boardForNextStep: boardToUpdate,
-                    playerWhoseTurnCompleted: pawnColor,
-                    isExtraTurn: combinedExtraTurn,
-                    newEnPassantTarget: enPassantTargetSquare,
-                };
-                setShieldContext(shieldCtx);
-                setIsAwaitingHolyShield(true);
-                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-            }
-        }
-
-        if (!enteringSpecialMode && currentStreakForPromotingPlayer >= 5 && oldStreak < 5) {
-            const hasArcher = boardToUpdate.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === pawnColor);
-            if (hasArcher) {
-                const opponentColorForSnipe = pawnColor === 'white' ? 'black' : 'white';
-                const hasVictims = boardToUpdate.flat().some(sq => 
-                    sq.piece && 
-                    sq.piece.color === opponentColorForSnipe && 
-                    sq.piece.level === 1 && 
-                    sq.piece.type !== 'king' && 
-                    sq.piece.type !== 'queen'
-                );
-                
-                if (hasVictims) {
-                  enteringSpecialMode = true;
-                  const snipeCtx = {
-                      boardForNextStep: boardToUpdate,
-                      playerWhoseTurnCompleted: pawnColor,
-                      isExtraTurn: combinedExtraTurn,
-                      newEnPassantTarget: enPassantTargetSquare,
-                  };
-                  setArcherSnipeContext(snipeCtx);
-                  setIsAwaitingArcherSnipe(true);
-                  setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-                }
-            }
-        }
-
-        if (!enteringSpecialMode && anvilDropAfterPromotion) {
-            setAnvilDropAfterPromotion(false);
+        if (hasTriggeredShield) {
             enteringSpecialMode = true;
-            const contextForAnvil = {
+            const updatedShieldCtx = {
                 boardForNextStep: boardToUpdate,
                 playerWhoseTurnCompleted: pawnColor,
                 isExtraTurn: combinedExtraTurn,
                 newEnPassantTarget: enPassantTargetSquare,
             };
-            setAnvilDropContext(contextForAnvil);
+            setShieldContext(updatedShieldCtx);
+            setIsAwaitingHolyShield(true);
+            setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+        }
+
+        if (!enteringSpecialMode && hasTriggeredSnipe) {
+            enteringSpecialMode = true;
+            const updatedSnipeCtx = {
+                boardForNextStep: boardToUpdate,
+                playerWhoseTurnCompleted: pawnColor,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
+            };
+            setArcherSnipeContext(updatedSnipeCtx);
+            setIsAwaitingArcherSnipe(true);
+            setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+        }
+
+        if (!enteringSpecialMode && (hasTriggeredAnvil || anvilDropAfterPromotion)) {
+            setAnvilDropAfterPromotion(false);
+            enteringSpecialMode = true;
+            const updatedAnvilDropCtx = {
+                boardForNextStep: boardToUpdate,
+                playerWhoseTurnCompleted: pawnColor,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
+            };
+            setAnvilDropContext(updatedAnvilDropCtx);
             setIsAwaitingAnvilDrop(true);
             setPlayerToDropAnvil(pawnColor);
             setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
@@ -2328,7 +2316,7 @@ export default function EvolvingChessPage() {
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
     isAwaitingCommanderPromotion, enPassantTargetSquare,
     onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe
+    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe, shieldContext, archerSnipeContext
   ]);
 
 
@@ -2522,7 +2510,7 @@ export default function EvolvingChessPage() {
         }
 
         const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare);
-        const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, ...restOfResult } = applyMoveResult;
+        const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, ...rest } = applyMoveResult;
         
         // Immediate sounds for AI
         if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {
@@ -2537,21 +2525,21 @@ export default function EvolvingChessPage() {
 
         finalBoardStateForAI = newBoard;
         
-        enPassantTargetForNextTurn = restOfResult.enPassantTargetSet;
-        levelFromAIApplyMove = restOfResult.originalPieceLevel;
-        selfCheckByAIPushBack = restOfResult.selfCheckByPushBack;
-        aiAnvilPushedOff = restOfResult.anvilPushedOffBoard;
-        queenLevelReducedEventsAI = restOfResult.queenLevelReducedEvents;
-        aiBecameInfiltrator = restOfResult.promotedToInfiltrator || false;
-        aiGameWonByInfiltration = restOfResult.infiltrationWin || false;
-        aiExtraTurn = restOfResult.extraTurn || false;
+        enPassantTargetForNextTurn = rest.enPassantTargetSet;
+        levelFromAIApplyMove = rest.originalPieceLevel;
+        selfCheckByAIPushBack = rest.selfCheckByPushBack;
+        aiAnvilPushedOff = rest.anvilPushedOffBoard;
+        queenLevelReducedEventsAI = rest.queenLevelReducedEvents;
+        aiBecameInfiltrator = rest.promotedToInfiltrator || false;
+        aiGameWonByInfiltration = rest.infiltrationWin || false;
+        aiExtraTurn = rest.extraTurn || false;
 
         if (selfDestructCaptures && selfDestructCaptures.length > 0) {
             finalCapturedPiecesForAI[currentPlayer].push(...selfDestructCaptures);
         }
 
-        if (restOfResult.rallyCryTriggered) {
-            addEffect('shockwave', restOfResult.rallyCryTriggered.square, restOfResult.rallyCryTriggered.color);
+        if (rest.rallyCryTriggered) {
+            addEffect('shockwave', rest.rallyCryTriggered.square, rest.rallyCryTriggered.color);
             audioManager.playRally();
         }
 
@@ -2570,7 +2558,7 @@ export default function EvolvingChessPage() {
             return;
         }
 
-        if (restOfResult.shroomConsumed) {
+        if (rest.shroomConsumed) {
             const movedPieceDataAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
                 if(movedPieceDataAI) {
                 audioManager.playShroom();
@@ -2591,12 +2579,12 @@ export default function EvolvingChessPage() {
             });
         }
         
-        if (restOfResult.pieceCapturedByAnvil) {
+        if (rest.pieceCapturedByAnvil) {
             if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
-                finalCapturedPiecesForAI[currentPlayer].push({ ...restOfResult.pieceCapturedByAnvil, id: `${restOfResult.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
+                finalCapturedPiecesForAI[currentPlayer].push({ ...rest.pieceCapturedByAnvil, id: `${rest.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
             }
             audioManager.playObliterate();
-            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${restOfResult.pieceCapturedByAnvil.type}!`, duration: 8000 });
+            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${rest.pieceCapturedByAnvil.type}!`, duration: 8000 });
         }
         if (aiAnvilPushedOff) {
             toast({ title: "AI Anvil Removed!", description: "AI Anvil pushed off by AI.", duration: 8000 });
@@ -2648,8 +2636,8 @@ export default function EvolvingChessPage() {
             }
           }
 
-          if (restOfResult.conversionEvents && restOfResult.conversionEvents.length > 0) {
-            restOfResult.conversionEvents.forEach(event => {
+          if (rest.conversionEvents && rest.conversionEvents.length > 0) {
+            rest.conversionEvents.forEach(event => {
                 addEffect('conversion', event.at, event.byPiece.color);
                 if (event.originalPiece.color !== event.convertedPiece.color) {
                   audioManager.playConversion();
@@ -2662,7 +2650,7 @@ export default function EvolvingChessPage() {
             const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
             let capturesThisTurnAI = 0;
             if (capturedPiece) capturesThisTurnAI++;
-            if (restOfResult.pieceCapturedByAnvil) capturesThisTurnAI++;
+            if (rest.pieceCapturedByAnvil) capturesThisTurnAI++;
             if (selfDestructCaptures) capturesThisTurnAI += selfDestructCaptures.length;
             
             const oldStreakForAI = killStreaks[currentPlayer] || 0;
@@ -2797,7 +2785,7 @@ export default function EvolvingChessPage() {
             if (aiMovedPieceOnToSquare &&
                 (aiMovedPieceOnToSquare.type === 'rook' || aiMovedPieceOnToSquare.type === 'palace' || (moveForApplyMoveAI!.type === 'promotion' && (moveForApplyMoveAI!.promoteTo === 'rook' || moveForApplyMoveAI!.promoteTo === 'palace'))) &&
                 moveForApplyMoveAI!.type !== 'self-destruct' &&
-                (capturedPiece || restOfResult.pieceCapturedByAnvil) 
+                (capturedPiece || rest.pieceCapturedByAnvil) 
             ) {
               const oldLevelForAIResCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI;
               aiRookResData = processRookResurrectionCheck(
