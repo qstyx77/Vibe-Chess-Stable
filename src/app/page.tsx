@@ -1408,7 +1408,7 @@ export default function EvolvingChessPage() {
     }
 
     let finalBoardStateForTurn = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-    let finalCapturedPiecesStateForTurn = {
+    let finalCapturedPiecesForTurn = {
       white: capturedPieces.white.map(p => ({ ...p })),
       black: capturedPieces.black.map(p => ({ ...p }))
     };
@@ -1497,7 +1497,7 @@ export default function EvolvingChessPage() {
         finalBoardStateForTurn = newBoard;
 
         if (selfDestructCaptures) {
-          selfDestructCaptures.forEach(p => finalCapturedPiecesStateForTurn[currentPlayer].push(p));
+          selfDestructCaptures.forEach(p => finalCapturedPiecesForTurn[currentPlayer].push(p));
         }
         if (destroyedAnvils > 0) toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(currentPlayer)} ${pieceToMoveFromSelected.type} destroyed ${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''} destroyed!`, duration: 8000 });
         
@@ -1569,7 +1569,7 @@ export default function EvolvingChessPage() {
         }
 
         if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
-            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
+            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
             if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
               const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
               if (pieceToResurrectOriginal) {
@@ -1592,7 +1592,7 @@ export default function EvolvingChessPage() {
                   addEffect('light-beam', randomSquareAlg);
                   audioManager.playResurrect();
                   setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
-                  finalCapturedPiecesStateForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
+                  finalCapturedPiecesForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
                   setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedPiece.type)}(L${resurrectedPiece.level})@${randomSquareAlg}`]);
 
@@ -1604,7 +1604,7 @@ export default function EvolvingChessPage() {
                       setIsPromotingPawn(true);
                       setPromotionSquare(randomSquareAlg);
                       setBoard(finalBoardStateForTurn);
-                      setCapturedPieces(finalCapturedPiecesStateForTurn);
+                      setCapturedPieces(finalCapturedPiecesForTurn);
                       setIsMoveProcessing(false);
                       clickGuardRef.current = false;
                       return;
@@ -1794,13 +1794,13 @@ export default function EvolvingChessPage() {
             audioManager.playCapture();
             audioManager.playLevelUp();
             const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
-            finalCapturedPiecesStateForTurn[capturingPlayer].push(uniqueCapturedPiece);
+            finalCapturedPiecesForTurn[capturingPlayer].push(uniqueCapturedPiece);
           }
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (pieceCapturedByAnvilFromApply) {
           audioManager.playObliterate();
-          finalCapturedPiecesStateForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
+          finalCapturedPiecesForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
           toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
@@ -1828,12 +1828,12 @@ export default function EvolvingChessPage() {
               moveBeingMade,
               algebraic,
               oldLevelForResurrectionCheck,
-              finalCapturedPiecesStateForTurn,
+              finalCapturedPiecesForTurn,
               uniqueIdCounterRef.current
             );
             if (humanRookResData.resurrectionPerformed) {
               finalBoardStateForTurn = humanRookResData.boardWithResurrection;
-              finalCapturedPiecesStateForTurn = humanRookResData.capturedPiecesAfterResurrection;
+              finalCapturedPiecesForTurn = humanRookResData.capturedPiecesAfterResurrection;
               uniqueIdCounterRef.current = humanRookResData.newResurrectionIdCounter!;
               addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
               audioManager.playResurrect();
@@ -1949,7 +1949,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesStateForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginal) {
@@ -1972,7 +1972,7 @@ export default function EvolvingChessPage() {
                         addEffect('light-beam', randomSquareAlg);
                         audioManager.playResurrect();
                         setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
-                        finalCapturedPiecesStateForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
+                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginal.id);
 
                         setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedPiece.type)}(L${resurrectedPiece.level})@${randomSquareAlg}`]);
 
@@ -2849,7 +2849,7 @@ export default function EvolvingChessPage() {
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
               let extraTurnForThisAIMove = aiExtraTurn || (oldStreak < 6 && newStreakForAI >= 6);
-              let sacrificeNeeded ForAIQueen = false;
+              let sacrificeNeededForAIQueen = false;
 
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
 
