@@ -519,15 +519,26 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     case 'commander':
       const direction = piece.color === 'white' ? -1 : 1;
       const levelPawn = Number(piece.level || 1);
-       if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
+      
+      // Standard Diagonal Capture
+      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare && targetPieceOnSquare.color !== piece.color) {
+          return true;
+      }
+      
+      // En Passant
+      if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
         const capturedPawnRow = fromRow;
         const capturedPawnCol = toCol;
         const opponentPiece = board[capturedPawnRow]?.[capturedPawnCol]?.piece;
         if(opponentPiece && opponentPiece.color !== piece.color && (opponentPiece.type === 'pawn' || opponentPiece.type === 'commander')) return true;
       }
+      
+      // Single Move Forward
       if (fromCol === toCol && toRow === fromRow + direction && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
         return true;
       }
+      
+      // Double Move Forward from starting rank
       if (
         fromCol === toCol && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom') && !piece.hasMoved &&
         ((piece.color === 'white' && (fromRow === 6 || fromRow === 7) && toRow === fromRow - 2 && !board[fromRow - 1]?.[fromCol]?.piece && (!board[fromRow - 1]?.[fromCol]?.item || board[fromRow - 1]?.[fromCol]?.item?.type === 'shroom')) ||
@@ -535,12 +546,16 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       ) {
         return true;
       }
+      
+      // Level 2 ability: move backward
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
         const backwardDirection = direction * -1;
         if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
           return true;
         }
       }
+      
+      // Level 3 ability: move sideways
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 3) {
         if (toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
           return true;
