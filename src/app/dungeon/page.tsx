@@ -62,6 +62,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     return false;
   };
 
+  // Place core pieces in standard home rank slots
   placePieceAt(king, 'e1');
   if (rooks[0]) placePieceAt(rooks[0], 'a1');
   if (rooks[1]) placePieceAt(rooks[1], 'h1');
@@ -71,6 +72,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   if (bishops[0]) placePieceAt(bishops[0], 'c1');
   if (bishops[1]) placePieceAt(bishops[1], 'f1');
 
+  // Strategic Frontline: Prioritize Guard Slots (d2, e2, f2) for King protection
   const guardSlots: AlgebraicSquare[] = ['d2', 'e2', 'f2'];
   const wingSlots: AlgebraicSquare[] = ['a2', 'b2', 'c2', 'g2', 'h2'].sort(() => Math.random() - 0.5) as AlgebraicSquare[];
   const frontlineOrder = [...guardSlots, ...wingSlots];
@@ -99,6 +101,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     .filter(p => !placedIds.has(p.id))
     .sort((a, b) => piecePriority(b.type) - piecePriority(a.type));
 
+  // Center-out backfill for elite units
   const fillOrder: AlgebraicSquare[] = [
     'd1', 'e1', 'c1', 'f1', 'b1', 'g1', 'a1', 'h1',
     'd2', 'e2', 'c2', 'f2', 'b2', 'g2', 'a2', 'h2',
@@ -641,33 +644,43 @@ export default function DungeonPage() {
   }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood]);
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen bg-background p-4 gap-4 overflow-hidden">
-      <div className="w-full max-w-4xl flex items-center justify-between">
+    <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
+      <div className="w-full max-w-4xl flex items-center justify-between shrink-0">
         <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
-        <div className="flex items-center gap-2"><Swords className="text-primary h-6 w-6" /><h1 className="text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1></div>
+        <div className="flex items-center gap-2"><Swords className="text-primary h-6 w-6" /><h1 className="text-base md:text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1></div>
         <div className="w-24"></div>
       </div>
-      <div className="flex flex-col lg:flex-row gap-6 w-full max-w-6xl items-start justify-center">
-        <div className="w-full lg:w-1/2 flex flex-col items-center gap-4">
-          <div className={cn("text-center text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.isCheck && !gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
+      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full max-w-6xl items-start justify-center flex-1 overflow-hidden">
+        <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
+          <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.isCheck && !gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
             {isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
-          <ChessBoard
-            boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe}
-          />
+          <div className="w-full max-w-lg aspect-square">
+            <ChessBoard
+              boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe}
+            />
+          </div>
         </div>
-        <div className="w-full lg:w-1/4 h-full min-h-[400px]">
-          <GameControls
-            currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false}
-          />
+        <div className="w-full lg:w-1/4 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-hide">
+          <div className="shrink-0">
+            <GameControls
+              currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false}
+            />
+          </div>
           {gameInfo.gameOver && (
-            <div className="mt-4 space-y-2">
-              <Button className="w-full font-bold uppercase" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
-              <Link href="/"><Button variant="outline" className="w-full font-bold uppercase">Back to Lobby</Button></Link>
+            <div className="mt-2 space-y-2 shrink-0">
+              <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
+              <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-8 text-xs">Back to Lobby</Button></Link>
             </div>
           )}
-          <div className="mt-4 p-3 bg-primary/10 border border-primary/30 rounded-none"><p className="text-[9px] font-pixel leading-relaxed"><span className="text-primary font-bold">LEGENDARY BOSSES:</span><br/>F10: THE HYDRA (Splits)<br/>F20: THE NECROMANCER (Resurrects)<br/>F30: THE COLOSSUS (Shielded King)<br/>F40: THE MIRAGE (Teleports)<br/>F50: THE ENTITY (Godlike)</p></div>
+          <div className="mt-2 p-2 bg-primary/10 border border-primary/30 rounded-none shrink-0 mb-4 lg:mb-0">
+            <p className="text-[8px] md:text-[9px] font-pixel leading-tight">
+              <span className="text-primary font-bold">LEGENDARY BOSSES:</span><br/>
+              F10: HYDRA (Splits) | F20: NECRO (Res) | F30: COLOSSUS (Shield)<br/>
+              F40: MIRAGE (TP) | F50: ENTITY (God)
+            </p>
+          </div>
         </div>
       </div>
       <RulesDialog isOpen={false} onOpenChange={() => {}} />
