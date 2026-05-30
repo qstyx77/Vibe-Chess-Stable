@@ -538,8 +538,8 @@ export default function EvolvingChessPage() {
 
     setResurrectedSquares([]);
     setPieceForInfoDisplay(null);
-    setShowLossScreen(false);
     setShowWinScreen(false);
+    setShowLossScreen(false);
     setEffects([]);
 
     setTurnTimer(null);
@@ -1450,7 +1450,7 @@ export default function EvolvingChessPage() {
           } else if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
               moveBeingMade.type = 'capture';
           } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
-              moveTypeForApply: 'castle';
+              moveBeingMade.type = 'castle';
           }
       }
 
@@ -1620,7 +1620,7 @@ export default function EvolvingChessPage() {
         }
 
         setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesStateForTurn);
+        setCapturedPieces(finalCapturedPiecesForTurn);
 
         // VCN Explosion
         setVcnLog(prev => [...prev, `${getVCNChar(pieceToMoveFromSelected.type)}(L${pieceToMoveFromSelected.level})${selectedSquare}!!!@${selectedSquare}${streakGrantsExtraTurn ? '!!' : ''}`]);
@@ -2849,7 +2849,7 @@ export default function EvolvingChessPage() {
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
               let extraTurnForThisAIMove = aiExtraTurn || (oldStreak < 6 && newStreakForAI >= 6);
-              let sacrificeNeededForAIQueen = false;
+              let sacrificeNeeded ForAIQueen = false;
 
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
 
@@ -3030,7 +3030,7 @@ export default function EvolvingChessPage() {
         } else if (currentCheckStateString.endsWith('-check')) {
           setFlashMessage('CHECK!');
           setShowCheckFlashBackground(true);
-          setCheckFlashBackgroundKey(k => k + 1);
+          setShowCheckFlashBackgroundKey(k => k + 1);
           audioManager.playCheck();
         }
         setFlashMessageKey(k => k + 1);

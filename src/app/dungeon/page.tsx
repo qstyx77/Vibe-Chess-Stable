@@ -462,8 +462,18 @@ export default function DungeonPage() {
       if (possibleMoves.includes(algebraic)) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
         const originalP = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
+        
+        let moveType: Move['type'] = 'move';
+        if (originalP?.type === 'king' && Math.abs(fromC - col) === 2) {
+          moveType = 'castle';
+        } else if ((originalP?.type === 'pawn' || originalP?.type === 'commander') && algebraic === enPassantTargetSquare) {
+          moveType = 'enpassant';
+        } else if (sq.piece && sq.piece.color !== originalP?.color) {
+          moveType = 'capture';
+        }
+
         const originalLevel = originalP?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
-        const result = applyMove(board, { from: selectedSquare, to: algebraic }, enPassantTargetSquare);
+        const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, selfCheckByPushBack, infiltrationWin: pInfil } = result;
         if (selfCheckByPushBack) {
             setBoard(newBoard); setGameInfo({ message: "PUSH-BACK SELF-CHECK! RUN OVER", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
@@ -541,7 +551,7 @@ export default function DungeonPage() {
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
-          if (firstBloodThisTurn) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); setIsAwaitingCommanderPromotion(true); return; }
+          if (firstBloodAchieved && firstBloodThisTurn) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); setIsAwaitingCommanderPromotion(true); return; }
           if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
           if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
         }, 800);
