@@ -641,16 +641,31 @@ export default function DungeonPage() {
              } else audioManager.playMove();
              setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || milestoneExtraTurn, result.enPassantTargetSet); }, 800);
           } else {
-            if (board.flat().filter(sq => sq.piece && sq.piece.color === 'black').length === 1) {
-                const nextStuck = enemyStuckTurns + 1; setEnemyStuckTurns(nextStuck);
-                if (nextStuck >= 3) {
-                    const stuckPos = board.flat().find(sq => sq.piece && sq.piece.color === 'black')!.algebraic;
-                    const result = applyMove(board, { from: stuckPos, to: stuckPos, type: 'self-destruct' }, enPassantTargetSquare);
-                    audioManager.playExplosion(); setBoard(result.newBoard);
-                    setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(result.newBoard, 'black', false, enPassantTargetSquare); }, 800);
-                    return;
-                }
-            } else setEnemyStuckTurns(0);
+            const nextStuck = enemyStuckTurns + 1;
+            setEnemyStuckTurns(nextStuck);
+            if (nextStuck >= 3) {
+                const stuckPieces = board.flat().filter(sq => sq.piece && sq.piece.color === 'black');
+                let currentBoard = board;
+                stuckPieces.forEach(sq => {
+                    const result = applyMove(currentBoard, { from: sq.algebraic, to: sq.algebraic, type: 'self-destruct' }, enPassantTargetSquare);
+                    currentBoard = result.newBoard;
+                    const { row: cR, col: cC } = algebraicToCoords(sq.algebraic);
+                    for (let dr = -1; dr <= 1; dr++) {
+                        for (let dc = -1; dc <= 1; dc++) {
+                            if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+                        }
+                    }
+                });
+                audioManager.playExplosion();
+                setBoard(currentBoard);
+                setEnemyStuckTurns(0);
+                setTimeout(() => { 
+                    setIsAiThinking(false); 
+                    setIsMoveProcessing(false); 
+                    processMoveEnd(currentBoard, 'black', false, enPassantTargetSquare); 
+                }, 800);
+                return;
+            }
             setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(board, 'black', false, enPassantTargetSquare);
           }
         } catch (e) { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(board, 'black', false, enPassantTargetSquare); }
