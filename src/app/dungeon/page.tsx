@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -74,7 +75,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
 
   // Strategic Frontline: Prioritize Guard Slots (d2, e2, f2) for King protection
   const guardSlots: AlgebraicSquare[] = ['d2', 'e2', 'f2'];
-  const wingSlots: AlgebraicSquare[] = ['a2', 'b2', 'c2', 'g2', 'h2'].sort(() => Math.random() - 0.5) as AlgebraicSquare[];
+  const wingSlots: AlgebraicSquare[] = (['a2', 'b2', 'c2', 'g2', 'h2'] as AlgebraicSquare[]).sort(() => Math.random() - 0.5);
   const frontlineOrder = [...guardSlots, ...wingSlots];
 
   let frontlineIdx = 0;
@@ -124,8 +125,8 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
 
   const isBossLevel = level % 10 === 0;
   if (isBossLevel) {
-    const bossLevel = level / 10;
-    switch (bossLevel) {
+    const bossLevelIndex = Math.floor(level / 10);
+    switch (bossLevelIndex) {
       case 1: 
         board[0][4].piece = { id: 'boss-hydra', type: 'rook', color: 'black', level: 6, hasMoved: false, isShielded: false };
         board[0][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false };
@@ -275,8 +276,18 @@ export default function DungeonPage() {
     const hasCommander = survivorsFromLastBoard.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
-    setGameInfo({ message: `Level ${nextLevel} - Wipe them out!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
-    toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
+
+    const isBoss = nextLevel % 10 === 0;
+    setGameInfo({ 
+        message: isBoss ? `BOSS BATTLE: Floor ${nextLevel}` : `Level ${nextLevel} - Wipe them out!`, 
+        isCheck: false, 
+        playerWithKingInCheck: null, 
+        isCheckmate: false, 
+        isStalemate: false, 
+        gameOver: false 
+    });
+
+    toast({ title: isBoss ? "BOSS FLOOR!" : "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
   }, [level, toast]);
 
@@ -286,10 +297,16 @@ export default function DungeonPage() {
     setEnPassantTargetSquare(nextEpSquare);
     const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
-    if (enemyCount === 0) {
+    
+    // Dungeon Victory Condition: Capture all pieces OR Checkmate the Dungeon King (if exists)
+    const dungeonKing = findKing(nextBoard, 'black');
+    const isDungeonCheckmated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare);
+    
+    if (enemyCount === 0 || isDungeonCheckmated) {
       advanceLevel(survivors);
       return;
     }
+
     if (extra) {
       toast({ title: "EXTRA TURN!", description: `${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} gains another move!`, duration: 2000 });
       audioManager.playLevelUp();
@@ -315,7 +332,16 @@ export default function DungeonPage() {
     }
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare);
     if (inCheck) audioManager.playCheck();
-    setGameInfo({ message: inCheck ? "Check!" : `Level ${level} - Wipe them out!`, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
+    
+    const isBoss = level % 10 === 0;
+    setGameInfo({ 
+        message: inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${level} - Wipe them out!`), 
+        isCheck: inCheck, 
+        playerWithKingInCheck: inCheck ? nextP : null, 
+        isCheckmate: false, 
+        isStalemate: false, 
+        gameOver: false 
+    });
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
 
@@ -687,7 +713,7 @@ export default function DungeonPage() {
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
             {isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
-          <div className="w-full max-w-lg aspect-square">
+          <div className="w-full max-lg:max-w-[80vw] max-w-lg aspect-square">
             <ChessBoard
               boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe}
             />
