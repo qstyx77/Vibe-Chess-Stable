@@ -433,7 +433,7 @@ export default function DungeonPage() {
             setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
             audioManager.playLevelUp();
-            processMoveEnd(nextBoard, 'white', false, enPassantTargetSquare);
+            processMoveEnd(nextBoard, 'white', specialActionContext?.extra || false, enPassantTargetSquare);
         }
         return;
     }
@@ -551,7 +551,7 @@ export default function DungeonPage() {
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
-          if (firstBloodAchieved && firstBloodThisTurn) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); setIsAwaitingCommanderPromotion(true); return; }
+          if (!firstBloodAchieved && firstBloodThisTurn) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); setIsAwaitingCommanderPromotion(true); return; }
           if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
           if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
         }, 800);
@@ -616,7 +616,7 @@ export default function DungeonPage() {
                const hasArcher = nextBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'black');
                if (newStreak === 2 && hasArchbishop) {
                    const allies = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type !== 'king' && sq.piece.id !== nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece?.id).map(sq => sq.piece!);
-                   if (allies.length > 0) { const chosen = allies[Math.floor(Math.random() * allies.length)]; nextBoard.flat().forEach(sq => { if (sq.piece?.id === chosen.id) sq.piece.isShielded = true; }); audioManager.playShield(); }
+                   if (allies.length > 0) { const player_sh_id = allies[Math.floor(Math.random() * allies.length)].id; nextBoard.flat().forEach(sq => { if (sq.piece?.id === player_sh_id) sq.piece.isShielded = true; }); audioManager.playShield(); }
                } else if (newStreak === 3) {
                    const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                    if (empty.length > 0) { const chosen = empty[Math.floor(Math.random() * empty.length)]; chosen.item = { type: 'anvil' }; audioManager.playAnvil(); }
