@@ -1211,7 +1211,7 @@ export default function EvolvingChessPage() {
           
           // VCN Shield
           const abPos = board.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
-          setVcnLog(prev => [...prev, `🛡️@${abPos}>${algebraic}`]);
+          setVcnLog(prev => [...prev, `🛡️@${abPos}>${targetAlg}`]);
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -2836,7 +2836,7 @@ export default function EvolvingChessPage() {
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
-              let extraTurnForThisAIMove = aiExtraTurn || (oldStreak < 6 && newStreakForAI >= 6);
+              let extraTurnForThisAIMove = aiExtraTurn || (oldStreakForAI < 6 && newStreakForAI >= 6);
               let sacrificeNeededForAIQueen = false;
 
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
