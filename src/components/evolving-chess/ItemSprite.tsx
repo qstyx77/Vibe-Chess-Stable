@@ -2,7 +2,6 @@
 'use client';
 
 import React from 'react';
-import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import placeholderImages from '@/app/lib/placeholder-images.json';
 
@@ -13,11 +12,12 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16x12 sprite sheet using a clipped Next.js Image component.
- * We use a 16-column layout to match the provided sheet geometry.
+ * Renders an item from the 16-column sprite sheet using background-image.
+ * This is the most reliable way to "slice" a local sprite sheet asset.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
+  const rows = 12;
   const col = index % cols;
   const row = Math.floor(index / cols);
   
@@ -26,32 +26,18 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
 
   return (
     <div 
-      className={cn("relative overflow-hidden shrink-0 inline-block bg-muted/20", className)}
+      className={cn("shrink-0 inline-block bg-muted/20", className)}
       style={{
         width: `${size}px`,
         height: `${size}px`,
+        backgroundImage: `url("${spriteSheetUrl}")`,
+        backgroundSize: `${size * cols}px ${size * rows}px`,
+        backgroundPosition: `-${col * size}px -${row * size}px`,
+        imageRendering: 'pixelated',
+        backgroundRepeat: 'no-repeat',
       }}
+      role="img"
       aria-hidden="true"
-    >
-      <div 
-        className="absolute"
-        style={{
-          width: `${size * 16}px`,
-          height: `${size * 12}px`,
-          left: `-${col * size}px`,
-          top: `-${row * size}px`,
-        }}
-      >
-        <Image
-          src={spriteSheetUrl}
-          alt=""
-          fill
-          unoptimized
-          className="object-cover"
-          style={{ imageRendering: 'pixelated' }}
-          data-ai-hint="item sprites"
-        />
-      </div>
-    </div>
+    />
   );
 }
