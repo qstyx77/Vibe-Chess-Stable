@@ -1,6 +1,7 @@
+
 'use client';
 
-import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect } from '@/types';
+import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -33,6 +34,8 @@ interface ChessSquareProps {
   isConverting: boolean;
   isShieldTarget?: boolean;
   isSnipeTarget?: boolean;
+  isInvTarget?: boolean;
+  selectedInventoryItemType?: InventoryItemType | null;
 }
 
 export function ChessSquare({
@@ -61,6 +64,8 @@ export function ChessSquare({
   isConverting,
   isShieldTarget = false,
   isSnipeTarget = false,
+  isInvTarget = false,
+  selectedInventoryItemType
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -94,6 +99,12 @@ export function ChessSquare({
     selectionRingClass = 'ring-4 ring-inset ring-green-400 animate-pulse';
   } else if (isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn) {
     selectionRingClass = 'ring-4 ring-inset ring-cyan-400 animate-pulse';
+  } else if (isInvTarget) {
+    if (selectedInventoryItemType) {
+        selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-yellow-400' : 'ring-4 ring-inset ring-primary animate-pulse';
+    } else {
+        selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-destructive animate-pulse' : '';
+    }
   } else if (isSelected && !disabled) {
     selectionRingClass = 'ring-2 ring-inset ring-accent';
   } else if (isEnemySelected && !disabled) {
@@ -104,7 +115,7 @@ export function ChessSquare({
     selectionRingClass = 'ring-4 ring-inset ring-primary animate-pulse';
   }
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget;
 
 
   return (
@@ -119,7 +130,7 @@ export function ChessSquare({
         effectiveDisabled && 'cursor-not-allowed',
         item && item.type !== 'shroom' && 'cursor-not-allowed'
       )}
-      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}${effectiveDisabled || (item && item.type !== 'shroom') ? ' (interaction disabled)' : ''}${isKingInCheck ? ' (King in check!)' : ''}${isSacrificeTarget ? ' (Sacrifice target!)' : ''}${isCommanderPromoTarget ? ' (Commander promotion target!)' : ''}${isEnPassantTarget ? ' (En Passant target)' : ''}`}
+      aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
 

@@ -1,6 +1,7 @@
 'use client';
 
 import type { Piece, PieceType } from '@/types';
+import { ITEM_METADATA } from '@/types';
 import { CardDescription } from '../ui/card';
 
 interface PieceAbilitiesInfoProps {
@@ -86,10 +87,19 @@ const getPieceAbilities = (piece: Piece): string[] => {
 export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const abilities = getPieceAbilities(piece);
   const pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
+  const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
 
   return (
     <div className="text-center text-xs">
       <h3 className="font-bold text-primary text-sm">{pieceName} - Level {piece.level || 1}</h3>
+      {item && (
+        <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
+          <p className="text-[0.65rem] font-bold text-accent uppercase flex items-center justify-center gap-1">
+             <span>{item.icon}</span> {item.name} <span>{item.icon}</span>
+          </p>
+          <p className="text-[0.6rem] text-muted-foreground italic leading-tight">{item.description}</p>
+        </div>
+      )}
       <ul className="list-none p-0 m-0 text-[0.7rem]">
         {abilities.map((ability, index) => (
           <li key={index}>{ability}</li>

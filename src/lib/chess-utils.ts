@@ -14,10 +14,10 @@ export function initializeBoard(): BoardState {
   }
 
   for (let c = 0; c < 8; c++) {
-    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
-    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
-    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
-    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false };
+    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
+    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
+    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
+    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
   }
   return board;
 }
@@ -147,7 +147,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const piece = square?.piece;
       const item = square?.item;
       if (piece) {
-        pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}`;
+        pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.heldItem || '-'}`;
       } else {
         pieceHash += '--';
       }
@@ -301,9 +301,7 @@ function getPossibleMovesInternal(
                       }
                       break;
                   } else {
-                      // Friendly piece
                       if (bishopLevel >= 2) {
-                          // Phase through friendly pieces: don't break, keep searching
                           continue;
                       } else {
                           break;
@@ -520,12 +518,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const direction = piece.color === 'white' ? -1 : 1;
       const levelPawn = Number(piece.level || 1);
       
-      // Standard Diagonal Capture
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare && targetPieceOnSquare.color !== piece.color) {
           return true;
       }
       
-      // En Passant
       if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
         const capturedPawnRow = fromRow;
         const capturedPawnCol = toCol;
@@ -533,21 +529,21 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         if(opponentPiece && opponentPiece.color !== piece.color && (opponentPiece.type === 'pawn' || opponentPiece.type === 'commander')) return true;
       }
       
-      // Single Move Forward
       if (fromCol === toCol && toRow === fromRow + direction && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
         return true;
       }
       
-      // Double Move Forward from starting rank
+      const isHomeRank = (piece.color === 'white' && (fromRow === 6 || fromRow === 7)) || (piece.color === 'black' && (fromRow === 0 || fromRow === 1));
+      const canJumpStart = isHomeRank || piece.heldItem === 'swift_cloak';
+
       if (
-        fromCol === toCol && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom') && !piece.hasMoved &&
-        ((piece.color === 'white' && (fromRow === 6 || fromRow === 7) && toRow === fromRow - 2 && !board[fromRow - 1]?.[fromCol]?.piece && (!board[fromRow - 1]?.[fromCol]?.item || board[fromRow - 1]?.[fromCol]?.item?.type === 'shroom')) ||
-         (piece.color === 'black' && (fromRow === 1 || fromRow === 0) && toRow === fromRow + 2 && !board[fromRow + 1]?.[fromCol]?.piece && (!board[fromRow + 1]?.[fromCol]?.item || board[fromRow + 1]?.[fromCol]?.item?.type === 'shroom')))
+        fromCol === toCol && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom') && canJumpStart &&
+        ((piece.color === 'white' && toRow === fromRow - 2 && !board[fromRow - 1]?.[fromCol]?.piece && (!board[fromRow - 1]?.[fromCol]?.item || board[fromRow - 1]?.[fromCol]?.item?.type === 'shroom')) ||
+         (piece.color === 'black' && toRow === fromRow + 2 && !board[fromRow + 1]?.[fromCol]?.piece && (!board[fromRow + 1]?.[fromCol]?.item || board[fromRow + 1]?.[fromCol]?.item?.type === 'shroom')))
       ) {
         return true;
       }
       
-      // Level 2 ability: move backward
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 2) {
         const backwardDirection = direction * -1;
         if (fromCol === toCol && toRow === fromRow + backwardDirection && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
@@ -555,7 +551,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         }
       }
       
-      // Level 3 ability: move sideways
       if (typeof levelPawn === 'number' && !isNaN(levelPawn) && levelPawn >= 3) {
         if (toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetSquareState?.piece && (!targetSquareState?.item || targetSquareState.item.type === 'shroom')) {
           return true;
@@ -1084,6 +1079,8 @@ export function applyMove(
               const isEntityAnvil = adjacentSquareState.item?.type === 'anvil';
 
               if (entityToPush && (isEntityAnvil || (adjacentSquareState.piece && adjacentSquareState.piece!.color !== pieceNowOnToSquare.color))) {
+                if (adjacentSquareState.piece?.heldItem === 'passive_armor') continue;
+
                 const pushTargetRow_pb = adjRow_pb + dr_pb;
                 const pushTargetCol_pb = adjCol_pb + dc_pb;
 
@@ -1442,7 +1439,8 @@ export function processRookResurrectionCheck(
           id: `${pieceToResurrectOriginal.id}_res_${nextResurrectionIdCounter}_${Date.now()}`,
           hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved,
           invulnerableTurnsRemaining: 0,
-          isShielded: false
+          isShielded: false,
+          heldItem: null
         };
         nextResurrectionIdCounter++;
 

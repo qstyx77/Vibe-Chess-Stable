@@ -1,11 +1,12 @@
 
 'use client';
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
 import { RulesDialog } from '@/components/evolving-chess/RulesDialog';
+import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import {
   initializeBoard,
   applyMove,
@@ -23,10 +24,11 @@ import {
   applyArcher,
   findKing,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType } from '@/types';
+import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Swords, ArrowLeft, BrainCircuit } from 'lucide-react';
+import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
@@ -63,7 +65,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     return false;
   };
 
-  // Place core pieces in standard home rank slots
   placePieceAt(king, 'e1');
   if (rooks[0]) placePieceAt(rooks[0], 'a1');
   if (rooks[1]) placePieceAt(rooks[1], 'h1');
@@ -73,7 +74,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   if (bishops[0]) placePieceAt(bishops[0], 'c1');
   if (bishops[1]) placePieceAt(bishops[1], 'f1');
 
-  // Strategic Frontline: Prioritize Guard Slots (d2, e2, f2) for King protection
   const guardSlots: AlgebraicSquare[] = ['d2', 'e2', 'f2'];
   const wingSlots: AlgebraicSquare[] = (['a2', 'b2', 'c2', 'g2', 'h2'] as AlgebraicSquare[]).sort(() => Math.random() - 0.5);
   const frontlineOrder = [...guardSlots, ...wingSlots];
@@ -102,7 +102,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     .filter(p => !placedIds.has(p.id))
     .sort((a, b) => piecePriority(b.type) - piecePriority(a.type));
 
-  // Center-out backfill for elite units
   const fillOrder: AlgebraicSquare[] = [
     'd1', 'e1', 'c1', 'f1', 'b1', 'g1', 'a1', 'h1',
     'd2', 'e2', 'c2', 'f2', 'b2', 'g2', 'a2', 'h2',
@@ -128,28 +127,28 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     const bossLevelIndex = Math.floor(level / 10);
     switch (bossLevelIndex) {
       case 1: 
-        board[0][4].piece = { id: 'boss-hydra', type: 'rook', color: 'black', level: 6, hasMoved: false, isShielded: false };
-        board[0][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false };
-        board[0][5].piece = { id: 'hydra-guard-2', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false };
+        board[0][4].piece = { id: 'boss-hydra', type: 'rook', color: 'black', level: 6, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][5].piece = { id: 'hydra-guard-2', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 2: 
-        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false };
-        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false };
+        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, heldItem: null };
+        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 3: 
-        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true };
-        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false };
+        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, heldItem: null };
+        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 4: 
-        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false };
-        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false };
+        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
+        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 5: 
-        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true };
+        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, heldItem: null };
         for(let i=0; i<8; i++) {
           const type: PieceType = i % 2 === 0 ? 'hero' : 'archbishop';
-          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false };
-          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false };
+          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, heldItem: null };
+          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, heldItem: null };
         }
         break;
     }
@@ -177,7 +176,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
       if (level > 25) types.push('queen', 'archbishop', 'archer');
       const type = types[Math.floor(Math.random() * types.length)];
       const pLevel = avgLevel + (Math.random() > 0.6 ? 1 : 0);
-      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false };
+      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, heldItem: null };
     });
   }
   return board;
@@ -222,6 +221,22 @@ export default function DungeonPage() {
   const [isExtraTurnFromQueenMove, setIsExtraTurnFromQueenMove] = useState<boolean>(false);
   const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
   const [specialActionContext, setSpecialActionContext] = useState<any>(null);
+
+  // --- Inventory States ---
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>([
+    { type: 'passive_armor', count: 1 }
+  ]);
+  const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
+
+  const attunementSlots = useMemo(() => {
+    const elo = userData?.eloRating || 1200;
+    return 2 + Math.floor(elo / 400);
+  }, [userData]);
+
+  const usedSlots = useMemo(() => {
+    return board.flat().filter(sq => sq.piece?.heldItem).length;
+  }, [board]);
 
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
@@ -298,11 +313,30 @@ export default function DungeonPage() {
     const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
     
-    // Dungeon Victory Condition: Capture all pieces OR Checkmate the Dungeon King (if exists)
     const dungeonKing = findKing(nextBoard, 'black');
     const isDungeonCheckmated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare);
     
     if (enemyCount === 0 || isDungeonCheckmated) {
+      if (level % 10 === 0) {
+        const dropMap: Record<number, InventoryItemType> = {
+          10: 'portal_scroll_20',
+          20: 'portal_scroll_30',
+          30: 'portal_scroll_40',
+          40: 'phoenix_down',
+          50: 'mirror_shield'
+        };
+        const drop = dropMap[level];
+        if (drop) {
+          setInventory(prev => {
+            const next = [...prev];
+            const existing = next.find(i => i.type === drop);
+            if (existing) existing.count++;
+            else next.push({ type: drop, count: 1 });
+            return next;
+          });
+          toast({ title: "Boss Loot!", description: `Found a ${ITEM_METADATA[drop].name}!`, duration: 5000 });
+        }
+      }
       advanceLevel(survivors);
       return;
     }
@@ -401,6 +435,66 @@ export default function DungeonPage() {
     const sq = board[row][col];
     const piece = sq.piece;
     setPieceForInfoDisplay(piece || null);
+
+    if (isInventoryOpen) {
+      if (selectedInventoryItemType) {
+        if (piece && !piece.heldItem && piece.color === 'white') {
+          if (usedSlots >= attunementSlots) {
+            toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
+            return;
+          }
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
+          setBoard(nextBoard);
+          setInventory(prev => {
+            const nextInv = [...prev];
+            const item = nextInv.find(i => i.type === selectedInventoryItemType);
+            if (item) {
+              item.count--;
+              if (item.count <= 0) return nextInv.filter(i => i.type !== selectedInventoryItemType);
+            }
+            return nextInv;
+          });
+          setSelectedInventoryItemType(null);
+          audioManager.playLevelUp();
+        } else if (piece && piece.heldItem && piece.color === 'white') {
+          const oldItem = piece.heldItem;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
+          setBoard(nextBoard);
+          setInventory(prev => {
+            const nextInv = [...prev];
+            const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
+            if (itemIn) {
+              itemIn.count--;
+              if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
+            }
+            const itemOut = nextInv.find(i => i.type === oldItem);
+            if (itemOut) itemOut.count++;
+            else nextInv.push({ type: oldItem, count: 1 });
+            return nextInv;
+          });
+          setSelectedInventoryItemType(null);
+          audioManager.playLevelUp();
+        }
+      } else {
+        if (piece && piece.heldItem && piece.color === 'white') {
+          const removedItem = piece.heldItem;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = null;
+          setBoard(nextBoard);
+          setInventory(prev => {
+            const nextInv = [...prev];
+            const item = nextInv.find(i => i.type === removedItem);
+            if (item) item.count++;
+            else nextInv.push({ type: removedItem, count: 1 });
+            return nextInv;
+          });
+          audioManager.playMove();
+        }
+      }
+      return;
+    }
 
     if (isAwaitingPawnSacrifice) {
         if (piece && piece.color === playerToSacrificePawn && (piece.type === 'pawn' || piece.type === 'commander')) {
@@ -545,7 +639,7 @@ export default function DungeonPage() {
               } else if (newStreak === 4) {
                   const graveyard = capturedPieces.black;
                   if (graveyard.length > 0) {
-                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_H_${Date.now()}` };
+                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_H_${Date.now()}`, heldItem: null };
                       const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                       if (empty.length > 0) {
                           const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -589,7 +683,7 @@ export default function DungeonPage() {
   };
 
   useEffect(() => {
-    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice;
+    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen;
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && !isSpecialActionActive && aiInstance.current) {
       const think = async () => {
         setIsAiThinking(true); setIsMoveProcessing(true);
@@ -631,7 +725,7 @@ export default function DungeonPage() {
              const oldStreak = killStreaks.black || 0;
              const newStreak = oldStreak + streakGain;
              const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
-             if (streakGain > 0 && !firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('black'); }
+             if (streakGain > 0 && !firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(currentPlayer); }
              setKillStreaks(prev => ({ ...prev, black: streakGain > 0 ? newStreak : 0 }));
              if (streakGain > 0) {
                audioManager.playCapture();
@@ -649,7 +743,7 @@ export default function DungeonPage() {
                } else if (newStreak === 4) {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
-                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_D_${Date.now()}` };
+                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_D_${Date.now()}`, heldItem: null };
                        const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -698,24 +792,29 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen]);
 
   return (
     <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
       <div className="w-full max-w-4xl flex items-center justify-between shrink-0">
         <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
-        <div className="flex items-center gap-2"><Swords className="text-primary h-6 w-6" /><h1 className="text-base md:text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1></div>
-        <div className="w-24"></div>
+        <div className="flex items-center gap-2">
+          <Swords className="text-primary h-6 w-6" />
+          <h1 className="text-base md:text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1>
+        </div>
+        <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)}>
+          <Package className="mr-1 h-4 w-4" /> Items
+        </Button>
       </div>
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full max-w-6xl items-start justify-center flex-1 overflow-hidden">
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
           <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.isCheck && !gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
           <div className="w-full aspect-square">
             <ChessBoard
-              boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe}
+              boardState={board} selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : selectedSquare} possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? [] : possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isInventoryOpen} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType}
             />
           </div>
         </div>
@@ -733,6 +832,17 @@ export default function DungeonPage() {
           )}
         </div>
       </div>
+
+      <InventoryWindow
+        isOpen={isInventoryOpen}
+        onClose={() => setIsInventoryOpen(false)}
+        inventory={inventory}
+        selectedItemType={selectedInventoryItemType}
+        onSelectItem={setSelectedInventoryItemType}
+        attunementSlots={attunementSlots}
+        usedSlots={usedSlots}
+      />
+
       <RulesDialog isOpen={false} onOpenChange={() => {}} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
     </div>

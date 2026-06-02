@@ -1,4 +1,4 @@
-import type { Piece, ViewMode, PlayerColor } from '@/types';
+import type { Piece, ViewMode, PlayerColor, InventoryItemType } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon, BowIcon } from './IconLibrary';
@@ -14,6 +14,21 @@ interface ChessPieceDisplayProps {
   isConverting?: boolean;
   isSnipeTarget?: boolean;
 }
+
+const getItemIcon = (type: InventoryItemType) => {
+  switch (type) {
+    case 'mirror_shield': return '🛡️';
+    case 'swift_cloak': return '🧥';
+    case 'passive_armor': return '📦';
+    case 'fireball_scroll': return '📜';
+    case 'phoenix_down': return '🪶';
+    case 'portal_scroll_10':
+    case 'portal_scroll_20':
+    case 'portal_scroll_30':
+    case 'portal_scroll_40': return '🌀';
+    default: return '';
+  }
+};
 
 export function ChessPieceDisplay({
   piece,
@@ -53,7 +68,6 @@ export function ChessPieceDisplay({
   const isCommanderLike = piece.type === 'commander' || piece.type === 'hero';
   const isInfiltrator = piece.type === 'infiltrator';
 
-  // Power Glow Tier Calculation
   const level = piece.level || 1;
   let powerGlowClass = '';
   if (level >= 6) {
@@ -76,7 +90,7 @@ export function ChessPieceDisplay({
           (isSacrificeTarget || isCommanderPromoTarget || isSnipeTarget) && "animate-pulse",
           isPromoting && "animate-ping",
           animationClass,
-          powerGlowClass, // Applying the glow based on level
+          powerGlowClass,
           "origin-bottom"
         )}
       >
@@ -92,6 +106,12 @@ export function ChessPieceDisplay({
         )}>
           {unicode}
         </span>
+
+        {piece.heldItem && (
+          <span className="absolute bottom-0 right-0 text-[10px] z-[5] bg-background/50 rounded-full px-0.5 border border-primary/20">
+            {getItemIcon(piece.heldItem)}
+          </span>
+        )}
 
         {piece.type === 'archbishop' && (
           <span

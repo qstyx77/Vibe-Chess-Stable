@@ -1,7 +1,7 @@
 
 'use client';
 
-import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect } from '@/types';
+import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 import { algebraicToCoords } from '@/lib/chess-utils';
@@ -35,6 +35,8 @@ interface ChessBoardProps {
   playerToDropAnvil: PlayerColor | null;
   isAwaitingHolyShield?: boolean;
   isAwaitingArcherSnipe?: boolean;
+  isInventoryOpen?: boolean;
+  selectedInventoryItemType?: InventoryItemType | null;
 }
 
 const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
@@ -132,6 +134,8 @@ export function ChessBoard({
   playerToDropAnvil,
   isAwaitingHolyShield,
   isAwaitingArcherSnipe,
+  isInventoryOpen,
+  selectedInventoryItemType
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -145,7 +149,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield) && !(isAwaitingArcherSnipe) && "cursor-not-allowed",
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield) && !(isAwaitingArcherSnipe) && !isInventoryOpen && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
       onMouseLeave={() => onPieceHover(null)}
@@ -192,6 +196,8 @@ export function ChessBoard({
 
           const isSnipeTarget = isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level === 1 && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
 
+          const isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === 'white';
+
           return (
             <ChessSquare
               key={currentSquareData.algebraic}
@@ -202,7 +208,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare && !isShieldTarget && !isSnipeTarget}
+              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare && !isShieldTarget && !isSnipeTarget && !isInvTarget}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
@@ -220,6 +226,8 @@ export function ChessBoard({
               isConverting={isConvertingSquare}
               isShieldTarget={isShieldTarget}
               isSnipeTarget={isSnipeTarget}
+              isInvTarget={isInvTarget}
+              selectedInventoryItemType={selectedInventoryItemType}
             />
           );
         })
