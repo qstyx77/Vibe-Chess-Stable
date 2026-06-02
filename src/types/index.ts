@@ -40,63 +40,60 @@ export interface ItemMetadata {
 }
 
 /**
- * ITEM METADATA MAPPING (Based on 16-column sprite sheet provided)
+ * ITEM METADATA MAPPING (Exactly calibrated to the 16x12 sheet)
+ * Indices are 0-indexed: index = (row * 16) + column
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
-  // Food & Consumables (Row 0)
+  // Row 0: Food & Potions
   'apple': { name: 'Crisp Apple', description: 'A refreshing snack.', spriteIndex: 0, isConsumable: true },
   'ham': { name: 'Roasted Ham', description: 'Hearty meal.', spriteIndex: 2, isConsumable: true },
   'cheese': { name: 'Cave Cheese', description: 'Aged to perfection.', spriteIndex: 3, isConsumable: true },
   'steak': { name: 'Grizzly Steak', description: 'Strength-boosting meal.', spriteIndex: 4, isConsumable: true },
   'bread': { name: 'Elven Bread', description: 'Stays fresh for weeks.', spriteIndex: 7, isConsumable: true },
-  
-  // Alchemy (Row 0, Right)
   'health_potion': { name: 'Health Potion', description: 'Restores health points.', spriteIndex: 13, isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores magical energy.', spriteIndex: 14, isConsumable: true },
   'speed_potion': { name: 'Haste Potion', description: 'Temporarily increases movement.', spriteIndex: 15, isConsumable: true },
   
-  // Combat / Explosives (Row 1)
+  // Row 1: Explosives
   'grenade': { name: 'Black Powder Grenade', description: 'Explosive damage.', spriteIndex: 22, isConsumable: true },
   'bomb': { name: 'Mega Bomb', description: 'Large area destruction.', spriteIndex: 24, isConsumable: true },
   
-  // Equipment / Armor (Rows 2 & 3)
+  // Row 2-3: Armor & Clothing
   'iron_helmet': { name: 'Iron Helmet', description: 'Basic head protection.', spriteIndex: 32, isConsumable: false },
   'knight_helmet': { name: 'Knight\'s Greathelm', description: 'Heavy head protection.', spriteIndex: 33, isConsumable: false },
   'plate_armor': { name: 'Full Plate', description: 'Maximized body protection.', spriteIndex: 48, isConsumable: false },
   'wizard_robe': { name: 'Arcane Robe', description: 'Boosts magical potency.', spriteIndex: 52, isConsumable: false },
+  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', spriteIndex: 53, isConsumable: false },
+  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', spriteIndex: 49, isConsumable: false },
   
-  // Shields (Row 4)
+  // Row 4: Shields
   'wooden_shield': { name: 'Buckler', description: 'Lightweight defense.', spriteIndex: 64, isConsumable: false },
   'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', spriteIndex: 65, isConsumable: false },
   'spiked_shield': { name: 'Spiked Shield', description: 'Deals damage when attacked.', spriteIndex: 68, isConsumable: false },
   'mirror_shield': { name: 'Mirror Shield', description: 'One-time capture reflection.', spriteIndex: 69, isConsumable: true },
 
-  // Tools (Row 6)
+  // Row 6: Tools
   'shovel': { name: 'Sturdy Shovel', description: 'Useful for digging.', spriteIndex: 96, isConsumable: false },
   'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks through obstacles.', spriteIndex: 97, isConsumable: false },
   'torch': { name: 'Everlasting Torch', description: 'Illuminates the dark.', spriteIndex: 111, isConsumable: false },
 
-  // Melee Weapons (Rows 7 & 8)
+  // Row 7-8: Weapons
   'mace': { name: 'Iron Mace', description: 'Blunt force trauma.', spriteIndex: 113, isConsumable: false },
   'morning_star': { name: 'Morning Star', description: 'Spiked crushing weapon.', spriteIndex: 114, isConsumable: false },
   'battle_axe': { name: 'Battle Axe', description: 'Cleaves through armor.', spriteIndex: 120, isConsumable: false },
   'iron_sword': { name: 'Iron Sword', description: 'Standard infantry blade.', spriteIndex: 131, isConsumable: false },
   'claymore': { name: 'Claymore', description: 'Massive two-handed sword.', spriteIndex: 133, isConsumable: false },
-  
-  // Ranged & Magic (Rows 6 & 7)
   'crossbow': { name: 'Heavy Crossbow', description: 'Armor-piercing weapon.', spriteIndex: 103, isConsumable: false },
   'long_bow': { name: 'Long Bow', description: 'Standard ranged weapon.', spriteIndex: 104, isConsumable: false },
   'magic_staff': { name: 'Crystal Staff', description: 'Channeled magical focus.', spriteIndex: 126, isConsumable: false },
   'wand': { name: 'Elder Wand', description: 'Quick-cast magical focus.', spriteIndex: 127, isConsumable: false },
   
-  // Accessories (Row 11)
+  // Row 11: Accessories
   'gold_ring': { name: 'Gold Ring', description: 'A sign of wealth.', spriteIndex: 173, isConsumable: false },
   'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', spriteIndex: 174, isConsumable: false },
   'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', spriteIndex: 175, isConsumable: false },
 
-  // Unique / Items
-  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', spriteIndex: 53, isConsumable: false },
-  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', spriteIndex: 49, isConsumable: false },
+  // Special/Quest items
   'fireball_scroll': { name: 'Fireball Scroll', description: 'Consumable spell tome.', spriteIndex: 26, isConsumable: true },
   'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit once.', spriteIndex: 1, isConsumable: true },
   'portal_scroll_10': { name: 'F10 Portal', description: 'Skip to Floor 10 Hydra.', spriteIndex: 27, isConsumable: true },

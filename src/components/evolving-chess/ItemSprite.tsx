@@ -14,7 +14,7 @@ interface ItemSpriteProps {
 
 /**
  * Renders an item from the 16x12 sprite sheet using a clipped Next.js Image component.
- * This ensures pixel-perfect alignment and follows optimization guidelines.
+ * We use a 16-column layout to match the provided sheet geometry.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
@@ -25,7 +25,7 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
 
   return (
     <div 
-      className={cn("relative overflow-hidden shrink-0 inline-block", className)}
+      className={cn("relative overflow-hidden shrink-0 inline-block bg-muted/20", className)}
       style={{
         width: `${size}px`,
         height: `${size}px`,
@@ -46,9 +46,9 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
           alt=""
           fill
           unoptimized
-          className="object-contain"
+          className="object-cover"
           style={{ imageRendering: 'pixelated' }}
-          data-ai-hint="8-bit items sprite sheet"
+          data-ai-hint="item sprites"
         />
       </div>
     </div>
