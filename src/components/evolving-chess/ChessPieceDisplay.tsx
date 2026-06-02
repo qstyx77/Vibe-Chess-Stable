@@ -2,6 +2,7 @@ import type { Piece, ViewMode, PlayerColor, InventoryItemType } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon, BowIcon } from './IconLibrary';
+import { ITEM_METADATA } from '@/types';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
@@ -14,21 +15,6 @@ interface ChessPieceDisplayProps {
   isConverting?: boolean;
   isSnipeTarget?: boolean;
 }
-
-const getItemIcon = (type: InventoryItemType) => {
-  switch (type) {
-    case 'mirror_shield': return '🛡️';
-    case 'swift_cloak': return '🧥';
-    case 'passive_armor': return '📦';
-    case 'fireball_scroll': return '📜';
-    case 'phoenix_down': return '🪶';
-    case 'portal_scroll_10':
-    case 'portal_scroll_20':
-    case 'portal_scroll_30':
-    case 'portal_scroll_40': return '🌀';
-    default: return '';
-  }
-};
 
 export function ChessPieceDisplay({
   piece,
@@ -107,9 +93,9 @@ export function ChessPieceDisplay({
           {unicode}
         </span>
 
-        {piece.heldItem && (
+        {piece.heldItem && ITEM_METADATA[piece.heldItem] && (
           <span className="absolute bottom-0 right-0 text-[10px] z-[5] bg-background/50 rounded-full px-0.5 border border-primary/20">
-            {getItemIcon(piece.heldItem)}
+            {ITEM_METADATA[piece.heldItem].icon}
           </span>
         )}
 
