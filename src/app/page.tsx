@@ -1844,7 +1844,7 @@ export default function EvolvingChessPage() {
         const oldStreak = killStreaks[capturingPlayer] || 0;
         let capturesThisTurn = 0;
         if (capturedPieceFromApply) capturesThisTurn++;
-        if (pieceCapturedByAnvilFromApply) capturesThisTurn++;
+        if (pieceCapturedByAnvil) capturesThisTurn++;
 
         const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
         if (capturesThisTurn > 0) {
@@ -1873,10 +1873,10 @@ export default function EvolvingChessPage() {
           }
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
-        } else if (pieceCapturedByAnvilFromApply) {
+        } else if (pieceCapturedByAnvil) {
           audioManager.playObliterate();
-          finalCapturedPiecesForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
-          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
+          finalCapturedPiecesForTurn[capturingPlayer].push({ ...pieceCapturedByAnvil, id: `${pieceCapturedByAnvil.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
+          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvil.type}!`, duration: 8000 });
           setShowCaptureFlash(true);
           setCaptureFlashKey(k => k + 1);
         } else if (moveBeingMade.type === 'castle') {
