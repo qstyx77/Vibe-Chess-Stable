@@ -1,7 +1,7 @@
 
 {
   "itemSpriteSheet": {
-    "url": "https://picsum.photos/seed/vibe-items-grid/640/640",
-    "keywords": "sprite sheet"
+    "url": "/images/items.png",
+    "keywords": "game items"
   }
 }
