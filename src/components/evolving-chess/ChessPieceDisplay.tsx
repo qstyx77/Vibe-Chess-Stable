@@ -95,7 +95,8 @@ export function ChessPieceDisplay({
         </span>
 
         {piece.heldItem && ITEM_METADATA[piece.heldItem] && (
-          <div className="absolute bottom-0 right-0 z-[5] bg-background/50 rounded-sm border border-primary/20 p-0.5 scale-75 origin-bottom-right">
+          <div className="absolute bottom-0 right-0 z-[5] bg-background/80 rounded-sm border border-primary/40 p-0.5 scale-75 origin-bottom-right">
+             {/* Small 16px icon for board pieces */}
              <ItemSprite index={ITEM_METADATA[piece.heldItem].spriteIndex} size={16} />
           </div>
         )}

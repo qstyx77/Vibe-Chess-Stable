@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -12,20 +11,21 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16-column sprite sheet using percentage-based background positioning.
- * This is the most resilient way to handle sprite sheets with different icon sizes and browser scaling.
+ * Renders an item from the 16-column sprite sheet using precise pixel offsets.
+ * Using pixel-based background-position and background-size is the most robust way
+ * to prevent the "4 corners" or "bleeding" effect seen with percentage-based slicing.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
-  const rows = 12; // Assuming a 12-row sheet based on common asset packs
   
   const col = index % cols;
   const row = Math.floor(index / cols);
   
-  // Calculate percentage positions: (current_index / (total_items_in_axis - 1)) * 100
-  // This maps the 0-100% background-position range perfectly to the grid cells.
-  const posX = (col / (cols - 1)) * 100;
-  const posY = (row / (rows - 1)) * 100;
+  // We scale the background sheet such that one tile equals the 'size' prop.
+  // This ensures that shifting the background by exactly 'size' pixels moves us by one icon.
+  const sheetWidth = size * cols;
+  const posX = -(col * size);
+  const posY = -(row * size);
   
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
@@ -36,9 +36,8 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
         width: `${size}px`,
         height: `${size}px`,
         backgroundImage: `url("${spriteSheetUrl}")`,
-        // 1600% means the background image is 16 times the width of the container
-        backgroundSize: `${cols * 100}% auto`,
-        backgroundPosition: `${posX}% ${posY}%`,
+        backgroundSize: `${sheetWidth}px auto`,
+        backgroundPosition: `${posX}px ${posY}px`,
         imageRendering: 'pixelated',
         backgroundRepeat: 'no-repeat',
       }}
