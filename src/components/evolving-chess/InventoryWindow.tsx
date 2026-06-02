@@ -89,16 +89,15 @@ export function InventoryWindow({
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
-                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden p-1",
+                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden",
                         isSelected ? "border-accent bg-accent/20 scale-95 shadow-[inset_0_0_8px_rgba(255,255,255,0.1)]" : "border-border hover:border-primary/50 bg-muted/30"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      {/* Reduced sprite size to 20px to ensure it fits with padding */}
-                      <ItemSprite index={meta.spriteIndex} size={20} />
+                      <ItemSprite index={meta.spriteIndex} className="w-full h-full" />
                       {item.count > 1 && (
-                        <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">
+                        <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
                           x{item.count}
                         </span>
                       )}
