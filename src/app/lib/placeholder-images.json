@@ -1,7 +1,7 @@
 
 {
   "itemSpriteSheet": {
-    "url": "/images/items.png",
-    "keywords": "game items"
+    "url": "https://picsum.photos/seed/items/512/384",
+    "keywords": "8-bit items sprite sheet"
   }
 }

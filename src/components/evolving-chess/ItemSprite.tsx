@@ -2,6 +2,7 @@
 'use client';
 
 import React from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 import placeholderImages from '@/app/lib/placeholder-images.json';
 
@@ -12,8 +13,8 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the uploaded sprite sheet using a clipped img element.
- * This is more robust than background-position for pixel art on high-DPI displays.
+ * Renders an item from the 16x12 sprite sheet using a clipped Next.js Image component.
+ * This ensures pixel-perfect alignment and follows optimization guidelines.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
@@ -31,21 +32,25 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
       }}
       aria-hidden="true"
     >
-      <img
-        src={spriteSheetUrl}
-        alt=""
+      <div 
+        className="absolute"
         style={{
-          position: 'absolute',
-          // The image is 16 icons wide, so its width should be 16x the display size
           width: `${size * 16}px`,
-          height: 'auto',
-          // Offset to show the specific icon
+          height: `${size * 12}px`,
           left: `-${col * size}px`,
           top: `-${row * size}px`,
-          imageRendering: 'pixelated',
-          maxWidth: 'none', // Prevent interference from global styles
         }}
-      />
+      >
+        <Image
+          src={spriteSheetUrl}
+          alt=""
+          fill
+          unoptimized
+          className="object-contain"
+          style={{ imageRendering: 'pixelated' }}
+          data-ai-hint="8-bit items sprite sheet"
+        />
+      </div>
     </div>
   );
 }
