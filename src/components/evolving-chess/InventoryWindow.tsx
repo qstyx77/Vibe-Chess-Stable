@@ -75,7 +75,7 @@ export function InventoryWindow({
         </CardHeader>
         <CardContent className="p-2">
           <ScrollArea className="h-48 pr-2">
-            <div className="grid grid-cols-4 gap-1">
+            <div className="grid grid-cols-4 gap-2">
               {inventory.length === 0 ? (
                 <div className="col-span-4 flex flex-col items-center justify-center py-8 opacity-50">
                   <Sparkles className="h-8 w-8 mb-2" />
@@ -89,14 +89,14 @@ export function InventoryWindow({
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
-                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden",
-                        isSelected ? "border-accent bg-accent/20 scale-95" : "border-border hover:border-primary/50 bg-muted/30"
+                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden p-1",
+                        isSelected ? "border-accent bg-accent/20 scale-95 shadow-[inset_0_0_8px_rgba(255,255,255,0.1)]" : "border-border hover:border-primary/50 bg-muted/30"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      {/* Reduced sprite size to 24px for a proper fit in the grid slots */}
-                      <ItemSprite index={meta.spriteIndex} size={24} />
+                      {/* Reduced sprite size to 20px to ensure it fits with padding */}
+                      <ItemSprite index={meta.spriteIndex} size={20} />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">
                           x{item.count}
