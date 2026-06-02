@@ -713,7 +713,7 @@ export default function DungeonPage() {
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
             {isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
-          <div className="w-full max-lg:max-w-[80vw] max-w-lg aspect-square">
+          <div className="w-full aspect-square">
             <ChessBoard
               boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe}
             />
@@ -726,18 +726,11 @@ export default function DungeonPage() {
             />
           </div>
           {gameInfo.gameOver && (
-            <div className="mt-2 space-y-2 shrink-0">
+            <div className="mt-2 space-y-2 shrink-0 mb-4 lg:mb-0">
               <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
               <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-8 text-xs">Back to Lobby</Button></Link>
             </div>
           )}
-          <div className="mt-2 p-2 bg-primary/10 border border-primary/30 rounded-none shrink-0 mb-4 lg:mb-0">
-            <p className="text-[8px] md:text-[9px] font-pixel leading-tight">
-              <span className="text-primary font-bold">LEGENDARY BOSSES:</span><br/>
-              F10: HYDRA (Splits) | F20: NECRO (Res) | F30: COLOSSUS (Shield)<br/>
-              F40: MIRAGE (TP) | F50: ENTITY (God)
-            </p>
-          </div>
         </div>
       </div>
       <RulesDialog isOpen={false} onOpenChange={() => {}} />
