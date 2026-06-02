@@ -126,9 +126,13 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     const bossLevelIndex = Math.floor(level / 10);
     switch (bossLevelIndex) {
       case 1: 
-        board[0][4].piece = { id: 'boss-hydra', type: 'rook', color: 'black', level: 6, hasMoved: false, isShielded: false, heldItem: null };
-        board[0][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
-        board[0][5].piece = { id: 'hydra-guard-2', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        // Three Level 2 Hydras
+        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        // Two Level 2 Knight Guards
+        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[1][5].piece = { id: 'hydra-guard-2', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 2: 
         board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, heldItem: null };
@@ -597,7 +601,7 @@ export default function DungeonPage() {
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, selfCheckByPushBack, infiltrationWin: pInfil } = result;
         
         // HYDRA SPLIT MECHANIC
-        if (capturedPiece?.id === 'boss-hydra') {
+        if (capturedPiece?.id && capturedPiece.id.startsWith('boss-hydra')) {
             let hydraSpawnCount = 0;
             const adjDirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
             for (const [dr, dc] of adjDirs) {
