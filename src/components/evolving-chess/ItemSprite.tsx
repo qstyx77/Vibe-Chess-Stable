@@ -21,6 +21,7 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const col = index % cols;
   const row = Math.floor(index / cols);
   
+  // Use the local URL from the placeholder config
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
   return (

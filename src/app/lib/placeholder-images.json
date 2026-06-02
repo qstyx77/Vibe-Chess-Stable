@@ -1,7 +1,7 @@
 
 {
   "itemSpriteSheet": {
-    "url": "https://picsum.photos/seed/items/512/384",
+    "url": "/images/inventory.png",
     "keywords": "item sprites"
   }
 }
