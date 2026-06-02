@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -183,7 +182,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
 }
 
 export default function DungeonPage() {
-  const { userData, isUserLoading } = useUser();
+  const { userData, isUserLoading, user } = useUser();
   const { toast } = useToast();
 
   const [level, setLevel] = useState(1);
@@ -231,7 +230,8 @@ export default function DungeonPage() {
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
-    return 2 + Math.floor(elo / 400);
+    if (elo <= 1200) return 2;
+    return 2 + Math.floor((elo - 1200) / 400);
   }, [userData]);
 
   const usedSlots = useMemo(() => {
@@ -380,7 +380,7 @@ export default function DungeonPage() {
   }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
 
   const startRun = useCallback(() => {
-    if (isUserLoading || !userData) return;
+    if (isUserLoading || !userData || !user) return;
     let army: Piece[] = [];
     let initial = initializeBoard();
     if (userData) {
@@ -406,11 +406,11 @@ export default function DungeonPage() {
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
-  }, [userData, isUserLoading]);
+  }, [userData, isUserLoading, user]);
 
   useEffect(() => {
-    if (!board.length && !isUserLoading && userData) startRun();
-  }, [startRun, board.length, isUserLoading, userData]);
+    if (!board.length && !isUserLoading && userData && user) startRun();
+  }, [startRun, board.length, isUserLoading, userData, user]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -744,7 +744,7 @@ export default function DungeonPage() {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
                        const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_D_${Date.now()}`, heldItem: null };
-                       const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
+                       const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
                            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
@@ -793,6 +793,17 @@ export default function DungeonPage() {
       think();
     }
   }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen]);
+
+  if (!user) {
+    return (
+        <div className="flex flex-col items-center justify-center h-[100dvh] bg-background p-4 text-center">
+            <Swords className="h-12 w-12 text-primary mb-4 animate-pulse" />
+            <h1 className="text-xl font-bold font-pixel text-primary uppercase mb-2">Authentication Required</h1>
+            <p className="text-sm text-muted-foreground mb-6 max-w-xs">Please sign in to your profile to save items and start your dungeon descent.</p>
+            <Link href="/login"><Button className="font-pixel uppercase px-8">Sign In</Button></Link>
+        </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">

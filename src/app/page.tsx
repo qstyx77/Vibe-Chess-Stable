@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -268,7 +267,8 @@ export default function EvolvingChessPage() {
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
-    return 2 + Math.floor(elo / 400);
+    if (elo <= 1200) return 2;
+    return 2 + Math.floor((elo - 1200) / 400);
   }, [userData]);
 
   const usedSlots = useMemo(() => {
@@ -3874,7 +3874,7 @@ export default function EvolvingChessPage() {
             <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
               <BookOpen /> Rules
             </Button>
-            <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} className="h-7 px-2 text-xs">
+            <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs">
               <Package /> Items
             </Button>
             <Popover>
@@ -3921,8 +3921,8 @@ export default function EvolvingChessPage() {
                 <MonitorPlay /> Theater
               </Button>
             </Link>
-            <Link href="/dungeon">
-              <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
+            <Link href="/dungeon" className={cn(!user && "pointer-events-none")}>
+              <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState || !user}>
                 <Swords /> Dungeon
               </Button>
             </Link>
@@ -4097,7 +4097,7 @@ export default function EvolvingChessPage() {
               <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
                 <BookOpen /> Rules
               </Button>
-              <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} className="h-7 px-2 text-xs">
+              <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs">
                 <Package /> Items
               </Button>
               <Popover>
@@ -4144,8 +4144,8 @@ export default function EvolvingChessPage() {
                   <MonitorPlay /> Theater
                 </Button>
               </Link>
-              <Link href="/dungeon">
-                <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
+              <Link href="/dungeon" className={cn(!user && "pointer-events-none")}>
+                <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState || !user}>
                   <Swords /> Dungeon
                 </Button>
               </Link>

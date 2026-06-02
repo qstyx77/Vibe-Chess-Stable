@@ -72,15 +72,6 @@ export function InventoryWindow({
               <X className="h-3 w-3" />
             </Button>
           </div>
-          <div className="flex justify-between items-center mt-1 px-1">
-             <span className="text-[10px] font-bold text-muted-foreground uppercase">Attunement</span>
-             <span className={cn(
-               "text-[10px] font-bold font-pixel",
-               usedSlots >= attunementSlots ? "text-destructive" : "text-primary"
-             )}>
-               {usedSlots}/{attunementSlots}
-             </span>
-          </div>
         </CardHeader>
         <CardContent className="p-2">
           <ScrollArea className="h-48 pr-2">
