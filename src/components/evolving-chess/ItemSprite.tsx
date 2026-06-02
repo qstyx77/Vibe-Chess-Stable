@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -11,9 +10,8 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16x12 sprite sheet using absolute positioning.
- * This method is the most robust for pixel-perfect alignment as it avoids 
- * the sub-pixel rounding errors often associated with background-position percentages.
+ * Renders an item from the 16x12 sprite sheet using high-precision percentage positioning.
+ * This method ensures perfect centering regardless of container scaling.
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const cols = 16;
@@ -22,31 +20,25 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const col = index % cols;
   const row = Math.floor(index / cols);
 
-  // Use a relative container with overflow hidden to "clip" the sprite sheet
+  // Percentage positioning formula: (current_index / (total_indices_in_axis - 1)) * 100
+  // This is the most robust way to align backgrounds to a grid in CSS.
+  const xPercent = (col / (cols - 1)) * 100;
+  const yPercent = (row / (rows - 1)) * 100;
+
   return (
     <div 
-      className={cn("shrink-0 overflow-hidden relative", className)}
+      className={cn("shrink-0", className)}
       style={{
         width: size ? `${size}px` : '100%',
         height: size ? `${size}px` : '100%',
+        backgroundImage: 'url(/images/inventory.png)',
+        backgroundSize: '1600% 1200%', // 16 columns by 12 rows
+        backgroundPosition: `${xPercent}% ${yPercent}%`,
+        imageRendering: 'pixelated',
+        backgroundRepeat: 'no-repeat'
       }}
       role="img"
       aria-hidden="true"
-    >
-      <img
-        src="/images/inventory.png"
-        alt=""
-        className="absolute max-w-none"
-        style={{
-          // Scale image so that 1 unit (100%) equals exactly 1 column width
-          width: '1600%', 
-          height: '1200%',
-          // Discrete shifting: -100% shifts by exactly 1 item width
-          left: `-${col * 100}%`,
-          top: `-${row * 100}%`,
-          imageRendering: 'pixelated',
-        }}
-      />
-    </div>
+    />
   );
 }
