@@ -39,68 +39,79 @@ export interface ItemMetadata {
   isConsumable: boolean;
 }
 
-// Mapping to a 10x10 sprite sheet grid
+/**
+ * ITEM METADATA MAPPING (Based on 16-column sprite sheet)
+ * Row 0: Food/Potions
+ * Row 1: Explosives/Books
+ * Row 2: Helmets
+ * Row 3: Armor
+ * Row 4: Shields
+ * Row 6: Tools/Ranged
+ * Row 7: Heavy Weapons/Magic
+ * Row 8: Swords
+ * Row 11: Accessories
+ */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   // Food & Consumables (Row 0)
   'apple': { name: 'Crisp Apple', description: 'A refreshing snack.', spriteIndex: 0, isConsumable: true },
-  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', spriteIndex: 1, isConsumable: true },
-  'cheese': { name: 'Cave Cheese', description: 'Aged to perfection.', spriteIndex: 2, isConsumable: true },
-  'steak': { name: 'Grizzly Steak', description: 'Strength-boosting meal.', spriteIndex: 3, isConsumable: true },
-  'bread': { name: 'Elven Bread', description: 'Stays fresh for weeks.', spriteIndex: 4, isConsumable: true },
+  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', spriteIndex: 2, isConsumable: true },
+  'cheese': { name: 'Cave Cheese', description: 'Aged to perfection.', spriteIndex: 3, isConsumable: true },
+  'steak': { name: 'Grizzly Steak', description: 'Strength-boosting meal.', spriteIndex: 4, isConsumable: true },
+  'bread': { name: 'Elven Bread', description: 'Stays fresh for weeks.', spriteIndex: 7, isConsumable: true },
   
-  // Alchemy (Row 1)
-  'health_potion': { name: 'Health Potion', description: 'Restores health points.', spriteIndex: 10, isConsumable: true },
-  'mana_potion': { name: 'Mana Potion', description: 'Restores magical energy.', spriteIndex: 11, isConsumable: true },
-  'speed_potion': { name: 'Haste Potion', description: 'Temporarily increases movement.', spriteIndex: 12, isConsumable: true },
+  // Alchemy (Row 0, Indices 13-15)
+  'health_potion': { name: 'Health Potion', description: 'Restores health points.', spriteIndex: 13, isConsumable: true },
+  'mana_potion': { name: 'Mana Potion', description: 'Restores magical energy.', spriteIndex: 14, isConsumable: true },
+  'speed_potion': { name: 'Haste Potion', description: 'Temporarily increases movement.', spriteIndex: 15, isConsumable: true },
   
-  // Tools (Row 2)
-  'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks through obstacles.', spriteIndex: 20, isConsumable: false },
-  'shovel': { name: 'Sturdy Shovel', description: 'Useful for digging.', spriteIndex: 21, isConsumable: false },
-  'torch': { name: 'Everlasting Torch', description: 'Illuminates the dark.', spriteIndex: 22, isConsumable: false },
+  // Tools (Row 6)
+  'shovel': { name: 'Sturdy Shovel', description: 'Useful for digging.', spriteIndex: 96, isConsumable: false },
+  'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks through obstacles.', spriteIndex: 97, isConsumable: false },
+  'torch': { name: 'Everlasting Torch', description: 'Illuminates the dark.', spriteIndex: 111, isConsumable: false },
   
-  // Combat / Explosives (Row 3)
-  'grenade': { name: 'Black Powder Grenade', description: 'Explosive damage.', spriteIndex: 30, isConsumable: true },
-  'bomb': { name: 'Mega Bomb', description: 'Large area destruction.', spriteIndex: 31, isConsumable: true },
+  // Combat / Explosives (Row 1)
+  'grenade': { name: 'Black Powder Grenade', description: 'Explosive damage.', spriteIndex: 22, isConsumable: true },
+  'bomb': { name: 'Mega Bomb', description: 'Large area destruction.', spriteIndex: 24, isConsumable: true },
   
-  // Equipment / Armor (Row 4)
-  'iron_helmet': { name: 'Iron Helmet', description: 'Basic head protection.', spriteIndex: 40, isConsumable: false },
-  'knight_helmet': { name: 'Knight\'s Greathelm', description: 'Heavy head protection.', spriteIndex: 41, isConsumable: false },
-  'plate_armor': { name: 'Full Plate', description: 'Maximized body protection.', spriteIndex: 42, isConsumable: false },
-  'wizard_robe': { name: 'Arcane Robe', description: 'Boosts magical potency.', spriteIndex: 43, isConsumable: false },
+  // Equipment / Armor (Rows 2 & 3)
+  'iron_helmet': { name: 'Iron Helmet', description: 'Basic head protection.', spriteIndex: 32, isConsumable: false },
+  'knight_helmet': { name: 'Knight\'s Greathelm', description: 'Heavy head protection.', spriteIndex: 33, isConsumable: false },
+  'plate_armor': { name: 'Full Plate', description: 'Maximized body protection.', spriteIndex: 48, isConsumable: false },
+  'wizard_robe': { name: 'Arcane Robe', description: 'Boosts magical potency.', spriteIndex: 52, isConsumable: false },
   
-  // Shields (Row 5)
-  'wooden_shield': { name: 'Buckler', description: 'Lightweight defense.', spriteIndex: 50, isConsumable: false },
-  'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', spriteIndex: 51, isConsumable: false },
-  'spiked_shield': { name: 'Spiked Shield', description: 'Deals damage when attacked.', spriteIndex: 52, isConsumable: false },
+  // Shields (Row 4)
+  'wooden_shield': { name: 'Buckler', description: 'Lightweight defense.', spriteIndex: 64, isConsumable: false },
+  'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', spriteIndex: 65, isConsumable: false },
+  'spiked_shield': { name: 'Spiked Shield', description: 'Deals damage when attacked.', spriteIndex: 68, isConsumable: false },
   
-  // Melee Weapons (Row 6)
-  'iron_sword': { name: 'Iron Sword', description: 'Standard infantry blade.', spriteIndex: 60, isConsumable: false },
-  'claymore': { name: 'Claymore', description: 'Massive two-handed sword.', spriteIndex: 61, isConsumable: false },
-  'battle_axe': { name: 'Battle Axe', description: 'Cleaves through armor.', spriteIndex: 62, isConsumable: false },
-  'mace': { name: 'Iron Mace', description: 'Blunt force trauma.', spriteIndex: 63, isConsumable: false },
-  'morning_star': { name: 'Morning Star', description: 'Spiked crushing weapon.', spriteIndex: 64, isConsumable: false },
+  // Melee Weapons (Rows 7 & 8)
+  'mace': { name: 'Iron Mace', description: 'Blunt force trauma.', spriteIndex: 113, isConsumable: false },
+  'morning_star': { name: 'Morning Star', description: 'Spiked crushing weapon.', spriteIndex: 114, isConsumable: false },
+  'battle_axe': { name: 'Battle Axe', description: 'Cleaves through armor.', spriteIndex: 120, isConsumable: false },
+  'iron_sword': { name: 'Iron Sword', description: 'Standard infantry blade.', spriteIndex: 131, isConsumable: false },
+  'claymore': { name: 'Claymore', description: 'Massive two-handed sword.', spriteIndex: 133, isConsumable: false },
   
-  // Ranged & Magic (Row 7)
-  'long_bow': { name: 'Long Bow', description: 'Standard ranged weapon.', spriteIndex: 70, isConsumable: false },
-  'crossbow': { name: 'Heavy Crossbow', description: 'Armor-piercing weapon.', spriteIndex: 71, isConsumable: false },
-  'magic_staff': { name: 'Crystal Staff', description: 'Channeled magical focus.', spriteIndex: 72, isConsumable: false },
-  'wand': { name: 'Elder Wand', description: 'Quick-cast magical focus.', spriteIndex: 73, isConsumable: false },
+  // Ranged & Magic (Rows 6 & 7)
+  'crossbow': { name: 'Heavy Crossbow', description: 'Armor-piercing weapon.', spriteIndex: 103, isConsumable: false },
+  'long_bow': { name: 'Long Bow', description: 'Standard ranged weapon.', spriteIndex: 104, isConsumable: false },
+  'magic_staff': { name: 'Crystal Staff', description: 'Channeled magical focus.', spriteIndex: 126, isConsumable: false },
+  'wand': { name: 'Elder Wand', description: 'Quick-cast magical focus.', spriteIndex: 127, isConsumable: false },
   
-  // Accessories (Row 8)
-  'gold_ring': { name: 'Gold Ring', description: 'A sign of wealth.', spriteIndex: 80, isConsumable: false },
-  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', spriteIndex: 81, isConsumable: false },
-  'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', spriteIndex: 82, isConsumable: false },
+  // Accessories (Row 11)
+  'gold_ring': { name: 'Gold Ring', description: 'A sign of wealth.', spriteIndex: 173, isConsumable: false },
+  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', spriteIndex: 174, isConsumable: false },
+  'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', spriteIndex: 175, isConsumable: false },
 
-  // Unique / Quest Items (Row 9)
-  'mirror_shield': { name: 'Mirror Shield', description: 'One-time capture reflection.', spriteIndex: 90, isConsumable: true },
-  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', spriteIndex: 91, isConsumable: false },
-  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', spriteIndex: 92, isConsumable: false },
-  'fireball_scroll': { name: 'Fireball Scroll', description: 'Consumable spell tome.', spriteIndex: 93, isConsumable: true },
-  'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit once (WIP).', spriteIndex: 94, isConsumable: true },
-  'portal_scroll_10': { name: 'F10 Portal', description: 'Skip to Floor 10 Hydra.', spriteIndex: 95, isConsumable: true },
-  'portal_scroll_20': { name: 'F20 Portal', description: 'Skip to Floor 20 Necro.', spriteIndex: 96, isConsumable: true },
-  'portal_scroll_30': { name: 'F30 Portal', description: 'Skip to Floor 30 Colossus.', spriteIndex: 97, isConsumable: true },
-  'portal_scroll_40': { name: 'F40 Portal', description: 'Skip to Floor 40 Mirage.', spriteIndex: 98, isConsumable: true },
+  // Unique / Quest Items (Varied)
+  'mirror_shield': { name: 'Mirror Shield', description: 'One-time capture reflection.', spriteIndex: 69, isConsumable: true },
+  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', spriteIndex: 53, isConsumable: false },
+  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', spriteIndex: 49, isConsumable: false },
+  'fireball_scroll': { name: 'Fireball Scroll', description: 'Consumable spell tome.', spriteIndex: 26, isConsumable: true },
+  'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit once (WIP).', spriteIndex: 1, isConsumable: true },
+  'portal_scroll_10': { name: 'F10 Portal', description: 'Skip to Floor 10 Hydra.', spriteIndex: 27, isConsumable: true },
+  'portal_scroll_20': { name: 'F20 Portal', description: 'Skip to Floor 20 Necro.', spriteIndex: 27, isConsumable: true },
+  'portal_scroll_30': { name: 'F30 Portal', description: 'Skip to Floor 30 Colossus.', spriteIndex: 27, isConsumable: true },
+  'portal_scroll_40': { name: 'F40 Portal', description: 'Skip to Floor 40 Mirage.', spriteIndex: 27, isConsumable: true },
 };
 
 export interface Piece {
