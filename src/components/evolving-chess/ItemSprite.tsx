@@ -12,27 +12,33 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16-column sprite sheet using background-image.
- * This is the most reliable way to "slice" a local sprite sheet asset.
+ * Renders an item from the 16-column sprite sheet using percentage-based background positioning.
+ * This is the most resilient way to handle sprite sheets with different icon sizes and browser scaling.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
-  const rows = 12;
+  const rows = 12; // Assuming a 12-row sheet based on common asset packs
+  
   const col = index % cols;
   const row = Math.floor(index / cols);
   
-  // Use the local URL from the placeholder config
+  // Calculate percentage positions: (current_index / (total_items_in_axis - 1)) * 100
+  // This maps the 0-100% background-position range perfectly to the grid cells.
+  const posX = (col / (cols - 1)) * 100;
+  const posY = (row / (rows - 1)) * 100;
+  
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
   return (
     <div 
-      className={cn("shrink-0 inline-block bg-muted/20", className)}
+      className={cn("shrink-0 inline-block", className)}
       style={{
         width: `${size}px`,
         height: `${size}px`,
         backgroundImage: `url("${spriteSheetUrl}")`,
-        backgroundSize: `${size * cols}px ${size * rows}px`,
-        backgroundPosition: `-${col * size}px -${row * size}px`,
+        // 1600% means the background image is 16 times the width of the container
+        backgroundSize: `${cols * 100}% auto`,
+        backgroundPosition: `${posX}% ${posY}%`,
         imageRendering: 'pixelated',
         backgroundRepeat: 'no-repeat',
       }}
