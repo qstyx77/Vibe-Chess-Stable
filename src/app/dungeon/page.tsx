@@ -27,7 +27,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package } from 'lucide-react';
+import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package, Skull } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
@@ -595,6 +595,23 @@ export default function DungeonPage() {
         const originalLevel = originalP?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, selfCheckByPushBack, infiltrationWin: pInfil } = result;
+        
+        // HYDRA SPLIT MECHANIC
+        if (capturedPiece?.id === 'boss-hydra') {
+            let hydraSpawnCount = 0;
+            const adjDirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
+            for (const [dr, dc] of adjDirs) {
+                const nr = row + dr, nc = col + dc;
+                if (isValidSquare(nr, nc) && !newBoard[nr][nc].piece && !newBoard[nr][nc].item && hydraSpawnCount < 2) {
+                    newBoard[nr][nc].piece = { id: `hydra-spawn-${Date.now()}-${hydraSpawnCount}`, type: 'knight', color: 'black', level: 2, hasMoved: true, isShielded: false, heldItem: null };
+                    addEffect('light-beam', coordsToAlgebraic(nr, nc));
+                    hydraSpawnCount++;
+                }
+            }
+            toast({ title: "HYDRA SPLIT!", description: "The Hydra's heads separate into two Knights!" });
+            audioManager.playResurrect();
+        }
+
         if (selfCheckByPushBack) {
             setBoard(newBoard); setGameInfo({ message: "PUSH-BACK SELF-CHECK! RUN OVER", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
             audioManager.playDefeat(); return;
@@ -805,13 +822,17 @@ export default function DungeonPage() {
     );
   }
 
+  const isBossFloor = level % 10 === 0;
+
   return (
     <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
       <div className="w-full max-w-4xl flex items-center justify-between shrink-0">
         <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
         <div className="flex items-center gap-2">
-          <Swords className="text-primary h-6 w-6" />
-          <h1 className="text-base md:text-xl font-bold font-pixel text-primary uppercase">Floor {level}</h1>
+          {isBossFloor ? <Skull className="text-destructive h-6 w-6 animate-pulse" /> : <Swords className="text-primary h-6 w-6" />}
+          <h1 className={cn("text-base md:text-xl font-bold font-pixel uppercase", isBossFloor ? "text-destructive" : "text-primary")}>
+            {isBossFloor ? `BOSS FLOOR: ${level}` : `Floor ${level}`}
+          </h1>
         </div>
         <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)}>
           <Package className="mr-1 h-4 w-4" /> Items
@@ -819,7 +840,7 @@ export default function DungeonPage() {
       </div>
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full max-w-6xl items-start justify-center flex-1 overflow-hidden">
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
-          <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", gameInfo.isCheck && !gameInfo.gameOver && "animate-pulse text-destructive", isAiThinking && "text-primary")}>
+          <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
             {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>

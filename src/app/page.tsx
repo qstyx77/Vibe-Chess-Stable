@@ -3532,7 +3532,6 @@ export default function EvolvingChessPage() {
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
             else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
             else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
-            else if (reason === 'infiltration') message = `${getPlayerDisplayName(winner)} wins by Infiltration!`;
             else if (reason === 'self-check') {
                 toast({
                     title: "Auto-Checkmate!",
