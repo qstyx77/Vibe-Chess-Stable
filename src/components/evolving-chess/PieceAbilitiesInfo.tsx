@@ -95,9 +95,9 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       {item && (
         <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
           <div className="flex items-center justify-center gap-2 mb-1">
-             <ItemSprite index={item.spriteIndex} size={18} />
+             <ItemSprite index={item.spriteIndex} size={16} />
              <p className="text-[0.65rem] font-bold text-accent uppercase leading-none">{item.name}</p>
-             <ItemSprite index={item.spriteIndex} size={18} />
+             <ItemSprite index={item.spriteIndex} size={16} />
           </div>
           <p className="text-[0.6rem] text-muted-foreground italic leading-tight">{item.description}</p>
         </div>

@@ -11,35 +11,29 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16-column sprite sheet using robust percentage positioning.
- * This method ensures that each 16x16 source tile is perfectly centered in the container,
- * preventing "bleeding" or the "4 corners" effect often seen with pixel offsets.
+ * Renders an item from the 16-column sprite sheet.
+ * Uses calc-based positioning to shift the background by exact container-width multiples.
+ * This is the most reliable method for pixel-perfect sprite slicing in browsers.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
-  const rows = 12; // Standard size for this specific sheet
   
   const col = index % cols;
   const row = Math.floor(index / cols);
-  
-  // Percentage positioning formula: (index / (total_indices - 1)) * 100%
-  // This anchors the background exactly to the tile boundaries.
-  const posX = (col / (cols - 1)) * 100;
-  const posY = (row / (rows - 1)) * 100;
   
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
   return (
     <div 
-      className={cn("shrink-0 inline-block", className)}
+      className={cn("shrink-0 inline-block overflow-hidden", className)}
       style={{
         width: `${size}px`,
         height: `${size}px`,
         backgroundImage: `url("${spriteSheetUrl}")`,
-        // 1600% width means the image is 16 times wider than the container (16 columns)
-        // 1200% height means the image is 12 times taller than the container (12 rows)
-        backgroundSize: '1600% 1200%',
-        backgroundPosition: `${posX}% ${posY}%`,
+        // 1600% means the image is 16 times wider than the container (matching 16 columns)
+        backgroundSize: '1600% auto',
+        // Shift left/up by 100% of the container size for each column/row index
+        backgroundPosition: `calc(${col} * -100%) calc(${row} * -100%)`,
         imageRendering: 'pixelated',
         backgroundRepeat: 'no-repeat',
       }}
