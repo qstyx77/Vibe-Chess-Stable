@@ -3,6 +3,7 @@ import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
 import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon, BowIcon } from './IconLibrary';
 import { ITEM_METADATA } from '@/types';
+import { ItemSprite } from './ItemSprite';
 
 interface ChessPieceDisplayProps {
   piece: Piece;
@@ -94,9 +95,9 @@ export function ChessPieceDisplay({
         </span>
 
         {piece.heldItem && ITEM_METADATA[piece.heldItem] && (
-          <span className="absolute bottom-0 right-0 text-[10px] z-[5] bg-background/50 rounded-full px-0.5 border border-primary/20">
-            {ITEM_METADATA[piece.heldItem].icon}
-          </span>
+          <div className="absolute bottom-0 right-0 z-[5] bg-background/50 rounded-sm border border-primary/20 p-0.5 scale-75 origin-bottom-right">
+             <ItemSprite index={ITEM_METADATA[piece.heldItem].spriteIndex} size={16} />
+          </div>
         )}
 
         {piece.type === 'archbishop' && (

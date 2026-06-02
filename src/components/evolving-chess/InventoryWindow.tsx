@@ -6,8 +6,9 @@ import { ITEM_METADATA } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, Package, Shield, Zap, Sparkles } from 'lucide-react';
+import { X, Package, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ItemSprite } from './ItemSprite';
 
 interface InventoryWindowProps {
   isOpen: boolean;
@@ -25,7 +26,6 @@ export function InventoryWindow({
   inventory,
   selectedItemType,
   onSelectItem,
-  attunementSlots,
   usedSlots
 }: InventoryWindowProps) {
   const [position, setPosition] = useState({ x: 20, y: 80 });
@@ -89,13 +89,13 @@ export function InventoryWindow({
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
-                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative",
+                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden",
                         isSelected ? "border-accent bg-accent/20 scale-95" : "border-border hover:border-primary/50 bg-muted/30"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      <span className="text-xl">{meta.icon}</span>
+                      <ItemSprite index={meta.spriteIndex} size={40} className="scale-75" />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-0.5 font-bold">
                           x{item.count}

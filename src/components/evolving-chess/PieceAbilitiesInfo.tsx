@@ -2,7 +2,7 @@
 
 import type { Piece, PieceType } from '@/types';
 import { ITEM_METADATA } from '@/types';
-import { CardDescription } from '../ui/card';
+import { ItemSprite } from './ItemSprite';
 
 interface PieceAbilitiesInfoProps {
   piece: Piece;
@@ -94,9 +94,11 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       <h3 className="font-bold text-primary text-sm">{pieceName} - Level {piece.level || 1}</h3>
       {item && (
         <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
-          <p className="text-[0.65rem] font-bold text-accent uppercase flex items-center justify-center gap-1">
-             <span>{item.icon}</span> {item.name} <span>{item.icon}</span>
-          </p>
+          <div className="flex items-center justify-center gap-2 mb-1">
+             <ItemSprite index={item.spriteIndex} size={16} />
+             <p className="text-[0.65rem] font-bold text-accent uppercase leading-none">{item.name}</p>
+             <ItemSprite index={item.spriteIndex} size={16} />
+          </div>
           <p className="text-[0.6rem] text-muted-foreground italic leading-tight">{item.description}</p>
         </div>
       )}
