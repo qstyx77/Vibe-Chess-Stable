@@ -11,21 +11,21 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16-column sprite sheet using precise pixel offsets.
- * Using pixel-based background-position and background-size is the most robust way
- * to prevent the "4 corners" or "bleeding" effect seen with percentage-based slicing.
+ * Renders an item from the 16-column sprite sheet using robust percentage positioning.
+ * This method ensures that each 16x16 source tile is perfectly centered in the container,
+ * preventing "bleeding" or the "4 corners" effect often seen with pixel offsets.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
   const cols = 16;
+  const rows = 12; // Standard size for this specific sheet
   
   const col = index % cols;
   const row = Math.floor(index / cols);
   
-  // We scale the background sheet such that one tile equals the 'size' prop.
-  // This ensures that shifting the background by exactly 'size' pixels moves us by one icon.
-  const sheetWidth = size * cols;
-  const posX = -(col * size);
-  const posY = -(row * size);
+  // Percentage positioning formula: (index / (total_indices - 1)) * 100%
+  // This anchors the background exactly to the tile boundaries.
+  const posX = (col / (cols - 1)) * 100;
+  const posY = (row / (rows - 1)) * 100;
   
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
@@ -36,8 +36,10 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
         width: `${size}px`,
         height: `${size}px`,
         backgroundImage: `url("${spriteSheetUrl}")`,
-        backgroundSize: `${sheetWidth}px auto`,
-        backgroundPosition: `${posX}px ${posY}px`,
+        // 1600% width means the image is 16 times wider than the container (16 columns)
+        // 1200% height means the image is 12 times taller than the container (12 rows)
+        backgroundSize: '1600% 1200%',
+        backgroundPosition: `${posX}% ${posY}%`,
         imageRendering: 'pixelated',
         backgroundRepeat: 'no-repeat',
       }}

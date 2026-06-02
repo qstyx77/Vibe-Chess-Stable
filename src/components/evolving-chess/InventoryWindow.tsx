@@ -95,8 +95,8 @@ export function InventoryWindow({
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      {/* Reduced sprite size to 32px to fit nicely in the 48px slot with padding */}
-                      <ItemSprite index={meta.spriteIndex} size={32} />
+                      {/* Reduced sprite size for better fit in the grid slots */}
+                      <ItemSprite index={meta.spriteIndex} size={28} />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">
                           x{item.count}
