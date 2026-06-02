@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -10,38 +11,42 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16x12 sprite sheet.
- * Uses percentage-based positioning to ensure perfect centering regardless of container size.
+ * Renders an item from the 16x12 sprite sheet using absolute positioning.
+ * This method is the most robust for pixel-perfect alignment as it avoids 
+ * the sub-pixel rounding errors often associated with background-position percentages.
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const cols = 16;
-  const rows = 12; // Calibrated for the provided inventory.png
+  const rows = 12;
   
-  // Calculate grid coordinates
   const col = index % cols;
   const row = Math.floor(index / cols);
-  
-  // Percentage-based background position is the standard for sprite sheets.
-  // It handles sub-pixel rounding much better than pixel-based offsets.
-  // Formula: (current_index / (total_indices - 1)) * 100
-  const xPercent = (col / (cols - 1)) * 100;
-  const yPercent = (row / (rows - 1)) * 100;
 
+  // Use a relative container with overflow hidden to "clip" the sprite sheet
   return (
     <div 
-      className={cn("shrink-0 bg-transparent", className)}
+      className={cn("shrink-0 overflow-hidden relative", className)}
       style={{
         width: size ? `${size}px` : '100%',
         height: size ? `${size}px` : '100%',
-        backgroundImage: `url("/images/inventory.png")`,
-        // backgroundSize must be (cols * 100%) by (rows * 100%)
-        backgroundSize: '1600% 1200%',
-        backgroundPosition: `${xPercent}% ${yPercent}%`,
-        imageRendering: 'pixelated',
-        backgroundRepeat: 'no-repeat',
       }}
       role="img"
       aria-hidden="true"
-    />
+    >
+      <img
+        src="/images/inventory.png"
+        alt=""
+        className="absolute max-w-none"
+        style={{
+          // Scale image so that 1 unit (100%) equals exactly 1 column width
+          width: '1600%', 
+          height: '1200%',
+          // Discrete shifting: -100% shifts by exactly 1 item width
+          left: `-${col * 100}%`,
+          top: `-${row * 100}%`,
+          imageRendering: 'pixelated',
+        }}
+      />
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -95,6 +96,7 @@ export function InventoryWindow({
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
+                      {/* Using w-full h-full to utilize the entire slot area */}
                       <ItemSprite index={meta.spriteIndex} className="w-full h-full" />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
