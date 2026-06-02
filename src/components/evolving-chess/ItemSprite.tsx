@@ -13,31 +13,34 @@ interface ItemSpriteProps {
 
 /**
  * Renders an item from a sprite sheet.
- * Assumes a 10x10 grid of 16x16 or 32x32 icons.
+ * Assumes a 10x10 grid of icons.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
+  // Calculate grid coordinates (10x10 grid)
   const col = index % 10;
   const row = Math.floor(index / 10);
   
-  // Percentages for background-position to slice a 10x10 grid
-  // (index / (total - 1)) * 100
-  const posX = (col / 9) * 100;
-  const posY = (row / 9) * 100;
+  // Use pixel offsets for more reliable "slicing" of the background image
+  // We set the background-size to 10x the requested icon size (for a 10x10 grid)
+  const bgSize = size * 10;
+  const posX = -(col * size);
+  const posY = -(row * size);
 
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
   return (
     <div 
-      className={cn("inline-block", className)}
+      className={cn("inline-block shrink-0", className)}
       data-ai-hint="sprite sheet"
       style={{
         width: `${size}px`,
         height: `${size}px`,
         backgroundImage: `url(${spriteSheetUrl})`,
-        backgroundSize: '1000%', // 10 columns = 1000% of container width
-        backgroundPosition: `${posX}% ${posY}%`,
+        backgroundSize: `${bgSize}px ${bgSize}px`,
+        backgroundPosition: `${posX}px ${posY}px`,
         imageRendering: 'pixelated',
-        backgroundColor: 'rgba(255,255,255,0.05)' // Subtle fallback
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        backgroundRepeat: 'no-repeat'
       }}
       aria-hidden="true"
     />
