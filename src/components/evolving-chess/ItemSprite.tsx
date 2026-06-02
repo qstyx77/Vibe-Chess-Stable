@@ -13,18 +13,20 @@ interface ItemSpriteProps {
 
 /**
  * Renders an item from the uploaded sprite sheet.
- * Assumes a 10x10 grid of icons.
+ * Uses percentage-based positioning for a 10x10 grid.
  */
 export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
-  // Calculate grid coordinates (10x10 grid)
+  // Calculate grid coordinates (0-9) for a 10x10 grid
   const col = index % 10;
   const row = Math.floor(index / 10);
   
-  // Use pixel offsets for reliable slicing
-  // background-size is 10x the requested icon size to account for the 10x10 grid
-  const bgSize = size * 10;
-  const posX = -(col * size);
-  const posY = -(row * size);
+  /**
+   * For percentage background-position to work with sprites:
+   * offset % = (index / (total_icons - 1)) * 100
+   * For a 10x10 grid, the denominators are 9 (10-1).
+   */
+  const posX = (col * 100) / 9;
+  const posY = (row * 100) / 9;
 
   const spriteSheetUrl = placeholderImages.itemSpriteSheet.url;
 
@@ -35,11 +37,12 @@ export function ItemSprite({ index, size = 32, className }: ItemSpriteProps) {
         width: `${size}px`,
         height: `${size}px`,
         backgroundImage: `url("${spriteSheetUrl}")`,
-        backgroundSize: `${bgSize}px ${bgSize}px`,
-        backgroundPosition: `${posX}px ${posY}px`,
+        // 1000% background-size means the image is 10x larger than the container
+        backgroundSize: '1000% 1000%',
+        backgroundPosition: `${posX}% ${posY}%`,
         imageRendering: 'pixelated',
         backgroundRepeat: 'no-repeat',
-        backgroundColor: 'rgba(255,255,255,0.03)'
+        backgroundColor: 'rgba(255,255,255,0.05)' // Subtle fallback visibility
       }}
       aria-hidden="true"
     />
