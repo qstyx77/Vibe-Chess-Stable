@@ -1959,7 +1959,7 @@ export default function EvolvingChessPage() {
                     boardForNextStep: finalBoardStateForTurn,
                     playerWhoseTurnCompleted: capturingPlayer,
                     isExtraTurn: combinedExtraTurn,
-                    newEnPassantTarget: nextEnPassantTarget,
+                    newEnPassantTarget: enPassantTargetSquare,
                 };
                 setShieldContext(shieldCtx);
                 if (isPawnPromotingMove) {
@@ -1976,7 +1976,7 @@ export default function EvolvingChessPage() {
                 boardForNextStep: finalBoardStateForTurn,
                 playerWhoseTurnCompleted: capturingPlayer,
                 isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: nextEnPassantTarget,
+                newEnPassantTarget: enPassantTargetSquare,
             };
             setAnvilDropContext(anvilDropCtx);
             if (isPawnPromotingMove) {
@@ -2846,7 +2846,7 @@ export default function EvolvingChessPage() {
                   moveForApplyMoveAI as Move,
                   aiToAlg as AlgebraicSquare,
                   oldLevelForAIResCheck,
-                  finalCapturedPiecesForTurn,
+                  finalCapturedPiecesForAI,
                   uniqueIdCounterRef.current
               );
               if (aiRookResData.resurrectionPerformed) {
@@ -3061,6 +3061,7 @@ export default function EvolvingChessPage() {
           setCheckmatePatternFlashKey(k => k + 1);
         } else if (currentCheckStateString.endsWith('-check')) {
           setFlashMessage('CHECK!');
+          setShowCheckFlashBackground(true);
           setShowCheckFlashBackground(true);
           setCheckFlashBackgroundKey(k => k + 1);
           audioManager.playCheck();
