@@ -37,6 +37,7 @@ interface ChessBoardProps {
   isAwaitingArcherSnipe?: boolean;
   isInventoryOpen?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
+  localPlayerColor?: PlayerColor | null; // Added to strictly gate interaction
 }
 
 const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
@@ -135,7 +136,8 @@ export function ChessBoard({
   isAwaitingHolyShield,
   isAwaitingArcherSnipe,
   isInventoryOpen,
-  selectedInventoryItemType
+  selectedInventoryItemType,
+  localPlayerColor
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -144,12 +146,15 @@ export function ChessBoard({
     ? [...boardState].reverse().map(row => [...row].reverse())
     : boardState;
 
+  // Interaction helper to only show target highlights to the player who needs to act
+  const isLocalActionTurn = !localPlayerColor || localPlayerColor === currentPlayerColor;
+
   return (
     <div
       className={cn(
         "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield) && !(isAwaitingArcherSnipe) && !isInventoryOpen && "cursor-not-allowed",
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
       onMouseLeave={() => onPieceHover(null)}
@@ -174,29 +179,32 @@ export function ChessBoard({
           const isThisLastMoveFrom = currentSquareData.algebraic === lastMoveFrom;
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
 
-          const isSacrificeTargetSquare = isAwaitingPawnSacrifice &&
+          // Special Target highlights - only visible to the acting player to avoid "Phantom Selection" confusion
+          const isSacrificeTargetSquare = isLocalActionTurn && isAwaitingPawnSacrifice &&
                                           currentSquareData.piece &&
                                           (currentSquareData.piece.type === 'pawn' || currentSquareData.piece.type === 'commander') &&
                                           currentSquareData.piece.color === playerToSacrificePawn;
 
-          const isCommanderPromoTargetSquare = isAwaitingCommanderPromotion &&
+          const isCommanderPromoTargetSquare = isLocalActionTurn && isAwaitingCommanderPromotion &&
                                                currentSquareData.piece?.type === 'pawn' &&
                                                currentSquareData.piece?.level === 1 &&
                                                currentSquareData.piece?.color === playerToPromoteCommander;
           
-          const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
-          
           let isShieldTarget = false;
-          if (isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor) {
+          if (isLocalActionTurn && isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor) {
               const capturingPieceId = lastMoveTo ? boardState[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
               if (currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== capturingPieceId) {
                   isShieldTarget = true;
               }
           }
 
-          const isSnipeTarget = isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level === 1 && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
+          const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level === 1 && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
+
+          const isAnvilDropTarget = isLocalActionTurn && isAwaitingAnvilDrop && !currentSquareData.piece && !currentSquareData.item;
 
           const isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === 'white';
+          
+          const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
 
           return (
             <ChessSquare
@@ -208,7 +216,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare && !isShieldTarget && !isSnipeTarget && !isInvTarget}
+              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
@@ -226,6 +234,7 @@ export function ChessBoard({
               isConverting={isConvertingSquare}
               isShieldTarget={isShieldTarget}
               isSnipeTarget={isSnipeTarget}
+              isAnvilDropTarget={isAnvilDropTarget}
               isInvTarget={isInvTarget}
               selectedInventoryItemType={selectedInventoryItemType}
             />

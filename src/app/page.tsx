@@ -24,6 +24,7 @@ import {
   isValidSquare,
   processRookResurrectionCheck,
   type RookResurrectionResult,
+  spawnAnvil,
   spawnShroom,
   findKing,
   applyArchbishop,
@@ -822,7 +823,7 @@ export default function EvolvingChessPage() {
       if (mate) {
         currentMessage = `Checkmate! ${getPlayerDisplayName(playerWhoseTurnEnded)} wins!`;
         setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: true, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoseTurnEnded }));
-         if (onlineStatus === 'connected') {
+        if (onlineStatus === 'connected') {
           const ws = wsRef.current;
           if(ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerWhoseTurnEnded, timedOutPlayer: nextPlayer, reason: 'checkmate' }));
@@ -837,7 +838,7 @@ export default function EvolvingChessPage() {
       if (stale) {
         currentMessage = `Stalemate! It's a draw.`;
         setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-         if (onlineStatus === 'connected') {
+        if (onlineStatus === 'connected') {
           const ws = wsRef.current;
           if(ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
@@ -1140,6 +1141,12 @@ export default function EvolvingChessPage() {
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
+    // Interaction Guard: If a specialized selection turn is active, only the acting local player can interact.
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe;
+    if (isAnySpecialModeActive && !isLocalActionTurn) {
+        return;
+    }
+
     // --- Inventory Interaction Mode ---
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
@@ -1248,7 +1255,7 @@ export default function EvolvingChessPage() {
           setArcherSnipeContext(null);
           
           const archerPos = board.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer)?.algebraic || '??';
-          setVcnLog(prev => [...prev, `[AR-Snipe]@${archerPos}x${algebraic}`]);
+          setVcnLog(prev => [...prev, `[AR-Snipe]x${algebraic}`]);
           
           processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -1286,7 +1293,7 @@ export default function EvolvingChessPage() {
           setShieldContext(null);
           
           const abPos = board.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
-          setVcnLog(prev => [...prev, `🛡️@${abPos}>${algebraic}`]);
+          setVcnLog(prev => [...prev, `🛡️@${algebraic}`]);
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
       } else {
@@ -1433,7 +1440,7 @@ export default function EvolvingChessPage() {
         if (onlineStatus === 'connected') {
             const ws = wsRef.current;
             if(ws && ws.readyState === WebSocket.OPEN) {
-                const payload = JSON.stringify({ type: 'game-move', payload: { type: 'pawn-sacrifice', player: currentPlayer, square: algebraic } });
+                const payload = JSON.stringify({ type: 'pawn-sacrifice', square: algebraic });
                 ws.send(payload);
             }
         }
@@ -1960,6 +1967,7 @@ export default function EvolvingChessPage() {
                     playerWhoseTurnCompleted: capturingPlayer,
                     isExtraTurn: combinedExtraTurn,
                     newEnPassantTarget: enPassantTargetSquare,
+                    capturingPieceId: pieceThatMadeTheMove?.id
                 };
                 setShieldContext(shieldCtx);
                 if (isPawnPromotingMove) {
@@ -2297,10 +2305,14 @@ export default function EvolvingChessPage() {
                 playerWhoseTurnCompleted: pawnColor,
                 isExtraTurn: combinedExtraTurn,
                 newEnPassantTarget: enPassantTargetSquare,
+                capturingPieceId: boardToUpdate[row][col].piece?.id
             };
             setShieldContext(updatedShieldCtx);
-            setIsAwaitingHolyShield(true);
-            setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+            if (isPawnPromotingMove) {
+            } else {
+                setIsAwaitingHolyShield(true);
+                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+            }
         }
 
         if (!enteringSpecialMode && hasTriggeredSnipe) {
@@ -2744,7 +2756,7 @@ export default function EvolvingChessPage() {
                          toast({ title: "AI Holy Shield!", description: `AI shielded their ${shieldChoice.piece.type}!` });
                          
                          const abPos = finalBoardStateForAI.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
-                         setVcnLog(prev => [...prev, `🛡️@${abPos}>${targetAlg}`]);
+                         setVcnLog(prev => [...prev, `🛡️@${targetAlg}`]);
                      }
                  }
             }
@@ -3824,6 +3836,7 @@ export default function EvolvingChessPage() {
               isAwaitingArcherSnipe={isAwaitingArcherSnipe}
               isInventoryOpen={isInventoryOpen}
               selectedInventoryItemType={selectedInventoryItemType}
+              localPlayerColor={localPlayerColor}
             />
           </div>
           
@@ -4060,6 +4073,7 @@ export default function EvolvingChessPage() {
               isAwaitingArcherSnipe={isAwaitingArcherSnipe}
               isInventoryOpen={isInventoryOpen}
               selectedInventoryItemType={selectedInventoryItemType}
+              localPlayerColor={localPlayerColor}
           />
         </div>
       </div>

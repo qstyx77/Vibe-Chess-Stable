@@ -36,6 +36,7 @@ interface ChessSquareProps {
   isSnipeTarget?: boolean;
   isInvTarget?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
+  isAnvilDropTarget?: boolean;
 }
 
 export function ChessSquare({
@@ -65,7 +66,8 @@ export function ChessSquare({
   isShieldTarget = false,
   isSnipeTarget = false,
   isInvTarget = false,
-  selectedInventoryItemType
+  selectedInventoryItemType,
+  isAnvilDropTarget = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -95,10 +97,11 @@ export function ChessSquare({
   }
 
   let selectionRingClass = '';
-  if (isCommanderPromoTarget) {
-    selectionRingClass = 'ring-4 ring-inset ring-green-400 animate-pulse';
-  } else if (isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn) {
-    selectionRingClass = 'ring-4 ring-inset ring-cyan-400 animate-pulse';
+  // Standardized blinky blue for all special selections
+  const specialSelectionBlue = 'ring-4 ring-inset ring-sky-400 animate-pulse';
+
+  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget) {
+    selectionRingClass = specialSelectionBlue;
   } else if (isInvTarget) {
     if (selectedInventoryItemType) {
         selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-yellow-400' : 'ring-4 ring-inset ring-primary animate-pulse';
@@ -109,13 +112,9 @@ export function ChessSquare({
     selectionRingClass = 'ring-2 ring-inset ring-accent';
   } else if (isEnemySelected && !disabled) {
     selectionRingClass = 'ring-2 ring-inset ring-blue-600';
-  } else if (isShieldTarget) {
-    selectionRingClass = 'ring-4 ring-inset ring-white animate-pulse';
-  } else if (isSnipeTarget) {
-    selectionRingClass = 'ring-4 ring-inset ring-primary animate-pulse';
   }
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget;
 
 
   return (
@@ -166,7 +165,7 @@ export function ChessSquare({
             isKingInCheck={isKingInCheck}
             viewMode={viewMode}
             isJustMoved={isJustMoved}
-            isSacrificeTarget={isAwaitingPawnSacrifice && piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === playerToSacrificePawn}
+            isSacrificeTarget={isSacrificeTarget}
             isCommanderPromoTarget={isCommanderPromoTarget}
             isPromoting={isPromoting}
             isConverting={isConverting}

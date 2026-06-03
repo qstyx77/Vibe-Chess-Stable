@@ -319,10 +319,10 @@ export default function DungeonPage() {
 
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
-
-    // REINFORCE: Self-Check Auto-Loss (Hydra Split / Suicidal Move / Capture in Check)
-    if (!extra && isKingInCheck(nextBoard, turnPlayer, nextEpSquare)) {
-      setGameInfo({ message: "SELF-CHECK! AUTO-CHECKMATE", isCheck: true, playerWithKingInCheck: turnPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: turnPlayer === 'white' ? 'black' : 'white' });
+    
+    // Reinforce Self-Check Auto-Loss (e.g. from Hydra split)
+    if (!extra && turnPlayer === 'white' && isKingInCheck(nextBoard, 'white', nextEpSquare)) {
+      setGameInfo({ message: "SPLIT SELF-CHECK! AUTO-LOSS", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' });
       audioManager.playDefeat();
       return;
     }
@@ -454,6 +454,12 @@ export default function DungeonPage() {
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
+
+    // Standard Interaction Guard
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe;
+    const isLocalActionTurn = true; // Dungeon is single player
+    if (isAnySpecialModeActive && !isLocalActionTurn) return;
+
     const { row, col } = algebraicToCoords(algebraic);
     const sq = board[row][col];
     const piece = sq.piece;
@@ -530,18 +536,14 @@ export default function DungeonPage() {
             setPlayerWhoMadeQueenMove(null);
             setBoardForPostSacrifice(null);
             audioManager.playCapture();
-            
-            const remainingPawns = nextBoard.flat().filter(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
-            if (specialActionContext?.waitingForCommander && remainingPawns.length === 0) {
-              setFirstBloodAchieved(true);
-              setPlayerWhoGotFirstBlood('white');
+
+            // RE-CHECK First Blood soft-lock: If sacrificed pawn was the last L1 pawn
+            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
               setIsAwaitingCommanderPromotion(false);
-              processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
-            } else if (specialActionContext?.waitingForCommander) {
-              setIsAwaitingCommanderPromotion(true);
-            } else {
-              processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
             }
+
+            processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
         }
         return;
     }
@@ -628,48 +630,9 @@ export default function DungeonPage() {
 
         const originalLevel = originalP?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
-        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, selfCheckByPushBack, infiltrationWin: pInfil } = result;
+        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp } = result;
         
-        // HYDRA SPLIT MECHANIC
-        if (capturedPiece?.id && capturedPiece.id.startsWith('boss-hydra')) {
-            let hydraSpawnCount = 0;
-            const adjDirs = [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[-1,1],[1,-1],[1,1]];
-            for (const [dr, dc] of adjDirs) {
-                const nr = row + dr, nc = col + dc;
-                if (isValidSquare(nr, nc) && !newBoard[nr][nc].piece && !newBoard[nr][nc].item && hydraSpawnCount < 2) {
-                    newBoard[nr][nc].piece = { id: `hydra-spawn-${Date.now()}-${hydraSpawnCount}`, type: 'knight', color: 'black', level: 2, hasMoved: true, isShielded: false, heldItem: null };
-                    addEffect('light-beam', coordsToAlgebraic(nr, nc));
-                    hydraSpawnCount++;
-                }
-            }
-            toast({ title: "HYDRA SPLIT!", description: "The Hydra's heads separate into two Knights!" });
-            audioManager.playResurrect();
-        }
-
-        // Calculate streaks and potential extra turns early to verify split-self-check
-        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
-        const oldStreak = killStreaks[currentPlayer] || 0;
-        const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
-        const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
-        const extraTurnPossible = result.extraTurn || milestoneExtraTurn;
-
-        // REINFORCE: Hydra/Split Self-Check Loss
-        if (selfCheckByPushBack || (isKingInCheck(newBoard, 'white', nextEp) && !extraTurnPossible)) {
-            const msg = selfCheckByPushBack ? "PUSH-BACK SELF-CHECK! RUN OVER" : "SPLIT SELF-CHECK! AUTO-CHECKMATE";
-            setBoard(newBoard); 
-            setGameInfo({ message: msg, isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
-            audioManager.playDefeat(); return;
-        }
-
-        if (pInfil) { 
-            setIsMoveProcessing(false);
-            clickGuard.current = false;
-            setBoard(newBoard); 
-            const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); 
-            advanceLevel(survivors); 
-            return; 
-        }
-        
+        if (result.infiltrationWin) { setBoard(newBoard); const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(survivors); return; }
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
         if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
         if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
@@ -685,23 +648,20 @@ export default function DungeonPage() {
                 if (resResult.promotionRequiredForResurrectedPawn) { setIsPromotingPawn(true); setPromotionSquare(resResult.resurrectedSquareAlg!); triggeredSpecial = true; }
             }
         }
-        let firstBloodThisTurn = false;
+        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
+        const oldStreak = killStreaks[currentPlayer] || 0;
+        const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
         setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
-
         if (streakGain > 0) {
           audioManager.playCapture();
           if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
           if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, result.pieceCapturedByAnvil!] }));
           if (currentPlayer === 'white') {
-              if (!firstBloodAchieved) {
-                  const hasLevel1Pawn = newBoard.flat().some(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
-                  if (hasLevel1Pawn) firstBloodThisTurn = true;
-                  else { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
-              }
+              if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
               if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); }, 800);
+                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
               } else if (newStreak === 3) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); }, 800);
+                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
               } else if (newStreak === 4) {
                   const graveyard = capturedPieces.black;
                   if (graveyard.length > 0) {
@@ -725,7 +685,7 @@ export default function DungeonPage() {
                       sq.piece.type !== 'queen'
                   );
                   if (hasVictims) {
-                    triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); }, 800);
+                    triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
                   }
               }
           }
@@ -733,37 +693,31 @@ export default function DungeonPage() {
 
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
-            if (hasPawns) { 
-              triggeredSpecial = true; 
-              setBoardForPostSacrifice(newBoard); 
-              setPlayerWhoMadeQueenMove('white'); 
-              setPlayerToSacrificePawn('white'); 
-              setIsExtraTurnFromQueenMove(result.extraTurn || milestoneExtraTurn); 
-              setSpecialActionContext(prev => ({ ...prev, waitingForCommander: firstBloodThisTurn }));
-              setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); 
-            }
+            if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || (oldStreak < 6 && newStreak >= 6)); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
         }
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
           if (isAwaitingPawnSacrifice) return;
 
-          if (!firstBloodAchieved && firstBloodThisTurn) { 
-              const remainingPawns = newBoard.flat().filter(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
-              if (remainingPawns.length === 0) {
-                setFirstBloodAchieved(true);
-                setPlayerWhoGotFirstBlood('white');
-                processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
+          // Check if target for Commander exists to avoid soft-lock
+          const hasL1Targets = newBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+          if (!firstBloodAchieved && streakGain > 0) { 
+              setFirstBloodAchieved(true); 
+              setPlayerWhoGotFirstBlood('white'); 
+              const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
+              if (hasL1Targets) {
+                  setSpecialActionContext({ extra: isExtra }); 
+                  setIsAwaitingCommanderPromotion(true); 
+                  return;
               } else {
-                setFirstBloodAchieved(true); 
-                setPlayerWhoGotFirstBlood('white'); 
-                setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); 
-                setIsAwaitingCommanderPromotion(true); 
+                  processMoveEnd(newBoard, currentPlayer, isExtra, nextEp);
+                  return;
               }
-              return; 
           }
+
           if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
-          if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
+          if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
         }, 800);
         return;
       }
@@ -821,7 +775,6 @@ export default function DungeonPage() {
              const streakGain = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
              const oldStreak = killStreaks.black || 0;
              const newStreak = oldStreak + streakGain;
-             const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
              if (streakGain > 0 && !firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(currentPlayer); }
              setKillStreaks(prev => ({ ...prev, black: streakGain > 0 ? newStreak : 0 }));
              if (streakGain > 0) {
@@ -856,7 +809,7 @@ export default function DungeonPage() {
                    if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece! }; nextBoard.flat().forEach(sq => { if (sq.algebraic === victimSq.algebraic) sq.piece = null; }); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
                }
              } else audioManager.playMove();
-             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || milestoneExtraTurn, result.enPassantTargetSet); }, 800);
+             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || (oldStreak < 6 && newStreak >= 6), result.enPassantTargetSet); }, 800);
           } else {
             const nextStuck = enemyStuckTurns + 1;
             setEnemyStuckTurns(nextStuck);
