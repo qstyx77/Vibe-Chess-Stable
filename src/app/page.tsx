@@ -1527,7 +1527,7 @@ export default function EvolvingChessPage() {
           } else if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
               moveBeingMade.type = 'capture';
           } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
-              moveBeingMade.type = 'castle';
+              moveType = 'castle';
           }
       }
 
@@ -3269,6 +3269,7 @@ export default function EvolvingChessPage() {
       setIsMoveProcessing(false);
       clickGuardRef.current = false;
       aiErrorOccurredRef.current = false;
+      setHistoryStack(newHistoryStack);
       setHistoryStack(newHistoryStack);
       setPieceForInfoDisplay(null);
 
