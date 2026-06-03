@@ -10,20 +10,15 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 16x12 sprite sheet using high-precision percentage positioning.
- * This method ensures perfect centering regardless of container scaling.
+ * Renders an item from the 16x12 sprite sheet using mathematically precise unit offsets.
+ * This technique uses background-position defined in multiples of 100% relative to 
+ * the container size, ensuring every 8-bit icon is clipped perfectly without bleeding.
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const cols = 16;
-  const rows = 12;
   
   const col = index % cols;
   const row = Math.floor(index / cols);
-
-  // Percentage positioning formula: (current_index / (total_indices_in_axis - 1)) * 100
-  // This is the most robust way to align backgrounds to a grid in CSS.
-  const xPercent = (col / (cols - 1)) * 100;
-  const yPercent = (row / (rows - 1)) * 100;
 
   return (
     <div 
@@ -32,8 +27,10 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
         width: size ? `${size}px` : '100%',
         height: size ? `${size}px` : '100%',
         backgroundImage: 'url(/images/inventory.png)',
-        backgroundSize: '1600% 1200%', // 16 columns by 12 rows
-        backgroundPosition: `${xPercent}% ${yPercent}%`,
+        // backgroundSize must be (columns * 100%) and (rows * 100%)
+        backgroundSize: '1600% 1200%', 
+        // backgroundPosition in 'calc' prevents the browser from using fuzzy percentage positioning
+        backgroundPosition: `calc(${col} * -100%) calc(${row} * -100%)`,
         imageRendering: 'pixelated',
         backgroundRepeat: 'no-repeat'
       }}
