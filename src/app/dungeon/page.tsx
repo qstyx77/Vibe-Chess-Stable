@@ -281,6 +281,11 @@ export default function DungeonPage() {
       audioManager.playVictory();
       return;
     }
+    
+    // Explicitly reset interaction states to prevent board freeze
+    setIsMoveProcessing(false);
+    clickGuard.current = false;
+    
     setLevel(nextLevel);
     setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
@@ -385,6 +390,11 @@ export default function DungeonPage() {
 
   const startRun = useCallback(() => {
     if (isUserLoading || !userData || !user) return;
+    
+    // Safety reset for interaction state
+    setIsMoveProcessing(false);
+    clickGuard.current = false;
+    
     let army: Piece[] = [];
     let initial = initializeBoard();
     if (userData) {
@@ -620,7 +630,17 @@ export default function DungeonPage() {
             setBoard(newBoard); setGameInfo({ message: "PUSH-BACK SELF-CHECK! RUN OVER", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
             audioManager.playDefeat(); return;
         }
-        if (pInfil) { setBoard(newBoard); const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(survivors); return; }
+        
+        if (pInfil) { 
+            // Reset state before advancing to prevent board freeze
+            setIsMoveProcessing(false);
+            clickGuard.current = false;
+            setBoard(newBoard); 
+            const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); 
+            advanceLevel(survivors); 
+            return; 
+        }
+        
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
         if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
         if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
@@ -725,7 +745,14 @@ export default function DungeonPage() {
              const originalLevel = originalP?.level || 1;
              setLastMoveFrom(from); setLastMoveTo(to); setAnimatedSquareTo(to);
              const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined }, enPassantTargetSquare);
-             if (result.infiltrationWin) { setBoard(result.newBoard); setGameInfo({ message: "DUNGEON INFILTRATION! RUN OVER", gameOver: true, winner: 'black' }); audioManager.playDefeat(); return; }
+             if (result.infiltrationWin) { 
+                setIsAiThinking(false);
+                setIsMoveProcessing(false);
+                setBoard(result.newBoard); 
+                setGameInfo({ message: "DUNGEON INFILTRATION! RUN OVER", gameOver: true, winner: 'black' }); 
+                audioManager.playDefeat(); 
+                return; 
+             }
              let nextBoard = result.newBoard;
              if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
              if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
