@@ -13,7 +13,7 @@ interface ItemSpriteProps {
 /**
  * Renders an item from the 1340x651 spritesheet.png.
  * Recalibrated for a high-density 134x65 grid (10x10px icons).
- * Uses absolute-positioned image shifting for mathematical accuracy.
+ * Uses absolute-positioned image shifting for mathematical accuracy and perfect centering.
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const cols = 134;
@@ -22,6 +22,8 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const col = index % cols;
   const row = Math.floor(index / cols);
 
+  // If no size is provided, we assume it fills the parent container.
+  // The image needs to be (cols * 100)% wide to make each sprite take exactly the container width.
   return (
     <div 
       className={cn("relative shrink-0 overflow-hidden bg-white", className)}

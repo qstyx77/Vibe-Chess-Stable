@@ -42,7 +42,6 @@ export interface ItemMetadata {
 /**
  * ITEM METADATA MAPPING (Precise 134x65 mapping)
  * Index = Row * 134 + Column (0-indexed)
- * Categorized based on typical 10px RPG sheet layouts.
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   // Potions Cluster (Row 14)
