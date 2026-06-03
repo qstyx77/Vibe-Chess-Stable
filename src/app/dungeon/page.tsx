@@ -251,7 +251,9 @@ export default function DungeonPage() {
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
     setEffects(prev => [...prev, { id, type, square, color, value }]);
-    setTimeout(() => setEffects(curr => curr.filter(e => e.id !== id)), 1500);
+    setTimeout(() => {
+      setEffects(curr => curr.filter(e => e.id !== id));
+    }, 1500);
   }, []);
 
   useEffect(() => {
@@ -283,7 +285,6 @@ export default function DungeonPage() {
       return;
     }
     
-    // Explicitly reset interaction states to prevent board freeze
     setIsMoveProcessing(false);
     clickGuard.current = false;
     
@@ -318,6 +319,14 @@ export default function DungeonPage() {
 
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
+
+    // REINFORCE: Self-Check Auto-Loss (Hydra Split / Suicidal Move / Capture in Check)
+    if (!extra && isKingInCheck(nextBoard, turnPlayer, nextEpSquare)) {
+      setGameInfo({ message: "SELF-CHECK! AUTO-CHECKMATE", isCheck: true, playerWithKingInCheck: turnPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: turnPlayer === 'white' ? 'black' : 'white' });
+      audioManager.playDefeat();
+      return;
+    }
+
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     setEnPassantTargetSquare(nextEpSquare);
     const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
@@ -392,7 +401,6 @@ export default function DungeonPage() {
   const startRun = useCallback(() => {
     if (isUserLoading || !userData || !user) return;
     
-    // Safety reset for interaction state
     setIsMoveProcessing(false);
     clickGuard.current = false;
     
@@ -523,7 +531,6 @@ export default function DungeonPage() {
             setBoardForPostSacrifice(null);
             audioManager.playCapture();
             
-            // VERIFICATION FIX: After sacrifice, check if the pending commander promotion is still valid
             const remainingPawns = nextBoard.flat().filter(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
             if (specialActionContext?.waitingForCommander && remainingPawns.length === 0) {
               setFirstBloodAchieved(true);
@@ -531,7 +538,6 @@ export default function DungeonPage() {
               setIsAwaitingCommanderPromotion(false);
               processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
             } else if (specialActionContext?.waitingForCommander) {
-              // Still have pawns, logic will flow into commander promo state
               setIsAwaitingCommanderPromotion(true);
             } else {
               processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
@@ -640,13 +646,22 @@ export default function DungeonPage() {
             audioManager.playResurrect();
         }
 
-        if (selfCheckByPushBack) {
-            setBoard(newBoard); setGameInfo({ message: "PUSH-BACK SELF-CHECK! RUN OVER", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
+        // Calculate streaks and potential extra turns early to verify split-self-check
+        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
+        const oldStreak = killStreaks[currentPlayer] || 0;
+        const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
+        const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
+        const extraTurnPossible = result.extraTurn || milestoneExtraTurn;
+
+        // REINFORCE: Hydra/Split Self-Check Loss
+        if (selfCheckByPushBack || (isKingInCheck(newBoard, 'white', nextEp) && !extraTurnPossible)) {
+            const msg = selfCheckByPushBack ? "PUSH-BACK SELF-CHECK! RUN OVER" : "SPLIT SELF-CHECK! AUTO-CHECKMATE";
+            setBoard(newBoard); 
+            setGameInfo({ message: msg, isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, gameOver: true, winner: 'black' });
             audioManager.playDefeat(); return;
         }
-        
+
         if (pInfil) { 
-            // Reset state before advancing to prevent board freeze
             setIsMoveProcessing(false);
             clickGuard.current = false;
             setBoard(newBoard); 
@@ -671,11 +686,7 @@ export default function DungeonPage() {
             }
         }
         let firstBloodThisTurn = false;
-        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
-        const oldStreak = killStreaks[currentPlayer] || 0;
-        const newStreak = oldStreak + streakGain;
-        setKillStreaks(prev => ({ ...prev, [currentPlayer]: streakGain > 0 ? newStreak : 0 }));
-        const milestoneExtraTurn = oldStreak < 6 && newStreak >= 6;
+        setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
 
         if (streakGain > 0) {
           audioManager.playCapture();
@@ -728,7 +739,6 @@ export default function DungeonPage() {
               setPlayerWhoMadeQueenMove('white'); 
               setPlayerToSacrificePawn('white'); 
               setIsExtraTurnFromQueenMove(result.extraTurn || milestoneExtraTurn); 
-              // VERIFICATION FIX: Pass context to sacrifice check to handle conditional First Blood
               setSpecialActionContext(prev => ({ ...prev, waitingForCommander: firstBloodThisTurn }));
               setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); 
             }
@@ -736,10 +746,9 @@ export default function DungeonPage() {
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
-          if (isAwaitingPawnSacrifice) return; // Wait for sacrifice logic to resolve turn
+          if (isAwaitingPawnSacrifice) return;
 
           if (!firstBloodAchieved && firstBloodThisTurn) { 
-              // VERIFICATION FIX: Final check for pawns before entering commander choice
               const remainingPawns = newBoard.flat().filter(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
               if (remainingPawns.length === 0) {
                 setFirstBloodAchieved(true);
