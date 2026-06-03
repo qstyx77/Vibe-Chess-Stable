@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -10,7 +11,9 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 134x65 spritesheet.png (10x10px tiles).
+ * Renders an item from the 1340x651 spritesheet.png.
+ * Recalibrated for a high-density 134x65 grid (10x10px icons).
+ * Uses absolute-positioned image shifting for mathematical accuracy.
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const cols = 134;
@@ -19,13 +22,9 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const col = index % cols;
   const row = Math.floor(index / cols);
 
-  // Position the image so the desired sprite is visible in the container
-  const left = -(col * 100);
-  const top = -(row * 100);
-
   return (
     <div 
-      className={cn("relative overflow-hidden shrink-0", className)}
+      className={cn("relative shrink-0 overflow-hidden bg-white", className)}
       style={{
         width: size ? `${size}px` : '100%',
         height: size ? `${size}px` : '100%',
@@ -34,18 +33,15 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
       <img
         src="/images/spritesheet.png"
         alt=""
-        className="absolute max-w-none pointer-events-none"
+        className="absolute max-w-none"
         style={{
           width: `${cols * 100}%`,
           height: `${rows * 100}%`,
-          left: `${left}%`,
-          top: `${top}%`,
+          left: `-${col * 100}%`,
+          top: `-${row * 100}%`,
           imageRendering: 'pixelated',
         }}
-        draggable={false}
-        aria-hidden="true"
       />
     </div>
   );
 }
-
