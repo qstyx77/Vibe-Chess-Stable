@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -11,8 +10,9 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 67x31 spritesheet.png using exact grid percentages.
- * The 1340x651 sheet contains 20x21px tiles (67 cols, 31 rows).
+ * Renders an item from the 67x31 spritesheet.png using exact percentage offsets.
+ * Percentage background-position: X% means (containerWidth - imageWidth) * (X / 100).
+ * For sprite sheets, (pos / (total - 1)) * 100 perfectly aligns the center of each tile.
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const cols = 67;
@@ -21,7 +21,7 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
   const col = index % cols;
   const row = Math.floor(index / cols);
 
-  // High-precision percentage positioning formula: (pos / (total - 1)) * 100
+  // High-precision percentage positioning formula for anchored sprites
   const posX = (col / (cols - 1)) * 100;
   const posY = (row / (rows - 1)) * 100;
 
