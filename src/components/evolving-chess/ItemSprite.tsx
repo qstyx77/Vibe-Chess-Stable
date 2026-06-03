@@ -10,19 +10,16 @@ interface ItemSpriteProps {
 }
 
 /**
- * Renders an item from the 67x31 spritesheet.png using a clipped image tag method.
- * This approach is extremely robust for large sprite sheets and scales precisely
- * to fill the container slots.
+ * Renders an item from the 134x65 spritesheet.png (10x10px tiles).
  */
 export function ItemSprite({ index, size, className }: ItemSpriteProps) {
-  const cols = 67;
-  const rows = 31;
+  const cols = 134;
+  const rows = 65;
   
   const col = index % cols;
   const row = Math.floor(index / cols);
 
   // Position the image so the desired sprite is visible in the container
-  // We shift by -100% of the container size for each column/row index
   const left = -(col * 100);
   const top = -(row * 100);
 
@@ -51,3 +48,4 @@ export function ItemSprite({ index, size, className }: ItemSpriteProps) {
     </div>
   );
 }
+

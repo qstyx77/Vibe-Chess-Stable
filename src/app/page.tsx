@@ -1,3 +1,4 @@
+// ... (rest of imports omitted for brevity, logic remains same)
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1655,7 +1656,7 @@ export default function EvolvingChessPage() {
                 if (emptySquares.length > 0) {
                   const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                   const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginal.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
+                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginal, level: 1, id: `${pieceToResurrectOriginalOriginal.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginal.type === 'king' || pieceToResurrectOriginal.type === 'rook' || pieceToResurrectOriginal.type === 'palace' ? false : pieceToResurrectOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
 
                   const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
                   if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -4304,3 +4305,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
