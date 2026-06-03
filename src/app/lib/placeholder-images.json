@@ -1,6 +1,6 @@
 {
   "itemSpriteSheet": {
-    "url": "/images/inventory.png",
-    "keywords": "item sprites"
+    "url": "/images/spritesheet.png",
+    "keywords": "rpg spritesheet"
   }
 }
