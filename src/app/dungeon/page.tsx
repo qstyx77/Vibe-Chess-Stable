@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -132,7 +133,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
         // Two Level 2 Knight Guards
         board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
-        board[1][5].piece = { id: 'hydra-guard-2', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 2: 
         board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, heldItem: null };
@@ -521,7 +522,20 @@ export default function DungeonPage() {
             setPlayerWhoMadeQueenMove(null);
             setBoardForPostSacrifice(null);
             audioManager.playCapture();
-            processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
+            
+            // VERIFICATION FIX: After sacrifice, check if the pending commander promotion is still valid
+            const remainingPawns = nextBoard.flat().filter(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
+            if (specialActionContext?.waitingForCommander && remainingPawns.length === 0) {
+              setFirstBloodAchieved(true);
+              setPlayerWhoGotFirstBlood('white');
+              setIsAwaitingCommanderPromotion(false);
+              processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
+            } else if (specialActionContext?.waitingForCommander) {
+              // Still have pawns, logic will flow into commander promo state
+              setIsAwaitingCommanderPromotion(true);
+            } else {
+              processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
+            }
         }
         return;
     }
@@ -705,14 +719,40 @@ export default function DungeonPage() {
               }
           }
         } else audioManager.playMove();
+
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
-            if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || milestoneExtraTurn); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
+            if (hasPawns) { 
+              triggeredSpecial = true; 
+              setBoardForPostSacrifice(newBoard); 
+              setPlayerWhoMadeQueenMove('white'); 
+              setPlayerToSacrificePawn('white'); 
+              setIsExtraTurnFromQueenMove(result.extraTurn || milestoneExtraTurn); 
+              // VERIFICATION FIX: Pass context to sacrifice check to handle conditional First Blood
+              setSpecialActionContext(prev => ({ ...prev, waitingForCommander: firstBloodThisTurn }));
+              setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); 
+            }
         }
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
-          if (!firstBloodAchieved && firstBloodThisTurn) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); setIsAwaitingCommanderPromotion(true); return; }
+          if (isAwaitingPawnSacrifice) return; // Wait for sacrifice logic to resolve turn
+
+          if (!firstBloodAchieved && firstBloodThisTurn) { 
+              // VERIFICATION FIX: Final check for pawns before entering commander choice
+              const remainingPawns = newBoard.flat().filter(sq => sq.piece?.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
+              if (remainingPawns.length === 0) {
+                setFirstBloodAchieved(true);
+                setPlayerWhoGotFirstBlood('white');
+                processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
+              } else {
+                setFirstBloodAchieved(true); 
+                setPlayerWhoGotFirstBlood('white'); 
+                setSpecialActionContext({ extra: result.extraTurn || milestoneExtraTurn }); 
+                setIsAwaitingCommanderPromotion(true); 
+              }
+              return; 
+          }
           if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
           if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || milestoneExtraTurn, nextEp);
         }, 800);
