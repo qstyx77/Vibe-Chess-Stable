@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -59,9 +58,9 @@ export function InventoryWindow({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <Card className="w-64 border-2 border-primary/50 shadow-2xl bg-card/95 backdrop-blur-sm">
+      <Card className="w-64 border-2 border-primary/50 shadow-2xl bg-black/90 backdrop-blur-md">
         <CardHeader 
-          className="p-2 border-b cursor-move bg-muted/50"
+          className="p-2 border-b cursor-move bg-muted/80"
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center justify-between">
@@ -91,13 +90,14 @@ export function InventoryWindow({
                       key={`${item.type}-${idx}`}
                       className={cn(
                         "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
-                        isSelected ? "border-accent bg-accent/20 scale-95 shadow-[inset_0_0_8px_rgba(255,255,255,0.1)]" : "border-border hover:border-primary/50 bg-muted/30"
+                        isSelected 
+                          ? "border-accent bg-accent/20 scale-95" 
+                          : "border-border hover:border-primary/50 bg-black/60"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      {/* Using fixed size to fill the slot area legibly */}
-                      <ItemSprite index={meta.spriteIndex} size={40} className="w-full h-full" />
+                      <ItemSprite x={meta.x} y={meta.y} size={45} className="w-full h-full" />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
                           x{item.count}
