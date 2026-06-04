@@ -480,7 +480,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   if (!isValidSquare(toRow, toCol)) return false;
 
-  const targetSquareState = board[toRow]?.[toCol];
+  const targetSquareState = board[toRow]?.[col];
   if (targetSquareState?.item && targetSquareState.item.type !== 'shroom') return false;
 
   const targetPieceOnSquare = targetSquareState?.piece;
@@ -1397,7 +1397,7 @@ export function processRookResurrectionCheck(
   const { row: rookR, col: rookC } = algebraicToCoords(rookSquareAfterMove);
   const rookOnBoard = boardWithResurrection[rookR]?.[rookC]?.piece;
 
-  if (!rookOnBoard || (rookOnBoard.type !== 'rook' && rookOnBoard.type !== 'palace') || rookOnBoard.color !== playerWhosePieceLeveled) {
+  if (!rookOnBoard || (rookOnBoard.type !== 'rook' && rookOnBoard.type !== 'palace' ) || rookOnBoard.color !== playerWhosePieceLeveled) {
     return { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed, newResurrectionIdCounter: nextResurrectionIdCounter };
   }
 

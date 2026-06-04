@@ -223,7 +223,7 @@ export default function EvolvingChessPage() {
   const [anvilDropAfterPromotion, setAnvilDropAfterPromotion] = useState(false);
 
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
-  const [shieldContext, setShieldContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
+  const [shieldContext, setShieldContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null, capturingPieceId?: string } | null>(null);
 
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
   const [archerSnipeContext, setArcherSnipeContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
