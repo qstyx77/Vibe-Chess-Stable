@@ -446,10 +446,29 @@ export default function DungeonPage() {
     setBoard(nextBoard);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
+
     const extraTurnFromPromo = (promotionPawnOriginalLevel || 1) >= 5;
     const oldStreak = killStreaks['white'];
-    processMoveEnd(nextBoard, 'white', extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6), null);
-  }, [board, promotionSquare, promotionPawnOriginalLevel, processMoveEnd, killStreaks]);
+    const isExtra = extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6);
+
+    // FIX: Check if we are still waiting for a Commander promotion, and if target still exists
+    let pendingCommander = isAwaitingCommanderPromotion;
+    if (pendingCommander) {
+        const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+        if (!hasL1Remaining) {
+            setIsAwaitingCommanderPromotion(false);
+            pendingCommander = false;
+        }
+    }
+
+    if (pendingCommander) {
+        // Keep the mode active. Update context for turn pass later.
+        setSpecialActionContext({ extra: isExtra });
+        return;
+    }
+
+    processMoveEnd(nextBoard, 'white', isExtra, null);
+  }, [board, promotionSquare, promotionPawnOriginalLevel, processMoveEnd, killStreaks, isAwaitingCommanderPromotion]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -542,7 +561,9 @@ export default function DungeonPage() {
               setIsAwaitingCommanderPromotion(false);
             }
 
-            processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
+            if (!isAwaitingCommanderPromotion) {
+                processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
+            }
         }
         return;
     }
@@ -554,7 +575,16 @@ export default function DungeonPage() {
             setCapturedPieces(prev => ({ ...prev, white: [...prev.white, piece] }));
             setIsAwaitingArcherSnipe(false);
             audioManager.playSnipe();
-            processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            
+            // RE-CHECK First Blood lock
+            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
+              setIsAwaitingCommanderPromotion(false);
+            }
+            
+            if (!isAwaitingCommanderPromotion) {
+                processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            }
         }
         return;
     }
@@ -565,7 +595,16 @@ export default function DungeonPage() {
             setBoard(nextBoard);
             setIsAwaitingHolyShield(false);
             audioManager.playShield();
-            processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            
+            // RE-CHECK First Blood lock
+            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
+              setIsAwaitingCommanderPromotion(false);
+            }
+
+            if (!isAwaitingCommanderPromotion) {
+                processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            }
         }
         return;
     }
@@ -576,13 +615,22 @@ export default function DungeonPage() {
             setBoard(nextBoard);
             setIsAwaitingAnvilDrop(false);
             audioManager.playAnvil();
-            processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            
+            // RE-CHECK First Blood lock
+            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
+              setIsAwaitingCommanderPromotion(false);
+            }
+
+            if (!isAwaitingCommanderPromotion) {
+                processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
+            }
         }
         return;
     }
     if (isAwaitingCommanderPromotion) {
         if (piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) {
-            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
             nextBoard[row][col].piece!.type = 'commander';
             nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
             setBoard(nextBoard);
@@ -708,8 +756,10 @@ export default function DungeonPage() {
               if (hasL1Targets) {
                   setSpecialActionContext({ extra: isExtra }); 
                   setIsAwaitingCommanderPromotion(true); 
+                  if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
                   return;
               } else {
+                  if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
                   processMoveEnd(newBoard, currentPlayer, isExtra, nextEp);
                   return;
               }
