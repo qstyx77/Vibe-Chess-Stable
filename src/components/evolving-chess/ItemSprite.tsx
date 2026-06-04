@@ -12,8 +12,8 @@ interface ItemSpriteProps {
 
 /**
  * Renders an item from the 1340x651 spritesheet.png.
- * Optimized for pixel-perfect alignment by using a fixed 10x10 viewport
- * and CSS scaling to prevent sub-pixel drift and rounding errors.
+ * Optimized for pixel-perfect alignment using a fixed 10x10 viewport.
+ * This eliminates the sub-pixel "drift" (black lines) seen in large sheets.
  */
 export function ItemSprite({ index, size = 10, className }: ItemSpriteProps) {
   const cols = 134;
@@ -21,7 +21,7 @@ export function ItemSprite({ index, size = 10, className }: ItemSpriteProps) {
   const col = index % cols;
   const row = Math.floor(index / cols);
 
-  // Full sheet dimensions at native 1x scale (10px units)
+  // Sheet dimensions at native 1x scale
   const sheetWidth = 1340;
   const sheetHeight = 650;
   
@@ -34,9 +34,10 @@ export function ItemSprite({ index, size = 10, className }: ItemSpriteProps) {
       }}
     >
       {/* 
-          Internal viewport is locked to native 10x10.
-          We use transform scale to fit it to the container 'size'.
-          This ensures the background-position stays on integer pixel boundaries.
+          10x10 FIXED VIEWPORT:
+          We render the sprite at exactly 10px and then scale the entire result.
+          This prevents the browser from doing fractional math on the background-position,
+          which is what causes the "bleeding" and "black lines".
       */}
       <div 
         style={{

@@ -90,14 +90,14 @@ export function InventoryWindow({
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
-                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden",
+                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
                         isSelected ? "border-accent bg-accent/20 scale-95 shadow-[inset_0_0_8px_rgba(255,255,255,0.1)]" : "border-border hover:border-primary/50 bg-muted/30"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      {/* Using w-full h-full to utilize the entire slot area */}
-                      <ItemSprite index={meta.spriteIndex} className="w-full h-full" />
+                      {/* Using fixed size to fill the slot area legibly */}
+                      <ItemSprite index={meta.spriteIndex} size={40} className="w-full h-full" />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
                           x{item.count}
