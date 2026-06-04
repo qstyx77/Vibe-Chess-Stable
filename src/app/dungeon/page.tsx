@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -879,7 +878,34 @@ export default function DungeonPage() {
           </div>
           <div className="w-full aspect-square">
             <ChessBoard
-              boardState={board} selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : selectedSquare} possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? [] : possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isInventoryOpen} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType}
+              boardState={board}
+              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield) ? null : selectedSquare}
+              possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield) ? [] : possibleMoves}
+              enemySelectedSquare={null}
+              enemyPossibleMoves={[]}
+              onSquareClick={handleSquareClick}
+              playerColor="white"
+              currentPlayerColor={currentPlayer}
+              isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isInventoryOpen}
+              playerInCheck={gameInfo.playerWithKingInCheck}
+              viewMode="flipping"
+              animatedSquareTo={animatedSquareTo}
+              lastMoveFrom={lastMoveFrom}
+              lastMoveTo={lastMoveTo}
+              isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+              playerToSacrificePawn={playerToSacrificePawn}
+              isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
+              playerToPromoteCommander={playerWhoGotFirstBlood}
+              isEnPassantTarget={enPassantTargetSquare}
+              onPieceHover={setPieceForInfoDisplay}
+              effects={effects}
+              promotingSquare={promotionSquare}
+              isAwaitingAnvilDrop={isAwaitingAnvilDrop}
+              playerToDropAnvil={currentPlayer === 'white' ? 'white' : null}
+              isAwaitingHolyShield={isAwaitingHolyShield}
+              isAwaitingArcherSnipe={isAwaitingArcherSnipe}
+              isInventoryOpen={isInventoryOpen}
+              selectedInventoryItemType={selectedInventoryItemType}
             />
           </div>
         </div>
