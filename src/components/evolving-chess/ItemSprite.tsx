@@ -27,7 +27,7 @@ export function ItemSprite({ index, size = 10, className }: ItemSpriteProps) {
   
   return (
     <div 
-      className={cn("shrink-0 overflow-hidden flex items-center justify-center bg-white/10", className)}
+      className={cn("shrink-0 overflow-hidden flex items-center justify-center bg-transparent", className)}
       style={{
         width: `${size}px`,
         height: `${size}px`,
