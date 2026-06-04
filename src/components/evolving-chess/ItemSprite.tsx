@@ -14,7 +14,7 @@ interface ItemSpriteProps {
 
 /**
  * PIXEL-PERFECT 10x10 VIEWPORT:
- * This component renders a tiny 10x10 viewport that locks to the integer grid of the spritesheet.
+ * This component renders a tiny 10x10 pixel viewport that locks to the integer grid of the spritesheet.
  * It then uses CSS scale to blow the image up. This prevents "sub-pixel drift" 
  * where the browser rounds the background position and causes black lines or bleeding.
  */
