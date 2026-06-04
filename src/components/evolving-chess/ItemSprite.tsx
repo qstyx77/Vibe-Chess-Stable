@@ -8,63 +8,47 @@ interface ItemSpriteProps {
   y?: number;
   size?: number;
   className?: string;
-  // Fallback for old code still passing index
+  // Legacy support
   index?: number; 
 }
 
 /**
- * PIXEL-PERFECT 10x10 VIEWPORT:
- * This component renders a tiny 10x10 pixel viewport that locks to the integer grid of the spritesheet.
- * It then uses CSS scale to blow the image up. This prevents "sub-pixel drift" 
- * where the browser rounds the background position and causes black lines or bleeding.
+ * PIXEL-PERFECT BACKGROUND SCALING:
+ * This technique locks the background size and position to integer multiples
+ * of the source coordinates. This prevents the browser from doing fractional
+ * math which causes sub-pixel drift, blurry edges, or neighboring sprite bleeding.
  */
 export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProps) {
   let finalX = x ?? 0;
   let finalY = y ?? 0;
 
-  // Handle legacy index-based calls
+  // Handle legacy index-based calls for safety
   if (index !== undefined && x === undefined) {
     const cols = 134;
     finalX = (index % cols) * 10;
     finalY = Math.floor(index / cols) * 10;
   }
 
-  // Calculate the scale needed to reach the desired size
+  // Calculate the scale factor (e.g., 4.5 for size 45)
   const scale = size / 10;
+  
+  // Sheet dimensions at native 1x resolution
+  const sheetWidth = 1340;
+  const sheetHeight = 651;
 
   return (
     <div 
-      className={cn("shrink-0 flex items-center justify-center bg-transparent overflow-hidden", className)}
+      className={cn("shrink-0", className)}
       style={{
         width: `${size}px`,
         height: `${size}px`,
+        backgroundImage: 'url(/images/spritesheet.png)',
+        // Lock background size and position to exact pixel values at the current scale
+        backgroundPosition: `-${finalX * scale}px -${finalY * scale}px`,
+        backgroundSize: `${sheetWidth * scale}px ${sheetHeight * scale}px`,
+        backgroundRepeat: 'no-repeat',
+        imageRendering: 'pixelated',
       }}
-    >
-      <div 
-        style={{
-          width: '10px',
-          height: '10px',
-          transform: `scale(${scale})`,
-          transformOrigin: 'center',
-          flexShrink: 0,
-          position: 'relative',
-        }}
-      >
-        <div 
-          style={{
-            position: 'absolute',
-            width: '1340px',
-            height: '651px',
-            left: `-${finalX}px`,
-            top: `-${finalY}px`,
-            backgroundImage: 'url(/images/spritesheet.png)',
-            backgroundRepeat: 'no-repeat',
-            imageRendering: 'pixelated',
-            backgroundColor: 'transparent',
-            pointerEvents: 'none',
-          }}
-        />
-      </div>
-    </div>
+    />
   );
 }

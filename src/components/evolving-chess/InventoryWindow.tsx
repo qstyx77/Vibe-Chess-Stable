@@ -92,7 +92,7 @@ export function InventoryWindow({
                         "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
                         isSelected 
                           ? "border-accent bg-accent/20 scale-95" 
-                          : "border-border hover:border-primary/50 bg-[#0a0a0a]"
+                          : "border-border hover:border-primary/50 bg-black"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
