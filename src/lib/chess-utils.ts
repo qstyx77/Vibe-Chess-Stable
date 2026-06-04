@@ -942,7 +942,7 @@ export function applyMove(
     }
 
     if (move.type === 'enpassant') {
-        pieceNowToSquare.type = 'infiltrator';
+        pieceNowOnToSquare.type = 'infiltrator';
     } else if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
         pieceNowOnToSquare.type = 'commander';
         pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;

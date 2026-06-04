@@ -504,7 +504,7 @@ export default function EvolvingChessPage() {
     setPlayerToPromote(null);
     setPromotionMoveWasCapture(false);
     setPromotionPawnOriginalLevel(null);
-    setKillStreaks({ white: number, black: number } = { white: 0, black: 0 });
+    setKillStreaks({ white: 0, black: 0 });
     setHistoryStack([]);
     setLastMoveFrom(null);
     setLastMoveTo(null);
@@ -2450,6 +2450,7 @@ export default function EvolvingChessPage() {
       let aiBecameInfiltrator = false;
       let aiGameWonByInfiltration = false;
       let aiExtraTurn = false;
+      let sacrificeNeededForAIQueen = false;
       
 
 
@@ -2900,7 +2901,6 @@ export default function EvolvingChessPage() {
               const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
 
               let extraTurnForThisAIMove = aiExtraTurn || (oldStreakForAI < 6 && newStreakForAI >= 6);
-              let sacrificeNeededForAIQueen = false;
 
               const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
 

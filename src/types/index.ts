@@ -41,8 +41,7 @@ export interface ItemMetadata {
 
 /**
  * ITEM METADATA MAPPING (Precise 134x65 mapping)
- * Shifted to higher rows to avoid creature/NPC blocks.
- * Index = Row * 134 + Column (0-indexed)
+ * Shifted to equipment blocks (Rows 48-62) to ensure they are visually appropriate.
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   // Potions Cluster (Row 48)

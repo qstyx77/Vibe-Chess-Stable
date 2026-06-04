@@ -872,7 +872,9 @@ export default function DungeonPage() {
                     const { row: cR, col: cC } = algebraicToCoords(sq.algebraic);
                     for (let dr = -1; dr <= 1; dr++) {
                         for (let dc = -1; dc <= 1; dc++) {
-                            if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+                            if (isValidSquare(cR + dr, cC + dc)) {
+                                addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+                            }
                         }
                     }
                 });
