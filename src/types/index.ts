@@ -41,65 +41,66 @@ export interface ItemMetadata {
 
 /**
  * ITEM METADATA MAPPING (Precise 134x65 mapping)
+ * Shifted to higher rows to avoid creature/NPC blocks.
  * Index = Row * 134 + Column (0-indexed)
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
-  // Potions Cluster (Row 14)
-  'health_potion': { name: 'Health Potion', description: 'Restores health points.', spriteIndex: 14 * 134 + 0, isConsumable: true },
-  'mana_potion': { name: 'Mana Potion', description: 'Restores magical energy.', spriteIndex: 14 * 134 + 1, isConsumable: true },
-  'speed_potion': { name: 'Haste Potion', description: 'Temporarily increases movement.', spriteIndex: 14 * 134 + 2, isConsumable: true },
+  // Potions Cluster (Row 48)
+  'health_potion': { name: 'Health Potion', description: 'Restores health points.', spriteIndex: 48 * 134 + 0, isConsumable: true },
+  'mana_potion': { name: 'Mana Potion', description: 'Restores magical energy.', spriteIndex: 48 * 134 + 1, isConsumable: true },
+  'speed_potion': { name: 'Haste Potion', description: 'Temporarily increases movement.', spriteIndex: 48 * 134 + 2, isConsumable: true },
   
-  // Food Cluster (Row 16)
-  'apple': { name: 'Crisp Apple', description: 'A refreshing snack.', spriteIndex: 16 * 134 + 0, isConsumable: true },
-  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', spriteIndex: 16 * 134 + 1, isConsumable: true },
-  'cheese': { name: 'Cave Cheese', description: 'Aged to perfection.', spriteIndex: 16 * 134 + 2, isConsumable: true },
-  'steak': { name: 'Grizzly Steak', description: 'Strength-boosting meal.', spriteIndex: 16 * 134 + 3, isConsumable: true },
-  'bread': { name: 'Elven Bread', description: 'Stays fresh for weeks.', spriteIndex: 16 * 134 + 4, isConsumable: true },
+  // Food Cluster (Row 50)
+  'apple': { name: 'Crisp Apple', description: 'A refreshing snack.', spriteIndex: 50 * 134 + 0, isConsumable: true },
+  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', spriteIndex: 50 * 134 + 1, isConsumable: true },
+  'cheese': { name: 'Cave Cheese', description: 'Aged to perfection.', spriteIndex: 50 * 134 + 2, isConsumable: true },
+  'steak': { name: 'Grizzly Steak', description: 'Strength-boosting meal.', spriteIndex: 50 * 134 + 3, isConsumable: true },
+  'bread': { name: 'Elven Bread', description: 'Stays fresh for weeks.', spriteIndex: 50 * 134 + 4, isConsumable: true },
   
-  // Special Scrolls & Items (Row 20)
-  'fireball_scroll': { name: 'Fireball Scroll', description: 'Consumable spell tome.', spriteIndex: 20 * 134 + 0, isConsumable: true },
-  'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit once.', spriteIndex: 20 * 134 + 1, isConsumable: true },
-  'portal_scroll_10': { name: 'F10 Portal', description: 'Skip to Floor 10 Hydra.', spriteIndex: 20 * 134 + 2, isConsumable: true },
-  'portal_scroll_20': { name: 'F20 Portal', description: 'Skip to Floor 20 Necro.', spriteIndex: 20 * 134 + 3, isConsumable: true },
-  'portal_scroll_30': { name: 'F30 Portal', description: 'Skip to Floor 30 Colossus.', spriteIndex: 20 * 134 + 4, isConsumable: true },
-  'portal_scroll_40': { name: 'F40 Portal', description: 'Skip to Floor 40 Mirage.', spriteIndex: 20 * 134 + 5, isConsumable: true },
-  'grenade': { name: 'Black Powder Grenade', description: 'Explosive damage.', spriteIndex: 20 * 134 + 6, isConsumable: true },
-  'bomb': { name: 'Mega Bomb', description: 'Large area destruction.', spriteIndex: 20 * 134 + 7, isConsumable: true },
+  // Special Scrolls & Items (Row 54)
+  'fireball_scroll': { name: 'Fireball Scroll', description: 'Consumable spell tome.', spriteIndex: 54 * 134 + 0, isConsumable: true },
+  'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit once.', spriteIndex: 54 * 134 + 1, isConsumable: true },
+  'portal_scroll_10': { name: 'F10 Portal', description: 'Skip to Floor 10 Hydra.', spriteIndex: 54 * 134 + 2, isConsumable: true },
+  'portal_scroll_20': { name: 'F20 Portal', description: 'Skip to Floor 20 Necro.', spriteIndex: 54 * 134 + 3, isConsumable: true },
+  'portal_scroll_30': { name: 'F30 Portal', description: 'Skip to Floor 30 Colossus.', spriteIndex: 54 * 134 + 4, isConsumable: true },
+  'portal_scroll_40': { name: 'F40 Portal', description: 'Skip to Floor 40 Mirage.', spriteIndex: 54 * 134 + 5, isConsumable: true },
+  'grenade': { name: 'Black Powder Grenade', description: 'Explosive damage.', spriteIndex: 54 * 134 + 6, isConsumable: true },
+  'bomb': { name: 'Mega Bomb', description: 'Large area destruction.', spriteIndex: 54 * 134 + 7, isConsumable: true },
 
-  // Armor Cluster (Row 22)
-  'plate_armor': { name: 'Full Plate', description: 'Maximized body protection.', spriteIndex: 22 * 134 + 0, isConsumable: false },
-  'iron_helmet': { name: 'Iron Helmet', description: 'Basic head protection.', spriteIndex: 22 * 134 + 1, isConsumable: false },
-  'knight_helmet': { name: 'Knight\'s Greathelm', description: 'Heavy head protection.', spriteIndex: 22 * 134 + 2, isConsumable: false },
-  'wizard_robe': { name: 'Arcane Robe', description: 'Boosts magical potency.', spriteIndex: 22 * 134 + 3, isConsumable: false },
-  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', spriteIndex: 22 * 134 + 4, isConsumable: false },
-  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', spriteIndex: 22 * 134 + 5, isConsumable: false },
+  // Armor Cluster (Row 52)
+  'plate_armor': { name: 'Full Plate', description: 'Maximized body protection.', spriteIndex: 52 * 134 + 0, isConsumable: false },
+  'iron_helmet': { name: 'Iron Helmet', description: 'Basic head protection.', spriteIndex: 52 * 134 + 1, isConsumable: false },
+  'knight_helmet': { name: 'Knight\'s Greathelm', description: 'Heavy head protection.', spriteIndex: 52 * 134 + 2, isConsumable: false },
+  'wizard_robe': { name: 'Arcane Robe', description: 'Boosts magical potency.', spriteIndex: 52 * 134 + 3, isConsumable: false },
+  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', spriteIndex: 52 * 134 + 4, isConsumable: false },
+  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', spriteIndex: 52 * 134 + 5, isConsumable: false },
   
-  // Shields Cluster (Row 26)
-  'wooden_shield': { name: 'Buckler', description: 'Lightweight defense.', spriteIndex: 26 * 134 + 0, isConsumable: false },
-  'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', spriteIndex: 26 * 134 + 1, isConsumable: false },
-  'spiked_shield': { name: 'Spiked Shield', description: 'Deals damage when attacked.', spriteIndex: 26 * 134 + 2, isConsumable: false },
-  'mirror_shield': { name: 'Mirror Shield', description: 'One-time capture reflection.', spriteIndex: 26 * 134 + 3, isConsumable: true },
+  // Shields Cluster (Row 53)
+  'wooden_shield': { name: 'Buckler', description: 'Lightweight defense.', spriteIndex: 53 * 134 + 0, isConsumable: false },
+  'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', spriteIndex: 53 * 134 + 1, isConsumable: false },
+  'spiked_shield': { name: 'Spiked Shield', description: 'Deals damage when attacked.', spriteIndex: 53 * 134 + 2, isConsumable: false },
+  'mirror_shield': { name: 'Mirror Shield', description: 'One-time capture reflection.', spriteIndex: 53 * 134 + 3, isConsumable: true },
 
-  // Weapons Cluster (Row 32)
-  'iron_sword': { name: 'Iron Sword', description: 'Standard infantry blade.', spriteIndex: 32 * 134 + 0, isConsumable: false },
-  'claymore': { name: 'Claymore', description: 'Massive two-handed sword.', spriteIndex: 32 * 134 + 1, isConsumable: false },
-  'battle_axe': { name: 'Battle Axe', description: 'Cleaves through armor.', spriteIndex: 32 * 134 + 2, isConsumable: false },
-  'mace': { name: 'Iron Mace', description: 'Blunt force.', spriteIndex: 32 * 134 + 3, isConsumable: false },
-  'morning_star': { name: 'Morning Star', description: 'Spiked crushing weapon.', spriteIndex: 32 * 134 + 4, isConsumable: false },
-  'long_bow': { name: 'Long Bow', description: 'Standard ranged weapon.', spriteIndex: 32 * 134 + 5, isConsumable: false },
-  'crossbow': { name: 'Heavy Crossbow', description: 'Armor-piercing.', spriteIndex: 32 * 134 + 6, isConsumable: false },
+  // Weapons Cluster (Row 56)
+  'iron_sword': { name: 'Iron Sword', description: 'Standard infantry blade.', spriteIndex: 56 * 134 + 0, isConsumable: false },
+  'claymore': { name: 'Claymore', description: 'Massive two-handed sword.', spriteIndex: 56 * 134 + 1, isConsumable: false },
+  'battle_axe': { name: 'Battle Axe', description: 'Cleaves through armor.', spriteIndex: 56 * 134 + 2, isConsumable: false },
+  'mace': { name: 'Iron Mace', description: 'Blunt force.', spriteIndex: 56 * 134 + 3, isConsumable: false },
+  'morning_star': { name: 'Morning Star', description: 'Spiked crushing weapon.', spriteIndex: 56 * 134 + 4, isConsumable: false },
+  'long_bow': { name: 'Long Bow', description: 'Standard ranged weapon.', spriteIndex: 56 * 134 + 5, isConsumable: false },
+  'crossbow': { name: 'Heavy Crossbow', description: 'Armor-piercing.', spriteIndex: 56 * 134 + 6, isConsumable: false },
   
-  // Magic Cluster (Row 36)
-  'magic_staff': { name: 'Crystal Staff', description: 'Magical focus.', spriteIndex: 36 * 134 + 0, isConsumable: false },
-  'wand': { name: 'Elder Wand', description: 'Quick-cast focus.', spriteIndex: 36 * 134 + 1, isConsumable: false },
+  // Magic Cluster (Row 58)
+  'magic_staff': { name: 'Crystal Staff', description: 'Magical focus.', spriteIndex: 58 * 134 + 0, isConsumable: false },
+  'wand': { name: 'Elder Wand', description: 'Quick-cast focus.', spriteIndex: 58 * 134 + 1, isConsumable: false },
   
   // Misc Tools & Accessories
-  'shovel': { name: 'Sturdy Shovel', description: 'Useful for digging.', spriteIndex: 40 * 134 + 0, isConsumable: false },
-  'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks through obstacles.', spriteIndex: 40 * 134 + 1, isConsumable: false },
-  'torch': { name: 'Everlasting Torch', description: 'Illuminates the dark.', spriteIndex: 40 * 134 + 2, isConsumable: false },
-  'gold_ring': { name: 'Gold Ring', description: 'A sign of wealth.', spriteIndex: 44 * 134 + 0, isConsumable: false },
-  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', spriteIndex: 44 * 134 + 1, isConsumable: false },
-  'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', spriteIndex: 44 * 134 + 2, isConsumable: false },
+  'shovel': { name: 'Sturdy Shovel', description: 'Useful for digging.', spriteIndex: 60 * 134 + 0, isConsumable: false },
+  'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks through obstacles.', spriteIndex: 60 * 134 + 1, isConsumable: false },
+  'torch': { name: 'Everlasting Torch', description: 'Illuminates the dark.', spriteIndex: 60 * 134 + 2, isConsumable: false },
+  'gold_ring': { name: 'Gold Ring', description: 'A sign of wealth.', spriteIndex: 62 * 134 + 0, isConsumable: false },
+  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', spriteIndex: 62 * 134 + 1, isConsumable: false },
+  'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', spriteIndex: 62 * 134 + 2, isConsumable: false },
 };
 
 export interface Piece {

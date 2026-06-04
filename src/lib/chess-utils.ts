@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -941,7 +942,7 @@ export function applyMove(
     }
 
     if (move.type === 'enpassant') {
-        pieceNowOnToSquare.type = 'infiltrator';
+        pieceNowToSquare.type = 'infiltrator';
     } else if (movingPieceOriginalRef.type === 'pawn' && capturedPiece.type === 'commander') {
         pieceNowOnToSquare.type = 'commander';
         pieceNowOnToSquare.id = `${pieceNowOnToSquare.id}_CmdrByCapture`;

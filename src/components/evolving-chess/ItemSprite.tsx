@@ -12,38 +12,37 @@ interface ItemSpriteProps {
 
 /**
  * Renders an item from the 1340x651 spritesheet.png.
- * Recalibrated for a high-density 134x65 grid (10x10px icons).
- * Uses absolute-positioned image shifting for mathematical accuracy and perfect centering.
+ * Optimized for pixel-perfect 10x10 icons using exact pixel units to avoid sub-pixel drift.
  */
-export function ItemSprite({ index, size, className }: ItemSpriteProps) {
+export function ItemSprite({ index, size = 10, className }: ItemSpriteProps) {
   const cols = 134;
-  const rows = 65;
   
   const col = index % cols;
   const row = Math.floor(index / cols);
 
-  // If no size is provided, we assume it fills the parent container.
-  // The image needs to be (cols * 100)% wide to make each sprite take exactly the container width.
+  // Using background-position with exact pixel values to prevent technically-induced drift.
+  // We set background-size to the full sheet dimensions scaled to our target sprite size.
+  // Full sheet: 1340 x 651 (134 x 65 units of 10px each)
+  const sheetWidth = 1340;
+  const sheetHeight = 651;
+  
+  // To scale the sprite to the requested size while maintaining alignment,
+  // we use a transform: scale if the size is not 10.
+  const scale = size / 10;
+
   return (
     <div 
-      className={cn("relative shrink-0 overflow-hidden bg-white", className)}
+      className={cn("shrink-0 overflow-hidden bg-white", className)}
       style={{
-        width: size ? `${size}px` : '100%',
-        height: size ? `${size}px` : '100%',
+        width: '10px',
+        height: '10px',
+        backgroundImage: 'url(/images/spritesheet.png)',
+        backgroundPosition: `-${col * 10}px -${row * 10}px`,
+        backgroundSize: `${sheetWidth}px ${sheetHeight}px`,
+        imageRendering: 'pixelated',
+        transform: `scale(${scale})`,
+        transformOrigin: 'top left',
       }}
-    >
-      <img
-        src="/images/spritesheet.png"
-        alt=""
-        className="absolute max-w-none"
-        style={{
-          width: `${cols * 100}%`,
-          height: `${rows * 100}%`,
-          left: `-${col * 100}%`,
-          top: `-${row * 100}%`,
-          imageRendering: 'pixelated',
-        }}
-      />
-    </div>
+    />
   );
 }

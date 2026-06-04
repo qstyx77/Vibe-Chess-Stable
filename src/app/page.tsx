@@ -504,7 +504,7 @@ export default function EvolvingChessPage() {
     setPlayerToPromote(null);
     setPromotionMoveWasCapture(false);
     setPromotionPawnOriginalLevel(null);
-    setKillStreaks({ white: 0, black: 0 });
+    setKillStreaks({ white: number, black: number } = { white: 0, black: 0 });
     setHistoryStack([]);
     setLastMoveFrom(null);
     setLastMoveTo(null);

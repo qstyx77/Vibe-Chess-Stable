@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -945,7 +946,7 @@ export default function DungeonPage() {
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
-              playerToPromoteCommander={playerWhoGotFirstBlood}
+              playerToPromoteCommander={playerWhoGotFirstBlood === 'white' ? 'white' : null}
               isEnPassantTarget={enPassantTargetSquare}
               onPieceHover={setPieceForInfoDisplay}
               effects={effects}
