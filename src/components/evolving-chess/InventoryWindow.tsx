@@ -58,9 +58,9 @@ export function InventoryWindow({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      <Card className="w-64 border-2 border-primary/50 shadow-2xl bg-black/90 backdrop-blur-md">
+      <Card className="w-72 border-2 border-primary/50 shadow-2xl bg-black backdrop-blur-none">
         <CardHeader 
-          className="p-2 border-b cursor-move bg-muted/80"
+          className="p-2 border-b cursor-move bg-[#1a1a1a]"
           onMouseDown={handleMouseDown}
         >
           <div className="flex items-center justify-between">
@@ -73,7 +73,7 @@ export function InventoryWindow({
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-2">
+        <CardContent className="p-3 bg-black">
           <ScrollArea className="h-48 pr-2">
             <div className="grid grid-cols-4 gap-2">
               {inventory.length === 0 ? (
@@ -92,7 +92,7 @@ export function InventoryWindow({
                         "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
                         isSelected 
                           ? "border-accent bg-accent/20 scale-95" 
-                          : "border-border hover:border-primary/50 bg-black/60"
+                          : "border-border hover:border-primary/50 bg-[#0a0a0a]"
                       )}
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
@@ -111,7 +111,7 @@ export function InventoryWindow({
           </ScrollArea>
           
           {selectedItemType && (
-            <div className="mt-2 p-1.5 bg-accent/10 border border-accent/30 rounded-sm animate-in fade-in slide-in-from-bottom-1">
+            <div className="mt-2 p-2 bg-[#111] border border-accent/30 rounded-none animate-in fade-in slide-in-from-bottom-1">
               <p className="text-[10px] font-bold text-accent uppercase leading-none mb-1">
                 {ITEM_METADATA[selectedItemType].name}
               </p>

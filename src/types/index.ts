@@ -34,77 +34,75 @@ export interface InventoryItem {
 export interface ItemMetadata {
   name: string;
   description: string;
-  x: number; // Exact pixel X on 1340px sheet
-  y: number; // Exact pixel Y on sheet
+  x: number;
+  y: number;
   isConsumable: boolean;
 }
 
 /**
- * ITEM METADATA COORDINATE MAPPING
- * Locked to 10px grid.
- * Equipment block resides in Panel 1 (Rows 32-40).
+ * RECALIBRATED METADATA:
+ * Recalibrated to the Item/Equipment block (Rows 5-10) to avoid terrain/monster sections.
+ * Using Panel 1 (X: 0-330) and Panel 2 (X: 340-670) standard coordinates.
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
-  // Consumables & Potions (Row 32)
-  'health_potion': { name: 'Health Potion', description: 'Restores health points.', x: 0, y: 320, isConsumable: true },
-  'mana_potion': { name: 'Mana Potion', description: 'Restores magical energy.', x: 10, y: 320, isConsumable: true },
-  'speed_potion': { name: 'Haste Potion', description: 'Increases movement.', x: 20, y: 320, isConsumable: true },
-  
-  // Food (Row 32)
-  'apple': { name: 'Crisp Apple', description: 'A refreshing snack.', x: 100, y: 320, isConsumable: true },
-  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', x: 140, y: 320, isConsumable: true },
-  'cheese': { name: 'Cave Cheese', description: 'Aged to perfection.', x: 120, y: 320, isConsumable: true },
-  'steak': { name: 'Grizzly Steak', description: 'Strength-boosting meal.', x: 130, y: 320, isConsumable: true },
-  'bread': { name: 'Elven Bread', description: 'Stays fresh for weeks.', x: 110, y: 320, isConsumable: true },
-  
-  // Armor (Row 33)
-  'plate_armor': { name: 'Full Plate', description: 'Maximized protection.', x: 0, y: 330, isConsumable: false },
-  'iron_helmet': { name: 'Iron Helmet', description: 'Basic head protection.', x: 10, y: 330, isConsumable: false },
-  'knight_helmet': { name: 'Greathelm', description: 'Heavy head protection.', x: 20, y: 330, isConsumable: false },
-  'wizard_robe': { name: 'Arcane Robe', description: 'Boosts magical potency.', x: 30, y: 330, isConsumable: false },
-  'swift_cloak': { name: 'Swift Cloak', description: 'Pawn can move 2 spaces from any rank.', x: 40, y: 330, isConsumable: false },
-  'passive_armor': { name: 'Heavy Armor', description: 'Immune to Push-Back effects.', x: 50, y: 330, isConsumable: false },
-  
-  // Shields (Row 34)
-  'wooden_shield': { name: 'Buckler', description: 'Lightweight defense.', x: 0, y: 340, isConsumable: false },
-  'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', x: 10, y: 340, isConsumable: false },
-  'spiked_shield': { name: 'Spiked Shield', description: 'Deals damage when attacked.', x: 20, y: 340, isConsumable: false },
-  'mirror_shield': { name: 'Mirror Shield', description: 'One-time capture reflection.', x: 30, y: 340, isConsumable: true },
+  // Potions & Scrolls (Panel 1, Row 5)
+  'health_potion': { name: 'Health Potion', description: 'Restores vitality.', x: 0, y: 50, isConsumable: true },
+  'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', x: 10, y: 50, isConsumable: true },
+  'speed_potion': { name: 'Haste Potion', description: 'Move twice.', x: 20, y: 50, isConsumable: true },
+  'fireball_scroll': { name: 'Fireball Scroll', description: 'Explosive magic.', x: 30, y: 50, isConsumable: true },
+  'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit.', x: 40, y: 50, isConsumable: true },
 
-  // Weapons (Row 35)
-  'iron_sword': { name: 'Iron Sword', description: 'Standard infantry blade.', x: 0, y: 350, isConsumable: false },
-  'claymore': { name: 'Claymore', description: 'Massive two-handed sword.', x: 10, y: 350, isConsumable: false },
-  'battle_axe': { name: 'Battle Axe', description: 'Cleaves through armor.', x: 20, y: 350, isConsumable: false },
-  'mace': { name: 'Iron Mace', description: 'Blunt force.', x: 30, y: 350, isConsumable: false },
-  'morning_star': { name: 'Morning Star', description: 'Spiked crushing weapon.', x: 40, y: 350, isConsumable: false },
+  // Food (Panel 1, Row 6)
+  'apple': { name: 'Crisp Apple', description: 'Quick snack.', x: 0, y: 60, isConsumable: true },
+  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', x: 10, y: 60, isConsumable: true },
+  'cheese': { name: 'Cave Cheese', description: 'Aged well.', x: 20, y: 60, isConsumable: true },
+  'steak': { name: 'Grizzly Steak', description: 'Power food.', x: 30, y: 60, isConsumable: true },
+  'bread': { name: 'Elven Bread', description: 'Sustenance.', x: 40, y: 60, isConsumable: true },
   
-  // Ranged & Magic (Row 37)
-  'long_bow': { name: 'Long Bow', description: 'Standard ranged weapon.', x: 20, y: 370, isConsumable: false },
-  'crossbow': { name: 'Heavy Crossbow', description: 'Armor-piercing.', x: 30, y: 370, isConsumable: false },
-  'magic_staff': { name: 'Crystal Staff', description: 'Magical focus.', x: 0, y: 370, isConsumable: false },
-  'wand': { name: 'Elder Wand', description: 'Quick-cast focus.', x: 10, y: 370, isConsumable: false },
+  // Armor (Panel 2, Row 5)
+  'plate_armor': { name: 'Full Plate', description: 'Solid protection.', x: 340, y: 50, isConsumable: false },
+  'iron_helmet': { name: 'Iron Helmet', description: 'Head guard.', x: 350, y: 50, isConsumable: false },
+  'knight_helmet': { name: 'Greathelm', description: 'Heavy guard.', x: 360, y: 50, isConsumable: false },
+  'wizard_robe': { name: 'Arcane Robe', description: 'Magic boost.', x: 370, y: 50, isConsumable: false },
+  'swift_cloak': { name: 'Swift Cloak', description: 'Move 2 spaces.', x: 380, y: 50, isConsumable: false },
+  'passive_armor': { name: 'Heavy Armor', description: 'Push-Back immunity.', x: 390, y: 50, isConsumable: false },
   
-  // Scrolls (Row 32)
-  'fireball_scroll': { name: 'Fireball Scroll', description: 'Consumable spell tome.', x: 300, y: 320, isConsumable: true },
-  'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit once.', x: 310, y: 320, isConsumable: true },
-  'portal_scroll_10': { name: 'F10 Portal', description: 'Skip to Floor 10.', x: 320, y: 320, isConsumable: true },
-  'portal_scroll_20': { name: 'F20 Portal', description: 'Skip to Floor 20.', x: 330, y: 320, isConsumable: true },
-  'portal_scroll_30': { name: 'F30 Portal', description: 'Skip to Floor 30.', x: 340, y: 320, isConsumable: true },
-  'portal_scroll_40': { name: 'F40 Portal', description: 'Skip to Floor 40.', x: 350, y: 320, isConsumable: true },
-  
-  // Explosives (Row 36)
-  'grenade': { name: 'Grenade', description: 'Explosive damage.', x: 0, y: 360, isConsumable: true },
-  'bomb': { name: 'Mega Bomb', description: 'Large area destruction.', x: 10, y: 360, isConsumable: true },
+  // Shields (Panel 2, Row 6)
+  'wooden_shield': { name: 'Buckler', description: 'Light defense.', x: 340, y: 60, isConsumable: false },
+  'iron_shield': { name: 'Kite Shield', description: 'Solid defense.', x: 350, y: 60, isConsumable: false },
+  'spiked_shield': { name: 'Spiked Shield', description: 'Thorny defense.', x: 360, y: 60, isConsumable: false },
+  'mirror_shield': { name: 'Mirror Shield', description: 'Reflects captures.', x: 370, y: 60, isConsumable: true },
 
-  // Tools (Row 38)
-  'shovel': { name: 'Sturdy Shovel', description: 'Useful for digging.', x: 0, y: 380, isConsumable: false },
-  'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks through obstacles.', x: 10, y: 380, isConsumable: false },
-  'torch': { name: 'Everlasting Torch', description: 'Illuminates the dark.', x: 20, y: 380, isConsumable: false },
+  // Weapons (Panel 2, Row 7)
+  'iron_sword': { name: 'Iron Sword', description: 'Standard blade.', x: 340, y: 70, isConsumable: false },
+  'claymore': { name: 'Claymore', description: 'Heavy blade.', x: 350, y: 70, isConsumable: false },
+  'battle_axe': { name: 'Battle Axe', description: 'Cleaving edge.', x: 360, y: 70, isConsumable: false },
+  'mace': { name: 'Iron Mace', description: 'Blunt force.', x: 370, y: 70, isConsumable: false },
+  'morning_star': { name: 'Morning Star', description: 'Spiked crush.', x: 380, y: 70, isConsumable: false },
   
-  // Jewelry (Row 39)
-  'gold_ring': { name: 'Gold Ring', description: 'A sign of wealth.', x: 0, y: 390, isConsumable: false },
-  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', x: 10, y: 390, isConsumable: false },
-  'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', x: 20, y: 390, isConsumable: false },
+  // Portals & Meta (Panel 1, Row 7)
+  'portal_scroll_10': { name: 'F10 Portal', description: 'Warp to Floor 10.', x: 0, y: 70, isConsumable: true },
+  'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', x: 10, y: 70, isConsumable: true },
+  'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', x: 20, y: 70, isConsumable: true },
+  'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', x: 30, y: 70, isConsumable: true },
+  
+  // Misc Tools (Panel 1, Row 8)
+  'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks blocks.', x: 0, y: 80, isConsumable: false },
+  'shovel': { name: 'Sturdy Shovel', description: 'For digging.', x: 10, y: 80, isConsumable: false },
+  'torch': { name: 'Everlasting Torch', description: 'Lights the way.', x: 20, y: 80, isConsumable: false },
+  'grenade': { name: 'Grenade', description: 'Explosive.', x: 30, y: 80, isConsumable: true },
+  'bomb': { name: 'Mega Bomb', description: 'Large blast.', x: 40, y: 80, isConsumable: true },
+
+  // Equipment Cont. (Panel 2, Row 8)
+  'long_bow': { name: 'Long Bow', description: 'Ranged attack.', x: 340, y: 80, isConsumable: false },
+  'crossbow': { name: 'Heavy Crossbow', description: 'Piercing bolts.', x: 350, y: 80, isConsumable: false },
+  'magic_staff': { name: 'Crystal Staff', description: 'Mana focus.', x: 360, y: 80, isConsumable: false },
+  'wand': { name: 'Elder Wand', description: 'Quick cast.', x: 370, y: 80, isConsumable: false },
+  
+  // Jewelry (Panel 2, Row 9)
+  'gold_ring': { name: 'Gold Ring', description: 'Valuable.', x: 340, y: 90, isConsumable: false },
+  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resist.', x: 350, y: 90, isConsumable: false },
+  'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', x: 360, y: 90, isConsumable: false },
 };
 
 export interface Piece {
