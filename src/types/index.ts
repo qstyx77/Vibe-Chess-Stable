@@ -50,9 +50,9 @@ export interface ItemMetadata {
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   // Potions (Row 36 - Y:432)
-  'health_potion': { name: 'Health Potion', description: 'Restores vitality.', x: 750, y: 432, isConsumable: true },
-  'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', x: 740, y: 432, isConsumable: true },
-  'speed_potion': { name: 'Haste Potion', description: 'Move twice.', x: 770, y: 432, isConsumable: true },
+  'health_potion': { name: 'Health Potion', description: 'Restores vitality.', x: 700, y: 432, isConsumable: true },
+  'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', x: 680, y: 432, isConsumable: true },
+  'speed_potion': { name: 'Haste Potion', description: 'Move twice.', x: 710, y: 432, isConsumable: true },
   
   // Food (Row 37 - Y:444)
   'apple': { name: 'Crisp Apple', description: 'Quick snack.', x: 680, y: 444, isConsumable: true },
