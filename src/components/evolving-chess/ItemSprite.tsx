@@ -11,13 +11,13 @@ interface ItemSpriteProps {
 }
 
 /**
- * HIGH-PRECISION ABSOLUTE TRANSLATION RENDERING
- * Treats the 1340px sheet as a global coordinate space.
- * Uses integer scaling for 8-bit precision.
+ * HIGH-PRECISION CLIPPING MASK RENDERING
+ * Uses absolute pixel translation (translate) to move the sheet behind a masked window.
+ * This method is immune to the sub-pixel rounding errors found in background-position.
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
   // Scaling factor: The native sprite width is 10px.
-  // Using absolute pixel scaling to prevent sub-pixel blurring.
+  // We use integer-safe scaling to keep the pixels sharp.
   const scale = size / 10;
   
   return (
@@ -35,7 +35,8 @@ export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpritePro
         style={{
           width: `${1340 * scale}px`,
           height: 'auto',
-          // Move the entire sheet to point to the top-left of the specific sprite.
+          // Move the entire sheet using exact pixel values.
+          // We negate the coordinates to pull the target sprite into view.
           transform: `translate(-${x * scale}px, -${y * scale}px)`,
           imageRendering: 'pixelated',
         }}
