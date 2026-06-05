@@ -10,6 +10,9 @@ export type InventoryItemType =
   | 'mirror_shield' 
   | 'swift_cloak' 
   | 'passive_armor' 
+  | 'cardinal_greaves'
+  | 'drift_boots'
+  | 'queens_peace'
   | 'fireball_scroll' 
   | 'phoenix_down' 
   | 'portal_scroll_20' 
@@ -49,6 +52,11 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'passive_armor': { name: 'Blue Plate', description: 'Heavy chestplate. Push-Back immunity.', x: 1, y: 274, isConsumable: false },
   'mirror_shield': { name: 'Mirror Shield', description: 'Ornate shield. Reflects captures.', x: 1, y: 287, isConsumable: true },
   'swift_cloak': { name: 'Swift Cloak', description: 'Red traveling cloak. Move 2 spaces.', x: 34, y: 287, isConsumable: false },
+
+  // NEW ITEMS
+  'cardinal_greaves': { name: 'Cardinal Greaves', description: 'Green boots. Move (no capture) 1 space cardinally forward.', x: 0, y: 0, isConsumable: false },
+  'drift_boots': { name: 'Drift Boots', description: 'Blue boots. Move (no capture) 1 space diagonally forward.', x: 0, y: 0, isConsumable: false },
+  'queens_peace': { name: 'Queen\'s Peace', description: 'Serene ring. Queen only. Lose all power; cannot capture or be captured.', x: 0, y: 0, isConsumable: false },
 
   // POTIONS & FLASKS (X: 1, 12, 23, 34 | Y: 222)
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', x: 1, y: 222, isConsumable: true },

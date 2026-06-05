@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -229,7 +228,10 @@ export default function DungeonPage() {
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([
-    { type: 'passive_armor', count: 1 }
+    { type: 'passive_armor', count: 1 },
+    { type: 'cardinal_greaves', count: 1 },
+    { type: 'drift_boots', count: 1 },
+    { type: 'queens_peace', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 

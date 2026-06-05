@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -263,7 +262,10 @@ export default function EvolvingChessPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([
     { type: 'mirror_shield', count: 1 },
     { type: 'swift_cloak', count: 1 },
-    { type: 'passive_armor', count: 2 }
+    { type: 'passive_armor', count: 2 },
+    { type: 'cardinal_greaves', count: 1 },
+    { type: 'drift_boots', count: 1 },
+    { type: 'queens_peace', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -1758,7 +1760,7 @@ export default function EvolvingChessPage() {
             queenLevelReducedEvents: queenLevelReducedEventsFromApply,
             promotedToInfiltrator: becameInfiltratorFromApply,
             infiltrationWin: gameWonByInfiltrationFromApply,
-            shroomConsumed: shroomConsumedFromApply,
+            shroomConsumed: shroomConsumedThisMove,
             rallyCryTriggered,
             extraTurn: extraTurnFromApplyMove,
             specialCaptureSquare,
@@ -1791,7 +1793,7 @@ export default function EvolvingChessPage() {
           return;
         }
 
-        if (shroomConsumedFromApply) {
+        if (shroomConsumedThisMove) {
             const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
             if(movedPieceData) {
                 audioManager.playShroom();
@@ -2013,7 +2015,7 @@ export default function EvolvingChessPage() {
                       boardForNextStep: finalBoardStateForTurn,
                       playerWhoseTurnCompleted: capturingPlayer,
                       isExtraTurn: combinedExtraTurn,
-                      newEnPassantTarget: nextEnPassantTarget,
+                      newEnPassantTarget: enPassantTargetSquare,
                   };
                   setArcherSnipeContext(snipeCtx);
                   if (isPawnPromotingMove) {
