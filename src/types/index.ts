@@ -38,21 +38,19 @@ export interface ItemMetadata {
   x: number;
   y: number;
   isConsumable: boolean;
-  // Legacy support
-  spriteIndex?: number;
 }
 
 /**
- * SNAP-TO-GRID METADATA (Panel 3 - Equipment):
- * Panel 3 Start X: 670px
- * Grid: 10px wide, 12px tall
- * Snap coordinates to multiples of 10 and 12 to avoid empty gutters.
+ * COMPREHENSIVE EQUIPMENT MAPPING (Panel 3 - Black Background):
+ * Panel 3 Start Column: 67 (X: 670px)
+ * Grid Dimensions: 10px wide, 12px tall
+ * Snap coordinates to absolute pixel boundaries to prevent drift.
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   // Potions (Row 36 - Y:432)
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', x: 700, y: 432, isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', x: 680, y: 432, isConsumable: true },
-  'speed_potion': { name: 'Haste Potion', description: 'Move twice.', x: 710, y: 432, isConsumable: true },
+  'speed_potion': { name: 'Haste Potion', description: 'Increases movement.', x: 710, y: 432, isConsumable: true },
   
   // Food (Row 37 - Y:444)
   'apple': { name: 'Crisp Apple', description: 'Quick snack.', x: 680, y: 444, isConsumable: true },
@@ -69,12 +67,10 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'pickaxe': { name: 'Iron Pickaxe', description: 'Breaks blocks.', x: 680, y: 468, isConsumable: false },
   'shovel': { name: 'Sturdy Shovel', description: 'For digging.', x: 690, y: 468, isConsumable: false },
   'torch': { name: 'Everlasting Torch', description: 'Lights the way.', x: 710, y: 468, isConsumable: false },
+  'grenade': { name: 'Grenade', description: 'Explosive item.', x: 750, y: 468, isConsumable: true },
+  'bomb': { name: 'Mega Bomb', description: 'Large blast radius.', x: 760, y: 468, isConsumable: true },
 
-  // Bombs (Row 39 - adjacent)
-  'grenade': { name: 'Grenade', description: 'Explosive.', x: 750, y: 468, isConsumable: true },
-  'bomb': { name: 'Mega Bomb', description: 'Large blast.', x: 760, y: 468, isConsumable: true },
-
-  // Portal Scrolls (Row 38 - Right)
+  // Portal Scrolls (Row 38 - Warp Cluster)
   'portal_scroll_10': { name: 'F10 Portal', description: 'Warp to Floor 10.', x: 820, y: 456, isConsumable: true },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', x: 830, y: 456, isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', x: 840, y: 456, isConsumable: true },
@@ -110,8 +106,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'crossbow': { name: 'Heavy Crossbow', description: 'Piercing bolts.', x: 700, y: 552, isConsumable: false },
 
   // Jewelry (Row 49 - Y:588)
-  'gold_ring': { name: 'Gold Ring', description: 'Valuable.', x: 750, y: 588, isConsumable: false },
-  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resist.', x: 760, y: 588, isConsumable: false },
+  'gold_ring': { name: 'Gold Ring', description: 'Valuable item.', x: 750, y: 588, isConsumable: false },
+  'ruby_ring': { name: 'Ruby Ring', description: 'Fire resistance.', x: 760, y: 588, isConsumable: false },
   'emerald_pendant': { name: 'Emerald Pendant', description: 'Nature blessing.', x: 790, y: 588, isConsumable: false },
 };
 
