@@ -11,9 +11,9 @@ interface ItemSpriteProps {
 }
 
 /**
- * HIGH-PRECISION CLIPPING MASK RENDERING (Idea 1)
- * Uses overflow:hidden + transform to eliminate sub-pixel drift on large sheets.
- * Optimized for 10x12 rectangular sprites.
+ * HIGH-PRECISION CLIPPING MASK RENDERING
+ * Uses absolute pixel translation on the full 1340px sheet.
+ * Accounting for 10x12 rectangular sprites and 1px gutters.
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
   // Scaling factor: The items are natively 10px wide.
@@ -32,10 +32,10 @@ export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpritePro
         alt="Equipment Sprite"
         className="absolute max-w-none"
         style={{
-          // Sheet must be scaled proportionally. Assuming standard 1340px source width.
+          // Sheet must be scaled proportionally based on original 1340px width.
           width: `${1340 * scale}px`,
           height: 'auto',
-          // Shift image so the target sprite is in the viewport
+          // Direct pixel translation ensures zero drift across panels.
           transform: `translate(-${x * scale}px, -${y * scale}px)`,
           imageRendering: 'pixelated',
         }}
