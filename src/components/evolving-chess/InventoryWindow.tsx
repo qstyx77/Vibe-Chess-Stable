@@ -89,7 +89,7 @@ export function InventoryWindow({
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
-                        "aspect-[10/12] flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
+                        "aspect-[10/12] flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none h-14",
                         isSelected 
                           ? "border-accent bg-accent/20 scale-95" 
                           : "border-border hover:border-primary/50"
@@ -98,7 +98,7 @@ export function InventoryWindow({
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      <ItemSprite x={meta.x} y={meta.y} size={50} className="w-full h-full" />
+                      <ItemSprite x={meta.x} y={meta.y} size={40} />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
                           x{item.count}

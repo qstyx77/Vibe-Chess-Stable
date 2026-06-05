@@ -6,14 +6,14 @@ import { cn } from '@/lib/utils';
 interface ItemSpriteProps {
   x?: number;
   y?: number;
-  size?: number;
+  size?: number; // Target display width
   className?: string;
 }
 
 /**
  * HIGH-PRECISION CLIPPING MASK RENDERING
- * Uses absolute pixel translation (translate) to move the sheet behind a masked window.
- * This method is immune to the sub-pixel rounding errors found in background-position.
+ * Uses absolute pixel translation (transform: translate) to move the sheet behind a masked window.
+ * This method is immune to the sub-pixel rounding errors found in background-position or object-fit.
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
   // Scaling factor: The native sprite width is 10px.
@@ -35,7 +35,7 @@ export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpritePro
         style={{
           width: `${1340 * scale}px`,
           height: 'auto',
-          // Move the entire sheet using exact pixel values.
+          // Move the entire sheet using exact pixel values based on the scaling.
           // We negate the coordinates to pull the target sprite into view.
           transform: `translate(-${x * scale}px, -${y * scale}px)`,
           imageRendering: 'pixelated',
