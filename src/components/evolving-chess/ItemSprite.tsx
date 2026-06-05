@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -13,9 +14,10 @@ interface ItemSpriteProps {
 }
 
 /**
- * RECTANGULAR VIEWPORT RENDERING:
- * Uses a fixed 10x12 pixel grid as identified in the zoomed reference.
- * Snaps the spritesheet translation exactly to these boundaries.
+ * ROBUST SPRITE RENDERING:
+ * Uses background-image with background-position to reliably handle
+ * spritesheet slicing and scaling across all browsers.
+ * Viewport is locked to the 10x12 rectangular grid identified in Panel 3.
  */
 export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProps) {
   let finalX = x ?? 0;
@@ -25,49 +27,27 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
   if (index !== undefined && x === undefined) {
     const cols = 134;
     finalX = (index % cols) * 10;
-    finalY = Math.floor(index / cols) * 12; // Native 12px row height
+    finalY = Math.floor(index / cols) * 12;
   }
 
-  // Calculate scaling based on width (size prop)
+  // Calculate the scale factor to turn a 10px wide sprite into the target size
   const scale = size / 10;
 
   return (
     <div 
-      className={cn("overflow-hidden shrink-0 inline-block", className)}
+      className={cn("shrink-0 inline-block overflow-hidden", className)}
       style={{
         width: `${size}px`,
         height: `${size * 1.2}px`, // Maintain 10:12 aspect ratio
-        background: 'black',
-        position: 'relative',
+        backgroundImage: 'url("/images/spritesheet.png")',
+        backgroundRepeat: 'no-repeat',
+        imageRendering: 'pixelated',
+        // Scale the entire 1340px sheet proportionally
+        backgroundSize: `${1340 * scale}px auto`,
+        // Shift the scaled sheet to align the scaled (X, Y) to the top-left
+        backgroundPosition: `-${finalX * scale}px -${finalY * scale}px`,
+        backgroundColor: 'black',
       }}
-    >
-      <div 
-        style={{
-          width: '10px',
-          height: '12px',
-          transform: `scale(${scale})`,
-          transformOrigin: 'top left',
-          position: 'absolute',
-          top: 0,
-          left: 0,
-        }}
-      >
-        <img 
-          src="/images/spritesheet.png"
-          alt=""
-          style={{
-            display: 'block',
-            maxWidth: 'none',
-            width: '1340px',
-            height: '651px',
-            imageRendering: 'pixelated',
-            position: 'absolute',
-            // Physical translation snapped to the 10x12 grid
-            top: `-${finalY}px`,
-            left: `-${finalX}px`,
-          }}
-        />
-      </div>
-    </div>
+    />
   );
 }
