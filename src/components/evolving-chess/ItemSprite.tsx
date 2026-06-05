@@ -15,7 +15,7 @@ interface ItemSpriteProps {
 /**
  * RECTANGULAR VIEWPORT RENDERING:
  * Uses a fixed 10x12 pixel grid as identified in the zoomed reference.
- * This prevents clipping of items like shields and cloaks that are taller than 10px.
+ * Snaps the spritesheet translation exactly to these boundaries.
  */
 export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProps) {
   let finalX = x ?? 0;
@@ -38,6 +38,7 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
         width: `${size}px`,
         height: `${size * 1.2}px`, // Maintain 10:12 aspect ratio
         background: 'black',
+        position: 'relative',
       }}
     >
       <div 
@@ -46,6 +47,9 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
           height: '12px',
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
+          position: 'absolute',
+          top: 0,
+          left: 0,
         }}
       >
         <img 
@@ -57,8 +61,10 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
             width: '1340px',
             height: '651px',
             imageRendering: 'pixelated',
-            // Physical translation within the 10x12 window
-            transform: `translate(-${finalX}px, -${finalY}px)`,
+            position: 'absolute',
+            // Physical translation snapped to the 10x12 grid
+            top: `-${finalY}px`,
+            left: `-${finalX}px`,
           }}
         />
       </div>
