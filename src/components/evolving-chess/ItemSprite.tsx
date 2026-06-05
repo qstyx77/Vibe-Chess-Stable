@@ -11,10 +11,10 @@ interface ItemSpriteProps {
 }
 
 /**
- * ROBUST SPRITE RENDERING:
- * Uses background-image with background-position to reliably handle
- * spritesheet slicing and scaling across all browsers.
- * Calibration: 10px wide, 12px tall grid (Panel 3 items).
+ * FIXED RENDERING PIPELINE:
+ * Calibration: 10px wide, 12px tall grid cells.
+ * Sheet Width: 1340px.
+ * Technique: Uses background-image with precise scaling to eliminate coordinate drift.
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
   // Calculate the scale factor to turn a 10px wide sprite into the target display size
@@ -29,9 +29,9 @@ export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpritePro
         backgroundImage: 'url("/images/spritesheet.png")',
         backgroundRepeat: 'no-repeat',
         imageRendering: 'pixelated',
-        // Scale the entire 1340px sheet proportionally
+        // Scale the entire 1340px sheet proportionally to our zoomed viewport
         backgroundSize: `${1340 * scale}px auto`,
-        // Shift the scaled sheet to align the scaled (X, Y) to the top-left
+        // Translate the sheet so the target (X, Y) is at the top-left of our div
         backgroundPosition: `-${x * scale}px -${y * scale}px`,
         backgroundColor: 'black',
       }}
