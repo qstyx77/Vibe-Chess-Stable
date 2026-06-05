@@ -22,7 +22,7 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
   let finalX = x ?? 0;
   let finalY = y ?? 0;
 
-  // Handle legacy index-based calls
+  // Handle legacy index-based calls (134 columns)
   if (index !== undefined && x === undefined) {
     const cols = 134;
     finalX = (index % cols) * 10;
@@ -37,7 +37,7 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
       style={{
         width: `${size}px`,
         height: `${size}px`,
-        background: 'black', // Force black background to prevent inversion
+        background: 'black', // Force black background to prevent theme inversion leakage
       }}
     >
       <div 
