@@ -94,11 +94,10 @@ export function ChessPieceDisplay({
           {unicode}
         </span>
 
-        {piece.heldItem && ITEM_METADATA[piece.heldItem] && (
-          <div className="absolute bottom-0 right-0 z-[5] bg-background/80 rounded-sm border border-primary/40 p-0.5 scale-75 origin-bottom-right">
+        {piece.heldItem && (
+          <div className="absolute bottom-0 right-0 z-[5] bg-black/40 rounded-sm p-0.5 scale-75 origin-bottom-right">
              <ItemSprite 
-               x={ITEM_METADATA[piece.heldItem].x} 
-               y={ITEM_METADATA[piece.heldItem].y} 
+               type={piece.heldItem} 
                size={14} 
              />
           </div>

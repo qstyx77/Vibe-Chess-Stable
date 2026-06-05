@@ -53,7 +53,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
     case 'archbishop':
       if (l >= 1) abilities.push("Standard diagonal move.");
       if (l >= 2) abilities.push("Phase through friendly pieces.");
-      if (l >= 3) abilities.push("Immune to Pawn/Commander/Infiltrator capture.");
+      if (l >= 3) abilities.push("Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators.");
       if (l >= 4) abilities.push("Swap with friendly Knight/Hero/Archer.");
       if (l >= 5) abilities.push("50% chance to Convert adjacent enemies.");
       if (type === 'archbishop') {
@@ -95,9 +95,9 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       {item && (
         <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
           <div className="flex items-center justify-center gap-2 mb-1">
-             <ItemSprite x={item.x} y={item.y} size={14} />
+             <ItemSprite type={piece.heldItem!} size={14} />
              <p className="text-[0.65rem] font-bold text-accent uppercase leading-none">{item.name}</p>
-             <ItemSprite x={item.x} y={item.y} size={14} />
+             <ItemSprite type={piece.heldItem!} size={14} />
           </div>
           <p className="text-[0.6rem] text-muted-foreground italic leading-tight">{item.description}</p>
         </div>
