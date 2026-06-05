@@ -89,7 +89,7 @@ export function InventoryWindow({
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
-                        "aspect-square flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
+                        "aspect-[10/12] flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none",
                         isSelected 
                           ? "border-accent bg-accent/20 scale-95" 
                           : "border-border hover:border-primary/50"

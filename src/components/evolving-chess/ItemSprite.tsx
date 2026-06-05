@@ -13,9 +13,9 @@ interface ItemSpriteProps {
 }
 
 /**
- * PHYSICAL VIEWPORT RENDERING:
- * Optimized for a 10x12 pixel grid as identified in the zoomed reference.
- * Uses a fixed 10x10 viewport that centers the 12px tall sprites.
+ * RECTANGULAR VIEWPORT RENDERING:
+ * Uses a fixed 10x12 pixel grid as identified in the zoomed reference.
+ * This prevents clipping of items like shields and cloaks that are taller than 10px.
  */
 export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProps) {
   let finalX = x ?? 0;
@@ -25,9 +25,10 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
   if (index !== undefined && x === undefined) {
     const cols = 134;
     finalX = (index % cols) * 10;
-    finalY = Math.floor(index / cols) * 12; // Adjust for 12px row height
+    finalY = Math.floor(index / cols) * 12; // Native 12px row height
   }
 
+  // Calculate scaling based on width (size prop)
   const scale = size / 10;
 
   return (
@@ -35,14 +36,14 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
       className={cn("overflow-hidden shrink-0 inline-block", className)}
       style={{
         width: `${size}px`,
-        height: `${size}px`,
-        background: 'black', // Force black background for 8-bit clarity
+        height: `${size * 1.2}px`, // Maintain 10:12 aspect ratio
+        background: 'black',
       }}
     >
       <div 
         style={{
           width: '10px',
-          height: '10px',
+          height: '12px',
           transform: `scale(${scale})`,
           transformOrigin: 'top left',
         }}
@@ -56,8 +57,8 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
             width: '1340px',
             height: '651px',
             imageRendering: 'pixelated',
-            // Shift Y by 1px to center the 12px tall sprite in the 10px window
-            transform: `translate(-${finalX}px, -${finalY + 1}px)`,
+            // Physical translation within the 10x12 window
+            transform: `translate(-${finalX}px, -${finalY}px)`,
           }}
         />
       </div>
