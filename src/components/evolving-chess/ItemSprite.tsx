@@ -11,21 +11,13 @@ interface ItemSpriteProps {
 }
 
 /**
- * IDEA 1: CLIPPING MASK APPROACH
- * Uses an <img> tag inside an overflow-hidden container.
- * This avoids sub-pixel rounding errors found in background-image scaling.
- * 
- * SPRITE SPECS:
- * Sprite Width: 10px
- * Sprite Height: 12px
+ * REFINED SPRITE RENDERING
+ * Uses object-fit: none and object-position to create a physical clipping mask
+ * centered on the source pixels of spritesheet.png.
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
-  // Scaling factor: how much bigger we want the 10px sprite to appear
+  // Scaling factor for the UI display
   const scale = size / 10;
-  
-  // Total spritesheet width is 1340px. 
-  // We scale the whole image so that our translations remain absolute.
-  const sheetWidth = 1340 * scale;
 
   return (
     <div 
@@ -42,13 +34,17 @@ export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpritePro
         draggable={false}
         className="absolute max-w-none"
         style={{
-          width: `${sheetWidth}px`,
+          width: '1340px', // Native sheet width
           height: 'auto',
           imageRendering: 'pixelated',
-          // IDEA 1: Direct translation of the scaled image
-          transform: `translate(-${x * scale}px, -${y * scale}px)`,
+          objectFit: 'none',
+          // Point precisely to the top-left of the 10x12 sprite
+          objectPosition: `-${x}px -${y}px`,
           left: 0,
           top: 0,
+          // Use CSS scale to resize the clipped viewport to the desired UI size
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
         }}
       />
     </div>
