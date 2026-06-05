@@ -11,30 +11,46 @@ interface ItemSpriteProps {
 }
 
 /**
- * FIXED RENDERING PIPELINE:
- * Calibration: 10px wide, 12px tall grid cells.
- * Sheet Width: 1340px.
- * Technique: Uses background-image with precise scaling to eliminate coordinate drift.
+ * IDEA 1: CLIPPING MASK APPROACH
+ * Uses an <img> tag inside an overflow-hidden container.
+ * This avoids sub-pixel rounding errors found in background-image scaling.
+ * 
+ * SPRITE SPECS:
+ * Sprite Width: 10px
+ * Sprite Height: 12px
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
-  // Calculate the scale factor to turn a 10px wide sprite into the target display size
+  // Scaling factor: how much bigger we want the 10px sprite to appear
   const scale = size / 10;
+  
+  // Total spritesheet width is 1340px. 
+  // We scale the whole image so that our translations remain absolute.
+  const sheetWidth = 1340 * scale;
 
   return (
     <div 
-      className={cn("shrink-0 inline-block overflow-hidden", className)}
+      className={cn("shrink-0 inline-block overflow-hidden relative", className)}
       style={{
         width: `${size}px`,
         height: `${size * 1.2}px`, // Maintain 10:12 aspect ratio
-        backgroundImage: 'url("/images/spritesheet.png")',
-        backgroundRepeat: 'no-repeat',
-        imageRendering: 'pixelated',
-        // Scale the entire 1340px sheet proportionally to our zoomed viewport
-        backgroundSize: `${1340 * scale}px auto`,
-        // Translate the sheet so the target (X, Y) is at the top-left of our div
-        backgroundPosition: `-${x * scale}px -${y * scale}px`,
         backgroundColor: 'black',
       }}
-    />
+    >
+      <img
+        src="/images/spritesheet.png"
+        alt="Sprite"
+        draggable={false}
+        className="absolute max-w-none"
+        style={{
+          width: `${sheetWidth}px`,
+          height: 'auto',
+          imageRendering: 'pixelated',
+          // IDEA 1: Direct translation of the scaled image
+          transform: `translate(-${x * scale}px, -${y * scale}px)`,
+          left: 0,
+          top: 0,
+        }}
+      />
+    </div>
   );
 }
