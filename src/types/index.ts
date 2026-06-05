@@ -45,11 +45,10 @@ export interface ItemMetadata {
  * Grid logic: 10px width, 12px height, 1px gutters.
  */
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
-  // --- DEFINITIVE EQUIPMENT (Panel 1 Bottom) ---
-  'plate_armor': { name: 'Full Plate', description: 'Heavy protection.', x: 1, y: 274, isConsumable: false },
-  'passive_armor': { name: 'Blue Plate', description: 'Push-Back immunity.', x: 1, y: 274, isConsumable: false },
-  'mirror_shield': { name: 'Mirror Shield', description: 'Reflects captures.', x: 1, y: 287, isConsumable: true },
-  'swift_cloak': { name: 'Swift Cloak', description: 'Move 2 spaces.', x: 34, y: 287, isConsumable: false },
+  // --- VERIFIED DEFINITIVE EQUIPMENT (Panel 1 Bottom) ---
+  'passive_armor': { name: 'Blue Plate', description: 'Heavy chestplate. Push-Back immunity.', x: 1, y: 274, isConsumable: false },
+  'mirror_shield': { name: 'Mirror Shield', description: 'Ornate shield. Reflects captures.', x: 1, y: 287, isConsumable: true },
+  'swift_cloak': { name: 'Swift Cloak', description: 'Red traveling cloak. Move 2 spaces.', x: 34, y: 287, isConsumable: false },
 
   // POTIONS & FLASKS (X: 1, 12, 23, 34 | Y: 222)
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', x: 1, y: 222, isConsumable: true },
@@ -57,13 +56,14 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'speed_potion': { name: 'Haste Potion', description: 'Increases movement.', x: 23, y: 222, isConsumable: true },
   'poison_flask': { name: 'Poison Flask', description: 'Toxic mixture.', x: 34, y: 222, isConsumable: true },
 
-  // OTHER GEAR (X: 1, 12, 23, 34 | Y: 274 / 287)
+  // OTHER GEAR
+  'plate_armor': { name: 'Full Plate', description: 'Heavy protection.', x: 12, y: 274, isConsumable: false },
   'wizard_robe': { name: 'Arcane Robe', description: 'Magic boost.', x: 23, y: 274, isConsumable: false },
   'leather_armor': { name: 'Leather Tunic', description: 'Light protection.', x: 34, y: 274, isConsumable: false },
   'buckler': { name: 'Buckler', description: 'Light defense.', x: 12, y: 287, isConsumable: false },
   'iron_shield': { name: 'Iron Shield', description: 'Solid defense.', x: 23, y: 287, isConsumable: false },
 
-  // --- PANEL 3: MODERN & TECH (X: 695+) ---
+  // PANEL 3 MODERN GEAR (Placeholders for now)
   'fireball_scroll': { name: 'Fire Scroll', description: 'Explosive magic.', x: 706, y: 27, isConsumable: true },
   'phoenix_down': { name: 'Phoenix Down', description: 'Resurrects unit.', x: 717, y: 27, isConsumable: true },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', x: 728, y: 27, isConsumable: true },
@@ -83,21 +83,20 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'pickaxe': { name: 'Pickaxe', description: 'Breaks blocks.', x: 695, y: 144, isConsumable: false },
   'torch': { name: 'Torch', description: 'Lights the way.', x: 706, y: 144, isConsumable: false },
 
-  // FALLBACKS
-  'spiked_shield': { name: 'Spiked Shield', description: 'Thorny defense.', x: 34, y: 287, isConsumable: false },
+  'spiked_shield': { name: 'Spiked Shield', description: 'Thorny defense.', x: 45, y: 287, isConsumable: false },
   'bread': { name: 'Bread', description: 'Daily bread.', x: 739, y: 14, isConsumable: true },
   'grapes': { name: 'Grapes', description: 'Fresh grapes.', x: 750, y: 14, isConsumable: true },
   'fire_book': { name: 'Fire Book', description: 'Forbidden lore.', x: 706, y: 27, isConsumable: false },
   'ice_book': { name: 'Ice Book', description: 'Frozen secrets.', x: 717, y: 27, isConsumable: false },
   'lightning_book': { name: 'Lightning Book', description: 'Shocking truth.', x: 728, y: 27, isConsumable: false },
-  'iron_helmet': { name: 'Helm', description: 'Solid helm.', x: 1, y: 1, isConsumable: false },
-  'long_bow': { name: 'Bow', description: 'Standard bow.', x: 706, y: 144, isConsumable: false },
-  'crossbow': { name: 'Crossbow', description: 'Powerful crossbow.', x: 706, y: 144, isConsumable: false },
-  'magic_staff': { name: 'Staff', description: 'Magic focus.', x: 695, y: 144, isConsumable: false },
-  'wand': { name: 'Wand', description: 'Magic wand.', x: 695, y: 144, isConsumable: false },
-  'gold_ring': { name: 'Ring', description: 'Shiny ring.', x: 1, y: 1, isConsumable: false },
-  'ruby_ring': { name: 'Ring', description: 'Red gem ring.', x: 1, y: 1, isConsumable: false },
-  'emerald_pendant': { name: 'Pendant', description: 'Green gem.', x: 1, y: 1, isConsumable: false },
+  'iron_helmet': { name: 'Helm', description: 'Solid helm.', x: 1, y: 313, isConsumable: false },
+  'long_bow': { name: 'Bow', description: 'Standard bow.', x: 12, y: 313, isConsumable: false },
+  'crossbow': { name: 'Crossbow', description: 'Powerful crossbow.', x: 23, y: 313, isConsumable: false },
+  'magic_staff': { name: 'Staff', description: 'Magic focus.', x: 34, y: 313, isConsumable: false },
+  'wand': { name: 'Wand', description: 'Magic wand.', x: 45, y: 313, isConsumable: false },
+  'gold_ring': { name: 'Ring', description: 'Shiny ring.', x: 56, y: 313, isConsumable: false },
+  'ruby_ring': { name: 'Ring', description: 'Red gem ring.', x: 67, y: 313, isConsumable: false },
+  'emerald_pendant': { name: 'Pendant', description: 'Green gem.', x: 78, y: 313, isConsumable: false },
 };
 
 export interface Piece {
