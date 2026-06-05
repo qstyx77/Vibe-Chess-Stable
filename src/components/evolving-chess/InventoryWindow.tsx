@@ -98,7 +98,7 @@ export function InventoryWindow({
                       onClick={() => onSelectItem(isSelected ? null : item.type)}
                       title={meta.name}
                     >
-                      <ItemSprite x={meta.x} y={meta.y} size={45} className="w-full h-full" />
+                      <ItemSprite x={meta.x} y={meta.y} size={50} className="w-full h-full" />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
                           x{item.count}

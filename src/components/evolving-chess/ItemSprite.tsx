@@ -11,17 +11,18 @@ interface ItemSpriteProps {
 }
 
 /**
- * HIGH-PRECISION CLIPPING MASK RENDERING
- * Uses absolute pixel translation on the full 1340px sheet.
- * Accounting for 10x12 rectangular sprites and 1px gutters.
+ * HIGH-PRECISION ABSOLUTE TRANSLATION RENDERING
+ * Treats the 1340px sheet as a global coordinate space.
+ * Uses integer scaling for 8-bit precision.
  */
 export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpriteProps) {
-  // Scaling factor: The items are natively 10px wide.
+  // Scaling factor: The native sprite width is 10px.
+  // Using absolute pixel scaling to prevent sub-pixel blurring.
   const scale = size / 10;
   
   return (
     <div 
-      className={cn("overflow-hidden relative inline-block shrink-0", className)}
+      className={cn("overflow-hidden relative inline-block shrink-0 bg-transparent", className)}
       style={{
         width: `${size}px`,
         height: `${size * 1.2}px`, // Maintains 10:12 native aspect ratio
@@ -29,13 +30,12 @@ export function ItemSprite({ x = 0, y = 0, size = 10, className }: ItemSpritePro
     >
       <img
         src="/images/spritesheet.png"
-        alt="Equipment Sprite"
+        alt="Item Sprite"
         className="absolute max-w-none"
         style={{
-          // Sheet must be scaled proportionally based on original 1340px width.
           width: `${1340 * scale}px`,
           height: 'auto',
-          // Direct pixel translation ensures zero drift across panels.
+          // Move the entire sheet to point to the top-left of the specific sprite.
           transform: `translate(-${x * scale}px, -${y * scale}px)`,
           imageRendering: 'pixelated',
         }}
