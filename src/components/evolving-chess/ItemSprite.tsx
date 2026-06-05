@@ -14,9 +14,8 @@ interface ItemSpriteProps {
 
 /**
  * PHYSICAL VIEWPORT RENDERING:
- * Instead of background-math (which drifts), we use a 10x10px div
- * that acts as a physical window. The image is moved inside using 
- * pixel-accurate translation and then the entire window is scaled.
+ * Optimized for a 10x12 pixel grid as identified in the zoomed reference.
+ * Uses a fixed 10x10 viewport that centers the 12px tall sprites.
  */
 export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProps) {
   let finalX = x ?? 0;
@@ -26,7 +25,7 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
   if (index !== undefined && x === undefined) {
     const cols = 134;
     finalX = (index % cols) * 10;
-    finalY = Math.floor(index / cols) * 10;
+    finalY = Math.floor(index / cols) * 12; // Adjust for 12px row height
   }
 
   const scale = size / 10;
@@ -37,7 +36,7 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
       style={{
         width: `${size}px`,
         height: `${size}px`,
-        background: 'black', // Force black background to prevent theme inversion leakage
+        background: 'black', // Force black background for 8-bit clarity
       }}
     >
       <div 
@@ -57,7 +56,8 @@ export function ItemSprite({ x, y, index, size = 10, className }: ItemSpriteProp
             width: '1340px',
             height: '651px',
             imageRendering: 'pixelated',
-            transform: `translate(-${finalX}px, -${finalY}px)`,
+            // Shift Y by 1px to center the 12px tall sprite in the 10px window
+            transform: `translate(-${finalX}px, -${finalY + 1}px)`,
           }}
         />
       </div>
