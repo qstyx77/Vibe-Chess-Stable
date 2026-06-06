@@ -265,7 +265,10 @@ export default function EvolvingChessPage() {
     { type: 'passive_armor', count: 2 },
     { type: 'cardinal_greaves', count: 1 },
     { type: 'drift_boots', count: 1 },
-    { type: 'queens_peace', count: 1 }
+    { type: 'queens_peace', count: 1 },
+    { type: 'wind_sword', count: 1 },
+    { type: 'middle_way', count: 1 },
+    { type: 'phoenix_down', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -3344,7 +3347,7 @@ export default function EvolvingChessPage() {
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setFlashMessage,
     setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
     setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
-    setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
+    setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
     setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,

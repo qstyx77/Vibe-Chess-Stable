@@ -280,8 +280,7 @@ function getPossibleMovesInternal(
   }
 
   if (piece.heldItem === 'queens_peace' && piece.type === 'queen') {
-    // Only allow moves to empty squares. Filtering happens later in isMoveValid for standard queen moves,
-    // but we should ensure pseudoMoves reflect this if we relied on them. Standard queen loop already handles empty.
+    // Standard queen move logic in switch already handles sliding. We ensure it only goes to empty squares in isMoveValid.
   }
 
   const pieceActualLevelForSwap = Number(piece.level || 1);
@@ -540,14 +539,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (captured) {
     const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0;
     if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) pieceToLand.level = (pieceToLand.level || 1) + gain;
-    if (pieceToLand.type === 'commander') this.applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
-    if (pieceToLand.type === 'hero') this.applyRally(newBoard, pieceToLand.color, 'all', move.to);
-    if (pieceToLand.type === 'king') this.applyKingDominion(newBoard, pieceToLand.color, gain);
+    if (pieceToLand.type === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
+    if (pieceToLand.type === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
+    if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
   }
 
   // --- WIND SWORD LOGIC ---
   if (movingPiece.heldItem === 'wind_sword' && captured) {
-      this.triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+      triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
   }
 
   // --- MIDDLE WAY LOCK ---
@@ -568,10 +567,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   // --- LEVEL BASED ABILITIES ---
   if ((pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && pieceToLand.level >= 4) {
-    this.triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+    triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
   }
   if ((pieceToLand.type === 'bishop' || pieceToLand.type === 'archbishop') && pieceToLand.level >= 5) {
-    this.triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
+    triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   }
 
   return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection };
@@ -721,4 +720,17 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
 export function findKing(board: BoardState, color: PlayerColor): { row: number; col: number; piece: Piece } | null {
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.type === 'king' && board[r][c].piece?.color === color) return { row: r, col: c, piece: board[r][c].piece! };
     return null;
+}
+
+export function isQueenSacrificeRequired(board: BoardState, player: PlayerColor, move: Move, originalLevel: number): boolean {
+    const { row: toR, col: toC } = algebraicToCoords(move.to);
+    const piece = board[toR]?.[toC]?.piece;
+    if (!piece || piece.type !== 'queen' || piece.color !== player) return false;
+    
+    // If it just reached L7
+    if (piece.level === 7 && originalLevel < 7) {
+        // And there are pawns to sacrifice
+        return board.flat().some(sq => sq.piece?.color === player && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+    }
+    return false;
 }

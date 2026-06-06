@@ -228,10 +228,15 @@ export default function DungeonPage() {
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([
+    { type: 'mirror_shield', count: 1 },
+    { type: 'swift_cloak', count: 1 },
     { type: 'passive_armor', count: 1 },
     { type: 'cardinal_greaves', count: 1 },
     { type: 'drift_boots', count: 1 },
-    { type: 'queens_peace', count: 1 }
+    { type: 'queens_peace', count: 1 },
+    { type: 'wind_sword', count: 1 },
+    { type: 'middle_way', count: 1 },
+    { type: 'phoenix_down', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
