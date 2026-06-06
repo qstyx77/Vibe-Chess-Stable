@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -336,7 +337,7 @@ export default function EvolvingChessPage() {
     if (onlineStatus === 'waiting' && roomId) {
       return (
         <p className="text-sm font-medium text-primary mt-1">
-          Waiting... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
+          Wait... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
         </p>
       );
     }
@@ -1181,6 +1182,12 @@ export default function EvolvingChessPage() {
             toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
             return;
           }
+          // Swift Cloak restriction: Pawns/Commanders only
+          if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
+            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -1197,6 +1204,12 @@ export default function EvolvingChessPage() {
           audioManager.playLevelUp();
           toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
         } else if (clickedPiece && clickedPiece.heldItem) {
+          // Swift Cloak restriction on swap
+          if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
+            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+
           const oldItem = clickedPiece.heldItem;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
@@ -2552,13 +2565,7 @@ export default function EvolvingChessPage() {
         
         if (moveForApplyMoveAI.type === 'self-destruct') {
           const { row: cR, col: cC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
-          for (let dr = -1; dr <= 1; dr++) {
-              for (let dc = -1; dc <= 1; dc++) {
-                  if (isValidSquare(cR + dr, cC + dc)) {
-                      addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
-                  }
-              }
-          }
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
           audioManager.playExplosion();
         }
 
@@ -2807,7 +2814,7 @@ export default function EvolvingChessPage() {
                           addEffect('light-beam', randSqAI_alg);
                           audioManager.playResurrect();
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
-                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
+                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
                           setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedAI.type)}(L${resurrectedAI.level})@${randSqAI_alg}`]);
                       }
                       }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Piece } from '@/types';
@@ -24,6 +25,13 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects capture attempts once.");
   if (heldItem === 'wind_scroll') abilities.push(" spell: push-back units from targeted empty space.");
   if (heldItem === 'life_leach') abilities.push(" spell: reduces all enemy levels by 1.");
+  if (heldItem === 'swift_cloak') {
+      if (type === 'pawn' || type === 'commander') {
+          abilities.push(" swift: double move range for small units.");
+      } else {
+          abilities.push(" swift: inactive (only for small units).");
+      }
+  }
 
   // --- STANDARD ABILITIES ---
   switch (type) {

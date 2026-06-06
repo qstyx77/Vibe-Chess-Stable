@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -502,6 +503,12 @@ export default function DungeonPage() {
             toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
             return;
           }
+          // Swift Cloak restriction: Pawns/Commanders only
+          if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
+            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -517,6 +524,12 @@ export default function DungeonPage() {
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
+          // Swift Cloak restriction on swap
+          if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
+            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+
           const oldItem = piece.heldItem;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
@@ -546,7 +559,7 @@ export default function DungeonPage() {
             const nextInv = [...prev];
             const item = nextInv.find(i => i.type === removedItem);
             if (item) item.count++;
-            else nextInv.push({ type: removedItem, count: 1 });
+            else nextInv.push({ type: oldItem, count: 1 });
             return nextInv;
           });
           audioManager.playMove();
@@ -708,44 +721,43 @@ export default function DungeonPage() {
             }
         }
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
-        const oldStreak = killStreaks[currentPlayer] || 0;
+        const oldStreak = killStreaks['white'] || 0;
         const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
-        setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
+        setKillStreaks(prev => ({ ...prev, white: newStreak }));
         if (streakGain > 0) {
           audioManager.playCapture();
           if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
           if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, result.pieceCapturedByAnvil!] }));
-          if (currentPlayer === 'white') {
-              if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
-              if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
-              } else if (newStreak === 3) {
-                  triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
-              } else if (newStreak === 4) {
-                  const graveyard = capturedPieces.black;
-                  if (graveyard.length > 0) {
-                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_H_${Date.now()}`, heldItem: null };
-                      const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
-                      if (empty.length > 0) {
-                          const chosenSq = empty[Math.floor(Math.random() * empty.length)];
-                          const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
-                          newBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
-                          addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                          if (pieceToRes.type === 'pawn' && rr === 0) { setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); triggeredSpecial = true; }
-                          else if (pieceToRes.type === 'commander' && rr === 0) { newBoard[rr][rc].piece!.type = 'hero'; }
-                      }
+          
+          if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
+          if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
+              triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
+          } else if (newStreak === 3) {
+              triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
+          } else if (newStreak === 4) {
+              const graveyard = capturedPieces.black;
+              if (graveyard.length > 0) {
+                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_H_${Date.now()}`, heldItem: null };
+                  const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
+                  if (empty.length > 0) {
+                      const chosenSq = empty[Math.floor(Math.random() * empty.length)];
+                      const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
+                      newBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
+                      addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
+                      if (pieceToRes.type === 'pawn' && rr === 0) { setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); triggeredSpecial = true; }
+                      else if (pieceToRes.type === 'commander' && rr === 0) { newBoard[rr][rc].piece!.type = 'hero'; }
                   }
-              } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-                  const hasVictims = newBoard.flat().some(sq => 
-                      sq.piece && 
-                      sq.piece.color === 'black' && 
-                      sq.piece.level === 1 && 
-                      sq.piece.type !== 'king' && 
-                      sq.piece.type !== 'queen'
-                  );
-                  if (hasVictims) {
-                    triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
-                  }
+              }
+          } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
+              const hasVictims = newBoard.flat().some(sq => 
+                  sq.piece && 
+                  sq.piece.color === 'black' && 
+                  sq.piece.level === 1 && 
+                  sq.piece.type !== 'king' && 
+                  sq.piece.type !== 'queen'
+              );
+              if (hasVictims) {
+                triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
               }
           }
         } else audioManager.playMove();
