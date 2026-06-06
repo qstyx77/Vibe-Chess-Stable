@@ -36,7 +36,7 @@ import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2, BrainCircuit, Swords, Package } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2, BrainCircuit, Swords, Package, Wand2 } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -257,6 +257,9 @@ export default function EvolvingChessPage() {
   const [volume, setVolume] = useState(100);
   const [aiDifficulty, setAiDifficulty] = useState(4);
 
+  const [isAwaitingWindScrollTarget, setIsAwaitingWindScrollTarget] = useState(false);
+  const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
+
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([
@@ -268,7 +271,9 @@ export default function EvolvingChessPage() {
     { type: 'queens_peace', count: 1 },
     { type: 'wind_sword', count: 1 },
     { type: 'middle_way', count: 1 },
-    { type: 'phoenix_down', count: 1 }
+    { type: 'phoenix_down', count: 1 },
+    { type: 'wind_scroll', count: 1 },
+    { type: 'life_leach', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -357,19 +362,25 @@ export default function EvolvingChessPage() {
 
   const addToVCN = useCallback((move: Move, result: ApplyMoveResult, player: PlayerColor, extraTurn: boolean, special?: string) => {
     const piece = result.newBoard[algebraicToCoords(move.to).row][algebraicToCoords(move.to).col].piece;
-    if (!piece) return;
+    if (!piece && move.type !== 'wind-scroll' && move.type !== 'life-leach') return;
 
-    const char = getVCNChar(piece.type);
-    const level = `(L${piece.level})`;
-    const sep = result.capturedPiece ? 'x' : '-';
-    const dest = move.to;
-    const from = move.from;
-    
-    let notation = `${char}${level}${from}${sep}${dest}`;
-    if (move.type === 'castle') notation = move.to.startsWith('g') ? 'O-O' : 'O-O-O';
-    if (result.infiltrationWin) notation += '🚩';
-    if (gameInfo.isCheckmate) notation += '#';
-    else if (gameInfo.isCheck) notation += '+';
+    let notation = "";
+    if (move.type === 'wind-scroll') {
+      notation = `[W-Spell]@${move.to}`;
+    } else if (move.type === 'life-leach') {
+      notation = `[L-Spell]`;
+    } else {
+      const char = getVCNChar(piece!.type);
+      const level = `(L${piece!.level})`;
+      const sep = result.capturedPiece ? 'x' : '-';
+      const dest = move.to;
+      const from = move.from;
+      notation = `${char}${level}${from}${sep}${dest}`;
+      if (move.type === 'castle') notation = move.to.startsWith('g') ? 'O-O' : 'O-O-O';
+      if (result.infiltrationWin) notation += '🚩';
+      if (gameInfo.isCheckmate) notation += '#';
+      else if (gameInfo.isCheck) notation += '+';
+    }
     
     if (result.rallyCryTriggered) notation += '📢';
     if (result.conversionEvents.length > 0) notation += '~';
@@ -589,6 +600,8 @@ export default function EvolvingChessPage() {
     setShowSummary(false);
     setIsInventoryOpen(false);
     setSelectedInventoryItemType(null);
+    setIsAwaitingWindScrollTarget(false);
+    setAbilityChoiceDialog(null);
   }, [userData]);
 
   const loginResetRef = useRef(false);
@@ -961,7 +974,7 @@ export default function EvolvingChessPage() {
       timerStarted = true;
     }
     
-    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe;
+    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget;
 
     if (!timerStarted && !isAnySpecialAction) {
       startTurnTimer(currentPlayer);
@@ -991,6 +1004,7 @@ export default function EvolvingChessPage() {
     isResurrectionPromotionInProgress,
     isAwaitingHolyShield,
     isAwaitingArcherSnipe,
+    isAwaitingWindScrollTarget,
     startTurnTimer,
     stopTurnTimer,
   ]);
@@ -1147,7 +1161,7 @@ export default function EvolvingChessPage() {
     setPieceForInfoDisplay(clickedPiece || null);
 
     // Interaction Guard: If a specialized selection turn is active, only the acting local player can interact.
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe;
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget;
     if (isAnySpecialModeActive && !isLocalActionTurn) {
         return;
     }
@@ -1212,6 +1226,34 @@ export default function EvolvingChessPage() {
           audioManager.playMove();
           toast({ title: "Unequipped", description: `${ITEM_METADATA[removedItem].name} returned to bag.` });
         }
+      }
+      return;
+    }
+
+    if (isAwaitingWindScrollTarget && isLocalActionTurn) {
+      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+        saveStateToHistory();
+        clickGuardRef.current = true;
+        setIsMoveProcessing(true);
+        setAnimatedSquareTo(algebraic);
+        
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
+        const result = applyMove(board, move, enPassantTargetSquare);
+        setBoard(result.newBoard);
+        audioManager.playAnvil();
+        toast({ title: "Wind Scroll Cast!", description: `Units pushed back from ${algebraic}.` });
+        
+        setIsAwaitingWindScrollTarget(false);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        addToVCN(move, result, currentPlayer, false);
+        setTimeout(() => {
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+        }, 800);
+      } else {
+        toast({ title: "Invalid Target", description: "Target an empty space to cast the Wind Scroll.", variant: "destructive" });
       }
       return;
     }
@@ -1513,11 +1555,112 @@ export default function EvolvingChessPage() {
         return;
       }
 
-      if (selectedSquare === algebraic && !(pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
+      const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5);
+      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach');
+
+      if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
+        const executeLifeLeach = () => {
+          saveStateToHistory();
+          clickGuardRef.current = true;
+          setIsMoveProcessing(true);
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
+          const result = applyMove(board, move, enPassantTargetSquare);
+          setBoard(result.newBoard);
+          audioManager.playLevelUp();
+          toast({ title: "Life Leach Cast!", description: "All enemy levels reduced by 1." });
+          setSelectedSquare(null);
+          setPossibleMoves([]);
+          addToVCN(move, result, currentPlayer, false);
+          setTimeout(() => {
+            setIsMoveProcessing(false);
+            clickGuardRef.current = false;
+            processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+          }, 800);
+        };
+
+        const executeWindScrollMode = () => {
+          setIsAwaitingWindScrollTarget(true);
+          setPossibleMoves([]); // User will click empty square
+          toast({ title: "Targeting Mode", description: "Select an empty square to target with Wind Scroll." });
+        };
+
+        const executeSelfDestruct = () => {
+          const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
+          tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
+          if (isKingInCheck(tempBoardForCheck, currentPlayer, enPassantTargetSquare)) {
+            toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 8000 });
+            return;
+          }
+
+          saveStateToHistory();
+          clickGuardRef.current = true;
+          setLastMoveFrom(selectedSquare);
+          setLastMoveTo(selectedSquare);
+          setIsMoveProcessing(true);
+          setAnimatedSquareTo(algebraic);
+          
+          const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+          audioManager.playExplosion();
+
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
+          const applyMoveResult = applyMove(finalBoardStateForTurn, move, enPassantTargetSquare);
+          let { newBoard, selfDestructCaptures, destroyedAnvils, enPassantTargetSet: nextEnPassantTarget, rallyCryTriggered } = applyMoveResult;
+          
+          finalBoardStateForTurn = newBoard;
+          if (selfDestructCaptures) selfDestructCaptures.forEach(p => finalCapturedPiecesForTurn[currentPlayer].push(p));
+          
+          const selfDestructPlayer = currentPlayer;
+          const oldStreak = killStreaks[selfDestructPlayer] || 0;
+          let capturesThisTurnForSelfDestruct = selfDestructCaptures ? selfDestructCaptures.length : 0;
+          const newStreakForSelfDestructPlayer = capturesThisTurnForSelfDestruct > 0 ? (oldStreak + capturesThisTurnForSelfDestruct) : 0;
+          setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer}));
+          
+          if (capturesThisTurnForSelfDestruct > 0) {
+              setShowCaptureFlash(true);
+              setCaptureFlashKey(k => k + 1);
+          }
+
+          if (capturesThisTurnForSelfDestruct > 0 && !firstBloodAchieved) {
+              setFirstBloodAchieved(true);
+              setPlayerWhoGotFirstBlood(selfDestructPlayer);
+          }
+
+          const streakGrantsExtraTurn = oldStreak < 6 && newStreakForSelfDestructPlayer >= 6;
+          setBoard(finalBoardStateForTurn);
+          setCapturedPieces(finalCapturedPiecesForTurn);
+          addToVCN(move, applyMoveResult, currentPlayer, streakGrantsExtraTurn);
+
+          setTimeout(() => {
+            setSelectedSquare(null); setPossibleMoves([]);
+            setIsMoveProcessing(false); clickGuardRef.current = false;
+            processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, nextEnPassantTarget);
+          }, 800);
+        };
+
+        // Conflict check
+        if (hasSelfSelectionAbility && hasMagicScroll) {
+          setAbilityChoiceDialog({
+            isOpen: true,
+            onChoice: (choice) => {
+              setAbilityChoiceDialog(null);
+              if (choice === 'ability') executeSelfDestruct();
+              else {
+                if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
+                else executeWindScrollMode();
+              }
+            }
+          });
+          return;
+        }
+
+        // Single trigger
+        if (hasMagicScroll) {
+          if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
+          else executeWindScrollMode();
+        } else if (hasSelfSelectionAbility) {
+          executeSelfDestruct();
+        }
         return;
       }
 
@@ -1530,212 +1673,7 @@ export default function EvolvingChessPage() {
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
-      if (isMoveInFreshList) {
-          if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
-            moveBeingMade.type = 'enpassant';
-          } else if (board[row]?.[col]?.piece && board[row]?.[col]?.piece?.color !== pieceToMoveFromSelected.color) {
-              moveBeingMade.type = 'capture';
-          } else if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
-              moveBeingMade.type = 'castle';
-          }
-      }
-
-
-      if (selectedSquare === algebraic && (pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5) {
-        const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
-        tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
-        if (isKingInCheck(tempBoardForCheck, currentPlayer, enPassantTargetSquare)) {
-          toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 8000 });
-          return;
-        }
-
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setLastMoveFrom(selectedSquare);
-        setLastMoveTo(selectedSquare);
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-        
-        const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
-        for (let dr = -1; dr <= 1; dr++) {
-            for (let dc = -1; dc <= 1; dc++) {
-                if (isValidSquare(cR + dr, cC + dc)) {
-                    addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
-                }
-            }
-        }
-        audioManager.playExplosion();
-
-        moveBeingMade = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
-        
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-              const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade, movingPlayer: currentPlayer });
-              ws.send(payload);
-            }
-            return;
-        }
-
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
-        let { newBoard, selfDestructCaptures, destroyedAnvils, enPassantTargetSet: nextEnPassantTarget, rallyCryTriggered } = applyMoveResult;
-        
-        finalBoardStateForTurn = newBoard;
-
-        if (selfDestructCaptures) {
-          selfDestructCaptures.forEach(p => finalCapturedPiecesForTurn[currentPlayer].push(p));
-        }
-        if (destroyedAnvils > 0) toast({ title: "Anvils Shattered!", description: `${getPlayerDisplayName(currentPlayer)} ${pieceToMoveFromSelected.type} destroyed ${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''} destroyed!`, duration: 8000 });
-        
-        const selfDestructPlayer = currentPlayer;
-        const oldStreak = killStreaks[selfDestructPlayer] || 0;
-        let capturesThisTurnForSelfDestruct = selfDestructCaptures ? selfDestructCaptures.length : 0;
-        const newStreakForSelfDestructPlayer = capturesThisTurnForSelfDestruct > 0 ? (oldStreak + capturesThisTurnForSelfDestruct) : 0;
-        
-        setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer}));
-        
-        if (capturesThisTurnForSelfDestruct > 0) {
-            setShowCaptureFlash(true);
-            setCaptureFlashKey(k => k + 1);
-        }
-
-        const isHumanPlayerForFirstBlood = !((selfDestructPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (selfDestructPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-        if (capturesThisTurnForSelfDestruct > 0 && !firstBloodAchieved) {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(selfDestructPlayer);
-            if (isHumanPlayerForFirstBlood) humanPlayerAchievedFirstBloodThisTurn = true;
-        }
-
-        const streakGrantsExtraTurn = oldStreak < 6 && newStreakForSelfDestructPlayer >= 6;
-
-        if (oldStreak < 2 && newStreakForSelfDestructPlayer >= 2) {
-            const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer);
-            if (hasArchbishop) {
-                enteringSpecialMode = true;
-                const shieldCtx = { boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget };
-                setShieldContext(shieldCtx);
-                setIsAwaitingHolyShield(true);
-                setGameInfo(prev => ({ ...prev, message: "HOLY SHIELD! Select an ally to protect." }));
-            }
-        }
-
-        if (!enteringSpecialMode && oldStreak < 3 && newStreakForSelfDestructPlayer >= 3) {
-            enteringSpecialMode = true;
-            setIsAwaitingAnvilDrop(true);
-            setPlayerToDropAnvil(selfDestructPlayer);
-            setGameInfo(prev => ({ ...prev, message: `KILL STREAK REACHED! Place an anvil.` }));
-            const anvilDropCtx = {
-                boardForNextStep: finalBoardStateForTurn,
-                playerWhoseTurnCompleted: selfDestructPlayer,
-                isExtraTurn: streakGrantsExtraTurn,
-                newEnPassantTarget: nextEnPassantTarget
-            };
-            setAnvilDropContext(anvilDropCtx);
-        } 
-        
-        if (!enteringSpecialMode && oldStreak < 5 && newStreakForSelfDestructPlayer >= 5) {
-            const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer);
-            if (hasArcher) {
-                const opponentPlayerForSnipe = selfDestructPlayer === 'white' ? 'black' : 'white';
-                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
-                    sq.piece && 
-                    sq.piece.color === opponentPlayerForSnipe && 
-                    sq.piece.level === 1 && 
-                    sq.piece.type !== 'king' && 
-                    sq.piece.type !== 'queen'
-                );
-                
-                if (hasLevel1Victims) {
-                  enteringSpecialMode = true;
-                  setIsAwaitingArcherSnipe(true);
-                  setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: streakGrantsExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                  setGameInfo(prev => ({ ...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture." }));
-                }
-            }
-        }
-
-        if (oldStreak < 4 && newStreakForSelfDestructPlayer >= 4) {
-            let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] || [])];
-            if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-              const pieceToResurrectOriginalOriginal = piecesOfCurrentPlayerCapturedByOpponent.pop();
-              if (pieceToResurrectOriginalOriginal) {
-                const emptySquares: AlgebraicSquare[] = [];
-                for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
-                if (emptySquares.length > 0) {
-                  const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                  const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                  const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginal, level: 1, id: `${pieceToResurrectOriginalOriginal.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginal.type === 'king' || pieceToResurrectOriginalOriginal.type === 'rook' || pieceToResurrectOriginalOriginal.type === 'palace' ? false : pieceToResurrectOriginalOriginal.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
-
-                  const promoRow = selfDestructPlayer === 'white' ? 0 : 7;
-                  if (resurrectedPiece.type === 'commander' && resR === promoRow) {
-                      resurrectedPiece.type = 'hero';
-                      resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
-                      toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
-                  } else {
-                      toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${resurrectedPiece.type} returns! (L1)`, duration: 8000 });
-                  }
-                  finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                  addEffect('light-beam', randomSquareAlg);
-                  audioManager.playResurrect();
-                  setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
-                  finalCapturedPiecesForTurn[selfDestructPlayer === 'white' ? 'black' : 'white'] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginal.id);
-
-                  setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedPiece.type)}(L${resurrectedPiece.level})@${randomSquareAlg}`]);
-
-                  if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
-                      setPlayerForPostResurrectionPromotion(selfDestructPlayer);
-                      setIsExtraTurnForPostResurrectionPromotion(oldStreak < 6 && newStreakForSelfDestructPlayer >= 6);
-                      setIsResurrectionPromotionInProgress(true);
-                      setPlayerToPromote(selfDestructPlayer);
-                      setIsPromotingPawn(true);
-                      setPromotionSquare(randomSquareAlg);
-                      setBoard(finalBoardStateForTurn);
-                      setCapturedPieces(finalCapturedPiecesForTurn);
-                      setIsMoveProcessing(false);
-                      clickGuardRef.current = false;
-                      return;
-                  }
-                }
-              }
-            }
-        }
-
-        if (rallyCryTriggered) {
-          addEffect('shockwave', rallyCryTriggered.square, rallyCryTriggered.color);
-          audioManager.playRally();
-        }
-
-        setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesForTurn);
-
-        setVcnLog(prev => [...prev, `${getVCNChar(pieceToMoveFromSelected.type)}(L${pieceToMoveFromSelected.level})${selectedSquare}!!!@${selectedSquare}${streakGrantsExtraTurn ? '!!' : ''}`]);
-
-        setTimeout(() => {
-          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-
-          if (humanPlayerAchievedFirstBloodThisTurn) {
-              setIsAwaitingCommanderPromotion(true);
-              setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
-              if (onlineStatus === 'disconnected') {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-              }
-              return;
-          }
-
-          if (enteringSpecialMode) {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              return;
-          }
-
-
-          processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, nextEnPassantTarget);
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-        }, 800);
-        return;
-      } else if (isMoveInFreshList && moveBeingMade) {
+      if (isMoveInFreshList && moveBeingMade) {
         saveStateToHistory();
         clickGuardRef.current = true;
         setLastMoveFrom(selectedSquare);
@@ -2209,7 +2147,7 @@ export default function EvolvingChessPage() {
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
     isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
     isAwaitingArcherSnipe, archerSnipeContext, addToVCN, isWhiteAI, isBlackAI,
-    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory
+    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -2423,7 +2361,7 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe) {
+    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) {
       setIsAiThinking(false);
       return;
     }
@@ -2995,12 +2933,12 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe && !isAwaitingWindScrollTarget) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingWindScrollTarget]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -3201,7 +3139,7 @@ export default function EvolvingChessPage() {
   }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
-    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe) {
+    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) {
       toast({ title: "Undo Failed", description: "Undo is disabled in online games and during special turns.", duration: 8000 });
       return;
     }
@@ -3355,6 +3293,7 @@ export default function EvolvingChessPage() {
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
     setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare, isAwaitingAnvilDrop,
     isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
+    isAwaitingWindScrollTarget
   ]);
 
 
@@ -3813,10 +3752,10 @@ export default function EvolvingChessPage() {
           <div className="w-full">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? null : selectedSquare}
-              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? [] : possibleMoves}
-              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? null : enemySelectedSquare}
-              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? [] : enemyPossibleMoves}
+              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : selectedSquare}
+              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : possibleMoves}
+              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : enemySelectedSquare}
+              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -3825,8 +3764,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveFrom}
-              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveTo}
+              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveFrom}
+              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -3945,7 +3884,7 @@ export default function EvolvingChessPage() {
                 <Trophy /> L.board
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe} aria-label="Undo Move" className="h-7 px-2 text-xs">
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
               <Undo2 /> Undo
             </Button>
           </div>
@@ -4050,10 +3989,10 @@ export default function EvolvingChessPage() {
         <div className="w-full max-lg">
           <ChessBoard
               boardState={board}
-              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? null : selectedSquare}
-              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? [] : possibleMoves}
-              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? null : enemySelectedSquare}
-              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen) ? [] : enemyPossibleMoves}
+              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : selectedSquare}
+              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : possibleMoves}
+              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : enemySelectedSquare}
+              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -4062,8 +4001,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveFrom}
-              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe) ? null : lastMoveTo}
+              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveFrom}
+              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -4169,7 +4108,7 @@ export default function EvolvingChessPage() {
                   <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstblood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
                 <Undo2 /> Undo
               </Button>
             </div>
@@ -4316,6 +4255,28 @@ export default function EvolvingChessPage() {
         notation={formattedNotation}
         onReset={() => fullGameReset()}
       />
+
+      <AlertDialog open={abilityChoiceDialog?.isOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Select Action</AlertDialogTitle>
+            <AlertDialogDescription>
+              This piece has multiple special actions available. Choose one to perform.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>
+              Use Piece Ability (Self-Destruct)
+            </Button>
+            <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>
+              Use Magic Item (Scroll)
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

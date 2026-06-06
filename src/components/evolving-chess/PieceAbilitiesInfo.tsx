@@ -22,6 +22,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'phoenix_down') abilities.push(" rebirth: auto-resurrect once on capture.");
   if (heldItem === 'passive_armor') abilities.push(" steady: immune to push-back.");
   if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects capture attempts once.");
+  if (heldItem === 'wind_scroll') abilities.push(" spell: push-back units from targeted empty space.");
+  if (heldItem === 'life_leach') abilities.push(" spell: reduces all enemy levels by 1.");
 
   // --- STANDARD ABILITIES ---
   switch (type) {

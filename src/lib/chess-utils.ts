@@ -486,6 +486,23 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
 
+  if (move.type === 'life-leach') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      newBoard.forEach(row => row.forEach(sq => {
+          if (sq.piece && sq.piece.color === oppColor) {
+              sq.piece.level = Math.max(1, (sq.piece.level || 1) - 1);
+          }
+      }));
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
+  if (move.type === 'wind-scroll') {
+      triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); // neutral means push everyone
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
   if (move.type === 'self-destruct') {
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
@@ -583,7 +600,7 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
     const nr = r+dr; const nc = c+dc;
     if(isValidSquare(nr, nc)) {
       const victim = board[nr][nc];
-      if(victim.item?.type === 'anvil' || (victim.piece && victim.piece.color !== color)) {
+      if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
         if(victim.piece?.heldItem === 'passive_armor') continue;
         const tr = nr+dr; const tc = nc+dc;
         if(!isValidSquare(tr, tc)) { if(victim.item) board[nr][nc].item = null; }

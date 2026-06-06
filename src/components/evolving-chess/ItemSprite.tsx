@@ -106,6 +106,24 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="4" width="2" height="2" fill="#FDE047" />
           </svg>
         );
+      case 'wind_scroll':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#BAE6FD" />
+            <rect x="1" y="3" width="8" height="6" fill="#BAE6FD" />
+            <rect x="3" y="4" width="4" height="4" fill="#FFF" opacity="0.5" />
+            <rect x="4" y="5" width="2" height="2" fill="#0284C7" />
+          </svg>
+        );
+      case 'life_leach':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#C084FC" />
+            <rect x="1" y="3" width="8" height="6" fill="#C084FC" />
+            <rect x="4" y="4" width="2" height="4" fill="#4C1D95" />
+            <rect x="3" y="5" width="4" height="2" fill="#4C1D95" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">
