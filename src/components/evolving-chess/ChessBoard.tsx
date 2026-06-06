@@ -180,15 +180,15 @@ export function ChessBoard({
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
 
           // Special Target highlights - only visible to the player who needs to act
-          const isSacrificeTargetSquare = isLocalActionTurn && isAwaitingPawnSacrifice &&
-                                          currentSquareData.piece &&
-                                          (currentSquareData.piece.type === 'pawn' || currentSquareData.piece.type === 'commander') &&
-                                          currentSquareData.piece.color === playerToSacrificePawn;
+          const isSacrificeTarget = isLocalActionTurn && isAwaitingPawnSacrifice &&
+                                    currentSquareData.piece &&
+                                    (currentSquareData.piece.type === 'pawn' || currentSquareData.piece.type === 'commander') &&
+                                    currentSquareData.piece.color === playerToSacrificePawn;
 
-          const isCommanderPromoTargetSquare = isLocalActionTurn && isAwaitingCommanderPromotion &&
-                                               currentSquareData.piece?.type === 'pawn' &&
-                                               currentSquareData.piece?.level === 1 &&
-                                               currentSquareData.piece?.color === playerToPromoteCommander;
+          const isCommanderPromoTarget = isLocalActionTurn && isAwaitingCommanderPromotion &&
+                                         currentSquareData.piece?.type === 'pawn' &&
+                                         currentSquareData.piece?.level === 1 &&
+                                         currentSquareData.piece?.color === playerToPromoteCommander;
           
           let isShieldTarget = false;
           if (isLocalActionTurn && isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor) {
@@ -230,10 +230,10 @@ export function ChessBoard({
               animatedSquareTo={animatedSquareTo}
               isLastMoveFrom={isThisLastMoveFrom}
               isLastMoveTo={isThisLastMoveTo}
-              isSacrificeTarget={isSacrificeTargetSquare}
+              isSacrificeTarget={isSacrificeTarget}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
-              isCommanderPromoTarget={isCommanderPromoTargetSquare}
+              isCommanderPromoTarget={isCommanderPromoTarget}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
               playerToPromoteCommander={playerToPromoteCommander}
               isEnPassantTarget={isEnPassantTarget === currentSquareData.algebraic}
