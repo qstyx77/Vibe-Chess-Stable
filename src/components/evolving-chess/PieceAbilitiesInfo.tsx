@@ -1,6 +1,6 @@
 'use client';
 
-import type { Piece, PieceType } from '@/types';
+import type { Piece } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { ItemSprite } from './ItemSprite';
 
@@ -9,10 +9,21 @@ interface PieceAbilitiesInfoProps {
 }
 
 const getPieceAbilities = (piece: Piece): string[] => {
-  const { type, level } = piece;
+  const { type, level, heldItem } = piece;
   const abilities: string[] = [];
   const l = level || 1;
 
+  // --- ITEM ABILITIES ---
+  if (heldItem === 'cardinal_greaves') abilities.push(" cardinal: move (no capture) 1 space forward.");
+  if (heldItem === 'drift_boots') abilities.push(" drift: move (no capture) 1 space diagonally forward.");
+  if (heldItem === 'queens_peace') abilities.push(" invulnerable: cannot be captured or capture others.");
+  if (heldItem === 'wind_sword') abilities.push(" wind edge: push-back adjacent entities on attack.");
+  if (heldItem === 'middle_way') abilities.push(" equilibrium: level locked at 3.");
+  if (heldItem === 'phoenix_down') abilities.push(" rebirth: auto-resurrect once on capture.");
+  if (heldItem === 'passive_armor') abilities.push(" steady: immune to push-back.");
+  if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects capture attempts once.");
+
+  // --- STANDARD ABILITIES ---
   switch (type) {
     case 'pawn':
     case 'commander':
@@ -71,7 +82,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       break;
     case 'queen':
       abilities.push("Standard Queen movement.");
-      if (l >= 7) abilities.push("Invulnerable to lower-level attackers (except special units). Requires Pawn/Commander sacrifice.");
+      if (l >= 7 && heldItem !== 'queens_peace') abilities.push("Invulnerable to lower-level attackers (except special units). Requires Pawn/Commander sacrifice.");
       break;
     case 'king':
       if (l >= 1) abilities.push("Standard king move/capture.");
@@ -102,11 +113,10 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
           <p className="text-[0.6rem] text-muted-foreground italic leading-tight">{item.description}</p>
         </div>
       )}
-      <ul className="list-none p-0 m-0 text-[0.7rem]">
+      <ul className="list-none p-0 m-0 text-[0.7rem] space-y-0.5">
         {abilities.map((ability, index) => (
-          <li key={index}>{ability}</li>
+          <li key={index} className="leading-tight">{ability}</li>
         ))}
-        {abilities.length === 0 && <li>No special abilities.</li>}
       </ul>
     </div>
   );
