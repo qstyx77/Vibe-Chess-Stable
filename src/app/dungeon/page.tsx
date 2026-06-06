@@ -33,6 +33,16 @@ import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import Link from 'next/link';
 import { audioManager } from '@/lib/audio-manager';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
@@ -225,6 +235,11 @@ export default function DungeonPage() {
   const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
   const [specialActionContext, setSpecialActionContext] = useState<any>(null);
 
+  const [isAwaitingWindScrollTarget, setIsAwaitingWindScrollTarget] = useState(false);
+  const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
+  const [isAwaitingShieldScrollTarget, setIsAwaitingShieldScrollTarget] = useState(false);
+  const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
+
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([
@@ -240,7 +255,10 @@ export default function DungeonPage() {
     { type: 'wind_scroll', count: 1 },
     { type: 'life_leach', count: 1 },
     { type: 'summon_anvil', count: 1 },
-    { type: 'wind_cloak', count: 1 }
+    { type: 'wind_cloak', count: 1 },
+    { type: 'gnosis', count: 1 },
+    { type: 'shield_scroll', count: 1 },
+    { type: 'rally_scroll', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -331,7 +349,6 @@ export default function DungeonPage() {
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
     
-    // Reinforce Self-Check Auto-Loss (e.g. from Hydra split)
     if (!extra && turnPlayer === 'white' && isKingInCheck(nextBoard, 'white', nextEpSquare)) {
       setGameInfo({ message: "SPLIT SELF-CHECK! AUTO-LOSS", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' });
       audioManager.playDefeat();
@@ -463,7 +480,6 @@ export default function DungeonPage() {
     const oldStreak = killStreaks['white'];
     const isExtra = extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6);
 
-    // FIX: Check if we are still waiting for a Commander promotion, and if target still exists
     let pendingCommander = isAwaitingCommanderPromotion;
     if (pendingCommander) {
         const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
@@ -474,7 +490,6 @@ export default function DungeonPage() {
     }
 
     if (pendingCommander) {
-        // Keep the mode active. Update context for turn pass later.
         setSpecialActionContext({ extra: isExtra });
         return;
     }
@@ -485,9 +500,8 @@ export default function DungeonPage() {
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
 
-    // Standard Interaction Guard
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe;
-    const isLocalActionTurn = true; // Dungeon is single player
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget;
+    const isLocalActionTurn = true; 
     if (isAnySpecialModeActive && !isLocalActionTurn) return;
 
     const { row, col } = algebraicToCoords(algebraic);
@@ -502,15 +516,18 @@ export default function DungeonPage() {
             toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
             return;
           }
-          // Swift Cloak restriction: Pawns/Commanders only
           if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
 
-          // Queen's Peace restriction: Queen only
           if (selectedInventoryItemType === 'queens_peace' && piece.type !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
+            return;
+          }
+
+          if (selectedInventoryItemType === 'gnosis' && (piece.type === 'king' || piece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
             return;
           }
 
@@ -529,15 +546,18 @@ export default function DungeonPage() {
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
-          // Swift Cloak restriction on swap
           if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
 
-          // Queen's Peace restriction on swap
           if (selectedInventoryItemType === 'queens_peace' && piece.type !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
+            return;
+          }
+
+          if (selectedInventoryItemType === 'gnosis' && (piece.type === 'king' || piece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
             return;
           }
 
@@ -570,11 +590,48 @@ export default function DungeonPage() {
             const nextInv = [...prev];
             const item = nextInv.find(i => i.type === removedItem);
             if (item) item.count++;
-            else nextInv.push({ type: oldItem, count: 1 });
+            else nextInv.push({ type: removedItem, count: 1 });
             return nextInv;
           });
           audioManager.playMove();
         }
+      }
+      return;
+    }
+
+    if (isAwaitingWindScrollTarget) {
+      if (!sq.piece && !sq.item) {
+        setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
+        const result = applyMove(board, move, enPassantTargetSquare);
+        setBoard(result.newBoard);
+        audioManager.playAnvil();
+        setIsAwaitingWindScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+      }
+      return;
+    }
+    if (isAwaitingAnvilScrollTarget) {
+      if (!sq.piece && !sq.item) {
+        setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
+        const result = applyMove(board, move, enPassantTargetSquare);
+        setBoard(result.newBoard);
+        audioManager.playAnvil();
+        setIsAwaitingAnvilScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+      }
+      return;
+    }
+    if (isAwaitingShieldScrollTarget) {
+      if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen') {
+        setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
+        const result = applyMove(board, move, enPassantTargetSquare);
+        setBoard(result.newBoard);
+        audioManager.playShield();
+        setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
       }
       return;
     }
@@ -591,7 +648,6 @@ export default function DungeonPage() {
             setBoardForPostSacrifice(null);
             audioManager.playCapture();
 
-            // RE-CHECK First Blood soft-lock: If sacrificed pawn was the last L1 pawn
             const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
             if (isAwaitingCommanderPromotion && !hasL1Remaining) {
               setIsAwaitingCommanderPromotion(false);
@@ -612,7 +668,6 @@ export default function DungeonPage() {
             setIsAwaitingArcherSnipe(false);
             audioManager.playSnipe();
             
-            // RE-CHECK First Blood lock
             const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
             if (isAwaitingCommanderPromotion && !hasL1Remaining) {
               setIsAwaitingCommanderPromotion(false);
@@ -632,7 +687,6 @@ export default function DungeonPage() {
             setIsAwaitingHolyShield(false);
             audioManager.playShield();
             
-            // RE-CHECK First Blood lock
             const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
             if (isAwaitingCommanderPromotion && !hasL1Remaining) {
               setIsAwaitingCommanderPromotion(false);
@@ -652,7 +706,6 @@ export default function DungeonPage() {
             setIsAwaitingAnvilDrop(false);
             audioManager.playAnvil();
             
-            // RE-CHECK First Blood lock
             const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
             if (isAwaitingCommanderPromotion && !hasL1Remaining) {
               setIsAwaitingCommanderPromotion(false);
@@ -679,7 +732,35 @@ export default function DungeonPage() {
     if (selectedSquare) {
       const { row: fromR, col: fromC } = algebraicToCoords(selectedSquare);
       const movingPiece = board[fromR][fromC].piece;
-      if (selectedSquare === algebraic && movingPiece && (movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5) {
+      if (!movingPiece) return;
+
+      const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5);
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll');
+
+      if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
+        const executeLifeLeach = () => {
+          setIsMoveProcessing(true); clickGuard.current = true;
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
+          const result = applyMove(board, move, enPassantTargetSquare);
+          setBoard(result.newBoard);
+          audioManager.playLevelUp();
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeWindScrollMode = () => { setIsAwaitingWindScrollTarget(true); setPossibleMoves([]); };
+        const executeSummonAnvilMode = () => { setIsAwaitingAnvilScrollTarget(true); setPossibleMoves([]); };
+        const executeShieldScrollMode = () => { if(movingPiece.level < 2) return; setIsAwaitingShieldScrollTarget(true); setPossibleMoves([]); };
+        const executeRallyScroll = () => {
+          if(movingPiece.level < 3) return;
+          setIsMoveProcessing(true); clickGuard.current = true;
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
+          const result = applyMove(board, move, enPassantTargetSquare);
+          setBoard(result.newBoard);
+          audioManager.playRally();
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeSelfDestruct = () => {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
           audioManager.playExplosion();
           const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
@@ -688,15 +769,35 @@ export default function DungeonPage() {
           const oldStreak = killStreaks.white;
           if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) {
               setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!] }));
-              const streakGain = result.selfDestructCaptures.length;
-              setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + streakGain }));
+              setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + result.selfDestructCaptures!.length }));
               if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
           }
-          setBoard(nextBoard);
-          setSelectedSquare(null);
-          setPossibleMoves([]);
+          setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]);
           processMoveEnd(nextBoard, 'white', result.extraTurn || (oldStreak < 6 && (killStreaks.white + (result.selfDestructCaptures?.length || 0)) >= 6), enPassantTargetSquare);
+        };
+
+        if (hasSelfSelectionAbility && hasMagicScroll) {
+          setAbilityChoiceDialog({ isOpen: true, onChoice: (choice) => {
+            setAbilityChoiceDialog(null);
+            if (choice === 'ability') executeSelfDestruct();
+            else {
+              if (movingPiece.heldItem === 'life_leach') executeLifeLeach();
+              else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode();
+              else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
+              else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
+              else executeWindScrollMode();
+            }
+          }});
           return;
+        }
+        if (hasMagicScroll) {
+          if (movingPiece.heldItem === 'life_leach') executeLifeLeach();
+          else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode();
+          else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
+          else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
+          else executeWindScrollMode();
+        } else if (hasSelfSelectionAbility) executeSelfDestruct();
+        return;
       }
       if (possibleMoves.includes(algebraic)) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
@@ -713,8 +814,9 @@ export default function DungeonPage() {
 
         const originalLevel = originalP?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
-        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp } = result;
+        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection } = result;
         
+        if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); toast({ title: "Rebirth!", description: "Phoenix Down resurrected the unit!" }); }
         if (result.infiltrationWin) { setBoard(newBoard); const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(survivors); return; }
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
         if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
@@ -782,7 +884,6 @@ export default function DungeonPage() {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
           if (isAwaitingPawnSacrifice) return;
 
-          // Check if target for Commander exists to avoid soft-lock
           const hasL1Targets = newBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
           if (!firstBloodAchieved && streakGain > 0) { 
               setFirstBloodAchieved(true); 
@@ -811,7 +912,7 @@ export default function DungeonPage() {
   };
 
   useEffect(() => {
-    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen;
+    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget;
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && !isSpecialActionActive && aiInstance.current) {
       const think = async () => {
         setIsAiThinking(true); setIsMoveProcessing(true);
@@ -841,6 +942,7 @@ export default function DungeonPage() {
                 return; 
              }
              let nextBoard = result.newBoard;
+             if (result.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
              if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
              if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
              if (nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece && (nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece!.type === 'rook' || nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece!.type === 'palace') && result.capturedPiece) {
@@ -928,7 +1030,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget]);
 
   if (!user) {
     return (
@@ -961,13 +1063,13 @@ export default function DungeonPage() {
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
           <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
           <div className="w-full aspect-square">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield) ? null : selectedSquare}
-              possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield) ? [] : possibleMoves}
+              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget) ? null : selectedSquare}
+              possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget) ? [] : possibleMoves}
               enemySelectedSquare={null}
               enemyPossibleMoves={[]}
               onSquareClick={handleSquareClick}
@@ -994,6 +1096,7 @@ export default function DungeonPage() {
               isInventoryOpen={isInventoryOpen}
               selectedInventoryItemType={selectedInventoryItemType}
               localPlayerColor="white"
+              isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
             />
           </div>
         </div>
@@ -1024,6 +1127,28 @@ export default function DungeonPage() {
 
       <RulesDialog isOpen={false} onOpenChange={() => {}} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
+
+      <AlertDialog open={abilityChoiceDialog?.isOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Select Action</AlertDialogTitle>
+            <AlertDialogDescription>
+              This piece has multiple special actions available. Choose one to perform.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex flex-col gap-2">
+            <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>
+              Use Piece Ability (Self-Destruct)
+            </Button>
+            <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>
+              Use Magic Item (Scroll)
+            </Button>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
