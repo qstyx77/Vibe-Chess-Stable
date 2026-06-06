@@ -236,7 +236,11 @@ export default function DungeonPage() {
     { type: 'queens_peace', count: 1 },
     { type: 'wind_sword', count: 1 },
     { type: 'middle_way', count: 1 },
-    { type: 'phoenix_down', count: 1 }
+    { type: 'phoenix_down', count: 1 },
+    { type: 'wind_scroll', count: 1 },
+    { type: 'life_leach', count: 1 },
+    { type: 'summon_anvil', count: 1 },
+    { type: 'wind_cloak', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 

@@ -124,6 +124,26 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="5" width="4" height="2" fill="#4C1D95" />
           </svg>
         );
+      case 'summon_anvil':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#94A3B8" />
+            <rect x="1" y="3" width="8" height="6" fill="#94A3B8" />
+            <rect x="3" y="5" width="4" height="3" fill="#334155" />
+            <rect x="4" y="4" width="2" height="1" fill="#334155" />
+          </svg>
+        );
+      case 'wind_cloak':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="1" width="4" height="4" fill="#BAE6FD" />
+            <rect x="2" y="2" width="6" height="3" fill="#BAE6FD" />
+            <rect x="1" y="5" width="8" height="6" fill="#BAE6FD" />
+            <rect x="0" y="6" width="10" height="5" fill="#BAE6FD" />
+            <rect x="4" y="5" width="2" height="1" fill="#FFF" opacity="0.8" />
+            <rect x="4" y="2" width="2" height="2" fill="#0284C7" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">

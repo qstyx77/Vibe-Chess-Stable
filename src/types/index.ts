@@ -18,6 +18,8 @@ export type InventoryItemType =
   | 'phoenix_down'
   | 'wind_scroll'
   | 'life_leach'
+  | 'summon_anvil'
+  | 'wind_cloak'
   | 'fireball_scroll' 
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
@@ -56,6 +58,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'phoenix_down': { name: 'Phoenix Down', description: 'Magic feather. Auto-resurrection at L1 (Consumable).', isConsumable: true },
   'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units.', isConsumable: true },
   'life_leach': { name: 'Life Leach', description: 'Consumable. Global: reduces all enemy levels by 1.', isConsumable: true },
+  'summon_anvil': { name: 'Anvil Scroll', description: 'Consumable. Target an empty square to drop a solid Anvil.', isConsumable: true },
+  'wind_cloak': { name: 'Wind Cloak', description: 'Aero mantle. L4+ pieces gain Push-Back ability.', isConsumable: false },
 
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', isConsumable: true },
@@ -122,7 +126,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil';
   promoteTo?: PieceType;
 }
 
@@ -270,7 +274,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil';
   promoteTo?: PieceType;
 }
 

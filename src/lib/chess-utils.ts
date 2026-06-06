@@ -503,6 +503,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
+  if (move.type === 'summon-anvil') {
+      newBoard[toRow][toCol].item = { type: 'anvil' };
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
   if (move.type === 'self-destruct') {
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
@@ -583,9 +589,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   // --- LEVEL BASED ABILITIES ---
-  if ((pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && pieceToLand.level >= 4) {
+  const hasInherentPushBack = (pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && pieceToLand.level >= 4;
+  const hasCloakPushBack = pieceToLand.heldItem === 'wind_cloak' && pieceToLand.level >= 4;
+
+  if (hasInherentPushBack || hasCloakPushBack) {
     triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
   }
+  
   if ((pieceToLand.type === 'bishop' || pieceToLand.type === 'archbishop') && pieceToLand.level >= 5) {
     triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   }

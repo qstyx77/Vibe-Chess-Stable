@@ -258,6 +258,7 @@ export default function EvolvingChessPage() {
   const [aiDifficulty, setAiDifficulty] = useState(4);
 
   const [isAwaitingWindScrollTarget, setIsAwaitingWindScrollTarget] = useState(false);
+  const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
 
   // --- Inventory States ---
@@ -273,7 +274,9 @@ export default function EvolvingChessPage() {
     { type: 'middle_way', count: 1 },
     { type: 'phoenix_down', count: 1 },
     { type: 'wind_scroll', count: 1 },
-    { type: 'life_leach', count: 1 }
+    { type: 'life_leach', count: 1 },
+    { type: 'summon_anvil', count: 1 },
+    { type: 'wind_cloak', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -362,13 +365,15 @@ export default function EvolvingChessPage() {
 
   const addToVCN = useCallback((move: Move, result: ApplyMoveResult, player: PlayerColor, extraTurn: boolean, special?: string) => {
     const piece = result.newBoard[algebraicToCoords(move.to).row][algebraicToCoords(move.to).col].piece;
-    if (!piece && move.type !== 'wind-scroll' && move.type !== 'life-leach') return;
+    if (!piece && move.type !== 'wind-scroll' && move.type !== 'life-leach' && move.type !== 'summon-anvil') return;
 
     let notation = "";
     if (move.type === 'wind-scroll') {
       notation = `[W-Spell]@${move.to}`;
     } else if (move.type === 'life-leach') {
       notation = `[L-Spell]`;
+    } else if (move.type === 'summon-anvil') {
+      notation = `[A-Spell]@${move.to}`;
     } else {
       const char = getVCNChar(piece!.type);
       const level = `(L${piece!.level})`;
@@ -601,6 +606,7 @@ export default function EvolvingChessPage() {
     setIsInventoryOpen(false);
     setSelectedInventoryItemType(null);
     setIsAwaitingWindScrollTarget(false);
+    setIsAwaitingAnvilScrollTarget(false);
     setAbilityChoiceDialog(null);
   }, [userData]);
 
@@ -974,7 +980,7 @@ export default function EvolvingChessPage() {
       timerStarted = true;
     }
     
-    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget;
+    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget;
 
     if (!timerStarted && !isAnySpecialAction) {
       startTurnTimer(currentPlayer);
@@ -1005,6 +1011,7 @@ export default function EvolvingChessPage() {
     isAwaitingHolyShield,
     isAwaitingArcherSnipe,
     isAwaitingWindScrollTarget,
+    isAwaitingAnvilScrollTarget,
     startTurnTimer,
     stopTurnTimer,
   ]);
@@ -1161,7 +1168,7 @@ export default function EvolvingChessPage() {
     setPieceForInfoDisplay(clickedPiece || null);
 
     // Interaction Guard: If a specialized selection turn is active, only the acting local player can interact.
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget;
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget;
     if (isAnySpecialModeActive && !isLocalActionTurn) {
         return;
     }
@@ -1220,7 +1227,7 @@ export default function EvolvingChessPage() {
             const nextInv = [...prev];
             const item = nextInv.find(i => i.type === removedItem);
             if (item) item.count++;
-            else nextInv.push({ type: removedItem, count: 1 });
+            else nextInv.push({ type: oldItem, count: 1 });
             return nextInv;
           });
           audioManager.playMove();
@@ -1254,6 +1261,34 @@ export default function EvolvingChessPage() {
         }, 800);
       } else {
         toast({ title: "Invalid Target", description: "Target an empty space to cast the Wind Scroll.", variant: "destructive" });
+      }
+      return;
+    }
+
+    if (isAwaitingAnvilScrollTarget && isLocalActionTurn) {
+      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+        saveStateToHistory();
+        clickGuardRef.current = true;
+        setIsMoveProcessing(true);
+        setAnimatedSquareTo(algebraic);
+        
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
+        const result = applyMove(board, move, enPassantTargetSquare);
+        setBoard(result.newBoard);
+        audioManager.playAnvil();
+        toast({ title: "Anvil Summoned!", description: `Anvil dropped on ${algebraic}.` });
+        
+        setIsAwaitingAnvilScrollTarget(false);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        addToVCN(move, result, currentPlayer, false);
+        setTimeout(() => {
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+        }, 800);
+      } else {
+        toast({ title: "Invalid Target", description: "Target an empty space to summon an Anvil.", variant: "destructive" });
       }
       return;
     }
@@ -1556,7 +1591,7 @@ export default function EvolvingChessPage() {
       }
 
       const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5);
-      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach');
+      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         const executeLifeLeach = () => {
@@ -1582,6 +1617,12 @@ export default function EvolvingChessPage() {
           setIsAwaitingWindScrollTarget(true);
           setPossibleMoves([]); // User will click empty square
           toast({ title: "Targeting Mode", description: "Select an empty square to target with Wind Scroll." });
+        };
+
+        const executeSummonAnvilMode = () => {
+          setIsAwaitingAnvilScrollTarget(true);
+          setPossibleMoves([]); // User will click empty square
+          toast({ title: "Targeting Mode", description: "Select an empty square to summon an Anvil." });
         };
 
         const executeSelfDestruct = () => {
@@ -1647,6 +1688,7 @@ export default function EvolvingChessPage() {
               if (choice === 'ability') executeSelfDestruct();
               else {
                 if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
+                else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
                 else executeWindScrollMode();
               }
             }
@@ -1657,6 +1699,7 @@ export default function EvolvingChessPage() {
         // Single trigger
         if (hasMagicScroll) {
           if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
+          else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
           else executeWindScrollMode();
         } else if (hasSelfSelectionAbility) {
           executeSelfDestruct();
@@ -2147,7 +2190,7 @@ export default function EvolvingChessPage() {
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
     isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
     isAwaitingArcherSnipe, archerSnipeContext, addToVCN, isWhiteAI, isBlackAI,
-    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget
+    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -2361,7 +2404,7 @@ export default function EvolvingChessPage() {
       return;
     }
 
-    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) {
+    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) {
       setIsAiThinking(false);
       return;
     }
@@ -2933,12 +2976,12 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe && !isAwaitingWindScrollTarget) {
+    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe && !isAwaitingWindScrollTarget && !isAwaitingAnvilScrollTarget) {
         if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
              performAiMove();
         }
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingWindScrollTarget]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget]);
 
   useEffect(() => {
     if (!board || positionHistory.length > 0) return;
@@ -3139,7 +3182,7 @@ export default function EvolvingChessPage() {
   }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
 
   const handleUndo = useCallback(() => {
-    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) {
+    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) {
       toast({ title: "Undo Failed", description: "Undo is disabled in online games and during special turns.", duration: 8000 });
       return;
     }
@@ -3293,7 +3336,7 @@ export default function EvolvingChessPage() {
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
     setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare, isAwaitingAnvilDrop,
     isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
-    isAwaitingWindScrollTarget
+    isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget
   ]);
 
 
@@ -3752,10 +3795,10 @@ export default function EvolvingChessPage() {
           <div className="w-full">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : selectedSquare}
-              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : possibleMoves}
-              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : enemySelectedSquare}
-              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : enemyPossibleMoves}
+              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : selectedSquare}
+              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? [] : possibleMoves}
+              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : enemySelectedSquare}
+              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -3764,8 +3807,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveFrom}
-              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveTo}
+              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : lastMoveFrom}
+              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -3884,7 +3927,7 @@ export default function EvolvingChessPage() {
                 <Trophy /> L.board
               </Button>
             </Link>
-            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
               <Undo2 /> Undo
             </Button>
           </div>
@@ -3989,10 +4032,10 @@ export default function EvolvingChessPage() {
         <div className="w-full max-lg">
           <ChessBoard
               boardState={board}
-              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : selectedSquare}
-              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : possibleMoves}
-              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? null : enemySelectedSquare}
-              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget) ? [] : enemyPossibleMoves}
+              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : selectedSquare}
+              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? [] : possibleMoves}
+              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : enemySelectedSquare}
+              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
@@ -4001,8 +4044,8 @@ export default function EvolvingChessPage() {
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveFrom}
-              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget) ? null : lastMoveTo}
+              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : lastMoveFrom}
+              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget) ? null : lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -4108,7 +4151,7 @@ export default function EvolvingChessPage() {
                   <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstblood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstblood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
                 <Undo2 /> Undo
               </Button>
             </div>
