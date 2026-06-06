@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
@@ -205,9 +204,16 @@ export function ChessBoard({
           // Equipment mode targeting logic
           const invOwnerColor = localPlayerColor || 'white';
           let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
+          
           if (isInvTarget && selectedInventoryItemType === 'swift_cloak') {
             const pType = currentSquareData.piece?.type;
             if (pType !== 'pawn' && pType !== 'commander') {
+              isInvTarget = false;
+            }
+          }
+
+          if (isInvTarget && selectedInventoryItemType === 'queens_peace') {
+            if (currentSquareData.piece?.type !== 'queen') {
               isInvTarget = false;
             }
           }

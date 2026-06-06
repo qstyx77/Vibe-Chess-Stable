@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1189,6 +1188,12 @@ export default function EvolvingChessPage() {
             return;
           }
 
+          // Queen's Peace restriction: Queen only
+          if (selectedInventoryItemType === 'queens_peace' && clickedPiece.type !== 'queen') {
+            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -1208,6 +1213,12 @@ export default function EvolvingChessPage() {
           // Swift Cloak restriction on swap
           if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+
+          // Queen's Peace restriction on swap
+          if (selectedInventoryItemType === 'queens_peace' && clickedPiece.type !== 'queen') {
+            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
 
@@ -4154,7 +4165,7 @@ export default function EvolvingChessPage() {
                   <Trophy /> L.board
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstblood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
+              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
                 <Undo2 /> Undo
               </Button>
             </div>

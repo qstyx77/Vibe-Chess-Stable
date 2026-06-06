@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -509,6 +508,12 @@ export default function DungeonPage() {
             return;
           }
 
+          // Queen's Peace restriction: Queen only
+          if (selectedInventoryItemType === 'queens_peace' && piece.type !== 'queen') {
+            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -527,6 +532,12 @@ export default function DungeonPage() {
           // Swift Cloak restriction on swap
           if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+
+          // Queen's Peace restriction on swap
+          if (selectedInventoryItemType === 'queens_peace' && piece.type !== 'queen') {
+            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
 
