@@ -23,6 +23,8 @@ export type InventoryItemType =
   | 'gnosis'
   | 'shield_scroll'
   | 'rally_scroll'
+  | 'poison_dagger'
+  | 'antidote'
   | 'fireball_scroll' 
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
@@ -66,6 +68,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture.', isConsumable: false },
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true },
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true },
+  'poison_dagger': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
+  'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
 
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', isConsumable: true },
@@ -114,6 +118,7 @@ export interface Piece {
   hasMoved: boolean;
   invulnerableTurnsRemaining?: number;
   isShielded?: boolean;
+  isPoisoned?: boolean;
   heldItem?: InventoryItemType | null;
 }
 
@@ -132,7 +137,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote';
   promoteTo?: PieceType;
 }
 
@@ -280,7 +285,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote';
   promoteTo?: PieceType;
 }
 

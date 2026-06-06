@@ -22,6 +22,7 @@ import {
   applyPalace,
   applyArcher,
   findKing,
+  processPoisonDamage,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -67,7 +68,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     if (!p) return false;
     const { row, col } = algebraicToCoords(alg);
     if (isValidSquare(row, col) && !board[row][col].piece) {
-        board[row][col].piece = { ...p, hasMoved: false, isShielded: false };
+        board[row][col].piece = { ...p, hasMoved: false, isShielded: false, isPoisoned: false };
         placedIds.add(p.id);
         return true;
     }
@@ -137,31 +138,31 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     switch (bossLevelIndex) {
       case 1: 
         // Three Level 2 Hydras
-        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
-        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
-        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         // Two Level 2 Knight Guards
-        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
-        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, heldItem: null };
+        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         break;
       case 2: 
-        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, heldItem: null };
-        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         break;
       case 3: 
-        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, heldItem: null };
-        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, isPoisoned: false, heldItem: null };
+        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         break;
       case 4: 
-        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
-        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         break;
       case 5: 
-        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, heldItem: null };
+        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, isPoisoned: false, heldItem: null };
         for(let i=0; i<8; i++) {
           const type: PieceType = i % 2 === 0 ? 'hero' : 'archbishop';
-          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, heldItem: null };
-          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, heldItem: null };
+          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         }
         break;
     }
@@ -189,7 +190,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
       if (level > 25) types.push('queen', 'archbishop', 'archer');
       const type = types[Math.floor(Math.random() * types.length)];
       const pLevel = avgLevel + (Math.random() > 0.6 ? 1 : 0);
-      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, heldItem: null };
+      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
     });
   }
   return board;
@@ -258,7 +259,9 @@ export default function DungeonPage() {
     { type: 'wind_cloak', count: 1 },
     { type: 'gnosis', count: 1 },
     { type: 'shield_scroll', count: 1 },
-    { type: 'rally_scroll', count: 1 }
+    { type: 'rally_scroll', count: 1 },
+    { type: 'poison_dagger', count: 1 },
+    { type: 'antidote', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -356,6 +359,24 @@ export default function DungeonPage() {
     }
 
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
+
+    // --- POISON START OF TURN ---
+    const { newBoard: boardAfterPoison, poisonedCaptures } = processPoisonDamage(nextBoard, nextP);
+    nextBoard = boardAfterPoison;
+    if (poisonedCaptures.length > 0) {
+        setCapturedPieces(prev => ({
+            ...prev,
+            [turnPlayer]: [...(prev[turnPlayer] || []), ...poisonedCaptures]
+        }));
+        setKillStreaks(prev => ({
+            ...prev,
+            [turnPlayer]: (prev[turnPlayer] || 0) + poisonedCaptures.length
+        }));
+        audioManager.playCapture();
+        toast({ title: "Poison Damage!", description: `${poisonedCaptures.length} piece(s) affected by poison!`, duration: 3000 });
+    }
+    setBoard(nextBoard);
+
     setEnPassantTargetSquare(nextEpSquare);
     const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
@@ -469,7 +490,7 @@ export default function DungeonPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = nextBoard[row][col].piece;
     if (!pieceBeingPromoted) return;
-    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false };
+    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false };
     if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(nextBoard[row][col].piece!.level, 7);
     audioManager.playLevelUp();
     setBoard(nextBoard);
@@ -722,6 +743,7 @@ export default function DungeonPage() {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
             nextBoard[row][col].piece!.type = 'commander';
             nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
+            nextBoard[row][col].piece!.isPoisoned = false; // Promo cures
             setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
             audioManager.playLevelUp();
@@ -735,7 +757,7 @@ export default function DungeonPage() {
       if (!movingPiece) return;
 
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         const executeLifeLeach = () => {
@@ -759,6 +781,15 @@ export default function DungeonPage() {
           audioManager.playRally();
           setSelectedSquare(null); setPossibleMoves([]);
           setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeAntidote = () => {
+            setIsMoveProcessing(true); clickGuard.current = true;
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
+            const result = applyMove(board, move, enPassantTargetSquare);
+            setBoard(result.newBoard);
+            audioManager.playShield();
+            setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
         const executeSelfDestruct = () => {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
@@ -785,6 +816,7 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode();
               else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
               else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
+              else if (movingPiece.heldItem === 'antidote') executeAntidote();
               else executeWindScrollMode();
             }
           }});
@@ -793,8 +825,9 @@ export default function DungeonPage() {
         if (hasMagicScroll) {
           if (movingPiece.heldItem === 'life_leach') executeLifeLeach();
           else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode();
-          else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
+          else if (piece.heldItem === 'shield_scroll') executeShieldScrollMode();
           else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
+          else if (movingPiece.heldItem === 'antidote') executeAntidote();
           else executeWindScrollMode();
         } else if (hasSelfSelectionAbility) executeSelfDestruct();
         return;
@@ -850,7 +883,7 @@ export default function DungeonPage() {
           } else if (newStreak === 4) {
               const graveyard = capturedPieces.black;
               if (graveyard.length > 0) {
-                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_H_${Date.now()}`, heldItem: null };
+                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, id: `res_H_${Date.now()}`, heldItem: null };
                   const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                   if (empty.length > 0) {
                       const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -979,7 +1012,7 @@ export default function DungeonPage() {
                } else if (newStreak === 4) {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
-                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, id: `res_D_${Date.now()}`, heldItem: null };
+                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, id: `res_D_${Date.now()}`, heldItem: null };
                        const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1141,7 +1174,7 @@ export default function DungeonPage() {
               Use Piece Ability (Self-Destruct)
             </Button>
             <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>
-              Use Magic Item (Scroll)
+              Use Magic Item (Spell)
             </Button>
           </div>
           <AlertDialogFooter>

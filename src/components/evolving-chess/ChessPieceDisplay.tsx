@@ -78,6 +78,7 @@ export function ChessPieceDisplay({
           isPromoting && "animate-ping",
           animationClass,
           powerGlowClass,
+          piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]",
           "origin-bottom"
         )}
       >

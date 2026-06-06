@@ -3,6 +3,7 @@
 import type { Piece } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { ItemSprite } from './ItemSprite';
+import { cn } from '@/lib/utils';
 
 interface PieceAbilitiesInfoProps {
   piece: Piece;
@@ -25,9 +26,12 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'wind_scroll') abilities.push(" spell: push-back units from targeted empty space.");
   if (heldItem === 'life_leach') abilities.push(" spell: reduces all enemy levels by 1.");
   if (heldItem === 'summon_anvil') abilities.push(" spell: drop a solid anvil block.");
+  if (heldItem === 'wind_cloak') abilities.push(" aero mantle: push-back ability triggered on move.");
   if (heldItem === 'gnosis') abilities.push(" insight: +1 extra level gain on every capture.");
-  if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to an ally.");
+  if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to an allied unit.");
   if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): reset to L1 to trigger a global ally level-up.");
+  if (heldItem === 'poison_dagger') abilities.push(" toxic: splash poison to adjacent enemies on capture.");
+  if (heldItem === 'antidote') abilities.push(" cleanse: remove poison from all allied units.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");
@@ -116,6 +120,11 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   return (
     <div className="text-center text-xs">
       <h3 className="font-bold text-primary text-sm">{pieceName} - Level {piece.level || 1}</h3>
+      {piece.isPoisoned && (
+        <p className="text-[#22C55E] font-bold text-[10px] animate-pulse uppercase mt-1 mb-1">
+          STATUS: POISONED
+        </p>
+      )}
       {item && (
         <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -128,7 +137,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       )}
       <ul className="list-none p-0 m-0 text-[0.7rem] space-y-0.5">
         {abilities.map((ability, index) => (
-          <li key={index} className="leading-tight">{ability}</li>
+          <li key={index} className={cn("leading-tight", piece.isPoisoned && "opacity-70")}>{ability}</li>
         ))}
       </ul>
     </div>

@@ -124,7 +124,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const square = board[r]?.[c];
       const piece = square?.piece;
       const item = square?.item;
-      if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.heldItem || '-'}`;
+      if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.isPoisoned ? 'Z' : ''}${piece.heldItem || '-'}`;
       else pieceHash += '--';
       if (item?.type === 'anvil') itemHash += 'A';
       else if (item?.type === 'shroom') itemHash += 'S';
@@ -525,6 +525,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
+  if (move.type === 'antidote') {
+      newBoard.forEach(row => row.forEach(sq => {
+          if (sq.piece && sq.piece.color === movingPiece.color) sq.piece.isPoisoned = false;
+      }));
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
   if (move.type === 'self-destruct') {
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
@@ -558,9 +566,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   newBoard[fromRow][fromCol].piece = null;
 
   if ((pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && Math.abs(fromRow - toRow) === 2) enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
+  
+  let didLevelUp = false;
   if (targetItem?.type === 'shroom') {
     shroomConsumed = true; newBoard[toRow][toCol].item = null;
-    if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) pieceToLand.level = (pieceToLand.level || 1) + 1;
+    if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) { pieceToLand.level = (pieceToLand.level || 1) + 1; didLevelUp = true; }
   }
 
   // --- CASTLING ---
@@ -568,7 +578,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     const rC = toCol > fromCol ? 7 : 0; const tC = toCol > fromCol ? 5 : 3;
     const rookSq = newBoard[fromRow][rC];
     if (rookSq.piece) {
-        if (rookSq.piece.type === 'palace') pieceToLand.level++;
+        if (rookSq.piece.type === 'palace') { pieceToLand.level++; didLevelUp = true; }
         newBoard[fromRow][tC].piece = { ...rookSq.piece, hasMoved: true, isShielded: false };
         rookSq.piece = null;
     }
@@ -580,11 +590,19 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     // Gnosis bonus: +1 extra level on capture
     if (pieceToLand.heldItem === 'gnosis') gain += 1;
     
-    if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) pieceToLand.level = (pieceToLand.level || 1) + gain;
+    if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) { pieceToLand.level = (pieceToLand.level || 1) + gain; didLevelUp = true; }
     if (pieceToLand.type === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
     if (pieceToLand.type === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
+
+    // --- POISON DAGGER SPLASH ---
+    if (pieceToLand.heldItem === 'poison_dagger') {
+        triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
+    }
   }
+
+  // --- CURE POISON ON LEVEL UP ---
+  if (didLevelUp) pieceToLand.isPoisoned = false;
 
   // --- WIND SWORD LOGIC ---
   if (movingPiece.heldItem === 'wind_sword' && captured) {
@@ -645,6 +663,17 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
   }
 }
 
+export function triggerPoisonSplash(board: BoardState, r: number, c: number, attackerColor: PlayerColor) {
+    for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+        if(dr===0 && dc===0) continue;
+        const nr = r+dr; const nc = c+dc;
+        if(isValidSquare(nr, nc)) {
+            const victim = board[nr][nc].piece;
+            if(victim && victim.color !== attackerColor) victim.isPoisoned = true;
+        }
+    }
+}
+
 export function triggerConversion(board: BoardState, r: number, c: number, color: PlayerColor, converter: Piece, events: ConversionEvent[]) {
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     const nr = r+dr; const nc = c+dc;
@@ -667,7 +696,10 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
       if (sq.rowIndex === or && sq.colIndex === oc) return;
       
       if(target === 'all' || sq.piece.type === 'pawn') {
-        if(sq.piece.type !== 'queen' || sq.piece.level < 6) sq.piece.level++;
+        if(sq.piece.type !== 'queen' || sq.piece.level < 6) {
+            sq.piece.level++;
+            sq.piece.isPoisoned = false; // Cure poison on level up
+        }
       }
     }
   }));
@@ -678,6 +710,25 @@ export function applyKingDominion(board: BoardState, color: PlayerColor, gain: n
   board.forEach(row => row.forEach(sq => {
     if(sq.piece && sq.piece.color === opp && sq.piece.type === 'queen') sq.piece.level = Math.max(1, sq.piece.level - gain);
   }));
+}
+
+export function processPoisonDamage(board: BoardState, player: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[] } {
+    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+    const poisonedCaptures: Piece[] = [];
+    
+    newBoard.forEach(row => row.forEach(sq => {
+        const p = sq.piece;
+        if (p && p.color === player && p.isPoisoned) {
+            if (p.level > 1) {
+                p.level--;
+            } else {
+                poisonedCaptures.push({ ...p, id: `${p.id}_poison_death_${Date.now()}` });
+                sq.piece = null;
+            }
+        }
+    }));
+    
+    return { newBoard, poisonedCaptures };
 }
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
@@ -745,7 +796,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
       if (adj.length > 0) {
         const target = adj[Math.floor(Math.random()*adj.length)];
         const {row: rr, col: rc} = algebraicToCoords(target);
-        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, heldItem: null };
+        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [opp]: graveyard[opp].filter(p => p.id !== choice.id) };
         return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: res.type === 'pawn' && (rr===0 || rr===7) };

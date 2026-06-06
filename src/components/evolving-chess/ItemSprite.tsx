@@ -172,6 +172,25 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="5" width="4" height="2" fill="#EAB308" />
           </svg>
         );
+      case 'poison_dagger':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="1" width="2" height="7" fill="#22C55E" />
+            <rect x="3" y="2" width="4" height="5" fill="#15803D" />
+            <rect x="2" y="8" width="6" height="1" fill="#334155" />
+            <rect x="4" y="9" width="2" height="2" fill="#334155" />
+            <rect x="5" y="2" width="1" height="2" fill="#BBF7D0" opacity="0.6" />
+          </svg>
+        );
+      case 'antidote':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="2" width="4" height="9" fill="#10B981" />
+            <rect x="2" y="3" width="6" height="7" fill="#10B981" />
+            <rect x="4" y="1" width="2" height="2" fill="#78350F" />
+            <rect x="4" y="4" width="2" height="2" fill="#FFF" opacity="0.4" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">
