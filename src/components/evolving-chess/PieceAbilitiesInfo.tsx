@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Piece } from '@/types';
@@ -25,6 +24,10 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects capture attempts once.");
   if (heldItem === 'wind_scroll') abilities.push(" spell: push-back units from targeted empty space.");
   if (heldItem === 'life_leach') abilities.push(" spell: reduces all enemy levels by 1.");
+  if (heldItem === 'summon_anvil') abilities.push(" spell: drop a solid anvil block.");
+  if (heldItem === 'gnosis') abilities.push(" insight: +1 extra level gain on every capture.");
+  if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to an ally.");
+  if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): reset to L1 to trigger a global ally level-up.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");

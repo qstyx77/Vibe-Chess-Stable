@@ -509,6 +509,22 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
+  if (move.type === 'shield-scroll') {
+      const { row: tr, col: tc } = algebraicToCoords(move.to);
+      if (newBoard[tr][tc].piece) {
+          newBoard[tr][tc].piece!.isShielded = true;
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
+  if (move.type === 'rally-scroll') {
+      applyRally(newBoard, movingPiece.color, 'all', move.from);
+      newBoard[fromRow][fromCol].piece!.level = 1; // reset user level
+      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
   if (move.type === 'self-destruct') {
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
@@ -560,7 +576,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   // --- CAPTURE EFFECTS ---
   if (captured) {
-    const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0;
+    let gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0;
+    // Gnosis bonus: +1 extra level on capture
+    if (pieceToLand.heldItem === 'gnosis') gain += 1;
+    
     if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) pieceToLand.level = (pieceToLand.level || 1) + gain;
     if (pieceToLand.type === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
     if (pieceToLand.type === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
@@ -641,8 +660,12 @@ export function triggerConversion(board: BoardState, r: number, c: number, color
 }
 
 export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn' | 'all', origin: AlgebraicSquare) {
+  const { row: or, col: oc } = algebraicToCoords(origin);
   board.forEach(row => row.forEach(sq => {
     if(sq.piece && sq.piece.color === color) {
+      // Don't rally the piece at the origin (the scroll user)
+      if (sq.rowIndex === or && sq.colIndex === oc) return;
+      
       if(target === 'all' || sq.piece.type === 'pawn') {
         if(sq.piece.type !== 'queen' || sq.piece.level < 6) sq.piece.level++;
       }
