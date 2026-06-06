@@ -179,7 +179,7 @@ export function ChessBoard({
           const isThisLastMoveFrom = currentSquareData.algebraic === lastMoveFrom;
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
 
-          // Special Target highlights - only visible to the acting player to avoid "Phantom Selection" confusion
+          // Special Target highlights - only visible to the player who needs to act
           const isSacrificeTargetSquare = isLocalActionTurn && isAwaitingPawnSacrifice &&
                                           currentSquareData.piece &&
                                           (currentSquareData.piece.type === 'pawn' || currentSquareData.piece.type === 'commander') &&
@@ -202,7 +202,15 @@ export function ChessBoard({
 
           const isAnvilDropTarget = isLocalActionTurn && isAwaitingAnvilDrop && !currentSquareData.piece && !currentSquareData.item;
 
-          const isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === 'white';
+          // Equipment mode targeting logic
+          const invOwnerColor = localPlayerColor || 'white';
+          let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
+          if (isInvTarget && selectedInventoryItemType === 'swift_cloak') {
+            const pType = currentSquareData.piece?.type;
+            if (pType !== 'pawn' && pType !== 'commander') {
+              isInvTarget = false;
+            }
+          }
           
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
 
@@ -216,7 +224,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTargetSquare && !isCommanderPromoTargetSquare && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget}
+              disabled={isInteractionDisabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}

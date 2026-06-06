@@ -982,6 +982,7 @@ export default function DungeonPage() {
               isAwaitingArcherSnipe={isAwaitingArcherSnipe}
               isInventoryOpen={isInventoryOpen}
               selectedInventoryItemType={selectedInventoryItemType}
+              localPlayerColor="white"
             />
           </div>
         </div>

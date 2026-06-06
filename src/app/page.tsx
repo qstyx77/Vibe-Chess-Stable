@@ -320,8 +320,9 @@ export default function EvolvingChessPage() {
 
   const isLocalActionTurn = onlineStatus === 'disconnected' || localPlayerColor === currentPlayer;
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe;
-  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen;
+  // Interaction Disabled Logic: includes inventory open and specialized selection modes
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget;
+  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
   const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
 
@@ -363,39 +364,6 @@ export default function EvolvingChessPage() {
       default: return type.charAt(0).toUpperCase();
     }
   };
-
-  const addToVCN = useCallback((move: Move, result: ApplyMoveResult, player: PlayerColor, extraTurn: boolean, special?: string) => {
-    const piece = result.newBoard[algebraicToCoords(move.to).row][algebraicToCoords(move.to).col].piece;
-    if (!piece && move.type !== 'wind-scroll' && move.type !== 'life-leach' && move.type !== 'summon-anvil') return;
-
-    let notation = "";
-    if (move.type === 'wind-scroll') {
-      notation = `[W-Spell]@${move.to}`;
-    } else if (move.type === 'life-leach') {
-      notation = `[L-Spell]`;
-    } else if (move.type === 'summon-anvil') {
-      notation = `[A-Spell]@${move.to}`;
-    } else {
-      const char = getVCNChar(piece!.type);
-      const level = `(L${piece!.level})`;
-      const sep = result.capturedPiece ? 'x' : '-';
-      const dest = move.to;
-      const from = move.from;
-      notation = `${char}${level}${from}${sep}${dest}`;
-      if (move.type === 'castle') notation = move.to.startsWith('g') ? 'O-O' : 'O-O-O';
-      if (result.infiltrationWin) notation += '🚩';
-      if (gameInfo.isCheckmate) notation += '#';
-      else if (gameInfo.isCheck) notation += '+';
-    }
-    
-    if (result.rallyCryTriggered) notation += '📢';
-    if (result.conversionEvents.length > 0) notation += '~';
-    if (result.pieceCapturedByAnvil) notation += '>>[A]';
-    if (extraTurn) notation += '!!';
-    if (special) notation += `[${special}]`;
-
-    setVcnLog(prev => [...prev, notation]);
-  }, [gameInfo.isCheck, gameInfo.isCheckmate]);
 
   useEffect(() => {
     isMessengerOpenRef.current = isMessengerOpen;
@@ -1061,6 +1029,39 @@ export default function EvolvingChessPage() {
     }
   }, [addEffect]);
 
+  const addToVCN = useCallback((move: Move, result: ApplyMoveResult, player: PlayerColor, extraTurn: boolean, special?: string) => {
+    const piece = result.newBoard[algebraicToCoords(move.to).row][algebraicToCoords(move.to).col].piece;
+    if (!piece && move.type !== 'wind-scroll' && move.type !== 'life-leach' && move.type !== 'summon-anvil') return;
+
+    let notation = "";
+    if (move.type === 'wind-scroll') {
+      notation = `[W-Spell]@${move.to}`;
+    } else if (move.type === 'life-leach') {
+      notation = `[L-Spell]`;
+    } else if (move.type === 'summon-anvil') {
+      notation = `[A-Spell]@${move.to}`;
+    } else {
+      const char = getVCNChar(piece!.type);
+      const level = `(L${piece!.level})`;
+      const sep = result.capturedPiece ? 'x' : '-';
+      const dest = move.to;
+      const from = move.from;
+      notation = `${char}${level}${from}${sep}${dest}`;
+      if (move.type === 'castle') notation = move.to.startsWith('g') ? 'O-O' : 'O-O-O';
+      if (result.infiltrationWin) notation += '🚩';
+      if (gameInfo.isCheckmate) notation += '#';
+      else if (gameInfo.isCheck) notation += '+';
+    }
+    
+    if (result.rallyCryTriggered) notation += '📢';
+    if (result.conversionEvents.length > 0) notation += '~';
+    if (result.pieceCapturedByAnvil) notation += '>>[A]';
+    if (extraTurn) notation += '!!';
+    if (special) notation += `[${special}]`;
+
+    setVcnLog(prev => [...prev, notation]);
+  }, [gameInfo.isCheck, gameInfo.isCheckmate]);
+
 
   const processPawnSacrificeCheck = useCallback((
     boardAfterPrimaryMove: BoardState,
@@ -1349,7 +1350,6 @@ export default function EvolvingChessPage() {
           setIsAwaitingArcherSnipe(false);
           setArcherSnipeContext(null);
           
-          const archerPos = board.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer)?.algebraic || '??';
           setVcnLog(prev => [...prev, `[AR-Snipe]x${algebraic}`]);
           
           processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
@@ -1387,7 +1387,6 @@ export default function EvolvingChessPage() {
           setIsAwaitingHolyShield(false);
           setShieldContext(null);
           
-          const abPos = board.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
           setVcnLog(prev => [...prev, `🛡️@${algebraic}`]);
           
           processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
@@ -1628,13 +1627,13 @@ export default function EvolvingChessPage() {
 
         const executeWindScrollMode = () => {
           setIsAwaitingWindScrollTarget(true);
-          setPossibleMoves([]); // User will click empty square
+          setPossibleMoves([]); 
           toast({ title: "Targeting Mode", description: "Select an empty square to target with Wind Scroll." });
         };
 
         const executeSummonAnvilMode = () => {
           setIsAwaitingAnvilScrollTarget(true);
-          setPossibleMoves([]); // User will click empty square
+          setPossibleMoves([]); 
           toast({ title: "Targeting Mode", description: "Select an empty square to summon an Anvil." });
         };
 
@@ -1692,7 +1691,6 @@ export default function EvolvingChessPage() {
           }, 800);
         };
 
-        // Conflict check
         if (hasSelfSelectionAbility && hasMagicScroll) {
           setAbilityChoiceDialog({
             isOpen: true,
@@ -1709,7 +1707,6 @@ export default function EvolvingChessPage() {
           return;
         }
 
-        // Single trigger
         if (hasMagicScroll) {
           if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
           else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
@@ -2749,7 +2746,6 @@ export default function EvolvingChessPage() {
                          audioManager.playShield();
                          toast({ title: "AI Holy Shield!", description: `AI shielded their ${shieldChoice.piece.type}!` });
                          
-                         const abPos = finalBoardStateForAI.flat().find(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)?.algebraic || '??';
                          setVcnLog(prev => [...prev, `🛡️@${targetAlg}`]);
                      }
                  }
