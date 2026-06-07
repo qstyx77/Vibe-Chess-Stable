@@ -560,6 +560,11 @@ export default function DungeonPage() {
             return;
           }
 
+          if (selectedInventoryItemType === 'detonation_scroll' && piece.type === 'king') {
+            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -592,6 +597,11 @@ export default function DungeonPage() {
 
           if (selectedInventoryItemType === 'crossbow' && piece.type !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
+            return;
+          }
+
+          if (selectedInventoryItemType === 'detonation_scroll' && piece.type === 'king') {
+            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
             return;
           }
 

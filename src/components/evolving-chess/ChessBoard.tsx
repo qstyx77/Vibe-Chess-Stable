@@ -225,6 +225,18 @@ export function ChessBoard({
                   isInvTarget = false;
               }
           }
+
+          if (isInvTarget && selectedInventoryItemType === 'crossbow') {
+              if (currentSquareData.piece?.type !== 'archer') {
+                  isInvTarget = false;
+              }
+          }
+
+          if (isInvTarget && selectedInventoryItemType === 'detonation_scroll') {
+              if (currentSquareData.piece?.type === 'king') {
+                  isInvTarget = false;
+              }
+          }
           
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
 

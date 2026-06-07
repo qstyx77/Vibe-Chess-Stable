@@ -1240,6 +1240,12 @@ export default function EvolvingChessPage() {
             return;
           }
 
+          // Detonation Scroll restriction: No Kings
+          if (selectedInventoryItemType === 'detonation_scroll' && clickedPiece.type === 'king') {
+            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -1277,6 +1283,12 @@ export default function EvolvingChessPage() {
           // Crossbow restriction on swap
           if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
+            return;
+          }
+
+          // Detonation Scroll restriction on swap
+          if (selectedInventoryItemType === 'detonation_scroll' && clickedPiece.type === 'king') {
+            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
             return;
           }
 
@@ -2203,7 +2215,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginalOriginalAI) {
