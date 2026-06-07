@@ -191,6 +191,37 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="4" width="2" height="2" fill="#FFF" opacity="0.4" />
           </svg>
         );
+      case 'crossbow':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="2" fill="#78350F" />
+            <rect x="0" y="3" width="2" height="2" fill="#78350F" />
+            <rect x="8" y="3" width="2" height="2" fill="#78350F" />
+            <rect x="4" y="1" width="2" height="10" fill="#475569" />
+            <rect x="3" y="10" width="4" height="2" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="1" fill="#CBD5E1" opacity="0.5" />
+          </svg>
+        );
+      case 'poison_tunic':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#15803D" />
+            <rect x="1" y="3" width="8" height="6" fill="#15803D" />
+            <rect x="3" y="0" width="4" height="3" fill="#15803D" />
+            <rect x="4" y="4" width="2" height="3" fill="#22C55E" />
+            <rect x="3" y="5" width="4" height="1" fill="#22C55E" />
+          </svg>
+        );
+      case 'detonation_scroll':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#FCA5A5" />
+            <rect x="1" y="3" width="8" height="6" fill="#FCA5A5" />
+            <rect x="3" y="1" width="4" height="2" fill="#B91C1C" />
+            <rect x="3" y="9" width="4" height="2" fill="#B91C1C" />
+            <rect x="4" y="4" width="2" height="4" fill="#EF4444" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">

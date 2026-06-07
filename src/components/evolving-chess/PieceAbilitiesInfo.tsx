@@ -29,9 +29,12 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'wind_cloak') abilities.push(" aero mantle: push-back ability triggered on move.");
   if (heldItem === 'gnosis') abilities.push(" insight: +1 extra level gain on every capture.");
   if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to an allied unit.");
-  if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): reset to L1 to trigger a global ally level-up.");
+  if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): reset to L1 to trigger a global allied level-up.");
   if (heldItem === 'poison_dagger') abilities.push(" toxic: splash poison to adjacent enemies on capture.");
   if (heldItem === 'antidote') abilities.push(" cleanse: remove poison from all allied units.");
+  if (heldItem === 'crossbow') abilities.push(" double shot: KS 3 triggers Archer Snipe in addition to Anvil.");
+  if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons any piece that captures this unit.");
+  if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit to cause a massive explosion.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");

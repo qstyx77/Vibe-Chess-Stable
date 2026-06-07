@@ -25,6 +25,9 @@ export type InventoryItemType =
   | 'rally_scroll'
   | 'poison_dagger'
   | 'antidote'
+  | 'crossbow'
+  | 'poison_tunic'
+  | 'detonation_scroll'
   | 'fireball_scroll' 
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
@@ -70,6 +73,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true },
   'poison_dagger': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
   'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
+  'crossbow': { name: 'Crossbow', description: 'Archer only. Grants a Snipe Killstreak at 3 in addition to Anvil.', isConsumable: false },
+  'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },
+  'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
 
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', isConsumable: true },
@@ -102,7 +108,6 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'lightning_book': { name: 'Lightning Book', description: 'Shocking truth.', isConsumable: false },
   'iron_helmet': { name: 'Helm', description: 'Solid helm.', isConsumable: false },
   'long_bow': { name: 'Bow', description: 'Standard bow.', isConsumable: false },
-  'crossbow': { name: 'Crossbow', description: 'Powerful crossbow.', isConsumable: false },
   'magic_staff': { name: 'Staff', description: 'Magic focus.', isConsumable: false },
   'wand': { name: 'Wand', description: 'Magic wand.', isConsumable: false },
   'gold_ring': { name: 'Ring', description: 'Shiny ring.', isConsumable: false },

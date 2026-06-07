@@ -33,7 +33,6 @@ import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser } from '@/firebase';
 import Link from 'next/link';
-import { audioManager } from '@/lib/audio-manager';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,6 +43,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { audioManager } from '@/lib/audio-manager';
 
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
@@ -261,7 +261,10 @@ export default function DungeonPage() {
     { type: 'shield_scroll', count: 1 },
     { type: 'rally_scroll', count: 1 },
     { type: 'poison_dagger', count: 1 },
-    { type: 'antidote', count: 1 }
+    { type: 'antidote', count: 1 },
+    { type: 'crossbow', count: 1 },
+    { type: 'poison_tunic', count: 1 },
+    { type: 'detonation_scroll', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -552,6 +555,11 @@ export default function DungeonPage() {
             return;
           }
 
+          if (selectedInventoryItemType === 'crossbow' && piece.type !== 'archer') {
+            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -579,6 +587,11 @@ export default function DungeonPage() {
 
           if (selectedInventoryItemType === 'gnosis' && (piece.type === 'king' || piece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+            return;
+          }
+
+          if (selectedInventoryItemType === 'crossbow' && piece.type !== 'archer') {
+            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
 
@@ -727,6 +740,16 @@ export default function DungeonPage() {
             setIsAwaitingAnvilDrop(false);
             audioManager.playAnvil();
             
+            // CROSSBOW SYNERGY IN DUNGEON
+            const hasCrossbow = nextBoard.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === 'white');
+            if (hasCrossbow) {
+              const hasVictims = nextBoard.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+              if (hasVictims) {
+                setIsAwaitingArcherSnipe(true);
+                return;
+              }
+            }
+
             const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
             if (isAwaitingCommanderPromotion && !hasL1Remaining) {
               setIsAwaitingCommanderPromotion(false);
@@ -757,7 +780,7 @@ export default function DungeonPage() {
       if (!movingPiece) return;
 
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         const executeLifeLeach = () => {
@@ -817,6 +840,10 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
               else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
               else if (movingPiece.heldItem === 'antidote') executeAntidote();
+              else if (movingPiece.heldItem === 'detonation_scroll') {
+                  if (movingPiece.level >= 5) executeSelfDestruct();
+                  else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+              }
               else executeWindScrollMode();
             }
           }});
@@ -825,9 +852,13 @@ export default function DungeonPage() {
         if (hasMagicScroll) {
           if (movingPiece.heldItem === 'life_leach') executeLifeLeach();
           else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode();
-          else if (piece.heldItem === 'shield_scroll') executeShieldScrollMode();
+          else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
           else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
           else if (movingPiece.heldItem === 'antidote') executeAntidote();
+          else if (movingPiece.heldItem === 'detonation_scroll') {
+              if (movingPiece.level >= 5) executeSelfDestruct();
+              else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+          }
           else executeWindScrollMode();
         } else if (hasSelfSelectionAbility) executeSelfDestruct();
         return;
@@ -1009,6 +1040,18 @@ export default function DungeonPage() {
                } else if (newStreak === 3) {
                    const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                    if (empty.length > 0) { const chosen = empty[Math.floor(Math.random() * empty.length)]; chosen.item = { type: 'anvil' }; audioManager.playAnvil(); }
+                   // AI CROSSBOW SYNERGY
+                   const hasCrossbow = nextBoard.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === 'black');
+                   if (hasCrossbow) {
+                     const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                     if (victims.length > 0) {
+                        const v = victims[Math.floor(Math.random()*victims.length)];
+                        const cp = { ...v.piece! };
+                        nextBoard.flat().forEach(sq_v => { if (sq_v.algebraic === v.algebraic) sq_v.piece = null; });
+                        setCapturedPieces(prev => ({ ...prev, black: [...prev.black, cp] }));
+                        audioManager.playSnipe(); addEffect('poof', v.algebraic);
+                     }
+                   }
                } else if (newStreak === 4) {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
@@ -1171,7 +1214,7 @@ export default function DungeonPage() {
           </AlertDialogHeader>
           <div className="flex flex-col gap-2">
             <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>
-              Use Piece Ability (Self-Destruct)
+              Use Piece Ability
             </Button>
             <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>
               Use Magic Item (Spell)

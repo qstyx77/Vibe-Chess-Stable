@@ -599,6 +599,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (pieceToLand.heldItem === 'poison_dagger') {
         triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
     }
+    // --- POISON TUNIC PENALTY ---
+    if (captured.heldItem === 'poison_tunic') {
+        pieceToLand.isPoisoned = true;
+    }
   }
 
   // --- CURE POISON ON LEVEL UP ---

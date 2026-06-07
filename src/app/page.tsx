@@ -283,7 +283,10 @@ export default function EvolvingChessPage() {
     { type: 'shield_scroll', count: 1 },
     { type: 'rally_scroll', count: 1 },
     { type: 'poison_dagger', count: 1 },
-    { type: 'antidote', count: 1 }
+    { type: 'antidote', count: 1 },
+    { type: 'crossbow', count: 1 },
+    { type: 'poison_tunic', count: 1 },
+    { type: 'detonation_scroll', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -1231,6 +1234,12 @@ export default function EvolvingChessPage() {
             return;
           }
 
+          // Crossbow restriction: Archer only
+          if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
+            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
+            return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -1262,6 +1271,12 @@ export default function EvolvingChessPage() {
           // Gnosis restriction on swap
           if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+            return;
+          }
+
+          // Crossbow restriction on swap
+          if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
+            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
 
@@ -1526,6 +1541,21 @@ export default function EvolvingChessPage() {
         
             setVcnLog(prev => [...prev, `+[A]@${algebraic}`]);
             
+            // CHECK CROSSBOW SYNERGY
+            const hasCrossbowArcher = boardAfterAnvilDrop.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
+            if (hasCrossbowArcher) {
+              const hasVictims = boardAfterAnvilDrop.flat().some(sq => sq.piece && sq.piece.color !== currentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+              if (hasVictims) {
+                setArcherSnipeContext({ boardForNextStep: boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget });
+                setIsAwaitingArcherSnipe(true);
+                setGameInfo(prev => ({...prev, message: "CROSSBOW SNIPE! Select Level 1 enemy."}));
+                setIsAwaitingAnvilDrop(false);
+                setPlayerToDropAnvil(null);
+                setAnvilDropContext(null);
+                return;
+              }
+            }
+
             processMoveEnd(boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
         
             setIsAwaitingAnvilDrop(false);
@@ -1687,7 +1717,7 @@ export default function EvolvingChessPage() {
       }
 
       const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5);
-      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote');
+      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         const executeLifeLeach = () => {
@@ -1839,6 +1869,10 @@ export default function EvolvingChessPage() {
                 else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
                 else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
                 else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
+                else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
+                    if (pieceToMoveFromSelected.level >= 5) executeSelfDestruct();
+                    else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+                }
                 else executeWindScrollMode();
               }
             }
@@ -1852,6 +1886,10 @@ export default function EvolvingChessPage() {
           else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
           else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
           else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
+          else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
+              if (pieceToMoveFromSelected.level >= 5) executeSelfDestruct();
+              else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+          }
           else executeWindScrollMode();
         } else if (hasSelfSelectionAbility) {
           executeSelfDestruct();
@@ -2165,7 +2203,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginalOriginalAI) {
@@ -2911,6 +2949,22 @@ export default function EvolvingChessPage() {
                     audioManager.playAnvil();
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${anvilAlg}.`});
                     setVcnLog(prev => [...prev, `+[A]@${anvilAlg}`]);
+
+                    // CHECK CROSSBOW SYNERGY FOR AI
+                    const hasCrossbowArcherAI = finalBoardStateForAI.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
+                    if (hasCrossbowArcherAI) {
+                      const victims = finalBoardStateForAI.flat().filter(sq => sq.piece && sq.piece.color === opponentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                      if (victims.length > 0) {
+                        const victimSq = victims[Math.floor(Math.random() * victims.length)];
+                        const captured = { ...victimSq.piece! };
+                        finalBoardStateForAI.forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === victimSq.algebraic) sq_v.piece = null; }));
+                        finalCapturedPiecesForAI[currentPlayer].push(captured);
+                        audioManager.playSnipe();
+                        addEffect('poof', victimSq.algebraic);
+                        toast({ title: "AI Crossbow Snipe!", description: `AI sniped your ${captured.type}!` });
+                        setVcnLog(prev => [...prev, `[AR-Snipe]x${victimSq.algebraic}`]);
+                      }
+                    }
                 }
             }
 
@@ -4456,7 +4510,7 @@ export default function EvolvingChessPage() {
           </AlertDialogHeader>
           <div className="flex flex-col gap-2">
             <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>
-              Use Piece Ability (Self-Destruct)
+              Use Piece Ability
             </Button>
             <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>
               Use Magic Item (Scroll)
