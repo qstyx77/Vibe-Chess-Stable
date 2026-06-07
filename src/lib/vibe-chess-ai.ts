@@ -147,6 +147,16 @@ export class VibeChessAI {
         const targetItem = targetSquare.item;
         let captureOccurred = false;
         let captureCount = 0;
+
+        // MIRROR SHIELD REFLECTION LOGIC FOR AI
+        if (targetPiece && targetPiece.color !== currentPlayer && targetPiece.heldItem === 'mirror_shield') {
+            nextState.board[fR][fC].piece = null; // AI unit dies
+            nextState.board[tR][tC].piece!.heldItem = null; // Shield breaks
+            nextState.killStreaks[opponentColor] += 1; // Opponent gets kill
+            nextState.currentPlayer = opponentColor;
+            return nextState;
+        }
+
         if (targetItem?.type === 'shroom') {
             const currentLevel = piece.level || 1;
             if (piece.type === 'queen') { if (currentLevel < 6) piece.level = currentLevel + 1; }

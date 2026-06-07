@@ -897,8 +897,24 @@ export default function DungeonPage() {
 
         const originalLevel = movingPiece?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
-        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection } = result;
+        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred } = result;
         
+        if (reflectionOccurred) {
+            const victim = capturedPiece!;
+            setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...victim, id: `${victim.id}_refl_d_${Date.now()}` }] }));
+            audioManager.playCapture();
+            toast({ title: "REFLECTED!", description: "Enemy Mirror Shield reflected your attack!" });
+            setKillStreaks(prev => ({ ...prev, black: (prev.black || 0) + 1 }));
+            setKillStreaks(prev => ({ ...prev, white: 0 }));
+            setBoard(newBoard);
+            setTimeout(() => {
+                setSelectedSquare(null); setPossibleMoves([]);
+                setIsMoveProcessing(false); clickGuard.current = false;
+                processMoveEnd(newBoard, 'white', false, null);
+            }, 800);
+            return;
+        }
+
         if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); toast({ title: "Rebirth!", description: "Phoenix Down resurrected the unit!" }); }
         if (result.infiltrationWin) { setBoard(newBoard); const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(survivors); return; }
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
@@ -1018,6 +1034,22 @@ export default function DungeonPage() {
              const originalLevel = originalP?.level || 1;
              setLastMoveFrom(from); setLastMoveTo(to); setAnimatedSquareTo(to);
              const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined }, enPassantTargetSquare);
+             
+             if (result.reflectionOccurred) {
+                const victim = result.capturedPiece!;
+                setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...victim, id: `${victim.id}_refl_ai_d_${Date.now()}` }] }));
+                audioManager.playCapture();
+                toast({ title: "REFLECTED!", description: "Hero's Mirror Shield reflected the Dungeon attack!" });
+                setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + 1 }));
+                setKillStreaks(prev => ({ ...prev, black: 0 }));
+                setBoard(result.newBoard);
+                setTimeout(() => {
+                    setIsAiThinking(false); setIsMoveProcessing(false);
+                    processMoveEnd(result.newBoard, 'black', false, null);
+                }, 800);
+                return;
+             }
+
              if (result.infiltrationWin) { 
                 setIsAiThinking(false);
                 setIsMoveProcessing(false);

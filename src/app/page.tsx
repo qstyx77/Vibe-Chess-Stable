@@ -1965,10 +1965,30 @@ export default function EvolvingChessPage() {
             extraTurn: extraTurnFromApplyMove,
             specialCaptureSquare,
             originalPieceLevel: levelFromApplyMoveInternal,
+            reflectionOccurred,
         } = applyMoveResult;
         
         finalBoardStateForTurn = boardAfterMove;
         let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
+
+        if (reflectionOccurred) {
+            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
+            const victim = capturedPieceFromApply!;
+            finalCapturedPiecesForTurn[defenderColor].push({ ...victim, id: `${victim.id}_refl_${Date.now()}` });
+            audioManager.playCapture();
+            toast({ title: "REFLECTED!", description: `${getPlayerDisplayName(defenderColor)}'s Mirror Shield reflected the attack!` });
+            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1 }));
+            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
+            setBoard(finalBoardStateForTurn);
+            setCapturedPieces(finalCapturedPiecesForTurn);
+            addToVCN(moveBeingMade, applyMoveResult, currentPlayer, false, 'REFL');
+            setTimeout(() => {
+                setSelectedSquare(null); setPossibleMoves([]);
+                setIsMoveProcessing(false); clickGuardRef.current = false;
+                processMoveEnd(finalBoardStateForTurn, currentPlayer, false, null);
+            }, 800);
+            return;
+        }
 
         if (becameInfiltratorFromApply) {
           toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
@@ -2772,7 +2792,7 @@ export default function EvolvingChessPage() {
         }
 
         const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare);
-        const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, ...rest } = applyMoveResult;
+        const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, reflectionOccurred, ...rest } = applyMoveResult;
         
         if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {
            const pieceThatMadeTheMoveAI = newBoard[aiToR]?.[aiToC]?.piece;
@@ -2794,6 +2814,23 @@ export default function EvolvingChessPage() {
         aiBecameInfiltrator = rest.promotedToInfiltrator || false;
         aiGameWonByInfiltration = rest.infiltrationWin || false;
         aiExtraTurn = rest.extraTurn || false;
+
+        if (reflectionOccurred) {
+            const victim = capturedPiece!;
+            finalCapturedPiecesForAI[opponentPlayer].push({ ...victim, id: `${victim.id}_refl_ai_${Date.now()}` });
+            audioManager.playCapture();
+            toast({ title: "REFLECTED!", description: `Your Mirror Shield reflected the AI's attack!` });
+            setKillStreaks(prev => ({ ...prev, [opponentPlayer]: (prev[opponentPlayer] || 0) + 1 }));
+            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
+            setBoard(finalBoardStateForAI);
+            setCapturedPieces(finalCapturedPiecesForAI);
+            addToVCN(moveForApplyMoveAI, applyMoveResult, currentPlayer, false, 'REFL');
+            setTimeout(() => {
+                setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false;
+                processMoveEnd(finalBoardStateForAI, currentPlayer, false, null);
+            }, 800);
+            return;
+        }
 
         if (selfDestructCaptures && selfDestructCaptures.length > 0) {
             finalCapturedPiecesForAI[currentPlayer].push(...selfDestructCaptures);

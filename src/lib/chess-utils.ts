@@ -185,26 +185,26 @@ function getPossibleMovesInternal(
         const kingRow = pieceColor === 'white' ? 7 : 0;
         if (fromRow === kingRow && fromCol === 4) {
             const krSquare = board[kingRow][7];
-            if ((krSquare?.piece?.type === 'rook' || krSquare?.piece?.type === 'palace') && !krSquare.piece.hasMoved &&
-                !board[kingRow][5].piece && (!board[kingRow][5].item || board[kingRow][5].item?.type === 'shroom') &&
-                !board[kingRow][6].piece && (!board[kingRow][6].item || board[kingRow][6].item?.type === 'shroom')
-                ) {
-                if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, false, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, false, null, enPassantTargetSquare)) {
-                    possible.push(coordsToAlgebraic(kingRow, 6));
+            if ((krSquare?.piece?.type === 'rook' || krSquare?.piece?.type === 'palace') && !krSquare.piece.hasMoved) {
+                if (!board[kingRow][5].piece && (!board[kingRow][5].item || board[kingRow][5].item?.type === 'shroom') &&
+                    !board[kingRow][6].piece && (!board[kingRow][6].item || board[kingRow][6].item?.type === 'shroom')) {
+                    if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, false, null, enPassantTargetSquare) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, false, null, enPassantTargetSquare)) {
+                        possible.push(coordsToAlgebraic(kingRow, 6));
+                    }
                 }
             }
             const qrSquare = board[kingRow][0];
-            if ((qrSquare?.piece?.type === 'rook' || qrSquare?.piece?.type === 'palace') && !qrSquare.piece.hasMoved &&
-                !board[kingRow][1].piece && (!board[kingRow][1].item || board[kingRow][1].item?.type === 'shroom') &&
-                !board[kingRow][2].piece && (!board[kingRow][2].item || board[kingRow][2].item?.type === 'shroom') &&
-                !board[kingRow][3].piece && (!board[kingRow][3].item || board[kingRow][3].item?.type === 'shroom')
-                 ) {
-                if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, false, null, enPassantTargetSquare) &&
-                    !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, false, null, enPassantTargetSquare)) {
-                    possible.push(coordsToAlgebraic(kingRow, 2));
+            if ((qrSquare?.piece?.type === 'rook' || qrSquare?.piece?.type === 'palace') && !qrSquare.piece.hasMoved) {
+                if (!board[kingRow][1].piece && (!board[kingRow][1].item || board[kingRow][1].item?.type === 'shroom') &&
+                    !board[kingRow][2].piece && (!board[kingRow][2].item || board[kingRow][2].item?.type === 'shroom') &&
+                    !board[kingRow][3].piece && (!board[kingRow][3].item || board[kingRow][3].item?.type === 'shroom')) {
+                    if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, false, null, enPassantTargetSquare) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, false, null, enPassantTargetSquare)) {
+                        possible.push(coordsToAlgebraic(kingRow, 2));
+                    }
                 }
             }
         }
@@ -277,10 +277,6 @@ function getPossibleMovesInternal(
         possible.push(coordsToAlgebraic(nr, nc));
       }
     });
-  }
-
-  if (piece.heldItem === 'queens_peace' && piece.type === 'queen') {
-    // Standard queen move logic in switch already handles sliding. We ensure it only goes to empty squares in isMoveValid.
   }
 
   const pieceActualLevelForSwap = Number(piece.level || 1);
@@ -478,6 +474,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const selfDestructCaptures: Piece[] = [];
   let destroyedAnvils = 0;
   let phoenixResurrection: { piece: Piece, square: AlgebraicSquare } | undefined = undefined;
+  let reflectionOccurred = false;
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
@@ -485,6 +482,40 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const originalPieceLevel = Number(movingPiece.level || 1);
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
+
+  // --- MIRROR SHIELD REFLECTION ---
+  if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield') {
+      const reflectedAttacker = { ...movingPiece };
+      newBoard[fromRow][fromCol].piece = null; // Attacker is removed from board
+      newBoard[toRow][toCol].piece!.heldItem = null; // Shield breaks
+      
+      const defender = newBoard[toRow][toCol].piece!;
+      let gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[reflectedAttacker.type] || 0;
+      defender.level = Math.min(defender.type === 'queen' ? 7 : 99, (defender.level || 1) + gain);
+      defender.isPoisoned = false; // Cure on level up
+      defender.cooldownTurnsRemaining = 0;
+
+      return {
+          newBoard,
+          capturedPiece: reflectedAttacker,
+          selfDestructCaptures: null,
+          destroyedAnvils: 0,
+          pieceCapturedByAnvil: null,
+          anvilPushedOffBoard: false,
+          conversionEvents: [],
+          rallyCryTriggered: null,
+          originalPieceLevel,
+          selfCheckByPushBack: false,
+          queenLevelReducedEvents: null,
+          promotedToInfiltrator: false,
+          infiltrationWin: false,
+          shroomConsumed: false,
+          enPassantTargetSet: null,
+          extraTurn: false,
+          specialCaptureSquare: null,
+          reflectionOccurred: true
+      };
+  }
 
   if (move.type === 'life-leach') {
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
@@ -652,7 +683,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred };
 }
 
 // INTERNAL HELPERS
