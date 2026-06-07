@@ -348,7 +348,7 @@ export default function DungeonPage() {
         gameOver: false 
     });
 
-    toast({ title: isBoss ? "BOSS FLOOR!" : "Level Up!", description: `Descending to Floor ${nextLevel}...` });
+    toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
   }, [level, toast]);
 
@@ -873,20 +873,23 @@ export default function DungeonPage() {
         } else if (hasSelfSelectionAbility) executeSelfDestruct();
         return;
       }
-      if (possibleMoves.includes(algebraic)) {
+      
+      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
+      let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+
+      if (isMoveInFreshList) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
-        const originalP = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
         
         let moveType: Move['type'] = 'move';
-        if (originalP?.type === 'king' && Math.abs(fromC - col) === 2) {
+        if (movingPiece?.type === 'king' && Math.abs(fromC - col) === 2) {
           moveType = 'castle';
-        } else if ((originalP?.type === 'pawn' || originalP?.type === 'commander') && algebraic === enPassantTargetSquare) {
+        } else if ((movingPiece?.type === 'pawn' || movingPiece?.type === 'commander') && algebraic === enPassantTargetSquare) {
           moveType = 'enpassant';
-        } else if (sq.piece && sq.piece.color !== originalP?.color) {
+        } else if (sq.piece && sq.piece.color !== movingPiece?.color) {
           moveType = 'capture';
         }
 
-        const originalLevel = originalP?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
+        const originalLevel = movingPiece?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection } = result;
         
@@ -947,6 +950,8 @@ export default function DungeonPage() {
                 triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
               }
           }
+        } else if (moveType === 'castle') {
+          audioManager.playMove();
         } else audioManager.playMove();
 
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
@@ -1080,6 +1085,8 @@ export default function DungeonPage() {
                    const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
                    if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece! }; nextBoard.flat().forEach(sq => { if (sq.algebraic === victimSq.algebraic) sq.piece = null; }); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
                }
+             } else if (best.move.type === 'castle') {
+               audioManager.playMove();
              } else audioManager.playMove();
              setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || (oldStreak < 6 && newStreak >= 6), result.enPassantTargetSet); }, 800);
           } else {

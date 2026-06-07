@@ -547,7 +547,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               }
           }
       }
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, infiltrationWin, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, infiltrationWin, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection: undefined };
   }
 
   let captured: Piece | null = null;
@@ -746,7 +746,19 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
   const p = board[algebraicToCoords(from).row][algebraicToCoords(from).col].piece;
   if (!p) return [];
   return pseudo.filter(to => {
-    const {newBoard} = applyMove(board, { from, to }, ep);
+    const fromCoords = algebraicToCoords(from);
+    const toCoords = algebraicToCoords(to);
+    
+    let type: Move['type'] = 'move';
+    if (p.type === 'king' && Math.abs(fromCoords.col - toCoords.col) === 2) {
+      type = 'castle';
+    } else if ((p.type === 'pawn' || p.type === 'commander') && to === ep) {
+      type = 'enpassant';
+    } else if (board[toCoords.row][toCoords.col].piece) {
+      type = 'capture';
+    }
+
+    const {newBoard} = applyMove(board, { from, to, type }, ep);
     return !isKingInCheck(newBoard, player, null);
   });
 }
@@ -838,4 +850,14 @@ export function isQueenSacrificeRequired(board: BoardState, player: PlayerColor,
         return board.flat().some(sq => sq.piece?.color === player && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
     }
     return false;
+}
+
+export interface RookResurrectionResult {
+  boardWithResurrection: BoardState;
+  capturedPiecesAfterResurrection: { white: Piece[], black: Piece[] };
+  resurrectionPerformed: boolean;
+  resurrectedPieceData?: Piece;
+  resurrectedSquareAlg?: AlgebraicSquare;
+  newResurrectionIdCounter?: number;
+  promotionRequiredForResurrectedPawn?: boolean;
 }

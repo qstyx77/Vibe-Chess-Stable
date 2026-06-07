@@ -23,14 +23,13 @@ import {
   isValidSquare,
   processRookResurrectionCheck,
   type RookResurrectionResult,
-  spawnAnvil,
-  spawnShroom,
   findKing,
   applyArchbishop,
   applyPalace,
   applyArcher,
   hasAnyLegalMoves,
   processPoisonDamage,
+  spawnShroom,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -1553,7 +1552,7 @@ export default function EvolvingChessPage() {
         
             setVcnLog(prev => [...prev, `+[A]@${algebraic}`]);
             
-            // CHECK CROSSBOW SYNERGY
+            // CHECK CROSSBOW SYNERGY IN LOBBY
             const hasCrossbowArcher = boardAfterAnvilDrop.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
             if (hasCrossbowArcher) {
               const hasVictims = boardAfterAnvilDrop.flat().some(sq => sq.piece && sq.piece.color !== currentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
@@ -1912,13 +1911,21 @@ export default function EvolvingChessPage() {
       originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
       setPromotionPawnOriginalLevel(originalPieceLevelBeforeMove);
 
-
-      moveBeingMade = { from: selectedSquare, to: algebraic };
-      
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
-      if (isMoveInFreshList && moveBeingMade) {
+      if (isMoveInFreshList) {
+        let moveType: Move['type'] = 'move';
+        if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
+          moveType = 'castle';
+        } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
+          moveType = 'enpassant';
+        } else if (clickedPiece && clickedPiece.color !== pieceToMoveFromSelected.color) {
+          moveType = 'capture';
+        }
+
+        moveBeingMade = { from: selectedSquare, to: algebraic, type: moveType };
+        
         saveStateToHistory();
         clickGuardRef.current = true;
         setLastMoveFrom(selectedSquare);
