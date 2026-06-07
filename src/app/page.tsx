@@ -1441,6 +1441,7 @@ export default function EvolvingChessPage() {
           if (archerOnBoard?.piece) {
               archerOnBoard.piece.level += 2;
               archerOnBoard.piece.isPoisoned = false; // Cure on level up
+              archerOnBoard.piece.cooldownTurnsRemaining = 0;
           }
 
           const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
@@ -1608,6 +1609,7 @@ export default function EvolvingChessPage() {
             boardAfterCommanderPromo[row][col].piece!.type = 'commander';
             boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
             boardAfterCommanderPromo[row][col].piece!.isPoisoned = false; // Promotion cures
+            boardAfterCommanderPromo[row][col].piece!.cooldownTurnsRemaining = 0;
             setBoard(boardAfterCommanderPromo);
             audioManager.playLevelUp();
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
@@ -1731,6 +1733,11 @@ export default function EvolvingChessPage() {
       const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
+        if (pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) {
+            toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
+            return;
+        }
+
         const executeLifeLeach = () => {
           saveStateToHistory();
           clickGuardRef.current = true;
@@ -2205,7 +2212,7 @@ export default function EvolvingChessPage() {
                 if (hasLevel1Victims) {
                   enteringSpecialMode = true;
                   const snipeCtx = {
-                      boardForNextStep: finalBoardStateForTurn,
+                      boardForNextStep: boardAfterMove, // Use board after the primary move
                       playerWhoseTurnCompleted: capturingPlayer,
                       isExtraTurn: combinedExtraTurn,
                       newEnPassantTarget: enPassantTargetSquare,
@@ -2231,7 +2238,7 @@ export default function EvolvingChessPage() {
                       if (emptySquares.length > 0) {
                         const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                         const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, heldItem: null };
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
 
                         const promoRow = capturingPlayer === 'white' ? 0 : 7;
                         if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -2452,7 +2459,8 @@ export default function EvolvingChessPage() {
       hasMoved: true,
       invulnerableTurnsRemaining: 0,
       isShielded: false,
-      isPoisoned: false // Promotion cures
+      isPoisoned: false, // Promotion cures
+      cooldownTurnsRemaining: 0
     };
     if (pieceType === 'queen') {
         boardToUpdate[row][col].piece!.level = Math.min(currentLevelOfPieceOnSquare, 7);
@@ -2696,7 +2704,7 @@ export default function EvolvingChessPage() {
         for (let r = 0; r < 8; r++) {
           for (let c = 0; c < 8; c++) {
             const fbSquareState = finalBoardStateForAI[r]?.[c];
-            if (fbSquareState?.piece?.color === currentPlayer) {
+            if (fbSquareState?.piece?.color === currentPlayer && !(fbSquareState.piece.cooldownTurnsRemaining && fbSquareState.piece.cooldownTurnsRemaining > 0)) {
               const fromAlg = coordsToAlgebraic(r, c);
               const legalMoves = getPossibleMoves(finalBoardStateForAI, fromAlg, enPassantTargetSquare);
               
@@ -3005,7 +3013,7 @@ export default function EvolvingChessPage() {
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
-                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, heldItem: null };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -3023,7 +3031,7 @@ export default function EvolvingChessPage() {
                           addEffect('light-beam', randSqAI_alg);
                           audioManager.playResurrect();
                           setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
-                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
+                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
                           setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedAI.type)}(L${resurrectedAI.level})@${randSqAI_alg}`]);
                       }
                       }
@@ -3039,6 +3047,8 @@ export default function EvolvingChessPage() {
                     if(finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.type === 'pawn' && finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.level === 1) {
                         finalBoardStateForAI[pawnR][pawnC].piece!.type = 'commander';
                         finalBoardStateForAI[pawnR][pawnC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_CMD_AI`;
+                        finalBoardStateForAI[pawnR][pawnC].piece!.isPoisoned = false;
+                        finalBoardStateForAI[pawnR][pawnC].piece!.cooldownTurnsRemaining = 0;
                         audioManager.playLevelUp();
                         setVcnLog(prev => [...prev, `[Promo-C]@${coordsToAlgebraic(pawnR, pawnC)}`]);
                     }
@@ -3081,6 +3091,8 @@ export default function EvolvingChessPage() {
                         if (resurrectedPawnOnBoardAI && resurrectedPawnOnBoardAI.type === 'pawn') {
                             resurrectedPawnOnBoardAI.type = 'queen'; 
                             resurrectedPawnOnBoardAI.id = `${resurrectedPawnOnBoardAI.id}_resPromo_Q_AI`;
+                            resurrectedPawnOnBoardAI.isPoisoned = false;
+                            resurrectedPawnOnBoardAI.cooldownTurnsRemaining = 0;
                             toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L${resurrectedPawnOnBoardAI.level})`, duration: 8000 });
                         }
                   }
@@ -3116,6 +3128,7 @@ export default function EvolvingChessPage() {
                       finalBoardStateForAI[promoR][promoC].piece!.level = pieceAtDestinationAI!.level; 
                       finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
                       finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; // Promo cures
+                      finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
                       audioManager.playLevelUp();
                       setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                   }
@@ -3135,6 +3148,7 @@ export default function EvolvingChessPage() {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
                         finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; // Promo cures
+                        finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
                         audioManager.playLevelUp();
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }

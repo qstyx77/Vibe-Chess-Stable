@@ -63,6 +63,8 @@ export function ChessPieceDisplay({
     powerGlowClass = 'animate-power-glow';
   }
 
+  const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
+
   return (
     <div
       className={cn(
@@ -79,6 +81,7 @@ export function ChessPieceDisplay({
           animationClass,
           powerGlowClass,
           piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]",
+          isExhausted && "grayscale opacity-60 contrast-50",
           "origin-bottom"
         )}
       >

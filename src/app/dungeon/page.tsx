@@ -68,7 +68,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     if (!p) return false;
     const { row, col } = algebraicToCoords(alg);
     if (isValidSquare(row, col) && !board[row][col].piece) {
-        board[row][col].piece = { ...p, hasMoved: false, isShielded: false, isPoisoned: false };
+        board[row][col].piece = { ...p, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0 };
         placedIds.add(p.id);
         return true;
     }
@@ -138,31 +138,31 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     switch (bossLevelIndex) {
       case 1: 
         // Three Level 2 Hydras
-        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
-        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
-        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         // Two Level 2 Knight Guards
-        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
-        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         break;
       case 2: 
-        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
-        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         break;
       case 3: 
-        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, isPoisoned: false, heldItem: null };
-        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         break;
       case 4: 
-        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
-        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         break;
       case 5: 
-        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, isPoisoned: false, heldItem: null };
+        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         for(let i=0; i<8; i++) {
           const type: PieceType = i % 2 === 0 ? 'hero' : 'archbishop';
-          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
-          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         }
         break;
     }
@@ -190,7 +190,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
       if (level > 25) types.push('queen', 'archbishop', 'archer');
       const type = types[Math.floor(Math.random() * types.length)];
       const pLevel = avgLevel + (Math.random() > 0.6 ? 1 : 0);
-      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
     });
   }
   return board;
@@ -493,7 +493,7 @@ export default function DungeonPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = nextBoard[row][col].piece;
     if (!pieceBeingPromoted) return;
-    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false };
+    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0 };
     if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(nextBoard[row][col].piece!.level, 7);
     audioManager.playLevelUp();
     setBoard(nextBoard);
@@ -777,6 +777,7 @@ export default function DungeonPage() {
             nextBoard[row][col].piece!.type = 'commander';
             nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
             nextBoard[row][col].piece!.isPoisoned = false; // Promo cures
+            nextBoard[row][col].piece!.cooldownTurnsRemaining = 0;
             setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
             audioManager.playLevelUp();
@@ -793,6 +794,11 @@ export default function DungeonPage() {
       const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
+        if (movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) {
+            toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
+            return;
+        }
+
         const executeLifeLeach = () => {
           setIsMoveProcessing(true); clickGuard.current = true;
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
@@ -927,7 +933,7 @@ export default function DungeonPage() {
           } else if (newStreak === 4) {
               const graveyard = capturedPieces.black;
               if (graveyard.length > 0) {
-                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, id: `res_H_${Date.now()}`, heldItem: null };
+                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, id: `res_H_${Date.now()}`, heldItem: null };
                   const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                   if (empty.length > 0) {
                       const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1031,7 +1037,7 @@ export default function DungeonPage() {
                     addEffect('light-beam', resResultAI.resurrectedSquareAlg!); audioManager.playResurrect();
                     if (resResultAI.promotionRequiredForResurrectedPawn) {
                         const { row: pr, col: pc } = algebraicToCoords(resResultAI.resurrectedSquareAlg!);
-                        if (nextBoard[pr][pc].piece) { nextBoard[pr][pc].piece!.type = 'queen'; nextBoard[pr][pc].piece!.id += '_res_promo'; }
+                        if (nextBoard[pr][pc].piece) { nextBoard[pr][pc].piece!.type = 'queen'; nextBoard[pr][pc].piece!.id += '_res_promo'; nextBoard[pr][pc].piece!.isPoisoned = false; nextBoard[pr][pc].piece!.cooldownTurnsRemaining = 0; }
                     }
                 }
              }
@@ -1062,7 +1068,7 @@ export default function DungeonPage() {
                      if (victims.length > 0) {
                         const v = victims[Math.floor(Math.random()*victims.length)];
                         const cp = { ...v.piece! };
-                        nextBoard.flat().forEach(sq_v => { if (sq_v.algebraic === v.algebraic) sq_v.piece = null; });
+                        nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === v.algebraic) sq_v.piece = null; }));
                         setCapturedPieces(prev => ({ ...prev, black: [...prev.black, cp] }));
                         audioManager.playSnipe(); addEffect('poof', v.algebraic);
                      }
@@ -1070,20 +1076,20 @@ export default function DungeonPage() {
                } else if (newStreak === 4) {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
-                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, id: `res_D_${Date.now()}`, heldItem: null };
+                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, id: `res_D_${Date.now()}`, heldItem: null };
                        const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
                            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
                            nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
                            addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_streak_promo'; }
-                           else if (pieceToRes.type === 'commander' && rr === 7) { nextBoard[rr][rc].piece!.type = 'hero'; }
+                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_streak_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; }
+                           else if (pieceToRes.type === 'commander' && rr === 7) { nextBoard[rr][rc].piece!.type = 'hero'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; }
                        }
                    }
                } else if (newStreak === 5 && hasArcher) {
                    const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                   if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece! }; nextBoard.flat().forEach(sq => { if (sq.algebraic === victimSq.algebraic) sq.piece = null; }); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
+                   if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece! }; nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === victimSq.algebraic) sq_v.piece = null; })); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
                }
              } else if (best.move.type === 'castle') {
                audioManager.playMove();

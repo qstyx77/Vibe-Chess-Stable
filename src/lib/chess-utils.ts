@@ -124,7 +124,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const square = board[r]?.[c];
       const piece = square?.piece;
       const item = square?.item;
-      if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.isPoisoned ? 'Z' : ''}${piece.heldItem || '-'}`;
+      if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.isPoisoned ? 'Z' : ''}${piece.cooldownTurnsRemaining ? 'C' : ''}${piece.heldItem || '-'}`;
       else pieceHash += '--';
       if (item?.type === 'anvil') itemHash += 'A';
       else if (item?.type === 'shroom') itemHash += 'S';
@@ -527,7 +527,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (move.type === 'antidote') {
       newBoard.forEach(row => row.forEach(sq => {
-          if (sq.piece && sq.piece.color === movingPiece.color) sq.piece.isPoisoned = false;
+          if (sq.piece && sq.piece.color === movingPiece.color) {
+            sq.piece.isPoisoned = false;
+            sq.piece.cooldownTurnsRemaining = 0;
+          }
       }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
@@ -606,7 +609,15 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   // --- CURE POISON ON LEVEL UP ---
-  if (didLevelUp) pieceToLand.isPoisoned = false;
+  if (didLevelUp) {
+    pieceToLand.isPoisoned = false;
+    pieceToLand.cooldownTurnsRemaining = 0;
+  }
+
+  // --- POISON FATIGUE (EXHAUSTION) ---
+  if (pieceToLand.isPoisoned && pieceToLand.level === 1) {
+    pieceToLand.cooldownTurnsRemaining = 1;
+  }
 
   // --- WIND SWORD LOGIC ---
   if (movingPiece.heldItem === 'wind_sword' && captured) {
@@ -703,6 +714,7 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
         if(sq.piece.type !== 'queen' || sq.piece.level < 6) {
             sq.piece.level++;
             sq.piece.isPoisoned = false; // Cure poison on level up
+            sq.piece.cooldownTurnsRemaining = 0;
         }
       }
     }
@@ -722,13 +734,18 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
     
     newBoard.forEach(row => row.forEach(sq => {
         const p = sq.piece;
-        if (p && p.color === player && p.isPoisoned) {
+        if (p && p.color === player) {
+          // Decrement exhaustion cooldown at start of turn
+          if (p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) {
+            p.cooldownTurnsRemaining--;
+          }
+
+          if (p.isPoisoned) {
             if (p.level > 1) {
-                p.level--;
-            } else {
-                poisonedCaptures.push({ ...p, id: `${p.id}_poison_death_${Date.now()}` });
-                sq.piece = null;
+              p.level--;
             }
+            // NERF: level 1 poisoned units are no longer removed, they stay exhausted.
+          }
         }
     }));
     
@@ -766,7 +783,7 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
 export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: AlgebraicSquare | null): AlgebraicSquare[] {
     const { row, col } = algebraicToCoords(from);
     const piece = board[row][col].piece;
-    if (!piece) return [];
+    if (!piece || (piece.cooldownTurnsRemaining || 0) > 0) return [];
     const pseudo = getPossibleMovesInternal(board, from, piece, true, ep);
     return filterLegalMoves(board, from, pseudo, piece.color, ep);
 }

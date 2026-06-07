@@ -119,15 +119,23 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const abilities = getPieceAbilities(piece);
   const pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
+  const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
 
   return (
     <div className="text-center text-xs">
       <h3 className="font-bold text-primary text-sm">{pieceName} - Level {piece.level || 1}</h3>
-      {piece.isPoisoned && (
-        <p className="text-[#22C55E] font-bold text-[10px] animate-pulse uppercase mt-1 mb-1">
-          STATUS: POISONED
-        </p>
-      )}
+      <div className="flex flex-col gap-0.5 mt-1 mb-1">
+        {piece.isPoisoned && (
+          <p className="text-[#22C55E] font-bold text-[10px] animate-pulse uppercase">
+            STATUS: POISONED
+          </p>
+        )}
+        {isExhausted && (
+          <p className="text-destructive font-bold text-[10px] animate-pulse uppercase">
+            STATUS: EXHAUSTED
+          </p>
+        )}
+      </div>
       {item && (
         <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
           <div className="flex items-center justify-center gap-2 mb-1">
@@ -140,7 +148,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       )}
       <ul className="list-none p-0 m-0 text-[0.7rem] space-y-0.5">
         {abilities.map((ability, index) => (
-          <li key={index} className={cn("leading-tight", piece.isPoisoned && "opacity-70")}>{ability}</li>
+          <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted) && "opacity-70")}>{ability}</li>
         ))}
       </ul>
     </div>

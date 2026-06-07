@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing } from '@/lib/chess-utils';
 
@@ -151,7 +150,11 @@ export class VibeChessAI {
         if (targetItem?.type === 'shroom') {
             const currentLevel = piece.level || 1;
             if (piece.type === 'queen') { if (currentLevel < 6) piece.level = currentLevel + 1; }
-            else piece.level = currentLevel + 1;
+            else {
+              piece.level = currentLevel + 1;
+              piece.isPoisoned = false;
+              piece.cooldownTurnsRemaining = 0;
+            }
             targetSquare.item = null;
         }
         if (move.type === 'enpassant') {
@@ -171,6 +174,8 @@ export class VibeChessAI {
                 if (newL >= 7) newL = hasPawn ? 7 : 6;
             }
             piece.level = newL;
+            piece.isPoisoned = false;
+            piece.cooldownTurnsRemaining = 0;
             if (piece.type === 'commander') this.applyRally(nextState, currentPlayer, 'pawn');
             else if (piece.type === 'hero') this.applyRally(nextState, currentPlayer, 'all');
             if (piece.type === 'king') this.reduceEnemyQueens(nextState, opponentColor, levelBonus);
@@ -189,6 +194,8 @@ export class VibeChessAI {
         } else { targetSquare.piece = piece; movingSquare.piece = null; }
         if (move.type === 'promotion') {
             piece.type = move.promoteTo || 'queen';
+            piece.isPoisoned = false;
+            piece.cooldownTurnsRemaining = 0;
             if (piece.type === 'queen') {
                 let hasPawn = false;
                 for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
@@ -199,6 +206,12 @@ export class VibeChessAI {
             }
             if (originalGameState.board[fR][fC].piece?.level! >= 5) nextState.extraTurn = true;
         }
+        
+        // FATIGUE CHECK
+        if (piece.isPoisoned && piece.level === 1) {
+            piece.cooldownTurnsRemaining = 1;
+        }
+
         if (captureOccurred) {
             const oldStreak = originalGameState.killStreaks[currentPlayer] || 0;
             const newStreak = oldStreak + captureCount;
@@ -224,6 +237,7 @@ export class VibeChessAI {
                 score += baseValue * mult;
                 const rcKey = `${r}${c}`; if (this.centerSquares.has(rcKey)) score += 10 * mult;
                 if (piece.type === 'infiltrator') score += Math.abs(r - (piece.color === 'white' ? 7 : 0)) * 40 * mult;
+                if (piece.cooldownTurnsRemaining) score -= 200 * mult;
             }
         }
         score += (gameState.killStreaks[aiColor] * 30); score -= (gameState.killStreaks[opponentColor] * 40);
@@ -254,6 +268,8 @@ export class VibeChessAI {
             if (sq.piece && sq.piece.color === color) {
                 if (target === 'all' || (target === 'pawn' && sq.piece.type === 'pawn')) {
                     sq.piece.level = Math.min(sq.piece.type === 'queen' ? 6 : 99, (sq.piece.level || 1) + 1);
+                    sq.piece.isPoisoned = false;
+                    sq.piece.cooldownTurnsRemaining = 0;
                 }
             }
         }));
@@ -284,7 +300,10 @@ export class VibeChessAI {
     generateAllMoves(gs: AIGameState, color: PlayerColor): AIMove[] {
         const moves: AIMove[] = [];
         for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-            const p = gs.board[r][c].piece; if (p && p.color === color) moves.push(...this.generatePieceMoves(gs, r, c, p));
+            const p = gs.board[r][c].piece; 
+            if (p && p.color === color && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) {
+                moves.push(...this.generatePieceMoves(gs, r, c, p));
+            }
         }
         return moves.filter(m => { const next = this.makeMoveOptimized(gs, m, color); return !this.isInCheck(next, color); });
     }
@@ -347,14 +366,20 @@ export class VibeChessAI {
     isInCheck(gs: AIGameState, color: PlayerColor): boolean { const k = findKing(gs.board as any, color); if (!k) return false; const opp = color === 'white' ? 'black' : 'white'; return this.isSquareAttacked(gs, k.row, k.col, opp); }
 
     isSquareAttacked(gs: AIGameState, r: number, c: number, attackerColor: PlayerColor): boolean {
-        const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-        for (const [dr, dc] of knightDeltas) { const p = gs.board[r+dr]?.[c+dc]?.piece; if (p && p.color === attackerColor && ['knight', 'hero', 'archer'].includes(p.type)) return true; }
+        const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2], [2,-1], [2,1]];
+        for (const [dr, dc] of knightDeltas) { 
+            const p = gs.board[r+dr]?.[c+dc]?.piece; 
+            if (p && p.color === attackerColor && ['knight', 'hero', 'archer'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; 
+        }
         const cardDirs = [[0,1], [0,-1], [1,0], [-1,0]];
-        for (const [dr, dc] of cardDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['rook', 'palace', 'queen'].includes(p.type)) return true; break; } } }
+        for (const [dr, dc] of cardDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['rook', 'palace', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; break; } } }
         const diagDirs = [[1,1], [1,-1], [-1,1], [-1,-1]];
-        for (const [dr, dc] of diagDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['bishop', 'archbishop', 'queen'].includes(p.type)) return true; break; } } }
+        for (const [dr, dc] of diagDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['bishop', 'archbishop', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; break; } } }
         const pawnDir = attackerColor === 'white' ? 1 : -1;
-        for (const dc of [-1, 1]) { const p = gs.board[r+pawnDir]?.[c+dc]?.piece; if (p && p.color === attackerColor && ['pawn', 'commander'].includes(p.type)) return true; }
+        for (const dc of [-1, 1]) { 
+            const p = gs.board[r+pawnDir]?.[c+dc]?.piece; 
+            if (p && p.color === attackerColor && ['pawn', 'commander'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; 
+        }
         return false;
     }
 
