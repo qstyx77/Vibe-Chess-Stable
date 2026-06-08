@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect, InventoryItemType } from '@/types';
@@ -35,6 +34,7 @@ interface ChessSquareProps {
   isShieldTarget?: boolean;
   isSnipeTarget?: boolean;
   isInvTarget?: boolean;
+  isSwapTarget?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   isAnvilDropTarget?: boolean;
 }
@@ -66,6 +66,7 @@ export function ChessSquare({
   isShieldTarget = false,
   isSnipeTarget = false,
   isInvTarget = false,
+  isSwapTarget = false,
   selectedInventoryItemType,
   isAnvilDropTarget = false,
 }: ChessSquareProps) {
@@ -100,7 +101,7 @@ export function ChessSquare({
   // Standardized blinky blue for all special selections
   const specialSelectionBlue = 'ring-4 ring-inset ring-sky-400 animate-pulse';
 
-  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget) {
+  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget) {
     selectionRingClass = specialSelectionBlue;
   } else if (isInvTarget) {
     if (selectedInventoryItemType) {
@@ -114,7 +115,7 @@ export function ChessSquare({
     selectionRingClass = 'ring-2 ring-inset ring-blue-600';
   }
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget;
 
 
   return (

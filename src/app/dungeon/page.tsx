@@ -239,6 +239,7 @@ export default function DungeonPage() {
   const [isAwaitingWindScrollTarget, setIsAwaitingWindScrollTarget] = useState(false);
   const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
   const [isAwaitingShieldScrollTarget, setIsAwaitingShieldScrollTarget] = useState(false);
+  const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
 
   // --- Inventory States ---
@@ -264,7 +265,9 @@ export default function DungeonPage() {
     { type: 'antidote', count: 1 },
     { type: 'crossbow', count: 1 },
     { type: 'poison_tunic', count: 1 },
-    { type: 'detonation_scroll', count: 1 }
+    { type: 'detonation_scroll', count: 1 },
+    { type: 'phase_boots', count: 1 },
+    { type: 'swap_scroll', count: 1 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -524,7 +527,7 @@ export default function DungeonPage() {
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
 
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget;
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
     const isLocalActionTurn = true; 
     if (isAnySpecialModeActive && !isLocalActionTurn) return;
 
@@ -679,6 +682,18 @@ export default function DungeonPage() {
       }
       return;
     }
+    if (isAwaitingSwapScrollTarget) {
+        if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
+            setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+            const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare);
+            setBoard(result.newBoard);
+            audioManager.playMove();
+            setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        }
+        return;
+    }
 
     if (isAwaitingPawnSacrifice) {
         if (piece && piece.color === playerToSacrificePawn && (piece.type === 'pawn' || piece.type === 'commander')) {
@@ -791,7 +806,7 @@ export default function DungeonPage() {
       if (!movingPiece) return;
 
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if (movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) {
@@ -830,6 +845,7 @@ export default function DungeonPage() {
             setSelectedSquare(null); setPossibleMoves([]);
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
+        const executeSwapScrollMode = () => { if(movingPiece.level < 3) return; setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); };
         const executeSelfDestruct = () => {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
           audioManager.playExplosion();
@@ -856,6 +872,7 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
               else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
               else if (movingPiece.heldItem === 'antidote') executeAntidote();
+              else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
               else if (movingPiece.heldItem === 'detonation_scroll') {
                   if (movingPiece.level >= 5) executeSelfDestruct();
                   else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -871,6 +888,7 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode();
           else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
           else if (movingPiece.heldItem === 'antidote') executeAntidote();
+          else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
           else if (movingPiece.heldItem === 'detonation_scroll') {
               if (movingPiece.level >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -980,7 +998,7 @@ export default function DungeonPage() {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
             if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || (oldStreak < 6 && newStreak >= 6)); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
         }
-        setBoard(newBoard);
+        setBoard(nextBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
           if (isAwaitingPawnSacrifice) return;
@@ -1013,7 +1031,7 @@ export default function DungeonPage() {
   };
 
   useEffect(() => {
-    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget;
+    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && !isSpecialActionActive && aiInstance.current) {
       const think = async () => {
         setIsAiThinking(true); setIsMoveProcessing(true);
@@ -1161,7 +1179,7 @@ export default function DungeonPage() {
       };
       think();
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget]);
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget]);
 
   if (!user) {
     return (
@@ -1194,13 +1212,13 @@ export default function DungeonPage() {
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
           <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
           <div className="w-full aspect-square">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget) ? null : selectedSquare}
-              possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget) ? [] : possibleMoves}
+              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
+              possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : possibleMoves}
               enemySelectedSquare={null}
               enemyPossibleMoves={[]}
               onSquareClick={handleSquareClick}
@@ -1224,6 +1242,7 @@ export default function DungeonPage() {
               playerToDropAnvil={currentPlayer === 'white' ? 'white' : null}
               isAwaitingHolyShield={isAwaitingHolyShield}
               isAwaitingArcherSnipe={isAwaitingArcherSnipe}
+              isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
               isInventoryOpen={isInventoryOpen}
               selectedInventoryItemType={selectedInventoryItemType}
               localPlayerColor="white"

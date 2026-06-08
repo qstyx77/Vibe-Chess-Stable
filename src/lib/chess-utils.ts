@@ -234,7 +234,8 @@ function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      if (currentLevel >= 2) continue; else break;
+                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
+                      if (currentLevel >= 2 || hasPhase) continue; else break;
                   }
               }
           }
@@ -250,13 +251,39 @@ function getPossibleMovesInternal(
               const targetP = targetSq.piece;
               if (!targetP) possible.push(coordsToAlgebraic(R, C));
               else {
-                  if (targetP.color !== pieceColor) if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
-                  break;
+                  if (targetP.color !== pieceColor) {
+                      if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
+                      break;
+                  } else {
+                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
+                      if (hasPhase) continue; else break;
+                  }
               }
           }
       });
   } else if (piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') {
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (isMoveValid(board, fromSquare, coordsToAlgebraic(r,c), piece, enPassantTargetSquare)) possible.push(coordsToAlgebraic(r,c));
+  } else if (piece.type === 'queen') {
+      const dirs: [number, number][] = [[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]];
+      dirs.forEach(([dr, dc]) => {
+          for (let i = 1; i < 8; i++) {
+              const R = fromRow + i * dr; const C = fromCol + i * dc;
+              if (!isValidSquare(R, C)) break;
+              const targetSq = board[R][C];
+              if (targetSq.item && targetSq.item.type !== 'shroom') break;
+              const targetP = targetSq.piece;
+              if (!targetP) possible.push(coordsToAlgebraic(R, C));
+              else {
+                  if (targetP.color !== pieceColor) {
+                      if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
+                      break;
+                  } else {
+                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
+                      if (hasPhase) continue; else break;
+                  }
+              }
+          }
+      });
   } else {
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (isMoveValid(board, fromSquare, coordsToAlgebraic(r,c), piece, enPassantTargetSquare)) possible.push(coordsToAlgebraic(r,c));
   }
@@ -356,6 +383,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (targetSquareState.item && targetSquareState.item.type !== 'shroom') return false;
   const targetPieceOnSquare = targetSquareState.piece;
   const pieceActualLevel = Number(piece.level || 1);
+  const hasPhase = piece.heldItem === 'phase_boots' && pieceActualLevel >= 2;
 
   if (piece.heldItem === 'queens_peace' && piece.type === 'queen' && targetPieceOnSquare) return false;
 
@@ -374,7 +402,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       const isHomeRank = (piece.color === 'white' && (fromRow === 6 || fromRow === 7)) || (piece.color === 'black' && (fromRow === 0 || fromRow === 1));
       const canJumpStart = (!piece.hasMoved && isHomeRank) || piece.heldItem === 'swift_cloak';
-      if (fromCol === toCol && !targetPieceOnSquare && canJumpStart && ((piece.color === 'white' && toRow === fromRow - 2 && !board[fromRow - 1][fromCol].piece) || (piece.color === 'black' && toRow === fromRow + 2 && !board[fromRow + 1][fromCol].piece))) return true;
+      if (fromCol === toCol && !targetPieceOnSquare && canJumpStart && ((piece.color === 'white' && toRow === fromRow - 2) || (piece.color === 'black' && toRow === fromRow + 2))) {
+          const midR = fromRow + direction;
+          if (!board[midR][fromCol].piece || (hasPhase && board[midR][fromCol].piece?.color === piece.color)) return true;
+      }
       if (pieceActualLevel >= 2 && fromCol === toCol && toRow === fromRow - direction && !targetPieceOnSquare) return true;
       if (pieceActualLevel >= 3 && toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetPieceOnSquare) return true;
       break;
@@ -399,7 +430,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (fromRow === toRow || fromCol === toCol) {
         const dr = Math.sign(toRow - fromRow); const dc = Math.sign(toCol - fromCol);
         let r = fromRow + dr; let c = fromCol + dc;
-        while (r !== toRow || c !== toCol) { if (board[r][c].piece) return false; r += dr; c += dc; }
+        while (r !== toRow || c !== toCol) { 
+            if (board[r][c].piece && (!hasPhase || board[r][c].piece?.color !== piece.color)) return false; 
+            r += dr; c += dc; 
+        }
         return true;
       }
       break;
@@ -408,7 +442,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (Math.abs(toRow - fromRow) === Math.abs(toCol - fromCol)) {
         const dr = Math.sign(toRow - fromRow); const dc = Math.sign(toCol - fromCol);
         let r = fromRow + dr; let c = fromCol + dc;
-        while (r !== toRow || c !== toCol) { if (board[r][c].piece && (pieceActualLevel < 2 || board[r][c].piece?.color !== piece.color)) return false; r += dr; c += dc; }
+        while (r !== toRow || c !== toCol) { 
+            if (board[r][c].piece && (pieceActualLevel < 2 && !hasPhase || board[r][c].piece?.color !== piece.color)) return false; 
+            r += dr; c += dc; 
+        }
         return true;
       }
       break;
@@ -416,7 +453,10 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (fromRow === toRow || fromCol === toCol || Math.abs(toRow - fromRow) === Math.abs(toCol - fromCol)) {
         const dr = Math.sign(toRow - fromRow); const dc = Math.sign(toCol - fromCol);
         let r = fromRow + dr; let c = fromCol + dc;
-        while (r !== toRow || c !== toCol) { if (board[r][c].piece) return false; r += dr; c += dc; }
+        while (r !== toRow || c !== toCol) { 
+            if (board[r][c].piece && (!hasPhase || board[r][c].piece?.color !== piece.color)) return false; 
+            r += dr; c += dc; 
+        }
         return true;
       }
       break;
@@ -482,6 +522,15 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const originalPieceLevel = Number(movingPiece.level || 1);
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
+
+  if (move.type === 'swap-scroll') {
+      const p1 = newBoard[fromRow][fromCol].piece;
+      const p2 = newBoard[toRow][toCol].piece;
+      newBoard[fromRow][fromCol].piece = p2;
+      newBoard[toRow][toCol].piece = p1;
+      if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; // consume scroll
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
 
   // --- MIRROR SHIELD REFLECTION ---
   if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield') {

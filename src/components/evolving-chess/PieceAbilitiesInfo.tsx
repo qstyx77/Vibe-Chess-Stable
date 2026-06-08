@@ -35,6 +35,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'crossbow') abilities.push(" double shot: KS 3 triggers Archer Snipe in addition to Anvil.");
   if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons any piece that captures this unit.");
   if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit to cause a massive explosion.");
+  if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units while moving.");
+  if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with any allied piece.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");
