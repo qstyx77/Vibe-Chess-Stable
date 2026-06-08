@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel } from '@/lib/chess-utils';
 
@@ -408,7 +409,7 @@ export class VibeChessAI {
                 if (canJumpStart && this.canMoveTo(gs, r+dir, c) && this.canMoveTo(gs, r+2*dir, c)) {
                     moves.push({ from:[r,c], to:[r+2*dir, c], type:'move' });
                 }
-                [-1, 1].forEach(dc => { if (this.canCaptureAt(gs, r+dir, c+dc, p.color, p)) { const isPromo = (r + dir === 0 || r + dir === 7); moves.push({ from:[r,c], to:[r+dir, c+dc], type: isPromo ? 'promotion' : 'capture', promoteTo: isPromo ? 'queen' : undefined }); } });
+                [-1, 1].forEach(dc => { if (this.canCaptureAt(gs, r, c, r+dir, c+dc, p.color, p)) { const isPromo = (r + dir === 0 || r + dir === 7); moves.push({ from:[r,c], to:[r+dir, c+dc], type: isPromo ? 'promotion' : 'capture', promoteTo: isPromo ? 'queen' : undefined }); } });
                 if (effectiveLevel >= 2 && this.canMoveTo(gs, r - dir, c)) moves.push({ from:[r,c], to:[r-dir, c], type:'move' });
                 if (effectiveLevel >= 3) [-1, 1].forEach(dc => { if(this.canMoveTo(gs, r, c+dc)) moves.push({ from:[r,c], to:[r, c+dc], type:'move' }); });
                 break;
@@ -417,7 +418,7 @@ export class VibeChessAI {
             case 'archer':
                 this.knightMoves.forEach(([dr, dc]) => { 
                     const nr = r + dr, nc = c + dc; 
-                    if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) {
+                    if (this.canMoveOrCapture(gs, r, c, nr, nc, p.color, p)) {
                         const target = gs.board[nr][nc].piece;
                         moves.push({ from:[r,c], to:[nr, nc], type: target ? (target.color === color ? 'swap' : 'capture') : 'move' }); 
                     }
@@ -429,7 +430,7 @@ export class VibeChessAI {
             case 'rook':
             case 'palace': this.addSliding(gs, moves, r, c, p, this.directions.rook, false); break;
             case 'queen': this.addSliding(gs, moves, r, c, p, this.directions.queen, false); break;
-            case 'king': this.kingMoves.forEach(([dr, dc]) => { const nr = r + dr, nc = c + dc; if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' }); }); break;
+            case 'king': this.kingMoves.forEach(([dr, dc]) => { const nr = r + dr, nc = c + dc; if (this.canMoveOrCapture(gs, r, c, nr, nc, p.color, p)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' }); }); break;
         }
 
         if (effectiveLevel >= 4) {
@@ -438,7 +439,7 @@ export class VibeChessAI {
             
             if (isNType || isBType) {
                 for (let rr = 0; r < 8; r++) {
-                    for (let cc = 0; c < 8; c++) {
+                    for (let cc = 0; c < 8; cc++) {
                         const target = gs.board[rr][cc].piece;
                         if (target && target.color === color) {
                             if (isNType && (target.type === 'bishop' || target.type === 'archbishop')) {
@@ -471,7 +472,8 @@ export class VibeChessAI {
                 const sq = gs.board[nr][nc]; if (sq.item && sq.item.type !== 'shroom') break;
                 if (!sq.piece) moves.push({ from:[r,c], to:[nr, nc], type:'move' });
                 else {
-                    if (sq.piece.color !== p.color) { if (!isPieceInvulnerableToAttackUtil(sq.piece, p)) moves.push({ from:[r,c], to:[nr, nc], type:'capture' }); break; }
+                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                    if (sq.piece.color !== p.color) { if (!isPieceInvulnerableToAttackUtil(sq.piece, p, targetLevel, effectiveLevel)) moves.push({ from:[r,c], to:[nr, nc], type:'capture' }); break; }
                     else { 
                         if (effectiveLevel >= 4 && (sq.piece.type === 'knight' || sq.piece.type === 'hero' || sq.piece.type === 'archer') && (p.type === 'bishop' || p.type === 'archbishop')) {
                             moves.push({ from:[r,c], to:[nr, nc], type:'swap' });
@@ -485,33 +487,84 @@ export class VibeChessAI {
 
     canMoveTo(gs: AIGameState, r: number, c: number) { return isValidSquareUtil(r, c) && !gs.board[r][c].piece && (!gs.board[r][c].item || gs.board[r][c].item?.type === 'shroom'); }
 
-    canCaptureAt(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) { if (!isValidSquareUtil(r, c)) return false; const target = gs.board[r][c].piece; if (!target || target.color === color) return false; return !isPieceInvulnerableToAttackUtil(target, attacker); }
+    canCaptureAt(gs: AIGameState, fR: number, fC: number, tR: number, tC: number, color: PlayerColor, attacker: Piece) {
+        if (!isValidSquareUtil(tR, tC)) return false; 
+        const target = gs.board[tR][tC].piece; 
+        if (!target || target.color === color) return false; 
+        const attackerLevel = getEffectiveLevel(gs.board as any, fR, fC);
+        const targetLevel = getEffectiveLevel(gs.board as any, tR, tC);
+        return !isPieceInvulnerableToAttackUtil(target, attacker, targetLevel, attackerLevel); 
+    }
 
-    canMoveOrCapture(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) { if (!isValidSquareUtil(r, c)) return false; const sq = gs.board[r][c]; if (sq.item && sq.item.type !== 'shroom') return false; if (!sq.piece) return true; if (sq.piece.color === color) {
-        const effectiveLevel = getEffectiveLevel(gs.board as any, r, c);
-        if (effectiveLevel >= 4) {
-            if ((attacker.type === 'knight' || attacker.type === 'hero' || attacker.type === 'archer') && (sq.piece.type === 'bishop' || sq.piece.type === 'archbishop')) return true;
-            if ((attacker.type === 'bishop' || attacker.type === 'archbishop') && (sq.piece.type === 'knight' || sq.piece.type === 'hero' || sq.piece.type === 'archer')) return true;
-        }
-        return false;
-    } return !isPieceInvulnerableToAttackUtil(sq.piece, attacker); }
+    canMoveOrCapture(gs: AIGameState, fR: number, fC: number, tR: number, tC: number, color: PlayerColor, attacker: Piece) { 
+        if (!isValidSquareUtil(tR, tC)) return false; 
+        const sq = gs.board[tR][tC]; 
+        if (sq.item && sq.item.type !== 'shroom') return false; 
+        if (!sq.piece) return true; 
+        if (sq.piece.color === color) {
+            const effectiveLevel = getEffectiveLevel(gs.board as any, fR, fC);
+            if (effectiveLevel >= 4) {
+                if ((attacker.type === 'knight' || attacker.type === 'hero' || attacker.type === 'archer') && (sq.piece.type === 'bishop' || sq.piece.type === 'archbishop')) return true;
+                if ((attacker.type === 'bishop' || attacker.type === 'archbishop') && (sq.piece.type === 'knight' || sq.piece.type === 'hero' || sq.piece.type === 'archer')) return true;
+            }
+            return false;
+        } 
+        const attackerLevel = getEffectiveLevel(gs.board as any, fR, fC);
+        const targetLevel = getEffectiveLevel(gs.board as any, tR, tC);
+        return !isPieceInvulnerableToAttackUtil(sq.piece, attacker, targetLevel, attackerLevel); 
+    }
 
     isInCheck(gs: AIGameState, color: PlayerColor): boolean { const k = findKing(gs.board as any, color); if (!k) return false; const opp = color === 'white' ? 'black' : 'white'; return this.isSquareAttacked(gs, k.row, k.col, opp); }
 
     isSquareAttacked(gs: AIGameState, r: number, c: number, attackerColor: PlayerColor): boolean {
+        const targetLevel = getEffectiveLevel(gs.board as any, r, c);
+        const targetPiece = gs.board[r][c].piece;
+
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2], [2,-1], [2,1]];
         for (const [dr, dc] of knightDeltas) { 
-            const p = gs.board[r+dr]?.[c+dc]?.piece; 
-            if (p && p.color === attackerColor && ['knight', 'hero', 'archer'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; 
+            const nr = r+dr, nc = c+dc;
+            const p = gs.board[nr]?.[nc]?.piece; 
+            if (p && p.color === attackerColor && ['knight', 'hero', 'archer'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) {
+                const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, attackerLevel)) return true;
+            } 
         }
         const cardDirs = [[0,1], [0,-1], [1,0], [-1,0]];
-        for (const [dr, dc] of cardDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['rook', 'palace', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; break; } } }
+        for (const [dr, dc] of cardDirs) { 
+            for (let i = 1; i < 8; i++) { 
+                const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; 
+                const p = gs.board[nr][nc].piece; 
+                if (p) { 
+                    if (p.color === attackerColor && ['rook', 'palace', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) {
+                        const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                        if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, attackerLevel)) return true;
+                    } 
+                    break; 
+                } 
+            } 
+        }
         const diagDirs = [[1,1], [1,-1], [-1,1], [-1,-1]];
-        for (const [dr, dc] of diagDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['bishop', 'archbishop', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; break; } } }
+        for (const [dr, dc] of diagDirs) { 
+            for (let i = 1; i < 8; i++) { 
+                const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; 
+                const p = gs.board[nr][nc].piece; 
+                if (p) { 
+                    if (p.color === attackerColor && ['bishop', 'archbishop', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) {
+                        const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                        if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, attackerLevel)) return true;
+                    } 
+                    break; 
+                } 
+            } 
+        }
         const pawnDir = attackerColor === 'white' ? 1 : -1;
         for (const dc of [-1, 1]) { 
-            const p = gs.board[r+pawnDir]?.[c+dc]?.piece; 
-            if (p && p.color === attackerColor && ['pawn', 'commander'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; 
+            const nr = r+pawnDir, nc = c+dc;
+            const p = gs.board[nr]?.[nc]?.piece; 
+            if (p && p.color === attackerColor && ['pawn', 'commander'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) {
+                const attackerLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, attackerLevel)) return true;
+            } 
         }
         return false;
     }
