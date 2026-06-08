@@ -4,7 +4,7 @@
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
-import { algebraicToCoords } from '@/lib/chess-utils';
+import { algebraicToCoords, getEffectiveLevel } from '@/lib/chess-utils';
 import { ExplosionIcon } from './IconLibrary';
 
 interface ChessBoardProps {
@@ -234,6 +234,9 @@ export function ChessBoard({
           
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
 
+          const effectiveLevel = currentSquareData.piece ? getEffectiveLevel(boardState, actualRowIndex, actualColIndex) : 0;
+          const isGrimoirBoosted = currentSquareData.piece ? (effectiveLevel > (currentSquareData.piece.level || 1)) : false;
+
           return (
             <ChessSquare
               key={currentSquareData.algebraic}
@@ -266,6 +269,8 @@ export function ChessBoard({
               isInvTarget={isInvTarget}
               isSwapTarget={isSwapTargetSelection}
               selectedInventoryItemType={selectedInventoryItemType}
+              effectiveLevel={effectiveLevel}
+              isGrimoirBoosted={isGrimoirBoosted}
             />
           );
         })

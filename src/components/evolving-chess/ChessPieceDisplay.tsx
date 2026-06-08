@@ -1,3 +1,4 @@
+
 import type { Piece, ViewMode, PlayerColor, InventoryItemType } from '@/types';
 import { getPieceUnicode } from '@/lib/chess-utils';
 import { cn } from '@/lib/utils';
@@ -15,6 +16,8 @@ interface ChessPieceDisplayProps {
   isPromoting?: boolean;
   isConverting?: boolean;
   isSnipeTarget?: boolean;
+  effectiveLevel?: number;
+  isGrimoirBoosted?: boolean;
 }
 
 export function ChessPieceDisplay({
@@ -27,6 +30,8 @@ export function ChessPieceDisplay({
   isPromoting = false,
   isConverting = false,
   isSnipeTarget = false,
+  effectiveLevel,
+  isGrimoirBoosted = false,
 }: ChessPieceDisplayProps) {
   let unicode = getPieceUnicode(piece);
   
@@ -64,6 +69,7 @@ export function ChessPieceDisplay({
   }
 
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
+  const displayLevelValue = effectiveLevel ?? level;
 
   return (
     <div
@@ -169,13 +175,16 @@ export function ChessPieceDisplay({
           </span>
         )}
 
-        {(piece.level || 1) > 1 && (
+        {displayLevelValue > 1 && (
           <span
-            className="absolute inset-0 flex items-center justify-center text-sm font-medium text-destructive pointer-events-none z-[3]"
-            style={{ textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000' }}
-            aria-label={`Level ${piece.level}`}
+            className="absolute inset-0 flex items-center justify-center text-sm font-medium pointer-events-none z-[3]"
+            style={{ 
+              textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000',
+              color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))'
+            }}
+            aria-label={`Level ${displayLevelValue}`}
           >
-            {piece.level}
+            {displayLevelValue}
           </span>
         )}
       </div>

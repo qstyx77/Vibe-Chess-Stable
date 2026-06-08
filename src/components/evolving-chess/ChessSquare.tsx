@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect, InventoryItemType } from '@/types';
@@ -37,6 +38,8 @@ interface ChessSquareProps {
   isSwapTarget?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   isAnvilDropTarget?: boolean;
+  effectiveLevel?: number;
+  isGrimoirBoosted?: boolean;
 }
 
 export function ChessSquare({
@@ -69,6 +72,8 @@ export function ChessSquare({
   isSwapTarget = false,
   selectedInventoryItemType,
   isAnvilDropTarget = false,
+  effectiveLevel,
+  isGrimoirBoosted = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -171,6 +176,8 @@ export function ChessSquare({
             isPromoting={isPromoting}
             isConverting={isConverting}
             isSnipeTarget={isSnipeTarget}
+            effectiveLevel={effectiveLevel}
+            isGrimoirBoosted={isGrimoirBoosted}
           />
         </div>
       )}
