@@ -812,7 +812,7 @@ export default function EvolvingChessPage() {
       if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'stalemate' }));
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
         }
       }
     } else {
@@ -1968,29 +1968,92 @@ export default function EvolvingChessPage() {
           
           const selfDestructPlayer = currentPlayer;
           const oldStreak = killStreaks[selfDestructPlayer] || 0;
-          let capturesThisTurnForSelfDestruct = selfDestructCaptures ? selfDestructCaptures.length : 0;
-          const newStreakForSelfDestructPlayer = capturesThisTurnForSelfDestruct > 0 ? (oldStreak + capturesThisTurnForSelfDestruct) : 0;
-          setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreakForSelfDestructPlayer}));
+          let capturesThisTurn = selfDestructCaptures ? selfDestructCaptures.length : 0;
+          const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
+          setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreak}));
           
-          if (capturesThisTurnForSelfDestruct > 0) {
+          if (capturesThisTurn > 0) {
               setShowCaptureFlash(true);
               setCaptureFlashKey(k => k + 1);
           }
 
-          if (capturesThisTurnForSelfDestruct > 0 && !firstBloodAchieved) {
+          let humanPlayerAchievedFirstBloodThisTurn = false;
+          if (capturesThisTurn > 0 && !firstBloodAchieved) {
               setFirstBloodAchieved(true);
               setPlayerWhoGotFirstBlood(selfDestructPlayer);
+              humanPlayerAchievedFirstBloodThisTurn = true;
           }
 
-          const streakGrantsExtraTurn = oldStreak < 6 && newStreakForSelfDestructPlayer >= 6;
+          const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
+          const combinedExtraTurn = streakGrantsExtraTurn || applyMoveResult.extraTurn;
           setBoard(finalBoardStateForTurn);
           setCapturedPieces(finalCapturedPiecesForTurn);
-          addToVCN(move, applyMoveResult, currentPlayer, streakGrantsExtraTurn);
+          addToVCN(move, applyMoveResult, currentPlayer, combinedExtraTurn);
 
           setTimeout(() => {
             setSelectedSquare(null); setPossibleMoves([]);
             setIsMoveProcessing(false); clickGuardRef.current = false;
-            processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, streakGrantsExtraTurn, nextEnPassantTarget);
+
+            if (humanPlayerAchievedFirstBloodThisTurn) {
+                setIsAwaitingCommanderPromotion(true);
+                setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
+                return;
+            }
+
+            let enteringSpecialMode = false;
+            const opponentPlayer = selfDestructPlayer === 'white' ? 'black' : 'white';
+
+            if (newStreak >= 2 && oldStreak < 2 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer)) {
+                enteringSpecialMode = true;
+                setShieldContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                setIsAwaitingHolyShield(true);
+                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+            }
+
+            if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
+                enteringSpecialMode = true;
+                setAnvilDropContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                setIsAwaitingAnvilDrop(true);
+                setPlayerToDropAnvil(selfDestructPlayer);
+                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
+            }
+
+            if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer)) {
+                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => sq.piece && sq.piece.color === opponentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                if (hasLevel1Victims) {
+                    enteringSpecialMode = true;
+                    setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                    setIsAwaitingArcherSnipe(true);
+                    setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                }
+            }
+
+            if (!enteringSpecialMode && newStreak >= 4 && oldStreak < 4) {
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
+                    const pieceToResurrect = piecesOfCurrentPlayerCapturedByOpponent.pop();
+                    if (pieceToResurrect) {
+                      const emptySquares: AlgebraicSquare[] = [];
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                      if (emptySquares.length > 0) {
+                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
+                        const resurrectedPiece: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_SD_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                        addEffect('light-beam', randomSquareAlg);
+                        audioManager.playResurrect();
+                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
+                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrect.id);
+                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${pieceToResurrect.type} returns!`, duration: 8000 });
+                        setVcnLog(prev => [...prev, `+^${getVCNChar(resurrectedPiece.type)}(L${resurrectedPiece.level})@${randomSquareAlg}`]);
+                      }
+                    }
+                  }
+            }
+
+            if (!enteringSpecialMode) {
+                processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, combinedExtraTurn, nextEnPassantTarget);
+            }
           }, 800);
         };
 

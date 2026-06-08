@@ -503,7 +503,7 @@ export default function DungeonPage() {
     const pieceBeingPromoted = nextBoard[row][col].piece;
     if (!pieceBeingPromoted) return;
     nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(nextBoard[row][col].piece!.level, 7);
+    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(pieceBeingPromoted.level, 7);
     audioManager.playLevelUp();
     setBoard(nextBoard);
     setIsPromotingPawn(false);
@@ -866,13 +866,73 @@ export default function DungeonPage() {
           for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
           let nextBoard = result.newBoard;
           const oldStreak = killStreaks.white;
-          if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) {
+          let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0;
+          const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0);
+          setKillStreaks(prev => ({ ...prev, white: newStreak }));
+
+          if (capturesThisTurn > 0) {
               setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!] }));
-              setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + result.selfDestructCaptures!.length }));
-              if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
           }
+
+          let humanPlayerAchievedFirstBloodThisTurn = false;
+          if (capturesThisTurn > 0 && !firstBloodAchieved) { 
+              setFirstBloodAchieved(true); 
+              setPlayerWhoGotFirstBlood('white'); 
+              humanPlayerAchievedFirstBloodThisTurn = true;
+          }
+
+          const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
           setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]);
-          processMoveEnd(nextBoard, 'white', result.extraTurn || (oldStreak < 6 && (killStreaks.white + (result.selfDestructCaptures?.length || 0)) >= 6), enPassantTargetSquare);
+          
+          setTimeout(() => {
+              setIsMoveProcessing(false); clickGuard.current = false;
+              if (humanPlayerAchievedFirstBloodThisTurn) {
+                  setIsAwaitingCommanderPromotion(true);
+                  setSpecialActionContext({ extra: isExtra });
+                  return;
+              }
+
+              let triggeredSpecial = false;
+              if (newStreak >= 2 && oldStreak < 2 && nextBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
+                  triggeredSpecial = true;
+                  setIsAwaitingHolyShield(true);
+                  setSpecialActionContext({ extra: isExtra });
+              }
+              if (!triggeredSpecial && newStreak >= 3 && oldStreak < 3) {
+                  triggeredSpecial = true;
+                  setIsAwaitingAnvilDrop(true);
+                  setSpecialActionContext({ extra: isExtra });
+              }
+              if (!triggeredSpecial && newStreak >= 5 && oldStreak < 5 && nextBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
+                  const hasLevel1Enemies = nextBoard.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                  if (hasLevel1Enemies) {
+                      triggeredSpecial = true;
+                      setIsAwaitingArcherSnipe(true);
+                      setSpecialActionContext({ extra: isExtra });
+                  }
+              }
+              if (!triggeredSpecial && newStreak >= 4 && oldStreak < 4) {
+                  const graveyard = capturedPieces.black;
+                  if (graveyard.length > 0) {
+                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_SD_${Date.now()}`, heldItem: null };
+                      const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
+                      if (empty.length > 0) {
+                          const chosenSq = empty[Math.floor(Math.random() * empty.length)];
+                          const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
+                          nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
+                          addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
+                          if (pieceToRes.type === 'pawn' && rr === 0) { 
+                              triggeredSpecial = true; setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); 
+                          }
+                          else if (pieceToRes.type === 'commander' && rr === 0) { nextBoard[rr][rc].piece!.type = 'hero'; }
+                      }
+                  }
+              }
+
+              if (!triggeredSpecial) {
+                  processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
+              }
+          }, 800);
         };
 
         if (hasSelfSelectionAbility && hasMagicScroll) {
@@ -1153,7 +1213,7 @@ export default function DungeonPage() {
                            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
                            nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
                            addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_streak_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
+                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_res_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
                            else if (pieceToRes.type === 'commander' && rr === 7) { nextBoard[rr][rc].piece!.type = 'hero'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
                        }
                    }
