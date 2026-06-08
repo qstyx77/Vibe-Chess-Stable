@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -437,7 +438,7 @@ export default function EvolvingChessPage() {
           if (diff !== 0) {
             const levelSig = `level-${currSq.piece.id}-${currSq.piece.level}-${moveKey}`;
             if (!signaledEventsRef.current.has(levelSig)) {
-              newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff });
+              newEffectsToAdd.push({ type: 'level-change', square: currSq.badge, val: diff });
               signaledEventsRef.current.add(levelSig);
             }
           }
@@ -735,7 +736,7 @@ export default function EvolvingChessPage() {
     firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
     shroomSpawnCounter, nextShroomSpawnTurn,
     resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
-    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, anvilDropAfterPromotion,
+    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
     isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
     inventory
   ]);
@@ -791,7 +792,7 @@ export default function EvolvingChessPage() {
 
     if (opponentInCheck) {
       toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 8000 });
-      setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
+      setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingExtraTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
       if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
@@ -1243,6 +1244,11 @@ export default function EvolvingChessPage() {
             return;
           }
 
+          if (selectedInventoryItemType === 'mirror_shield' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
+            return;
+          }
+
           if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
@@ -1286,6 +1292,11 @@ export default function EvolvingChessPage() {
 
           if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+            return;
+          }
+
+          if (selectedInventoryItemType === 'mirror_shield' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -3951,7 +3962,7 @@ export default function EvolvingChessPage() {
                 setVcnLog(prev => [...prev, '[TO]']);
             }
 
-            if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
+            if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
             else if (reason === 'auto-checkmate') message = `Auto-Checkmate! ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
             else if (reason === 'self-check') {
                 toast({

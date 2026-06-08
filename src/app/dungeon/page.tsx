@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -562,6 +563,11 @@ export default function DungeonPage() {
             return;
           }
 
+          if (selectedInventoryItemType === 'mirror_shield' && (piece.type === 'king' || piece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
+            return;
+          }
+
           if (selectedInventoryItemType === 'crossbow' && piece.type !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
@@ -604,6 +610,11 @@ export default function DungeonPage() {
 
           if (selectedInventoryItemType === 'gnosis' && (piece.type === 'king' || piece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+            return;
+          }
+
+          if (selectedInventoryItemType === 'mirror_shield' && (piece.type === 'king' || piece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -821,7 +832,7 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || movingPiece.heldItem === 'ice_scroll');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || movingPiece.heldItem === 'ice_scroll' || movingPiece.heldItem === 'resurrection_scroll' || movingPiece.heldItem === 'faith_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {

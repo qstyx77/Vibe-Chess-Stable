@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
@@ -224,6 +225,13 @@ export function ChessBoard({
           }
 
           if (isInvTarget && selectedInventoryItemType === 'gnosis') {
+              const pType = currentSquareData.piece?.type;
+              if (pType === 'king' || pType === 'queen') {
+                  isInvTarget = false;
+              }
+          }
+
+          if (isInvTarget && selectedInventoryItemType === 'mirror_shield') {
               const pType = currentSquareData.piece?.type;
               if (pType === 'king' || pType === 'queen') {
                   isInvTarget = false;

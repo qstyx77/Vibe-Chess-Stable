@@ -1,3 +1,4 @@
+
 export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer';
 export type ItemType = 'anvil' | 'shroom';
@@ -65,7 +66,7 @@ export interface ItemMetadata {
 
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'passive_armor': { name: 'Blue Plate', description: 'Heavy chestplate. Push-Back immunity.', isConsumable: false },
-  'mirror_shield': { name: 'Mirror Shield', description: 'Ornate shield. Reflects one capture attempt, then breaks.', isConsumable: false },
+  'mirror_shield': { name: 'Mirror Shield', description: 'Non-Royal only. Reflects one capture attempt, then breaks.', isConsumable: false },
   'swift_cloak': { name: 'Swift Cloak', description: 'Red cloak. Double move range for small units.', isConsumable: false },
   'cardinal_greaves': { name: 'Cardinal Greaves', description: 'Green boots. Move (no capture) 1 space cardinally forward.', isConsumable: false },
   'drift_boots': { name: 'Drift Boots', description: 'Blue boots. Move (no capture) 1 space diagonally forward.', isConsumable: false },
