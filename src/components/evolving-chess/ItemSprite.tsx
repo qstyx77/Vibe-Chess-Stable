@@ -247,10 +247,13 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'grimoir':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#4C1D95" />
-            <rect x="1" y="3" width="8" height="6" fill="#4C1D95" />
-            <rect x="4" y="4" width="2" height="4" fill="#C084FC" />
-            <rect x="4" y="2" width="2" height="1" fill="#FEF9C3" />
+            <rect x="1" y="1" width="2" height="10" fill="#2E1065" />
+            <rect x="3" y="1" width="6" height="10" fill="#4C1D95" />
+            <rect x="1.5" y="2" width="1" height="1" fill="#C084FC" opacity="0.5" />
+            <rect x="1.5" y="5" width="1" height="1" fill="#C084FC" opacity="0.5" />
+            <rect x="1.5" y="8" width="1" height="1" fill="#C084FC" opacity="0.5" />
+            <rect x="5" y="4" width="2" height="3" fill="#C084FC" />
+            <rect x="8.5" y="1.5" width="0.5" height="9" fill="#FFF" opacity="0.3" />
           </svg>
         );
       case 'soul_link':
@@ -264,10 +267,13 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'logas':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#EAB308" />
-            <rect x="1" y="3" width="8" height="6" fill="#EAB308" />
-            <rect x="4" y="4" width="2" height="4" fill="#FFF" />
-            <rect x="3" y="5" width="4" height="2" fill="#FFF" />
+            <rect x="1" y="1" width="2" height="10" fill="#713F12" />
+            <rect x="3" y="1" width="6" height="10" fill="#EAB308" />
+            <rect x="1.5" y="3" width="1" height="2" fill="#FEF08A" opacity="0.5" />
+            <rect x="1.5" y="7" width="1" height="2" fill="#FEF08A" opacity="0.5" />
+            <rect x="5" y="3" width="2" height="5" fill="#FFF" />
+            <rect x="4" y="4.5" width="4" height="2" fill="#FFF" />
+            <rect x="8.5" y="1.5" width="0.5" height="9" fill="#FFF" opacity="0.3" />
           </svg>
         );
       default:
