@@ -294,7 +294,9 @@ export default function EvolvingChessPage() {
     { type: 'soul_link', count: 2 },
     { type: 'logas', count: 2 },
     { type: 'berserkers_mask', count: 2 },
-    { type: 'ice_scroll', count: 2 }
+    { type: 'ice_scroll', count: 2 },
+    { type: 'resurrection_scroll', count: 2 },
+    { type: 'faith_scroll', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -789,7 +791,7 @@ export default function EvolvingChessPage() {
 
     if (opponentInCheck) {
       toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 8000 });
-      setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingExtraTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
+      setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
       if (onlineStatus === 'connected') {
         const ws = wsRef.current;
         if(ws && ws.readyState === WebSocket.OPEN) {
@@ -1072,7 +1074,7 @@ export default function EvolvingChessPage() {
 
   const addToVCN = useCallback((move: Move, result: ApplyMoveResult, player: PlayerColor, extraTurn: boolean, special?: string) => {
     const piece = result.newBoard[algebraicToCoords(move.to).row][algebraicToCoords(move.to).col].piece;
-    if (!piece && !['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll'].includes(move.type || '')) return;
+    if (!piece && !['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll', 'resurrection-scroll', 'faith-scroll'].includes(move.type || '')) return;
 
     let notation = "";
     if (move.type === 'wind-scroll') notation = `[W-Spell]@${move.to}`;
@@ -1083,6 +1085,8 @@ export default function EvolvingChessPage() {
     else if (move.type === 'antidote') notation = `[Cleanse]`;
     else if (move.type === 'swap-scroll') notation = `[Swap-Spell]@${move.to}`;
     else if (move.type === 'ice-scroll') notation = `[Ice-Spell]`;
+    else if (move.type === 'resurrection-scroll') notation = `[Rez-Spell]`;
+    else if (move.type === 'faith-scroll') notation = `[Faith-Spell]`;
     else {
       const char = getVCNChar(piece!.type);
       const level = `(L${piece!.level})`;
@@ -1212,7 +1216,7 @@ export default function EvolvingChessPage() {
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
     if (isAnySpecialModeActive && !isLocalActionTurn) {
         return;
     }
@@ -1348,7 +1352,7 @@ export default function EvolvingChessPage() {
         setAnimatedSquareTo(algebraic);
         
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
-        const result = applyMove(board, move, enPassantTargetSquare);
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
         setBoard(result.newBoard);
         audioManager.playAnvil();
         toast({ title: "Wind Scroll Cast!", description: `Units pushed back from ${algebraic}.` });
@@ -1376,7 +1380,7 @@ export default function EvolvingChessPage() {
         setAnimatedSquareTo(algebraic);
         
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
-        const result = applyMove(board, move, enPassantTargetSquare);
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
         setBoard(result.newBoard);
         audioManager.playAnvil();
         toast({ title: "Anvil Summoned!", description: `Anvil dropped on ${algebraic}.` });
@@ -1404,7 +1408,7 @@ export default function EvolvingChessPage() {
             setAnimatedSquareTo(algebraic);
             
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare);
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
             setBoard(result.newBoard);
             audioManager.playShield();
             toast({ title: "Shield Cast!", description: `${clickedPiece.type} is now protected.` });
@@ -1432,7 +1436,7 @@ export default function EvolvingChessPage() {
             setAnimatedSquareTo(algebraic);
             
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare);
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
             setBoard(result.newBoard);
             audioManager.playMove();
             toast({ title: "Swap Scroll Used!", description: `Swapped places with allied ${clickedPiece.type}.` });
@@ -1769,7 +1773,7 @@ export default function EvolvingChessPage() {
 
       const effectiveLevelAtSelected = getEffectiveLevel(board, fromR_selected, fromC_selected);
       const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && effectiveLevelAtSelected >= 5);
-      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll' || pieceToMoveFromSelected.heldItem === 'ice_scroll');
+      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll' || pieceToMoveFromSelected.heldItem === 'ice_scroll' || pieceToMoveFromSelected.heldItem === 'resurrection_scroll' || pieceToMoveFromSelected.heldItem === 'faith_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) || (pieceToMoveFromSelected.frozenTurnsRemaining && pieceToMoveFromSelected.frozenTurnsRemaining > 0)) {
@@ -1782,7 +1786,7 @@ export default function EvolvingChessPage() {
           clickGuardRef.current = true;
           setIsMoveProcessing(true);
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
-          const result = applyMove(board, move, enPassantTargetSquare);
+          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
           setBoard(result.newBoard);
           audioManager.playLevelUp();
           toast({ title: "Life Leach Cast!", description: "All enemy levels reduced by 1." });
@@ -1827,7 +1831,7 @@ export default function EvolvingChessPage() {
             clickGuardRef.current = true;
             setIsMoveProcessing(true);
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare);
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
             setBoard(result.newBoard);
             audioManager.playRally();
             toast({ title: "Rally Scroll Cast!", description: "All other allied units leveled up!" });
@@ -1846,7 +1850,7 @@ export default function EvolvingChessPage() {
             clickGuardRef.current = true;
             setIsMoveProcessing(true);
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
-            const result = applyMove(board, move, enPassantTargetSquare);
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
             setBoard(result.newBoard);
             audioManager.playShield();
             toast({ title: "Antidote Used!", description: "All allied units cured of poison." });
@@ -1879,7 +1883,7 @@ export default function EvolvingChessPage() {
           clickGuardRef.current = true;
           setIsMoveProcessing(true);
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
-          const result = applyMove(board, move, enPassantTargetSquare);
+          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
           setBoard(result.newBoard);
           audioManager.playShield();
           toast({ title: "Ice Scroll Cast!", description: "Adjacent enemies frozen for 2 turns!" });
@@ -1891,6 +1895,61 @@ export default function EvolvingChessPage() {
               clickGuardRef.current = false;
               processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
           }, 800);
+        };
+
+        const executeResurrectionScroll = () => {
+            if (effectiveLevelAtSelected < 4) {
+                toast({ title: "Level Too Low", description: "Resurrection Scroll requires Level 4+.", variant: "destructive" });
+                return;
+            }
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            if (result.resurrectionScrollEvent) {
+                const p = result.resurrectionScrollEvent.piece;
+                const oppColor = currentPlayer === 'white' ? 'black' : 'white';
+                setCapturedPieces(prev => ({ ...prev, [oppColor]: prev[oppColor].filter(pi => pi.id !== p.id) }));
+                addEffect('light-beam', result.resurrectionScrollEvent.square);
+                audioManager.playResurrect();
+                toast({ title: "Resurrection!", description: `Highest value ally restored: ${p.type}!` });
+            }
+            setBoard(result.newBoard);
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            addToVCN(move, result, currentPlayer, false);
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        };
+
+        const executeFaithScroll = () => {
+            if (effectiveLevelAtSelected < 5) {
+                toast({ title: "Level Too Low", description: "Faith Scroll requires Level 5+.", variant: "destructive" });
+                return;
+            }
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            if (result.conversionEvents.length > 0) {
+                audioManager.playConversion();
+                result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+                toast({ title: "Conversions!", description: `${result.conversionEvents.length} units have joined your roster!` });
+            }
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            addToVCN(move, result, currentPlayer, false);
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
         };
 
         const executeSelfDestruct = () => {
@@ -1913,7 +1972,7 @@ export default function EvolvingChessPage() {
           audioManager.playExplosion();
 
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
-          const applyMoveResult = applyMove(finalBoardStateForTurn, move, enPassantTargetSquare);
+          const applyMoveResult = applyMove(finalBoardStateForTurn, move, enPassantTargetSquare, capturedPieces);
           let { newBoard, selfDestructCaptures, destroyedAnvils, enPassantTargetSet: nextEnPassantTarget, rallyCryTriggered } = applyMoveResult;
           
           finalBoardStateForTurn = newBoard;
@@ -1961,6 +2020,8 @@ export default function EvolvingChessPage() {
                 else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
                 else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
                 else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
+                else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
+                else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
                 else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
                     if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
                     else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -1980,6 +2041,8 @@ export default function EvolvingChessPage() {
           else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
           else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
           else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
+          else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
+          else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
           else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
               if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -2029,7 +2092,7 @@ export default function EvolvingChessPage() {
             return;
         }
 
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare);
+        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare, capturedPieces);
         const { 
             newBoard: boardAfterMove, 
             capturedPiece: capturedPieceFromApply, 
@@ -2878,7 +2941,7 @@ export default function EvolvingChessPage() {
           audioManager.playExplosion();
         }
 
-        const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare);
+        const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare, capturedPieces);
         const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, reflectionOccurred, ...rest } = applyMoveResult;
         
         if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {

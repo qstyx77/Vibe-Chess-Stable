@@ -107,30 +107,50 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           </svg>
         );
       case 'wind_scroll':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#BAE6FD" />
-            <rect x="4" y="5" width="2" height="2" fill="#0284C7" />
-          </svg>
-        );
       case 'life_leach':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#C084FC" />
-            <rect x="4" y="5" width="2" height="2" fill="#4C1D95" />
-          </svg>
-        );
       case 'summon_anvil':
+      case 'shield_scroll':
+      case 'rally_scroll':
+      case 'antidote':
+      case 'detonation_scroll':
+      case 'swap_scroll':
+      case 'ice_scroll':
+      case 'resurrection_scroll':
+      case 'faith_scroll':
+        const scrollColors: Record<string, string> = {
+          wind_scroll: '#BAE6FD',
+          life_leach: '#C084FC',
+          summon_anvil: '#94A3B8',
+          shield_scroll: '#FDE68A',
+          rally_scroll: '#FDE68A',
+          antidote: '#10B981',
+          detonation_scroll: '#FCA5A5',
+          swap_scroll: '#D946EF',
+          ice_scroll: '#93C5FD',
+          resurrection_scroll: '#FEF08A',
+          faith_scroll: '#F8FAFC'
+        };
+        const iconColors: Record<string, string> = {
+          wind_scroll: '#0284C7',
+          life_leach: '#4C1D95',
+          summon_anvil: '#334155',
+          shield_scroll: '#3B82F6',
+          rally_scroll: '#EAB308',
+          antidote: '#064E3B',
+          detonation_scroll: '#B91C1C',
+          swap_scroll: '#701A75',
+          ice_scroll: '#1D4ED8',
+          resurrection_scroll: '#06B6D4',
+          faith_scroll: '#2563EB'
+        };
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#94A3B8" />
-            <rect x="3" y="5" width="4" height="2" fill="#334155" />
+            <rect x="1" y="2" width="8" height="8" fill={scrollColors[type] || '#FFF'} />
+            <rect x="0" y="1" width="10" height="2" fill="#78350F" />
+            <rect x="0" y="9" width="10" height="2" fill="#78350F" />
+            <rect x="3" y="4" width="4" height="4" fill={iconColors[type] || '#000'} opacity="0.6" />
+            {type === 'resurrection_scroll' && <rect x="4" y="5" width="2" height="2" fill="#FFF" />}
+            {type === 'faith_scroll' && <rect x="4" y="4" width="2" height="4" fill="#FFF" />}
           </svg>
         );
       case 'wind_cloak':
@@ -154,24 +174,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="2" width="2" height="4" fill="#FEF9C3" opacity="0.7" />
           </svg>
         );
-      case 'shield_scroll':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#FDE68A" />
-            <rect x="3" y="4" width="4" height="4" fill="#3B82F6" />
-          </svg>
-        );
-      case 'rally_scroll':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#FDE68A" />
-            <rect x="4" y="5" width="2" height="2" fill="#EAB308" />
-          </svg>
-        );
       case 'poison_dagger':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -180,15 +182,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="2" y="8" width="6" height="1" fill="#334155" />
             <rect x="4" y="9" width="2" height="2" fill="#334155" />
             <rect x="5" y="2" width="1" height="2" fill="#BBF7D0" opacity="0.6" />
-          </svg>
-        );
-      case 'antidote':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="3" y="2" width="4" height="9" fill="#10B981" />
-            <rect x="2" y="3" width="6" height="7" fill="#10B981" />
-            <rect x="4" y="1" width="2" height="2" fill="#78350F" />
-            <rect x="4" y="4" width="2" height="2" fill="#FFF" opacity="0.4" />
           </svg>
         );
       case 'crossbow':
@@ -212,15 +205,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="5" width="4" height="1" fill="#22C55E" />
           </svg>
         );
-      case 'detonation_scroll':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#FCA5A5" />
-            <rect x="4" y="5" width="2" height="2" fill="#EF4444" />
-          </svg>
-        );
       case 'phase_boots':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -230,15 +214,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="0" y="3" width="2" height="2" fill="#E9D5FF" />
             <rect x="8" y="2" width="2" height="2" fill="#E9D5FF" />
             <rect x="9" y="3" width="1" height="2" fill="#E9D5FF" />
-          </svg>
-        );
-      case 'swap_scroll':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#D946EF" />
-            <rect x="3" y="5" width="4" height="2" fill="#000" opacity="0.4" />
           </svg>
         );
       case 'grimoir':
@@ -286,15 +261,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="8" width="2" height="1" fill="#FFF" />
             <rect x="4" y="9" width="1" height="1" fill="#FFF" />
             <rect x="5" y="9" width="1" height="1" fill="#FFF" />
-          </svg>
-        );
-      case 'ice_scroll':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
-            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
-            <rect x="2" y="3" width="6" height="6" fill="#93C5FD" />
-            <rect x="4" y="5" width="2" height="2" fill="#3B82F6" />
           </svg>
         );
       default:

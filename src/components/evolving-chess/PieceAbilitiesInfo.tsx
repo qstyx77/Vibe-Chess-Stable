@@ -41,6 +41,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'logas') abilities.push(" sacred capturing: adjacent allies gain +1 level on capture.");
   if (heldItem === 'berserkers_mask') abilities.push(" frenzy: +3 levels on capture, but must capture if possible.");
   if (heldItem === 'ice_scroll') abilities.push(" spell (L2+): freeze adjacent enemies for 2 turns.");
+  if (heldItem === 'resurrection_scroll') abilities.push(" spell (L4+): resurrect highest value ally adjacent to you.");
+  if (heldItem === 'faith_scroll') abilities.push(" spell (L5+): 50% chance to convert adjacent enemies.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");

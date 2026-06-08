@@ -570,13 +570,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         // VALIDATION
                         let isLegal = false;
-                        if (moveType === 'self-destruct') {
+                        if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll'].includes(moveType)) {
                             const level = movingPieceStart.level || 1;
-                            const isDestructiveType = ['knight', 'hero', 'archer'].includes(movingPieceStart.type);
-                            if (from === to && isDestructiveType && level >= 5) {
-                                const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s})));
-                                tempBoard[fromCoords.row][fromCoords.col].piece = null;
-                                if (!isKingInCheck(tempBoard, actingColor, null)) isLegal = true;
+                            const hItem = movingPieceStart.heldItem;
+                            if (from === to) {
+                                if (moveType === 'self-destruct' && level >= 5 && ['knight', 'hero', 'archer'].includes(movingPieceStart.type)) isLegal = true;
+                                if (moveType === 'resurrection-scroll' && hItem === 'resurrection_scroll' && level >= 4) isLegal = true;
+                                if (moveType === 'faith-scroll' && hItem === 'faith_scroll' && level >= 5) isLegal = true;
+                                if (['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll'].includes(moveType)) isLegal = true;
+                                
+                                if (isLegal) {
+                                    const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s})));
+                                    if (moveType === 'self-destruct') tempBoard[fromCoords.row][fromCoords.col].piece = null;
+                                    if (isKingInCheck(tempBoard, actingColor, null)) isLegal = false;
+                                }
                             }
                         } else {
                             const legalMoves = getPossibleMoves(room.gameState.board, from, room.gameState.enPassantTargetSquare);
@@ -589,13 +596,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         const originalLevel = movingPieceStart.level || 1;
-                        const { newBoard, capturedPiece, selfDestructCaptures, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare);
+                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
                         
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         if (capturedPiece) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
                         if (selfDestructCaptures) selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayer].push(p));
                         if (rest.pieceCapturedByAnvil) room.gameState.capturedPieces[movingPlayer].push(rest.pieceCapturedByAnvil);
+                        
+                        if (resurrectionScrollEvent) {
+                            const p = resurrectionScrollEvent.piece;
+                            const oppColor = movingPlayer === 'white' ? 'black' : 'white';
+                            room.gameState.capturedPieces[oppColor] = room.gameState.capturedPieces[oppColor].filter((pi: any) => pi.id !== p.id);
+                            room.gameState.resurrectedSquare = resurrectionScrollEvent.square;
+                        }
 
                         let vcnBuffer = "";
 
@@ -635,7 +649,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) room.gameState.killStreaks[movingPlayer] += caps;
-                        else room.gameState.killStreaks[movingPlayer] = 0;
+                        else {
+                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll'].includes(moveType)) {
+                                room.gameState.killStreaks[movingPlayer] = 0;
+                            }
+                        }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
                         room.gameState.isPendingExtraTurn = rest.extraTurn || (oldStreak < 6 && newStreak >= 6);
@@ -685,7 +703,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         };
                         const pFinal = finalizedBoard[toCoords.row][toCoords.col].piece;
                         let mainVcn = "";
-                        if (pFinal) {
+                        if (pFinal && !['resurrection-scroll', 'faith-scroll'].includes(moveType)) {
                             const char = getVCNChar(pFinal.type);
                             const lvl = `(L${pFinal.level})`;
                             const sep = (capturedPiece || rest.pieceCapturedByAnvil) ? 'x' : '-';
@@ -700,7 +718,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         } else if (moveType === 'self-destruct') {
                             const char = getVCNChar(movingPieceStart.type);
                             mainVcn = `${char}(L${originalLevel})${from}!!!@${from}${room.gameState.isPendingExtraTurn ? '!!' : ''}`;
-                        }
+                        } else if (moveType === 'resurrection-scroll') mainVcn = `[Rez-Spell]`;
+                        else if (moveType === 'faith-scroll') mainVcn = `[Faith-Spell]`;
+
                         room.gameState.lastVCNMove = mainVcn + vcnBuffer;
 
                         triggerNextSpecialAction(room, movingPlayer);

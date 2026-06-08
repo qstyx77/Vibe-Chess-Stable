@@ -170,6 +170,13 @@ function getPossibleMovesInternal(
   const opponentColor = pieceColor === 'white' ? 'black' : 'white';
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
 
+  const hasMagicScroll = (piece.heldItem === 'wind_scroll' || piece.heldItem === 'life_leach' || piece.heldItem === 'summon_anvil' || piece.heldItem === 'shield_scroll' || piece.heldItem === 'rally_scroll' || piece.heldItem === 'antidote' || piece.heldItem === 'detonation_scroll' || piece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll');
+  const hasSelfAbility = ((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && currentLevel >= 5);
+  
+  if (hasMagicScroll || hasSelfAbility) {
+    possible.push(fromSquare);
+  }
+
   if (piece.type === 'king') {
     const maxDistance = currentLevel >= 2 ? 2 : 1;
     for (let dr = -maxDistance; dr <= maxDistance; dr++) {
@@ -408,7 +415,7 @@ export function isSquareAttacked(
 
 export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   const effectiveLevel = getEffectiveLevel(board, algebraicToCoords(from).row, algebraicToCoords(from).col);
-  if (from === to && !((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && effectiveLevel >= 5)) return false;
+  if (from === to && !((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && effectiveLevel >= 5) && !(['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll', 'resurrection-scroll', 'faith-scroll'].includes(piece.heldItem || ''))) return false;
   const { row: fromRow, col: fromCol } = algebraicToCoords(from);
   const { row: toRow, col: toCol } = algebraicToCoords(to);
   if (!isValidSquare(toRow, toCol)) return false;
@@ -527,7 +534,9 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
 }
 
-export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null): ApplyMoveResult {
+const VAL_MAP: Record<string, number> = {pawn:1, commander:1, infiltrator:1, knight:3, bishop:3, archbishop:3, rook:5, palace:6, queen:9, king:0, hero:3, archer:3};
+
+export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }): ApplyMoveResult {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
   let enPassantTargetSet: AlgebraicSquare | null = null;
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
@@ -547,6 +556,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let destroyedAnvils = 0;
   let phoenixResurrection: { piece: Piece, square: AlgebraicSquare } | undefined = undefined;
   let reflectionOccurred = false;
+  let resurrectionScrollEvent: { piece: Piece, square: AlgebraicSquare } | undefined = undefined;
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
@@ -554,6 +564,49 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const originalPieceLevel = Number(movingPiece.level || 1);
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
+
+  if (move.type === 'resurrection-scroll') {
+      if (graveyard) {
+          const myGraveyard = movingPiece.color === 'white' ? graveyard.black : graveyard.white;
+          if (myGraveyard.length > 0) {
+              const best = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
+              const adjacent = [];
+              for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                  if (dr===0 && dc===0) continue;
+                  const nr=fromRow+dr; const nc=fromCol+dc;
+                  if(isValidSquare(nr,nc) && !newBoard[nr][nc].piece && !newBoard[nr][nc].item) adjacent.push(coordsToAlgebraic(nr,nc));
+              }
+              if (adjacent.length > 0) {
+                  const target = adjacent[Math.floor(Math.random()*adjacent.length)];
+                  const {row: rr, col: rc} = algebraicToCoords(target);
+                  const resPiece = { ...best, level: 1, id: `res_scroll_${best.id}_${Date.now()}`, hasMoved: true, isShielded: false, heldItem: null, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                  newBoard[rr][rc].piece = resPiece;
+                  resurrectionScrollEvent = { piece: best, square: target };
+              }
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, resurrectionScrollEvent };
+  }
+
+  if (move.type === 'faith-scroll') {
+      const converterColor = movingPiece.color;
+      for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+          if (dr===0 && dc===0) continue;
+          const nr=fromRow+dr; const nc=fromCol+dc;
+          if(isValidSquare(nr,nc)) {
+              const victim = newBoard[nr][nc].piece;
+              if (victim && victim.color !== converterColor && victim.type !== 'king' && Math.random() < 0.5) {
+                  const orig = {...victim};
+                  victim.color = converterColor;
+                  victim.id = `conv_faith_${victim.id}_${Date.now()}`;
+                  conversionEvents.push({ originalPiece: orig, convertedPiece: {...victim}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
+              }
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
 
   if (move.type === 'ice-scroll') {
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
@@ -852,7 +905,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent };
 }
 
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor) {
@@ -1026,7 +1079,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
   const effectiveLevel = getEffectiveLevel(board, r, c);
   if (effectiveLevel >= 4 && effectiveLevel > oldL) {
     const opp = player === 'white' ? 'black' : 'white';
-    const choice = [...graveyard[opp]].sort((a,b) => ( {pawn:1, commander:1, infiltrator:1, knight:3, bishop:3, archbishop:3, rook:5, palace:6, queen:9, king:0, hero:3, archer:3}[b.type] || 0 ) - ( {pawn:1, commander:1, infiltrator:1, knight:3, bishop:3, archbishop:3, rook:5, palace:6, queen:9, king:0, hero:3, archer:3}[a.type] || 0 ))[0];
+    const choice = [...graveyard[opp]].sort((a,b) => ( VAL_MAP[b.type] || 0 ) - ( VAL_MAP[a.type] || 0 ))[0];
     if (choice) {
       const adj = [];
       for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) if(dr!==0 || dc!==0) {
@@ -1035,7 +1088,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
       if (adj.length > 0) {
         const target = adj[Math.floor(Math.random()*adj.length)];
         const {row: rr, col: rc} = algebraicToCoords(target);
-        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null };
+        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [opp]: graveyard[opp].filter(p => p.id !== choice.id) };
         return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: res.type === 'pawn' && (rr===0 || rr===7) };
