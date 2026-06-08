@@ -3939,8 +3939,8 @@ export default function EvolvingChessPage() {
                 setVcnLog(prev => [...prev, '[TO]']);
             }
 
-            if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
-            else if (reason === 'auto-checkmate') message = `Auto-Checkmate! ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
+            if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (gamePlayers?.[winner as PlayerColor]?.username || winner)} wins!`;
+            else if (reason === 'auto-checkmate') message = `Auto-Checkmate! ${gamePlayers?.[winner as PlayerColor]?.username || winner} wins!`;
             else if (reason === 'self-check') {
                 toast({
                     title: "Auto-Checkmate!",
@@ -3950,8 +3950,8 @@ export default function EvolvingChessPage() {
                 });
                 message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
             }
-            else if (reason === 'self-check-timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} lost by running out of time in check!`;
-            else if (reason === 'timeout') message = `${getPlayerDisplayName(timedOutPlayer!)} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
+            else if (reason === 'self-check-timeout') message = `${gamePlayers?.[timedOutPlayer!]?.username || timedOutPlayer} lost by running out of time in check!`;
+            else if (reason === 'timeout') message = `${gamePlayers?.[timedOutPlayer!]?.username || timedOutPlayer} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
             else if (isResignation) message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
             
             setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
@@ -3961,11 +3961,10 @@ export default function EvolvingChessPage() {
                 if (playerEloChange) {
                     const eloChange = playerEloChange.newElo - playerEloChange.oldElo;
                     const newWins = winner === localPlayerColor ? (playerEloChange.wins || 0) + 1 : (playerEloChange.wins || 0);
-                    const newLosses = winner !== localPlayerColor && winner !== 'draw' ? (playerEloChange.losses || 0) + 1 : (playerEloChange.losses || 0);
 
                     toast({
-                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${elochang > 0 ? '+' : ''}${eloChange})`,
-                        description: `Wins: ${newWins}, Losses: ${newLosses}`,
+                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
+                        description: `Wins: ${newWins}, Losses: ${playerEloChange.losses}`,
                         duration: 8000,
                     });
                     
@@ -3984,7 +3983,7 @@ export default function EvolvingChessPage() {
             break;
         }
     }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect]);
+  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect, gamePlayers]);
 
   const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
     if (wsRef.current) {
@@ -4586,7 +4585,7 @@ export default function EvolvingChessPage() {
         </Card>
         <Card>
           <CardContent className="p-2 flex flex-col gap-2">
-             <div className="flex flex-col gap-1 items-center">
+             <div className="flex flex-col gap-1 items-center" >
                 <Button
                 variant="outline"
                 size="sm"

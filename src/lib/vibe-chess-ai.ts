@@ -438,8 +438,8 @@ export class VibeChessAI {
             const isBType = p.type === 'bishop' || p.type === 'archbishop';
             
             if (isNType || isBType) {
-                for (let rr = 0; r < 8; r++) {
-                    for (let cc = 0; c < 8; cc++) {
+                for (let rr = 0; rr < 8; rr++) {
+                    for (let cc = 0; cc < 8; cc++) {
                         const target = gs.board[rr][cc].piece;
                         if (target && target.color === color) {
                             if (isNType && (target.type === 'bishop' || target.type === 'archbishop')) {
