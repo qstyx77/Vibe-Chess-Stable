@@ -109,28 +109,28 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'wind_scroll':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#BAE6FD" />
-            <rect x="1" y="3" width="8" height="6" fill="#BAE6FD" />
-            <rect x="3" y="4" width="4" height="4" fill="#FFF" opacity="0.5" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#BAE6FD" />
             <rect x="4" y="5" width="2" height="2" fill="#0284C7" />
           </svg>
         );
       case 'life_leach':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#C084FC" />
-            <rect x="1" y="3" width="8" height="6" fill="#C084FC" />
-            <rect x="4" y="4" width="2" height="4" fill="#4C1D95" />
-            <rect x="3" y="5" width="4" height="2" fill="#4C1D95" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#C084FC" />
+            <rect x="4" y="5" width="2" height="2" fill="#4C1D95" />
           </svg>
         );
       case 'summon_anvil':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#94A3B8" />
-            <rect x="1" y="3" width="8" height="6" fill="#94A3B8" />
-            <rect x="3" y="5" width="4" height="3" fill="#334155" />
-            <rect x="4" y="4" width="2" height="1" fill="#334155" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#94A3B8" />
+            <rect x="3" y="5" width="4" height="2" fill="#334155" />
           </svg>
         );
       case 'wind_cloak':
@@ -157,19 +157,19 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'shield_scroll':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#FDE68A" />
-            <rect x="1" y="3" width="8" height="6" fill="#FDE68A" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#FDE68A" />
             <rect x="3" y="4" width="4" height="4" fill="#3B82F6" />
-            <rect x="4" y="5" width="2" height="2" fill="#FFF" opacity="0.5" />
           </svg>
         );
       case 'rally_scroll':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#FDE68A" />
-            <rect x="1" y="3" width="8" height="6" fill="#FDE68A" />
-            <rect x="4" y="4" width="2" height="4" fill="#EAB308" />
-            <rect x="3" y="5" width="4" height="2" fill="#EAB308" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#FDE68A" />
+            <rect x="4" y="5" width="2" height="2" fill="#EAB308" />
           </svg>
         );
       case 'poison_dagger':
@@ -215,11 +215,10 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'detonation_scroll':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#FCA5A5" />
-            <rect x="1" y="3" width="8" height="6" fill="#FCA5A5" />
-            <rect x="3" y="1" width="4" height="2" fill="#B91C1C" />
-            <rect x="3" y="9" width="4" height="2" fill="#B91C1C" />
-            <rect x="4" y="4" width="2" height="4" fill="#EF4444" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#FCA5A5" />
+            <rect x="4" y="5" width="2" height="2" fill="#EF4444" />
           </svg>
         );
       case 'phase_boots':
@@ -236,12 +235,10 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'swap_scroll':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#D946EF" />
-            <rect x="1" y="3" width="8" height="6" fill="#D946EF" />
-            <rect x="3" y="4" width="4" height="1" fill="#000" opacity="0.4" />
-            <rect x="3" y="7" width="4" height="1" fill="#000" opacity="0.4" />
-            <rect x="3" y="5" width="1" height="2" fill="#000" opacity="0.4" />
-            <rect x="6" y="5" width="1" height="2" fill="#000" opacity="0.4" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#D946EF" />
+            <rect x="3" y="5" width="4" height="2" fill="#000" opacity="0.4" />
           </svg>
         );
       case 'grimoir':
@@ -279,23 +276,25 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'berserkers_mask':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="1" y="2" width="8" height="8" fill="#B91C1C" />
-            <rect x="2" y="1" width="6" height="1" fill="#B91C1C" />
-            <rect x="2" y="10" width="6" height="1" fill="#B91C1C" />
-            <rect x="3" y="4" width="1" height="2" fill="#FDE047" />
-            <rect x="6" y="4" width="1" height="2" fill="#FDE047" />
-            <rect x="4" y="7" width="2" height="1" fill="#000" opacity="0.4" />
+            <rect x="1" y="0" width="2" height="3" fill="#450a0a" />
+            <rect x="7" y="0" width="2" height="3" fill="#450a0a" />
+            <rect x="2" y="2" width="6" height="9" fill="#B91C1C" />
+            <rect x="1" y="4" width="8" height="5" fill="#B91C1C" />
+            <rect x="3" y="5" width="1" height="1" fill="#FDE047" />
+            <rect x="6" y="5" width="1" height="1" fill="#FDE047" />
+            <rect x="4" y="4" width="2" height="1" fill="#7f1d1d" />
+            <rect x="4" y="8" width="2" height="1" fill="#FFF" />
+            <rect x="4" y="9" width="1" height="1" fill="#FFF" />
+            <rect x="5" y="9" width="1" height="1" fill="#FFF" />
           </svg>
         );
       case 'ice_scroll':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="2" width="6" height="8" fill="#93C5FD" />
-            <rect x="1" y="3" width="8" height="6" fill="#93C5FD" />
-            <rect x="4" y="4" width="2" height="4" fill="#3B82F6" />
-            <rect x="3" y="5" width="4" height="2" fill="#3B82F6" />
-            <rect x="1" y="3" width="1" height="1" fill="#FFF" opacity="0.6" />
-            <rect x="8" y="8" width="1" height="1" fill="#FFF" opacity="0.6" />
+            <rect x="1" y="2" width="8" height="1" fill="#78350F" />
+            <rect x="1" y="9" width="8" height="1" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#93C5FD" />
+            <rect x="4" y="5" width="2" height="2" fill="#3B82F6" />
           </svg>
         );
       default:
