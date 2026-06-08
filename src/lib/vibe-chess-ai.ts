@@ -195,7 +195,10 @@ export class VibeChessAI {
             captureCount = sdResult.captures; captureOccurred = captureCount > 0;
             nextState.board[fR][fC].piece = null;
         } else if (move.type === 'swap') {
-            const temp = targetPiece; targetSquare.piece = piece; movingSquare.piece = temp;
+            const p1 = piece;
+            const p2 = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
+            nextState.board[tR][tC].piece = p1;
+            nextState.board[fR][fC].piece = p2;
         } else if (move.type === 'castle') {
             const isKingside = tC > fC; const rookFC = isKingside ? 7 : 0; const rookTC = isKingside ? tC - 1 : tC + 1;
             const rook = nextState.board[fR]?.[rookFC]?.piece;
@@ -227,7 +230,9 @@ export class VibeChessAI {
             const newStreak = oldStreak + captureCount;
             nextState.killStreaks[currentPlayer] = newStreak;
             if (oldStreak < 6 && newStreak >= 6) nextState.extraTurn = true;
-        } else nextState.killStreaks[currentPlayer] = 0;
+        } else {
+            if (move.type !== 'swap') nextState.killStreaks[currentPlayer] = 0;
+        }
         if (piece.type === 'infiltrator' && tR === (piece.color === 'white' ? 0 : 7)) { nextState.gameOver = true; nextState.winner = currentPlayer; }
         if (!nextState.gameOver && !nextState.extraTurn) nextState.currentPlayer = opponentColor;
         return nextState;
@@ -267,7 +272,13 @@ export class VibeChessAI {
     quickEvaluateMove(gameState: AIGameState, move: AIMove, player: PlayerColor): number {
         const [tR, tC] = move.to; const target = gameState.board[tR][tC];
         let score = 0;
-        if (target.piece) score += 100 + (this.pieceValues[target.piece.type][0]);
+        if (target.piece) {
+            if (target.piece.color !== player) {
+                score += 100 + (this.pieceValues[target.piece.type][0]);
+            } else {
+                score += 50; // Swaps have moderate priority
+            }
+        }
         if (move.type === 'promotion') score += 500; if (move.type === 'self-destruct') score += 100;
         if (target.item?.type === 'shroom') score += 150;
         return score;
@@ -320,6 +331,7 @@ export class VibeChessAI {
 
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece): AIMove[] {
         const moves: AIMove[] = []; const level = p.level || 1;
+        const color = p.color;
         switch (p.type) {
             case 'pawn':
             case 'commander':
@@ -340,7 +352,13 @@ export class VibeChessAI {
             case 'knight':
             case 'hero':
             case 'archer':
-                this.knightMoves.forEach(([dr, dc]) => { const nr = r + dr, nc = c + dc; if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' }); });
+                this.knightMoves.forEach(([dr, dc]) => { 
+                    const nr = r + dr, nc = c + dc; 
+                    if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) {
+                        const target = gs.board[nr][nc].piece;
+                        moves.push({ from:[r,c], to:[nr, nc], type: target ? (target.color === color ? 'swap' : 'capture') : 'move' }); 
+                    }
+                });
                 if (level >= 5) moves.push({ from:[r,c], to:[r,c], type:'self-destruct' });
                 break;
             case 'bishop':
@@ -350,6 +368,28 @@ export class VibeChessAI {
             case 'queen': this.addSliding(gs, moves, r, c, p, this.directions.queen, false); break;
             case 'king': this.kingMoves.forEach(([dr, dc]) => { const nr = r + dr, nc = c + dc; if (this.canMoveOrCapture(gs, nr, nc, p.color, p)) moves.push({ from:[r,c], to:[nr, nc], type: gs.board[nr][nc].piece ? 'capture' : 'move' }); }); break;
         }
+
+        // Global Swap Check
+        if (level >= 4) {
+            const isNType = p.type === 'knight' || p.type === 'hero' || p.type === 'archer';
+            const isBType = p.type === 'bishop' || p.type === 'archbishop';
+            
+            if (isNType || isBType) {
+                for (let rr = 0; r < 8; r++) {
+                    for (let cc = 0; c < 8; c++) {
+                        const target = gs.board[rr][cc].piece;
+                        if (target && target.color === color) {
+                            if (isNType && (target.type === 'bishop' || target.type === 'archbishop')) {
+                                moves.push({ from: [r,c], to: [rr, cc], type: 'swap' });
+                            } else if (isBType && (target.type === 'knight' || target.type === 'hero' || target.type === 'archer')) {
+                                moves.push({ from: [r,c], to: [rr, cc], type: 'swap' });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         return moves;
     }
 
@@ -361,7 +401,12 @@ export class VibeChessAI {
                 if (!sq.piece) moves.push({ from:[r,c], to:[nr, nc], type:'move' });
                 else {
                     if (sq.piece.color !== p.color) { if (!isPieceInvulnerableToAttackUtil(sq.piece, p)) moves.push({ from:[r,c], to:[nr, nc], type:'capture' }); break; }
-                    else { if (!phaseThrough) break; }
+                    else { 
+                        if (Number(p.level || 1) >= 4 && (sq.piece.type === 'knight' || sq.piece.type === 'hero' || sq.piece.type === 'archer') && (p.type === 'bishop' || p.type === 'archbishop')) {
+                            moves.push({ from:[r,c], to:[nr, nc], type:'swap' });
+                        }
+                        if (!phaseThrough) break; 
+                    }
                 }
             }
         });
@@ -371,7 +416,14 @@ export class VibeChessAI {
 
     canCaptureAt(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) { if (!isValidSquareUtil(r, c)) return false; const target = gs.board[r][c].piece; if (!target || target.color === color) return false; return !isPieceInvulnerableToAttackUtil(target, attacker); }
 
-    canMoveOrCapture(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) { if (!isValidSquareUtil(r, c)) return false; const sq = gs.board[r][c]; if (sq.item && sq.item.type !== 'shroom') return false; if (!sq.piece) return true; if (sq.piece.color === color) return false; return !isPieceInvulnerableToAttackUtil(sq.piece, attacker); }
+    canMoveOrCapture(gs: AIGameState, r: number, c: number, color: PlayerColor, attacker: Piece) { if (!isValidSquareUtil(r, c)) return false; const sq = gs.board[r][c]; if (sq.item && sq.item.type !== 'shroom') return false; if (!sq.piece) return true; if (sq.piece.color === color) {
+        const level = Number(attacker.level || 1);
+        if (level >= 4) {
+            if ((attacker.type === 'knight' || attacker.type === 'hero' || attacker.type === 'archer') && (sq.piece.type === 'bishop' || sq.piece.type === 'archbishop')) return true;
+            if ((attacker.type === 'bishop' || attacker.type === 'archbishop') && (sq.piece.type === 'knight' || sq.piece.type === 'hero' || sq.piece.type === 'archer')) return true;
+        }
+        return false;
+    } return !isPieceInvulnerableToAttackUtil(sq.piece, attacker); }
 
     isInCheck(gs: AIGameState, color: PlayerColor): boolean { const k = findKing(gs.board as any, color); if (!k) return false; const opp = color === 'white' ? 'black' : 'white'; return this.isSquareAttacked(gs, k.row, k.col, opp); }
 

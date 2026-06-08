@@ -234,8 +234,11 @@ function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
-                      if (currentLevel >= 2 || hasPhase) continue; else break;
+                      const pieceActualLevel = Number(piece.level || 1);
+                      const isSwapTarget = pieceActualLevel >= 4 && (targetP.type === 'knight' || targetP.type === 'hero' || targetP.type === 'archer');
+                      if (isSwapTarget) possible.push(coordsToAlgebraic(R, C));
+                      const hasPhase = piece.heldItem === 'phase_boots' && pieceActualLevel >= 2;
+                      if (hasPhase || currentLevel >= 2) continue; else break;
                   }
               }
           }
@@ -255,7 +258,8 @@ function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
+                      const pieceActualLevel = Number(piece.level || 1);
+                      const hasPhase = piece.heldItem === 'phase_boots' && pieceActualLevel >= 2;
                       if (hasPhase) continue; else break;
                   }
               }
@@ -278,7 +282,8 @@ function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
+                      const pieceActualLevel = Number(piece.level || 1);
+                      const hasPhase = piece.heldItem === 'phase_boots' && pieceActualLevel >= 2;
                       if (hasPhase) continue; else break;
                   }
               }
@@ -529,6 +534,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[fromRow][fromCol].piece = p2;
       newBoard[toRow][toCol].piece = p1;
       if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; // consume scroll
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
+  if (move.type === 'swap') {
+      const p1 = newBoard[fromRow][fromCol].piece;
+      const p2 = newBoard[toRow][toCol].piece;
+      newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
+      newBoard[toRow][toCol].piece = p1 ? { ...p1, hasMoved: true, isShielded: false } : null;
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
@@ -852,7 +865,12 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
     } else if ((p.type === 'pawn' || p.type === 'commander') && to === ep) {
       type = 'enpassant';
     } else if (board[toCoords.row][toCoords.col].piece) {
-      type = 'capture';
+      const targetP = board[toCoords.row][toCoords.col].piece!;
+      if (targetP.color === p.color) {
+          type = 'swap';
+      } else {
+          type = 'capture';
+      }
     }
 
     const {newBoard} = applyMove(board, { from, to, type }, ep);

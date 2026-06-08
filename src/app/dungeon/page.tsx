@@ -899,7 +899,7 @@ export default function DungeonPage() {
       }
       
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
-      let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
       if (isMoveInFreshList) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
@@ -909,8 +909,12 @@ export default function DungeonPage() {
           moveType = 'castle';
         } else if ((movingPiece?.type === 'pawn' || movingPiece?.type === 'commander') && algebraic === enPassantTargetSquare) {
           moveType = 'enpassant';
-        } else if (sq.piece && sq.piece.color !== movingPiece?.color) {
-          moveType = 'capture';
+        } else if (sq.piece) {
+            if (sq.piece.color !== movingPiece?.color) {
+                moveType = 'capture';
+            } else {
+                moveType = 'swap';
+            }
         }
 
         const originalLevel = movingPiece?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
@@ -992,6 +996,8 @@ export default function DungeonPage() {
           }
         } else if (moveType === 'castle') {
           audioManager.playMove();
+        } else if (moveType === 'swap') {
+            audioManager.playMove();
         } else audioManager.playMove();
 
         if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
@@ -1143,6 +1149,8 @@ export default function DungeonPage() {
                }
              } else if (best.move.type === 'castle') {
                audioManager.playMove();
+             } else if (best.move.type === 'swap') {
+                audioManager.playMove();
              } else audioManager.playMove();
              setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || (oldStreak < 6 && newStreak >= 6), result.enPassantTargetSet); }, 800);
           } else {

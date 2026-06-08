@@ -1233,7 +1233,7 @@ export default function EvolvingChessPage() {
             return;
           }
 
-          // Gnosis restriction: Non-King/Queen
+          // Gnosis restriction: Non-Royal
           if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
             return;
@@ -1422,7 +1422,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingSwapScrollTarget && isLocalActionTurn) {
-        if (clickedPiece && clickedPiece.color === currentPlayer && currentSquareData.algebraic !== selectedSquare) {
+        if (clickedPiece && clickedPiece.color === currentPlayer && algebraic !== selectedSquare) {
             saveStateToHistory();
             clickGuardRef.current = true;
             setIsMoveProcessing(true);
@@ -1965,7 +1965,7 @@ export default function EvolvingChessPage() {
       setPromotionPawnOriginalLevel(originalPieceLevelBeforeMove);
 
       const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
-      let isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
       if (isMoveInFreshList) {
         let moveType: Move['type'] = 'move';
@@ -1973,8 +1973,12 @@ export default function EvolvingChessPage() {
           moveType = 'castle';
         } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
           moveType = 'enpassant';
-        } else if (clickedPiece && clickedPiece.color !== pieceToMoveFromSelected.color) {
-          moveType = 'capture';
+        } else if (clickedPiece) {
+            if (clickedPiece.color !== pieceToMoveFromSelected.color) {
+                moveType = 'capture';
+            } else {
+                moveType = 'swap';
+            }
         }
 
         moveBeingMade = { from: selectedSquare, to: algebraic, type: moveType };
@@ -2153,6 +2157,8 @@ export default function EvolvingChessPage() {
           setCaptureFlashKey(k => k + 1);
         } else if (moveBeingMade.type === 'castle') {
            audioManager.playMove();
+        } else if (moveBeingMade.type === 'swap') {
+            audioManager.playMove();
         } else {
            audioManager.playMove();
         }
@@ -2780,7 +2786,11 @@ export default function EvolvingChessPage() {
                 let overrideMoveType: AIMoveType['type'] = 'move';
                 const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
                 if (targetSquareForOverride?.piece) {
-                    overrideMoveType = 'capture';
+                    if (targetSquareForOverride.piece.color === currentPlayer) {
+                        overrideMoveType = 'swap';
+                    } else {
+                        overrideMoveType = 'capture';
+                    }
                 }
                 let promoteToOverrideType: PieceType | undefined = undefined;
                 if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === (currentPlayer === 'white' ? 0 : 7)) {
@@ -2833,7 +2843,7 @@ export default function EvolvingChessPage() {
         
         if (moveForApplyMoveAI.type === 'self-destruct') {
           const { row: cR, col: cC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
-          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquareUtil(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
           audioManager.playExplosion();
         }
 
@@ -2846,6 +2856,8 @@ export default function EvolvingChessPage() {
            else audioManager.playCapture();
         } else if (moveForApplyMoveAI.type === 'castle') {
            audioManager.playMove();
+        } else if (moveForApplyMoveAI.type === 'swap') {
+            audioManager.playMove();
         } else if (moveForApplyMoveAI.type !== 'self-destruct') {
            audioManager.playMove();
         }
@@ -2862,11 +2874,12 @@ export default function EvolvingChessPage() {
         aiExtraTurn = rest.extraTurn || false;
 
         if (reflectionOccurred) {
+            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
             const victim = capturedPiece!;
-            finalCapturedPiecesForAI[opponentPlayer].push({ ...victim, id: `${victim.id}_refl_ai_${Date.now()}` });
+            finalCapturedPiecesForAI[defenderColor].push({ ...victim, id: `${victim.id}_refl_ai_${Date.now()}` });
             audioManager.playCapture();
             toast({ title: "REFLECTED!", description: `Your Mirror Shield reflected the AI's attack!` });
-            setKillStreaks(prev => ({ ...prev, [opponentPlayer]: (prev[opponentPlayer] || 0) + 1 }));
+            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1 }));
             setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
             setBoard(finalBoardStateForAI);
             setCapturedPieces(finalCapturedPiecesForAI);
@@ -3842,8 +3855,7 @@ export default function EvolvingChessPage() {
             }
 
             if (reason === 'checkmate') message = `Checkmate! ${getPlayerDisplayName(winner)} wins!`;
-            else if (reason === 'stalemate') message = "Stalemate! It's a draw.";
-            else if (reason === 'threefold-repetition') message = `Draw by Threefold Repetition!`;
+            else if (reason === 'auto-checkmate') message = `Auto-Checkmate! ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
             else if (reason === 'self-check') {
                 toast({
                     title: "Auto-Checkmate!",
