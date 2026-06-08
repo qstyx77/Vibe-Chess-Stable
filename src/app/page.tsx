@@ -30,6 +30,7 @@ import {
   hasAnyLegalMoves,
   processPoisonDamage,
   spawnShroom,
+  getEffectiveLevel,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -288,7 +289,10 @@ export default function EvolvingChessPage() {
     { type: 'poison_tunic', count: 1 },
     { type: 'detonation_scroll', count: 1 },
     { type: 'phase_boots', count: 1 },
-    { type: 'swap_scroll', count: 1 }
+    { type: 'swap_scroll', count: 1 },
+    { type: 'grimoir', count: 2 },
+    { type: 'soul_link', count: 2 },
+    { type: 'logas', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -1763,7 +1767,8 @@ export default function EvolvingChessPage() {
         return;
       }
 
-      const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && (Number(pieceToMoveFromSelected.level || 1)) >= 5);
+      const effectiveLevelAtSelected = getEffectiveLevel(board, fromR_selected, fromC_selected);
+      const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && effectiveLevelAtSelected >= 5);
       const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
@@ -1804,7 +1809,7 @@ export default function EvolvingChessPage() {
         };
 
         const executeShieldScrollMode = () => {
-            if (pieceToMoveFromSelected.level < 2) {
+            if (effectiveLevelAtSelected < 2) {
                 toast({ title: "Level Too Low", description: "Shield Scroll requires Level 2+.", variant: "destructive" });
                 return;
             }
@@ -1814,7 +1819,7 @@ export default function EvolvingChessPage() {
         };
 
         const executeRallyScroll = () => {
-            if (pieceToMoveFromSelected.level < 3) {
+            if (effectiveLevelAtSelected < 3) {
                 toast({ title: "Level Too Low", description: "Rally Scroll requires Level 3+.", variant: "destructive" });
                 return;
             }
@@ -1856,7 +1861,7 @@ export default function EvolvingChessPage() {
         };
 
         const executeSwapScrollMode = () => {
-            if (pieceToMoveFromSelected.level < 3) {
+            if (effectiveLevelAtSelected < 3) {
                 toast({ title: "Level Too Low", description: "Swap Scroll requires Level 3+.", variant: "destructive" });
                 return;
             }
@@ -1933,7 +1938,7 @@ export default function EvolvingChessPage() {
                 else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
                 else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
                 else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
-                    if (pieceToMoveFromSelected.level >= 5) executeSelfDestruct();
+                    if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
                     else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
                 }
                 else executeWindScrollMode();
@@ -1951,7 +1956,7 @@ export default function EvolvingChessPage() {
           else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
           else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
           else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
-              if (pieceToMoveFromSelected.level >= 5) executeSelfDestruct();
+              if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
           }
           else executeWindScrollMode();
@@ -2225,10 +2230,12 @@ export default function EvolvingChessPage() {
             if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
         }
         
-        const originalPieceDataFromBoard = board[algebraicToCoords(selectedSquare).row]?.[algebraicToCoords(selectedSquare).col]?.piece;
-        const commanderHeroPromoExtraTurn = (originalPieceDataFromBoard?.type === 'commander' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && pieceThatMadeTheMove?.type === 'hero');
+        const pieceThatMadeMoveEffectiveLevel = getEffectiveLevel(finalBoardStateForTurn, toR_final, toC_final);
+        const originalEffectiveLevel = getEffectiveLevel(board, fromR_selected, fromC_selected);
+
+        const commanderHeroPromoExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'commander' && originalEffectiveLevel >= 5 && pieceThatMadeTheMove?.type === 'hero');
         const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
-        const pawnLevelGrantsExtraTurn = (originalPieceDataFromBoard?.type === 'pawn' && (levelFromApplyMoveInternal || originalPieceLevelBeforeMove || 0) >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
+        const pawnLevelGrantsExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'pawn' && originalEffectiveLevel >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
         const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
         const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
 
@@ -2284,7 +2291,7 @@ export default function EvolvingChessPage() {
                 if (hasLevel1Victims) {
                   enteringSpecialMode = true;
                   const snipeCtx = {
-                      boardForNextStep: boardAfterMove, // Use board after the primary move
+                      boardForNextStep: boardAfterMove, 
                       playerWhoseTurnCompleted: capturingPlayer,
                       isExtraTurn: combinedExtraTurn,
                       newEnPassantTarget: enPassantTargetSquare,
@@ -2531,7 +2538,7 @@ export default function EvolvingChessPage() {
       hasMoved: true,
       invulnerableTurnsRemaining: 0,
       isShielded: false,
-      isPoisoned: false, // Promotion cures
+      isPoisoned: false, 
       cooldownTurnsRemaining: 0
     };
     if (pieceType === 'queen') {
@@ -2562,7 +2569,7 @@ export default function EvolvingChessPage() {
       } else {
         toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
 
-        const pieceLevelForExtraTurnCheck = promotionPawnOriginalLevel || 1;
+        const pieceLevelForExtraTurnCheck = getEffectiveLevel(boardToUpdate, row, col);
         const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
         
         const hasTriggeredShield = shieldContext !== null;
@@ -2623,7 +2630,7 @@ export default function EvolvingChessPage() {
               sacrificeNeeded = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn, enPassantTargetSquare);
             } else if (pieceType === 'rook' || pieceType === 'palace') {
               if (promotionMoveWasCapture) { 
-                const newRookLevel = Number(boardToUpdate[row][col].piece!.level || 1);
+                const newRookLevel = getEffectiveLevel(boardToUpdate, row, col);
                 if (newRookLevel >= 4) { 
                   const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
                     boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
@@ -2714,7 +2721,6 @@ export default function EvolvingChessPage() {
       let isAiMoveActuallyLegal = false;
       let aiFromAlg: AlgebraicSquare | null = null;
       let aiToAlg: AlgebraicSquare | null = null;
-      let originalPieceLevelForAI: number | undefined;
       let moveForApplyMoveAI: Move | null = null;
       let localAIAwaitingCommanderPromo = false;
       let selfCheckByAIPushBack = false;
@@ -2750,7 +2756,6 @@ export default function EvolvingChessPage() {
         aiToAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.to[0], aiMoveDataFromVibeAI.to[1]);
         const pieceDataAtFromAI = finalBoardStateForAI[aiMoveDataFromVibeAI.from[0]]?.[aiMoveDataFromVibeAI.from[1]];
         pieceOnFromSquareForAI = pieceDataAtFromAI?.piece || null;
-        originalPieceLevelForAI = Number(pieceOnFromSquareForAI?.level || 1);
 
         if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) {
             continue; 
@@ -2843,7 +2848,7 @@ export default function EvolvingChessPage() {
         
         if (moveForApplyMoveAI.type === 'self-destruct') {
           const { row: cR, col: cC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
-          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquareUtil(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
           audioManager.playExplosion();
         }
 
@@ -3160,7 +3165,7 @@ export default function EvolvingChessPage() {
                 moveForApplyMoveAI!.type !== 'self-destruct' &&
                 (capturedPiece || rest.pieceCapturedByAnvil) 
             ) {
-              const oldLevelForAIResCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI;
+              const oldLevelForAIResCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelBeforeMove;
               aiRookResData = processRookResurrectionCheck(
                   finalBoardStateForAI,
                   currentPlayer,
@@ -3212,7 +3217,7 @@ export default function EvolvingChessPage() {
 
               let extraTurnForThisAIMove = aiExtraTurn || (oldStreakForAI < 6 && newStreakForAI >= 6);
 
-              const originalLevelOfAIMovedPieceForPromoCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevelForAI || 1;
+              const originalLevelOfAIMovedPieceForPromoCheck = getEffectiveLevel(finalBoardStateForAI, aiToR, aiToC);
 
 
               if (isAIPawnPromoting) {
@@ -3223,7 +3228,7 @@ export default function EvolvingChessPage() {
                       finalBoardStateForAI[promoR][promoC].piece!.type = promotedTypeAI;
                       finalBoardStateForAI[promoR][promoC].piece!.level = pieceAtDestinationAI!.level; 
                       finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
-                      finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; // Promo cures
+                      finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; 
                       finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
                       audioManager.playLevelUp();
                       setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
@@ -3243,7 +3248,7 @@ export default function EvolvingChessPage() {
                     if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
                         finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
-                        finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; // Promo cures
+                        finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; 
                         finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
                         audioManager.playLevelUp();
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));

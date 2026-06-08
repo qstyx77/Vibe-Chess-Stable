@@ -23,6 +23,7 @@ import {
   applyArcher,
   findKing,
   processPoisonDamage,
+  getEffectiveLevel,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -137,11 +138,9 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     const bossLevelIndex = Math.floor(level / 10);
     switch (bossLevelIndex) {
       case 1: 
-        // Three Level 2 Hydras
         board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        // Two Level 2 Knight Guards
         board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
         break;
@@ -267,7 +266,10 @@ export default function DungeonPage() {
     { type: 'poison_tunic', count: 1 },
     { type: 'detonation_scroll', count: 1 },
     { type: 'phase_boots', count: 1 },
-    { type: 'swap_scroll', count: 1 }
+    { type: 'swap_scroll', count: 1 },
+    { type: 'grimoir', count: 2 },
+    { type: 'soul_link', count: 2 },
+    { type: 'logas', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -366,7 +368,6 @@ export default function DungeonPage() {
 
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
 
-    // --- POISON START OF TURN ---
     const { newBoard: boardAfterPoison, poisonedCaptures } = processPoisonDamage(nextBoard, nextP);
     nextBoard = boardAfterPoison;
     if (poisonedCaptures.length > 0) {
@@ -503,7 +504,8 @@ export default function DungeonPage() {
     setIsPromotingPawn(false);
     setPromotionSquare(null);
 
-    const extraTurnFromPromo = (promotionPawnOriginalLevel || 1) >= 5;
+    const effectiveLevelAfterPromo = getEffectiveLevel(nextBoard, row, col);
+    const extraTurnFromPromo = effectiveLevelAfterPromo >= 5;
     const oldStreak = killStreaks['white'];
     const isExtra = extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6);
 
@@ -522,7 +524,7 @@ export default function DungeonPage() {
     }
 
     processMoveEnd(nextBoard, 'white', isExtra, null);
-  }, [board, promotionSquare, promotionPawnOriginalLevel, processMoveEnd, killStreaks, isAwaitingCommanderPromotion]);
+  }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -765,7 +767,6 @@ export default function DungeonPage() {
             setIsAwaitingAnvilDrop(false);
             audioManager.playAnvil();
             
-            // CROSSBOW SYNERGY IN DUNGEON
             const hasCrossbow = nextBoard.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === 'white');
             if (hasCrossbow) {
               const hasVictims = nextBoard.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
@@ -791,7 +792,7 @@ export default function DungeonPage() {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
             nextBoard[row][col].piece!.type = 'commander';
             nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
-            nextBoard[row][col].piece!.isPoisoned = false; // Promo cures
+            nextBoard[row][col].piece!.isPoisoned = false; 
             nextBoard[row][col].piece!.cooldownTurnsRemaining = 0;
             setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
@@ -805,7 +806,8 @@ export default function DungeonPage() {
       const movingPiece = board[fromR][fromC].piece;
       if (!movingPiece) return;
 
-      const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && movingPiece.level >= 5);
+      const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
+      const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
       const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
@@ -825,9 +827,9 @@ export default function DungeonPage() {
         };
         const executeWindScrollMode = () => { setIsAwaitingWindScrollTarget(true); setPossibleMoves([]); };
         const executeSummonAnvilMode = () => { setIsAwaitingAnvilScrollTarget(true); setPossibleMoves([]); };
-        const executeShieldScrollMode = () => { if(movingPiece.level < 2) return; setIsAwaitingShieldScrollTarget(true); setPossibleMoves([]); };
+        const executeShieldScrollMode = () => { if(effectiveLevel < 2) return; setIsAwaitingShieldScrollTarget(true); setPossibleMoves([]); };
         const executeRallyScroll = () => {
-          if(movingPiece.level < 3) return;
+          if(effectiveLevel < 3) return;
           setIsMoveProcessing(true); clickGuard.current = true;
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
           const result = applyMove(board, move, enPassantTargetSquare);
@@ -845,7 +847,7 @@ export default function DungeonPage() {
             setSelectedSquare(null); setPossibleMoves([]);
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
-        const executeSwapScrollMode = () => { if(movingPiece.level < 3) return; setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); };
+        const executeSwapScrollMode = () => { if(effectiveLevel < 3) return; setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); };
         const executeSelfDestruct = () => {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
           audioManager.playExplosion();
@@ -874,7 +876,7 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'antidote') executeAntidote();
               else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
               else if (movingPiece.heldItem === 'detonation_scroll') {
-                  if (movingPiece.level >= 5) executeSelfDestruct();
+                  if (effectiveLevel >= 5) executeSelfDestruct();
                   else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
               }
               else executeWindScrollMode();
@@ -890,7 +892,7 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'antidote') executeAntidote();
           else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
           else if (movingPiece.heldItem === 'detonation_scroll') {
-              if (movingPiece.level >= 5) executeSelfDestruct();
+              if (effectiveLevel >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
           }
           else executeWindScrollMode();
@@ -1000,11 +1002,11 @@ export default function DungeonPage() {
             audioManager.playMove();
         } else audioManager.playMove();
 
-        if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
+        if (landedPiece?.type === 'queen' && getEffectiveLevel(newBoard, row, col) === 7 && originalLevel < 7) {
             const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
             if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || (oldStreak < 6 && newStreak >= 6)); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
         }
-        setBoard(nextBoard);
+        setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
           if (isAwaitingPawnSacrifice) return;
@@ -1117,7 +1119,6 @@ export default function DungeonPage() {
                } else if (newStreak === 3) {
                    const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                    if (empty.length > 0) { const chosen = empty[Math.floor(Math.random() * empty.length)]; chosen.item = { type: 'anvil' }; audioManager.playAnvil(); }
-                   // AI CROSSBOW SYNERGY
                    const hasCrossbow = nextBoard.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === 'black');
                    if (hasCrossbow) {
                      const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
@@ -1204,7 +1205,7 @@ export default function DungeonPage() {
 
   return (
     <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
-      <div className="w-full max-w-4xl flex items-center justify-between shrink-0">
+      <div className="w-full max-max-4xl flex items-center justify-between shrink-0">
         <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
         <div className="flex items-center gap-2">
           {isBossFloor ? <Skull className="text-destructive h-6 w-6 animate-pulse" /> : <Swords className="text-primary h-6 w-6" />}

@@ -244,6 +244,32 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="6" y="5" width="1" height="2" fill="#000" opacity="0.4" />
           </svg>
         );
+      case 'grimoir':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#4C1D95" />
+            <rect x="1" y="3" width="8" height="6" fill="#4C1D95" />
+            <rect x="4" y="4" width="2" height="4" fill="#C084FC" />
+            <rect x="4" y="2" width="2" height="1" fill="#FEF9C3" />
+          </svg>
+        );
+      case 'soul_link':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="1" width="2" height="2" fill="#94A3B8" />
+            <circle cx="5" cy="5" r="3" stroke="#94A3B8" strokeWidth="1" />
+            <rect x="3" y="8" width="4" height="2" fill="#EF4444" opacity="0.6" />
+          </svg>
+        );
+      case 'logas':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#EAB308" />
+            <rect x="1" y="3" width="8" height="6" fill="#EAB308" />
+            <rect x="4" y="4" width="2" height="4" fill="#FFF" />
+            <rect x="3" y="5" width="4" height="2" fill="#FFF" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">

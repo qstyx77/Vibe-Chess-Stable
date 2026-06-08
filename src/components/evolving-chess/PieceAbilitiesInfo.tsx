@@ -37,6 +37,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit to cause a massive explosion.");
   if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units while moving.");
   if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with any allied piece.");
+  if (heldItem === 'grimoir') abilities.push(" dark wisdom: adjacent allies gain +2 effective levels.");
+  if (heldItem === 'soul_link') abilities.push(" bound: shares level-ups and destruction with other linked allies.");
+  if (heldItem === 'logas') abilities.push(" sacred capturing: adjacent allies gain +1 level on capture.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");
