@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -175,6 +176,23 @@ function getPossibleMovesInternal(
   
   if (hasMagicScroll || hasSelfAbility) {
     possible.push(fromSquare);
+  }
+
+  // Tortoise Hammer Restriction
+  if (piece.heldItem === 'tortoise_hammer') {
+    const dir = pieceColor === 'white' ? -1 : 1;
+    const nr = fromRow + dir;
+    if (isValidSquare(nr, fromCol)) {
+        const targetSq = board[nr][fromCol];
+        if (!targetSq.piece || targetSq.piece.color !== pieceColor) {
+            if (!targetSq.item || targetSq.item.type === 'shroom') {
+                if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece)) {
+                    possible.push(coordsToAlgebraic(nr, fromCol));
+                }
+            }
+        }
+    }
+    return possible;
   }
 
   if (piece.type === 'king') {
@@ -519,6 +537,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     if (toRow === fromRow + dir && Math.abs(toCol - fromCol) === 1 && !targetPieceOnSquare) return true;
   }
 
+  // Tortoise Hammer Logic
+  if (piece.heldItem === 'tortoise_hammer') {
+    const dir = piece.color === 'white' ? -1 : 1;
+    return (toRow === fromRow + dir && toCol === fromCol);
+  }
+
   return false;
 }
 
@@ -849,6 +873,50 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
     if (captured.heldItem === 'poison_tunic') {
         pieceToLand.isPoisoned = true;
+    }
+
+    // Leach Blade Level Reduction
+    if (pieceToLand.heldItem === 'leach_blade') {
+        const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
+        for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                const nr = toRow + dr, nc = toCol + dc;
+                if (isValidSquare(nr, nc)) {
+                    const victim = newBoard[nr][nc].piece;
+                    if (victim && victim.color === oppColor) {
+                        victim.level = Math.max(1, (victim.level || 1) - 1);
+                    }
+                }
+            }
+        }
+    }
+
+    // Tortoise Hammer Splash Capture
+    if (pieceToLand.heldItem === 'tortoise_hammer') {
+        const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
+        const forwardDir = pieceToLand.color === 'white' ? -1 : 1;
+        const splashTargets = [
+            { r: toRow, c: toCol - 1 }, // West
+            { r: toRow, c: toCol + 1 }, // East
+            { r: toRow + forwardDir, c: toCol } // Forward
+        ];
+
+        splashTargets.forEach(target => {
+            if (isValidSquare(target.r, target.c)) {
+                const victim = newBoard[target.r][target.c].piece;
+                if (victim && victim.color === oppColor && victim.type !== 'king') {
+                    const capturedSplash = { ...victim, id: `${victim.id}_splash_${Date.now()}` };
+                    if (graveyard) graveyard[pieceToLand.color].push(capturedSplash);
+                    if (victim.heldItem === 'soul_link') {
+                        newBoard.forEach(row => row.forEach(sq => {
+                            if (sq.piece && sq.piece.color === oppColor && sq.piece.heldItem === 'soul_link') sq.piece = null;
+                        }));
+                    }
+                    newBoard[target.r][target.c].piece = null;
+                }
+            }
+        });
     }
   }
 

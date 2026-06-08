@@ -38,6 +38,8 @@ export type InventoryItemType =
   | 'ice_scroll'
   | 'resurrection_scroll'
   | 'faith_scroll'
+  | 'tortoise_hammer'
+  | 'leach_blade'
   | 'fireball_scroll' 
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
@@ -95,6 +97,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'ice_scroll': { name: 'Ice Scroll', description: 'Consumable (L2+). Freezes adjacent enemies for 2 turns (invulnerable).', isConsumable: true },
   'resurrection_scroll': { name: 'Resurrection Scroll', description: 'Consumable (L4+). Resurrects highest value ally to random adjacent square at L1.', isConsumable: true },
   'faith_scroll': { name: 'Faith Scroll', description: 'Consumable (L5+). 50% chance to convert adjacent enemy non-king pieces.', isConsumable: true },
+  'tortoise_hammer': { name: 'Tortoise Hammer', description: 'Limits move/capture to 1 square forward. Captures enemies cardinally adjacent to target.', isConsumable: false },
+  'leach_blade': { name: 'Leach Blade', description: 'Dark blade. Capturing reduces all adjacent enemies by 1 level.', isConsumable: false },
 
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', isConsumable: true },

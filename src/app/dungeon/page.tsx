@@ -272,7 +272,9 @@ export default function DungeonPage() {
     { type: 'soul_link', count: 2 },
     { type: 'logas', count: 2 },
     { type: 'berserkers_mask', count: 2 },
-    { type: 'ice_scroll', count: 2 }
+    { type: 'ice_scroll', count: 2 },
+    { type: 'tortoise_hammer', count: 2 },
+    { type: 'leach_blade', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -956,7 +958,7 @@ export default function DungeonPage() {
         }
 
         const originalLevel = movingPiece?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
-        const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare);
+        const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces);
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred } = result;
         
         if (reflectionOccurred) {
@@ -1095,7 +1097,7 @@ export default function DungeonPage() {
              const originalP = board[best.move.from[0]][best.move.from[1]].piece;
              const originalLevel = originalP?.level || 1;
              setLastMoveFrom(from); setLastMoveTo(to); setAnimatedSquareTo(to);
-             const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined }, enPassantTargetSquare);
+             const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined }, enPassantTargetSquare, capturedPieces);
              
              if (result.reflectionOccurred) {
                 const victim = result.capturedPiece!;
@@ -1197,7 +1199,7 @@ export default function DungeonPage() {
                 const stuckPieces = board.flat().filter(sq => sq.piece && sq.piece.color === 'black');
                 let currentBoard = board;
                 stuckPieces.forEach(sq => {
-                    const result = applyMove(currentBoard, { from: sq.algebraic, to: sq.algebraic, type: 'self-destruct' }, enPassantTargetSquare);
+                    const result = applyMove(currentBoard, { from: sq.algebraic, to: sq.algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces);
                     currentBoard = result.newBoard;
                     const { row: cR, col: cC } = algebraicToCoords(sq.algebraic);
                     for (let dr = -1; dr <= 1; dr++) {

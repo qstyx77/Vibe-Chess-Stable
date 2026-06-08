@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -261,6 +262,27 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="8" width="2" height="1" fill="#FFF" />
             <rect x="4" y="9" width="1" height="1" fill="#FFF" />
             <rect x="5" y="9" width="1" height="1" fill="#FFF" />
+          </svg>
+        );
+      case 'tortoise_hammer':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="1" width="8" height="5" fill="#525252" />
+            <rect x="2" y="2" width="6" height="3" fill="#737373" />
+            <rect x="4" y="6" width="2" height="6" fill="#78350F" />
+            <rect x="0" y="2" width="1" height="3" fill="#404040" />
+            <rect x="9" y="2" width="1" height="3" fill="#404040" />
+          </svg>
+        );
+      case 'leach_blade':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="0" width="2" height="9" fill="#4C1D95" />
+            <rect x="3" y="2" width="1" height="5" fill="#7C3AED" />
+            <rect x="6" y="2" width="1" height="5" fill="#7C3AED" />
+            <rect x="2" y="9" width="6" height="2" fill="#1F2937" />
+            <rect x="4" y="11" width="2" height="1" fill="#1F2937" />
+            <rect x="5" y="1" width="1" height="7" fill="#A78BFA" opacity="0.6" />
           </svg>
         );
       default:

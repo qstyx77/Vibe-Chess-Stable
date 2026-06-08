@@ -297,7 +297,9 @@ export default function EvolvingChessPage() {
     { type: 'berserkers_mask', count: 2 },
     { type: 'ice_scroll', count: 2 },
     { type: 'resurrection_scroll', count: 2 },
-    { type: 'faith_scroll', count: 2 }
+    { type: 'faith_scroll', count: 2 },
+    { type: 'tortoise_hammer', count: 2 },
+    { type: 'leach_blade', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 

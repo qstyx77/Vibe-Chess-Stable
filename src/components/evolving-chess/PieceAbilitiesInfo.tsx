@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Piece } from '@/types';
@@ -43,6 +44,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'ice_scroll') abilities.push(" spell (L2+): freeze adjacent enemies for 2 turns.");
   if (heldItem === 'resurrection_scroll') abilities.push(" spell (L4+): resurrect highest value ally adjacent to you.");
   if (heldItem === 'faith_scroll') abilities.push(" spell (L5+): 50% chance to convert adjacent enemies.");
+  if (heldItem === 'tortoise_hammer') abilities.push(" heavy: limits move to 1 square forward. Captures enemies cardinally adjacent to target.");
+  if (heldItem === 'leach_blade') abilities.push(" leach: capturing an enemy reduces adjacent enemies by 1 level.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");
