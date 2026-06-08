@@ -276,6 +276,28 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="8.5" y="1.5" width="0.5" height="9" fill="#FFF" opacity="0.3" />
           </svg>
         );
+      case 'berserkers_mask':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#B91C1C" />
+            <rect x="2" y="1" width="6" height="1" fill="#B91C1C" />
+            <rect x="2" y="10" width="6" height="1" fill="#B91C1C" />
+            <rect x="3" y="4" width="1" height="2" fill="#FDE047" />
+            <rect x="6" y="4" width="1" height="2" fill="#FDE047" />
+            <rect x="4" y="7" width="2" height="1" fill="#000" opacity="0.4" />
+          </svg>
+        );
+      case 'ice_scroll':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#93C5FD" />
+            <rect x="1" y="3" width="8" height="6" fill="#93C5FD" />
+            <rect x="4" y="4" width="2" height="4" fill="#3B82F6" />
+            <rect x="3" y="5" width="4" height="2" fill="#3B82F6" />
+            <rect x="1" y="3" width="1" height="1" fill="#FFF" opacity="0.6" />
+            <rect x="8" y="8" width="1" height="1" fill="#FFF" opacity="0.6" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">

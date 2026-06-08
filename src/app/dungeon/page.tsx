@@ -69,7 +69,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     if (!p) return false;
     const { row, col } = algebraicToCoords(alg);
     if (isValidSquare(row, col) && !board[row][col].piece) {
-        board[row][col].piece = { ...p, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0 };
+        board[row][col].piece = { ...p, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         placedIds.add(p.id);
         return true;
     }
@@ -138,30 +138,30 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     const bossLevelIndex = Math.floor(level / 10);
     switch (bossLevelIndex) {
       case 1: 
-        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][3].piece = { id: 'boss-hydra-1', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[0][4].piece = { id: 'boss-hydra-2', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[0][5].piece = { id: 'boss-hydra-3', type: 'rook', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[1][3].piece = { id: 'hydra-guard-1', type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[1][5].piece = { id: `hydra-guard-2`, type: 'knight', color: 'black', level: 2, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
       case 2: 
-        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
       case 3: 
-        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
       case 4: 
-        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
       case 5: 
-        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+        board[0][4].piece = { id: 'boss-entity', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         for(let i=0; i<8; i++) {
           const type: PieceType = i % 2 === 0 ? 'hero' : 'archbishop';
-          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
-          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+          board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         }
         break;
     }
@@ -189,7 +189,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
       if (level > 25) types.push('queen', 'archbishop', 'archer');
       const type = types[Math.floor(Math.random() * types.length)];
       const pLevel = avgLevel + (Math.random() > 0.6 ? 1 : 0);
-      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+      board[pos.r][pos.c].piece = { id: `enemy-${level}-${i}`, type, color: 'black', level: pLevel, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
     });
   }
   return board;
@@ -269,7 +269,9 @@ export default function DungeonPage() {
     { type: 'swap_scroll', count: 1 },
     { type: 'grimoir', count: 2 },
     { type: 'soul_link', count: 2 },
-    { type: 'logas', count: 2 }
+    { type: 'logas', count: 2 },
+    { type: 'berserkers_mask', count: 2 },
+    { type: 'ice_scroll', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -497,7 +499,7 @@ export default function DungeonPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = nextBoard[row][col].piece;
     if (!pieceBeingPromoted) return;
-    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0 };
+    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
     if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(nextBoard[row][col].piece!.level, 7);
     audioManager.playLevelUp();
     setBoard(nextBoard);
@@ -569,6 +571,11 @@ export default function DungeonPage() {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
             return;
           }
+          
+          if (selectedInventoryItemType === 'berserkers_mask' && (piece.type === 'king' || piece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
+            return;
+          }
 
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
@@ -607,6 +614,11 @@ export default function DungeonPage() {
 
           if (selectedInventoryItemType === 'detonation_scroll' && piece.type === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+          
+          if (selectedInventoryItemType === 'berserkers_mask' && (piece.type === 'king' || piece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -794,6 +806,7 @@ export default function DungeonPage() {
             nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
             nextBoard[row][col].piece!.isPoisoned = false; 
             nextBoard[row][col].piece!.cooldownTurnsRemaining = 0;
+            nextBoard[row][col].piece!.frozenTurnsRemaining = 0;
             setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
             audioManager.playLevelUp();
@@ -808,10 +821,10 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || movingPiece.heldItem === 'ice_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
-        if (movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) {
+        if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {
             toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
             return;
         }
@@ -848,6 +861,16 @@ export default function DungeonPage() {
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
         const executeSwapScrollMode = () => { if(effectiveLevel < 3) return; setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); };
+        const executeIceScroll = () => {
+          if (effectiveLevel < 2) return;
+          setIsMoveProcessing(true); clickGuard.current = true;
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
+          const result = applyMove(board, move, enPassantTargetSquare);
+          setBoard(result.newBoard);
+          audioManager.playShield();
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        };
         const executeSelfDestruct = () => {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
           audioManager.playExplosion();
@@ -875,6 +898,7 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
               else if (movingPiece.heldItem === 'antidote') executeAntidote();
               else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
+              else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll();
               else if (movingPiece.heldItem === 'detonation_scroll') {
                   if (effectiveLevel >= 5) executeSelfDestruct();
                   else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -891,6 +915,7 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll();
           else if (movingPiece.heldItem === 'antidote') executeAntidote();
           else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
+          else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll();
           else if (movingPiece.heldItem === 'detonation_scroll') {
               if (effectiveLevel >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -973,7 +998,7 @@ export default function DungeonPage() {
           } else if (newStreak === 4) {
               const graveyard = capturedPieces.black;
               if (graveyard.length > 0) {
-                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, id: `res_H_${Date.now()}`, heldItem: null };
+                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_H_${Date.now()}`, heldItem: null };
                   const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                   if (empty.length > 0) {
                       const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1095,7 +1120,7 @@ export default function DungeonPage() {
                     addEffect('light-beam', resResultAI.resurrectedSquareAlg!); audioManager.playResurrect();
                     if (resResultAI.promotionRequiredForResurrectedPawn) {
                         const { row: pr, col: pc } = algebraicToCoords(resResultAI.resurrectedSquareAlg!);
-                        if (nextBoard[pr][pc].piece) { nextBoard[pr][pc].piece!.type = 'queen'; nextBoard[pr][pc].piece!.id += '_res_promo'; nextBoard[pr][pc].piece!.isPoisoned = false; nextBoard[pr][pc].piece!.cooldownTurnsRemaining = 0; }
+                        if (nextBoard[pr][pc].piece) { nextBoard[pr][pc].piece!.type = 'queen'; nextBoard[pr][pc].piece!.id += '_res_promo'; nextBoard[pr][pc].piece!.isPoisoned = false; nextBoard[pr][pc].piece!.cooldownTurnsRemaining = 0; nextBoard[pr][pc].piece!.frozenTurnsRemaining = 0; }
                     }
                 }
              }
@@ -1133,15 +1158,15 @@ export default function DungeonPage() {
                } else if (newStreak === 4) {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
-                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, id: `res_D_${Date.now()}`, heldItem: null };
+                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_D_${Date.now()}`, heldItem: null };
                        const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
                            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
                            nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
                            addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_streak_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; }
-                           else if (pieceToRes.type === 'commander' && rr === 7) { nextBoard[rr][rc].piece!.type = 'hero'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; }
+                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_streak_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
+                           else if (pieceToRes.type === 'commander' && rr === 7) { nextBoard[rr][rc].piece!.type = 'hero'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
                        }
                    }
                } else if (newStreak === 5 && hasArcher) {

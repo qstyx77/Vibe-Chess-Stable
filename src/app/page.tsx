@@ -292,7 +292,9 @@ export default function EvolvingChessPage() {
     { type: 'swap_scroll', count: 1 },
     { type: 'grimoir', count: 2 },
     { type: 'soul_link', count: 2 },
-    { type: 'logas', count: 2 }
+    { type: 'logas', count: 2 },
+    { type: 'berserkers_mask', count: 2 },
+    { type: 'ice_scroll', count: 2 }
   ]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
@@ -335,7 +337,6 @@ export default function EvolvingChessPage() {
 
   const isLocalActionTurn = onlineStatus === 'disconnected' || localPlayerColor === currentPlayer;
 
-  // Interaction Disabled Logic: includes inventory open and specialized selection modes
   const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
@@ -817,7 +818,6 @@ export default function EvolvingChessPage() {
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
     
-    // --- POISON START OF TURN ---
     const { newBoard: boardAfterPoison, poisonedCaptures } = processPoisonDamage(updatedBoard, nextPlayer);
     let finalizedBoard = boardAfterPoison;
     if (poisonedCaptures.length > 0) {
@@ -1072,7 +1072,7 @@ export default function EvolvingChessPage() {
 
   const addToVCN = useCallback((move: Move, result: ApplyMoveResult, player: PlayerColor, extraTurn: boolean, special?: string) => {
     const piece = result.newBoard[algebraicToCoords(move.to).row][algebraicToCoords(move.to).col].piece;
-    if (!piece && !['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll'].includes(move.type || '')) return;
+    if (!piece && !['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll'].includes(move.type || '')) return;
 
     let notation = "";
     if (move.type === 'wind-scroll') notation = `[W-Spell]@${move.to}`;
@@ -1082,6 +1082,7 @@ export default function EvolvingChessPage() {
     else if (move.type === 'rally-scroll') notation = `[R-Spell]`;
     else if (move.type === 'antidote') notation = `[Cleanse]`;
     else if (move.type === 'swap-scroll') notation = `[Swap-Spell]@${move.to}`;
+    else if (move.type === 'ice-scroll') notation = `[Ice-Spell]`;
     else {
       const char = getVCNChar(piece!.type);
       const level = `(L${piece!.level})`;
@@ -1211,13 +1212,11 @@ export default function EvolvingChessPage() {
     const clickedPiece = clickedSquareState?.piece;
     setPieceForInfoDisplay(clickedPiece || null);
 
-    // Interaction Guard: If a specialized selection turn is active, only the acting local player can interact.
     const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
     if (isAnySpecialModeActive && !isLocalActionTurn) {
         return;
     }
 
-    // --- Inventory Interaction Mode ---
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
         if (clickedPiece && !clickedPiece.heldItem) {
@@ -1225,33 +1224,33 @@ export default function EvolvingChessPage() {
             toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
             return;
           }
-          // Swift Cloak restriction: Pawns/Commanders only
           if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
 
-          // Queen's Peace restriction: Queen only
           if (selectedInventoryItemType === 'queens_peace' && clickedPiece.type !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
 
-          // Gnosis restriction: Non-Royal
           if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
             return;
           }
 
-          // Crossbow restriction: Archer only
           if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
 
-          // Detonation Scroll restriction: No Kings
           if (selectedInventoryItemType === 'detonation_scroll' && clickedPiece.type === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+          
+          if (selectedInventoryItemType === 'berserkers_mask' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -1271,33 +1270,33 @@ export default function EvolvingChessPage() {
           audioManager.playLevelUp();
           toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
         } else if (clickedPiece && clickedPiece.heldItem) {
-          // Swift Cloak restriction on swap
           if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
 
-          // Queen's Peace restriction on swap
           if (selectedInventoryItemType === 'queens_peace' && clickedPiece.type !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
 
-          // Gnosis restriction on swap
           if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
             toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
             return;
           }
 
-          // Crossbow restriction on swap
           if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
 
-          // Detonation Scroll restriction on swap
           if (selectedInventoryItemType === 'detonation_scroll' && clickedPiece.type === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+          
+          if (selectedInventoryItemType === 'berserkers_mask' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
+            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -1478,8 +1477,9 @@ export default function EvolvingChessPage() {
           const archerOnBoard = boardAfterSnipe.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer);
           if (archerOnBoard?.piece) {
               archerOnBoard.piece.level += 2;
-              archerOnBoard.piece.isPoisoned = false; // Cure on level up
+              archerOnBoard.piece.isPoisoned = false; 
               archerOnBoard.piece.cooldownTurnsRemaining = 0;
+              archerOnBoard.piece.frozenTurnsRemaining = 0;
           }
 
           const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
@@ -1591,7 +1591,6 @@ export default function EvolvingChessPage() {
         
             setVcnLog(prev => [...prev, `+[A]@${algebraic}`]);
             
-            // CHECK CROSSBOW SYNERGY IN LOBBY
             const hasCrossbowArcher = boardAfterAnvilDrop.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
             if (hasCrossbowArcher) {
               const hasVictims = boardAfterAnvilDrop.flat().some(sq => sq.piece && sq.piece.color !== currentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
@@ -1646,8 +1645,9 @@ export default function EvolvingChessPage() {
             const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
             boardAfterCommanderPromo[row][col].piece!.type = 'commander';
             boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
-            boardAfterCommanderPromo[row][col].piece!.isPoisoned = false; // Promotion cures
+            boardAfterCommanderPromo[row][col].piece!.isPoisoned = false; 
             boardAfterCommanderPromo[row][col].piece!.cooldownTurnsRemaining = 0;
+            boardAfterCommanderPromo[row][col].piece!.frozenTurnsRemaining = 0;
             setBoard(boardAfterCommanderPromo);
             audioManager.playLevelUp();
             toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
@@ -1769,10 +1769,10 @@ export default function EvolvingChessPage() {
 
       const effectiveLevelAtSelected = getEffectiveLevel(board, fromR_selected, fromC_selected);
       const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && effectiveLevelAtSelected >= 5);
-      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll');
+      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll' || pieceToMoveFromSelected.heldItem === 'ice_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
-        if (pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) {
+        if ((pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) || (pieceToMoveFromSelected.frozenTurnsRemaining && pieceToMoveFromSelected.frozenTurnsRemaining > 0)) {
             toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
             return;
         }
@@ -1869,6 +1869,29 @@ export default function EvolvingChessPage() {
             setPossibleMoves([]);
             toast({ title: "Targeting Mode", description: "Select another allied piece to swap places." });
         };
+        
+        const executeIceScroll = () => {
+          if (effectiveLevelAtSelected < 2) {
+              toast({ title: "Level Too Low", description: "Ice Scroll requires Level 2+.", variant: "destructive" });
+              return;
+          }
+          saveStateToHistory();
+          clickGuardRef.current = true;
+          setIsMoveProcessing(true);
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
+          const result = applyMove(board, move, enPassantTargetSquare);
+          setBoard(result.newBoard);
+          audioManager.playShield();
+          toast({ title: "Ice Scroll Cast!", description: "Adjacent enemies frozen for 2 turns!" });
+          setSelectedSquare(null);
+          setPossibleMoves([]);
+          addToVCN(move, result, currentPlayer, false);
+          setTimeout(() => {
+              setIsMoveProcessing(false);
+              clickGuardRef.current = false;
+              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+          }, 800);
+        };
 
         const executeSelfDestruct = () => {
           const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
@@ -1937,6 +1960,7 @@ export default function EvolvingChessPage() {
                 else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
                 else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
                 else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
+                else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
                 else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
                     if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
                     else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -1955,6 +1979,7 @@ export default function EvolvingChessPage() {
           else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
           else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
           else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
+          else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
           else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
               if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -2317,7 +2342,7 @@ export default function EvolvingChessPage() {
                       if (emptySquares.length > 0) {
                         const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                         const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
 
                         const promoRow = capturingPlayer === 'white' ? 0 : 7;
                         if (resurrectedPiece.type === 'commander' && resR === promoRow) {
@@ -2539,7 +2564,8 @@ export default function EvolvingChessPage() {
       invulnerableTurnsRemaining: 0,
       isShielded: false,
       isPoisoned: false, 
-      cooldownTurnsRemaining: 0
+      cooldownTurnsRemaining: 0,
+      frozenTurnsRemaining: 0
     };
     if (pieceType === 'queen') {
         boardToUpdate[row][col].piece!.level = Math.min(currentLevelOfPieceOnSquare, 7);
@@ -2781,7 +2807,7 @@ export default function EvolvingChessPage() {
         for (let r = 0; r < 8; r++) {
           for (let c = 0; c < 8; c++) {
             const fbSquareState = finalBoardStateForAI[r]?.[c];
-            if (fbSquareState?.piece?.color === currentPlayer && !(fbSquareState.piece.cooldownTurnsRemaining && fbSquareState.piece.cooldownTurnsRemaining > 0)) {
+            if (fbSquareState?.piece?.color === currentPlayer && !(fbSquareState.piece.cooldownTurnsRemaining && fbSquareState.piece.cooldownTurnsRemaining > 0) && !(fbSquareState.piece.frozenTurnsRemaining && fbSquareState.piece.frozenTurnsRemaining > 0)) {
               const fromAlg = coordsToAlgebraic(r, c);
               const legalMoves = getPossibleMoves(finalBoardStateForAI, fromAlg, enPassantTargetSquare);
               
@@ -3078,7 +3104,6 @@ export default function EvolvingChessPage() {
                     toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${anvilAlg}.`});
                     setVcnLog(prev => [...prev, `+[A]@${anvilAlg}`]);
 
-                    // CHECK CROSSBOW SYNERGY FOR AI
                     const hasCrossbowArcherAI = finalBoardStateForAI.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
                     if (hasCrossbowArcherAI) {
                       const victims = finalBoardStateForAI.flat().filter(sq => sq.piece && sq.piece.color === opponentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
@@ -3114,7 +3139,7 @@ export default function EvolvingChessPage() {
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
-                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, heldItem: null };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -3150,6 +3175,7 @@ export default function EvolvingChessPage() {
                         finalBoardStateForAI[pawnR][pawnC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_CMD_AI`;
                         finalBoardStateForAI[pawnR][pawnC].piece!.isPoisoned = false;
                         finalBoardStateForAI[pawnR][pawnC].piece!.cooldownTurnsRemaining = 0;
+                        finalBoardStateForAI[pawnR][pawnC].piece!.frozenTurnsRemaining = 0;
                         audioManager.playLevelUp();
                         setVcnLog(prev => [...prev, `[Promo-C]@${coordsToAlgebraic(pawnR, pawnC)}`]);
                     }
@@ -3194,6 +3220,7 @@ export default function EvolvingChessPage() {
                             resurrectedPawnOnBoardAI.id = `${resurrectedPawnOnBoardAI.id}_resPromo_Q_AI`;
                             resurrectedPawnOnBoardAI.isPoisoned = false;
                             resurrectedPawnOnBoardAI.cooldownTurnsRemaining = 0;
+                            resurrectedPawnOnBoardAI.frozenTurnsRemaining = 0;
                             toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L${resurrectedPawnOnBoardAI.level})`, duration: 8000 });
                         }
                   }
@@ -3230,6 +3257,7 @@ export default function EvolvingChessPage() {
                       finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
                       finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; 
                       finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
+                      finalBoardStateForAI[promoR][promoC].piece!.frozenTurnsRemaining = 0;
                       audioManager.playLevelUp();
                       setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                   }
@@ -3250,6 +3278,7 @@ export default function EvolvingChessPage() {
                         finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
                         finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; 
                         finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
+                        finalBoardStateForAI[promoR][promoC].piece!.frozenTurnsRemaining = 0;
                         audioManager.playLevelUp();
                         setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
                     }
@@ -4622,7 +4651,7 @@ export default function EvolvingChessPage() {
         onSelectPiece={handlePromotionSelect}
         pawnColor={playerToPromote}
       />
-      <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
+      <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={isRulesDialogOpen ? () => setIsRulesDialogOpen(false) : undefined} />
       <GameSummaryDialog
         isOpen={showSummary}
         onClose={() => setShowSummary(false)}

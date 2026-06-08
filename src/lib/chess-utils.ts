@@ -124,7 +124,7 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const square = board[r]?.[c];
       const piece = square?.piece;
       const item = square?.item;
-      if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.isPoisoned ? 'Z' : ''}${piece.cooldownTurnsRemaining ? 'C' : ''}${piece.heldItem || '-'}`;
+      if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.isPoisoned ? 'Z' : ''}${piece.cooldownTurnsRemaining ? 'C' : ''}${piece.frozenTurnsRemaining ? 'F' : ''}${piece.heldItem || '-'}`;
       else pieceHash += '--';
       if (item?.type === 'anvil') itemHash += 'A';
       else if (item?.type === 'shroom') itemHash += 'S';
@@ -141,7 +141,6 @@ export function getEffectiveLevel(board: BoardState, r: number, c: number): numb
   
   if (piece.type === 'king' || piece.type === 'queen') return level;
 
-  // Check neighbors for allied Grimoir
   for (let dr = -1; dr <= 1; dr++) {
     for (let dc = -1; dc <= 1; dc++) {
       if (dr === 0 && dc === 0) continue;
@@ -149,7 +148,7 @@ export function getEffectiveLevel(board: BoardState, r: number, c: number): numb
       if (isValidSquare(nr, nc)) {
         const neighbor = board[nr][nc].piece;
         if (neighbor && neighbor.color === piece.color && neighbor.heldItem === 'grimoir') {
-          return level + 2; // Return early, non-stacking
+          return level + 2; 
         }
       }
     }
@@ -313,7 +312,6 @@ function getPossibleMovesInternal(
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (isMoveValid(board, fromSquare, coordsToAlgebraic(r,c), piece, enPassantTargetSquare)) possible.push(coordsToAlgebraic(r,c));
   }
 
-  // --- ITEM SPECIFIC MOVES ---
   if (piece.heldItem === 'cardinal_greaves') {
     const dir = piece.color === 'white' ? -1 : 1;
     const nr = fromRow + dir;
@@ -345,6 +343,16 @@ function getPossibleMovesInternal(
         }
     }
   }
+
+  if (piece.heldItem === 'berserkers_mask') {
+    const captureMoves = possible.filter(to => {
+        const {row, col} = algebraicToCoords(to);
+        const target = board[row][col].piece;
+        return target && target.color !== piece.color;
+    });
+    if (captureMoves.length > 0) return captureMoves;
+  }
+
   return possible;
 }
 
@@ -495,7 +503,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       break;
   }
 
-  // --- RE-CHECK ITEM MOVES ---
   if (piece.heldItem === 'cardinal_greaves') {
     const dir = piece.color === 'white' ? -1 : 1;
     if (toRow === fromRow + dir && fromCol === toCol && !targetPieceOnSquare) return true;
@@ -510,6 +517,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
 export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null): boolean {
     if (!targetPiece || !attackingPiece) return false;
+    if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) return true;
     if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
     if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
     const hunters = ['commander', 'hero', 'infiltrator', 'self-destruct'];
@@ -547,12 +555,29 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
 
+  if (move.type === 'ice-scroll') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+        if(dr===0 && dc===0) continue;
+        const nr=fromRow+dr; const nc=fromCol+dc;
+        if(isValidSquare(nr,nc)) {
+          const victim = newBoard[nr][nc].piece;
+          if(victim && victim.color === oppColor) {
+            victim.frozenTurnsRemaining = 2;
+            victim.cooldownTurnsRemaining = 2;
+          }
+        }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+  }
+
   if (move.type === 'swap-scroll') {
       const p1 = newBoard[fromRow][fromCol].piece;
       const p2 = newBoard[toRow][toCol].piece;
       newBoard[fromRow][fromCol].piece = p2;
       newBoard[toRow][toCol].piece = p1;
-      if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; // consume scroll
+      if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
@@ -564,19 +589,17 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
-  // --- MIRROR SHIELD REFLECTION ---
   if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield') {
       const reflectedAttacker = { ...movingPiece };
-      newBoard[fromRow][fromCol].piece = null; // Attacker is removed from board
-      newBoard[toRow][toCol].piece!.heldItem = null; // Shield breaks
+      newBoard[fromRow][fromCol].piece = null; 
+      newBoard[toRow][toCol].piece!.heldItem = null; 
       
       const defender = newBoard[toRow][toCol].piece!;
       let gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[reflectedAttacker.type] || 0;
       defender.level = Math.min(defender.type === 'queen' ? 7 : 99, (defender.level || 1) + gain);
-      defender.isPoisoned = false; // Cure on level up
+      defender.isPoisoned = false; 
       defender.cooldownTurnsRemaining = 0;
 
-      // Soul Link shared removal for attacker
       if (reflectedAttacker.heldItem === 'soul_link') {
         newBoard.forEach(row => row.forEach(sq => {
           if (sq.piece && sq.piece.color === reflectedAttacker.color && sq.piece.heldItem === 'soul_link') {
@@ -614,19 +637,19 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               sq.piece.level = Math.max(1, (sq.piece.level || 1) - 1);
           }
       }));
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'wind-scroll') {
-      triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); // neutral means push everyone
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); 
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'summon-anvil') {
       newBoard[toRow][toCol].item = { type: 'anvil' };
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
@@ -635,14 +658,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       if (newBoard[tr][tc].piece) {
           newBoard[tr][tc].piece!.isShielded = true;
       }
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'rally-scroll') {
       applyRally(newBoard, movingPiece.color, 'all', move.from);
-      newBoard[fromRow][fromCol].piece!.level = 1; // reset user level
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      newBoard[fromRow][fromCol].piece!.level = 1; 
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
@@ -653,7 +676,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
             sq.piece.cooldownTurnsRemaining = 0;
           }
       }));
-      newBoard[fromRow][fromCol].piece!.heldItem = null; // consume
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
@@ -670,7 +693,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               if (victim.piece && victim.piece.color !== sdColor && victim.piece.type !== 'king') {
                   const vp = { ...victim.piece, id: `${victim.piece.id}_sd_${Date.now()}` };
                   selfDestructCaptures.push(vp);
-                  // Soul link removal for victim
                   if (vp.heldItem === 'soul_link') {
                     newBoard.forEach(r => r.forEach(s => {
                       if (s.piece && s.piece.color === vp.color && s.piece.heldItem === 'soul_link') s.piece = null;
@@ -699,7 +721,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     captured = { ...targetPiece };
   }
 
-  // Soul Link shared removal for captured piece
   if (captured && captured.heldItem === 'soul_link') {
     newBoard.forEach(row => row.forEach(sq => {
       if (sq.piece && sq.piece.color === captured.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== captured.id) {
@@ -725,7 +746,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
-  // --- CASTLING ---
   if (pieceToLand.type === 'king' && move.type === 'castle') {
     const rC = toCol > fromCol ? 7 : 0; const tC = toCol > fromCol ? 5 : 3;
     const rookSq = newBoard[fromRow][rC];
@@ -740,14 +760,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
-  // --- CAPTURE EFFECTS ---
   if (captured) {
-    let gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0;
+    let gain = pieceToLand.heldItem === 'berserkers_mask' ? 3 : ({pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
-    // Gnosis bonus
     if (pieceToLand.heldItem === 'gnosis') gain += 1;
     
-    // Logas bonus
     let hasLogasBoost = false;
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
@@ -774,17 +791,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (pieceToLand.type === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
 
-    // --- POISON DAGGER SPLASH ---
     if (pieceToLand.heldItem === 'poison_dagger') {
         triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
     }
-    // --- POISON TUNIC PENALTY ---
     if (captured.heldItem === 'poison_tunic') {
         pieceToLand.isPoisoned = true;
     }
   }
 
-  // --- SOUL LINK SHARED LEVEL UP ---
   if (didLevelUp && pieceToLand.heldItem === 'soul_link') {
     newBoard.forEach(row => row.forEach(sq => {
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceToLand.id) {
@@ -792,31 +806,28 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           sq.piece.level = (sq.piece.level || 1) + levelGain;
           sq.piece.isPoisoned = false;
           sq.piece.cooldownTurnsRemaining = 0;
+          sq.piece.frozenTurnsRemaining = 0;
         }
       }
     }));
   }
 
-  // --- CURE POISON ON LEVEL UP ---
   if (didLevelUp) {
     pieceToLand.isPoisoned = false;
     pieceToLand.cooldownTurnsRemaining = 0;
+    pieceToLand.frozenTurnsRemaining = 0;
   }
 
-  // --- POISON FATIGUE (EXHAUSTION) ---
   if (pieceToLand.isPoisoned && pieceToLand.level === 1) {
     pieceToLand.cooldownTurnsRemaining = 1;
   }
 
-  // --- WIND SWORD LOGIC ---
   if (movingPiece.heldItem === 'wind_sword' && captured) {
       triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
   }
 
-  // --- MIDDLE WAY LOCK ---
   if (pieceToLand.heldItem === 'middle_way') pieceToLand.level = 3;
 
-  // --- PHOENIX DOWN LOGIC ---
   if (captured?.heldItem === 'phoenix_down') {
     const empty = [];
     for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(!newBoard[r][c].piece && !newBoard[r][c].item) empty.push(coordsToAlgebraic(r,c));
@@ -829,7 +840,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
-  // --- LEVEL BASED ABILITIES ---
   const effectiveLevel = getEffectiveLevel(newBoard, toRow, toCol);
   const hasInherentPushBack = (pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && effectiveLevel >= 4;
   const hasCloakPushBack = pieceToLand.heldItem === 'wind_cloak' && effectiveLevel >= 4;
@@ -845,7 +855,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred };
 }
 
-// INTERNAL HELPERS
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor) {
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     if(dr===0 && dc===0) continue;
@@ -904,6 +913,7 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
             sq.piece.level++;
             sq.piece.isPoisoned = false; 
             sq.piece.cooldownTurnsRemaining = 0;
+            sq.piece.frozenTurnsRemaining = 0;
         }
       }
     }
@@ -926,6 +936,9 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
         if (p && p.color === player) {
           if (p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) {
             p.cooldownTurnsRemaining--;
+          }
+          if (p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0) {
+            p.frozenTurnsRemaining--;
           }
 
           if (p.isPoisoned) {
@@ -975,7 +988,7 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
 export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: AlgebraicSquare | null): AlgebraicSquare[] {
     const { row, col } = algebraicToCoords(from);
     const piece = board[row][col].piece;
-    if (!piece || (piece.cooldownTurnsRemaining || 0) > 0) return [];
+    if (!piece || (piece.cooldownTurnsRemaining || 0) > 0 || (piece.frozenTurnsRemaining || 0) > 0) return [];
     const pseudo = getPossibleMovesInternal(board, from, piece, true, ep);
     return filterLegalMoves(board, from, pseudo, piece.color, ep);
 }

@@ -14,7 +14,6 @@ const getPieceAbilities = (piece: Piece): string[] => {
   const abilities: string[] = [];
   const l = level || 1;
 
-  // --- ITEM ABILITIES ---
   if (heldItem === 'cardinal_greaves') abilities.push(" cardinal: move (no capture) 1 space forward.");
   if (heldItem === 'drift_boots') abilities.push(" drift: move (no capture) 1 space diagonally forward.");
   if (heldItem === 'queens_peace') abilities.push(" invulnerable: cannot be captured or capture others.");
@@ -40,6 +39,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'grimoir') abilities.push(" dark wisdom: adjacent allies gain +2 effective levels.");
   if (heldItem === 'soul_link') abilities.push(" bound: shares level-ups and destruction with other linked allies.");
   if (heldItem === 'logas') abilities.push(" sacred capturing: adjacent allies gain +1 level on capture.");
+  if (heldItem === 'berserkers_mask') abilities.push(" frenzy: +3 levels on capture, but must capture if possible.");
+  if (heldItem === 'ice_scroll') abilities.push(" spell (L2+): freeze adjacent enemies for 2 turns.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");
@@ -48,7 +49,6 @@ const getPieceAbilities = (piece: Piece): string[] => {
       }
   }
 
-  // --- STANDARD ABILITIES ---
   switch (type) {
     case 'pawn':
     case 'commander':
@@ -125,6 +125,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
+  const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
 
   return (
     <div className="text-center text-xs">
@@ -135,7 +136,12 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
             STATUS: POISONED
           </p>
         )}
-        {isExhausted && (
+        {isFrozen && (
+          <p className="text-sky-400 font-bold text-[10px] animate-pulse uppercase">
+            STATUS: FROZEN
+          </p>
+        )}
+        {!isFrozen && isExhausted && (
           <p className="text-destructive font-bold text-[10px] animate-pulse uppercase">
             STATUS: EXHAUSTED
           </p>
@@ -153,7 +159,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       )}
       <ul className="list-none p-0 m-0 text-[0.7rem] space-y-0.5">
         {abilities.map((ability, index) => (
-          <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted) && "opacity-70")}>{ability}</li>
+          <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>{ability}</li>
         ))}
       </ul>
     </div>

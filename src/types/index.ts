@@ -33,6 +33,8 @@ export type InventoryItemType =
   | 'grimoir'
   | 'soul_link'
   | 'logas'
+  | 'berserkers_mask'
+  | 'ice_scroll'
   | 'fireball_scroll' 
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
@@ -86,6 +88,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'grimoir': { name: 'Grimoir', description: 'Dark book. Boosts adjacent non-Royal allies by +2 levels.', isConsumable: false },
   'soul_link': { name: 'Soul Link', description: 'Cursed amulet. Bound pieces share levels and shared destruction.', isConsumable: false },
   'logas': { name: 'Logas', description: 'Holy book. Grants adjacent allies +1 level on their captures.', isConsumable: false },
+  'berserkers_mask': { name: 'Berserker\'s Mask', description: 'Fierce mask. +3 levels on capture, but must capture if able.', isConsumable: false },
+  'ice_scroll': { name: 'Ice Scroll', description: 'Consumable (L2+). Freezes adjacent enemies for 2 turns (invulnerable).', isConsumable: true },
 
   'health_potion': { name: 'Health Potion', description: 'Restores vitality.', isConsumable: true },
   'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', isConsumable: true },
@@ -136,6 +140,7 @@ export interface Piece {
   isPoisoned?: boolean;
   heldItem?: InventoryItemType | null;
   cooldownTurnsRemaining?: number;
+  frozenTurnsRemaining?: number;
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -153,7 +158,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll';
   promoteTo?: PieceType;
 }
 
@@ -302,7 +307,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll';
   promoteTo?: PieceType;
 }
 

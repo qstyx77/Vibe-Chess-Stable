@@ -170,6 +170,7 @@ export class VibeChessAI {
               piece.level = currentLevel + 1;
               piece.isPoisoned = false;
               piece.cooldownTurnsRemaining = 0;
+              piece.frozenTurnsRemaining = 0;
               levelGain = 1;
             }
             targetSquare.item = null;
@@ -180,7 +181,7 @@ export class VibeChessAI {
             piece.type = 'infiltrator'; captureOccurred = true; captureCount = 1;
         } else if (targetPiece && targetPiece.color !== currentPlayer) {
             captureOccurred = true; captureCount = 1;
-            const levelBonus = this.captureLevelBonuses[targetPiece.type] || 1;
+            const levelBonus = piece.heldItem === 'berserkers_mask' ? 3 : (this.captureLevelBonuses[targetPiece.type] || 1);
             let newL = (piece.level || 1) + levelBonus;
             
             let hasLogasBoost = false;
@@ -209,6 +210,7 @@ export class VibeChessAI {
             piece.level = newL;
             piece.isPoisoned = false;
             piece.cooldownTurnsRemaining = 0;
+            piece.frozenTurnsRemaining = 0;
             if (piece.type === 'commander') this.applyRally(nextState, currentPlayer, 'pawn');
             else if (piece.type === 'hero') this.applyRally(nextState, currentPlayer, 'all');
             if (piece.type === 'king') this.reduceEnemyQueens(nextState, opponentColor, levelBonus);
@@ -247,6 +249,7 @@ export class VibeChessAI {
                 sq.piece.level = (sq.piece.level || 1) + levelGain;
                 sq.piece.isPoisoned = false;
                 sq.piece.cooldownTurnsRemaining = 0;
+                sq.piece.frozenTurnsRemaining = 0;
               }
             }
           }));
@@ -256,6 +259,7 @@ export class VibeChessAI {
             piece.type = move.promoteTo || 'queen';
             piece.isPoisoned = false;
             piece.cooldownTurnsRemaining = 0;
+            piece.frozenTurnsRemaining = 0;
             if (piece.type === 'queen') {
                 let hasPawn = false;
                 for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
@@ -299,7 +303,7 @@ export class VibeChessAI {
                 score += baseValue * mult;
                 const rcKey = `${r}${c}`; if (this.centerSquares.has(rcKey)) score += 10 * mult;
                 if (piece.type === 'infiltrator') score += Math.abs(r - (piece.color === 'white' ? 7 : 0)) * 40 * mult;
-                if (piece.cooldownTurnsRemaining) score -= 200 * mult;
+                if (piece.cooldownTurnsRemaining || piece.frozenTurnsRemaining) score -= 200 * mult;
             }
         }
         score += (gameState.killStreaks[aiColor] * 30); score -= (gameState.killStreaks[opponentColor] * 40);
@@ -338,6 +342,7 @@ export class VibeChessAI {
                     sq.piece.level = Math.min(sq.piece.type === 'queen' ? 6 : 99, (sq.piece.level || 1) + 1);
                     sq.piece.isPoisoned = false;
                     sq.piece.cooldownTurnsRemaining = 0;
+                    sq.piece.frozenTurnsRemaining = 0;
                 }
             }
         }));
@@ -377,11 +382,14 @@ export class VibeChessAI {
         const moves: AIMove[] = [];
         for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
             const p = gs.board[r][c].piece; 
-            if (p && p.color === color && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) {
+            if (p && p.color === color && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) {
                 moves.push(...this.generatePieceMoves(gs, r, c, p));
             }
         }
-        return moves.filter(m => { const next = this.makeMoveOptimized(gs, m, color); return !this.isInCheck(next, color); });
+
+        const filtered = moves.filter(m => { const next = this.makeMoveOptimized(gs, m, color); return !this.isInCheck(next, color); });
+        
+        return filtered;
     }
 
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece): AIMove[] {
@@ -444,6 +452,14 @@ export class VibeChessAI {
             }
         }
 
+        if (p.heldItem === 'berserkers_mask') {
+            const captures = moves.filter(m => {
+                const target = gs.board[m.to[0]][m.to[1]].piece;
+                return target && target.color !== p.color;
+            });
+            if (captures.length > 0) return captures;
+        }
+
         return moves;
     }
 
@@ -486,16 +502,16 @@ export class VibeChessAI {
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2], [2,-1], [2,1]];
         for (const [dr, dc] of knightDeltas) { 
             const p = gs.board[r+dr]?.[c+dc]?.piece; 
-            if (p && p.color === attackerColor && ['knight', 'hero', 'archer'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; 
+            if (p && p.color === attackerColor && ['knight', 'hero', 'archer'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; 
         }
         const cardDirs = [[0,1], [0,-1], [1,0], [-1,0]];
-        for (const [dr, dc] of cardDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['rook', 'palace', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; break; } } }
+        for (const [dr, dc] of cardDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['rook', 'palace', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; break; } } }
         const diagDirs = [[1,1], [1,-1], [-1,1], [-1,-1]];
-        for (const [dr, dc] of diagDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['bishop', 'archbishop', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; break; } } }
+        for (const [dr, dc] of diagDirs) { for (let i = 1; i < 8; i++) { const nr = r+i*dr, nc = c+i*dc; if (!isValidSquareUtil(nr, nc)) break; const p = gs.board[nr][nc].piece; if (p) { if (p.color === attackerColor && ['bishop', 'archbishop', 'queen'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; break; } } }
         const pawnDir = attackerColor === 'white' ? 1 : -1;
         for (const dc of [-1, 1]) { 
             const p = gs.board[r+pawnDir]?.[c+dc]?.piece; 
-            if (p && p.color === attackerColor && ['pawn', 'commander'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0)) return true; 
+            if (p && p.color === attackerColor && ['pawn', 'commander'].includes(p.type) && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) return true; 
         }
         return false;
     }
