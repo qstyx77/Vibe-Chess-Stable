@@ -550,38 +550,26 @@ export default function DungeonPage() {
             toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
             return;
           }
-          if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
+          
+          const pType = piece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'queens_peace' && piece.type !== 'queen') {
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'gnosis' && (piece.type === 'king' || piece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
+            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'mirror_shield' && (piece.type === 'king' || piece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
-            return;
-          }
-
-          if (selectedInventoryItemType === 'crossbow' && piece.type !== 'archer') {
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'detonation_scroll' && piece.type === 'king') {
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-          
-          if (selectedInventoryItemType === 'berserkers_mask' && (piece.type === 'king' || piece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -600,38 +588,25 @@ export default function DungeonPage() {
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
-          if (selectedInventoryItemType === 'swift_cloak' && piece.type !== 'pawn' && piece.type !== 'commander') {
+          const pType = piece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'queens_peace' && piece.type !== 'queen') {
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'gnosis' && (piece.type === 'king' || piece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
+            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'mirror_shield' && (piece.type === 'king' || piece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
-            return;
-          }
-
-          if (selectedInventoryItemType === 'crossbow' && piece.type !== 'archer') {
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'detonation_scroll' && piece.type === 'king') {
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-          
-          if (selectedInventoryItemType === 'berserkers_mask' && (piece.type === 'king' || piece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 

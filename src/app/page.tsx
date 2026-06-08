@@ -440,7 +440,7 @@ export default function EvolvingChessPage() {
           if (diff !== 0) {
             const levelSig = `level-${currSq.piece.id}-${currSq.piece.level}-${moveKey}`;
             if (!signaledEventsRef.current.has(levelSig)) {
-              newEffectsToAdd.push({ type: 'level-change', square: currSq.badge, val: diff });
+              newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff });
               signaledEventsRef.current.add(levelSig);
             }
           }
@@ -1226,43 +1226,31 @@ export default function EvolvingChessPage() {
 
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
-        if (clickedPiece && !clickedPiece.heldItem) {
+        if (clickedPiece && !clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
           if (usedSlots >= attunementSlots) {
             toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
             return;
           }
-          if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
+          
+          const pType = clickedPiece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'queens_peace' && clickedPiece.type !== 'queen') {
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
+            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'mirror_shield' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
-            return;
-          }
-
-          if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'detonation_scroll' && clickedPiece.type === 'king') {
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-          
-          if (selectedInventoryItemType === 'berserkers_mask' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -1281,39 +1269,26 @@ export default function EvolvingChessPage() {
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
           toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
-        } else if (clickedPiece && clickedPiece.heldItem) {
-          if (selectedInventoryItemType === 'swift_cloak' && clickedPiece.type !== 'pawn' && clickedPiece.type !== 'commander') {
+        } else if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          const pType = clickedPiece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
             toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'queens_peace' && clickedPiece.type !== 'queen') {
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
             toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'gnosis' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Gnosis can only be wielded by non-Royal pieces.", variant: "destructive" });
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
+            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'mirror_shield' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Mirror Shield cannot be equipped to Royals.", variant: "destructive" });
-            return;
-          }
-
-          if (selectedInventoryItemType === 'crossbow' && clickedPiece.type !== 'archer') {
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
             toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
             return;
           }
-
-          if (selectedInventoryItemType === 'detonation_scroll' && clickedPiece.type === 'king') {
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
             toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-          
-          if (selectedInventoryItemType === 'berserkers_mask' && (clickedPiece.type === 'king' || clickedPiece.type === 'queen')) {
-            toast({ title: "Invalid Equipment", description: "Berserker's Mask cannot be equipped to Royals.", variant: "destructive" });
             return;
           }
 
@@ -1338,7 +1313,7 @@ export default function EvolvingChessPage() {
           toast({ title: "Swapped!", description: `Swapped ${ITEM_METADATA[oldItem].name} for ${ITEM_METADATA[selectedInventoryItemType].name}.` });
         }
       } else {
-        if (clickedPiece && clickedPiece.heldItem) {
+        if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
           const removedItem = clickedPiece.heldItem;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = null;
@@ -3989,7 +3964,7 @@ export default function EvolvingChessPage() {
                     const newLosses = winner !== localPlayerColor && winner !== 'draw' ? (playerEloChange.losses || 0) + 1 : (playerEloChange.losses || 0);
 
                     toast({
-                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
+                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${elochang > 0 ? '+' : ''}${eloChange})`,
                         description: `Wins: ${newWins}, Losses: ${newLosses}`,
                         duration: 8000,
                     });

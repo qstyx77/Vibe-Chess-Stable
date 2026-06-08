@@ -83,7 +83,7 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
           />
         </div>
       );
-     case 'light-beam':
+    case 'light-beam':
       return (
         <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 50 }}>
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/4 h-[400%] bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" />
@@ -103,6 +103,12 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
                   {text}
               </span>
           </div>
+      );
+    case 'conversion':
+      return (
+        <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 55 }}>
+          <div className="absolute inset-0 bg-primary/30 animate-pulse" />
+        </div>
       );
     default:
       return null;
@@ -211,43 +217,19 @@ export function ChessBoard({
           const invOwnerColor = localPlayerColor || 'white';
           let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
           
-          if (isInvTarget && selectedInventoryItemType === 'swift_cloak') {
+          if (isInvTarget && selectedInventoryItemType) {
             const pType = currentSquareData.piece?.type;
-            if (pType !== 'pawn' && pType !== 'commander') {
-              isInvTarget = false;
+            if (selectedInventoryItemType === 'swift_cloak') {
+              if (pType !== 'pawn' && pType !== 'commander') isInvTarget = false;
+            } else if (selectedInventoryItemType === 'queens_peace') {
+              if (pType !== 'queen') isInvTarget = false;
+            } else if (selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') {
+              if (pType === 'king' || pType === 'queen') isInvTarget = false;
+            } else if (selectedInventoryItemType === 'crossbow') {
+              if (pType !== 'archer') isInvTarget = false;
+            } else if (selectedInventoryItemType === 'detonation_scroll') {
+              if (pType === 'king') isInvTarget = false;
             }
-          }
-
-          if (isInvTarget && selectedInventoryItemType === 'queens_peace') {
-            if (currentSquareData.piece?.type !== 'queen') {
-              isInvTarget = false;
-            }
-          }
-
-          if (isInvTarget && selectedInventoryItemType === 'gnosis') {
-              const pType = currentSquareData.piece?.type;
-              if (pType === 'king' || pType === 'queen') {
-                  isInvTarget = false;
-              }
-          }
-
-          if (isInvTarget && selectedInventoryItemType === 'mirror_shield') {
-              const pType = currentSquareData.piece?.type;
-              if (pType === 'king' || pType === 'queen') {
-                  isInvTarget = false;
-              }
-          }
-
-          if (isInvTarget && selectedInventoryItemType === 'crossbow') {
-              if (currentSquareData.piece?.type !== 'archer') {
-                  isInvTarget = false;
-              }
-          }
-
-          if (isInvTarget && selectedInventoryItemType === 'detonation_scroll') {
-              if (currentSquareData.piece?.type === 'king') {
-                  isInvTarget = false;
-              }
           }
           
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
