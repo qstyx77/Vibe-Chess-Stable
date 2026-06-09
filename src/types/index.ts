@@ -40,20 +40,9 @@ export type InventoryItemType =
   | 'faith_scroll'
   | 'tortoise_hammer'
   | 'leach_blade'
-  | 'fireball_scroll' 
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
-  | 'portal_scroll_40'
-  | 'health_potion' | 'mana_potion' | 'speed_potion' | 'poison_flask'
-  | 'apple' | 'ham' | 'cheese' | 'steak' | 'bread' | 'grapes'
-  | 'fire_book' | 'ice_book' | 'lightning_book'
-  | 'iron_helmet' | 'plate_armor' | 'wizard_robe' | 'leather_armor'
-  | 'buckler' | 'iron_shield' | 'spiked_shield'
-  | 'iron_sword' | 'claymore' | 'battle_axe' | 'mace'
-  | 'long_bow' | 'crossbow'
-  | 'magic_staff' | 'wand'
-  | 'gold_ring' | 'ruby_ring' | 'emerald_pendant'
-  | 'pickaxe' | 'torch';
+  | 'portal_scroll_40';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -99,43 +88,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'faith_scroll': { name: 'Faith Scroll', description: 'Consumable (L5+). 50% chance to convert adjacent enemy non-king pieces.', isConsumable: true },
   'tortoise_hammer': { name: 'Tortoise Hammer', description: 'Limits move/capture to 1 square forward. Captures enemies cardinally adjacent to target.', isConsumable: false },
   'leach_blade': { name: 'Leach Blade', description: 'Dark blade. Capturing reduces all adjacent enemies by 1 level.', isConsumable: false },
-
-  'health_potion': { name: 'Health Potion', description: 'Restores vitality.', isConsumable: true },
-  'mana_potion': { name: 'Mana Potion', description: 'Restores energy.', isConsumable: true },
-  'speed_potion': { name: 'Haste Potion', description: 'Increases movement.', isConsumable: true },
-  'poison_flask': { name: 'Poison Flask', description: 'Toxic mixture.', isConsumable: true },
-  'plate_armor': { name: 'Full Plate', description: 'Heavy protection.', isConsumable: false },
-  'wizard_robe': { name: 'Arcane Robe', description: 'Magic boost.', isConsumable: false },
-  'leather_armor': { name: 'Leather Tunic', description: 'Light protection.', isConsumable: false },
-  'buckler': { name: 'Buckler', description: 'Light defense.', isConsumable: false },
-  'iron_shield': { name: 'Iron Shield', description: 'Solid defense.', isConsumable: false },
-  'fireball_scroll': { name: 'Fire Scroll', description: 'Explosive magic.', isConsumable: true },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', isConsumable: true },
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', isConsumable: true },
-  'apple': { name: 'Red Apple', description: 'Quick snack.', isConsumable: true },
-  'ham': { name: 'Roasted Ham', description: 'Hearty meal.', isConsumable: true },
-  'cheese': { name: 'Cave Cheese', description: 'Aged well.', isConsumable: true },
-  'steak': { name: 'T-Bone Steak', description: 'Power food.', isConsumable: true },
-  'iron_sword': { name: 'Iron Sword', description: 'Standard blade.', isConsumable: false },
-  'claymore': { name: 'Claymore', description: 'Heavy blade.', isConsumable: false },
-  'battle_axe': { name: 'Battle Axe', description: 'Cleaving edge.', isConsumable: false },
-  'mace': { name: 'Iron Mace', description: 'Blunt force.', isConsumable: false },
-  'pickaxe': { name: 'Pickaxe', description: 'Breaks blocks.', isConsumable: false },
-  'torch': { name: 'Torch', description: 'Lights the way.', isConsumable: false },
-  'spiked_shield': { name: 'Spiked Shield', description: 'Thorny defense.', isConsumable: false },
-  'bread': { name: 'Bread', description: 'Daily bread.', isConsumable: true },
-  'grapes': { name: 'Grapes', description: 'Fresh grapes.', isConsumable: true },
-  'fire_book': { name: 'Fire Book', description: 'Forbidden lore.', isConsumable: false },
-  'ice_book': { name: 'Ice Book', description: 'Frozen secrets.', isConsumable: false },
-  'lightning_book': { name: 'Lightning Book', description: 'Shocking truth.', isConsumable: false },
-  'iron_helmet': { name: 'Helm', description: 'Solid helm.', isConsumable: false },
-  'long_bow': { name: 'Bow', description: 'Standard bow.', isConsumable: false },
-  'magic_staff': { name: 'Staff', description: 'Magic focus.', isConsumable: false },
-  'wand': { name: 'Wand', description: 'Magic wand.', isConsumable: false },
-  'gold_ring': { name: 'Ring', description: 'Shiny ring.', isConsumable: false },
-  'ruby_ring': { name: 'Ring', description: 'Red gem ring.', isConsumable: false },
-  'emerald_pendant': { name: 'Pendant', description: 'Green gem.', isConsumable: false },
 };
 
 export interface Piece {

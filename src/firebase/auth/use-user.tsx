@@ -1,3 +1,4 @@
+
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -43,7 +44,13 @@ export function useUser() {
             
             // PLAYTEST OVERRIDE: If inventory is missing or has fewer items than the total available,
             // refresh it to ensure the playtester has access to everything.
-            if (!data.inventory || data.inventory.length < ITEM_TYPES.length) {
+            // Also filters out removed items.
+            const currentItemTypes = new Set(ITEM_TYPES);
+            const needsRefresh = !data.inventory || 
+                                data.inventory.some(i => !currentItemTypes.has(i.type)) ||
+                                data.inventory.length !== ITEM_TYPES.length;
+
+            if (needsRefresh) {
                 const refreshedInventory = [...DEFAULT_INVENTORY];
                 // Update Firestore and local state
                 setDoc(userRef, { inventory: refreshedInventory }, { merge: true });
