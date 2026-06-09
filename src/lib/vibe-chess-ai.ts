@@ -150,7 +150,6 @@ export class VibeChessAI {
         let captureCount = 0;
         let levelGain = 0;
 
-        // Reset EP target for the turn unless set by a jump
         nextState.enPassantTargetSquare = null;
 
         if (targetPiece && targetPiece.color !== currentPlayer && targetPiece.heldItem === 'mirror_shield') {
@@ -226,7 +225,6 @@ export class VibeChessAI {
             }
         }
 
-        // Set EP target for next turn if pawn jumped
         if ((piece.type === 'pawn' || piece.type === 'commander') && Math.abs(fR - tR) === 2) {
             nextState.enPassantTargetSquare = coordsToAlgebraic(fR + Math.sign(tR - fR), fC);
         }
@@ -401,8 +399,6 @@ export class VibeChessAI {
 
         const legalMoves = moves.filter(m => { const next = this.makeMoveOptimized(gs, m, color); return !this.isInCheck(next, color); });
         
-        // GLOBAL BERSERKER FORCED CAPTURE RULE FOR AI
-        // If any Berserker owned by the AI has a legal capture, the AI MUST choose one of those captures.
         let anyBerserkerCanCapture = false;
         const allForcedCaptures: AIMove[] = [];
 
@@ -451,7 +447,6 @@ export class VibeChessAI {
                 }
                 [-1, 1].forEach(dc => { if (this.canCaptureAt(gs, r, c, r+dir, c+dc, p.color, p)) { const isPromo = (r + dir === 0 || r + dir === 7); moves.push({ from:[r,c], to:[r+dir, c+dc], type: isPromo ? 'promotion' : 'capture', promoteTo: isPromo ? 'queen' : undefined }); } });
                 
-                // En Passant Support for AI
                 const ep = gs.enPassantTargetSquare;
                 if (ep) {
                   const { row: epR, col: epC } = algebraicToCoords(ep);
@@ -503,7 +498,6 @@ export class VibeChessAI {
             }
         }
 
-        // Local piece constraint for Berserker Mask
         if (p.heldItem === 'berserkers_mask') {
             const captures = moves.filter(m => {
                 const target = gs.board[m.to[0]][m.to[1]].piece;
@@ -515,6 +509,51 @@ export class VibeChessAI {
         }
 
         return moves;
+    }
+
+    addSliding(gs: AIGameState, moves: AIMove[], r: number, c: number, p: Piece, directions: [number, number][], isBishopPhase: boolean) {
+        const effectiveLevel = getEffectiveLevel(gs.board as any, r, c);
+        const hasPhaseBoots = p.heldItem === 'phase_boots' && effectiveLevel >= 2;
+        
+        directions.forEach(([dr, dc]) => {
+            for (let i = 1; i < 8; i++) {
+                const nr = r + i * dr;
+                const nc = c + i * dc;
+                if (!isValidSquareUtil(nr, nc)) break;
+                
+                const targetSq = gs.board[nr][nc];
+                if (targetSq.item && targetSq.item.type !== 'shroom') break;
+                
+                const targetPiece = targetSq.piece;
+                if (!targetPiece) {
+                    moves.push({ from: [r, c], to: [nr, nc], type: 'move' });
+                } else {
+                    const attackerLevel = getEffectiveLevel(gs.board as any, r, c);
+                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                    
+                    if (targetPiece.color !== p.color) {
+                        if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, attackerLevel)) {
+                            moves.push({ from: [r, c], to: [nr, nc], type: 'capture' });
+                        }
+                        break; 
+                    } else {
+                        const isSwap = effectiveLevel >= 4 && (
+                            ((p.type === 'bishop' || p.type === 'archbishop') && ['knight', 'hero', 'archer'].includes(targetPiece.type)) ||
+                            (['knight', 'hero', 'archer'].includes(p.type) && (targetPiece.type === 'bishop' || targetPiece.type === 'archbishop'))
+                        );
+                        if (isSwap) {
+                            moves.push({ from: [r, c], to: [nr, nc], type: 'swap' });
+                        }
+                        
+                        if (isBishopPhase || hasPhaseBoots) {
+                            continue; 
+                        } else {
+                            break; 
+                        }
+                    }
+                }
+            }
+        });
     }
 
     canMoveTo(gs: AIGameState, r: number, c: number) { return isValidSquareUtil(r, c) && !gs.board[r][c].piece && (!gs.board[r][c].item || gs.board[r][c].item?.type === 'shroom'); }
