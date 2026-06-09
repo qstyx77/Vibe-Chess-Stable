@@ -50,6 +50,22 @@ export function InventoryWindow({
 
   const handleMouseUp = () => setIsDragging(false);
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    setIsDragging(true);
+    setDragStart({ x: touch.clientX - position.x, y: touch.clientY - position.y });
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isDragging) {
+      const touch = e.touches[0];
+      setPosition({
+        x: touch.clientX - dragStart.x,
+        y: touch.clientY - dragStart.y
+      });
+    }
+  };
+
   return (
     <div 
       className="fixed z-[100] select-none"
@@ -57,11 +73,14 @@ export function InventoryWindow({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleMouseUp}
     >
       <Card className="w-72 border-2 border-primary/50 shadow-2xl bg-black backdrop-blur-none">
         <CardHeader 
-          className="p-2 border-b cursor-move bg-[#1a1a1a]"
+          className="p-2 border-b cursor-move bg-[#1a1a1a] touch-none"
           onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
         >
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1 text-primary">
