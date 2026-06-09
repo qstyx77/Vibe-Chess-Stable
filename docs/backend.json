@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -30,6 +31,22 @@
         "losses": {
           "type": "number",
           "description": "Total number of losses."
+        },
+        "inventory": {
+          "type": "array",
+          "description": "Current items in the player's bag.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string" },
+              "count": { "type": "number" }
+            }
+          }
+        },
+        "equipment": {
+          "type": "object",
+          "description": "Mapping of piece IDs to equipped item types.",
+          "additionalProperties": { "type": "string" }
         }
       },
       "required": [

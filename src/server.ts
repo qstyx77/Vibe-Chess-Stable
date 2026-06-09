@@ -20,7 +20,7 @@ import {
     getPossibleMoves,
     isValidSquare,
 } from './lib/chess-utils';
-import type { PlayerColor, Piece, AlgebraicSquare, PieceType } from './types';
+import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
 
 
 const server = http.createServer((req, res) => {
@@ -41,7 +41,7 @@ const wss = new WebSocket.Server({ server });
 const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
-const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; timestamp: number }[] = [];
+const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; equipment?: Record<string, string>; timestamp: number }[] = [];
 
 const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'loss' | 'draw') => {
     const K = 32;
@@ -318,11 +318,34 @@ const processRankedQueue = async () => {
         whitePlayer.ws.roomId = roomId;
         blackPlayer.ws.roomId = roomId;
 
+        let board = initializeBoard();
+        
+        // Apply equipment from each player
+        const applyEquipment = (b: any, equip: Record<string, string> | undefined) => {
+          if(!equip) return b;
+          return b.map((row: any) => row.map((sq: any) => {
+            if (sq.piece && equip[sq.piece.id]) {
+              return { ...sq, piece: { ...sq.piece, heldItem: equip[sq.piece.id] } };
+            }
+            return sq;
+          }));
+        };
+
+        board = applyEquipment(board, whitePlayer.equipment);
+        board = applyEquipment(board, blackPlayer.equipment);
+
+        if (whitePlayer.elo >= 1500) board = applyArchbishop(board, 'white');
+        if (whitePlayer.elo >= 1800) board = applyPalace(board, 'white');
+        if (whitePlayer.elo >= 2100) board = applyArcher(board, 'white');
+        if (blackPlayer.elo >= 1500) board = applyArchbishop(board, 'black');
+        if (blackPlayer.elo >= 1800) board = applyPalace(board, 'black');
+        if (blackPlayer.elo >= 2100) board = applyArcher(board, 'black');
+
         rooms[roomId] = {
             clients: [whitePlayer.ws, blackPlayer.ws],
             isRanked: true,
             gameState: {
-                board: initializeBoard(),
+                board,
                 currentPlayer: 'white',
                 capturedPieces: { white: [], black: [] },
                 killStreaks: { white: 0, black: 0 },
@@ -345,13 +368,6 @@ const processRankedQueue = async () => {
                 }
             }
         };
-
-        if (whitePlayer.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'white');
-        if (whitePlayer.elo >= 1800) rooms[roomId].gameState.board = applyPalace(rooms[roomId].gameState.board, 'white');
-        if (whitePlayer.elo >= 2100) rooms[roomId].gameState.board = applyArcher(rooms[roomId].gameState.board, 'white');
-        if (blackPlayer.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'black');
-        if (blackPlayer.elo >= 1800) rooms[roomId].gameState.board = applyPalace(rooms[roomId].gameState.board, 'black');
-        if (blackPlayer.elo >= 2100) rooms[roomId].gameState.board = applyArcher(rooms[roomId].gameState.board, 'black');
 
         whitePlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'white', gameState: rooms[roomId].gameState }));
         blackPlayer.ws.send(JSON.stringify({ type: 'ranked-match-found', roomId, color: 'black', gameState: rooms[roomId].gameState }));
@@ -387,11 +403,22 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     const roomId = Math.random().toString(36).substring(2, 9);
                     ws.roomId = roomId;
                     ws.userId = data.user?.userId;
+                    
+                    let board = initializeBoard();
+                    if(data.user?.equipment) {
+                      board = board.map((row: any) => row.map((sq: any) => {
+                        if (sq.piece && data.user.equipment[sq.piece.id]) {
+                          return { ...sq, piece: { ...sq.piece, heldItem: data.user.equipment[sq.piece.id] } };
+                        }
+                        return sq;
+                      }));
+                    }
+
                     rooms[roomId] = {
                         clients: [ws],
                         isRanked: false,
                         gameState: {
-                            board: initializeBoard(),
+                            board,
                             currentPlayer: 'white',
                             capturedPieces: { white: [], black: [] },
                             killStreaks: { white: 0, black: 0 },
@@ -409,7 +436,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             blackTimeouts: 0,
                             specialActionId: 0,
                             players: {
-                                white: data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses } : null,
+                                white: data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null,
                                 black: null
                             }
                         }
@@ -426,7 +453,18 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         ws.roomId = data.roomId;
                         ws.userId = data.user?.userId;
                         roomToJoin.clients.push(ws);
-                        roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses } : null;
+                        roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null;
+                        
+                        // Apply joined player's equipment
+                        if(data.user?.equipment) {
+                          roomToJoin.gameState.board = roomToJoin.gameState.board.map((row: any) => row.map((sq: any) => {
+                            if (sq.piece && sq.piece.color === 'black' && data.user.equipment[sq.piece.id]) {
+                              return { ...sq, piece: { ...sq.piece, heldItem: data.user.equipment[sq.piece.id] } };
+                            }
+                            return sq;
+                          }));
+                        }
+
                         if (data.user?.elo >= 1500) roomToJoin.gameState.board = applyArchbishop(roomToJoin.gameState.board, 'black');
                         if (data.user?.elo >= 1800) roomToJoin.gameState.board = applyPalace(roomToJoin.gameState.board, 'black');
                         if (data.user?.elo >= 2100) roomToJoin.gameState.board = applyArcher(roomToJoin.gameState.board, 'black');
@@ -441,7 +479,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 case 'join-ranked-queue':
                     ws.userId = data.userId;
                     if (!rankedQueue.some(p => p.ws === ws)) {
-                        rankedQueue.push({ ws, userId: data.userId, elo: data.elo, username: data.username, wins: data.wins, losses: data.losses, timestamp: Date.now() });
+                        rankedQueue.push({ ws, userId: data.userId, elo: data.elo, username: data.username, wins: data.wins, losses: data.losses, equipment: data.equipment, timestamp: Date.now() });
                     }
                     break;
                 case 'leave-ranked-queue':

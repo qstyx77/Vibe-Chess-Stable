@@ -33,7 +33,8 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package, Skull } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import {
   AlertDialog,
@@ -198,6 +199,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
 
 export default function DungeonPage() {
   const { userData, isUserLoading, user } = useUser();
+  const firestore = useFirestore();
   const { toast } = useToast();
 
   const [level, setLevel] = useState(1);
@@ -244,38 +246,7 @@ export default function DungeonPage() {
 
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { type: 'mirror_shield', count: 1 },
-    { type: 'swift_cloak', count: 1 },
-    { type: 'passive_armor', count: 1 },
-    { type: 'cardinal_greaves', count: 1 },
-    { type: 'drift_boots', count: 1 },
-    { type: 'queens_peace', count: 1 },
-    { type: 'wind_sword', count: 1 },
-    { type: 'middle_way', count: 1 },
-    { type: 'phoenix_down', count: 1 },
-    { type: 'wind_scroll', count: 1 },
-    { type: 'life_leach', count: 1 },
-    { type: 'summon_anvil', count: 1 },
-    { type: 'wind_cloak', count: 1 },
-    { type: 'gnosis', count: 1 },
-    { type: 'shield_scroll', count: 1 },
-    { type: 'rally_scroll', count: 1 },
-    { type: 'poison_dagger', count: 1 },
-    { type: 'antidote', count: 1 },
-    { type: 'crossbow', count: 1 },
-    { type: 'poison_tunic', count: 1 },
-    { type: 'detonation_scroll', count: 1 },
-    { type: 'phase_boots', count: 1 },
-    { type: 'swap_scroll', count: 1 },
-    { type: 'grimoir', count: 2 },
-    { type: 'soul_link', count: 2 },
-    { type: 'logas', count: 2 },
-    { type: 'berserkers_mask', count: 2 },
-    { type: 'ice_scroll', count: 2 },
-    { type: 'tortoise_hammer', count: 2 },
-    { type: 'leach_blade', count: 2 }
-  ]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
   const attunementSlots = useMemo(() => {
@@ -459,6 +430,16 @@ export default function DungeonPage() {
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
 
+  const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
+    if (!user || !firestore) return;
+    const equipment: Record<string, string> = {};
+    currentBoard.flat().forEach(sq => {
+      if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem;
+    });
+    const userDocRef = doc(firestore, 'users', user.uid);
+    updateDocumentNonBlocking(userDocRef, { inventory: currentInv, equipment });
+  }, [user, firestore]);
+
   const startRun = useCallback(() => {
     if (isUserLoading || !userData || !user) return;
     
@@ -471,6 +452,17 @@ export default function DungeonPage() {
       if (userData.eloRating >= 1500) initial = applyArchbishop(initial, 'white');
       if (userData.eloRating >= 1800) initial = applyPalace(initial, 'white');
       if (userData.eloRating >= 2100) initial = applyArcher(initial, 'white');
+      
+      // Apply saved equipment to the initial board
+      if (userData.equipment) {
+        initial = initial.map(row => row.map(sq => {
+          if (sq.piece && userData.equipment![sq.piece.id]) {
+            return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+          }
+          return sq;
+        }));
+      }
+      if (userData.inventory) setInventory(userData.inventory);
     }
     initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
     setPlayerArmy(army);
@@ -576,15 +568,14 @@ export default function DungeonPage() {
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
-          setInventory(prev => {
-            const nextInv = [...prev];
-            const item = nextInv.find(i => i.type === selectedInventoryItemType);
-            if (item) {
-              item.count--;
-              if (item.count <= 0) return nextInv.filter(i => i.type !== selectedInventoryItemType);
-            }
-            return nextInv;
-          });
+          let newInv = [...inventory];
+          const item = newInv.find(i => i.type === selectedInventoryItemType);
+          if (item) {
+            item.count--;
+            if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType);
+          }
+          setInventory(newInv);
+          saveLoadoutToFirestore(nextBoard, newInv);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
@@ -614,18 +605,17 @@ export default function DungeonPage() {
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
-          setInventory(prev => {
-            const nextInv = [...prev];
-            const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
-            if (itemIn) {
-              itemIn.count--;
-              if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
-            }
-            const itemOut = nextInv.find(i => i.type === oldItem);
-            if (itemOut) itemOut.count++;
-            else nextInv.push({ type: oldItem, count: 1 });
-            return nextInv;
-          });
+          const nextInv = [...inventory];
+          const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
+          if (itemIn) {
+            itemIn.count--;
+            if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
+          }
+          const itemOut = nextInv.find(i => i.type === oldItem);
+          if (itemOut) itemOut.count++;
+          else nextInv.push({ type: oldItem, count: 1 });
+          setInventory(nextInv);
+          saveLoadoutToFirestore(nextBoard, nextInv);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         }
@@ -635,13 +625,12 @@ export default function DungeonPage() {
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = null;
           setBoard(nextBoard);
-          setInventory(prev => {
-            const nextInv = [...prev];
-            const item = nextInv.find(i => i.type === removedItem);
-            if (item) item.count++;
-            else nextInv.push({ type: removedItem, count: 1 });
-            return nextInv;
-          });
+          const nextInv = [...inventory];
+          const item = nextInv.find(i => i.type === removedItem);
+          if (item) item.count++;
+          else nextInv.push({ type: removedItem, count: 1 });
+          setInventory(nextInv);
+          saveLoadoutToFirestore(nextBoard, nextInv);
           audioManager.playMove();
         }
       }

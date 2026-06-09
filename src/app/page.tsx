@@ -266,40 +266,7 @@ export default function EvolvingChessPage() {
 
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { type: 'mirror_shield', count: 1 },
-    { type: 'swift_cloak', count: 1 },
-    { type: 'passive_armor', count: 2 },
-    { type: 'cardinal_greaves', count: 1 },
-    { type: 'drift_boots', count: 1 },
-    { type: 'queens_peace', count: 1 },
-    { type: 'wind_sword', count: 1 },
-    { type: 'middle_way', count: 1 },
-    { type: 'phoenix_down', count: 1 },
-    { type: 'wind_scroll', count: 1 },
-    { type: 'life_leach', count: 1 },
-    { type: 'summon_anvil', count: 1 },
-    { type: 'wind_cloak', count: 1 },
-    { type: 'gnosis', count: 1 },
-    { type: 'shield_scroll', count: 1 },
-    { type: 'rally_scroll', count: 1 },
-    { type: 'poison_dagger', count: 1 },
-    { type: 'antidote', count: 1 },
-    { type: 'crossbow', count: 1 },
-    { type: 'poison_tunic', count: 1 },
-    { type: 'detonation_scroll', count: 1 },
-    { type: 'phase_boots', count: 1 },
-    { type: 'swap_scroll', count: 1 },
-    { type: 'grimoir', count: 2 },
-    { type: 'soul_link', count: 2 },
-    { type: 'logas', count: 2 },
-    { type: 'berserkers_mask', count: 2 },
-    { type: 'ice_scroll', count: 2 },
-    { type: 'resurrection_scroll', count: 2 },
-    { type: 'faith_scroll', count: 2 },
-    { type: 'tortoise_hammer', count: 2 },
-    { type: 'leach_blade', count: 2 }
-  ]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
   const attunementSlots = useMemo(() => {
@@ -311,6 +278,35 @@ export default function EvolvingChessPage() {
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
   }, [board]);
+
+  // Sync Loadout and Inventory from UserData
+  useEffect(() => {
+    if (!isUserLoading && userData && onlineStatus === 'disconnected') {
+      if (userData.inventory) setInventory(userData.inventory);
+      if (userData.equipment) {
+        setBoard(currentBoard => {
+          const next = currentBoard.map(row => row.map(sq => {
+            if (sq.piece && userData.equipment![sq.piece.id]) {
+              return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+            }
+            return sq;
+          }));
+          return next;
+        });
+      }
+    }
+  }, [isUserLoading, userData, onlineStatus]);
+
+  // Save Inventory and Loadout to Firestore
+  const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
+    if (!user || !firestore) return;
+    const equipment: Record<string, string> = {};
+    currentBoard.flat().forEach(sq => {
+      if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem;
+    });
+    const userDocRef = doc(firestore, 'users', user.uid);
+    updateDocumentNonBlocking(userDocRef, { inventory: currentInv, equipment });
+  }, [user, firestore]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player';
@@ -456,6 +452,15 @@ export default function EvolvingChessPage() {
       if (userData.eloRating >= 2100) {
           initialBoardState = applyArcher(initialBoardState, 'white');
           initialBoardState = applyArcher(initialBoardState, 'black');
+      }
+      // Apply saved equipment
+      if (userData.equipment) {
+        initialBoardState = initialBoardState.map(row => row.map(sq => {
+          if (sq.piece && userData.equipment![sq.piece.id]) {
+            return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+          }
+          return sq;
+        }));
       }
     }
     setBoard(initialBoardState);
@@ -1195,15 +1200,14 @@ export default function EvolvingChessPage() {
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
-          setInventory(prev => {
-            const nextInv = [...prev];
-            const item = nextInv.find(i => i.type === selectedInventoryItemType);
-            if (item) {
-              item.count--;
-              if (item.count <= 0) return nextInv.filter(i => i.type !== selectedInventoryItemType);
-            }
-            return nextInv;
-          });
+          let newInv = [...inventory];
+          const item = newInv.find(i => i.type === selectedInventoryItemType);
+          if (item) {
+            item.count--;
+            if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType);
+          }
+          setInventory(newInv);
+          saveLoadoutToFirestore(nextBoard, newInv);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
           toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
@@ -1234,18 +1238,17 @@ export default function EvolvingChessPage() {
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
-          setInventory(prev => {
-            const nextInv = [...prev];
-            const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
-            if (itemIn) {
-              itemIn.count--;
-              if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
-            }
-            const itemOut = nextInv.find(i => i.type === oldItem);
-            if (itemOut) itemOut.count++;
-            else nextInv.push({ type: oldItem, count: 1 });
-            return nextInv;
-          });
+          const nextInv = [...inventory];
+          const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
+          if (itemIn) {
+            itemIn.count--;
+            if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
+          }
+          const itemOut = nextInv.find(i => i.type === oldItem);
+          if (itemOut) itemOut.count++;
+          else nextInv.push({ type: oldItem, count: 1 });
+          setInventory(nextInv);
+          saveLoadoutToFirestore(nextBoard, nextInv);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
           toast({ title: "Swapped!", description: `Swapped ${ITEM_METADATA[oldItem].name} for ${ITEM_METADATA[selectedInventoryItemType].name}.` });
@@ -1256,13 +1259,12 @@ export default function EvolvingChessPage() {
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = null;
           setBoard(nextBoard);
-          setInventory(prev => {
-            const nextInv = [...prev];
-            const item = nextInv.find(i => i.type === removedItem);
-            if (item) item.count++;
-            else nextInv.push({ type: removedItem, count: 1 });
-            return nextInv;
-          });
+          const nextInv = [...inventory];
+          const item = nextInv.find(i => i.type === removedItem);
+          if (item) item.count++;
+          else nextInv.push({ type: removedItem, count: 1 });
+          setInventory(nextInv);
+          saveLoadoutToFirestore(nextBoard, nextInv);
           audioManager.playMove();
           toast({ title: "Unequipped", description: `${ITEM_METADATA[removedItem].name} returned to bag.` });
         }
@@ -2532,7 +2534,7 @@ export default function EvolvingChessPage() {
     isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
     isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
     isAwaitingArcherSnipe, archerSnipeContext, isWhiteAI, isBlackAI,
-    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget
+    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, saveLoadoutToFirestore
   ]);
   
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
@@ -3693,7 +3695,7 @@ export default function EvolvingChessPage() {
     setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setFlashMessage,
     setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
     setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
-    setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, setIsExtraTurnFromQueenMove,
+    setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, setIsExtraTurnFromQueenMove,
     setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
     setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
@@ -3955,12 +3957,17 @@ export default function EvolvingChessPage() {
     wsRef.current = ws;
   
     ws.onopen = () => {
+      // Capture loadout for online sync
+      const equipment: Record<string, string> = {};
+      board.flat().forEach(sq => { if(sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+
       const userInfo = user ? { 
         userId: user.uid, 
         username: userData?.username || user.displayName || 'Anonymous',
         elo: userData?.eloRating || 1200,
         wins: userData?.wins || 0,
-        losses: userData?.losses || 0
+        losses: userData?.losses || 0,
+        equipment // Pass loadout to server
       } : null;
       
       let payload;
@@ -3977,7 +3984,8 @@ export default function EvolvingChessPage() {
                 username: userData?.username || user.displayName || 'Anonymous', 
                 elo: userData?.eloRating || 1200,
                 wins: userData?.wins || 0,
-                losses: userData?.losses || 0
+                losses: userData?.losses || 0,
+                equipment // Pass loadout to server
               };
           }
       }
@@ -4067,7 +4075,7 @@ export default function EvolvingChessPage() {
         }
     };
   
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState]);
+  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState, board]);
 
   const handleRankedPlay = () => {
     if (rankedQueueStatus === 'searching') {

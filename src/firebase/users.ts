@@ -1,7 +1,9 @@
+
 'use client';
 import { doc, setDoc, getDoc, serverTimestamp, Firestore } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import type { InventoryItem } from '@/types';
 
 export interface UserProfile {
   uid: string;
@@ -10,7 +12,9 @@ export interface UserProfile {
   eloRating: number;
   wins: number;
   losses: number;
-  createdAt: any; // Using 'any' for serverTimestamp flexibility
+  inventory?: InventoryItem[];
+  equipment?: Record<string, string>;
+  createdAt: any;
 }
 
 /**
@@ -27,15 +31,13 @@ export function createUserProfile(
   const newUserProfile: Omit<UserProfile, 'uid' | 'createdAt'> & { createdAt: any } = {
     email,
     username,
-    eloRating: 1200, // Default ELO
+    eloRating: 1200,
     wins: 0,
     losses: 0,
     createdAt: serverTimestamp(),
   };
 
-  // Non-blocking write operation
   setDoc(userProfileRef, newUserProfile).catch(error => {
-    // Emit a contextual error if the write fails due to permissions
     errorEmitter.emit(
       'permission-error',
       new FirestorePermissionError({
@@ -62,7 +64,6 @@ export async function getUserProfile(db: Firestore, userId: string): Promise<Use
     }
   } catch (error) {
     console.error("Error fetching user profile:", error);
-    // In a real app, you might want to handle this more gracefully
     return null;
   }
 }
