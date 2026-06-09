@@ -167,7 +167,7 @@ function getPossibleMovesInternal(
     enPassantTargetSquare: AlgebraicSquare | null
 ): AlgebraicSquare[] {
   if (!piece) return [];
-  const possible: AlgebraicSquare[] = [];
+  let possible: AlgebraicSquare[] = [];
   const { row: fromRow, col: fromCol } = algebraicToCoords(fromSquare);
   const pieceColor = piece.color;
   const opponentColor = pieceColor === 'white' ? 'black' : 'white';
@@ -180,7 +180,7 @@ function getPossibleMovesInternal(
     possible.push(fromSquare);
   }
 
-  // Tortoise Hammer Restriction
+  // Piece Specific Logic
   if (piece.heldItem === 'tortoise_hammer') {
     const dir = pieceColor === 'white' ? -1 : 1;
     const nr = fromRow + dir;
@@ -195,10 +195,7 @@ function getPossibleMovesInternal(
             }
         }
     }
-    return possible;
-  }
-
-  if (piece.type === 'king') {
+  } else if (piece.type === 'king') {
     const maxDistance = currentLevel >= 2 ? 2 : 1;
     for (let dr = -maxDistance; dr <= maxDistance; dr++) {
         for (let dc = -maxDistance; dc <= maxDistance; dc++) {
@@ -261,12 +258,7 @@ function getPossibleMovesInternal(
             }
         }
     }
-  } else if (piece.type === 'pawn' || piece.type === 'commander') {
-      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-          const to = coordsToAlgebraic(r,c);
-          if (isMoveValid(board, fromSquare, to, piece, enPassantTargetSquare)) if(!possible.includes(to)) possible.push(to);
-      }
-  } else if (piece.type === 'infiltrator') {
+  } else if (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') {
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
           const to = coordsToAlgebraic(r,c);
           if (isMoveValid(board, fromSquare, to, piece, enPassantTargetSquare)) if(!possible.includes(to)) possible.push(to);
@@ -341,18 +333,16 @@ function getPossibleMovesInternal(
               }
           }
       });
-  } else {
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (isMoveValid(board, fromSquare, coordsToAlgebraic(r,c), piece, enPassantTargetSquare)) possible.push(coordsToAlgebraic(r,c));
   }
 
-  if (piece.heldItem === 'cardinal_greaves') {
+  if (piece.heldItem === 'cardinal_greaves' && piece.heldItem !== 'tortoise_hammer') {
     const dir = piece.color === 'white' ? -1 : 1;
     const nr = fromRow + dir;
     if (isValidSquare(nr, fromCol) && !board[nr][fromCol].piece && (!board[nr][fromCol].item || board[nr][fromCol].item?.type === 'shroom')) {
       possible.push(coordsToAlgebraic(nr, fromCol));
     }
   }
-  if (piece.heldItem === 'drift_boots') {
+  if (piece.heldItem === 'drift_boots' && piece.heldItem !== 'tortoise_hammer') {
     const dir = piece.color === 'white' ? -1 : 1;
     [-1, 1].forEach(dc => {
       const nr = fromRow + dir; const nc = fromCol + dc;
@@ -362,26 +352,16 @@ function getPossibleMovesInternal(
     });
   }
 
-  if (typeof currentLevel === 'number' && !isNaN(currentLevel)) {
-    if ((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && currentLevel >= 4) {
-        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-            const targetSq = board[r][c];
-            if (targetSq.piece && targetSq.piece.color === piece.color && (targetSq.piece.type === 'bishop' || targetSq.piece.type === 'archbishop') && (!targetSq.item || targetSq.item.type === 'shroom')) possible.push(coordsToAlgebraic(r, c));
-        }
-    }
-    if ((piece.type === 'bishop' || piece.type === 'archbishop') && currentLevel >= 4) {
-        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
-            const targetSq = board[r][c];
-            if (targetSq.piece && targetSq.piece.color === piece.color && (targetSq.piece.type === 'knight' || targetSq.piece.type === 'hero' || targetSq.piece.type === 'archer') && (!targetSq.item || targetSq.item.type === 'shroom')) possible.push(coordsToAlgebraic(r, c));
-        }
-    }
-  }
-
+  // Berserker Constraint Enforcement (Local Filter)
   if (piece.heldItem === 'berserkers_mask') {
     const captureMoves = possible.filter(to => {
         const {row, col} = algebraicToCoords(to);
         const target = board[row][col].piece;
-        return target && target.color !== piece.color;
+        // Standard Capture
+        if (target && target.color !== piece.color) return true;
+        // En Passant Capture
+        if ((piece.type === 'pawn' || piece.type === 'commander') && to === enPassantTargetSquare) return true;
+        return false;
     });
     if (captureMoves.length > 0) return captureMoves;
   }
@@ -1121,8 +1101,51 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     const { row, col } = algebraicToCoords(from);
     const piece = board[row][col].piece;
     if (!piece || (piece.cooldownTurnsRemaining || 0) > 0 || (piece.frozenTurnsRemaining || 0) > 0) return [];
+    
+    // 1. Get pseudo-legal moves for this specific piece
     const pseudo = getPossibleMovesInternal(board, from, piece, true, ep);
-    return filterLegalMoves(board, from, pseudo, piece.color, ep);
+    
+    // 2. Filter for King safety
+    const legalMoves = filterLegalMoves(board, from, pseudo, piece.color, ep);
+
+    // 3. Global Berserker Forced Capture Rule
+    // "must capture if a capture is available in its move set"
+    const player = piece.color;
+    let anyBerserkerCanCapture = false;
+    const allBerserkerForcedMoves: {from: AlgebraicSquare, to: AlgebraicSquare}[] = [];
+
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const p = board[r][c].piece;
+        if (p && p.color === player && p.heldItem === 'berserkers_mask') {
+          const bFrom = coordsToAlgebraic(r, c);
+          const bPseudo = getPossibleMovesInternal(board, bFrom, p, true, ep);
+          const bLegal = filterLegalMoves(board, bFrom, bPseudo, player, ep);
+          
+          const bCaptures = bLegal.filter(to => {
+            const tCoords = algebraicToCoords(to);
+            const targetP = board[tCoords.row][tCoords.col].piece;
+            if (targetP && targetP.color !== player) return true;
+            if ((p.type === 'pawn' || p.type === 'commander') && to === ep) return true;
+            return false;
+          });
+
+          if (bCaptures.length > 0) {
+            anyBerserkerCanCapture = true;
+            bCaptures.forEach(to => allBerserkerForcedMoves.push({from: bFrom, to}));
+          }
+        }
+      }
+    }
+
+    if (anyBerserkerCanCapture) {
+      // If a Berserker capture is globally available, only those specific capture moves are allowed for the player's turn.
+      return legalMoves.filter(to => 
+        allBerserkerForcedMoves.some(bc => bc.from === from && bc.to === to)
+      );
+    }
+
+    return legalMoves;
 }
 
 export function hasAnyLegalMoves(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null): boolean {
