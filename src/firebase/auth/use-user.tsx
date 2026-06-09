@@ -1,10 +1,9 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/firebase';
-import type { InventoryItem } from '@/types';
+import type { InventoryItem, InventoryItemType } from '@/types';
 
 interface UserData {
   username: string;
@@ -16,40 +15,27 @@ interface UserData {
   equipment?: Record<string, string>;
 }
 
-const DEFAULT_INVENTORY: InventoryItem[] = [
-  { type: 'mirror_shield', count: 1 },
-  { type: 'swift_cloak', count: 1 },
-  { type: 'passive_armor', count: 2 },
-  { type: 'cardinal_greaves', count: 1 },
-  { type: 'drift_boots', count: 1 },
-  { type: 'queens_peace', count: 1 },
-  { type: 'wind_sword', count: 1 },
-  { type: 'middle_way', count: 1 },
-  { type: 'phoenix_down', count: 1 },
-  { type: 'wind_scroll', count: 1 },
-  { type: 'life_leach', count: 1 },
-  { type: 'summon_anvil', count: 1 },
-  { type: 'wind_cloak', count: 1 },
-  { type: 'gnosis', count: 1 },
-  { type: 'shield_scroll', count: 1 },
-  { type: 'rally_scroll', count: 1 },
-  { type: 'poison_dagger', count: 1 },
-  { type: 'antidote', count: 1 },
-  { type: 'crossbow', count: 1 },
-  { type: 'poison_tunic', count: 1 },
-  { type: 'detonation_scroll', count: 1 },
-  { type: 'phase_boots', count: 1 },
-  { type: 'swap_scroll', count: 1 },
-  { type: 'grimoir', count: 2 },
-  { type: 'soul_link', count: 2 },
-  { type: 'logas', count: 2 },
-  { type: 'berserkers_mask', count: 2 },
-  { type: 'ice_scroll', count: 2 },
-  { type: 'resurrection_scroll', count: 2 },
-  { type: 'faith_scroll', count: 2 },
-  { type: 'tortoise_hammer', count: 2 },
-  { type: 'leach_blade', count: 2 }
+const ITEM_TYPES: InventoryItemType[] = [
+  'mirror_shield', 'swift_cloak', 'passive_armor', 'cardinal_greaves', 'drift_boots',
+  'queens_peace', 'wind_sword', 'middle_way', 'phoenix_down', 'wind_scroll',
+  'life_leach', 'summon_anvil', 'wind_cloak', 'gnosis', 'shield_scroll',
+  'rally_scroll', 'poison_dagger', 'antidote', 'crossbow', 'poison_tunic',
+  'detonation_scroll', 'phase_boots', 'swap_scroll', 'grimoir', 'soul_link',
+  'logas', 'berserkers_mask', 'ice_scroll', 'resurrection_scroll', 'faith_scroll',
+  'tortoise_hammer', 'leach_blade', 'fireball_scroll', 'portal_scroll_20',
+  'portal_scroll_30', 'portal_scroll_40', 'health_potion', 'mana_potion',
+  'speed_potion', 'poison_flask', 'apple', 'ham', 'cheese', 'steak', 'bread',
+  'grapes', 'fire_book', 'ice_book', 'lightning_book', 'iron_helmet',
+  'plate_armor', 'wizard_robe', 'leather_armor', 'buckler', 'iron_shield',
+  'spiked_shield', 'iron_sword', 'claymore', 'battle_axe', 'mace', 'long_bow',
+  'magic_staff', 'wand', 'gold_ring', 'ruby_ring', 'emerald_pendant',
+  'pickaxe', 'torch'
 ];
+
+const DEFAULT_INVENTORY: InventoryItem[] = ITEM_TYPES.map(type => ({
+  type,
+  count: 5
+}));
 
 export function useUser() {
   const auth = useAuth();
