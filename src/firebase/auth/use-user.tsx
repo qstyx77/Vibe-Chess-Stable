@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/firebase';
 import type { InventoryItem, InventoryItemType } from '@/types';
+import { ITEM_METADATA } from '@/types';
 
 interface UserData {
   username: string;
@@ -15,22 +16,8 @@ interface UserData {
   equipment?: Record<string, string>;
 }
 
-const ITEM_TYPES: InventoryItemType[] = [
-  'mirror_shield', 'swift_cloak', 'passive_armor', 'cardinal_greaves', 'drift_boots',
-  'queens_peace', 'wind_sword', 'middle_way', 'phoenix_down', 'wind_scroll',
-  'life_leach', 'summon_anvil', 'wind_cloak', 'gnosis', 'shield_scroll',
-  'rally_scroll', 'poison_dagger', 'antidote', 'crossbow', 'poison_tunic',
-  'detonation_scroll', 'phase_boots', 'swap_scroll', 'grimoir', 'soul_link',
-  'logas', 'berserkers_mask', 'ice_scroll', 'resurrection_scroll', 'faith_scroll',
-  'tortoise_hammer', 'leach_blade', 'fireball_scroll', 'portal_scroll_20',
-  'portal_scroll_30', 'portal_scroll_40', 'health_potion', 'mana_potion',
-  'speed_potion', 'poison_flask', 'apple', 'ham', 'cheese', 'steak', 'bread',
-  'grapes', 'fire_book', 'ice_book', 'lightning_book', 'iron_helmet',
-  'plate_armor', 'wizard_robe', 'leather_armor', 'buckler', 'iron_shield',
-  'spiked_shield', 'iron_sword', 'claymore', 'battle_axe', 'mace', 'long_bow',
-  'magic_staff', 'wand', 'gold_ring', 'ruby_ring', 'emerald_pendant',
-  'pickaxe', 'torch'
-];
+// Generate item list dynamically from the central metadata to avoid missing items
+const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
 const DEFAULT_INVENTORY: InventoryItem[] = ITEM_TYPES.map(type => ({
   type,
@@ -52,8 +39,20 @@ export function useUser() {
         
         const unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
-            setUserData(docSnap.data() as UserData);
+            const data = docSnap.data() as UserData;
+            
+            // PLAYTEST OVERRIDE: If inventory is missing or has fewer items than the total available,
+            // refresh it to ensure the playtester has access to everything.
+            if (!data.inventory || data.inventory.length < ITEM_TYPES.length) {
+                const refreshedInventory = [...DEFAULT_INVENTORY];
+                // Update Firestore and local state
+                setDoc(userRef, { inventory: refreshedInventory }, { merge: true });
+                setUserData({ ...data, inventory: refreshedInventory });
+            } else {
+                setUserData(data);
+            }
           } else {
+            // New user initialization
             const newUserProfile: UserData = {
               username: firebaseUser.displayName || `Player-${firebaseUser.uid.slice(0,5)}`,
               email: firebaseUser.email || 'anonymous',
