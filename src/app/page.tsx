@@ -38,7 +38,7 @@ import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, MonitorPlay, Settings, Volume2, BrainCircuit, Swords, Package, Wand2 } from 'lucide-react';
+import { RefreshCw, BookOpen, Undo2, View, Bot, Globe, Link2Off, Flag, Trophy, Settings, Volume2, BrainCircuit, Swords, Package } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import {
   AlertDialog,
@@ -4388,11 +4388,6 @@ export default function EvolvingChessPage() {
                 </div>
               </PopoverContent>
             </Popover>
-            <Link href="/theater">
-              <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
-                <MonitorPlay /> Theater
-              </Button>
-            </Link>
             <Link href="/dungeon" className={cn(!user && "pointer-events-none")}>
               <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState || !user}>
                 <Swords /> Dungeon
@@ -4614,11 +4609,6 @@ export default function EvolvingChessPage() {
                   </div>
                 </PopoverContent>
               </Popover>
-              <Link href="/theater">
-                <Button variant="outline" size="sm" aria-label="Open Theater Mode" className="h-7 px-2 text-xs">
-                  <MonitorPlay /> Theater
-                </Button>
-              </Link>
               <Link href="/dungeon" className={cn(!user && "pointer-events-none")}>
                 <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState || !user}>
                   <Swords /> Dungeon
@@ -4801,3 +4791,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
