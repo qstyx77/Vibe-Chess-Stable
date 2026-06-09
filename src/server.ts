@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -191,8 +192,6 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
             room.gameState.shroomSpawnCounter = 0;
             room.gameState.nextShroomSpawnTurn = newNextTurn;
             broadcastToRoom(room.clients[0].roomId, { type: 'shroom-spawn', square: shroomSpawnedAt, nextTurn: newNextTurn });
-            // Add shroom spawn to buffered notation
-            room.gameState.lastVCNMove = (room.gameState.lastVCNMove || '') + ` [Spawn]🍄@${shroomSpawnedAt}`;
         }
     }
 
@@ -298,7 +297,6 @@ const startServerTurnTimer = (roomId: string) => {
                 return;
             }
 
-            roomAfterTimeout.gameState.lastVCNMove = '[PASS]';
             roomAfterTimeout.gameState.currentPlayer = opponent;
             finalizeTurn(roomAfterTimeout, timedOutPlayer, false, roomAfterTimeout.gameState.enPassantTargetSquare);
         }
@@ -461,7 +459,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (piece && piece.type === 'pawn' && piece.level === 1 && piece.color === actingColor) {
                             piece.type = 'commander';
                             delete room.gameState.pendingCommanderPromo;
-                            room.gameState.lastVCNMove = `[Promo-C]@${data.square}`;
                             broadcastToRoom(ws.roomId!, { type: 'commander-promo-finalized', fullGameState: room.gameState, lastPlayer: actingColor });
                             triggerNextSpecialAction(room, actingColor);
                         }
@@ -477,7 +474,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (!room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
                             room.gameState.board[row][col].item = { type: 'anvil' };
                             delete room.gameState.anvilDropContext;
-                            room.gameState.lastVCNMove = `+[A]@${data.square}`;
                             triggerNextSpecialAction(room, actingColor);
                         }
                     }
@@ -493,7 +489,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (piece && piece.color === actingColor && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== room.gameState.shieldContext.capturingPieceId) {
                             piece.isShielded = true;
                             delete room.gameState.shieldContext;
-                            room.gameState.lastVCNMove = `🛡️@${data.square}`;
                             triggerNextSpecialAction(room, actingColor);
                         }
                     }
@@ -510,7 +505,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.capturedPieces[actingColor].push(targetPiece);
                             room.gameState.board[row][col].piece = null;
                             delete room.gameState.archerSnipeContext;
-                            room.gameState.lastVCNMove = `[AR-Snipe]x${data.square}`;
                             triggerNextSpecialAction(room, actingColor);
                         }
                     }
@@ -528,7 +522,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             piece.type = promoteTo;
                             if (promoteTo === 'queen') piece.level = Math.min(piece.level, 7);
                             delete room.gameState.pendingPromotion;
-                            // Promotion is already part of the move notation or special action buffer
                             triggerNextSpecialAction(room, actingColor);
                         }
                     }
@@ -546,7 +539,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.capturedPieces[actingColor === 'white' ? 'black' : 'white'].push(victim);
                             room.gameState.board[row][col].piece = null;
                             room.gameState.isAwaitingPawnSacrifice = false;
-                            room.gameState.lastVCNMove = `[Sacrifice]@${square}`;
                             triggerNextSpecialAction(room, actingColor);
                         }
                     }
@@ -611,8 +603,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.resurrectedSquare = resurrectionScrollEvent.square;
                         }
 
-                        let vcnBuffer = "";
-
                         // Rook Resurrection Server Parity
                         const toCoords = algebraicToCoords(to);
                         const pieceAtDest = finalizedBoard[toCoords.row][toCoords.col].piece;
@@ -627,16 +617,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 globalServerUniqueIdCounter = resResult.newResurrectionIdCounter!;
                                 room.gameState.resurrectedSquare = resResult.resurrectedSquareAlg;
                                 
-                                const p = resResult.resurrectedPieceData!;
-                                const getVCNChar = (t: string) => {
-                                    switch (t) {
-                                        case 'commander': return 'C'; case 'infiltrator': return 'I'; case 'hero': return 'H'; case 'archer': return 'AR';
-                                        case 'archbishop': return 'AB'; case 'palace': return 'PL'; case 'knight': return 'N'; case 'pawn': return '';
-                                        default: return t.charAt(0).toUpperCase();
-                                    }
-                                };
-                                vcnBuffer += ` +^${getVCNChar(p.type)}(L${p.level})@${resResult.resurrectedSquareAlg}`;
-
                                 if (resResult.promotionRequiredForResurrectedPawn) {
                                     room.gameState.pendingPromotion = { square: resResult.resurrectedSquareAlg, player: movingPlayer, fromResurrection: true };
                                 }
@@ -692,36 +672,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (isQueenSacrificeRequired(finalizedBoard, movingPlayer, data.payload, originalLevel)) {
                             room.gameState.pendingQueenSacrifice = true;
                         }
-
-                        // Final Move VCN Generation
-                        const getVCNChar = (t: string) => {
-                            switch (t) {
-                                case 'commander': return 'C'; case 'infiltrator': return 'I'; case 'hero': return 'H'; case 'archer': return 'AR';
-                                case 'archbishop': return 'AB'; case 'palace': return 'PL'; case 'knight': return 'N'; case 'pawn': return '';
-                                default: return t.charAt(0).toUpperCase();
-                            }
-                        };
-                        const pFinal = finalizedBoard[toCoords.row][toCoords.col].piece;
-                        let mainVcn = "";
-                        if (pFinal && !['resurrection-scroll', 'faith-scroll'].includes(moveType)) {
-                            const char = getVCNChar(pFinal.type);
-                            const lvl = `(L${pFinal.level})`;
-                            const sep = (capturedPiece || rest.pieceCapturedByAnvil) ? 'x' : '-';
-                            mainVcn = `${char}${lvl}${from}${sep}${to}`;
-                            if (moveType === 'castle') mainVcn = to.startsWith('g') ? 'O-O' : 'O-O-O';
-                            if (rest.infiltrationWin) mainVcn += '🚩';
-                            if (isCheckmate(finalizedBoard, movingPlayer === 'white' ? 'black' : 'white', rest.enPassantTargetSet)) mainVcn += '#';
-                            else if (isKingInCheck(finalizedBoard, movingPlayer === 'white' ? 'black' : 'white', rest.enPassantTargetSet)) mainVcn += '+';
-                            if (rest.rallyCryTriggered) mainVcn += '📢';
-                            if (rest.conversionEvents.length > 0) mainVcn += '~';
-                            if (room.gameState.isPendingExtraTurn) mainVcn += '!!';
-                        } else if (moveType === 'self-destruct') {
-                            const char = getVCNChar(movingPieceStart.type);
-                            mainVcn = `${char}(L${originalLevel})${from}!!!@${from}${room.gameState.isPendingExtraTurn ? '!!' : ''}`;
-                        } else if (moveType === 'resurrection-scroll') mainVcn = `[Rez-Spell]`;
-                        else if (moveType === 'faith-scroll') mainVcn = `[Faith-Spell]`;
-
-                        room.gameState.lastVCNMove = mainVcn + vcnBuffer;
 
                         triggerNextSpecialAction(room, movingPlayer);
                     }

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -10,9 +11,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ClipboardCopy, RefreshCw } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GameSummaryDialogProps {
@@ -23,7 +22,6 @@ interface GameSummaryDialogProps {
   loserName: string;
   eloInfo: any | null;
   moveCount: number;
-  notation: string;
   onReset: () => void;
 }
 
@@ -35,19 +33,8 @@ export function GameSummaryDialog({
   loserName,
   eloInfo,
   moveCount,
-  notation,
   onReset,
 }: GameSummaryDialogProps) {
-  const { toast } = useToast();
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(notation);
-    toast({
-      title: "Notation Copied",
-      description: "Vibe Chess Notation has been copied to your clipboard.",
-    });
-  };
-
   const isDraw = winner === 'draw';
 
   return (
@@ -108,20 +95,6 @@ export function GameSummaryDialog({
               </div>
             </div>
           )}
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <h4 className="text-[10px] font-bold text-muted-foreground uppercase">Vibe Notation</h4>
-              <Button variant="ghost" size="sm" onClick={handleCopy} className="h-6 px-2 text-[10px] hover:bg-primary/10">
-                <ClipboardCopy className="w-3 h-3 mr-1" /> Copy Log
-              </Button>
-            </div>
-            <ScrollArea className="h-32 w-full border bg-background/50 p-2">
-              <code className="text-[10px] leading-tight whitespace-pre-wrap break-all text-muted-foreground block">
-                {notation || "No moves recorded."}
-              </code>
-            </ScrollArea>
-          </div>
         </div>
 
         <DialogFooter className="sm:justify-center gap-2">
