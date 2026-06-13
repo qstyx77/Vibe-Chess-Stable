@@ -2,6 +2,10 @@ import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Square
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
+/**
+ * Initializes a standard board, optionally upgrading pieces based on ELO.
+ * Assigns persistent IDs to pieces so equipment stays attached.
+ */
 export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
@@ -13,20 +17,24 @@ export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200
     board.push(row);
   }
 
-  // Setup pieces with stable identities
+  // Define stable unit identities for White
+  // wB1 is the "potential hero" Bishop (Archbishop if ELO >= 1500)
   const whiteBishops: Piece[] = [
     { id: 'wB1', type: whiteElo >= 1500 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
+  // wR1 is the "potential hero" Rook (Palace if ELO >= 1800)
   const whiteRooks: Piece[] = [
     { id: 'wR1', type: whiteElo >= 1800 ? 'palace' : 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wR2', type: 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
+  // wN1 is the "potential hero" Knight (Archer if ELO >= 2100)
   const whiteKnights: Piece[] = [
     { id: 'wN1', type: whiteElo >= 2100 ? 'archer' : 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wN2', type: 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
 
+  // Define stable unit identities for Black
   const blackBishops: Piece[] = [
     { id: 'bB1', type: blackElo >= 1500 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
@@ -40,7 +48,7 @@ export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200
     { id: 'bN2', type: 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
 
-  // Randomize starting squares for paired pieces
+  // Randomize starting squares for paired pieces while maintaining stable IDs
   const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
   
   const wBPos = shuffle([2, 5]);
@@ -73,54 +81,6 @@ export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200
   board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   for (let c = 0; c < 8; c++) board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
-  return board;
-}
-
-export function applyArchbishop(board: BoardState, player: PlayerColor): BoardState {
-  const bishops: {r: number, c: number}[] = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const p = board[r][c].piece;
-      if (p && p.type === 'bishop' && p.color === player) bishops.push({r, c});
-    }
-  }
-  if (bishops.length > 0) {
-    const chosen = bishops[Math.floor(Math.random() * bishops.length)];
-    const original = board[chosen.r][chosen.c].piece!;
-    board[chosen.r][chosen.c].piece = { ...original, type: 'archbishop', id: `${original.id}_Archbishop`, isShielded: false };
-  }
-  return board;
-}
-
-export function applyPalace(board: BoardState, player: PlayerColor): BoardState {
-  const rooks: {r: number, c: number}[] = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const p = board[r][c].piece;
-      if (p && p.type === 'rook' && p.color === player) rooks.push({r, c});
-    }
-  }
-  if (rooks.length > 0) {
-    const chosen = rooks[Math.floor(Math.random() * rooks.length)];
-    const original = board[chosen.r][chosen.c].piece!;
-    board[chosen.r][chosen.c].piece = { ...original, type: 'palace', id: `${original.id}_Palace`, isShielded: false };
-  }
-  return board;
-}
-
-export function applyArcher(board: BoardState, player: PlayerColor): BoardState {
-  const knights: {r: number, c: number}[] = [];
-  for (let r = 0; r < 8; r++) {
-    for (let c = 0; c < 8; c++) {
-      const p = board[r][c].piece;
-      if (p && p.type === 'knight' && p.color === player) knights.push({r, c});
-    }
-  }
-  if (knights.length > 0) {
-    const chosen = knights[Math.floor(Math.random() * knights.length)];
-    const original = board[chosen.r][chosen.c].piece!;
-    board[chosen.r][chosen.c].piece = { ...original, type: 'archer', id: `${original.id}_Archer`, isShielded: false };
-  }
   return board;
 }
 
@@ -861,7 +821,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   newBoard[toRow][toCol].piece = pieceToLand;
   newBoard[fromRow][fromCol].piece = null;
 
-  if ((pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && Math.abs(fromRow - toRow) === 2) enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
+  if ((pieceToLand.type === 'pawn' || pieceToLand.type === 'commander' || pieceToLand.type === 'infiltrator') && Math.abs(fromRow - toRow) === 2) enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
   
   let didLevelUp = false;
   let levelGain = 0;

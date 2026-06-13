@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -19,9 +18,6 @@ import {
   isValidSquare,
   processRookResurrectionCheck,
   spawnShroom,
-  applyArchbishop,
-  applyPalace,
-  applyArcher,
   findKing,
   processPoisonDamage,
   getEffectiveLevel,
@@ -182,7 +178,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     } else if (formation === 'triangle') {
        for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
     } else {
-       for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
+       for(let r=0; r<4; r++) for(let c=8; c<8; c++) possibleSquares.push({r,c});
     }
     const chosenSquares = possibleSquares.sort(() => Math.random() - 0.5).slice(0, pieceCount);
     chosenSquares.forEach((pos, i) => {
@@ -447,13 +443,12 @@ export default function DungeonPage() {
     clickGuard.current = false;
     
     let army: Piece[] = [];
-    let initial = initializeBoard();
+    // Passing ELO to initializeBoard ensures unlockable pieces are persistent and paired with IDs
+    const elo = userData.eloRating || 1200;
+    let initial = initializeBoard(elo, 1200);
+    
     if (userData) {
-      if (userData.eloRating >= 1500) initial = applyArchbishop(initial, 'white');
-      if (userData.eloRating >= 1800) initial = applyPalace(initial, 'white');
-      if (userData.eloRating >= 2100) initial = applyArcher(initial, 'white');
-      
-      // Apply saved equipment to the initial board
+      // Apply saved equipment to the initial board using the now-stable IDs
       if (userData.equipment) {
         initial = initial.map(row => row.map(sq => {
           if (sq.piece && userData.equipment![sq.piece.id]) {
