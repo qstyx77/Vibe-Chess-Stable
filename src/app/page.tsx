@@ -24,12 +24,7 @@ import {
   processRookResurrectionCheck,
   type RookResurrectionResult,
   findKing,
-  applyArchbishop,
-  applyPalace,
-  applyArcher,
-  hasAnyLegalMoves,
-  processPoisonDamage,
-  spawnShroom,
+  isQueenSacrificeRequired,
   getEffectiveLevel,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType } from '@/types';
@@ -278,6 +273,8 @@ export default function EvolvingChessPage() {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
   }, [board]);
 
+  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
+
   // Sync Loadout and Inventory from UserData
   useEffect(() => {
     if (!isUserLoading && userData && onlineStatus === 'disconnected') {
@@ -348,7 +345,6 @@ export default function EvolvingChessPage() {
 
   const isLocalActionTurn = onlineStatus === 'disconnected' || localPlayerColor === currentPlayer;
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
   const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
   const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
   const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
@@ -1210,7 +1206,7 @@ export default function EvolvingChessPage() {
       let aiBecameInfiltrator = false;
       let aiGameWonByInfiltration = false;
       let aiExtraTurn = false;
-      let sacrificeNeededForAIQueen = false;
+      let sacrificeNeeded forAIQueen = false;
       
 
 
@@ -1316,7 +1312,10 @@ export default function EvolvingChessPage() {
         clickGuardRef.current = true;
         setAnimatedSquareTo(aiToAlg as AlgebraicSquare);
 
-        if (pieceOnFromSquareForAI?.type === 'king' && aiFromAlg && aiToAlg && Math.abs(algebraicToCoords(aiFromAlg).col - algebraicToCoords(aiToAlg).col) === 2 && aiMoveType !== 'self-destruct') {
+        const isStandardStartingSquareAI = (currentPlayer === 'white' && aiFromAlg === 'e1') || (currentPlayer === 'black' && aiFromAlg === 'e8');
+        const isStandardTargetSquareAI = (currentPlayer === 'white' && (aiToAlg === 'c1' || aiToAlg === 'g1')) || (currentPlayer === 'black' && (aiToAlg === 'c8' || aiToAlg === 'g8'));
+        
+        if (pieceOnFromSquareForAI?.type === 'king' && !pieceOnFromSquareForAI.hasMoved && isStandardStartingSquareAI && isStandardTargetSquareAI && aiFromR === aiToR && aiMoveType !== 'self-destruct' && !finalBoardStateForAI[aiToR][aiToC].piece) {
             aiMoveType = 'castle';
         }
 
@@ -1754,12 +1753,8 @@ export default function EvolvingChessPage() {
   
       const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
   
-      if (!hasAnyLegalMoves(board, currentPlayer, enPassantTargetSquare)) {
-          if (isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
-              setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentPlayer!)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponentPlayer }));
-          } else {
-              setGameInfo(prev => ({ ...prev, message: "Stalemate! It's a draw.", isCheck: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-          }
+      if (!getPossibleMoves(board, coordsToAlgebraic(0,0), null).length && isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
+          setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentPlayer!)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponentPlayer }));
       } else {
           setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponentPlayer!)} wins!`, gameOver: true, winner: opponentPlayer }));
       }
@@ -3438,7 +3433,11 @@ export default function EvolvingChessPage() {
 
       if (isMoveInFreshList) {
         let moveType: Move['type'] = 'move';
-        if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
+        
+        const isStandardStartingSquare = (pieceToMoveFromSelected.color === 'white' && selectedSquare === 'e1') || (pieceToMoveFromSelected.color === 'black' && selectedSquare === 'e8');
+        const isStandardTargetSquare = (pieceToMoveFromSelected.color === 'white' && (algebraic === 'c1' || algebraic === 'g1')) || (pieceToMoveFromSelected.color === 'black' && (algebraic === 'c8' || algebraic === 'g8'));
+        
+        if (pieceToMoveFromSelected.type === 'king' && !pieceToMoveFromSelected.hasMoved && isStandardStartingSquare && isStandardTargetSquare && fromR_selected === row && !clickedPiece) {
           moveType = 'castle';
         } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
           moveType = 'enpassant';
@@ -3767,7 +3766,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginalOriginalAI) {
@@ -4508,7 +4507,7 @@ export default function EvolvingChessPage() {
         if (!enteringSpecialMode && hasTriggeredSnipe) {
             enteringSpecialMode = true;
             const updatedSnipeCtx = {
-                boardForNextStep: boardToUpdate,
+                boardToUpdate,
                 playerWhoseTurnCompleted: pawnColor,
                 isExtraTurn: combinedExtraTurn,
                 newEnPassantTarget: enPassantTargetSquare,

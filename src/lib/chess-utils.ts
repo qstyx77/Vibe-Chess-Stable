@@ -1097,7 +1097,11 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
     const toCoords = algebraicToCoords(to);
     
     let type: Move['type'] = 'move';
-    if (p.type === 'king' && Math.abs(fromCoords.col - toCoords.col) === 2) {
+    
+    const isStandardStartingSquare = (p.color === 'white' && from === 'e1') || (p.color === 'black' && from === 'e8');
+    const isStandardTargetSquare = (p.color === 'white' && (to === 'c1' || to === 'g1')) || (p.color === 'black' && (to === 'c8' || to === 'g8'));
+    
+    if (p.type === 'king' && !p.hasMoved && isStandardStartingSquare && isStandardTargetSquare && fromCoords.row === toCoords.row && !board[toCoords.row][toCoords.col].piece) {
       type = 'castle';
     } else if ((p.type === 'pawn' || p.type === 'commander') && to === ep) {
       type = 'enpassant';
