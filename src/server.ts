@@ -317,7 +317,8 @@ const processRankedQueue = async () => {
         whitePlayer.ws.roomId = roomId;
         blackPlayer.ws.roomId = roomId;
 
-        let board = initializeBoard();
+        // Use new ELO-aware initializeBoard
+        let board = initializeBoard(whitePlayer.elo, blackPlayer.elo);
         
         const applyEquipment = (b: any, equip: Record<string, string> | undefined) => {
           if(!equip) return b;
@@ -331,13 +332,6 @@ const processRankedQueue = async () => {
 
         board = applyEquipment(board, whitePlayer.equipment);
         board = applyEquipment(board, blackPlayer.equipment);
-
-        if (whitePlayer.elo >= 1500) board = applyArchbishop(board, 'white');
-        if (whitePlayer.elo >= 1800) board = applyPalace(board, 'white');
-        if (whitePlayer.elo >= 2100) board = applyArcher(board, 'white');
-        if (blackPlayer.elo >= 1500) board = applyArchbishop(board, 'black');
-        if (blackPlayer.elo >= 1800) board = applyPalace(board, 'black');
-        if (blackPlayer.elo >= 2100) board = applyArcher(board, 'black');
 
         rooms[roomId] = {
             clients: [whitePlayer.ws, blackPlayer.ws],
@@ -402,7 +396,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     ws.roomId = roomId;
                     ws.userId = data.user?.userId;
                     
-                    let board = initializeBoard();
+                    // Use new ELO-aware initializeBoard (assume black is default 1200 for now)
+                    let board = initializeBoard(data.user?.elo || 1200, 1200);
                     if(data.user?.equipment) {
                       board = board.map((row: any) => row.map((sq: any) => {
                         if (sq.piece && data.user.equipment[sq.piece.id]) {
@@ -439,9 +434,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             }
                         }
                     };
-                    if (data.user?.elo >= 1500) rooms[roomId].gameState.board = applyArchbishop(rooms[roomId].gameState.board, 'white');
-                    if (data.user?.elo >= 1800) rooms[roomId].gameState.board = applyPalace(rooms[roomId].gameState.board, 'white');
-                    if (data.user?.elo >= 2100) rooms[roomId].gameState.board = applyArcher(rooms[roomId].gameState.board, 'white');
                     ws.send(JSON.stringify({ type: 'room-created', roomId, color: 'white', gameState: rooms[roomId].gameState }));
                     break;
                 }
@@ -453,18 +445,33 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         roomToJoin.clients.push(ws);
                         roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null;
                         
+                        // Re-initialize board with BOTH players ELOs now that black has joined
+                        const whiteElo = roomToJoin.gameState.players.white?.elo || 1200;
+                        const blackElo = data.user?.elo || 1200;
+                        let newBoard = initializeBoard(whiteElo, blackElo);
+
+                        // Restore white equipment
+                        const whiteEquip = roomToJoin.gameState.players.white?.equipment;
+                        if(whiteEquip) {
+                            newBoard = newBoard.map((row: any) => row.map((sq: any) => {
+                                if (sq.piece && sq.piece.color === 'white' && whiteEquip[sq.piece.id]) {
+                                    return { ...sq, piece: { ...sq.piece, heldItem: whiteEquip[sq.piece.id] } };
+                                }
+                                return sq;
+                            }));
+                        }
+
+                        // Restore black equipment
                         if(data.user?.equipment) {
-                          roomToJoin.gameState.board = roomToJoin.gameState.board.map((row: any) => row.map((sq: any) => {
+                          newBoard = newBoard.map((row: any) => row.map((sq: any) => {
                             if (sq.piece && sq.piece.color === 'black' && data.user.equipment[sq.piece.id]) {
                               return { ...sq, piece: { ...sq.piece, heldItem: data.user.equipment[sq.piece.id] } };
                             }
                             return sq;
                           }));
                         }
+                        roomToJoin.gameState.board = newBoard;
 
-                        if (data.user?.elo >= 1500) roomToJoin.gameState.board = applyArchbishop(roomToJoin.gameState.board, 'black');
-                        if (data.user?.elo >= 1800) roomToJoin.gameState.board = applyPalace(roomToJoin.gameState.board, 'black');
-                        if (data.user?.elo >= 2100) roomToJoin.gameState.board = applyArcher(roomToJoin.gameState.board, 'black');
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
                         broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
                         startServerTurnTimer(data.roomId);
@@ -633,7 +640,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         if (resurrectionScrollEvent) {
                             const p = resurrectionScrollEvent.piece;
                             const oppColor = movingPlayer === 'white' ? 'black' : 'white';
-                            room.gameState.capturedPieces[oppColor] = room.gameState.capturedPieces[oppColor].filter((pi: any) => pi.id !== p.id);
+                            room.gameState.capturedPieces[oppColor] = room.gameState.capturedPieces[oppColor].filter((pi: any) => pi.id !== p.id) ;
                             room.gameState.resurrectedSquare = resurrectionScrollEvent.square;
                         }
 

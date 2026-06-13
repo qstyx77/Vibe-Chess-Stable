@@ -296,6 +296,25 @@ export default function EvolvingChessPage() {
     }
   }, [isUserLoading, userData, onlineStatus]);
 
+  // ELO-based persistent piece initialization
+  useEffect(() => {
+    if (!isUserLoading && userData && onlineStatus === 'disconnected' && gameMoveCounter === 0) {
+      const elo = userData.eloRating || 1200;
+      setBoard(currentBoard => {
+        let next = initializeBoard(elo, 1200);
+        if (userData.equipment) {
+           next = next.map(row => row.map(sq => {
+              if (sq.piece && userData.equipment![sq.piece.id]) {
+                return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+              }
+              return sq;
+           }));
+        }
+        return next;
+      });
+    }
+  }, [userData, isUserLoading, onlineStatus, gameMoveCounter]);
+
   // Save Inventory and Loadout to Firestore
   const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
     if (!user || !firestore) return;
@@ -308,7 +327,7 @@ export default function EvolvingChessPage() {
   }, [user, firestore]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    if (!player) return 'A player';
+    if (!player) return 'A player'; 
     if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
         const username = gamePlayers?.[player]?.username;
         if (username) {
@@ -438,30 +457,19 @@ export default function EvolvingChessPage() {
   }, [board, gameMoveCounter, lastMoveFrom, lastMoveTo, addEffect]);
 
   const fullGameReset = useCallback(() => {
-    let initialBoardState = initializeBoard();
-    if (userData) {
-      if (userData.eloRating >= 1500) {
-          initialBoardState = applyArchbishop(initialBoardState, 'white');
-          initialBoardState = applyArchbishop(initialBoardState, 'black');
-      }
-      if (userData.eloRating >= 1800) {
-          initialBoardState = applyPalace(initialBoardState, 'white');
-          initialBoardState = applyPalace(initialBoardState, 'black');
-      }
-      if (userData.eloRating >= 2100) {
-          initialBoardState = applyArcher(initialBoardState, 'white');
-          initialBoardState = applyArcher(initialBoardState, 'black');
-      }
-      // Apply saved equipment
-      if (userData.equipment) {
-        initialBoardState = initialBoardState.map(row => row.map(sq => {
-          if (sq.piece && userData.equipment![sq.piece.id]) {
-            return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
-          }
-          return sq;
-        }));
-      }
+    const elo = userData?.eloRating || 1200;
+    let initialBoardState = initializeBoard(elo, 1200);
+    
+    // Apply saved equipment
+    if (userData?.equipment) {
+      initialBoardState = initialBoardState.map(row => row.map(sq => {
+        if (sq.piece && userData.equipment![sq.piece.id]) {
+          return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+        }
+        return sq;
+      }));
     }
+    
     setBoard(initialBoardState);
     setCurrentPlayer('white');
     setSelectedSquare(null);
@@ -1151,1581 +1159,6 @@ export default function EvolvingChessPage() {
     processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
     return false;
   }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, onlineStatus]);
-
-
-  const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
-    if (clickGuardRef.current) return;
-
-    const { row, col } = algebraicToCoords(algebraic);
-    const clickedSquareState = board[row]?.[col];
-    const clickedPiece = clickedSquareState?.piece;
-    setPieceForInfoDisplay(clickedPiece || null);
-
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-    if (isAnySpecialModeActive && !isLocalActionTurn) {
-        return;
-    }
-
-    if (isInventoryOpen) {
-      if (selectedInventoryItemType) {
-        if (clickedPiece && !clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
-          if (usedSlots >= attunementSlots) {
-            toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
-            return;
-          }
-          
-          const pType = clickedPiece.type;
-          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
-            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
-            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
-            return;
-          }
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
-            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
-            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
-            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
-          setBoard(nextBoard);
-          let newInv = [...inventory];
-          const item = newInv.find(i => i.type === selectedInventoryItemType);
-          if (item) {
-            item.count--;
-            if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType);
-          }
-          setInventory(newInv);
-          saveLoadoutToFirestore(nextBoard, newInv);
-          setSelectedInventoryItemType(null);
-          audioManager.playLevelUp();
-          toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
-        } else if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
-          const pType = clickedPiece.type;
-          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
-            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
-            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
-            return;
-          }
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
-            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
-            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
-            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-
-          const oldItem = clickedPiece.heldItem;
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
-          setBoard(nextBoard);
-          const nextInv = [...inventory];
-          const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
-          if (itemIn) {
-            itemIn.count--;
-            if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
-          }
-          const itemOut = nextInv.find(i => i.type === oldItem);
-          if (itemOut) itemOut.count++;
-          else nextInv.push({ type: oldItem, count: 1 });
-          setInventory(nextInv);
-          saveLoadoutToFirestore(nextBoard, nextInv);
-          setSelectedInventoryItemType(null);
-          audioManager.playLevelUp();
-          toast({ title: "Swapped!", description: `Swapped ${ITEM_METADATA[oldItem].name} for ${ITEM_METADATA[selectedInventoryItemType].name}.` });
-        }
-      } else {
-        if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
-          const removedItem = clickedPiece.heldItem;
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = null;
-          setBoard(nextBoard);
-          const nextInv = [...inventory];
-          const item = nextInv.find(i => i.type === removedItem);
-          if (item) item.count++;
-          else nextInv.push({ type: removedItem, count: 1 });
-          setInventory(nextInv);
-          saveLoadoutToFirestore(nextBoard, nextInv);
-          audioManager.playMove();
-          toast({ title: "Unequipped", description: `${ITEM_METADATA[removedItem].name} returned to bag.` });
-        }
-      }
-      return;
-    }
-
-    if (isAwaitingWindScrollTarget && isLocalActionTurn) {
-      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-        
-        const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
-        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-        setBoard(result.newBoard);
-        audioManager.playAnvil();
-        toast({ title: "Wind Scroll Cast!", description: `Units pushed back from ${algebraic}.` });
-        
-        setIsAwaitingWindScrollTarget(false);
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setTimeout(() => {
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-        }, 800);
-      } else {
-        toast({ title: "Invalid Target", description: "Target an empty space to cast the Wind Scroll.", variant: "destructive" });
-      }
-      return;
-    }
-
-    if (isAwaitingAnvilScrollTarget && isLocalActionTurn) {
-      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-        
-        const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
-        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-        setBoard(result.newBoard);
-        audioManager.playAnvil();
-        toast({ title: "Anvil Summoned!", description: `Anvil dropped on ${algebraic}.` });
-        
-        setIsAwaitingAnvilScrollTarget(false);
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setTimeout(() => {
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-        }, 800);
-      } else {
-        toast({ title: "Invalid Target", description: "Target an empty space to summon an Anvil.", variant: "destructive" });
-      }
-      return;
-    }
-
-    if (isAwaitingShieldScrollTarget && isLocalActionTurn) {
-        if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            setAnimatedSquareTo(algebraic);
-            
-            const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playShield();
-            toast({ title: "Shield Cast!", description: `${clickedPiece.type} is now protected.` });
-            
-            setIsAwaitingShieldScrollTarget(false);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        } else {
-            toast({ title: "Invalid Target", description: "Select an allied non-King/Queen piece.", variant: "destructive" });
-        }
-        return;
-    }
-
-    if (isAwaitingSwapScrollTarget && isLocalActionTurn) {
-        if (clickedPiece && clickedPiece.color === currentPlayer && algebraic !== selectedSquare) {
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            setAnimatedSquareTo(algebraic);
-            
-            const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playMove();
-            toast({ title: "Swap Scroll Used!", description: `Swapped places with allied ${clickedPiece.type}.` });
-            
-            setIsAwaitingSwapScrollTarget(false);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        } else {
-            toast({ title: "Invalid Target", description: "Select another allied piece to swap places.", variant: "destructive" });
-        }
-        return;
-    }
-
-    let moveBeingMade: Move | null = null;
-    let humanPlayerAchievedFirstBloodThisTurn = false;
-    let originalPieceLevelBeforeMove: number | undefined;
-    let enteringSpecialMode = false;
-
-    if (isAwaitingArcherSnipe && isLocalActionTurn) {
-      if (clickedPiece && clickedPiece.color !== currentPlayer && clickedPiece.level === 1 && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
-          saveStateToHistory();
-          
-          if (onlineStatus === 'connected') {
-              const ws = wsRef.current;
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
-              }
-              clickGuardRef.current = true;
-              setIsMoveProcessing(true);
-              return;
-          }
-
-          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = archerSnipeContext!;
-          const boardAfterSnipe = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-          
-          const archerOnBoard = boardAfterSnipe.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer);
-          if (archerOnBoard?.piece) {
-              archerOnBoard.piece.level += 2;
-              archerOnBoard.piece.isPoisoned = false; 
-              archerOnBoard.piece.cooldownTurnsRemaining = 0;
-              archerOnBoard.piece.frozenTurnsRemaining = 0;
-          }
-
-          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
-          setCapturedPieces(prev => ({
-              ...prev,
-              [currentPlayer]: [...(prev[currentPlayer] || []), uniqueCapturedPiece]
-          }));
-
-          boardAfterSnipe[row][col].piece = null;
-          setBoard(boardAfterSnipe);
-          
-          addEffect('poof', algebraic);
-          audioManager.playSnipe();
-          toast({ title: "Archer Snipe!", description: `${getPlayerDisplayName(currentPlayer)} sniped the ${clickedPiece.type}!` });
-          
-          setIsAwaitingArcherSnipe(false);
-          setArcherSnipeContext(null);
-          
-          processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-      } else {
-          if (isLocalActionTurn) {
-            toast({ title: "Invalid Snipe Target", description: "Select an enemy Level 1 piece (not King/Queen).", variant: "destructive" });
-          }
-      }
-      return;
-    }
-
-    if (isAwaitingHolyShield && isLocalActionTurn) {
-      const capturingPieceId = lastMoveTo ? board[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
-      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen' && clickedPiece.id !== capturingPieceId) {
-          saveStateToHistory();
-          
-          if (onlineStatus === 'connected') {
-              const ws = wsRef.current;
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
-              }
-              clickGuardRef.current = true;
-              setIsMoveProcessing(true);
-              return;
-          }
-
-          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = shieldContext!;
-          const boardAfterShield = boardForNextStep.map(r => r.map(s => ({
-              ...s,
-              piece: s.piece ? { ...s.piece, isShielded: s.piece.id === clickedPiece.id ? true : s.piece.isShielded } : null
-          })));
-          setBoard(boardAfterShield);
-          audioManager.playShield();
-          toast({ title: "Holy Shield!", description: `${clickedPiece.type} is now shielded!` });
-          setIsAwaitingHolyShield(false);
-          setShieldContext(null);
-          
-          processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-      } else {
-          if (isLocalActionTurn) {
-            toast({ title: "Invalid Shield Target", description: "Cannot shield Kings, Queens, or the piece that just captured.", variant: "destructive" });
-          }
-      }
-      return;
-    }
-
-    if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
-        if (clickedPiece) {
-            if (clickedPiece.color === localPlayerColor) {
-                setSelectedSquare(algebraic);
-                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
-                setEnemySelectedSquare(null);
-                setEnemyPossibleMoves([]);
-            } else {
-                setSelectedSquare(null);
-                setPossibleMoves([]);
-                setEnemySelectedSquare(algebraic);
-                setEnemyPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
-            }
-        } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-        return; 
-    }
-
-    if (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) {
-        if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-            if (onlineStatus === 'connected') {
-                const ws = wsRef.current;
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
-                }
-                clickGuardRef.current = true;
-                setIsMoveProcessing(true); 
-                return;
-            }
-    
-            saveStateToHistory();
-            const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
-            const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
-            boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
-            setBoard(boardAfterAnvilDrop);
-            audioManager.playAnvil();
-            
-            toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
-        
-            const hasCrossbowArcher = boardAfterAnvilDrop.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
-            if (hasCrossbowArcher) {
-              const hasVictims = boardAfterAnvilDrop.flat().some(sq => sq.piece && sq.piece.color !== currentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-              if (hasVictims) {
-                setArcherSnipeContext({ boardForNextStep: boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget });
-                setIsAwaitingArcherSnipe(true);
-                setGameInfo(prev => ({...prev, message: "CROSSBOW SNIPE! Select Level 1 enemy."}));
-                setIsAwaitingAnvilDrop(false);
-                setPlayerToDropAnvil(null);
-                setAnvilDropContext(null);
-                return;
-              }
-            }
-
-            processMoveEnd(boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-        
-            setIsAwaitingAnvilDrop(false);
-            setPlayerToDropAnvil(null);
-            setAnvilDropContext(null);
-        } else {
-            if (isLocalActionTurn) {
-                toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
-            }
-        }
-        return;
-    }
-
-    if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
-      if (!(isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
-          return;
-      }
-    }
-    
-    const clickedItem = clickedSquareState?.item;
-
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
-        if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
-            saveStateToHistory();
-            
-            if (onlineStatus === 'connected') {
-                const ws = wsRef.current;
-                if(ws && ws.readyState === WebSocket.OPEN) {
-                    const payload = JSON.stringify({ type: 'commander-promo', square: algebraic });
-                    ws.send(payload);
-                }
-                clickGuardRef.current = true;
-                setIsAwaitingCommanderPromotion(false);
-                setPlayerWhoGotFirstBlood(null);
-                return;
-            }
-
-            const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-            boardAfterCommanderPromo[row][col].piece!.type = 'commander';
-            boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
-            boardAfterCommanderPromo[row][col].piece!.isPoisoned = false; 
-            boardAfterCommanderPromo[row][col].piece!.cooldownTurnsRemaining = 0;
-            boardAfterCommanderPromo[row][col].piece!.frozenTurnsRemaining = 0;
-            setBoard(boardAfterCommanderPromo);
-            audioManager.playLevelUp();
-            toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
-            
-            setIsAwaitingCommanderPromotion(false);
-            const actingPlayerForComplete = playerWhoGotFirstBlood!;
-            setPlayerWhoGotFirstBlood(null);
-            
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-
-            if (!isPromotingPawn && !isAwaitingHolyShield && !isAwaitingAnvilDrop && !isAwaitingArcherSnipe) {
-                processMoveEnd(boardAfterCommanderPromo, actingPlayerForComplete, false, enPassantTargetSquare);
-            }
-            return;
-        } else {
-            if (isLocalActionTurn) {
-                toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 8000});
-            }
-        }
-        return;
-    }
-
-
-    if (isAwaitingPawnSacrifice && playerToSacrificePawn === currentPlayer) {
-      if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
-        saveStateToHistory();
-        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-        const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
-        const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${uniqueIdCounterRef.current++}`};
-        
-        boardAfterSacrifice[row][col].piece = null;
-
-        setBoard(boardAfterSacrifice);
-        audioManager.playCapture();
-
-        const opponentOfSacrificer = playerWhoMadeQueenMove! === 'white' ? 'black' : 'white';
-        setCapturedPieces(prevCaptured => {
-          const newCaptured = { ...prevCaptured };
-          newCaptured[opponentOfSacrificer] = [...(newCaptured[opponentOfSacrificer] || []), pawnToSacrifice];
-          return newCaptured;
-        });
-
-        toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 8000 });
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                const payload = JSON.stringify({ type: 'pawn-sacrifice', square: algebraic });
-                ws.send(payload);
-            }
-        }
-        
-        const playerWhoTriggeredSacrifice = playerWhoMadeQueenMove;
-        const extraTurnAfterSacrifice = isExtraTurnFromQueenMove;
-
-        setIsAwaitingPawnSacrifice(false);
-        setPlayerToSacrificePawn(null);
-        setBoardForPostSacrifice(null);
-        setPlayerWhoMadeQueenMove(null);
-        setIsExtraTurnFromQueenMove(false);
-
-        setLastMoveFrom(null);
-        setLastMoveTo(algebraic);
-
-        processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice, enPassantTargetSquare);
-      } else {
-        if (isLocalActionTurn) {
-            toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 8000 });
-        }
-      }
-      return;
-    }
-
-    if (clickedItem && clickedItem.type !== 'shroom') {
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-        return;
-    }
-
-    if (isAwaitingRookSacrifice && playerToSacrificeForRook === currentPlayer) {
-      toast({ title: "Rook Action", description: "Rook ability is now automatic on L4+.", duration: 8000 });
-      setIsAwaitingRookSacrifice(false);
-      setPlayerToSacrificeForRook(null);
-      setRookToMakeInvulnerable(null);
-      processMoveEnd(boardForRookSacrifice || board, originalTurnPlayerForRookSacrifice || currentPlayer, isExtraTurnFromRookLevelUp || false, enPassantTargetSquare);
-      setBoardForRookSacrifice(null);
-      setOriginalTurnPlayerForRookSacrifice(null);
-      setIsExtraTurnFromRookLevelUp(false);
-      return;
-    }
-
-    let finalBoardStateForTurn = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-    let finalCapturedPiecesForTurn = {
-      white: capturedPieces.white.map(p => ({ ...p })),
-      black: capturedPieces.black.map(p => ({ ...p }))
-    };
-
-
-    if (selectedSquare) {
-      const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
-      const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
-      const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
-
-      if (!pieceToMoveFromSelected) {
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setIsMoveProcessing(false);
-        clickGuardRef.current = false;
-        return;
-      }
-
-      const effectiveLevelAtSelected = getEffectiveLevel(board, fromR_selected, fromC_selected);
-      const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && effectiveLevelAtSelected >= 5);
-      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll' || pieceToMoveFromSelected.heldItem === 'ice_scroll' || pieceToMoveFromSelected.heldItem === 'resurrection_scroll' || pieceToMoveFromSelected.heldItem === 'faith_scroll');
-
-      if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
-        if ((pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) || (pieceToMoveFromSelected.frozenTurnsRemaining && pieceToMoveFromSelected.frozenTurnsRemaining > 0)) {
-            toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
-            return;
-        }
-
-        const executeLifeLeach = () => {
-          saveStateToHistory();
-          clickGuardRef.current = true;
-          setIsMoveProcessing(true);
-          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
-          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-          setBoard(result.newBoard);
-          audioManager.playLevelUp();
-          toast({ title: "Life Leach Cast!", description: "All enemy levels reduced by 1." });
-          setSelectedSquare(null);
-          setPossibleMoves([]);
-          setTimeout(() => {
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-            processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-          }, 800);
-        };
-
-        const executeWindScrollMode = () => {
-          setIsAwaitingWindScrollTarget(true);
-          setPossibleMoves([]); 
-          toast({ title: "Targeting Mode", description: "Select an empty square to target with Wind Scroll." });
-        };
-
-        const executeSummonAnvilMode = () => {
-          setIsAwaitingAnvilScrollTarget(true);
-          setPossibleMoves([]); 
-          toast({ title: "Targeting Mode", description: "Select an empty square to summon an Anvil." });
-        };
-
-        const executeShieldScrollMode = () => {
-            if (effectiveLevelAtSelected < 2) {
-                toast({ title: "Level Too Low", description: "Shield Scroll requires Level 2+.", variant: "destructive" });
-                return;
-            }
-            setIsAwaitingShieldScrollTarget(true);
-            setPossibleMoves([]);
-            toast({ title: "Targeting Mode", description: "Select an allied unit to shield." });
-        };
-
-        const executeRallyScroll = () => {
-            if (effectiveLevelAtSelected < 3) {
-                toast({ title: "Level Too Low", description: "Rally Scroll requires Level 3+.", variant: "destructive" });
-                return;
-            }
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playRally();
-            toast({ title: "Rally Scroll Cast!", description: "All other allied units leveled up!" });
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeAntidote = () => {
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playShield();
-            toast({ title: "Antidote Used!", description: "All allied units cured of poison." });
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeSwapScrollMode = () => {
-            if (effectiveLevelAtSelected < 3) {
-                toast({ title: "Level Too Low", description: "Swap Scroll requires Level 3+.", variant: "destructive" });
-                return;
-            }
-            setIsAwaitingSwapScrollTarget(true);
-            setPossibleMoves([]);
-            toast({ title: "Targeting Mode", description: "Select another allied piece to swap places." });
-        };
-        
-        const executeIceScroll = () => {
-          if (effectiveLevelAtSelected < 2) {
-              toast({ title: "Level Too Low", description: "Ice Scroll requires Level 2+.", variant: "destructive" });
-              return;
-          }
-          saveStateToHistory();
-          clickGuardRef.current = true;
-          setIsMoveProcessing(true);
-          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
-          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-          setBoard(result.newBoard);
-          audioManager.playShield();
-          toast({ title: "Ice Scroll Cast!", description: "Adjacent enemies frozen for 2 turns!" });
-          setSelectedSquare(null);
-          setPossibleMoves([]);
-          setTimeout(() => {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-          }, 800);
-        };
-
-        const executeResurrectionScroll = () => {
-            if (effectiveLevelAtSelected < 4) {
-                toast({ title: "Level Too Low", description: "Resurrection Scroll requires Level 4+.", variant: "destructive" });
-                return;
-            }
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            if (result.resurrectionScrollEvent) {
-                const p = result.resurrectionScrollEvent.piece;
-                const oppColor = currentPlayer === 'white' ? 'black' : 'white';
-                setCapturedPieces(prev => ({ ...prev, [oppColor]: prev[oppColor].filter(pi => pi.id !== p.id) }));
-                addEffect('light-beam', result.resurrectionScrollEvent.square);
-                audioManager.playResurrect();
-                toast({ title: "Resurrection!", description: `Highest value ally restored: ${p.type}!` });
-            }
-            setBoard(result.newBoard);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeFaithScroll = () => {
-            if (effectiveLevelAtSelected < 5) {
-                toast({ title: "Level Too Low", description: "Faith Scroll requires Level 5+.", variant: "destructive" });
-                return;
-            }
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            if (result.conversionEvents.length > 0) {
-                audioManager.playConversion();
-                result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
-                toast({ title: "Conversions!", description: `${result.conversionEvents.length} units have joined your roster!` });
-            }
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeSelfDestruct = () => {
-          const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
-          tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
-          if (isKingInCheck(tempBoardForCheck, currentPlayer, enPassantTargetSquare)) {
-            toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 8000 });
-            return;
-          }
-
-          saveStateToHistory();
-          clickGuardRef.current = true;
-          setLastMoveFrom(selectedSquare);
-          setLastMoveTo(selectedSquare);
-          setIsMoveProcessing(true);
-          setAnimatedSquareTo(algebraic);
-          
-          const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
-          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
-          audioManager.playExplosion();
-
-          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
-          const applyMoveResult = applyMove(finalBoardStateForTurn, move, enPassantTargetSquare, capturedPieces);
-          let { newBoard, selfDestructCaptures, nextEnPassantTarget, rallyCryTriggered } = applyMoveResult;
-          
-          finalBoardStateForTurn = newBoard;
-          if (selfDestructCaptures) selfDestructCaptures.forEach(p => finalCapturedPiecesForTurn[currentPlayer].push(p));
-          
-          const selfDestructPlayer = currentPlayer;
-          const oldStreak = killStreaks[selfDestructPlayer] || 0;
-          let capturesThisTurn = selfDestructCaptures ? selfDestructCaptures.length : 0;
-          const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
-          setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreak}));
-          
-          if (capturesThisTurn > 0) {
-              setShowCaptureFlash(true);
-              setCaptureFlashKey(k => k + 1);
-          }
-
-          let humanPlayerAchievedFirstBloodThisTurn = false;
-          if (capturesThisTurn > 0 && !firstBloodAchieved) {
-              setFirstBloodAchieved(true);
-              setPlayerWhoGotFirstBlood(selfDestructPlayer);
-              humanPlayerAchievedFirstBloodThisTurn = true;
-          }
-
-          const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
-          const combinedExtraTurn = streakGrantsExtraTurn || applyMoveResult.extraTurn;
-          setBoard(finalBoardStateForTurn);
-          setCapturedPieces(finalCapturedPiecesForTurn);
-
-          setTimeout(() => {
-            setSelectedSquare(null); setPossibleMoves([]);
-            setIsMoveProcessing(false); clickGuardRef.current = false;
-
-            if (humanPlayerAchievedFirstBloodThisTurn) {
-                setIsAwaitingCommanderPromotion(true);
-                setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
-                return;
-            }
-
-            let enteringSpecialMode = false;
-            const opponentPlayer = selfDestructPlayer === 'white' ? 'black' : 'white';
-
-            if (newStreak >= 2 && oldStreak < 2 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer)) {
-                enteringSpecialMode = true;
-                setShieldContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                setIsAwaitingHolyShield(true);
-                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-            }
-
-            if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
-                enteringSpecialMode = true;
-                setAnvilDropContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                setIsAwaitingAnvilDrop(true);
-                setPlayerToDropAnvil(selfDestructPlayer);
-                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-            }
-
-            if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer)) {
-                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => sq.piece && sq.piece.color === opponentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                if (hasLevel1Victims) {
-                    enteringSpecialMode = true;
-                    setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                    setIsAwaitingArcherSnipe(true);
-                    setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-                }
-            }
-
-            if (!enteringSpecialMode && newStreak >= 4 && oldStreak < 4) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
-                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-                    const pieceToResurrect = piecesOfCurrentPlayerCapturedByOpponent.pop();
-                    if (pieceToResurrect) {
-                      const emptySquares: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
-                      if (emptySquares.length > 0) {
-                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_SD_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
-                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                        addEffect('light-beam', randomSquareAlg);
-                        audioManager.playResurrect();
-                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
-                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrect.id);
-                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${pieceToResurrect.type} returns!`, duration: 8000 });
-                      }
-                    }
-                  }
-            }
-
-            if (!enteringSpecialMode) {
-                processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, combinedExtraTurn, nextEnPassantTarget);
-            }
-          }, 800);
-        };
-
-        if (hasSelfSelectionAbility && hasMagicScroll) {
-          setAbilityChoiceDialog({
-            isOpen: true,
-            onChoice: (choice) => {
-              setAbilityChoiceDialog(null);
-              if (choice === 'ability') executeSelfDestruct();
-              else {
-                if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
-                else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
-                else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
-                else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
-                else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
-                else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
-                    if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
-                    else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
-                }
-                else executeWindScrollMode();
-              }
-            }
-          });
-          return;
-        }
-
-        if (hasMagicScroll) {
-          if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
-          else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
-          else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
-          else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
-          else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
-          else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
-              if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
-              else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
-          }
-          else executeWindScrollMode();
-        } else if (hasSelfSelectionAbility) {
-          executeSelfDestruct();
-        }
-        return;
-      }
-
-      originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
-      setPromotionPawnOriginalLevel(originalPieceLevelBeforeMove);
-
-      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
-      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
-
-      if (isMoveInFreshList) {
-        let moveType: Move['type'] = 'move';
-        if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
-          moveType = 'castle';
-        } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
-          moveType = 'enpassant';
-        } else if (clickedPiece) {
-            if (clickedPiece.color !== pieceToMoveFromSelected.color) {
-                moveType = 'capture';
-            } else {
-                moveType = 'swap';
-            }
-        }
-
-        moveBeingMade = { from: selectedSquare, to: algebraic, type: moveType };
-        
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setLastMoveFrom(selectedSquare);
-        setLastMoveTo(algebraic);
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade });
-                ws.send(payload);
-            }
-            return;
-        }
-
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare, capturedPieces);
-        const { 
-            newBoard: boardAfterMove, 
-            capturedPiece: capturedPieceFromApply, 
-            pieceCapturedByAnvil: pieceCapturedByAnvilFromApply, 
-            selfCheckByPushBack: selfCheckByPushBackFromApply,
-            anvilPushedOffBoard: anvilPushedOffBoardFromApply,
-            conversionEvents: conversionEventsFromApply,
-            queenLevelReducedEvents: queenLevelReducedEventsFromApply,
-            promotedToInfiltrator: becameInfiltratorFromApply,
-            infiltrationWin: gameWonByInfiltrationFromApply,
-            shroomConsumed: shroomConsumedThisMove,
-            rallyCryTriggered,
-            extraTurn: extraTurnFromApplyMove,
-            specialCaptureSquare,
-            originalPieceLevel: levelFromApplyMoveInternal,
-            reflectionOccurred,
-        } = applyMoveResult;
-        
-        finalBoardStateForTurn = boardAfterMove;
-        let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
-
-        if (reflectionOccurred) {
-            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
-            const victim = capturedPieceFromApply!;
-            finalCapturedPiecesForTurn[defenderColor].push({ ...victim, id: `${victim.id}_refl_${Date.now()}` });
-            audioManager.playCapture();
-            toast({ title: "REFLECTED!", description: `${getPlayerDisplayName(defenderColor)}'s Mirror Shield reflected the attack!` });
-            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1 }));
-            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
-            setBoard(finalBoardStateForTurn);
-            setCapturedPieces(finalCapturedPiecesForTurn);
-            setTimeout(() => {
-                setSelectedSquare(null); setPossibleMoves([]);
-                setIsMoveProcessing(false); clickGuardRef.current = false;
-                processMoveEnd(finalBoardStateForTurn, currentPlayer, false, null);
-            }, 800);
-            return;
-        }
-
-        if (becameInfiltratorFromApply) {
-          toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
-        }
-
-
-        if (gameWonByInfiltrationFromApply) {
-          setBoard(finalBoardStateForTurn);
-          setCapturedPieces(finalCapturedPiecesForTurn);
-          toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
-          setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-           if (onlineStatus === 'connected') {
-             const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: currentPlayer, reason: 'infiltration' }));
-            }
-           }
-          
-          return;
-        }
-
-        if (shroomConsumedThisMove) {
-            const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
-            if(movedPieceData) {
-                audioManager.playShroom();
-                audioManager.playLevelUp();
-                toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 8000 });
-            }
-        }
-
-
-        if (queenLevelReducedEventsFromApply && queenLevelReducedEventsFromApply.length > 0) {
-            queenLevelReducedEventsFromApply.forEach(event => {
-                const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
-                toast({
-                title: "King's Dominion!",
-                description: `${getPlayerDisplayName(event.reducedByKingOfColor)} King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
-                duration: 8000,
-                });
-            });
-        }
-
-
-        if (selfCheckByPushBackFromApply) {
-          const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-          toast({
-            title: "Auto-Checkmate!",
-            description: `${getPlayerDisplayName(currentPlayer)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
-            variant: "destructive",
-            duration: 8000,
-          });
-          setGameInfo(prev => ({
-            ...prev,
-            message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
-            isCheck: true,
-            playerWithKingInCheck: currentPlayer,
-            isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
-          }));
-          setBoard(finalBoardStateForTurn);
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-          setSelectedSquare(null); setPossibleMoves([]);
-          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-          if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
-            }
-          }
-          return;
-        }
-
-        const capturingPlayer = currentPlayer;
-        const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
-        
-        const oldStreak = killStreaks[capturingPlayer] || 0;
-        let capturesThisTurn = 0;
-        if (capturedPieceFromApply) capturesThisTurn++;
-        if (pieceCapturedByAnvilFromApply) capturesThisTurn++;
-
-        const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
-        if (capturesThisTurn > 0) {
-            setKillStreaks(prev => ({
-                ...prev,
-                [capturingPlayer]: newStreak
-            }));
-        } else {
-            if (killStreaks[capturingPlayer] > 0) {
-                setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
-            }
-        }
-        
-        const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
-        const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
-
-        if (capturedPieceFromApply) {
-          if (pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator') {
-            audioManager.playObliterate();
-            toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 8000});
-          } else {
-            audioManager.playCapture();
-            audioManager.playLevelUp();
-            const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
-            finalCapturedPiecesForTurn[capturingPlayer].push(uniqueCapturedPiece);
-          }
-          setShowCaptureFlash(true);
-          setCaptureFlashKey(k => k + 1);
-        } else if (pieceCapturedByAnvilFromApply) {
-          audioManager.playObliterate();
-          finalCapturedPiecesForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
-          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
-          setShowCaptureFlash(true);
-          setCaptureFlashKey(k => k + 1);
-        } else if (moveBeingMade.type === 'castle') {
-           audioManager.playMove();
-        } else if (moveBeingMade.type === 'swap') {
-            audioManager.playMove();
-        } else {
-           audioManager.playMove();
-        }
-
-        if (anvilPushedOffBoardFromApply) {
-            toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
-        }
-        
-
-        let humanRookResData: RookResurrectionResult | null = null;
-        const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
-        const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;
-
-        if (movedPieceOnToSquareHuman && (movedPieceOnToSquareHuman.type === 'rook' || movedPieceOnToSquareHuman.type === 'palace' || (moveBeingMade.type === 'promotion' && (moveBeingMade.promoteTo === 'rook' || moveBeingMade.promoteTo === 'palace'))) ) {
-           if (capturesThisTurn > 0) { 
-            const oldLevelForResurrectionCheck = levelFromApplyMoveInternal !== undefined ? levelFromApplyMoveInternal : originalPieceLevelBeforeMove;
-            humanRookResData = processRookResurrectionCheck(
-              finalBoardStateForTurn,
-              currentPlayer,
-              moveBeingMade,
-              algebraic,
-              oldLevelForResurrectionCheck,
-              finalCapturedPiecesForTurn,
-              uniqueIdCounterRef.current
-            );
-            if (humanRookResData.resurrectionPerformed) {
-              finalBoardStateForTurn = humanRookResData.boardWithResurrection;
-              finalCapturedPiecesForTurn = humanRookResData.capturedPiecesAfterResurrection;
-              uniqueIdCounterRef.current = humanRookResData.newResurrectionIdCounter!;
-              addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
-              audioManager.playResurrect();
-              setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
-              const resType = movedPieceOnToSquareHuman.type === 'palace' ? 'Master' : 'Rook\'s';
-              toast({
-                  title: `${resType} Call!`,
-                  description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceOnToSquareHuman.type} resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L${humanRookResData.resurrectedPieceData!.level})`,
-                  duration: 8000,
-              });
-
-              if (humanRookResData.promotionRequiredForResurrectedPawn) {
-                  const isExtraTurnForRookResPromo = oldStreak < 6 && newStreak >= 6;
-                  setPlayerForPostResurrectionPromotion(currentPlayer);
-                  setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo);
-                  setIsResurrectionPromotionInProgress(true);
-                  setPlayerToPromote(currentPlayer);
-                  setIsPromotingPawn(true);
-                  setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
-                  setBoard(finalBoardStateForTurn);
-                  setCapturedPieces(finalCapturedPiecesForTurn);
-                  setIsMoveProcessing(false);
-                  clickGuardRef.current = false;
-                  return;
-              }
-            }
-          }
-        }
-
-        if (capturesThisTurn > 0 && !firstBloodAchieved) {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(capturingPlayer);
-            const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-        }
-        
-        const pieceThatMadeMoveEffectiveLevel = getEffectiveLevel(finalBoardStateForTurn, toR_final, toC_final);
-        const originalEffectiveLevel = getEffectiveLevel(board, fromR_selected, fromC_selected);
-
-        const commanderHeroPromoExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'commander' && originalEffectiveLevel >= 5 && pieceThatMadeTheMove?.type === 'hero');
-        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
-        const pawnLevelGrantsExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'pawn' && originalEffectiveLevel >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
-        const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
-        const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
-
-        if (newStreak >= 2 && oldStreak < 2) {
-            const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
-            if (hasArchbishop) {
-                enteringSpecialMode = true;
-                const shieldCtx = {
-                    boardForNextStep: finalBoardStateForTurn,
-                    playerWhoseTurnCompleted: capturingPlayer,
-                    isExtraTurn: combinedExtraTurn,
-                    newEnPassantTarget: enPassantTargetSquare,
-                    capturingPieceId: pieceThatMadeTheMove?.id
-                };
-                setShieldContext(shieldCtx);
-                if (isPawnPromotingMove) {
-                } else {
-                    setIsAwaitingHolyShield(true);
-                    setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-                }
-            }
-        }
-
-        if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
-            enteringSpecialMode = true;
-            const anvilDropCtx = {
-                boardForNextStep: finalBoardStateForTurn,
-                playerWhoseTurnCompleted: capturingPlayer,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-            };
-            setAnvilDropContext(anvilDropCtx);
-            if (isPawnPromotingMove) {
-                setAnvilDropAfterPromotion(true);
-            } else {
-                setIsAwaitingAnvilDrop(true);
-                setPlayerToDropAnvil(capturingPlayer);
-                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-            }
-        } 
-
-        if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5) {
-            const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === capturingPlayer);
-            if (hasArcher) {
-                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
-                    sq.piece && 
-                    sq.piece.color === opponentPlayer && 
-                    sq.piece.level === 1 && 
-                    sq.piece.type !== 'king' && 
-                    sq.piece.type !== 'queen'
-                );
-                
-                if (hasLevel1Victims) {
-                  enteringSpecialMode = true;
-                  const snipeCtx = {
-                      boardForNextStep: boardAfterMove, 
-                      playerWhoseTurnCompleted: capturingPlayer,
-                      isExtraTurn: combinedExtraTurn,
-                      newEnPassantTarget: enPassantTargetSquare,
-                  };
-                  setArcherSnipeContext(snipeCtx);
-                  if (isPawnPromotingMove) {
-                  } else {
-                      setIsAwaitingArcherSnipe(true);
-                      setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-                  }
-                }
-            }
-        }
-        
-        if (newStreak >= 4 && oldStreak < 4) {
-              if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
-                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-                    const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
-                    if (pieceToResurrectOriginalOriginalAI) {
-                      const emptySquares: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
-                      if (emptySquares.length > 0) {
-                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
-
-                        const promoRow = capturingPlayer === 'white' ? 0 : 7;
-                        if (resurrectedPiece.type === 'commander' && resR === promoRow) {
-                            resurrectedPiece.type = 'hero';
-                            resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
-                            toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
-                        } else {
-                            toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${pieceToResurrectOriginalOriginalAI.type} returns! (L1)`, duration: 8000 });
-                        }
-                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                        addEffect('light-beam', randomSquareAlg);
-                        audioManager.playResurrect();
-                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
-                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
-
-                        if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
-                            setPlayerForPostResurrectionPromotion(capturingPlayer);
-                            setIsExtraTurnForPostResurrectionPromotion(oldStreak < 6 && newStreak >= 6);
-                            setIsResurrectionPromotionInProgress(true);
-                            setPlayerToPromote(capturingPlayer);
-                            setIsPromotingPawn(true);
-                            setPromotionSquare(randomSquareAlg);
-                            setBoard(finalBoardStateForTurn);
-                            setCapturedPieces(finalCapturedPiecesForTurn);
-                            setIsMoveProcessing(false);
-                            clickGuardRef.current = false;
-                            return;
-                        }
-                      }
-                    }
-                  }
-              }
-        }
-
-
-        if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
-          conversionEventsFromApply.forEach(event => {
-            addEffect('conversion', event.at, event.byPiece.color);
-            if (event.originalPiece.color !== event.convertedPiece.color) {
-              audioManager.playConversion();
-              toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
-            }
-          });
-        }
-
-        setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesForTurn);
-        
-        if (enteringSpecialMode && !isPawnPromotingMove) {
-            setIsMoveProcessing(false); 
-            clickGuardRef.current = false;
-        }
-
-        setTimeout(() => {
-          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-
-          const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
-          const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
-          
-          if (humanPlayerAchievedFirstBloodThisTurn) {
-              setIsAwaitingCommanderPromotion(true);
-              setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
-              if (onlineStatus === 'disconnected') {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-              }
-              return;
-          }
-
-          if (enteringSpecialMode) {
-              setIsMoveProcessing(false); 
-              clickGuardRef.current = false;
-              return;
-          }
-
-
-          const isPendingResurrectionPromotion = isResurrectionPromotionInProgress;
-          let sacrificeNeeded = false;
-
-          if (!isPendingResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeeded = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
-          }
-
-          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeeded && !isPendingResurrectionPromotion) {
-            setPlayerToPromote(currentPlayer);
-            setIsPromotingPawn(true); 
-            setPromotionSquare(algebraic);
-          } else if (!isPawnPromotingMove && !sacrificeNeeded && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingResurrectionPromotion && !becameInfiltratorFromApply) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          } else if (humanRookResData?.resurrectionPerformed && !isPendingResurrectionPromotion) {
-             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          } else if ((becameInfiltratorFromApply) && !isPendingResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeeded) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          }
-
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-        }, 800);
-        return;
-      } else {
-        if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-            if(clickedPiece.color === currentPlayer) { 
-                setSelectedSquare(algebraic);
-                const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-                setPossibleMoves(legalMovesForPlayer);
-                setEnemySelectedSquare(null);
-                setEnemyPossibleMoves([]);
-            } else { 
-                setSelectedSquare(null);
-                setPossibleMoves([]);
-                setEnemySelectedSquare(algebraic);
-                const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-                setEnemyPossibleMoves(enemyMoves);
-            }
-        } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-        setIsMoveProcessing(false);
-        clickGuardRef.current = false;
-        return;
-      }
-    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-        if (clickedPiece.color === currentPlayer) {
-            setSelectedSquare(algebraic);
-            const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-            setPossibleMoves(legalMovesForPlayer);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(algebraic);
-            const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-            setEnemyPossibleMoves(enemyMoves);
-      }
-    } else {
-      setSelectedSquare(null);
-      setPossibleMoves([]);
-      setEnemySelectedSquare(null);
-      setEnemyPossibleMoves([]);
-    }
-
-
-  }, [
-    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
-    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast, addEffect,
-    setGameInfo, setCapturedPieces, setKillStreaks,
-    setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
-    setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
-    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
-    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
-    getPossibleMoves,
-    isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress,
-    getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey,
-    firstBloodAchieved, 
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
-    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
-    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
-    isAwaitingArcherSnipe, archerSnipeContext, isWhiteAI, isBlackAI,
-    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, saveLoadoutToFirestore
-  ]);
-  
-  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare || isAwaitingCommanderPromotion) {
-        return;
-    }
-
-    if (onlineStatus === 'connected') {
-        const ws = wsRef.current;
-        if(ws && ws.readyState === WebSocket.OPEN) {
-          const payload = JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } });
-          ws.send(payload);
-        }
-        setIsPromotingPawn(false);
-        setPromotionSquare(null);
-        setPlayerToPromote(null);
-        setIsResurrectionPromotionInProgress(false);
-        return;
-    }
-
-    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-    const { row, col } = algebraicToCoords(promotionSquare);
-    const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
-
-    if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && pieceBeingPromoted.type !== 'commander' && !isResurrectionPromotionInProgress) ) {
-      setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false);
-      clickGuardRef.current = false;
-      setPromotionMoveWasCapture(false);
-      setPromotionPawnOriginalLevel(null);
-      setIsResurrectionPromotionInProgress(false);
-      setPlayerToPromote(null);
-      return;
-    }
-
-    saveStateToHistory();
-
-    const pawnColor = pieceBeingPromoted.color;
-    const originalPieceId = pieceBeingPromoted.id;
-    const promotingFromType = pieceBeingPromoted.type;
-    const currentLevelOfPieceOnSquare = Number(boardToUpdate[row][col].piece!.level || 1);
-
-    const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
-
-
-    boardToUpdate[row][col].piece = {
-      ...pieceBeingPromoted,
-      type: pieceType,
-      level: currentLevelOfPieceOnSquare,
-      id: isResurrectionPromotionInProgress ? `${originalPieceId}_resPromo_${pieceType}` : `${originalPieceId}_promo_${pieceType}`,
-      hasMoved: true,
-      invulnerableTurnsRemaining: 0,
-      isShielded: false,
-      isPoisoned: false, 
-      cooldownTurnsRemaining: 0,
-      frozenTurnsRemaining: 0
-    };
-    if (pieceType === 'queen') {
-        boardToUpdate[row][col].piece!.level = Math.min(currentLevelOfPieceOnSquare, 7);
-    }
-
-
-    setLastMoveTo(promotionSquare);
-    setIsMoveProcessing(true);
-    clickGuardRef.current = true;
-    setAnimatedSquareTo(promotionSquare);
-    
-    audioManager.playLevelUp();
-
-    setBoard(boardToUpdate);
-
-    setTimeout(() => {
-      const oldStreak = killStreaks[pawnColor] || 0;
-      let currentStreakForPromotingPlayer = oldStreak;
-
-      if (isResurrectionPromotionInProgress) {
-        toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
-        currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
-        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion, enPassantTargetSquare);
-        setIsResurrectionPromotionInProgress(false);
-        setPlayerForPostResurrectionPromotion(null);
-        setIsExtraTurnForPostResurrectionPromotion(false);
-      } else {
-        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
-
-        const pieceLevelForExtraTurnCheck = getEffectiveLevel(boardToUpdate, row, col);
-        const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
-        
-        const hasTriggeredShield = shieldContext !== null;
-        const hasTriggeredAnvil = anvilDropContext !== null;
-        const hasTriggeredSnipe = archerSnipeContext !== null;
-
-        const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
-        const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
-
-        let enteringSpecialMode = false;
-        
-        if (hasTriggeredShield) {
-            enteringSpecialMode = true;
-            const updatedShieldCtx = {
-                boardForNextStep: boardToUpdate,
-                playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-                capturingPieceId: boardToUpdate[row][col].piece?.id
-            };
-            setShieldContext(updatedShieldCtx);
-            setIsAwaitingHolyShield(true);
-            setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-        }
-
-        if (!enteringSpecialMode && hasTriggeredSnipe) {
-            enteringSpecialMode = true;
-            const updatedSnipeCtx = {
-                boardForNextStep: boardToUpdate,
-                playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-            };
-            setArcherSnipeContext(updatedSnipeCtx);
-            setIsAwaitingArcherSnipe(true);
-            setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-        }
-
-        if (!enteringSpecialMode && (hasTriggeredAnvil || anvilDropAfterPromotion)) {
-            setAnvilDropAfterPromotion(false);
-            enteringSpecialMode = true;
-            const updatedAnvilDropCtx = {
-                boardForNextStep: boardToUpdate,
-                playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-            };
-            setAnvilDropContext(updatedAnvilDropCtx);
-            setIsAwaitingAnvilDrop(true);
-            setPlayerToDropAnvil(pawnColor);
-            setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-        }
-
-        if (!enteringSpecialMode) {
-            let sacrificeNeeded = false;
-
-            if (pieceType === 'queen') {
-              sacrificeNeeded = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn, enPassantTargetSquare);
-            } else if (pieceType === 'rook' || pieceType === 'palace') {
-              if (promotionMoveWasCapture) { 
-                const newRookLevel = getEffectiveLevel(boardToUpdate, row, col);
-                if (newRookLevel >= 4) { 
-                  const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
-                    boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
-                    0, 
-                    capturedPieces, uniqueIdCounterRef.current
-                  );
-                  if (aiPromoRookResPerformed) {
-                    boardToUpdate = boardWithResurrection;
-                    setCapturedPieces(capturedPiecesAfterResurrection);
-                    uniqueIdCounterRef.current = aiPromoRookIdCounter!;
-                    setBoard(boardToUpdate);
-                    addEffect('light-beam', aiPromoRookSquareAlg!);
-                    audioManager.playResurrect();
-                    setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
-                    toast({ title: `AI ${pieceType === 'palace' ? 'Master' : 'Rook'}'s Call (Post-Promo)!`, description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new ${pieceType} resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L${aiPromoRookPieceData!.level})`, duration: 8000 });
-                  }
-                }
-              }
-            }
-
-            if (!sacrificeNeeded && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress && !isAwaitingCommanderPromotion) {
-               processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn, enPassantTargetSquare);
-            }
-        }
-      }
-
-      setEnemySelectedSquare(null);
-      setEnemyPossibleMoves([]);
-      setIsPromotingPawn(false);
-      setPromotionSquare(null);
-      setPlayerToPromote(null);
-      setPromotionMoveWasCapture(false);
-      setPromotionPawnOriginalLevel(null);
-      setIsMoveProcessing(false);
-      clickGuardRef.current = false;
-    }, 800);
-  }, [
-    board, promotionSquare, toast, killStreaks, saveStateToHistory, getPlayerDisplayName, processPawnSacrificeCheck, processRookResurrectionCheck,
-    isMoveProcessing, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
-    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces, setPlayerToPromote,
-    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
-    setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
-    isAwaitingCommanderPromotion, enPassantTargetSquare,
-    onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe, shieldContext, archerSnipeContext
-  ]);
 
 
   const performAiMove = async () => {
@@ -4128,9 +2561,1391 @@ export default function EvolvingChessPage() {
   }, [stopTurnTimer]);
 
 
+  const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
+    if (clickGuardRef.current) return;
+
+    const { row, col } = algebraicToCoords(algebraic);
+    const clickedSquareState = board[row]?.[col];
+    const clickedPiece = clickedSquareState?.piece;
+    setPieceForInfoDisplay(clickedPiece || null);
+
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
+    if (isAnySpecialModeActive && !isLocalActionTurn) {
+        return;
+    }
+
+    if (isInventoryOpen) {
+      if (selectedInventoryItemType) {
+        if (clickedPiece && !clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          if (usedSlots >= attunementSlots) {
+            toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
+            return;
+          }
+          
+          const pType = clickedPiece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
+            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
+            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
+            return;
+          }
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
+            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
+            return;
+          }
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
+            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
+            return;
+          }
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
+            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
+          setBoard(nextBoard);
+          let newInv = [...inventory];
+          const item = newInv.find(i => i.type === selectedInventoryItemType);
+          if (item) {
+            item.count--;
+            if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType);
+          }
+          setInventory(newInv);
+          saveLoadoutToFirestore(nextBoard, newInv);
+          setSelectedInventoryItemType(null);
+          audioManager.playLevelUp();
+          toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
+        } else if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          const pType = clickedPiece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
+            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
+            return;
+          }
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
+            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
+            return;
+          }
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
+            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
+            return;
+          }
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
+            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
+            return;
+          }
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
+            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
+            return;
+          }
+
+          const oldItem = clickedPiece.heldItem;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
+          setBoard(nextBoard);
+          const nextInv = [...inventory];
+          const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
+          if (itemIn) {
+            itemIn.count--;
+            if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
+          }
+          const itemOut = nextInv.find(i => i.type === oldItem);
+          if (itemOut) itemOut.count++;
+          else nextInv.push({ type: oldItem, count: 1 });
+          setInventory(nextInv);
+          saveLoadoutToFirestore(nextBoard, nextInv);
+          setSelectedInventoryItemType(null);
+          audioManager.playLevelUp();
+          toast({ title: "Swapped!", description: `Swapped ${ITEM_METADATA[oldItem].name} for ${ITEM_METADATA[selectedInventoryItemType].name}.` });
+        }
+      } else {
+        if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          const removedItem = clickedPiece.heldItem;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = null;
+          setBoard(nextBoard);
+          const nextInv = [...inventory];
+          const item = nextInv.find(i => i.type === removedItem);
+          if (item) item.count++;
+          else nextInv.push({ type: removedItem, count: 1 });
+          setInventory(nextInv);
+          saveLoadoutToFirestore(nextBoard, nextInv);
+          audioManager.playMove();
+          toast({ title: "Unequipped", description: `${ITEM_METADATA[removedItem].name} returned to bag.` });
+        }
+      }
+      return;
+    }
+
+    if (isAwaitingWindScrollTarget && isLocalActionTurn) {
+      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+        saveStateToHistory();
+        clickGuardRef.current = true;
+        setIsMoveProcessing(true);
+        setAnimatedSquareTo(algebraic);
+        
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+        setBoard(result.newBoard);
+        audioManager.playAnvil();
+        toast({ title: "Wind Scroll Cast!", description: `Units pushed back from ${algebraic}.` });
+        
+        setIsAwaitingWindScrollTarget(false);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        setTimeout(() => {
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+        }, 800);
+      } else {
+        toast({ title: "Invalid Target", description: "Target an empty space to cast the Wind Scroll.", variant: "destructive" });
+      }
+      return;
+    }
+
+    if (isAwaitingAnvilScrollTarget && isLocalActionTurn) {
+      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+        saveStateToHistory();
+        clickGuardRef.current = true;
+        setIsMoveProcessing(true);
+        setAnimatedSquareTo(algebraic);
+        
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+        setBoard(result.newBoard);
+        audioManager.playAnvil();
+        toast({ title: "Anvil Summoned!", description: `Anvil dropped on ${algebraic}.` });
+        
+        setIsAwaitingAnvilScrollTarget(false);
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        setTimeout(() => {
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+        }, 800);
+      } else {
+        toast({ title: "Invalid Target", description: "Target an empty space to summon an Anvil.", variant: "destructive" });
+      }
+      return;
+    }
+
+    if (isAwaitingShieldScrollTarget && isLocalActionTurn) {
+        if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            setAnimatedSquareTo(algebraic);
+            
+            const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            audioManager.playShield();
+            toast({ title: "Shield Cast!", description: `${clickedPiece.type} is now protected.` });
+            
+            setIsAwaitingShieldScrollTarget(false);
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setTimeout(() => {
+              setIsMoveProcessing(false);
+              clickGuardRef.current = false;
+              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        } else {
+            toast({ title: "Invalid Target", description: "Select an allied non-King/Queen piece.", variant: "destructive" });
+        }
+        return;
+    }
+
+    if (isAwaitingSwapScrollTarget && isLocalActionTurn) {
+        if (clickedPiece && clickedPiece.color === currentPlayer && algebraic !== selectedSquare) {
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            setAnimatedSquareTo(algebraic);
+            
+            const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            audioManager.playMove();
+            toast({ title: "Swap Scroll Used!", description: `Swapped places with allied ${clickedPiece.type}.` });
+            
+            setIsAwaitingSwapScrollTarget(false);
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setTimeout(() => {
+              setIsMoveProcessing(false);
+              clickGuardRef.current = false;
+              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        } else {
+            toast({ title: "Invalid Target", description: "Select another allied piece to swap places.", variant: "destructive" });
+        }
+        return;
+    }
+
+    let moveBeingMade: Move | null = null;
+    let humanPlayerAchievedFirstBloodThisTurn = false;
+    let originalPieceLevelBeforeMove: number | undefined;
+    let enteringSpecialMode = false;
+
+    if (isAwaitingArcherSnipe && isLocalActionTurn) {
+      if (clickedPiece && clickedPiece.color !== currentPlayer && clickedPiece.level === 1 && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
+          saveStateToHistory();
+          
+          if (onlineStatus === 'connected') {
+              const ws = wsRef.current;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
+              }
+              clickGuardRef.current = true;
+              setIsMoveProcessing(true);
+              return;
+          }
+
+          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = archerSnipeContext!;
+          const boardAfterSnipe = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+          
+          const archerOnBoard = boardAfterSnipe.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer);
+          if (archerOnBoard?.piece) {
+              archerOnBoard.piece.level += 2;
+              archerOnBoard.piece.isPoisoned = false; 
+              archerOnBoard.piece.cooldownTurnsRemaining = 0;
+              archerOnBoard.piece.frozenTurnsRemaining = 0;
+          }
+
+          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
+          setCapturedPieces(prev => ({
+              ...prev,
+              [currentPlayer]: [...(prev[currentPlayer] || []), uniqueCapturedPiece]
+          }));
+
+          boardAfterSnipe[row][col].piece = null;
+          setBoard(boardAfterSnipe);
+          
+          addEffect('poof', algebraic);
+          audioManager.playSnipe();
+          toast({ title: "Archer Snipe!", description: `${getPlayerDisplayName(currentPlayer)} sniped the ${clickedPiece.type}!` });
+          
+          setIsAwaitingArcherSnipe(false);
+          setArcherSnipeContext(null);
+          
+          processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+      } else {
+          if (isLocalActionTurn) {
+            toast({ title: "Invalid Snipe Target", description: "Select an enemy Level 1 piece (not King/Queen).", variant: "destructive" });
+          }
+      }
+      return;
+    }
+
+    if (isAwaitingHolyShield && isLocalActionTurn) {
+      const capturingPieceId = lastMoveTo ? board[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
+      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen' && clickedPiece.id !== capturingPieceId) {
+          saveStateToHistory();
+          
+          if (onlineStatus === 'connected') {
+              const ws = wsRef.current;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
+              }
+              clickGuardRef.current = true;
+              setIsMoveProcessing(true);
+              return;
+          }
+
+          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = shieldContext!;
+          const boardAfterShield = boardForNextStep.map(r => r.map(s => ({
+              ...s,
+              piece: s.piece ? { ...s.piece, isShielded: s.piece.id === clickedPiece.id ? true : s.piece.isShielded } : null
+          })));
+          setBoard(boardAfterShield);
+          audioManager.playShield();
+          toast({ title: "Holy Shield!", description: `${clickedPiece.type} is now shielded!` });
+          setIsAwaitingHolyShield(false);
+          setShieldContext(null);
+          
+          processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+      } else {
+          if (isLocalActionTurn) {
+            toast({ title: "Invalid Shield Target", description: "Cannot shield Kings, Queens, or the piece that just captured.", variant: "destructive" });
+          }
+      }
+      return;
+    }
+
+    if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
+        if (clickedPiece) {
+            if (clickedPiece.color === localPlayerColor) {
+                setSelectedSquare(algebraic);
+                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
+                setEnemySelectedSquare(null);
+                setEnemyPossibleMoves([]);
+            } else {
+                setSelectedSquare(null);
+                setPossibleMoves([]);
+                setEnemySelectedSquare(algebraic);
+                setEnemyPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
+            }
+        } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        }
+        return; 
+    }
+
+    if (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) {
+        if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+            if (onlineStatus === 'connected') {
+                const ws = wsRef.current;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
+                }
+                clickGuardRef.current = true;
+                setIsMoveProcessing(true); 
+                return;
+            }
+    
+            saveStateToHistory();
+            const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
+            const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
+            boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
+            setBoard(boardAfterAnvilDrop);
+            audioManager.playAnvil();
+            
+            toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
+        
+            const hasCrossbowArcher = boardAfterAnvilDrop.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
+            if (hasCrossbowArcher) {
+              const hasVictims = boardAfterAnvilDrop.flat().some(sq => sq.piece && sq.piece.color !== currentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+              if (hasVictims) {
+                setArcherSnipeContext({ boardForNextStep: boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget });
+                setIsAwaitingArcherSnipe(true);
+                setGameInfo(prev => ({...prev, message: "CROSSBOW SNIPE! Select Level 1 enemy."}));
+                setIsAwaitingAnvilDrop(false);
+                setPlayerToDropAnvil(null);
+                setAnvilDropContext(null);
+                return;
+              }
+            }
+
+            processMoveEnd(boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
+        
+            setIsAwaitingAnvilDrop(false);
+            setPlayerToDropAnvil(null);
+            setAnvilDropContext(null);
+        } else {
+            if (isLocalActionTurn) {
+                toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
+            }
+        }
+        return;
+    }
+
+    if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
+      if (!(isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
+          return;
+      }
+    }
+    
+    const clickedItem = clickedSquareState?.item;
+
+    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
+        if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
+            saveStateToHistory();
+            
+            if (onlineStatus === 'connected') {
+                const ws = wsRef.current;
+                if(ws && ws.readyState === WebSocket.OPEN) {
+                    const payload = JSON.stringify({ type: 'commander-promo', square: algebraic });
+                    ws.send(payload);
+                }
+                clickGuardRef.current = true;
+                setIsAwaitingCommanderPromotion(false);
+                setPlayerWhoGotFirstBlood(null);
+                return;
+            }
+
+            const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+            boardAfterCommanderPromo[row][col].piece!.type = 'commander';
+            boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
+            boardAfterCommanderPromo[row][col].piece!.isPoisoned = false; 
+            boardAfterCommanderPromo[row][col].piece!.cooldownTurnsRemaining = 0;
+            boardAfterCommanderPromo[row][col].piece!.frozenTurnsRemaining = 0;
+            setBoard(boardAfterCommanderPromo);
+            audioManager.playLevelUp();
+            toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
+            
+            setIsAwaitingCommanderPromotion(false);
+            const actingPlayerForComplete = playerWhoGotFirstBlood!;
+            setPlayerWhoGotFirstBlood(null);
+            
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+
+            if (!isPromotingPawn && !isAwaitingHolyShield && !isAwaitingAnvilDrop && !isAwaitingArcherSnipe) {
+                processMoveEnd(boardAfterCommanderPromo, actingPlayerForComplete, false, enPassantTargetSquare);
+            }
+            return;
+        } else {
+            if (isLocalActionTurn) {
+                toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 8000});
+            }
+        }
+        return;
+    }
+
+
+    if (isAwaitingPawnSacrifice && playerToSacrificePawn === currentPlayer) {
+      if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
+        saveStateToHistory();
+        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+        const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
+        const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${uniqueIdCounterRef.current++}`};
+        
+        boardAfterSacrifice[row][col].piece = null;
+
+        setBoard(boardAfterSacrifice);
+        audioManager.playCapture();
+
+        const opponentOfSacrificer = playerWhoMadeQueenMove! === 'white' ? 'black' : 'white';
+        setCapturedPieces(prevCaptured => {
+          const newCaptured = { ...prevCaptured };
+          newCaptured[opponentOfSacrificer] = [...(newCaptured[opponentOfSacrificer] || []), pawnToSacrifice];
+          return newCaptured;
+        });
+
+        toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 8000 });
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+                const payload = JSON.stringify({ type: 'pawn-sacrifice', square: algebraic });
+                ws.send(payload);
+            }
+        }
+        
+        const playerWhoTriggeredSacrifice = playerWhoMadeQueenMove;
+        const extraTurnAfterSacrifice = isExtraTurnFromQueenMove;
+
+        setIsAwaitingPawnSacrifice(false);
+        setPlayerToSacrificePawn(null);
+        setBoardForPostSacrifice(null);
+        setPlayerWhoMadeQueenMove(null);
+        setIsExtraTurnFromQueenMove(false);
+
+        setLastMoveFrom(null);
+        setLastMoveTo(algebraic);
+
+        processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice, enPassantTargetSquare);
+      } else {
+        if (isLocalActionTurn) {
+            toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 8000 });
+        }
+      }
+      return;
+    }
+
+    if (clickedItem && clickedItem.type !== 'shroom') {
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        setEnemySelectedSquare(null);
+        setEnemyPossibleMoves([]);
+        return;
+    }
+
+    if (isAwaitingRookSacrifice && playerToSacrificeForRook === currentPlayer) {
+      toast({ title: "Rook Action", description: "Rook ability is now automatic on L4+.", duration: 8000 });
+      setIsAwaitingRookSacrifice(false);
+      setPlayerToSacrificeForRook(null);
+      setRookToMakeInvulnerable(null);
+      processMoveEnd(boardForRookSacrifice || board, originalTurnPlayerForRookSacrifice || currentPlayer, isExtraTurnFromRookLevelUp || false, enPassantTargetSquare);
+      setBoardForRookSacrifice(null);
+      setOriginalTurnPlayerForRookSacrifice(null);
+      setIsExtraTurnFromRookLevelUp(false);
+      return;
+    }
+
+    let finalBoardStateForTurn = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+    let finalCapturedPiecesForTurn = {
+      white: capturedPieces.white.map(p => ({ ...p })),
+      black: capturedPieces.black.map(p => ({ ...p }))
+    };
+
+
+    if (selectedSquare) {
+      const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
+      const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
+      const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
+
+      if (!pieceToMoveFromSelected) {
+        setSelectedSquare(null);
+        setPossibleMoves([]);
+        setIsMoveProcessing(false);
+        clickGuardRef.current = false;
+        return;
+      }
+
+      const effectiveLevelAtSelected = getEffectiveLevel(board, fromR_selected, fromC_selected);
+      const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && effectiveLevelAtSelected >= 5);
+      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll' || pieceToMoveFromSelected.heldItem === 'ice_scroll' || pieceToMoveFromSelected.heldItem === 'resurrection_scroll' || pieceToMoveFromSelected.heldItem === 'faith_scroll');
+
+      if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
+        if ((pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) || (pieceToMoveFromSelected.frozenTurnsRemaining && pieceToMoveFromSelected.frozenTurnsRemaining > 0)) {
+            toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
+            return;
+        }
+
+        const executeLifeLeach = () => {
+          saveStateToHistory();
+          clickGuardRef.current = true;
+          setIsMoveProcessing(true);
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
+          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+          setBoard(result.newBoard);
+          audioManager.playLevelUp();
+          toast({ title: "Life Leach Cast!", description: "All enemy levels reduced by 1." });
+          setSelectedSquare(null);
+          setPossibleMoves([]);
+          setTimeout(() => {
+            setIsMoveProcessing(false);
+            clickGuardRef.current = false;
+            processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+          }, 800);
+        };
+
+        const executeWindScrollMode = () => {
+          setIsAwaitingWindScrollTarget(true);
+          setPossibleMoves([]); 
+          toast({ title: "Targeting Mode", description: "Select an empty square to target with Wind Scroll." });
+        };
+
+        const executeSummonAnvilMode = () => {
+          setIsAwaitingAnvilScrollTarget(true);
+          setPossibleMoves([]); 
+          toast({ title: "Targeting Mode", description: "Select an empty square to summon an Anvil." });
+        };
+
+        const executeShieldScrollMode = () => {
+            if (effectiveLevelAtSelected < 2) {
+                toast({ title: "Level Too Low", description: "Shield Scroll requires Level 2+.", variant: "destructive" });
+                return;
+            }
+            setIsAwaitingShieldScrollTarget(true);
+            setPossibleMoves([]);
+            toast({ title: "Targeting Mode", description: "Select an allied unit to shield." });
+        };
+
+        const executeRallyScroll = () => {
+            if (effectiveLevelAtSelected < 3) {
+                toast({ title: "Level Too Low", description: "Rally Scroll requires Level 3+.", variant: "destructive" });
+                return;
+            }
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            audioManager.playRally();
+            toast({ title: "Rally Scroll Cast!", description: "All other allied units leveled up!" });
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        };
+
+        const executeAntidote = () => {
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            audioManager.playShield();
+            toast({ title: "Antidote Used!", description: "All allied units cured of poison." });
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        };
+
+        const executeSwapScrollMode = () => {
+            if (effectiveLevelAtSelected < 3) {
+                toast({ title: "Level Too Low", description: "Swap Scroll requires Level 3+.", variant: "destructive" });
+                return;
+            }
+            setIsAwaitingSwapScrollTarget(true);
+            setPossibleMoves([]);
+            toast({ title: "Targeting Mode", description: "Select another allied piece to swap places." });
+        };
+        
+        const executeIceScroll = () => {
+          if (effectiveLevelAtSelected < 2) {
+              toast({ title: "Level Too Low", description: "Ice Scroll requires Level 2+.", variant: "destructive" });
+              return;
+          }
+          saveStateToHistory();
+          clickGuardRef.current = true;
+          setIsMoveProcessing(true);
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
+          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+          setBoard(result.newBoard);
+          audioManager.playShield();
+          toast({ title: "Ice Scroll Cast!", description: "Adjacent enemies frozen for 2 turns!" });
+          setSelectedSquare(null);
+          setPossibleMoves([]);
+          setTimeout(() => {
+              setIsMoveProcessing(false);
+              clickGuardRef.current = false;
+              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+          }, 800);
+        };
+
+        const executeResurrectionScroll = () => {
+            if (effectiveLevelAtSelected < 4) {
+                toast({ title: "Level Too Low", description: "Resurrection Scroll requires Level 4+.", variant: "destructive" });
+                return;
+            }
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            if (result.resurrectionScrollEvent) {
+                const p = result.resurrectionScrollEvent.piece;
+                const oppColor = currentPlayer === 'white' ? 'black' : 'white';
+                setCapturedPieces(prev => ({ ...prev, [oppColor]: prev[oppColor].filter(pi => pi.id !== p.id) }));
+                addEffect('light-beam', result.resurrectionScrollEvent.square);
+                audioManager.playResurrect();
+                toast({ title: "Resurrection!", description: `Highest value ally restored: ${p.type}!` });
+            }
+            setBoard(result.newBoard);
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        };
+
+        const executeFaithScroll = () => {
+            if (effectiveLevelAtSelected < 5) {
+                toast({ title: "Level Too Low", description: "Faith Scroll requires Level 5+.", variant: "destructive" });
+                return;
+            }
+            saveStateToHistory();
+            clickGuardRef.current = true;
+            setIsMoveProcessing(true);
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            if (result.conversionEvents.length > 0) {
+                audioManager.playConversion();
+                result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+                toast({ title: "Conversions!", description: `${result.conversionEvents.length} units have joined your roster!` });
+            }
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
+            }, 800);
+        };
+
+        const executeSelfDestruct = () => {
+          const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
+          tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
+          if (isKingInCheck(tempBoardForCheck, currentPlayer, enPassantTargetSquare)) {
+            toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 8000 });
+            return;
+          }
+
+          saveStateToHistory();
+          clickGuardRef.current = true;
+          setLastMoveFrom(selectedSquare);
+          setLastMoveTo(selectedSquare);
+          setIsMoveProcessing(true);
+          setAnimatedSquareTo(algebraic);
+          
+          const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+          audioManager.playExplosion();
+
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
+          const applyMoveResult = applyMove(finalBoardStateForTurn, move, enPassantTargetSquare, capturedPieces);
+          let { newBoard, selfDestructCaptures, nextEnPassantTarget, rallyCryTriggered } = applyMoveResult;
+          
+          finalBoardStateForTurn = newBoard;
+          if (selfDestructCaptures) selfDestructCaptures.forEach(p => finalCapturedPiecesForTurn[currentPlayer].push(p));
+          
+          const selfDestructPlayer = currentPlayer;
+          const oldStreak = killStreaks[selfDestructPlayer] || 0;
+          let capturesThisTurn = selfDestructCaptures ? selfDestructCaptures.length : 0;
+          const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
+          setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreak}));
+          
+          if (capturesThisTurn > 0) {
+              setShowCaptureFlash(true);
+              setCaptureFlashKey(k => k + 1);
+          }
+
+          let humanPlayerAchievedFirstBloodThisTurn = false;
+          if (capturesThisTurn > 0 && !firstBloodAchieved) {
+              setFirstBloodAchieved(true);
+              setPlayerWhoGotFirstBlood(selfDestructPlayer);
+              humanPlayerAchievedFirstBloodThisTurn = true;
+          }
+
+          const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
+          const combinedExtraTurn = streakGrantsExtraTurn || applyMoveResult.extraTurn;
+          setBoard(finalBoardStateForTurn);
+          setCapturedPieces(finalCapturedPiecesForTurn);
+
+          setTimeout(() => {
+            setSelectedSquare(null); setPossibleMoves([]);
+            setIsMoveProcessing(false); clickGuardRef.current = false;
+
+            if (humanPlayerAchievedFirstBloodThisTurn) {
+                setIsAwaitingCommanderPromotion(true);
+                setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
+                return;
+            }
+
+            let enteringSpecialMode = false;
+            const opponentPlayer = selfDestructPlayer === 'white' ? 'black' : 'white';
+
+            if (newStreak >= 2 && oldStreak < 2 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer)) {
+                enteringSpecialMode = true;
+                setShieldContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                setIsAwaitingHolyShield(true);
+                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+            }
+
+            if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
+                enteringSpecialMode = true;
+                setAnvilDropContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                setIsAwaitingAnvilDrop(true);
+                setPlayerToDropAnvil(selfDestructPlayer);
+                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
+            }
+
+            if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer)) {
+                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => sq.piece && sq.piece.color === opponentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                if (hasLevel1Victims) {
+                    enteringSpecialMode = true;
+                    setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
+                    setIsAwaitingArcherSnipe(true);
+                    setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                }
+            }
+
+            if (!enteringSpecialMode && newStreak >= 4 && oldStreak < 4) {
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
+                    const pieceToResurrect = piecesOfCurrentPlayerCapturedByOpponent.pop();
+                    if (pieceToResurrect) {
+                      const emptySquares: AlgebraicSquare[] = [];
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                      if (emptySquares.length > 0) {
+                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
+                        const resurrectedPiece: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_SD_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                        addEffect('light-beam', randomSquareAlg);
+                        audioManager.playResurrect();
+                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
+                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrect.id);
+                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${pieceToResurrect.type} returns!`, duration: 8000 });
+                      }
+                    }
+                  }
+            }
+
+            if (!enteringSpecialMode) {
+                processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, combinedExtraTurn, nextEnPassantTarget);
+            }
+          }, 800);
+        };
+
+        if (hasSelfSelectionAbility && hasMagicScroll) {
+          setAbilityChoiceDialog({
+            isOpen: true,
+            onChoice: (choice) => {
+              setAbilityChoiceDialog(null);
+              if (choice === 'ability') executeSelfDestruct();
+              else {
+                if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
+                else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
+                else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
+                else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
+                else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
+                else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
+                else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
+                else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
+                else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
+                else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
+                    if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
+                    else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+                }
+                else executeWindScrollMode();
+              }
+            }
+          });
+          return;
+        }
+
+        if (hasMagicScroll) {
+          if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
+          else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
+          else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
+          else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
+          else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
+          else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
+          else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
+          else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
+          else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
+          else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
+              if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
+              else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+          }
+          else executeWindScrollMode();
+        } else if (hasSelfSelectionAbility) {
+          executeSelfDestruct();
+        }
+        return;
+      }
+
+      originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
+      setPromotionPawnOriginalLevel(originalPieceLevelBeforeMove);
+
+      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
+      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+
+      if (isMoveInFreshList) {
+        let moveType: Move['type'] = 'move';
+        if (pieceToMoveFromSelected.type === 'king' && Math.abs(fromC_selected - col) === 2) {
+          moveType = 'castle';
+        } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
+          moveType = 'enpassant';
+        } else if (clickedPiece) {
+            if (clickedPiece.color !== pieceToMoveFromSelected.color) {
+                moveType = 'capture';
+            } else {
+                moveType = 'swap';
+            }
+        }
+
+        moveBeingMade = { from: selectedSquare, to: algebraic, type: moveType };
+        
+        saveStateToHistory();
+        clickGuardRef.current = true;
+        setLastMoveFrom(selectedSquare);
+        setLastMoveTo(algebraic);
+        setIsMoveProcessing(true);
+        setAnimatedSquareTo(algebraic);
+
+        if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade });
+                ws.send(payload);
+            }
+            return;
+        }
+
+        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare, capturedPieces);
+        const { 
+            newBoard: boardAfterMove, 
+            capturedPiece: capturedPieceFromApply, 
+            pieceCapturedByAnvil: pieceCapturedByAnvilFromApply, 
+            selfCheckByPushBack: selfCheckByPushBackFromApply,
+            anvilPushedOffBoard: anvilPushedOffBoardFromApply,
+            conversionEvents: conversionEventsFromApply,
+            queenLevelReducedEvents: queenLevelReducedEventsFromApply,
+            promotedToInfiltrator: becameInfiltratorFromApply,
+            infiltrationWin: gameWonByInfiltrationFromApply,
+            shroomConsumed: shroomConsumedThisMove,
+            rallyCryTriggered,
+            extraTurn: extraTurnFromApplyMove,
+            specialCaptureSquare,
+            originalPieceLevel: levelFromApplyMoveInternal,
+            reflectionOccurred,
+        } = applyMoveResult;
+        
+        finalBoardStateForTurn = boardAfterMove;
+        let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
+
+        if (reflectionOccurred) {
+            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
+            const victim = capturedPieceFromApply!;
+            finalCapturedPiecesForTurn[defenderColor].push({ ...victim, id: `${victim.id}_refl_${Date.now()}` });
+            audioManager.playCapture();
+            toast({ title: "REFLECTED!", description: `${getPlayerDisplayName(defenderColor)}'s Mirror Shield reflected the attack!` });
+            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1 }));
+            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
+            setBoard(finalBoardStateForTurn);
+            setCapturedPieces(finalCapturedPiecesForTurn);
+            setTimeout(() => {
+                setSelectedSquare(null); setPossibleMoves([]);
+                setIsMoveProcessing(false); clickGuardRef.current = false;
+                processMoveEnd(finalBoardStateForTurn, currentPlayer, false, null);
+            }, 800);
+            return;
+        }
+
+        if (becameInfiltratorFromApply) {
+          toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
+        }
+
+
+        if (gameWonByInfiltrationFromApply) {
+          setBoard(finalBoardStateForTurn);
+          setCapturedPieces(finalCapturedPiecesForTurn);
+          toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
+          setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+           if (onlineStatus === 'connected') {
+             const ws = wsRef.current;
+            if(ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: currentPlayer, reason: 'infiltration' }));
+            }
+           }
+          
+          return;
+        }
+
+        if (shroomConsumedThisMove) {
+            const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
+            if(movedPieceData) {
+                audioManager.playShroom();
+                audioManager.playLevelUp();
+                toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 8000 });
+            }
+        }
+
+
+        if (queenLevelReducedEventsFromApply && queenLevelReducedEventsFromApply.length > 0) {
+            queenLevelReducedEventsFromApply.forEach(event => {
+                const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
+                toast({
+                title: "King's Dominion!",
+                description: `${getPlayerDisplayName(event.reducedByKingOfColor)} King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
+                duration: 8000,
+                });
+            });
+        }
+
+
+        if (selfCheckByPushBackFromApply) {
+          const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+          toast({
+            title: "Auto-Checkmate!",
+            description: `${getPlayerDisplayName(currentPlayer)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
+            variant: "destructive",
+            duration: 8000,
+          });
+          setGameInfo(prev => ({
+            ...prev,
+            message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
+            isCheck: true,
+            playerWithKingInCheck: currentPlayer,
+            isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
+          }));
+          setBoard(finalBoardStateForTurn);
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+          setSelectedSquare(null); setPossibleMoves([]);
+          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+          if (onlineStatus === 'connected') {
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
+            }
+          }
+          return;
+        }
+
+        const capturingPlayer = currentPlayer;
+        const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
+        
+        const oldStreak = killStreaks[capturingPlayer] || 0;
+        let capturesThisTurn = 0;
+        if (capturedPieceFromApply) capturesThisTurn++;
+        if (pieceCapturedByAnvilFromApply) capturesThisTurn++;
+
+        const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
+        if (capturesThisTurn > 0) {
+            setKillStreaks(prev => ({
+                ...prev,
+                [capturingPlayer]: newStreak
+            }));
+        } else {
+            if (killStreaks[capturingPlayer] > 0) {
+                setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
+            }
+        }
+        
+        const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
+        const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
+
+        if (capturedPieceFromApply) {
+          if (pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator') {
+            audioManager.playObliterate();
+            toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 8000});
+          } else {
+            audioManager.playCapture();
+            audioManager.playLevelUp();
+            const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
+            finalCapturedPiecesForTurn[capturingPlayer].push(uniqueCapturedPiece);
+          }
+          setShowCaptureFlash(true);
+          setCaptureFlashKey(k => k + 1);
+        } else if (pieceCapturedByAnvilFromApply) {
+          audioManager.playObliterate();
+          finalCapturedPiecesForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
+          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
+          setShowCaptureFlash(true);
+          setCaptureFlashKey(k => k + 1);
+        } else if (moveBeingMade.type === 'castle') {
+           audioManager.playMove();
+        } else if (moveBeingMade.type === 'swap') {
+            audioManager.playMove();
+        } else {
+           audioManager.playMove();
+        }
+
+        if (anvilPushedOffBoardFromApply) {
+            toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
+        }
+        
+
+        let humanRookResData: RookResurrectionResult | null = null;
+        const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
+        const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;
+
+        if (movedPieceOnToSquareHuman && (movedPieceOnToSquareHuman.type === 'rook' || movedPieceOnToSquareHuman.type === 'palace' || (moveBeingMade.type === 'promotion' && (moveBeingMade.promoteTo === 'rook' || moveBeingMade.promoteTo === 'palace'))) ) {
+           if (capturesThisTurn > 0) { 
+            const oldLevelForResurrectionCheck = levelFromApplyMoveInternal !== undefined ? levelFromApplyMoveInternal : originalPieceLevelBeforeMove;
+            humanRookResData = processRookResurrectionCheck(
+              finalBoardStateForTurn,
+              currentPlayer,
+              moveBeingMade,
+              algebraic,
+              oldLevelForResurrectionCheck,
+              finalCapturedPiecesForTurn,
+              uniqueIdCounterRef.current
+            );
+            if (humanRookResData.resurrectionPerformed) {
+              finalBoardStateForTurn = humanRookResData.boardWithResurrection;
+              finalCapturedPiecesForTurn = humanRookResData.capturedPiecesAfterResurrection;
+              uniqueIdCounterRef.current = humanRookResData.newResurrectionIdCounter!;
+              addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
+              audioManager.playResurrect();
+              setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
+              const resType = movedPieceOnToSquareHuman.type === 'palace' ? 'Master' : 'Rook\'s';
+              toast({
+                  title: `${resType} Call!`,
+                  description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceOnToSquareHuman.type} resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L${humanRookResData.resurrectedPieceData!.level})`,
+                  duration: 8000,
+              });
+
+              if (humanRookResData.promotionRequiredForResurrectedPawn) {
+                  const isExtraTurnForRookResPromo = oldStreak < 6 && newStreak >= 6;
+                  setPlayerForPostResurrectionPromotion(currentPlayer);
+                  setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo);
+                  setIsResurrectionPromotionInProgress(true);
+                  setPlayerToPromote(currentPlayer);
+                  setIsPromotingPawn(true);
+                  setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
+                  setBoard(finalBoardStateForTurn);
+                  setCapturedPieces(finalCapturedPiecesForTurn);
+                  setIsMoveProcessing(false);
+                  clickGuardRef.current = false;
+                  return;
+              }
+            }
+          }
+        }
+
+        if (capturesThisTurn > 0 && !firstBloodAchieved) {
+            setFirstBloodAchieved(true);
+            setPlayerWhoGotFirstBlood(capturingPlayer);
+            const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
+            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
+        }
+        
+        const originalEffectiveLevel = getEffectiveLevel(board, fromR_selected, fromC_selected);
+
+        const commanderHeroPromoExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'commander' && originalEffectiveLevel >= 5 && pieceThatMadeTheMove?.type === 'hero');
+        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
+        const pawnLevelGrantsExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'pawn' && originalEffectiveLevel >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
+        const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
+        const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
+
+        if (newStreak >= 2 && oldStreak < 2) {
+            const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
+            if (hasArchbishop) {
+                enteringSpecialMode = true;
+                const shieldCtx = {
+                    boardForNextStep: finalBoardStateForTurn,
+                    playerWhoseTurnCompleted: capturingPlayer,
+                    isExtraTurn: combinedExtraTurn,
+                    newEnPassantTarget: enPassantTargetSquare,
+                    capturingPieceId: pieceThatMadeTheMove?.id
+                };
+                setShieldContext(shieldCtx);
+                if (isPawnPromotingMove) {
+                } else {
+                    setIsAwaitingHolyShield(true);
+                    setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+                }
+            }
+        }
+
+        if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
+            enteringSpecialMode = true;
+            const anvilDropCtx = {
+                boardForNextStep: finalBoardStateForTurn,
+                playerWhoseTurnCompleted: capturingPlayer,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
+            };
+            setAnvilDropContext(anvilDropCtx);
+            if (isPawnPromotingMove) {
+                setAnvilDropAfterPromotion(true);
+            } else {
+                setIsAwaitingAnvilDrop(true);
+                setPlayerToDropAnvil(capturingPlayer);
+                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
+            }
+        } 
+
+        if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5) {
+            const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === capturingPlayer);
+            if (hasArcher) {
+                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
+                    sq.piece && 
+                    sq.piece.color === opponentPlayer && 
+                    sq.piece.level === 1 && 
+                    sq.piece.type !== 'king' && 
+                    sq.piece.type !== 'queen'
+                );
+                
+                if (hasLevel1Victims) {
+                  enteringSpecialMode = true;
+                  const snipeCtx = {
+                      boardForNextStep: boardAfterMove, 
+                      playerWhoseTurnCompleted: capturingPlayer,
+                      isExtraTurn: combinedExtraTurn,
+                      newEnPassantTarget: enPassantTargetSquare,
+                  };
+                  setArcherSnipeContext(snipeCtx);
+                  if (isPawnPromotingMove) {
+                  } else {
+                      setIsAwaitingArcherSnipe(true);
+                      setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+                  }
+                }
+            }
+        }
+        
+        if (newStreak >= 4 && oldStreak < 4) {
+              if (!humanRookResData?.resurrectionPerformed) {
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
+                    const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
+                    if (pieceToResurrectOriginalOriginalAI) {
+                      const emptySquares: AlgebraicSquare[] = [];
+                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+                      if (emptySquares.length > 0) {
+                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+
+                        const promoRow = capturingPlayer === 'white' ? 0 : 7;
+                        if (resurrectedPiece.type === 'commander' && resR === promoRow) {
+                            resurrectedPiece.type = 'hero';
+                            resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
+                            toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
+                        } else {
+                            toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${pieceToResurrectOriginalOriginalAI.type} returns! (L1)`, duration: 8000 });
+                        }
+                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
+                        addEffect('light-beam', randomSquareAlg);
+                        audioManager.playResurrect();
+                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
+                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
+
+                        if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
+                            setPlayerForPostResurrectionPromotion(capturingPlayer);
+                            setIsExtraTurnForPostResurrectionPromotion(oldStreak < 6 && newStreak >= 6);
+                            setIsResurrectionPromotionInProgress(true);
+                            setPlayerToPromote(capturingPlayer);
+                            setIsPromotingPawn(true);
+                            setPromotionSquare(randomSquareAlg);
+                            setBoard(finalBoardStateForTurn);
+                            setCapturedPieces(finalCapturedPiecesForTurn);
+                            setIsMoveProcessing(false);
+                            clickGuardRef.current = false;
+                            return;
+                        }
+                      }
+                    }
+                  }
+              }
+        }
+
+
+        if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
+          conversionEventsFromApply.forEach(event => {
+            addEffect('conversion', event.at, event.byPiece.color);
+            if (event.originalPiece.color !== event.convertedPiece.color) {
+              audioManager.playConversion();
+              toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
+            }
+          });
+        }
+
+        setBoard(finalBoardStateForTurn);
+        setCapturedPieces(finalCapturedPiecesForTurn);
+        
+        if (enteringSpecialMode && !isPawnPromotingMove) {
+            setIsMoveProcessing(false); 
+            clickGuardRef.current = false;
+        }
+
+        setTimeout(() => {
+          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+
+          const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
+          const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
+          
+          if (humanPlayerAchievedFirstBloodThisTurn) {
+              setIsAwaitingCommanderPromotion(true);
+              setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
+              if (onlineStatus === 'disconnected') {
+                setIsMoveProcessing(false);
+                clickGuardRef.current = false;
+              }
+              return;
+          }
+
+          if (enteringSpecialMode) {
+              setIsMoveProcessing(false); 
+              clickGuardRef.current = false;
+              return;
+          }
+
+
+          const isPendingResurrectionPromotion = isResurrectionPromotionInProgress;
+          let sacrificeNeeded = false;
+
+          if (!isPendingResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
+             sacrificeNeeded = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
+          }
+
+          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeeded && !isPendingResurrectionPromotion) {
+            setPlayerToPromote(currentPlayer);
+            setIsPromotingPawn(true); 
+            setPromotionSquare(algebraic);
+          } else if (!isPawnPromotingMove && !sacrificeNeeded && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingResurrectionPromotion && !becameInfiltratorFromApply) {
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
+          } else if (humanRookResData?.resurrectionPerformed && !isPendingResurrectionPromotion) {
+             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
+          } else if ((becameInfiltratorFromApply) && !isPendingResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeeded) {
+            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
+          }
+
+          setIsMoveProcessing(false);
+          clickGuardRef.current = false;
+        }, 800);
+        return;
+      } else {
+        if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
+            if(clickedPiece.color === currentPlayer) { 
+                setSelectedSquare(algebraic);
+                const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+                setPossibleMoves(legalMovesForPlayer);
+                setEnemySelectedSquare(null);
+                setEnemyPossibleMoves([]);
+            } else { 
+                setSelectedSquare(null);
+                setPossibleMoves([]);
+                setEnemySelectedSquare(algebraic);
+                const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+                setEnemyPossibleMoves(enemyMoves);
+            }
+        } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        }
+        setIsMoveProcessing(false);
+        clickGuardRef.current = false;
+        return;
+      }
+    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
+        if (clickedPiece.color === currentPlayer) {
+            setSelectedSquare(algebraic);
+            const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+            setPossibleMoves(legalMovesForPlayer);
+            setEnemySelectedSquare(null);
+            setEnemyPossibleMoves([]);
+        } else {
+            setSelectedSquare(null);
+            setPossibleMoves([]);
+            setEnemySelectedSquare(algebraic);
+            const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
+            setEnemyPossibleMoves(enemyMoves);
+      }
+    } else {
+      setSelectedSquare(null);
+      setPossibleMoves([]);
+      setEnemySelectedSquare(null);
+      setEnemyPossibleMoves([]);
+    }
+
+
+  }, [
+    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
+    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast, addEffect,
+    setGameInfo, setCapturedPieces, setKillStreaks,
+    setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
+    setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
+    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
+    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
+    getPossibleMoves,
+    isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress,
+    getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey,
+    firstBloodAchieved, 
+    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
+    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
+    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
+    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
+    isAwaitingArcherSnipe, archerSnipeContext, isWhiteAI, isBlackAI,
+    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, saveLoadoutToFirestore
+  ]);
+
   const mobileLayout = (
-    <div className="relative z-20 flex flex-col flex-grow w-full p-1 lg:hidden">
-      <div className="flex flex-col items-center justify-between flex-grow gap-1">
+    <div className="relative z-20 flex flex-col flex-grow w-full p-1 lg:hidden overflow-y-auto scrollbar-hide">
+      <div className="flex flex-col items-center justify-between gap-1 pb-4">
           <div className="w-full flex items-center justify-between">
               <div className="w-1/3"></div>
               <div className="w-1/3 flex items-center justify-center">
@@ -4299,7 +4114,59 @@ export default function EvolvingChessPage() {
                 <View /> View
               </Button>
            </div>
-        </div>
+           
+           <Card className="w-full mt-2">
+            <CardContent className="p-2 flex flex-col gap-2">
+               <div className="flex flex-col gap-1 items-center" >
+                  <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRankedPlay}
+                  disabled={!user || onlineStatus !== 'disconnected'}
+                  className="h-7 px-2 text-xs w-full"
+                   aria-label="Play Ranked Match"
+                  >
+                  <Trophy className="mr-1 h-3 w-3" />
+                  {getRankedButtonText()}
+                  </Button>
+                  <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOnlinePlay('create')}
+                  disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
+                  className="h-7 px-2 text-xs w-full"
+                  aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
+                  >
+                  {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}
+                  {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
+                  </Button>
+                  <div className="flex gap-1 items-center w-full">
+                  <Input
+                      type="text"
+                      placeholder="Room ID"
+                      value={inputRoomId}
+                      onChange={(e) => setInputRoomId(e.target.value)}
+                      className="h-7 px-2 text-xs flex-grow"
+                      disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
+                  />
+                  <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleOnlinePlay('join')}
+                      disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
+                      className="h-7 px-2 text-xs"
+                      aria-label="Join Online Game"
+                  >
+                      Join
+                  </Button>
+                  </div>
+              </div>
+               <div className="w-full text-center h-4 text-xs mt-1">
+                  {getStatusMessage()}
+              </div>
+            </CardContent>
+          </Card>
+      </div>
     </div>
   );
 
@@ -4486,7 +4353,7 @@ export default function EvolvingChessPage() {
                 className="h-7 px-2 text-xs w-full"
                  aria-label="Play Ranked Match"
                 >
-                <Trophy />
+                <Trophy className="mr-1 h-3 w-3" />
                 {getRankedButtonText()}
                 </Button>
                 <Button
@@ -4497,7 +4364,7 @@ export default function EvolvingChessPage() {
                 className="h-7 px-2 text-xs w-full"
                 aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
                 >
-                {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
+                {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}
                 {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
                 </Button>
                 <div className="flex gap-1 items-center w-full">
@@ -4529,6 +4396,197 @@ export default function EvolvingChessPage() {
       </div>
     </div>
   );
+
+  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
+    if (!promotionSquare || isAwaitingCommanderPromotion) {
+        return;
+    }
+
+    if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          const payload = JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } });
+          ws.send(payload);
+        }
+        setIsPromotingPawn(false);
+        setPromotionSquare(null);
+        setPlayerToPromote(null);
+        setIsResurrectionPromotionInProgress(false);
+        return;
+    }
+
+    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+    const { row, col } = algebraicToCoords(promotionSquare);
+    const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
+
+    if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && pieceBeingPromoted.type !== 'commander' && !isResurrectionPromotionInProgress) ) {
+      setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false);
+      clickGuardRef.current = false;
+      setPromotionMoveWasCapture(false);
+      setPromotionPawnOriginalLevel(null);
+      setIsResurrectionPromotionInProgress(false);
+      setPlayerToPromote(null);
+      return;
+    }
+
+    saveStateToHistory();
+
+    const pawnColor = pieceBeingPromoted.color;
+    const originalPieceId = pieceBeingPromoted.id;
+    const promotingFromType = pieceBeingPromoted.type;
+    const currentLevelOfPieceOnSquare = Number(boardToUpdate[row][col].piece!.level || 1);
+
+    const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
+
+
+    boardToUpdate[row][col].piece = {
+      ...pieceBeingPromoted,
+      type: pieceType,
+      level: currentLevelOfPieceOnSquare,
+      id: isResurrectionPromotionInProgress ? `${originalPieceId}_resPromo_${pieceType}` : `${originalPieceId}_promo_${pieceType}`,
+      hasMoved: true,
+      invulnerableTurnsRemaining: 0,
+      isShielded: false,
+      isPoisoned: false, 
+      cooldownTurnsRemaining: 0,
+      frozenTurnsRemaining: 0
+    };
+    if (pieceType === 'queen') {
+        boardToUpdate[row][col].piece!.level = Math.min(currentLevelOfPieceOnSquare, 7);
+    }
+
+
+    setLastMoveTo(promotionSquare);
+    setIsMoveProcessing(true);
+    clickGuardRef.current = true;
+    setAnimatedSquareTo(promotionSquare);
+    
+    audioManager.playLevelUp();
+
+    setBoard(boardToUpdate);
+
+    setTimeout(() => {
+      const oldStreak = killStreaks[pawnColor] || 0;
+      let currentStreakForPromotingPlayer = oldStreak;
+
+      if (isResurrectionPromotionInProgress) {
+        toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
+        currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
+        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion, enPassantTargetSquare);
+        setIsResurrectionPromotionInProgress(false);
+        setPlayerForPostResurrectionPromotion(null);
+        setIsExtraTurnForPostResurrectionPromotion(false);
+      } else {
+        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
+
+        const pieceLevelForExtraTurnCheck = getEffectiveLevel(boardToUpdate, row, col);
+        const pawnLevelGrantsExtraTurn = pieceLevelForExtraTurnCheck >= 5;
+        
+        const hasTriggeredShield = shieldContext !== null;
+        const hasTriggeredAnvil = anvilDropContext !== null;
+        const hasTriggeredSnipe = archerSnipeContext !== null;
+
+        const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
+        const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
+
+        let enteringSpecialMode = false;
+        
+        if (hasTriggeredShield) {
+            enteringSpecialMode = true;
+            const updatedShieldCtx = {
+                boardForNextStep: boardToUpdate,
+                playerWhoseTurnCompleted: pawnColor,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
+                capturingPieceId: boardToUpdate[row][col].piece?.id
+            };
+            setShieldContext(updatedShieldCtx);
+            setIsAwaitingHolyShield(true);
+            setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
+        }
+
+        if (!enteringSpecialMode && hasTriggeredSnipe) {
+            enteringSpecialMode = true;
+            const updatedSnipeCtx = {
+                boardForNextStep: boardToUpdate,
+                playerWhoseTurnCompleted: pawnColor,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
+            };
+            setArcherSnipeContext(updatedSnipeCtx);
+            setIsAwaitingArcherSnipe(true);
+            setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
+        }
+
+        if (!enteringSpecialMode && (hasTriggeredAnvil || anvilDropAfterPromotion)) {
+            setAnvilDropAfterPromotion(false);
+            enteringSpecialMode = true;
+            const updatedAnvilDropCtx = {
+                boardForNextStep: boardToUpdate,
+                playerWhoseTurnCompleted: pawnColor,
+                isExtraTurn: combinedExtraTurn,
+                newEnPassantTarget: enPassantTargetSquare,
+            };
+            setAnvilDropContext(updatedAnvilDropCtx);
+            setIsAwaitingAnvilDrop(true);
+            setPlayerToDropAnvil(pawnColor);
+            setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
+        }
+
+        if (!enteringSpecialMode) {
+            let sacrificeNeeded = false;
+
+            if (pieceType === 'queen') {
+              sacrificeNeeded = processPawnSacrificeCheck(boardToUpdate, pawnColor, moveThatLedToPromotion, currentLevelOfPieceOnSquare, combinedExtraTurn, enPassantTargetSquare);
+            } else if (pieceType === 'rook' || pieceType === 'palace') {
+              if (promotionMoveWasCapture) { 
+                const newRookLevel = getEffectiveLevel(boardToUpdate, row, col);
+                if (newRookLevel >= 4) { 
+                  const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
+                    boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
+                    0, 
+                    capturedPieces, uniqueIdCounterRef.current
+                  );
+                  if (aiPromoRookResPerformed) {
+                    boardToUpdate = boardWithResurrection;
+                    setCapturedPieces(capturedPiecesAfterResurrection);
+                    uniqueIdCounterRef.current = aiPromoRookIdCounter!;
+                    setBoard(boardToUpdate);
+                    addEffect('light-beam', aiPromoRookSquareAlg!);
+                    audioManager.playResurrect();
+                    setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
+                    toast({ title: `AI ${pieceType === 'palace' ? 'Master' : 'Rook'}'s Call (Post-Promo)!`, description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new ${pieceType} resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L${aiPromoRookPieceData!.level})`, duration: 8000 });
+                  }
+                }
+              }
+            }
+
+            if (!sacrificeNeeded && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress && !isAwaitingCommanderPromotion) {
+               processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn, enPassantTargetSquare);
+            }
+        }
+      }
+
+      setEnemySelectedSquare(null);
+      setEnemyPossibleMoves([]);
+      setIsPromotingPawn(false);
+      setPromotionSquare(null);
+      setPlayerToPromote(null);
+      setPromotionMoveWasCapture(false);
+      setPromotionPawnOriginalLevel(null);
+      setIsMoveProcessing(false);
+      clickGuardRef.current = false;
+    }, 800);
+  }, [
+    board, promotionSquare, toast, killStreaks, saveStateToHistory, getPlayerDisplayName, processPawnSacrificeCheck, processRookResurrectionCheck,
+    isMoveProcessing, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
+    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces, setPlayerToPromote,
+    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
+    setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
+    isAwaitingCommanderPromotion, enPassantTargetSquare,
+    onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture, promotionPawnOriginalLevel,
+    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe, shieldContext, archerSnipeContext
+  ]);
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative after:content-[''] after:fixed after:inset-0 after:bg-black after:opacity-0 after:-z-10 after:pointer-events-none", showLossScreen && "after:animate-fade-to-black")}>
@@ -4571,7 +4629,7 @@ export default function EvolvingChessPage() {
         </div>
       )}
       
-      <div className="lg:hidden">
+      <div className="lg:hidden h-full">
         {mobileLayout}
       </div>
       <div className="hidden lg:block h-full">

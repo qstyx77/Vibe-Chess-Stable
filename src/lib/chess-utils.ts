@@ -2,7 +2,7 @@ import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Square
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
-export function initializeBoard(): BoardState {
+export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
     const row: SquareState[] = [];
@@ -13,12 +13,66 @@ export function initializeBoard(): BoardState {
     board.push(row);
   }
 
-  for (let c = 0; c < 8; c++) {
-    board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
-    board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
-    board[7][c].piece = { id: `w${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'white', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
-    board[0][c].piece = { id: `b${pieceOrder[c][0].toUpperCase()}${c}`, type: pieceOrder[c], color: 'black', level: 1, hasMoved: false, invulnerableTurnsRemaining: 0, isShielded: false, heldItem: null };
-  }
+  // Setup pieces with stable identities
+  const whiteBishops: Piece[] = [
+    { id: 'wB1', type: whiteElo >= 1500 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const whiteRooks: Piece[] = [
+    { id: 'wR1', type: whiteElo >= 1800 ? 'palace' : 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'wR2', type: 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const whiteKnights: Piece[] = [
+    { id: 'wN1', type: whiteElo >= 2100 ? 'archer' : 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'wN2', type: 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+
+  const blackBishops: Piece[] = [
+    { id: 'bB1', type: blackElo >= 1500 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const blackRooks: Piece[] = [
+    { id: 'bR1', type: blackElo >= 1800 ? 'palace' : 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bR2', type: 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const blackKnights: Piece[] = [
+    { id: 'bN1', type: blackElo >= 2100 ? 'archer' : 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bN2', type: 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+
+  // Randomize starting squares for paired pieces
+  const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
+  
+  const wBPos = shuffle([2, 5]);
+  const wNPos = shuffle([1, 6]);
+  const wRPos = shuffle([0, 7]);
+
+  const bBPos = shuffle([2, 5]);
+  const bNPos = shuffle([1, 6]);
+  const bRPos = shuffle([0, 7]);
+
+  // Place White Pieces
+  board[7][wBPos[0]].piece = whiteBishops[0];
+  board[7][wBPos[1]].piece = whiteBishops[1];
+  board[7][wNPos[0]].piece = whiteKnights[0];
+  board[7][wNPos[1]].piece = whiteKnights[1];
+  board[7][wRPos[0]].piece = whiteRooks[0];
+  board[7][wRPos[1]].piece = whiteRooks[1];
+  board[7][3].piece = { id: 'wQ', type: 'queen', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+  board[7][4].piece = { id: 'wK', type: 'king', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+  for (let c = 0; c < 8; c++) board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+
+  // Place Black Pieces
+  board[0][bBPos[0]].piece = blackBishops[0];
+  board[0][bBPos[1]].piece = blackBishops[1];
+  board[0][bNPos[0]].piece = blackKnights[0];
+  board[0][bNPos[1]].piece = blackKnights[1];
+  board[0][bRPos[0]].piece = blackRooks[0];
+  board[0][bRPos[1]].piece = blackRooks[1];
+  board[0][3].piece = { id: 'bQ', type: 'queen', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+  board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+  for (let c = 0; c < 8; c++) board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+
   return board;
 }
 
