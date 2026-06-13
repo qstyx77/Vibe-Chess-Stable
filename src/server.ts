@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -320,7 +319,6 @@ const processRankedQueue = async () => {
 
         let board = initializeBoard();
         
-        // Apply equipment from each player
         const applyEquipment = (b: any, equip: Record<string, string> | undefined) => {
           if(!equip) return b;
           return b.map((row: any) => row.map((sq: any) => {
@@ -455,7 +453,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         roomToJoin.clients.push(ws);
                         roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null;
                         
-                        // Apply joined player's equipment
                         if(data.user?.equipment) {
                           roomToJoin.gameState.board = roomToJoin.gameState.board.map((row: any) => row.map((sq: any) => {
                             if (sq.piece && sq.piece.color === 'black' && data.user.equipment[sq.piece.id]) {
@@ -598,7 +595,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             return;
                         }
 
-                        // VALIDATION
                         let isLegal = false;
                         if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll'].includes(moveType)) {
                             const level = movingPieceStart.level || 1;
@@ -641,7 +637,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.resurrectedSquare = resurrectionScrollEvent.square;
                         }
 
-                        // Rook Resurrection Server Parity
                         const toCoords = algebraicToCoords(to);
                         const pieceAtDest = finalizedBoard[toCoords.row][toCoords.col].piece;
                         if (pieceAtDest && (pieceAtDest.type === 'rook' || pieceAtDest.type === 'palace') && caps > 0) {

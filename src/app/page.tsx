@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -4300,53 +4299,6 @@ export default function EvolvingChessPage() {
                 <View /> View
               </Button>
            </div>
-           <div className="flex flex-wrap justify-center items-center gap-1">
-              <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRankedPlay}
-              disabled={!user || onlineStatus !== 'disconnected'}
-              className="h-7 px-2 text-xs"
-               aria-label="Play Ranked Match"
-              >
-              <Trophy />
-              {getRankedButtonText()}
-              </Button>
-              <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleOnlinePlay('create')}
-              disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
-              className="h-7 px-2 text-xs"
-              aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
-              >
-              {onlineStatus !== 'disconnected' ? <Link2Off /> : <Globe />}
-              {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
-              </Button>
-              <div className="flex gap-1 items-center">
-              <Input
-                  type="text"
-                  placeholder="Room ID"
-                  value={inputRoomId}
-                  onChange={(e) => setInputRoomId(e.target.value)}
-                  className="h-7 px-2 text-xs w-20"
-                  disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
-              />
-              <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOnlinePlay('join')}
-                  disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
-                  className="h-7 px-2 text-xs"
-                  aria-label="Join Online Game"
-              >
-                  Join
-              </Button>
-              </div>
-          </div>
-           <div className="w-full text-center h-4 text-xs mt-1">
-              {getStatusMessage()}
-          </div>
         </div>
     </div>
   );

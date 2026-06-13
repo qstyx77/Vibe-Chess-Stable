@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -79,6 +78,18 @@ export function algebraicToCoords(algebraic: AlgebraicSquare): { row: number, co
 
 export function coordsToAlgebraic(row: number, col: number): AlgebraicSquare {
   return (String.fromCharCode(97 + col) + (8 - row)) as AlgebraicSquare;
+}
+
+export function getPieceUnicode(piece: Piece): string {
+  const isW = piece.color === 'white';
+  switch (piece.type) {
+    case 'king': return isW ? '♔' : '♚';
+    case 'queen': return isW ? '♕' : '♛';
+    case 'rook': case 'palace': return isW ? '♖' : '♜';
+    case 'bishop': case 'archbishop': return isW ? '♗' : '♝';
+    case 'knight': case 'hero': case 'archer': return isW ? '♘' : '♞';
+    default: return isW ? '♙' : '♟︎';
+  }
 }
 
 function getPieceChar(piece: Piece | null): string {
@@ -180,7 +191,6 @@ function getPossibleMovesInternal(
     possible.push(fromSquare);
   }
 
-  // Piece Specific Logic
   if (piece.heldItem === 'tortoise_hammer') {
     const dir = pieceColor === 'white' ? -1 : 1;
     const nr = fromRow + dir;
@@ -221,7 +231,7 @@ function getPossibleMovesInternal(
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
         for (const [dr_n, dc_n] of knightDeltas) {
             const toR_n = fromRow + dr_n; const toC_n = fromCol + dc_n;
-            if (isValidSquareUtil(toR_n, toC_n) && (!board[toR_n][toC_n].item || board[toR_n][toC_n].item?.type === 'shroom')) {
+            if (isValidSquare(toR_n, toC_n) && (!board[toR_n][toC_n].item || board[toR_n][toC_n].item?.type === 'shroom')) {
                 const targetPiece_n = board[toR_n][toC_n].piece;
                 const targetLevel_n = getEffectiveLevel(board, toR_n, toC_n);
                 if (!targetPiece_n || targetPiece_n.color !== pieceColor) {
@@ -352,14 +362,11 @@ function getPossibleMovesInternal(
     });
   }
 
-  // Berserker Constraint Enforcement (Local Filter)
   if (piece.heldItem === 'berserkers_mask') {
     const captureMoves = possible.filter(to => {
         const {row, col} = algebraicToCoords(to);
         const target = board[row][col].piece;
-        // Standard Capture
         if (target && target.color !== piece.color) return true;
-        // En Passant Capture
         if ((piece.type === 'pawn' || piece.type === 'commander') && to === enPassantTargetSquare) return true;
         return false;
     });
@@ -528,7 +535,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     if (toRow === fromRow + dir && Math.abs(toCol - fromCol) === 1 && !targetPieceOnSquare) return true;
   }
 
-  // Tortoise Hammer Logic
   if (piece.heldItem === 'tortoise_hammer') {
     const dir = piece.color === 'white' ? -1 : 1;
     return (toRow === fromRow + dir && toCol === fromCol);
@@ -866,7 +872,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         pieceToLand.isPoisoned = true;
     }
 
-    // Leach Blade Level Reduction
     if (pieceToLand.heldItem === 'leach_blade') {
         const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
         for (let dr = -1; dr <= 1; dr++) {
@@ -883,7 +888,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
     }
 
-    // Tortoise Hammer Splash Capture
     if (pieceToLand.heldItem === 'tortoise_hammer') {
         const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
         const forwardDir = pieceToLand.color === 'white' ? -1 : 1;
@@ -1102,14 +1106,9 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     const piece = board[row][col].piece;
     if (!piece || (piece.cooldownTurnsRemaining || 0) > 0 || (piece.frozenTurnsRemaining || 0) > 0) return [];
     
-    // 1. Get pseudo-legal moves for this specific piece
     const pseudo = getPossibleMovesInternal(board, from, piece, true, ep);
-    
-    // 2. Filter for King safety
     const legalMoves = filterLegalMoves(board, from, pseudo, piece.color, ep);
 
-    // 3. Global Berserker Forced Capture Rule
-    // "must capture if a capture is available in its move set"
     const player = piece.color;
     let anyBerserkerCanCapture = false;
     const allBerserkerForcedMoves: {from: AlgebraicSquare, to: AlgebraicSquare}[] = [];
@@ -1139,7 +1138,6 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     }
 
     if (anyBerserkerCanCapture) {
-      // If a Berserker capture is globally available, only those specific capture moves are allowed for the player's turn.
       return legalMoves.filter(to => 
         allBerserkerForcedMoves.some(bc => bc.from === from && bc.to === to)
       );
@@ -1159,18 +1157,6 @@ export function isCheckmate(board: BoardState, color: PlayerColor, ep: Algebraic
 
 export function isStalemate(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null): boolean {
   return !isKingInCheck(board, color, ep) && !hasAnyLegalMoves(board, color, ep);
-}
-
-export function getPieceUnicode(piece: Piece): string {
-  const isW = piece.color === 'white';
-  switch (piece.type) {
-    case 'king': return isW ? '♔' : '♚';
-    case 'queen': return isW ? '♕' : '♛';
-    case 'rook': case 'palace': return isW ? '♖' : '♜';
-    case 'bishop': case 'archbishop': return isW ? '♗' : '♝';
-    case 'knight': case 'hero': case 'archer': return isW ? '♘' : '♞';
-    default: return isW ? '♙' : '♟︎';
-  }
 }
 
 export function processRookResurrectionCheck(board: BoardState, player: PlayerColor, move: Move, square: AlgebraicSquare, oldL: number, graveyard: { white: Piece[], black: Piece[] }, idCounter: number): RookResurrectionResult {
