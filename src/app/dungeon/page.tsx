@@ -906,7 +906,6 @@ export default function DungeonPage() {
                           if (pieceToRes.type === 'pawn' && rr === 0) { 
                               triggeredSpecial = true; setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); 
                           }
-                          else if (pieceToRes.type === 'commander' && rr === 0) { nextBoard[rr][rc].piece!.type = 'hero'; }
                       }
                   }
               }
@@ -962,7 +961,11 @@ export default function DungeonPage() {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
         
         let moveType: Move['type'] = 'move';
-        if (movingPiece?.type === 'king' && Math.abs(fromC - col) === 2) {
+        
+        const isStandardStartingSquare = (movingPiece.color === 'white' && selectedSquare === 'e1') || (movingPiece.color === 'black' && selectedSquare === 'e8');
+        const isStandardTargetSquare = (movingPiece.color === 'white' && (algebraic === 'c1' || algebraic === 'g1')) || (movingPiece.color === 'black' && (algebraic === 'c8' || algebraic === 'g8'));
+        
+        if (movingPiece?.type === 'king' && !movingPiece.hasMoved && isStandardStartingSquare && isStandardTargetSquare && fromR === row && !sq.piece) {
           moveType = 'castle';
         } else if ((movingPiece?.type === 'pawn' || movingPiece?.type === 'commander') && algebraic === enPassantTargetSquare) {
           moveType = 'enpassant';
@@ -1036,7 +1039,6 @@ export default function DungeonPage() {
                       newBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
                       addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
                       if (pieceToRes.type === 'pawn' && rr === 0) { setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); triggeredSpecial = true; }
-                      else if (pieceToRes.type === 'commander' && rr === 0) { newBoard[rr][rc].piece!.type = 'hero'; }
                   }
               }
           } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
@@ -1153,9 +1155,7 @@ export default function DungeonPage() {
              const landedPiece = nextBoard[tr][tc].piece;
              let aiPromoExtraTurn = false;
              if (landedPiece && (landedPiece.type === 'pawn' || landedPiece.type === 'commander') && tr === 7) {
-                 const pType = promoteTo || (landedPiece.type === 'commander' ? 'hero' : 'queen');
-                 const effectiveLevelBeforePromo = getEffectiveLevel(board, best.move.from[0], best.move.from[1]);
-                 if (effectiveLevelBeforePromo >= 5) aiPromoExtraTurn = true;
+                 const pType = (landedPiece.type === 'commander') ? 'hero' : (promoteTo || 'queen');
                  
                  landedPiece.type = pType;
                  landedPiece.id = `${landedPiece.id}_AI_PROMO_${Date.now()}`;
@@ -1217,7 +1217,6 @@ export default function DungeonPage() {
                            nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
                            addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
                            if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_res_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
-                           else if (pieceToRes.type === 'commander' && rr === 7) { nextBoard[rr][rc].piece!.type = 'hero'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
                        }
                    }
                } else if (newStreak === 5 && hasArcher) {

@@ -18,17 +18,14 @@ export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200
   }
 
   // Define stable unit identities for White
-  // wB1 is the "potential hero" Bishop (Archbishop if ELO >= 1500)
   const whiteBishops: Piece[] = [
     { id: 'wB1', type: whiteElo >= 1500 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
-  // wR1 is the "potential hero" Rook (Palace if ELO >= 1800)
   const whiteRooks: Piece[] = [
     { id: 'wR1', type: whiteElo >= 1800 ? 'palace' : 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wR2', type: 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
-  // wN1 is the "potential hero" Knight (Archer if ELO >= 2100)
   const whiteKnights: Piece[] = [
     { id: 'wN1', type: whiteElo >= 2100 ? 'archer' : 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wN2', type: 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
@@ -597,6 +594,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
 
   const originalPieceLevel = Number(movingPiece.level || 1);
+  const originalEffectiveLevelBeforeMove = getEffectiveLevel(board, fromRow, fromCol);
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
 
@@ -818,6 +816,22 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
+  
+  // Automatic Commander to Hero promotion and extra turn check
+  const opponentBackRank = pieceToLand.color === 'white' ? 0 : 7;
+  if (pieceToLand.type === 'commander' && toRow === opponentBackRank && move.type !== 'self-destruct') {
+    pieceToLand.type = 'hero';
+    pieceToLand.id = `${pieceToLand.id}_hero_auto_${Date.now()}`;
+    if (originalEffectiveLevelBeforeMove >= 5) {
+      extraTurn = true;
+    }
+  } else if (pieceToLand.type === 'pawn' && toRow === opponentBackRank && move.type !== 'self-destruct' && !promotedToInfiltrator) {
+    // Flag for extra turn if Level 5+ Pawn promotes
+    if (originalEffectiveLevelBeforeMove >= 5) {
+      extraTurn = true;
+    }
+  }
+
   newBoard[toRow][toCol].piece = pieceToLand;
   newBoard[fromRow][fromCol].piece = null;
 
@@ -970,17 +984,19 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
-  const effectiveLevel = getEffectiveLevel(newBoard, toRow, toCol);
-  const hasInherentPushBack = (pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && effectiveLevel >= 4;
-  const hasCloakPushBack = pieceToLand.heldItem === 'wind_cloak' && effectiveLevel >= 4;
+  const effectiveLevelAfterMove = getEffectiveLevel(newBoard, toRow, toCol);
+  const hasInherentPushBack = (pieceToLand.type === 'pawn' || pieceToLand.type === 'commander') && effectiveLevelAfterMove >= 4;
+  const hasCloakPushBack = pieceToLand.heldItem === 'wind_cloak' && effectiveLevelAfterMove >= 4;
 
   if (hasInherentPushBack || hasCloakPushBack) {
     triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
   }
   
-  if ((pieceToLand.type === 'bishop' || pieceToLand.type === 'archbishop') && effectiveLevel >= 5) {
+  if ((pieceToLand.type === 'bishop' || pieceToLand.type === 'archbishop') && effectiveLevelAfterMove >= 5) {
     triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   }
+
+  if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
 
   return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent };
 }

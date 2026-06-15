@@ -224,6 +224,15 @@ export class VibeChessAI {
             }
         }
 
+        const opponentBackRank = piece.color === 'white' ? 0 : 7;
+        const originalEffectiveLevel = getEffectiveLevel(originalGameState.board as any, fR, fC);
+
+        if (piece.type === 'commander' && tR === opponentBackRank && move.type !== 'self-destruct') {
+            piece.type = 'hero';
+            piece.id = `${piece.id}_hero_ai_${Date.now()}`;
+            if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
+        }
+
         if ((piece.type === 'pawn' || piece.type === 'commander') && Math.abs(fR - tR) === 2) {
             nextState.enPassantTargetSquare = coordsToAlgebraic(fR + Math.sign(tR - fR), fC);
         }
@@ -275,7 +284,7 @@ export class VibeChessAI {
                 }
                 if (piece.level >= 7) piece.level = hasPawn ? 7 : 6;
             }
-            if (getEffectiveLevel(originalGameState.board as any, fR, fC) >= 5) nextState.extraTurn = true;
+            if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
         }
         
         if (piece.isPoisoned && piece.level === 1) {
@@ -449,20 +458,35 @@ export class VibeChessAI {
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece): AIMove[] {
         const moves: AIMove[] = []; const effectiveLevel = getEffectiveLevel(gs.board as any, r, c);
         const color = p.color;
+        const opponentBackRank = color === 'white' ? 0 : 7;
+
         switch (p.type) {
             case 'pawn':
             case 'commander':
                 const dir = p.color === 'white' ? -1 : 1;
                 if (this.canMoveTo(gs, r + dir, c)) { 
-                    const isPromo = (r + dir === 0 || r + dir === 7); 
-                    moves.push({ from: [r,c], to: [r + dir, c], type: isPromo ? 'promotion' : 'move', promoteTo: isPromo ? 'queen' : undefined }); 
+                    const isBackRank = (r + dir === opponentBackRank); 
+                    if (p.type === 'commander' && isBackRank) {
+                        moves.push({ from: [r,c], to: [r + dir, c], type: 'move' }); // applyMove handles auto-hero
+                    } else {
+                        moves.push({ from: [r,c], to: [r + dir, c], type: isBackRank ? 'promotion' : 'move', promoteTo: isBackRank ? 'queen' : undefined }); 
+                    }
                 }
                 const isHomeRank = (p.color === 'white' && (r === 6 || r === 7)) || (p.color === 'black' && (r === 0 || r === 1));
                 const canJumpStart = (!p.hasMoved && isHomeRank) || p.heldItem === 'swift_cloak';
                 if (canJumpStart && this.canMoveTo(gs, r+dir, c) && this.canMoveTo(gs, r+2*dir, c)) {
                     moves.push({ from:[r,c], to:[r+2*dir, c], type:'move' });
                 }
-                [-1, 1].forEach(dc => { if (this.canCaptureAt(gs, r, c, r+dir, c+dc, p.color, p)) { const isPromo = (r + dir === 0 || r + dir === 7); moves.push({ from:[r,c], to:[r+dir, c+dc], type: isPromo ? 'promotion' : 'capture', promoteTo: isPromo ? 'queen' : undefined }); } });
+                [-1, 1].forEach(dc => { 
+                    if (this.canCaptureAt(gs, r, c, r+dir, c+dc, p.color, p)) { 
+                        const isBackRank = (r + dir === opponentBackRank);
+                        if (p.type === 'commander' && isBackRank) {
+                            moves.push({ from:[r,c], to:[r+dir, c+dc], type: 'capture' }); // applyMove handles auto-hero
+                        } else {
+                            moves.push({ from:[r,c], to:[r+dir, c+dc], type: isBackRank ? 'promotion' : 'capture', promoteTo: isBackRank ? 'queen' : undefined }); 
+                        }
+                    } 
+                });
                 
                 const ep = gs.enPassantTargetSquare;
                 if (ep) {

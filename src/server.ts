@@ -489,7 +489,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     break;
                 case 'commander-promo':
                     if (room && data.square) {
-                        if (!room.gameState.pendingCommanderPromo || actingColor !== room.gameState.playerWhoGotFirstblood) {
+                        if (!room.gameState.pendingCommanderPromo || actingColor !== room.gameState.playerWhoGotFirstBlood) {
                             ws.send(JSON.stringify({ type: 'error', message: 'Illegal Commander Promotion.' }));
                             return;
                         }

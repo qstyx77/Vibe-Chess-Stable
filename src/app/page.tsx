@@ -1276,7 +1276,7 @@ export default function EvolvingChessPage() {
                 }
                 let promoteToOverrideType: PieceType | undefined = undefined;
                 if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === (currentPlayer === 'white' ? 0 : 7)) {
-                    overrideMoveType = 'promotion';
+                    overrideMoveType = (fbSquareState.piece!.type === 'commander') ? 'move' : 'promotion';
                     promoteToOverrideType = fbSquareState.piece!.type === 'commander' ? 'hero' : 'queen';
                 }
 
@@ -1678,12 +1678,9 @@ export default function EvolvingChessPage() {
               const pieceAtDestinationAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
               const rankCheckRowAI = currentPlayer === 'white' ? 0 : 7;
               const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
-              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'commander' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
+              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'hero' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct' && pieceOnFromSquareForAI?.type === 'commander';
 
               let extraTurnForThisAIMove = aiExtraTurn || (oldStreakForAI < 6 && newStreakForAI >= 6);
-
-              const originalLevelOfAIMovedPieceForPromoCheck = getEffectiveLevel(finalBoardStateForAI, aiToR, aiToC);
-
 
               if (isAIPawnPromoting) {
                   const promotedTypeAI = moveForApplyMoveAI!.promoteTo || 'queen'; 
@@ -1701,27 +1698,13 @@ export default function EvolvingChessPage() {
                   }
                   toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L${finalBoardStateForAI[promoR][promoC].piece!.level})`, duration: 8000 });
 
-                  if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
-                  
                   const pieceAfterAIPromo = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-
                   if (pieceAfterAIPromo?.type === 'queen') {
                     sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, finalBoardStateForAI[promoR][promoC].piece!.level, extraTurnForThisAIMove, enPassantTargetForNextTurn);
                   }
 
               } else if (isAICommanderPromoting) {
-                    const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
-                    if(finalBoardStateForAI[promoR]?.[promoC]?.piece?.type === 'commander') {
-                        finalBoardStateForAI[promoR][promoC].piece!.type = 'hero';
-                        finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_HeroPromo_AI`;
-                        finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; 
-                        finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
-                        finalBoardStateForAI[promoR][promoC].piece!.frozenTurnsRemaining = 0;
-                        audioManager.playLevelUp();
-                        setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
-                    }
-                    toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${originalLevelOfAIMovedPieceForPromoCheck})`, duration: 8000 });
-                    if (originalLevelOfAIMovedPieceForPromoCheck >= 5) extraTurnForThisAIMove = true;
+                    toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${pieceAtDestinationAI!.level})`, duration: 8000 });
               } else if (pieceAtDestinationAI?.type === 'queen') {
                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn);
               } 
@@ -3689,13 +3672,10 @@ export default function EvolvingChessPage() {
             if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
         }
         
-        const originalEffectiveLevel = getEffectiveLevel(board, fromR_selected, fromC_selected);
-
-        const commanderHeroPromoExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'commander' && originalEffectiveLevel >= 5 && pieceThatMadeTheMove?.type === 'hero');
-        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
-        const pawnLevelGrantsExtraTurn = (pieceDataAtSelectedSquareFromBoard?.type === 'pawn' && originalEffectiveLevel >= 5 && (row === 0 || row === 7) && !isPawnPromotingMove && !becameInfiltratorFromApply);
         const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
-        const combinedExtraTurn = commanderHeroPromoExtraTurn || pawnLevelGrantsExtraTurn || streakGrantsExtraTurn || extraTurnFromApplyMove;
+        const combinedExtraTurn = streakGrantsExtraTurn || extraTurnFromApplyMove;
+
+        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
 
         if (newStreak >= 2 && oldStreak < 2) {
             const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
@@ -3766,7 +3746,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginalOriginalAI) {
