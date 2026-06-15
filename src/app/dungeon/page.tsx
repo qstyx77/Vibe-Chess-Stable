@@ -178,7 +178,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     } else if (formation === 'triangle') {
        for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
     } else {
-       for(let r=0; r<4; r++) for(let c=8; c<8; c++) possibleSquares.push({r,c});
+       for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
     }
     const chosenSquares = possibleSquares.sort(() => Math.random() - 0.5).slice(0, pieceCount);
     chosenSquares.forEach((pos, i) => {
@@ -443,12 +443,10 @@ export default function DungeonPage() {
     clickGuard.current = false;
     
     let army: Piece[] = [];
-    // Passing ELO to initializeBoard ensures unlockable pieces are persistent and paired with IDs
     const elo = userData.eloRating || 1200;
     let initial = initializeBoard(elo, 1200);
     
     if (userData) {
-      // Apply saved equipment to the initial board using the now-stable IDs
       if (userData.equipment) {
         initial = initial.map(row => row.map(sq => {
           if (sq.piece && userData.equipment![sq.piece.id]) {
@@ -1116,7 +1114,11 @@ export default function DungeonPage() {
              const originalP = board[best.move.from[0]][best.move.from[1]].piece;
              const originalLevel = originalP?.level || 1;
              setLastMoveFrom(from); setLastMoveTo(to); setAnimatedSquareTo(to);
-             const result = applyMove(board, { from, to, type: best.move.type as any, promoteTo: best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined }, enPassantTargetSquare, capturedPieces);
+             
+             const moveType = best.move.type as any;
+             const promoteTo = best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined;
+
+             const result = applyMove(board, { from, to, type: moveType, promoteTo }, enPassantTargetSquare, capturedPieces);
              
              if (result.reflectionOccurred) {
                 const victim = result.capturedPiece!;
@@ -1145,6 +1147,22 @@ export default function DungeonPage() {
              if (result.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
              if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
              if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
+             
+             // Handle AI Piece Promotion
+             const { row: tr, col: tc } = algebraicToCoords(to);
+             const landedPiece = nextBoard[tr][tc].piece;
+             let aiPromoExtraTurn = false;
+             if (landedPiece && (landedPiece.type === 'pawn' || landedPiece.type === 'commander') && tr === 7) {
+                 const pType = promoteTo || (landedPiece.type === 'commander' ? 'hero' : 'queen');
+                 const effectiveLevelBeforePromo = getEffectiveLevel(board, best.move.from[0], best.move.from[1]);
+                 if (effectiveLevelBeforePromo >= 5) aiPromoExtraTurn = true;
+                 
+                 landedPiece.type = pType;
+                 landedPiece.id = `${landedPiece.id}_AI_PROMO_${Date.now()}`;
+                 if (pType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
+                 audioManager.playLevelUp();
+             }
+
              if (nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece && (nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece!.type === 'rook' || nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece!.type === 'palace') && result.capturedPiece) {
                 const resResultAI = processRookResurrectionCheck(nextBoard, 'black', {from, to}, to, originalLevel, capturedPieces, Date.now());
                 if (resResultAI.resurrectionPerformed) {
@@ -1210,7 +1228,7 @@ export default function DungeonPage() {
              } else if (best.move.type === 'swap') {
                 audioManager.playMove();
              } else audioManager.playMove();
-             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || (oldStreak < 6 && newStreak >= 6), result.enPassantTargetSet); }, 800);
+             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || (oldStreak < 6 && newStreak >= 6) || aiPromoExtraTurn, result.enPassantTargetSet); }, 800);
           } else {
             const nextStuck = enemyStuckTurns + 1;
             setEnemyStuckTurns(nextStuck);
