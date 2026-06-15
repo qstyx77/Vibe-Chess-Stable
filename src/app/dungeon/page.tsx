@@ -896,7 +896,7 @@ export default function DungeonPage() {
               if (!triggeredSpecial && newStreak >= 4 && oldStreak < 4) {
                   const graveyard = capturedPieces.black;
                   if (graveyard.length > 0) {
-                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_SD_${Date.now()}`, heldItem: null };
+                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_SD_${Date.now()}` };
                       const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                       if (empty.length > 0) {
                           const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1028,7 +1028,7 @@ export default function DungeonPage() {
           } else if (newStreak === 4) {
               const graveyard = capturedPieces.black;
               if (graveyard.length > 0) {
-                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_H_${Date.now()}`, heldItem: null };
+                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_H_${Date.now()}` };
                   const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                   if (empty.length > 0) {
                       const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1208,7 +1208,8 @@ export default function DungeonPage() {
                } else if (newStreak === 4) {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
-                       const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_D_${Date.now()}`, heldItem: null };
+                       const pieceToResurrect = graveyard[graveyard.length-1];
+                       const pieceToRes = { ...pieceToResurrect, level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_D_${Date.now()}` };
                        const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];

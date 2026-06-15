@@ -614,7 +614,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               if (adjacent.length > 0) {
                   const target = adjacent[Math.floor(Math.random()*adjacent.length)];
                   const {row: rr, col: rc} = algebraicToCoords(target);
-                  const resPiece = { ...best, level: 1, id: `res_scroll_${best.id}_${Date.now()}`, hasMoved: true, isShielded: false, heldItem: null, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                  const resPiece = { ...best, level: 1, id: `res_scroll_${best.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                   newBoard[rr][rc].piece = resPiece;
                   resurrectionScrollEvent = { piece: best, square: target };
               }
@@ -964,7 +964,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if(empty.length > 0) {
       const sq = empty[Math.floor(Math.random()*empty.length)];
       const {row: rr, col: rc} = algebraicToCoords(sq);
-      const res = { ...captured, level: 1, heldItem: null, id: `res_${captured.id}_${Date.now()}` };
+      const res = { ...captured, level: 1, id: `res_${captured.id}_${Date.now()}` };
       newBoard[rr][rc].piece = res;
       phoenixResurrection = { piece: res, square: sq };
     }
@@ -1194,7 +1194,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
       if (adj.length > 0) {
         const target = adj[Math.floor(Math.random()*adj.length)];
         const {row: rr, col: rc} = algebraicToCoords(target);
-        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, heldItem: null, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [opp]: graveyard[opp].filter(p => p.id !== choice.id) };
         return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: res.type === 'pawn' && (rr===0 || rr===7) };

@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel } from '@/lib/chess-utils';
 
@@ -288,6 +287,24 @@ export class VibeChessAI {
             const newStreak = oldStreak + captureCount;
             nextState.killStreaks[currentPlayer] = newStreak;
             if (oldStreak < 6 && newStreak >= 6) nextState.extraTurn = true;
+            
+            if (newStreak >= 4 && oldStreak < 4) {
+              const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
+              const piecesOfAICapturedByOpponent = [...(nextState.capturedPieces[opponentColorAI] || [])];
+              if (piecesOfAICapturedByOpponent.length > 0) {
+                  const pieceToResurrect = piecesOfAICapturedByOpponent.pop();
+                  if (pieceToResurrect) {
+                      const emptySqAI: [number, number][] = [];
+                      for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) if (!nextState.board[rr][cc].piece && !nextState.board[rr][cc].item) emptySqAI.push([rr, cc]);
+                      if (emptySqAI.length > 0) {
+                          const [resRAI, resCAI] = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
+                          const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                          nextState.board[resRAI][resCAI].piece = resurrectedAI;
+                          nextState.capturedPieces[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrect.id);
+                      }
+                  }
+              }
+            }
         } else {
             if (move.type !== 'swap') nextState.killStreaks[currentPlayer] = 0;
         }

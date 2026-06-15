@@ -1206,7 +1206,7 @@ export default function EvolvingChessPage() {
       let aiBecameInfiltrator = false;
       let aiGameWonByInfiltration = false;
       let aiExtraTurn = false;
-      let sacrificeNeeded forAIQueen = false;
+      let sacrificeNeededForAIQueen = false;
       
 
 
@@ -1586,7 +1586,7 @@ export default function EvolvingChessPage() {
                       if (emptySqAI.length > 0) {
                           const randSqAI_alg = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
                           const { row: resRAI, col: resCAI } = algebraicToCoords(randSqAI_alg);
-                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+                          const resurrectedAI: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
 
                           const promoRowAI = currentPlayer === 'white' ? 0 : 7;
                           if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
@@ -1598,7 +1598,7 @@ export default function EvolvingChessPage() {
                               resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res_AI`;
                                toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 8000 });
                           } else {
-                               toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
+                               toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI) occupies ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
                           }
                           finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
                           addEffect('light-beam', randSqAI_alg);
@@ -2124,7 +2124,7 @@ export default function EvolvingChessPage() {
     setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
     setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, setIsExtraTurnFromQueenMove,
     setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
-    setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
+    setIsResurrectionPromotionInProgress, playerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
     setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
     setShroomSpawnCounter, setNextShroomSpawnTurn,
     onlineStatus, setPromotionMoveWasCapture, setPromotionPawnOriginalLevel,
@@ -3359,7 +3359,7 @@ export default function EvolvingChessPage() {
                       if (emptySquares.length > 0) {
                         const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                         const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_SD_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+                        const resurrectedPiece: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_SD_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                         finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
                         addEffect('light-beam', randomSquareAlg);
                         audioManager.playResurrect();
@@ -3766,7 +3766,7 @@ export default function EvolvingChessPage() {
         
         if (newStreak >= 4 && oldStreak < 4) {
               if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayer capturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
+                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
                   if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
                     const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
                     if (pieceToResurrectOriginalOriginalAI) {
@@ -3775,7 +3775,7 @@ export default function EvolvingChessPage() {
                       if (emptySquares.length > 0) {
                         const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
                         const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: pieceToResurrectOriginalOriginalAI.type === 'king' || pieceToResurrectOriginalOriginalAI.type === 'rook' || pieceToResurrectOriginalOriginalAI.type === 'palace' ? false : pieceToResurrectOriginalOriginalAI.hasMoved, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
 
                         const promoRow = capturingPlayer === 'white' ? 0 : 7;
                         if (resurrectedPiece.type === 'commander' && resR === promoRow) {
