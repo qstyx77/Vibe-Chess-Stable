@@ -866,10 +866,17 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let levelGain = 0;
   if (targetItem?.type === 'shroom') {
     shroomConsumed = true; newBoard[toRow][toCol].item = null;
-    if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) { 
-      pieceToLand.level = (pieceToLand.level || 1) + 1; 
-      didLevelUp = true; 
-      levelGain = 1;
+    const oldL = pieceToLand.level || 1;
+    if (pieceToLand.type === 'queen') {
+        if (oldL < 7) {
+            pieceToLand.level = Math.min(7, oldL + 1);
+            didLevelUp = true;
+            levelGain = pieceToLand.level - oldL;
+        }
+    } else {
+        pieceToLand.level = oldL + 1;
+        didLevelUp = true;
+        levelGain = 1;
     }
   }
 
@@ -910,11 +917,19 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
     if (hasLogasBoost) gain += 1;
 
-    if (pieceToLand.type !== 'queen' || pieceToLand.level < 7) { 
-      pieceToLand.level = (pieceToLand.level || 1) + gain; 
-      didLevelUp = true; 
-      levelGain = gain;
+    const oldL = pieceToLand.level || 1;
+    if (pieceToLand.type === 'queen') {
+        if (oldL < 7) {
+            pieceToLand.level = Math.min(7, oldL + gain);
+            didLevelUp = true;
+            levelGain = pieceToLand.level - oldL;
+        }
+    } else {
+        pieceToLand.level = oldL + gain;
+        didLevelUp = true;
+        levelGain = gain;
     }
+
     if (pieceToLand.type === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
     if (pieceToLand.type === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
@@ -974,7 +989,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     newBoard.forEach(row => row.forEach(sq => {
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceToLand.id) {
         if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
-          sq.piece.level = (sq.piece.level || 1) + levelGain;
+          sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
           sq.piece.isPoisoned = false;
           sq.piece.cooldownTurnsRemaining = 0;
           sq.piece.frozenTurnsRemaining = 0;
@@ -1082,8 +1097,8 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
       if (sq.rowIndex === or && sq.colIndex === oc) return;
       
       if(target === 'all' || sq.piece.type === 'pawn') {
-        if(sq.piece.type !== 'queen' || sq.piece.level < 6) {
-            sq.piece.level++;
+        if(sq.piece.type !== 'queen' || sq.piece.level < 7) {
+            sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, sq.piece.level + 1);
             sq.piece.isPoisoned = false; 
             sq.piece.cooldownTurnsRemaining = 0;
             sq.piece.frozenTurnsRemaining = 0;

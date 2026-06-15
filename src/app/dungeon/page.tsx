@@ -481,6 +481,32 @@ export default function DungeonPage() {
     if (!board.length && !isUserLoading && userData && user) startRun();
   }, [startRun, board.length, isUserLoading, userData, user]);
 
+  const processPawnSacrificeCheck = useCallback((
+    boardAfterPrimaryMove: BoardState,
+    playerWhoseQueenLeveled: PlayerColor,
+    originalPieceLevelIfKnown: number | undefined,
+    isExtraTurnFromOriginalMove: boolean,
+    nextEp: AlgebraicSquare | null
+  ): boolean => {
+    // Find the queen that just hit level 7
+    const queenOnBoard = boardAfterPrimaryMove.flat().find(sq => sq.piece?.type === 'queen' && sq.piece.color === playerWhoseQueenLeveled && sq.piece.level === 7);
+    
+    if (queenOnBoard?.piece && (originalPieceLevelIfKnown || 0) < 7) {
+      const hasPawns = boardAfterPrimaryMove.flat().some(sq => sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === playerWhoseQueenLeveled);
+      if (hasPawns) {
+        setBoardForPostSacrifice(boardAfterPrimaryMove);
+        setPlayerToSacrificePawn(playerWhoseQueenLeveled);
+        setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
+        setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
+        setIsAwaitingPawnSacrifice(true);
+        setEnPassantTargetSquare(nextEp);
+        setGameInfo(prev => ({ ...prev, message: "QUEEN'S ASCENSION! Sacrifice a Pawn/Commander." }));
+        return true;
+      }
+    }
+    return false;
+  }, []);
+
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
     let nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
@@ -513,8 +539,15 @@ export default function DungeonPage() {
         return;
     }
 
-    processMoveEnd(nextBoard, 'white', isExtra, null);
-  }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion]);
+    let sacrificeNeeded = false;
+    if (pieceType === 'queen') {
+        sacrificeNeeded = processPawnSacrificeCheck(nextBoard, 'white', promotionPawnOriginalLevel || 0, isExtra, enPassantTargetSquare);
+    }
+
+    if (!sacrificeNeeded) {
+        processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
+    }
+  }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, promotionPawnOriginalLevel, enPassantTargetSquare, processPawnSacrificeCheck]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -1063,14 +1096,15 @@ export default function DungeonPage() {
             audioManager.playMove();
         } else audioManager.playMove();
 
-        if (landedPiece?.type === 'queen' && getEffectiveLevel(newBoard, row, col) === 7 && originalLevel < 7) {
-            const hasPawns = newBoard.flat().some(sq => sq.piece?.color === 'white' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
-            if (hasPawns) { triggeredSpecial = true; setBoardForPostSacrifice(newBoard); setPlayerWhoMadeQueenMove('white'); setPlayerToSacrificePawn('white'); setIsExtraTurnFromQueenMove(result.extraTurn || (oldStreak < 6 && newStreak >= 6)); setTimeout(() => { setIsAwaitingPawnSacrifice(true); }, 800); }
-        }
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
-          if (isAwaitingPawnSacrifice) return;
+          
+          let sacrificeNeeded = false;
+          if (landedPiece?.type === 'queen') {
+              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', originalLevel, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
+          }
+          if (sacrificeNeeded) return;
 
           const hasL1Targets = newBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
           if (!firstBloodAchieved && streakGain > 0) { 
@@ -1178,6 +1212,23 @@ export default function DungeonPage() {
                     }
                 }
              }
+
+             // AI Queen Ascension (Auto-sacrifice)
+             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
+                 const hasPawns = nextBoard.flat().some(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+                 if (hasPawns) {
+                     const pawnToSac = nextBoard.flat().find(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+                     if (pawnToSac) {
+                         const {row: pr, col: pc} = algebraicToCoords(pawnToSac.algebraic);
+                         const sacPiece = nextBoard[pr][pc].piece!;
+                         nextBoard[pr][pc].piece = null;
+                         setCapturedPieces(prev => ({ ...prev, white: [...prev.white, sacPiece] }));
+                         audioManager.playCapture();
+                         toast({ title: "Queen's Ascension!", description: "Dungeon sacrificed a pawn for its L7 Queen!" });
+                     }
+                 }
+             }
+
              setBoard(nextBoard);
              if (result.shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); }
              const streakGain = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);

@@ -194,7 +194,12 @@ export class VibeChessAI {
 
         if (targetItem?.type === 'shroom') {
             const currentLevel = piece.level || 1;
-            if (piece.type === 'queen') { if (currentLevel < 6) { piece.level = currentLevel + 1; levelGain = 1; } }
+            if (piece.type === 'queen') { 
+                if (currentLevel < 7) { 
+                    piece.level = Math.min(7, currentLevel + 1); 
+                    levelGain = piece.level - currentLevel; 
+                } 
+            }
             else {
               piece.level = currentLevel + 1;
               piece.isPoisoned = false;
@@ -212,7 +217,8 @@ export class VibeChessAI {
             captureOccurred = true; captureCount = 1;
             handleHydraSplit(targetPiece, tR, tC, nextState.board);
             const levelBonus = piece.heldItem === 'berserkers_mask' ? 3 : (this.captureLevelBonuses[targetPiece.type] || 1);
-            let newL = (piece.level || 1) + levelBonus;
+            const currentL = piece.level || 1;
+            let newL = currentL + levelBonus;
             
             let hasLogasBoost = false;
             for (let dr = -1; dr <= 1; dr++) {
@@ -229,14 +235,9 @@ export class VibeChessAI {
             if (hasLogasBoost) newL += 1;
 
             if (piece.type === 'queen') {
-                let hasPawn = false;
-                for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
-                    const p = nextState.board[r][c].piece;
-                    if(p && (p.type === 'pawn' || p.type === 'commander') && p.color === piece.color && p.id !== piece.id) { hasPawn = true; break; }
-                }
-                if (newL >= 7) newL = hasPawn ? 7 : 6;
+                newL = Math.min(7, newL);
             }
-            levelGain = newL - (piece.level || 1);
+            levelGain = newL - currentL;
             piece.level = newL;
             piece.isPoisoned = false;
             piece.cooldownTurnsRemaining = 0;
@@ -290,7 +291,7 @@ export class VibeChessAI {
           nextState.board.forEach(row => row.forEach(sq => {
             if (sq.piece && sq.piece.color === piece.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== piece.id) {
               if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
-                sq.piece.level = (sq.piece.level || 1) + levelGain;
+                sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
                 sq.piece.isPoisoned = false;
                 sq.piece.cooldownTurnsRemaining = 0;
                 sq.piece.frozenTurnsRemaining = 0;
@@ -305,12 +306,7 @@ export class VibeChessAI {
             piece.cooldownTurnsRemaining = 0;
             piece.frozenTurnsRemaining = 0;
             if (piece.type === 'queen') {
-                let hasPawn = false;
-                for(let r=0; r<8; r++) for(let c=0; c<8; c++) {
-                    const p = nextState.board[r][c].piece;
-                    if(p && (p.type === 'pawn' || p.type === 'commander') && p.color === piece.color && p.id !== piece.id) { hasPawn = true; break; }
-                }
-                if (piece.level >= 7) piece.level = hasPawn ? 7 : 6;
+                piece.level = Math.min(piece.level, 7);
             }
             if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
         }
@@ -401,7 +397,7 @@ export class VibeChessAI {
         gs.board.forEach(row => row.forEach(sq => {
             if (sq.piece && sq.piece.color === color) {
                 if (target === 'all' || (target === 'pawn' && sq.piece.type === 'pawn')) {
-                    sq.piece.level = Math.min(sq.piece.type === 'queen' ? 6 : 99, (sq.piece.level || 1) + 1);
+                    sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + 1);
                     sq.piece.isPoisoned = false;
                     sq.piece.cooldownTurnsRemaining = 0;
                     sq.piece.frozenTurnsRemaining = 0;
