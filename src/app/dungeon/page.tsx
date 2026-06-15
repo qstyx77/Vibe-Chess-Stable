@@ -997,6 +997,10 @@ export default function DungeonPage() {
             return;
         }
 
+        if (capturedPiece?.id.startsWith('boss-hydra')) {
+            toast({ title: "Hydra Split!", description: "The Hydra's heads regrow into Knights!", duration: 3000 });
+        }
+
         if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); toast({ title: "Rebirth!", description: "Phoenix Down resurrected the unit!" }); }
         if (result.infiltrationWin) { setBoard(newBoard); const survivors = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(survivors); return; }
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
@@ -1031,7 +1035,7 @@ export default function DungeonPage() {
           } else if (newStreak === 4) {
               const graveyard = capturedPieces.black;
               if (graveyard.length > 0) {
-                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_H_${Date.now()}` };
+                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, id: `res_H_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                   const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                   if (empty.length > 0) {
                       const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1209,7 +1213,7 @@ export default function DungeonPage() {
                    const graveyard = capturedPieces.white;
                    if (graveyard.length > 0) {
                        const pieceToResurrect = graveyard[graveyard.length-1];
-                       const pieceToRes = { ...pieceToResurrect, level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_D_${Date.now()}` };
+                       const pieceToRes = { ...pieceToResurrect, level: 1, id: `res_D_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                        const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];

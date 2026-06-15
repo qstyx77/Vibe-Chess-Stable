@@ -598,6 +598,32 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const targetPiece = newBoard[toRow][toCol].piece;
   const targetItem = newBoard[toRow][toCol].item;
 
+  const handleHydraSplit = (victim: Piece, r: number, c: number, targetBoard: BoardState) => {
+    if (victim.id.startsWith('boss-hydra')) {
+        let spawned = 0;
+        const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].sort(() => Math.random() - 0.5);
+        for (const [dr, dc] of dirs) {
+            if (spawned >= 2) break;
+            const nr = r + dr; const nc = c + dc;
+            if (isValidSquare(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
+                targetBoard[nr][nc].piece = {
+                    id: `hydra-head-${Date.now()}-${spawned}-${victim.id}`,
+                    type: 'knight',
+                    color: 'black',
+                    level: 2,
+                    hasMoved: true,
+                    isShielded: false,
+                    isPoisoned: false,
+                    cooldownTurnsRemaining: 0,
+                    frozenTurnsRemaining: 0,
+                    heldItem: null
+                };
+                spawned++;
+            }
+        }
+    }
+  };
+
   if (move.type === 'resurrection-scroll') {
       if (graveyard) {
           const myGraveyard = movingPiece.color === 'white' ? graveyard.black : graveyard.white;
@@ -778,6 +804,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               if (victim.item?.type === 'anvil') { victim.item = null; destroyedAnvils++; }
               if (victim.piece && victim.piece.color !== sdColor && victim.piece.type !== 'king') {
                   const vp = { ...victim.piece, id: `${victim.piece.id}_sd_${Date.now()}` };
+                  handleHydraSplit(victim.piece, nr, nc, newBoard);
                   selfDestructCaptures.push(vp);
                   if (vp.heldItem === 'soul_link') {
                     newBoard.forEach(r => r.forEach(s => {
@@ -817,7 +844,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
   
-  // Automatic Commander to Hero promotion and extra turn check
   const opponentBackRank = pieceToLand.color === 'white' ? 0 : 7;
   if (pieceToLand.type === 'commander' && toRow === opponentBackRank && move.type !== 'self-destruct') {
     pieceToLand.type = 'hero';
@@ -826,7 +852,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       extraTurn = true;
     }
   } else if (pieceToLand.type === 'pawn' && toRow === opponentBackRank && move.type !== 'self-destruct' && !promotedToInfiltrator) {
-    // Flag for extra turn if Level 5+ Pawn promotes
     if (originalEffectiveLevelBeforeMove >= 5) {
       extraTurn = true;
     }
@@ -863,6 +888,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (captured) {
+    handleHydraSplit(captured, toRow, toCol, newBoard);
     let gain = pieceToLand.heldItem === 'berserkers_mask' ? 3 : ({pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
     if (pieceToLand.heldItem === 'gnosis') gain += 1;
@@ -930,6 +956,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
                 const victim = newBoard[target.r][target.c].piece;
                 if (victim && victim.color === oppColor && victim.type !== 'king') {
                     const capturedSplash = { ...victim, id: `${victim.id}_splash_${Date.now()}` };
+                    handleHydraSplit(victim, target.r, target.c, newBoard);
                     if (graveyard) graveyard[pieceToLand.color].push(capturedSplash);
                     if (victim.heldItem === 'soul_link') {
                         newBoard.forEach(row => row.forEach(sq => {

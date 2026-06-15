@@ -55,6 +55,7 @@ export class VibeChessAI {
         this.positionalBonuses = {
             center: 20,
             nearCenter: 10,
+            nearCenter: 10,
             development: 30,
             kingSafety: 40,
             pawnStructure: 15,
@@ -151,6 +152,32 @@ export class VibeChessAI {
 
         nextState.enPassantTargetSquare = null;
 
+        const handleHydraSplit = (victim: Piece, r: number, c: number, targetBoard: AIBoardState) => {
+            if (victim.id.startsWith('boss-hydra')) {
+                let spawned = 0;
+                const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+                for (const [dr, dc] of dirs) {
+                    if (spawned >= 2) break;
+                    const nr = r + dr; const nc = c + dc;
+                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
+                        targetBoard[nr][nc].piece = {
+                            id: `hydra-head-sim-${spawned}-${victim.id}`,
+                            type: 'knight',
+                            color: 'black',
+                            level: 2,
+                            hasMoved: true,
+                            isShielded: false,
+                            isPoisoned: false,
+                            cooldownTurnsRemaining: 0,
+                            frozenTurnsRemaining: 0,
+                            heldItem: null
+                        };
+                        spawned++;
+                    }
+                }
+            }
+        };
+
         if (targetPiece && targetPiece.color !== currentPlayer && targetPiece.heldItem === 'mirror_shield') {
             const reflectedAttacker = { ...piece };
             nextState.board[fR][fC].piece = null;
@@ -183,6 +210,7 @@ export class VibeChessAI {
             piece.type = 'infiltrator'; captureOccurred = true; captureCount = 1;
         } else if (targetPiece && targetPiece.color !== currentPlayer) {
             captureOccurred = true; captureCount = 1;
+            handleHydraSplit(targetPiece, tR, tC, nextState.board);
             const levelBonus = piece.heldItem === 'berserkers_mask' ? 3 : (this.captureLevelBonuses[targetPiece.type] || 1);
             let newL = (piece.level || 1) + levelBonus;
             
@@ -392,14 +420,41 @@ export class VibeChessAI {
 
     handleSelfDestruct(gs: AIGameState, r: number, c: number, color: PlayerColor): { captures: number } {
         let count = 0;
+        const handleHydraSplit = (victim: Piece, rr: number, cc: number, targetBoard: AIBoardState) => {
+            if (victim.id.startsWith('boss-hydra')) {
+                let spawned = 0;
+                const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+                for (const [dr, dc] of dirs) {
+                    if (spawned >= 2) break;
+                    const nr = rr + dr; const nc = cc + dc;
+                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
+                        targetBoard[nr][nc].piece = {
+                            id: `hydra-head-sim-sd-${spawned}-${victim.id}`,
+                            type: 'knight',
+                            color: 'black',
+                            level: 2,
+                            hasMoved: true,
+                            isShielded: false,
+                            isPoisoned: false,
+                            cooldownTurnsRemaining: 0,
+                            frozenTurnsRemaining: 0,
+                            heldItem: null
+                        };
+                        spawned++;
+                    }
+                }
+            }
+        };
+
         for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = r + dr, nc = c + dc;
             if (isValidSquareUtil(nr, nc)) {
                 const target = gs.board[nr][nc];
                 if (target.piece && target.piece.color !== color && target.piece.type !== 'king') { 
+                  handleHydraSplit(target.piece, nr, nc, gs.board);
                   if (target.piece.heldItem === 'soul_link') {
-                    gs.board.forEach(rr => rr.forEach(ss => {
+                    gs.board.forEach(rrr => rrr.forEach(ss => {
                       if (ss.piece && ss.piece.color === target.piece!.color && ss.piece.heldItem === 'soul_link' && ss.piece.id !== target.piece!.id) ss.piece = null;
                     }));
                   }
