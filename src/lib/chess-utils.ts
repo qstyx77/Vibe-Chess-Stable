@@ -658,7 +658,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               if (victim && victim.color !== converterColor && victim.type !== 'king' && Math.random() < 0.5) {
                   const orig = {...victim};
                   victim.color = converterColor;
-                  victim.id = `conv_faith_${victim.id}_${Date.now()}`;
+                  victim.id = `conv_${victim.id}_${Date.now()}`;
                   conversionEvents.push({ originalPiece: orig, convertedPiece: {...victim}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
               }
           }
