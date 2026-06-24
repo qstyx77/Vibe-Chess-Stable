@@ -906,7 +906,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     for (let dr = -1; dr <= 1; dr++) {
       for (let dc = -1; dc <= 1; dc++) {
         if (dr === 0 && dc === 0) continue;
-        const nr = toRow + dr, nc = c + dc;
+        const nr = toRow + dr, nc = toCol + dc;
         if (isValidSquare(nr, nc)) {
           const neighbor = newBoard[nr][nc].piece;
           if (neighbor && neighbor.color === pieceToLand.color && neighbor.heldItem === 'logas') {
@@ -948,7 +948,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         for (let dr = -1; dr <= 1; dr++) {
             for (let dc = -1; dc <= 1; dc++) {
                 if (dr === 0 && dc === 0) continue;
-                const nr = toRow + dr, nc = c + dc;
+                const nr = toRow + dr, nc = toCol + dc;
                 if (isValidSquare(nr, nc)) {
                     const victim = newBoard[nr][nc].piece;
                     if (victim && victim.color === oppColor) {

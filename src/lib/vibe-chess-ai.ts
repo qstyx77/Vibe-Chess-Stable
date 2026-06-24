@@ -691,7 +691,7 @@ export class VibeChessAI {
             return false;
         } 
         const attackerLevel = getEffectiveLevel(gs.board as any, fR, fC);
-        const targetLevel = getEffectiveLevel(gs.board as any, r, c);
+        const targetLevel = getEffectiveLevel(gs.board as any, tR, tC);
         return !isPieceInvulnerableToAttackUtil(sq.piece, attacker, targetLevel, attackerLevel); 
     }
 
