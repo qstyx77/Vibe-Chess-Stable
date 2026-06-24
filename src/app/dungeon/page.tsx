@@ -823,7 +823,7 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || movingPiece.heldItem === 'ice_scroll' || movingPiece.heldItem === 'resurrection_scroll' || movingPiece.heldItem === 'faith_scroll');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {
@@ -856,7 +856,7 @@ export default function DungeonPage() {
         const executeAntidote = () => {
             setIsMoveProcessing(true); clickGuard.current = true;
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
-            const result = applyMove(board, move, enPassantTargetSquare);
+            const result = applyMove(board, result.newBoard, enPassantTargetSquare);
             setBoard(result.newBoard);
             audioManager.playShield();
             setSelectedSquare(null); setPossibleMoves([]);
@@ -1216,7 +1216,7 @@ export default function DungeonPage() {
              }
 
              // AI Queen Ascension (Auto-sacrifice)
-             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7 && originalType === 'queen') {
+             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalType === 'queen' && originalLevel < 7) {
                  const hasPawns = nextBoard.flat().some(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
                  if (hasPawns) {
                      const pawnToSac = nextBoard.flat().find(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
@@ -1267,7 +1267,7 @@ export default function DungeonPage() {
                    if (graveyardList.length > 0) {
                        const pieceToResurrect = graveyardList[graveyardList.length-1];
                        const pieceToRes = { ...pieceToResurrect, level: 1, id: `res_D_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                       const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
+                       const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
                            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
                            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
@@ -1358,7 +1358,7 @@ export default function DungeonPage() {
           <div className="w-full aspect-square">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || iisAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
+              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
               possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : possibleMoves}
               enemySelectedSquare={null}
               enemyPossibleMoves={[]}

@@ -142,6 +142,7 @@ export class VibeChessAI {
         if (!movingSquare.piece) return nextState;
         const piece = { ...movingSquare.piece };
         const originalType = piece.type;
+        const originalLevel = piece.level || 1;
         piece.isShielded = false; piece.hasMoved = true;
         const targetSquare = nextState.board[tR][tC];
         const targetPiece = targetSquare.piece;
@@ -312,7 +313,7 @@ export class VibeChessAI {
         }
         
         // AI Queen Ascension Logic
-        if (piece.type === 'queen' && piece.level === 7 && originalType === 'queen' && originalGameState.board[fR][fC].piece!.level < 7) {
+        if (piece.type === 'queen' && piece.level === 7 && originalType === 'queen' && originalLevel < 7) {
             // Find a pawn to sacrifice
             let foundSac = false;
             for(let r=0; r<8; r++) {
@@ -690,7 +691,7 @@ export class VibeChessAI {
             return false;
         } 
         const attackerLevel = getEffectiveLevel(gs.board as any, fR, fC);
-        const targetLevel = getEffectiveLevel(gs.board as any, tR, tC);
+        const targetLevel = getEffectiveLevel(gs.board as any, r, c);
         return !isPieceInvulnerableToAttackUtil(sq.piece, attacker, targetLevel, attackerLevel); 
     }
 
