@@ -176,7 +176,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
          if (Math.abs(r - 2) + Math.abs(c - 3.5) <= 3) possibleSquares.push({r,c});
        }
     } else if (formation === 'triangle') {
-       for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
+       for(let r=0; r<4; r++) for(let c=r; r<8-r; c++) possibleSquares.push({r,c});
     } else {
        for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
     }
@@ -485,10 +485,15 @@ export default function DungeonPage() {
     boardAfterPrimaryMove: BoardState,
     playerWhoseQueenLeveled: PlayerColor,
     originalPieceLevelIfKnown: number | undefined,
+    originalPieceTypeIfKnown: PieceType | undefined,
     isExtraTurnFromOriginalMove: boolean,
     nextEp: AlgebraicSquare | null
   ): boolean => {
-    // Find the queen that just hit level 7
+    // Sacrifice ONLY triggers for existing Queens that hit level 7. Promotion bypass.
+    if (originalPieceTypeIfKnown !== 'queen') {
+        return false;
+    }
+
     const queenOnBoard = boardAfterPrimaryMove.flat().find(sq => sq.piece?.type === 'queen' && sq.piece.color === playerWhoseQueenLeveled && sq.piece.level === 7);
     
     if (queenOnBoard?.piece && (originalPieceLevelIfKnown || 0) < 7) {
@@ -539,15 +544,9 @@ export default function DungeonPage() {
         return;
     }
 
-    let sacrificeNeeded = false;
-    if (pieceType === 'queen') {
-        sacrificeNeeded = processPawnSacrificeCheck(nextBoard, 'white', promotionPawnOriginalLevel || 0, isExtra, enPassantTargetSquare);
-    }
-
-    if (!sacrificeNeeded) {
-        processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
-    }
-  }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, promotionPawnOriginalLevel, enPassantTargetSquare, processPawnSacrificeCheck]);
+    // Pawn-to-Queen promotion never triggers sacrifice.
+    processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
+  }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, enPassantTargetSquare]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -715,7 +714,7 @@ export default function DungeonPage() {
     if (isAwaitingPawnSacrifice) {
         if (piece && piece.color === playerToSacrificePawn && (piece.type === 'pawn' || piece.type === 'commander')) {
             const nextBoard = (boardForPostSacrifice || board).map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const sacrificed = nextBoard[row][col].piece!;
+            const sacrificed = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sac_${Date.now()}` };
             nextBoard[row][col].piece = null;
             setCapturedPieces(prev => ({ ...prev, black: [...prev.black, sacrificed] }));
             setBoard(nextBoard);
@@ -927,9 +926,9 @@ export default function DungeonPage() {
                   }
               }
               if (!triggeredSpecial && newStreak >= 4 && oldStreak < 4) {
-                  const graveyard = capturedPieces.black;
-                  if (graveyard.length > 0) {
-                      const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_SD_${Date.now()}` };
+                  const graveyardList = capturedPieces.black;
+                  if (graveyardList.length > 0) {
+                      const pieceToRes = { ...graveyardList[graveyardList.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_SD_${Date.now()}` };
                       const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                       if (empty.length > 0) {
                           const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1010,7 +1009,9 @@ export default function DungeonPage() {
             }
         }
 
-        const originalLevel = movingPiece?.level || 1; setPromotionPawnOriginalLevel(originalLevel);
+        const originalLevel = movingPiece?.level || 1; 
+        const originalType = movingPiece?.type || 'pawn';
+        setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces);
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred } = result;
         
@@ -1066,9 +1067,9 @@ export default function DungeonPage() {
           } else if (newStreak === 3) {
               triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
           } else if (newStreak === 4) {
-              const graveyard = capturedPieces.black;
-              if (graveyard.length > 0) {
-                  const pieceToRes = { ...graveyard[graveyard.length-1], level: 1, id: `res_H_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+              const graveyardList = capturedPieces.black;
+              if (graveyardList.length > 0) {
+                  const pieceToRes = { ...graveyardList[graveyardList.length-1], level: 1, id: `res_H_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                   const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                   if (empty.length > 0) {
                       const chosenSq = empty[Math.floor(Math.random() * empty.length)];
@@ -1102,7 +1103,7 @@ export default function DungeonPage() {
           
           let sacrificeNeeded = false;
           if (landedPiece?.type === 'queen') {
-              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', originalLevel, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
+              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', originalLevel, originalType, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
           }
           if (sacrificeNeeded) return;
 
@@ -1153,6 +1154,7 @@ export default function DungeonPage() {
              const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
              const originalP = board[best.move.from[0]][best.move.from[1]].piece;
              const originalLevel = originalP?.level || 1;
+             const originalType = originalP?.type || 'pawn';
              setLastMoveFrom(from); setLastMoveTo(to); setAnimatedSquareTo(to);
              
              const moveType = best.move.type as any;
@@ -1214,13 +1216,13 @@ export default function DungeonPage() {
              }
 
              // AI Queen Ascension (Auto-sacrifice)
-             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7) {
+             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalLevel < 7 && originalType === 'queen') {
                  const hasPawns = nextBoard.flat().some(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
                  if (hasPawns) {
                      const pawnToSac = nextBoard.flat().find(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
                      if (pawnToSac) {
                          const {row: pr, col: pc} = algebraicToCoords(pawnToSac.algebraic);
-                         const sacPiece = nextBoard[pr][pc].piece!;
+                         const sacPiece = { ...nextBoard[pr][pc].piece!, id: `${nextBoard[pr][pc].piece!.id}_sac_${Date.now()}` };
                          nextBoard[pr][pc].piece = null;
                          setCapturedPieces(prev => ({ ...prev, white: [...prev.white, sacPiece] }));
                          audioManager.playCapture();
@@ -1261,9 +1263,9 @@ export default function DungeonPage() {
                      }
                    }
                } else if (newStreak === 4) {
-                   const graveyard = capturedPieces.white;
-                   if (graveyard.length > 0) {
-                       const pieceToResurrect = graveyard[graveyard.length-1];
+                   const graveyardList = capturedPieces.white;
+                   if (graveyardList.length > 0) {
+                       const pieceToResurrect = graveyardList[graveyardList.length-1];
                        const pieceToRes = { ...pieceToResurrect, level: 1, id: `res_D_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                        const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {

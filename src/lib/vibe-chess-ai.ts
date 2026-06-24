@@ -55,7 +55,6 @@ export class VibeChessAI {
         this.positionalBonuses = {
             center: 20,
             nearCenter: 10,
-            nearCenter: 10,
             development: 30,
             kingSafety: 40,
             pawnStructure: 15,
@@ -142,6 +141,7 @@ export class VibeChessAI {
         const movingSquare = nextState.board[fR][fC];
         if (!movingSquare.piece) return nextState;
         const piece = { ...movingSquare.piece };
+        const originalType = piece.type;
         piece.isShielded = false; piece.hasMoved = true;
         const targetSquare = nextState.board[tR][tC];
         const targetPiece = targetSquare.piece;
@@ -155,13 +155,13 @@ export class VibeChessAI {
         const handleHydraSplit = (victim: Piece, r: number, c: number, targetBoard: AIBoardState) => {
             if (victim.id.startsWith('boss-hydra')) {
                 let spawned = 0;
-                const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]];
+                const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1], [1,-1],[1,0],[1,1]];
                 for (const [dr, dc] of dirs) {
                     if (spawned >= 2) break;
                     const nr = r + dr; const nc = c + dc;
                     if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
                         targetBoard[nr][nc].piece = {
-                            id: `hydra-head-sim-${spawned}-${victim.id}`,
+                            id: `hydra-head-sim-${Date.now()}-${spawned}-${victim.id}`,
                             type: 'knight',
                             color: 'black',
                             level: 2,
@@ -311,6 +311,23 @@ export class VibeChessAI {
             if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
         }
         
+        // AI Queen Ascension Logic
+        if (piece.type === 'queen' && piece.level === 7 && originalType === 'queen' && originalGameState.board[fR][fC].piece!.level < 7) {
+            // Find a pawn to sacrifice
+            let foundSac = false;
+            for(let r=0; r<8; r++) {
+                for(let c=0; c<8; c++) {
+                    const sacP = nextState.board[r][c].piece;
+                    if(sacP && sacP.color === currentPlayer && (sacP.type === 'pawn' || sacP.type === 'commander')) {
+                        nextState.board[r][c].piece = null;
+                        foundSac = true;
+                        break;
+                    }
+                }
+                if(foundSac) break;
+            }
+        }
+
         if (piece.isPoisoned && piece.level === 1) {
             piece.cooldownTurnsRemaining = 1;
         }

@@ -626,6 +626,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         const originalLevel = movingPieceStart.level || 1;
+                        const originalType = movingPieceStart.type;
                         const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
                         
                         let finalizedBoard = newBoard;
@@ -706,7 +707,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             room.gameState.pendingKSAction = { type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer } };
                         }
 
-                        if (isQueenSacrificeRequired(finalizedBoard, movingPlayer, data.payload, originalLevel)) {
+                        if (isQueenSacrificeRequired(finalizedBoard, movingPlayer, data.payload, originalLevel, originalType)) {
                             room.gameState.pendingQueenSacrifice = true;
                         }
 
