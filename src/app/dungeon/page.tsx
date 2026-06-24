@@ -176,7 +176,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
          if (Math.abs(r - 2) + Math.abs(c - 3.5) <= 3) possibleSquares.push({r,c});
        }
     } else if (formation === 'triangle') {
-       for(let r=0; r<4; r++) for(let c=r; r<8-r; c++) possibleSquares.push({r,c});
+       for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
     } else {
        for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
     }
@@ -1358,7 +1358,7 @@ export default function DungeonPage() {
           <div className="w-full aspect-square">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
+              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || iisAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
               possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : possibleMoves}
               enemySelectedSquare={null}
               enemyPossibleMoves={[]}
