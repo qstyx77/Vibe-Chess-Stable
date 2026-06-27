@@ -312,9 +312,7 @@ export class VibeChessAI {
             if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
         }
         
-        // AI Queen Ascension Logic
         if (piece.type === 'queen' && piece.level === 7 && originalType === 'queen' && originalLevel < 7) {
-            // Find a pawn to sacrifice
             let foundSac = false;
             for(let r=0; r<8; r++) {
                 for(let c=0; c<8; c++) {
@@ -536,7 +534,7 @@ export class VibeChessAI {
                 if (this.canMoveTo(gs, r + dir, c)) { 
                     const isBackRank = (r + dir === opponentBackRank); 
                     if (p.type === 'commander' && isBackRank) {
-                        moves.push({ from: [r,c], to: [r + dir, c], type: 'move' }); // applyMove handles auto-hero
+                        moves.push({ from: [r,c], to: [r + dir, c], type: 'move' }); 
                     } else {
                         moves.push({ from: [r,c], to: [r + dir, c], type: isBackRank ? 'promotion' : 'move', promoteTo: isBackRank ? 'queen' : undefined }); 
                     }
@@ -550,7 +548,7 @@ export class VibeChessAI {
                     if (this.canCaptureAt(gs, r, c, r+dir, c+dc, p.color, p)) { 
                         const isBackRank = (r + dir === opponentBackRank);
                         if (p.type === 'commander' && isBackRank) {
-                            moves.push({ from:[r,c], to:[r+dir, c+dc], type: 'capture' }); // applyMove handles auto-hero
+                            moves.push({ from:[r,c], to:[r+dir, c+dc], type: 'capture' }); 
                         } else {
                             moves.push({ from:[r,c], to:[r+dir, c+dc], type: isBackRank ? 'promotion' : 'capture', promoteTo: isBackRank ? 'queen' : undefined }); 
                         }

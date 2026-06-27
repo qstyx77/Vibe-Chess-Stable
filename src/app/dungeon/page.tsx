@@ -345,7 +345,7 @@ export default function DungeonPage() {
     if (poisonedCaptures.length > 0) {
         setCapturedPieces(prev => ({
             ...prev,
-            [turnPlayer]: [...(prev[turnPlayer] || []), ...poisonedCaptures]
+            [turnPlayer]: [...(prev[turnPlayer] || []), ...poisonedCaptures.map(p => ({ ...p, id: `${p.id}_psn_${Date.now()}` }))]
         }));
         setKillStreaks(prev => ({
             ...prev,
@@ -489,7 +489,6 @@ export default function DungeonPage() {
     isExtraTurnFromOriginalMove: boolean,
     nextEp: AlgebraicSquare | null
   ): boolean => {
-    // Sacrifice ONLY triggers for existing Queens that hit level 7. Promotion bypass.
     if (originalPieceTypeIfKnown !== 'queen') {
         return false;
     }
@@ -544,7 +543,6 @@ export default function DungeonPage() {
         return;
     }
 
-    // Pawn-to-Queen promotion never triggers sacrifice.
     processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
   }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, enPassantTargetSquare]);
 
@@ -552,8 +550,7 @@ export default function DungeonPage() {
     if (clickGuard.current || gameInfo.gameOver) return;
 
     const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-    const isLocalActionTurn = true; 
-    if (isAnySpecialModeActive && !isLocalActionTurn) return;
+    if (isAnySpecialModeActive && algebraic !== selectedSquare && !isAwaitingCommanderPromotion && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe && !isAwaitingPawnSacrifice && !isAwaitingWindScrollTarget && !isAwaitingAnvilScrollTarget && !isAwaitingShieldScrollTarget && !isAwaitingSwapScrollTarget) return;
 
     const { row, col } = algebraicToCoords(algebraic);
     const sq = board[row][col];
@@ -739,7 +736,7 @@ export default function DungeonPage() {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             nextBoard[row][col].piece = null;
             setBoard(nextBoard);
-            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, piece] }));
+            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...piece, id: `${piece.id}_sniped_${Date.now()}` }] }));
             setIsAwaitingArcherSnipe(false);
             audioManager.playSnipe();
             
@@ -856,7 +853,7 @@ export default function DungeonPage() {
         const executeAntidote = () => {
             setIsMoveProcessing(true); clickGuard.current = true;
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
-            const result = applyMove(board, result.newBoard, enPassantTargetSquare);
+            const result = applyMove(board, move, enPassantTargetSquare);
             setBoard(result.newBoard);
             audioManager.playShield();
             setSelectedSquare(null); setPossibleMoves([]);
@@ -912,7 +909,7 @@ export default function DungeonPage() {
           setKillStreaks(prev => ({ ...prev, white: newStreak }));
 
           if (capturesThisTurn > 0) {
-              setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!] }));
+              setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_${Date.now()}` }))] }));
           }
 
           let humanPlayerAchievedFirstBloodThisTurn = false;
@@ -1089,8 +1086,8 @@ export default function DungeonPage() {
         setKillStreaks(prev => ({ ...prev, white: newStreak }));
         if (streakGain > 0) {
           audioManager.playCapture();
-          if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, capturedPiece!] }));
-          if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, result.pieceCapturedByAnvil!] }));
+          if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...capturedPiece!, id: `${capturedPiece!.id}_cap_${Date.now()}` }] }));
+          if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_${Date.now()}` }] }));
           
           if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
           if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
@@ -1221,13 +1218,11 @@ export default function DungeonPage() {
              if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
              if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
              
-             // Handle AI Piece Promotion
              const { row: tr, col: tc } = algebraicToCoords(to);
              const landedPiece = nextBoard[tr][tc].piece;
              let aiPromoExtraTurn = false;
              if (landedPiece && (landedPiece.type === 'pawn' || landedPiece.type === 'commander') && tr === 7) {
                  const pType = (landedPiece.type === 'commander') ? 'hero' : (promoteTo || 'queen');
-                 
                  landedPiece.type = pType;
                  landedPiece.id = `${landedPiece.id}_AI_PROMO_${Date.now()}`;
                  if (pType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
@@ -1246,7 +1241,6 @@ export default function DungeonPage() {
                 }
              }
 
-             // AI Queen Ascension (Auto-sacrifice)
              if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalType === 'queen' && originalLevel < 7) {
                  const hasPawns = nextBoard.flat().some(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
                  if (hasPawns) {
@@ -1271,9 +1265,10 @@ export default function DungeonPage() {
              setKillStreaks(prev => ({ ...prev, black: streakGain > 0 ? newStreak : 0 }));
              if (streakGain > 0) {
                audioManager.playCapture();
-               if (result.capturedPiece) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.capturedPiece!] }));
-               if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, result.pieceCapturedByAnvil!] }));
-               if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...result.selfDestructCaptures!] }));
+               if (result.capturedPiece) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...result.capturedPiece!, id: `${result.capturedPiece!.id}_cap_ai_${Date.now()}` }] }));
+               if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_ai_${Date.now()}` }] }));
+               if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_ai_${Date.now()}` }))] }));
+               
                const hasArchbishop = nextBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'black');
                const hasArcher = nextBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'black');
                if (newStreak === 2 && hasArchbishop) {
@@ -1287,30 +1282,32 @@ export default function DungeonPage() {
                      const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
                      if (victims.length > 0) {
                         const v = victims[Math.floor(Math.random()*victims.length)];
-                        const cp = { ...v.piece! };
+                        const cp = { ...v.piece!, id: `${v.piece!.id}_sniped_ai_${Date.now()}` };
                         nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === v.algebraic) sq_v.piece = null; }));
                         setCapturedPieces(prev => ({ ...prev, black: [...prev.black, cp] }));
                         audioManager.playSnipe(); addEffect('poof', v.algebraic);
                      }
                    }
                } else if (newStreak === 4) {
-                   const graveyardList = capturedPieces.white;
-                   if (graveyardList.length > 0) {
-                       const pieceToResurrect = graveyardList[graveyardList.length-1];
-                       const pieceToRes = { ...pieceToResurrect, level: 1, id: `res_D_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                       const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
-                       if (empty.length > 0) {
-                           const [resRAI, resCAI] = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
-                           const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                           nextBoard[resRAI][resCAI].piece = resurrectedAI;
+                   const graveyardListForAI = capturedPieces.white;
+                   if (graveyardListForAI.length > 0) {
+                       const pieceToResurrect = graveyardListForAI[graveyardListForAI.length-1];
+                       const emptySqForAIRes: AlgebraicSquare[] = [];
+                       for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) if (!nextBoard[rr][cc].piece && !nextBoard[rr][cc].item) emptySqForAIRes.push(coordsToAlgebraic(rr, cc));
+                       
+                       if (emptySqForAIRes.length > 0) {
+                           const resSqAlg = emptySqForAIRes[Math.floor(Math.random() * emptySqForAIRes.length)];
+                           const { row: resR, col: resC } = algebraicToCoords(resSqAlg);
+                           const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                           nextBoard[resR][resC].piece = resurrectedAI;
                            setCapturedPieces(prev => ({ ...prev, white: prev.white.filter(p => p.id !== pieceToResurrect.id) }));
-                           addEffect('light-beam', coordsToAlgebraic(resRAI, resCAI)); audioManager.playResurrect();
-                           if (resurrectedAI.type === 'pawn' && resRAI === 7) { nextBoard[resRAI][resCAI].piece!.type = 'queen'; nextBoard[resRAI][resCAI].piece!.id += '_res_promo'; nextBoard[resRAI][resCAI].piece!.isPoisoned = false; nextBoard[resRAI][resCAI].piece!.cooldownTurnsRemaining = 0; nextBoard[resRAI][resCAI].piece!.frozenTurnsRemaining = 0; }
+                           addEffect('light-beam', resSqAlg); audioManager.playResurrect();
+                           if (resurrectedAI.type === 'pawn' && resR === 7) { nextBoard[resR][resC].piece!.type = 'queen'; nextBoard[resR][resC].piece!.id += '_res_promo'; }
                        }
                    }
                } else if (newStreak === 5 && hasArcher) {
                    const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                   if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece! }; nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === victimSq.algebraic) sq_v.piece = null; })); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
+                   if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece!, id: `${victimSq.piece!.id}_sniped_ai_${Date.now()}` }; nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === victimSq.algebraic) sq_v.piece = null; })); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
                }
              } else if (best.move.type === 'castle') {
                audioManager.playMove();
