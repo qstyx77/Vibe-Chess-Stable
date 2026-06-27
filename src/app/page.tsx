@@ -1715,7 +1715,7 @@ export default function EvolvingChessPage() {
               }
 
               setIsMoveProcessing(false);
-              clickGuardRef.current = false;
+              clickGuard.current = false;
               setIsAiThinking(false);
             }, 800);
         }
@@ -1745,7 +1745,7 @@ export default function EvolvingChessPage() {
       else setIsBlackAI(false);
   
       setIsMoveProcessing(false);
-      clickGuardRef.current = false;
+      clickGuard.current = false;
       setIsAiThinking(false);
       return;
     }
@@ -4026,13 +4026,13 @@ export default function EvolvingChessPage() {
         if (hasTriggeredShield) {
             enteringSpecialMode = true;
             const updatedShieldCtx = {
-                boardForNextStep: boardToUpdate,
+                boardToUpdate,
                 playerWhoseTurnCompleted: pawnColor,
                 isExtraTurn: combinedExtraTurn,
                 newEnPassantTarget: enPassantTargetSquare,
                 capturingPieceId: boardToUpdate[row][col].piece?.id
             };
-            setShieldContext(updatedShieldCtx);
+            setShieldContext(updatedShieldCtx as any);
             setIsAwaitingHolyShield(true);
             setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
         }

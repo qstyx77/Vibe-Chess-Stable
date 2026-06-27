@@ -823,7 +823,7 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll');
+      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || movingPiece.heldItem === 'ice_scroll' || movingPiece.heldItem === 'resurrection_scroll' || movingPiece.heldItem === 'faith_scroll');
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {
@@ -872,6 +872,33 @@ export default function DungeonPage() {
           audioManager.playShield();
           setSelectedSquare(null); setPossibleMoves([]);
           setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeResurrectionScroll = () => {
+            if (effectiveLevel < 4) return;
+            setIsMoveProcessing(true); clickGuard.current = true;
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            if (result.resurrectionScrollEvent) {
+                setCapturedPieces(prev => ({ ...prev, black: prev.black.filter(pi => pi.id !== result.resurrectionScrollEvent!.piece.id) }));
+                addEffect('light-beam', result.resurrectionScrollEvent.square);
+                audioManager.playResurrect();
+            }
+            setBoard(result.newBoard);
+            setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeFaithScroll = () => {
+            if (effectiveLevel < 5) return;
+            setIsMoveProcessing(true); clickGuard.current = true;
+            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            if (result.conversionEvents.length > 0) {
+                audioManager.playConversion();
+                result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
+            }
+            setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
         const executeSelfDestruct = () => {
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
@@ -960,6 +987,8 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'antidote') executeAntidote();
               else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
               else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll();
+              else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll();
+              else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll();
               else if (movingPiece.heldItem === 'detonation_scroll') {
                   if (effectiveLevel >= 5) executeSelfDestruct();
                   else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -977,6 +1006,8 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'antidote') executeAntidote();
           else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
           else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll();
+          else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll();
+          else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll();
           else if (movingPiece.heldItem === 'detonation_scroll') {
               if (effectiveLevel >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
@@ -1269,11 +1300,12 @@ export default function DungeonPage() {
                        const pieceToRes = { ...pieceToResurrect, level: 1, id: `res_D_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                        const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
                        if (empty.length > 0) {
-                           const chosenSq = empty[Math.floor(Math.random() * empty.length)];
-                           const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
-                           nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, white: prev.white.slice(0, -1) }));
-                           addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                           if (pieceToRes.type === 'pawn' && rr === 7) { nextBoard[rr][rc].piece!.type = 'queen'; nextBoard[rr][rc].piece!.id += '_res_promo'; nextBoard[rr][rc].piece!.isPoisoned = false; nextBoard[rr][rc].piece!.cooldownTurnsRemaining = 0; nextBoard[rr][rc].piece!.frozenTurnsRemaining = 0; }
+                           const [resRAI, resCAI] = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
+                           const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                           nextBoard[resRAI][resCAI].piece = resurrectedAI;
+                           setCapturedPieces(prev => ({ ...prev, white: prev.white.filter(p => p.id !== pieceToResurrect.id) }));
+                           addEffect('light-beam', coordsToAlgebraic(resRAI, resCAI)); audioManager.playResurrect();
+                           if (resurrectedAI.type === 'pawn' && resRAI === 7) { nextBoard[resRAI][resCAI].piece!.type = 'queen'; nextBoard[resRAI][resCAI].piece!.id += '_res_promo'; nextBoard[resRAI][resCAI].piece!.isPoisoned = false; nextBoard[resRAI][resCAI].piece!.cooldownTurnsRemaining = 0; nextBoard[resRAI][resCAI].piece!.frozenTurnsRemaining = 0; }
                        }
                    }
                } else if (newStreak === 5 && hasArcher) {
