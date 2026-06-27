@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -485,18 +486,21 @@ export default function DungeonPage() {
   const processPawnSacrificeCheck = useCallback((
     boardAfterPrimaryMove: BoardState,
     playerWhoseQueenLeveled: PlayerColor,
+    targetSquareAlg: AlgebraicSquare | null,
     originalPieceLevelIfKnown: number | undefined,
     originalPieceTypeIfKnown: PieceType | undefined,
     isExtraTurnFromOriginalMove: boolean,
     nextEp: AlgebraicSquare | null
   ): boolean => {
-    if (originalPieceTypeIfKnown !== 'queen') {
+    if (originalPieceTypeIfKnown !== 'queen' || !targetSquareAlg) {
         return false;
     }
 
-    const queenOnBoard = boardAfterPrimaryMove.flat().find(sq => sq.piece?.type === 'queen' && sq.piece.color === playerWhoseQueenLeveled && sq.piece.level === 7);
+    const { row: tr, col: tc } = algebraicToCoords(targetSquareAlg);
+    const pieceAtDestination = boardAfterPrimaryMove[tr]?.[tc]?.piece;
     
-    if (queenOnBoard?.piece && (originalPieceLevelIfKnown || 0) < 7) {
+    // CRITICAL FIX: Only prompt sacrifice if the Queen on the TARGET square just reached Level 7.
+    if (pieceAtDestination?.type === 'queen' && pieceAtDestination.color === playerWhoseQueenLeveled && pieceAtDestination.level === 7 && (originalPieceLevelIfKnown || 0) < 7) {
       const hasPawns = boardAfterPrimaryMove.flat().some(sq => sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === playerWhoseQueenLeveled);
       if (hasPawns) {
         setBoardForPostSacrifice(boardAfterPrimaryMove);
@@ -1132,7 +1136,7 @@ export default function DungeonPage() {
           
           let sacrificeNeeded = false;
           if (landedPiece?.type === 'queen') {
-              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', originalLevel, originalType, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
+              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', algebraic, originalLevel, originalType, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
           }
           if (sacrificeNeeded) return;
 
