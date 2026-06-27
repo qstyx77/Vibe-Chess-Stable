@@ -1,5 +1,5 @@
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
-import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel } from '@/lib/chess-utils';
+import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel } from '@/lib/chess-utils';
 
 const AI_DEBUG_ENABLED = false;
 
@@ -306,6 +306,10 @@ export class VibeChessAI {
             piece.isPoisoned = false;
             piece.cooldownTurnsRemaining = 0;
             piece.frozenTurnsRemaining = 0;
+            
+            // Apply new start level rules
+            piece.level = getPromotionLevel(targetPiece?.type || null);
+            
             if (piece.type === 'queen') {
                 piece.level = Math.min(piece.level, 7);
             }
@@ -347,7 +351,7 @@ export class VibeChessAI {
                       for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) if (!nextState.board[rr][cc].piece && !nextState.board[rr][cc].item) emptySqAI.push([rr, cc]);
                       if (emptySqAI.length > 0) {
                           const [resRAI, resCAI] = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
-                          const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, invulnerableTurnsRemaining: 0, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                          const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                           nextState.board[resRAI][resCAI].piece = resurrectedAI;
                           nextState.capturedPieces[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrect.id);
                       }
@@ -587,17 +591,17 @@ export class VibeChessAI {
         }
 
         if (effectiveLevel >= 4) {
-            const isNType = p.type === 'knight' || p.type === 'hero' || p.type === 'archer';
-            const isBType = p.type === 'bishop' || p.type === 'archbishop';
+            const isNType = ['knight', 'hero', 'archer'].includes(p.type);
+            const isBType = ['bishop', 'archbishop'].includes(p.type);
             
             if (isNType || isBType) {
                 for (let rr = 0; rr < 8; rr++) {
                     for (let cc = 0; cc < 8; cc++) {
                         const target = gs.board[rr][cc].piece;
                         if (target && target.color === color) {
-                            if (isNType && (target.type === 'bishop' || target.type === 'archbishop')) {
+                            if (isNType && ['bishop', 'archbishop'].includes(target.type)) {
                                 moves.push({ from: [r,c], to: [rr, cc], type: 'swap' });
-                            } else if (isBType && (target.type === 'knight' || target.type === 'hero' || target.type === 'archer')) {
+                            } else if (isBType && ['knight', 'hero', 'archer'].includes(target.type)) {
                                 moves.push({ from: [r,c], to: [rr, cc], type: 'swap' });
                             }
                         }
@@ -646,8 +650,8 @@ export class VibeChessAI {
                         break; 
                     } else {
                         const isSwap = effectiveLevel >= 4 && (
-                            ((p.type === 'bishop' || p.type === 'archbishop') && ['knight', 'hero', 'archer'].includes(targetPiece.type)) ||
-                            (['knight', 'hero', 'archer'].includes(p.type) && (targetPiece.type === 'bishop' || targetPiece.type === 'archbishop'))
+                            (['bishop', 'archbishop'].includes(p.type) && ['knight', 'hero', 'archer'].includes(targetPiece.type)) ||
+                            (['knight', 'hero', 'archer'].includes(p.type) && ['bishop', 'archbishop'].includes(targetPiece.type))
                         );
                         if (isSwap) {
                             moves.push({ from: [r, c], to: [nr, nc], type: 'swap' });
@@ -683,8 +687,8 @@ export class VibeChessAI {
         if (sq.piece.color === color) {
             const effectiveLevel = getEffectiveLevel(gs.board as any, fR, fC);
             if (effectiveLevel >= 4) {
-                if ((attacker.type === 'knight' || attacker.type === 'hero' || attacker.type === 'archer') && (sq.piece.type === 'bishop' || sq.piece.type === 'archbishop')) return true;
-                if ((attacker.type === 'bishop' || attacker.type === 'archbishop') && (sq.piece.type === 'knight' || sq.piece.type === 'hero' || sq.piece.type === 'archer')) return true;
+                if (['knight', 'hero', 'archer'].includes(attacker.type) && ['bishop', 'archbishop'].includes(sq.piece.type)) return true;
+                if (['bishop', 'archbishop'].includes(attacker.type) && ['knight', 'hero', 'archer'].includes(sq.piece.type)) return true;
             }
             return false;
         } 

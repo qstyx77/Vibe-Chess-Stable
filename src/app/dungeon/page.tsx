@@ -21,6 +21,7 @@ import {
   findKing,
   processPoisonDamage,
   getEffectiveLevel,
+  getPromotionLevel,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -220,7 +221,7 @@ export default function DungeonPage() {
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
-  const [promotionPawnOriginalLevel, setPromotionPawnOriginalLevel] = useState<number | null>(null);
+  const [promotionTargetLevel, setPromotionTargetLevel] = useState<number>(1);
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
   const [enemyStuckTurns, setEnemyStuckTurns] = useState(0);
@@ -517,15 +518,16 @@ export default function DungeonPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = nextBoard[row][col].piece;
     if (!pieceBeingPromoted) return;
-    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(pieceBeingPromoted.level, 7);
+    
+    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, level: promotionTargetLevel, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
+    
     audioManager.playLevelUp();
     setBoard(nextBoard);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
 
-    const effectiveLevelAfterPromo = getEffectiveLevel(nextBoard, row, col);
-    const extraTurnFromPromo = effectiveLevelAfterPromo >= 5;
+    const extraTurnFromPromo = nextBoard[row][col].piece!.level >= 5;
     const oldStreak = killStreaks['white'];
     const isExtra = extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6);
 
@@ -544,7 +546,7 @@ export default function DungeonPage() {
     }
 
     processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
-  }, [board, promotionSquare, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, enPassantTargetSquare]);
+  }, [board, promotionSquare, promotionTargetLevel, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, enPassantTargetSquare]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -663,7 +665,7 @@ export default function DungeonPage() {
       if (!sq.piece && !sq.item) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
-        const result = applyMove(board, move, enPassantTargetSquare);
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
         setBoard(result.newBoard);
         audioManager.playAnvil();
         setIsAwaitingWindScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
@@ -675,7 +677,7 @@ export default function DungeonPage() {
       if (!sq.piece && !sq.item) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
-        const result = applyMove(board, move, enPassantTargetSquare);
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
         setBoard(result.newBoard);
         audioManager.playAnvil();
         setIsAwaitingAnvilScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
@@ -687,7 +689,7 @@ export default function DungeonPage() {
       if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen') {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
-        const result = applyMove(board, move, enPassantTargetSquare);
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
         setBoard(result.newBoard);
         audioManager.playShield();
         setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
@@ -699,7 +701,7 @@ export default function DungeonPage() {
         if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
             setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare);
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
             setBoard(result.newBoard);
             audioManager.playMove();
             setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
@@ -1039,7 +1041,6 @@ export default function DungeonPage() {
 
         const originalLevel = movingPiece?.level || 1; 
         const originalType = movingPiece?.type || 'pawn';
-        setPromotionPawnOriginalLevel(originalLevel);
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces);
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred } = result;
         
@@ -1108,14 +1109,14 @@ export default function DungeonPage() {
                   }
               }
           } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-              const hasVictims = newBoard.flat().some(sq => 
+              const hasLevel1Enemies = nextBoard.flat().some(sq => 
                   sq.piece && 
                   sq.piece.color === 'black' && 
                   sq.piece.level === 1 && 
                   sq.piece.type !== 'king' && 
                   sq.piece.type !== 'queen'
               );
-              if (hasVictims) {
+              if (hasLevel1Enemies) {
                 triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
               }
           }
@@ -1143,16 +1144,31 @@ export default function DungeonPage() {
               if (hasL1Targets) {
                   setSpecialActionContext({ extra: isExtra }); 
                   setIsAwaitingCommanderPromotion(true); 
-                  if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
+                  if (isInteractivePromo) {
+                      setPromotionTargetLevel(getPromotionLevel(capturedPiece?.type || null));
+                      setIsPromotingPawn(true);
+                      setPromotionSquare(algebraic);
+                      return;
+                  }
                   return;
               } else {
-                  if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
+                  if (isInteractivePromo) {
+                      setPromotionTargetLevel(getPromotionLevel(capturedPiece?.type || null));
+                      setIsPromotingPawn(true);
+                      setPromotionSquare(algebraic);
+                      return;
+                  }
                   processMoveEnd(newBoard, currentPlayer, isExtra, nextEp);
                   return;
               }
           }
 
-          if (isInteractivePromo) { setIsPromotingPawn(true); setPromotionSquare(algebraic); return; }
+          if (isInteractivePromo) {
+              setPromotionTargetLevel(getPromotionLevel(capturedPiece?.type || null));
+              setIsPromotingPawn(true);
+              setPromotionSquare(algebraic);
+              return;
+          }
           if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
         }, 800);
         return;
@@ -1225,6 +1241,9 @@ export default function DungeonPage() {
                  const pType = (landedPiece.type === 'commander') ? 'hero' : (promoteTo || 'queen');
                  landedPiece.type = pType;
                  landedPiece.id = `${landedPiece.id}_AI_PROMO_${Date.now()}`;
+                 if (landedPiece.type !== 'hero') {
+                     landedPiece.level = getPromotionLevel(result.capturedPiece?.type || null);
+                 }
                  if (pType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
                  audioManager.playLevelUp();
              }

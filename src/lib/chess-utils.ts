@@ -181,6 +181,13 @@ export function getEffectiveLevel(board: BoardState, r: number, c: number): numb
   return level;
 }
 
+export function getPromotionLevel(capturedPieceType: PieceType | null): number {
+  if (!capturedPieceType) return 1;
+  if (['pawn', 'commander', 'infiltrator'].includes(capturedPieceType)) return 2;
+  if (capturedPieceType === 'queen') return 4;
+  return 3; // Knight, Bishop, Rook, Hero, Archbishop, Palace, Archer
+}
+
 function getPossibleMovesInternal(
     board: BoardState,
     fromSquare: AlgebraicSquare,
@@ -300,7 +307,7 @@ function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      const isSwapTarget = currentLevel >= 4 && (targetP.type === 'knight' || targetP.type === 'hero' || targetP.type === 'archer');
+                      const isSwapTarget = currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
                       if (isSwapTarget) possible.push(coordsToAlgebraic(R, C));
                       const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
                       if (hasPhase || currentLevel >= 2) continue; else break;
@@ -451,8 +458,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   if (piece.heldItem === 'queens_peace' && piece.type === 'queen' && targetPieceOnSquare) return false;
 
-  const isSwap = ((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && effectiveLevel >= 4 && targetPieceOnSquare && (targetPieceOnSquare.type === 'bishop' || targetPieceOnSquare.type === 'archbishop') && targetPieceOnSquare.color === piece.color) ||
-                 ((piece.type === 'bishop' || piece.type === 'archbishop') && effectiveLevel >= 4 && targetPieceOnSquare && (targetPieceOnSquare.type === 'knight' || targetPieceOnSquare.type === 'hero' || targetPieceOnSquare.type === 'archer') && targetPieceOnSquare.color === piece.color);
+  const isSwap = (['knight', 'hero', 'archer'].includes(piece.type) && effectiveLevel >= 4 && targetPieceOnSquare && (['bishop', 'archbishop'].includes(targetPieceOnSquare.type)) && targetPieceOnSquare.color === piece.color) ||
+                 ((['bishop', 'archbishop'].includes(piece.type)) && effectiveLevel >= 4 && targetPieceOnSquare && (['knight', 'hero', 'archer'].includes(targetPieceOnSquare.type)) && targetPieceOnSquare.color === piece.color);
   if (isSwap) return true;
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) return false;
   
@@ -562,7 +569,7 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     const hunters = ['commander', 'hero', 'infiltrator', 'self-destruct'];
     if (targetPiece.type === 'queen' && hunters.includes(attackingPiece.type)) return false;
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
-    if ((targetPiece.type === 'bishop' || targetPiece.type === 'archbishop') && targetLevel >= 3 && ['pawn', 'commander', 'infiltrator'].includes(attackingPiece.type)) return true;
+    if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && ['pawn', 'commander', 'infiltrator'].includes(attackingPiece.type)) return true;
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
 }
 
@@ -639,7 +646,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               if (adjacent.length > 0) {
                   const target = adjacent[Math.floor(Math.random()*adjacent.length)];
                   const {row: rr, col: rc} = algebraicToCoords(target);
-                  const resPiece = { ...best, level: 1, id: `res_scroll_${best.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                  const resPiece = { ...best, id: `res_scroll_${best.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                   newBoard[rr][rc].piece = resPiece;
                   resurrectionScrollEvent = { piece: best, square: target };
               }
@@ -974,7 +981,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
                 if (victim && victim.color === oppColor && victim.type !== 'king') {
                     const capturedSplash = { ...victim, id: `${victim.id}_splash_${Date.now()}` };
                     handleHydraSplit(victim, target.r, target.c, newBoard);
-                    if (graveyard) graveyard[pieceToLand.color].push(capturedSplash);
+                    if (graveyard) graveyard[pieceToLand.color === 'white' ? 'white' : 'black'].push(capturedSplash);
                     if (victim.heldItem === 'soul_link') {
                         newBoard.forEach(row => row.forEach(sq => {
                             if (sq.piece && sq.piece.color === oppColor && sq.piece.heldItem === 'soul_link') sq.piece = null;
@@ -1022,7 +1029,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if(empty.length > 0) {
       const sq = empty[Math.floor(Math.random()*empty.length)];
       const {row: rr, col: rc} = algebraicToCoords(sq);
-      const res = { ...captured, level: 1, id: `res_${captured.id}_${Date.now()}` };
+      const res = { ...captured, id: `res_${captured.id}_${Date.now()}` };
       newBoard[rr][rc].piece = res;
       phoenixResurrection = { piece: res, square: sq };
       // Prevent duplication: If we resurrect via Phoenix Down, nullify the capture so it's not added to the graveyard pile.
@@ -1038,7 +1045,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
   }
   
-  if ((pieceToLand.type === 'bishop' || pieceToLand.type === 'archbishop') && effectiveLevelAfterMove >= 5) {
+  if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) {
     triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   }
 

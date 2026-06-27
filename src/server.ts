@@ -15,6 +15,7 @@ import {
     isQueenSacrificeRequired,
     getPossibleMoves,
     isValidSquare,
+    getPromotionLevel,
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
 
@@ -135,8 +136,8 @@ const triggerNextSpecialAction = (room: any, actingPlayer: PlayerColor) => {
     }
 
     if (room.gameState.pendingPromotion) {
-        const { square } = room.gameState.pendingPromotion;
-        broadcastToRoom(roomId, { type: 'promotion-required', square, player: actingPlayer, fullGameState: room.gameState });
+        const { square, targetLevel } = room.gameState.pendingPromotion;
+        broadcastToRoom(roomId, { type: 'promotion-required', square, targetLevel, player: actingPlayer, fullGameState: room.gameState });
         startSpecialActionTimer(roomId, 'pawn-promo', actingPlayer);
         return;
     }
@@ -559,6 +560,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece && (piece.type === 'pawn' || piece.type === 'commander' || room.gameState.pendingPromotion.fromResurrection)) {
                             piece.type = promoteTo;
+                            piece.level = room.gameState.pendingPromotion.targetLevel || 1;
                             if (promoteTo === 'queen') piece.level = Math.min(piece.level, 7);
                             delete room.gameState.pendingPromotion;
                             triggerNextSpecialAction(room, actingColor);
@@ -644,7 +646,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const toCoords = algebraicToCoords(to);
                         const pieceAtDest = finalizedBoard[toCoords.row][toCoords.col].piece;
-                        if (pieceAtDest && (pieceAtDest.type === 'rook' || pieceAtDest.type === 'palace') && caps > 0) {
+                        if (pieceAtDest && (['rook', 'palace'].includes(pieceAtDest.type)) && caps > 0) {
                             const resResult = processRookResurrectionCheck(
                                 finalizedBoard, movingPlayer, data.payload, to,
                                 originalLevel, room.gameState.capturedPieces, globalServerUniqueIdCounter
@@ -656,7 +658,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 room.gameState.resurrectedSquare = resResult.resurrectedSquareAlg;
                                 
                                 if (resResult.promotionRequiredForResurrectedPawn) {
-                                    room.gameState.pendingPromotion = { square: resResult.resurrectedSquareAlg, player: movingPlayer, fromResurrection: true };
+                                    room.gameState.pendingPromotion = { square: resResult.resurrectedSquareAlg, player: movingPlayer, fromResurrection: true, targetLevel: 1 };
                                 }
                             }
                         }
@@ -685,7 +687,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const landedPiece = finalizedBoard[toCoords.row][toCoords.col].piece;
                         if (landedPiece && landedPiece.type === 'pawn' && (toCoords.row === 0 || toCoords.row === 7)) {
-                            room.gameState.pendingPromotion = { square: to, player: movingPlayer };
+                            room.gameState.pendingPromotion = { 
+                                square: to, 
+                                player: movingPlayer,
+                                targetLevel: getPromotionLevel(capturedPiece?.type || rest.pieceCapturedByAnvil?.type || null)
+                            };
                         }
 
                         if (newStreak >= 2 && oldStreak < 2 && finalizedBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
