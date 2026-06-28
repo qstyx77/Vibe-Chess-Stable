@@ -2,7 +2,7 @@ import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Square
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
-const VAL_MAP: Record<string, number> = {
+export const VAL_MAP: Record<string, number> = {
   pawn: 1,
   commander: 2,
   infiltrator: 2,
@@ -776,9 +776,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'wind-scroll') {
-      triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); 
+      const crush = triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); 
+      if (crush) pieceCapturedByAnvil = crush;
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'summon-anvil') {
@@ -1031,7 +1032,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (movingPiece.heldItem === 'wind_sword' && captured) {
-      triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+      const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+      if (crush) pieceCapturedByAnvil = crush;
   }
 
   if (pieceToLand.heldItem === 'middle_way') pieceToLand.level = 3;
@@ -1055,7 +1057,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const hasCloakPushBack = pieceToLand.heldItem === 'wind_cloak' && effectiveLevelAfterMove >= 4;
 
   if (hasInherentPushBack || hasCloakPushBack) {
-    triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+    const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+    if (crush) pieceCapturedByAnvil = crush;
   }
   
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) {
@@ -1067,7 +1070,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent };
 }
 
-export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor) {
+export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor): Piece | null {
+  let crushed: Piece | null = null;
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     if(dr===0 && dc===0) continue;
     const nr = r+dr; const nc = c+dc;
@@ -1079,14 +1083,25 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
         if(!isValidSquare(tr, tc)) { if(victim.item) board[nr][nc].item = null; }
         else {
           const dest = board[tr][tc];
-          if(!dest.piece && !dest.item) {
-            if(victim.piece) { board[tr][tc].piece = victim.piece; board[nr][nc].piece = null; }
-            else { board[tr][tc].item = victim.item; board[nr][nc].item = null; }
+          if (victim.item?.type === 'anvil') {
+             if (dest.piece && dest.piece.type !== 'king') {
+                crushed = { ...dest.piece };
+                dest.piece = null;
+                board[tr][tc].item = victim.item;
+                board[nr][nc].item = null;
+             } else if (!dest.piece && !dest.item) {
+                board[tr][tc].item = victim.item;
+                board[nr][nc].item = null;
+             }
+          } else if(!dest.piece && !dest.item) {
+             board[tr][tc].piece = victim.piece;
+             board[nr][nc].piece = null;
           }
         }
       }
     }
   }
+  return crushed;
 }
 
 export function triggerPoisonSplash(board: BoardState, r: number, c: number, attackerColor: PlayerColor) {
