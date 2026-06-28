@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -265,6 +264,8 @@ export default function EvolvingChessPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
+  const hasInitializedSession = useRef(false);
+
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
     if (elo <= 1200) return 2;
@@ -288,6 +289,26 @@ export default function EvolvingChessPage() {
 
     effectCleanupTimersRef.current[id] = timer;
   }, []);
+
+  // Synchronize equipment and ELO from userData to board state on initial load
+  useEffect(() => {
+    if (!isUserLoading && userData && !hasInitializedSession.current) {
+      hasInitializedSession.current = true;
+      const elo = userData.eloRating || 1200;
+      let initial = initializeBoard(elo, 1200);
+      
+      if (userData.equipment) {
+        initial = initial.map(row => row.map(sq => {
+          if (sq.piece && userData.equipment![sq.piece.id]) {
+            return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+          }
+          return sq;
+        }));
+      }
+      setBoard(initial);
+      if (userData.inventory) setInventory(userData.inventory);
+    }
+  }, [userData, isUserLoading]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player'; 
@@ -1132,7 +1153,16 @@ export default function EvolvingChessPage() {
   }
 
   function fullGameReset() {
-    setBoard(initializeBoard());
+    let initial = initializeBoard(userData?.eloRating || 1200, 1200);
+    if (userData?.equipment) {
+      initial = initial.map(row => row.map(sq => {
+        if (sq.piece && userData.equipment![sq.piece.id]) {
+          return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+        }
+        return sq;
+      }));
+    }
+    setBoard(initial);
     setCurrentPlayer('white');
     setGameInfo({ ...initialGameStatus });
     setCapturedPieces({ white: [], black: [] });

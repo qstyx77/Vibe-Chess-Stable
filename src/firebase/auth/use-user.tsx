@@ -1,4 +1,3 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -42,19 +41,15 @@ export function useUser() {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
             
-            // PLAYTEST OVERRIDE: If inventory is missing or has fewer items than the total available,
-            // refresh it to ensure the playtester has access to everything.
-            // Also filters out removed items.
-            const currentItemTypes = new Set(ITEM_TYPES);
-            const needsRefresh = !data.inventory || 
-                                data.inventory.some(i => !currentItemTypes.has(i.type)) ||
-                                data.inventory.length !== ITEM_TYPES.length;
+            // PLAYTEST INITIALIZATION: Only initialize if inventory is missing entirely.
+            // This prevents the "aggressive refresh" that was resetting item counts mid-game.
+            const needsInitialization = !data.inventory;
 
-            if (needsRefresh) {
-                const refreshedInventory = [...DEFAULT_INVENTORY];
+            if (needsInitialization) {
+                const initialInventory = [...DEFAULT_INVENTORY];
                 // Update Firestore and local state
-                setDoc(userRef, { inventory: refreshedInventory }, { merge: true });
-                setUserData({ ...data, inventory: refreshedInventory });
+                setDoc(userRef, { inventory: initialInventory }, { merge: true });
+                setUserData({ ...data, inventory: initialInventory });
             } else {
                 setUserData(data);
             }
