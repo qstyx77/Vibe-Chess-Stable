@@ -24,7 +24,7 @@ import {
   getEffectiveLevel,
   getPromotionLevel,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
@@ -195,6 +195,61 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   return board;
 }
 
+function adaptBoardForAI(
+  currentBoardState: BoardState,
+  playerForAITurn: PlayerColor,
+  currentKillStreaks: { white: number; black: number },
+  currentCapturedPieces: { white: Piece[]; black: Piece[] },
+  gameMoveCounter: number,
+  firstBloodAchieved: boolean,
+  playerWhoGotFirstBlood: PlayerColor | null,
+  enPassantTargetSquare: AlgebraicSquare | null,
+  shroomSpawnCounter?: number,
+  nextShroomSpawnTurn?: number
+): AIGameState {
+  const newAiBoard: AIBoardState = [];
+  for (let r_idx = 0; r_idx < 8; r_idx++) {
+    const boardRow = currentBoardState[r_idx];
+    const newAiRow: AISquareState[] = [];
+    if (boardRow) {
+      for (let c_idx = 0; c_idx < 8; c_idx++) {
+        const squareState = boardRow[c_idx];
+        newAiRow.push({
+          piece: squareState?.piece ? { ...squareState.piece } : null,
+          item: squareState?.item ? { ...squareState.item } : null,
+        });
+      }
+    } else {
+      for (let c_idx = 0; c_idx < 8; c_idx++) {
+        newAiRow.push({ piece: null, item: null });
+      }
+    }
+    newAiBoard.push(newAiRow);
+  }
+
+  return {
+    board: newAiBoard,
+    currentPlayer: playerForAITurn,
+    killStreaks: {
+      white: currentKillStreaks?.white || 0,
+      black: currentKillStreaks?.black || 0,
+    },
+    capturedPieces: {
+      white: currentKillStreaks?.white ? currentCapturedPieces?.white?.map(p => ({ ...p })) || [] : [],
+      black: currentKillStreaks?.black ? currentCapturedPieces?.black?.map(p => ({ ...p })) || [] : [],
+    },
+    gameOver: false,
+    winner: undefined,
+    extraTurn: false,
+    gameMoveCounter: gameMoveCounter,
+    firstBloodAchieved: firstBloodAchieved,
+    playerWhoGotFirstBlood: playerWhoGotFirstBlood,
+    enPassantTargetSquare: enPassantTargetSquare,
+    shroomSpawnCounter: shroomSpawnCounter,
+    nextShroomSpawnTurn: nextShroomSpawnTurn,
+  };
+}
+
 export default function DungeonPage() {
   const { userData, isUserLoading, user } = useUser();
   const firestore = useFirestore();
@@ -225,7 +280,6 @@ export default function DungeonPage() {
   const [promotionTargetLevel, setPromotionTargetLevel] = useState<number>(1);
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
-  const [enemyStuckTurns, setEnemyStuckTurns] = useState(0);
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
@@ -270,6 +324,8 @@ export default function DungeonPage() {
     }, 1500);
   }, []);
 
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe;
+
   useEffect(() => {
     if (!board.length || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -312,7 +368,6 @@ export default function DungeonPage() {
     setShroomSpawnCounter(0);
     setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     setEnPassantTargetSquare(null);
-    setEnemyStuckTurns(0);
     const hasCommander = survivorsFromLastBoard.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
@@ -429,7 +484,11 @@ export default function DungeonPage() {
   }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null) => {
-    // 1. First Blood -> Commander Promo
+    // 1. Queen Sacrifice (Highest Priority)
+    const activeMovingPiece = boardToChain.flat().find(sq => sq.piece?.color === 'white' && sq.piece.type === 'queen' && sq.piece.level === 7);
+    // Actually sacrifice check was handled in handleSquareClick, but we ensure order here.
+
+    // 2. First Blood -> Commander Promo
     if (!firstBloodAchieved && newStreak > oldStreak) {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white');
         const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
@@ -440,21 +499,21 @@ export default function DungeonPage() {
         }
     }
 
-    // 2. Killstreak: Holy Shield (Streak 2 + Archbishop)
+    // 3. Killstreak: Holy Shield (Streak 2 + Archbishop)
     if (newStreak >= 2 && oldStreak < 2 && boardToChain.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
         setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
         setIsAwaitingHolyShield(true);
         return;
     }
 
-    // 3. Killstreak: Anvil (Streak 3)
+    // 4. Killstreak: Anvil (Streak 3)
     if (newStreak >= 3 && oldStreak < 3) {
         setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
         setIsAwaitingAnvilDrop(true);
         return;
     }
 
-    // 4. Killstreak: Resurrection (Streak 4)
+    // 5. Killstreak: Resurrection (Streak 4)
     if (newStreak >= 4 && oldStreak < 4 && capturedPieces.black.length > 0) {
         const graveyardList = capturedPieces.black;
         const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
@@ -479,7 +538,7 @@ export default function DungeonPage() {
         return;
     }
 
-    // 5. Killstreak: Archer Snipe (Streak 5 + Archer)
+    // 6. Killstreak: Archer Snipe (Streak 5 + Archer)
     if (newStreak >= 5 && oldStreak < 5 && boardToChain.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
         const hasLevel1Enemies = boardToChain.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
         if (hasLevel1Enemies) {
@@ -491,6 +550,120 @@ export default function DungeonPage() {
 
     processMoveEnd(boardToChain, 'white', isExtra, nextEp);
   }, [firstBloodAchieved, capturedPieces.black, addEffect, processMoveEnd]);
+
+  const performAiMove = useCallback(async () => {
+    if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black' || isAnySpecialModeActive) return;
+
+    setIsAiThinking(true);
+    try {
+      const gameStateForAi = adaptBoardForAI(
+        board,
+        'black',
+        killStreaks,
+        capturedPieces,
+        moveCounter.current,
+        firstBloodAchieved,
+        playerWhoGotFirstBlood,
+        enPassantTargetSquare,
+        shroomSpawnCounter,
+        nextShroomSpawnTurn
+      );
+
+      const aiResult = aiInstance.current?.getBestMove(gameStateForAi, 'black');
+      const aiMove = aiResult?.move;
+
+      if (aiMove) {
+        const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]);
+        const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
+        const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece;
+        
+        if (!movingPiece) throw new Error("AI tried to move non-existent piece");
+
+        const originalL = movingPiece.level || 1;
+        const originalT = movingPiece.type;
+
+        setIsMoveProcessing(true);
+        setAnimatedSquareTo(toAlg);
+        setLastMoveFrom(fromAlg);
+        setLastMoveTo(toAlg);
+        moveCounter.current++;
+
+        let mType: Move['type'] = aiMove.type as Move['type'];
+        const targetSq = board[aiMove.to[0]][aiMove.to[1]];
+        if (mType === 'move' && targetSq.piece) {
+            mType = targetSq.piece.color === 'black' ? 'swap' : 'capture';
+        }
+
+        const result = applyMove(board, { from: fromAlg, to: toAlg, type: mType, promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
+        let { newBoard, capturedPiece, selfDestructCaptures, shroomConsumed, enPassantTargetSet: nextEp, reflectionOccurred } = result;
+
+        if (reflectionOccurred) {
+            const victim = capturedPiece!;
+            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...victim, id: `${victim.id}_refl_ai_${Date.now()}` }] }));
+            audioManager.playCapture();
+            setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + 1, black: 0 }));
+            setBoard(newBoard);
+            setTimeout(() => {
+                setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false;
+                processMoveEnd(newBoard, 'black', false, null);
+            }, 800);
+            return;
+        }
+
+        if (shroomConsumed) audioManager.playShroom();
+        if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) audioManager.playCapture();
+        else audioManager.playMove();
+
+        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (selfDestructCaptures?.length || 0);
+        const oldStreak = killStreaks.black;
+        const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
+        setKillStreaks(prev => ({ ...prev, black: newStreak }));
+
+        if (capturedPiece) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...capturedPiece!, id: `${capturedPiece!.id}_cap_ai_${Date.now()}` }] }));
+        if (selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...selfDestructCaptures.map(p => ({...p, id: `${p.id}_sd_ai_${Date.now()}`}))] }));
+
+        setBoard(newBoard);
+
+        setTimeout(() => {
+            setIsAiThinking(false); setIsMoveProcessing(false);
+            const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
+            
+            const landedPiece = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
+            if (landedPiece?.type === 'queen') {
+                if (landedPiece.level === 7 && originalL < 7 && originalT === 'queen') {
+                   const pawns = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+                   if (pawns.length > 0) {
+                       const sac = pawns[0];
+                       const {row: sr, col: sc} = algebraicToCoords(sac.algebraic);
+                       newBoard[sr][sc].piece = null;
+                       setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...sac.piece!, id: `${sac.piece!.id}_sac_ai_${Date.now()}` }] }));
+                       audioManager.playCapture();
+                   }
+                }
+            }
+
+            if (landedPiece?.type === 'pawn' && (aiMove.to[0] === 7)) {
+                landedPiece.type = aiMove.promoteTo || 'queen';
+                landedPiece.level = getPromotionLevel(capturedPiece?.type || null);
+                if (landedPiece.type === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
+                audioManager.playLevelUp();
+            }
+
+            processMoveEnd(newBoard, 'black', isExtra, nextEp);
+        }, 800);
+      }
+    } catch (e) {
+      console.error("AI Error:", e);
+      setIsAiThinking(false);
+    }
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive]);
+
+  useEffect(() => {
+    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
+      const timer = setTimeout(performAiMove, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove]);
 
   const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
     if (!user || !firestore) return;
@@ -535,7 +708,6 @@ export default function DungeonPage() {
     setShroomSpawnCounter(0);
     setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
     setEnPassantTargetSquare(null);
-    setEnemyStuckTurns(0);
     const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
@@ -1021,10 +1193,6 @@ export default function DungeonPage() {
     return false;
   }, [triggerSpecialsChain]);
 
-  const isLocalActionTurn = currentPlayer === 'white';
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe;
-  const isInteractionDisabled = isMoveProcessing || gameInfo.gameOver || isAiThinking || (isAnySpecialModeActive && !isLocalActionTurn);
-
   if (!user) {
     return (
         <div className="flex flex-col items-center justify-center h-[100dvh] bg-background p-4 text-center">
@@ -1068,7 +1236,7 @@ export default function DungeonPage() {
               onSquareClick={handleSquareClick}
               playerColor="white"
               currentPlayerColor={currentPlayer}
-              isInteractionDisabled={isInteractionDisabled}
+              isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white') || isAiThinking}
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode="flipping"
               animatedSquareTo={animatedSquareTo}
@@ -1146,3 +1314,4 @@ export default function DungeonPage() {
     </div>
   );
 }
+
