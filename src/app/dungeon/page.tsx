@@ -295,6 +295,8 @@ export default function DungeonPage() {
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
 
+  const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
+
   const uniqueIdCounterRef = useRef(30000);
 
   // --- Inventory States ---
@@ -360,6 +362,7 @@ export default function DungeonPage() {
     clickGuard.current = false;
     
     setLevel(nextLevel);
+    setAiStalemateStrikes(0);
     setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
@@ -568,6 +571,7 @@ export default function DungeonPage() {
       const aiMove = aiResult?.move;
 
       if (aiMove) {
+        setAiStalemateStrikes(0);
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]);
         const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
         const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece;
@@ -646,12 +650,34 @@ export default function DungeonPage() {
 
             processMoveEnd(newBoard, 'black', isExtra, nextEp);
         }, 800);
+      } else {
+        // AI NO MOVES CASE
+        const nextStrikes = aiStalemateStrikes + 1;
+        setAiStalemateStrikes(nextStrikes);
+        setKillStreaks(prev => ({ ...prev, black: 0 }));
+
+        if (nextStrikes >= 3) {
+            toast({ title: "DUNGEON COLLAPSE!", description: "The Dungeon forces have collapsed after failing to move 3 times!", variant: "destructive" });
+            audioManager.playExplosion();
+            const collapsedBoard = board.map(r => r.map(s => ({...s, piece: s.piece?.color === 'black' ? null : (s.piece ? {...s.piece} : null)})));
+            setBoard(collapsedBoard);
+            setTimeout(() => {
+                setIsAiThinking(false);
+                processMoveEnd(collapsedBoard, 'black', false, null);
+            }, 800);
+        } else {
+            toast({ title: "Dungeon Skip", description: `The Dungeon has no legal moves! Strike ${nextStrikes}/3` });
+            setTimeout(() => {
+                setIsAiThinking(false);
+                processMoveEnd(board, 'black', false, null);
+            }, 800);
+        }
       }
     } catch (e) {
       console.error("AI Error:", e);
       setIsAiThinking(false);
     }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
