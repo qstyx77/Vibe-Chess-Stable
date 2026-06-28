@@ -659,11 +659,67 @@ export default function DungeonPage() {
         if (nextStrikes >= 3) {
             toast({ title: "DUNGEON COLLAPSE!", description: "The Dungeon forces have collapsed after failing to move 3 times!", variant: "destructive" });
             audioManager.playExplosion();
-            const collapsedBoard = board.map(r => r.map(s => ({...s, piece: s.piece?.color === 'black' ? null : (s.piece ? {...s.piece} : null)})));
-            setBoard(collapsedBoard);
+            
+            // Create a deep copy of the board to modify for the collapse
+            let nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+            
+            // Identify all squares with black pieces
+            const blackPieceSquares: {r: number, c: number}[] = [];
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    if (nextBoard[r][c].piece?.color === 'black') {
+                        blackPieceSquares.push({ r, c });
+                    }
+                }
+            }
+
+            const capturedByCollapse: Piece[] = [];
+            
+            blackPieceSquares.forEach(({ r, c }) => {
+                // Trigger explosion animation at the unit's location
+                addEffect('explosion', coordsToAlgebraic(r, c));
+                
+                // Knight Self-Destruct Logic: Destroy adjacent enemies (White) and anvils
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        
+                        const nr = r + dr;
+                        const nc = c + dc;
+                        
+                        if (isValidSquare(nr, nc)) {
+                            const targetSq = nextBoard[nr][nc];
+                            
+                            // Destroy adjacent anvils
+                            if (targetSq.item?.type === 'anvil') {
+                                targetSq.item = null;
+                            }
+                            
+                            // Destroy adjacent White pieces (except Kings)
+                            if (targetSq.piece && targetSq.piece.color === 'white' && targetSq.piece.type !== 'king') {
+                                capturedByCollapse.push({ ...targetSq.piece, id: `${targetSq.piece.id}_collapse_${Date.now()}_${Math.random()}` });
+                                targetSq.piece = null;
+                            }
+                        }
+                    }
+                }
+                
+                // Remove the collapsing piece itself
+                nextBoard[r][c].piece = null;
+            });
+
+            // Update captured pieces for the Dungeon (Black) as these units were "taken" by the self-destructing forces
+            if (capturedByCollapse.length > 0) {
+                setCapturedPieces(prev => ({
+                    ...prev,
+                    black: [...prev.black, ...capturedByCollapse]
+                }));
+            }
+
+            setBoard(nextBoard);
             setTimeout(() => {
                 setIsAiThinking(false);
-                processMoveEnd(collapsedBoard, 'black', false, null);
+                processMoveEnd(nextBoard, 'black', false, null);
             }, 800);
         } else {
             toast({ title: "Dungeon Skip", description: `The Dungeon has no legal moves! Strike ${nextStrikes}/3` });
@@ -677,7 +733,7 @@ export default function DungeonPage() {
       console.error("AI Error:", e);
       setIsAiThinking(false);
     }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
