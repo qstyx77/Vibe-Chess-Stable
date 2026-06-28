@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -216,7 +217,7 @@ export default function EvolvingChessPage() {
 
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [playerToDropAnvil, setPlayerToDropAnvil] = useState<PlayerColor | null>(null);
-  const [anvilDropContext, setAnvilDropContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null>(null);
+  const [anvilDropContext, setAnvilDropContext] = useState<{ boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null, oldStreak: number, newStreak: number } | null>(null);
   const [anvilDropAfterPromotion, setAnvilDropAfterPromotion] = useState(false);
 
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
@@ -265,8 +266,6 @@ export default function EvolvingChessPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
-  const isInteractionDisabled = gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
     if (elo <= 1200) return 2;
@@ -276,54 +275,6 @@ export default function EvolvingChessPage() {
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
   }, [board]);
-
-  // Sync Loadout and Inventory from UserData
-  useEffect(() => {
-    if (!isUserLoading && userData && onlineStatus === 'disconnected') {
-      if (userData.inventory) setInventory(userData.inventory);
-      if (userData.equipment) {
-        setBoard(currentBoard => {
-          const next = currentBoard.map(row => row.map(sq => {
-            if (sq.piece && userData.equipment![sq.piece.id]) {
-              return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
-            }
-            return sq;
-          }));
-          return next;
-        });
-      }
-    }
-  }, [isUserLoading, userData, onlineStatus]);
-
-  // ELO-based persistent piece initialization
-  useEffect(() => {
-    if (!isUserLoading && userData && onlineStatus === 'disconnected' && gameMoveCounter === 0) {
-      const elo = userData.eloRating || 1200;
-      setBoard(currentBoard => {
-        let next = initializeBoard(elo, 1200);
-        if (userData.equipment) {
-           next = next.map(row => row.map(sq => {
-              if (sq.piece && userData.equipment![sq.piece.id]) {
-                return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
-              }
-              return sq;
-           }));
-        }
-        return next;
-      });
-    }
-  }, [userData, isUserLoading, onlineStatus, gameMoveCounter]);
-
-  // Save Inventory and Loadout to Firestore
-  const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
-    if (!user || !firestore) return;
-    const equipment: Record<string, string> = {};
-    currentBoard.flat().forEach(sq => {
-      if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem;
-    });
-    const userDocRef = doc(firestore, 'users', user.uid);
-    updateDocumentNonBlocking(userDocRef, { inventory: currentInv, equipment });
-  }, [user, firestore]);
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player'; 
@@ -345,46 +296,6 @@ export default function EvolvingChessPage() {
     return baseName;
   }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
 
-  const isLocalActionTurn = onlineStatus === 'disconnected' || localPlayerColor === currentPlayer;
-
-  const applyBoardOpacityEffect = gameInfo.gameOver || isPromotingPawn || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-  const isOnlineGameInProgress = onlineStatus === 'connected' && !gameInfo.gameOver;
-  const isAnyOnlineState = onlineStatus === 'connected' || onlineStatus === 'waiting';
-
-  const getRankedButtonText = () => {
-    if(rankedQueueStatus === 'searching') return 'Searching...';
-    return 'Ranked';
-  };
-
-  const getStatusMessage = () => {
-    if (rankedQueueStatus === 'searching') {
-        return <p className="text-sm font-medium text-primary mt-1 animate-pulse">Searching for a ranked match...</p>;
-    }
-    if (onlineStatus === 'waiting' && roomId) {
-      return (
-        <p className="text-sm font-medium text-primary mt-1">
-          Wait... Share Room ID: <span className="font-bold bg-muted p-1 rounded-md select-all">{roomId}</span>
-        </p>
-      );
-    }
-    if (onlineStatus === 'connected' && localPlayerColor) {
-      return <p className="text-sm font-medium text-primary mt-1">Connection established! You are playing as {localPlayerColor}.</p>;
-    }
-    if (onlineStatus === 'connecting') {
-        return <p className="text-sm font-medium text-primary mt-1">Connecting...</p>;
-    }
-    return null;
-  };
-
-  useEffect(() => {
-    isMessengerOpenRef.current = isMessengerOpen;
-    if (isMessengerOpen) {
-      setHasUnreadMessages(false);
-    }
-  }, [isMessengerOpen]);
-
-  useEffect(() => { localPlayerColorRef.current = localPlayerColor; }, [localPlayerColor]);
-
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}-${effectCounterRef.current++}`;
     const newEffect: Effect = { id, type, square, color, value };
@@ -399,11 +310,653 @@ export default function EvolvingChessPage() {
     effectCleanupTimersRef.current[id] = timer;
   }, []);
 
-  useEffect(() => {
-    return () => {
-        Object.values(effectCleanupTimersRef.current).forEach(clearTimeout);
-    };
+  const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setEnemySelectedSquare(null);
+    setEnemyPossibleMoves([]);
+    setCurrentPlayer(playerTakingExtraTurn);
+    const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
+    const opponentInCheck = isKingInCheck(currentBoard, opponentColor, null);
+    if (opponentInCheck) {
+      toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 8000 });
+      setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingExtraTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
+      if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerTakingExtraTurn, timedOutPlayer: opponentColor, reason: 'auto-checkmate' }));
+        }
+      }
+      return;
+    }
+    let message = `${getPlayerDisplayName(playerTakingExtraTurn)} gets an extra turn!`;
+    const opponentIsStalemated = isStalemate(currentBoard, opponentColor, null);
+    if (opponentIsStalemated) {
+      setGameInfo(prev => ({ ...prev, message: `Stalemate! It's a draw.`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
+      if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
+        }
+      }
+    } else {
+      setGameInfo(prev => ({ ...prev, message, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false }));
+    }
+  }, [toast, getPlayerDisplayName, onlineStatus]);
+
+  const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
+    const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
+    const { newBoard: boardAfterPoison, poisonedCaptures } = processPoisonDamage(updatedBoard, nextPlayer);
+    let finalizedBoard = boardAfterPoison;
+    if (poisonedCaptures.length > 0) {
+        setCapturedPieces(prev => ({ ...prev, [playerWhoseTurnEnded]: [...(prev[playerWhoseTurnEnded] || []), ...poisonedCaptures] }));
+        setKillStreaks(prev => ({ ...prev, [playerWhoseTurnEnded]: (prev[playerWhoseTurnEnded] || 0) + poisonedCaptures.length }));
+        audioManager.playCapture();
+        toast({ title: "Poison Damage!", description: `${poisonedCaptures.length} piece(s) affected by poison!`, duration: 3000 });
+    }
+    setBoard(finalizedBoard);
+    setCurrentPlayer(nextPlayer);
+    setEnPassantTargetSquare(newEnPassantTarget);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setEnemySelectedSquare(null);
+    setEnemyPossibleMoves([]);
+    const inCheck = isKingInCheck(finalizedBoard, nextPlayer, newEnPassantTarget);
+    let newPlayerWithKingInCheck: PlayerColor | null = null;
+    let currentMessage = " ";
+    if (inCheck) {
+      newPlayerWithKingInCheck = nextPlayer;
+      const mate = isCheckmate(finalizedBoard, nextPlayer, newEnPassantTarget);
+      if (mate) {
+        currentMessage = `Checkmate! ${getPlayerDisplayName(playerWhoseTurnEnded)} wins!`;
+        setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: true, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoseTurnEnded }));
+        if (onlineStatus === 'connected') {
+          const ws = wsRef.current;
+          if(ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerWhoseTurnEnded, timedOutPlayer: nextPlayer, reason: 'checkmate' }));
+          }
+        }
+        return;
+      } else {
+        currentMessage = "Check!";
+      }
+    } else {
+      const stale = isStalemate(finalizedBoard, nextPlayer, newEnPassantTarget);
+      if (stale) {
+        currentMessage = `Stalemate! It's a draw.`;
+        setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
+        if (onlineStatus === 'connected') {
+          const ws = wsRef.current;
+          if(ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
+          }
+        }
+        return;
+      }
+    }
+     setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: inCheck, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: false, isStalemate: false, gameOver: false }));
+  }, [getPlayerDisplayName, onlineStatus, toast]);
+
+  const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null) => {
+    let currentBoardState = boardForNextStep;
+    const newGameMoveCounter = gameMoveCounter + 1;
+    setGameMoveCounter(newGameMoveCounter);
+    if (onlineStatus !== 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
+      let currentShroomCounter = (shroomSpawnCounter || 0) + 1;
+      setShroomSpawnCounter(currentShroomCounter);
+      if (currentShroomCounter >= (nextShroomSpawnTurn || 5)) {
+          if (onlineStatus === 'connected') {
+              const ws = wsRef.current;
+              if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'shroom-spawn' }));
+              }
+          } else {
+              const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
+              if (spawnedAt) {
+                  currentBoardState = newBoard;
+                  setBoard(currentBoardState);
+                  const newNextTurn = Math.floor(Math.random() * 6) + 5;
+                  toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
+                  audioManager.playShroom();
+                  setShroomSpawnCounter(0);
+                  setNextShroomSpawnTurn(newNextTurn);
+              }
+          }
+      }
+    }
+    const nextPlayerForHash = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
+    const castlingRights = getCastlingRightsString(currentBoardState);
+    const currentPositionHash = boardToPositionHash(currentBoardState, nextPlayerForHash, castlingRights, newEnPassantTarget);
+    const newHistory = [...positionHistory, currentPositionHash];
+    setPositionHistory(newHistory);
+    const repetitionCount = newHistory.filter(hash => hash === currentPositionHash).length;
+    if (repetitionCount >= 3 && !gameInfo.isCheckmate && !gameInfo.isStalemate && !gameInfo.isThreefoldRepetitionDraw && !gameInfo.isInfiltrationWin) {
+      toast({ title: "Draw!", description: "Draw by Threefold Repetition.", duration: 8000 });
+      setGameInfo(prev => ({ ...prev, message: "Draw by Threefold Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, isThreefoldRepetitionDraw: true, gameOver: true, winner: 'draw' }));
+      if (onlineStatus === 'connected') {
+        const ws = wsRef.current;
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
+        }
+      }
+      return;
+    }
+    if (gameInfo.gameOver) return;
+    if (isExtraTurn) setGameInfoBasedOnExtraTurn(currentBoardState, playerWhoseTurnCompleted);
+    else completeTurn(currentBoardState, playerWhoseTurnCompleted, newEnPassantTarget);
+  }, [positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver, setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn, gameMoveCounter, getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor]);
+
+  const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null) => {
+    // 1. First Blood -> Commander Promo
+    if (!firstBloodAchieved && newStreak > oldStreak) {
+        setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(currentPlayer || 'white');
+        const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === (currentPlayer || 'white') && sq.piece.level === 1);
+        if (hasL1Targets) {
+            setAnvilDropContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: currentPlayer || 'white', isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak });
+            setIsAwaitingCommanderPromotion(true);
+            return;
+        }
+    }
+
+    // 2. Killstreak: Holy Shield (Streak 2 + Archbishop)
+    if (newStreak >= 2 && oldStreak < 2 && boardToChain.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer)) {
+        setShieldContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: currentPlayer!, isExtraTurn: isExtra, newEnPassantTarget: nextEp });
+        setIsAwaitingHolyShield(true);
+        return;
+    }
+
+    // 3. Killstreak: Anvil (Streak 3)
+    if (newStreak >= 3 && oldStreak < 3) {
+        setAnvilDropContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: currentPlayer!, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak });
+        setPlayerToDropAnvil(currentPlayer);
+        setIsAwaitingAnvilDrop(true);
+        return;
+    }
+
+    // 4. Killstreak: Resurrection (Streak 4)
+    if (newStreak >= 4 && oldStreak < 4) {
+        const opponentPlayer = (currentPlayer === 'white' ? 'black' : 'white');
+        let piecesOfCurrentPlayer capturedByOpponent = [...(capturedPieces[opponentPlayer] || [])];
+        if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
+          const pieceToRes = piecesOfCurrentPlayerCapturedByOpponent.pop();
+          if (pieceToRes) {
+            const emptySquares: AlgebraicSquare[] = [];
+            for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!boardToChain[r_idx][c_idx].piece && !boardToChain[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
+            if (emptySquares.length > 0) {
+              const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+              const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
+              const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+              nextBoard[resR][resC].piece = { ...pieceToRes, level: 1, id: `${pieceToRes.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+              setBoard(nextBoard);
+              addEffect('light-beam', randomSquareAlg);
+              audioManager.playResurrect();
+              setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: currentPlayer! }]);
+              setCapturedPieces(prev => ({ ...prev, [opponentPlayer]: piecesOfCurrentPlayerCapturedByOpponent }));
+              
+              if (pieceToRes.type === 'pawn' && resR === (currentPlayer === 'white' ? 0 : 7)) {
+                  setPlayerToPromote(currentPlayer);
+                  setPromotionTargetLevel(1);
+                  setIsPromotingPawn(true);
+                  setPromotionSquare(randomSquareAlg);
+                  setAnvilDropContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: currentPlayer!, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak: 4, newStreak: 4 });
+                  return;
+              }
+              triggerSpecialsChain(nextBoard, 4, 4, isExtra, nextEp);
+              return;
+            }
+          }
+        }
+    }
+
+    // 5. Killstreak: Archer Snipe (Streak 5 + Archer)
+    if (newStreak >= 5 && oldStreak < 5 && boardToChain.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer)) {
+        const opponentPlayer = (currentPlayer === 'white' ? 'black' : 'white');
+        const hasLevel1Victims = boardToChain.flat().some(sq => sq.piece && sq.piece.color === opponentColor && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        if (hasLevel1Victims) {
+            setArcherSnipeContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: currentPlayer!, isExtraTurn: isExtra, newEnPassantTarget: nextEp });
+            setIsAwaitingArcherSnipe(true);
+            return;
+        }
+    }
+
+    processMoveEnd(boardToChain, currentPlayer!, isExtra, nextEp);
+  }, [currentPlayer, firstBloodAchieved, capturedPieces, addEffect, processMoveEnd]);
+
+  const processPawnSacrificeCheck = useCallback((
+    boardAfterPrimaryMove: BoardState,
+    playerWhoseQueenLeveled: PlayerColor,
+    queenMovedWithThis: Move | null,
+    originalPieceLevelIfKnown: number | undefined,
+    originalPieceTypeIfKnown: PieceType | undefined,
+    isExtraTurnFromOriginalMove: boolean,
+    newEnPassantTarget: AlgebraicSquare | null,
+    oldStreak: number,
+    newStreak: number
+  ): boolean => {
+    if (!queenMovedWithThis) { triggerSpecialsChain(boardAfterPrimaryMove, oldStreak, newStreak, isExtraTurnFromOriginalMove, newEnPassantTarget); return false; }
+    const { row: toR, col: toC } = algebraicToCoords(queenMovedWithThis.to);
+    const queenOnSquare = boardAfterPrimaryMove[toR]?.[toC]?.piece;
+    if (!queenOnSquare || queenOnSquare.type !== 'queen' || queenOnSquare.color !== playerWhoseQueenLeveled || originalPieceTypeIfKnown !== 'queen') {
+        triggerSpecialsChain(boardAfterPrimaryMove, oldStreak, newStreak, isExtraTurnFromOriginalMove, newEnPassantTarget);
+        return false;
+    }
+    const currentQueenLevel = Number(queenOnSquare.level || 1);
+    const previousLevelOfThisPiece = Number(originalPieceLevelIfKnown || 0);
+    if (currentQueenLevel === 7 && previousLevelOfThisPiece < 7) {
+      let hasPawnsToSacrifice = false;
+      for (const row of boardAfterPrimaryMove) {
+        for (const square of row) {
+          if (square.piece && (square.piece.type === 'pawn' || square.piece.type === 'commander') && square.piece.color === playerWhoseQueenLeveled) {
+            hasPawnsToSacrifice = true; break;
+          }
+        }
+        if (hasPawnsToSacrifice) break;
+      }
+      if (hasPawnsToSacrifice) {
+        setIsAwaitingPawnSacrifice(true);
+        setPlayerToSacrificePawn(playerWhoseQueenLeveled);
+        setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))));
+        setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
+        setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
+        setEnPassantTargetSquare(newEnPassantTarget);
+        setAnvilDropContext({ boardForNextStep: boardAfterPrimaryMove, playerWhoseTurnCompleted: playerWhoseQueenLeveled, isExtraTurn: isExtraTurnFromOriginalMove, newEnPassantTarget: newEnPassantTarget, oldStreak, newStreak }); 
+        setKillStreaks(prev => {
+            const next = {...prev};
+            next[playerWhoseQueenLeveled] = newStreak;
+            return next;
+        });
+        setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select Pawn/Commander to sacrifice for L7 Queen!` }));
+        return true;
+      }
+    }
+    triggerSpecialsChain(boardAfterPrimaryMove, oldStreak, newStreak, isExtraTurnFromOriginalMove, newEnPassantTarget);
+    return false;
+  }, [triggerSpecialsChain, getPlayerDisplayName]);
+
+  const performAiMove = async () => {
+    let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
+    let levelFromAIApplyMove: number | undefined;
+    let typeFromAIApplyMove: PieceType | undefined;
+    const currentAiInstance = aiInstanceRef.current;
+    if (!currentAiInstance) {
+      toast({ title: "AI Error", description: "AI engine is not territory. Please wait or reset the game.", variant: "destructive", duration: 8000 });
+      setIsAiThinking(false);
+      if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
+      return;
+    }
+    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) {
+      setIsAiThinking(false); return;
+    }
+    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) { setIsAiThinking(false); return; }
+    aiErrorOccurredRef.current = false;
+    setIsAiThinking(true);
+    setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) is thinking...` }));
+    setSelectedSquare(null); setPossibleMoves([]);
+    setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+    try {
+      let aiMoveDataFromVibeAI: AIMoveType | null = null;
+      let attemptCount = 0;
+      const MAX_AI_ATTEMPTS = 3;
+      let pieceOnFromSquareForAI: Piece | null = null;
+      let isAiMoveActuallyLegal = false;
+      let aiFromAlg: AlgebraicSquare | null = null;
+      let aiToAlg: AlgebraicSquare | null = null;
+      let moveForApplyMoveAI: Move | null = null;
+      let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? {...s_fbs.item} : null })));
+      let finalCapturedPiecesForAI = {
+        white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
+        black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
+      };
+      while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
+        attemptCount++;
+        await new Promise(resolve => setTimeout(resolve, 50 * attemptCount)); 
+        const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
+        const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
+        aiMoveDataFromVibeAI = aiResult?.move;
+        if (!aiMoveDataFromVibeAI || !aiMoveDataFromVibeAI.from || !aiMoveDataFromVibeAI.to || !Array.isArray(aiMoveDataFromVibeAI.from) || aiMoveDataFromVibeAI.from.length !== 2 || !Array.isArray(aiMoveDataFromVibeAI.to) || aiMoveDataFromVibeAI.to.length !== 2) continue; 
+        aiFromAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.from[0], aiMoveDataFromVibeAI.from[1]);
+        aiToAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.to[0], aiMoveDataFromVibeAI.to[1]);
+        const pieceDataAtFromAI = finalBoardStateForAI[aiMoveDataFromVibeAI.from[0]]?.[aiMoveDataFromVibeAI.from[1]];
+        pieceOnFromSquareForAI = pieceDataAtFromAI?.piece || null;
+        if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) continue; 
+        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
+        isAiMoveActuallyLegal = definitiveLegalMovesForPiece.includes(aiToAlg as AlgebraicSquare);
+        if (!isAiMoveActuallyLegal && aiMoveDataFromVibeAI.type === 'self-destruct' && aiFromAlg === aiToAlg) {
+            const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+            tempStateAfterSelfDestruct[aiMoveDataFromVibeAI.from[0]][aiMoveDataFromVibeAI.from[1]].piece = null;
+            if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer, enPassantTargetSquare)) isAiMoveActuallyLegal = true;
+        }
+      }
+      if (!isAiMoveActuallyLegal) { 
+        toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking any valid move.", duration: 8000 });
+        let foundFallbackMove = false;
+        for (let r = 0; r < 8; r++) {
+          for (let c = 0; c < 8; c++) {
+            const fbSquareState = finalBoardStateForAI[r]?.[c];
+            if (fbSquareState?.piece?.color === currentPlayer && !(fbSquareState.piece.cooldownTurnsRemaining && fbSquareState.piece.cooldownTurnsRemaining > 0) && !(fbSquareState.piece.frozenTurnsRemaining && fbSquareState.piece.frozenTurnsRemaining > 0)) {
+              const fromAlg = coordsToAlgebraic(r, c);
+              const legalMoves = getPossibleMoves(finalBoardStateForAI, fromAlg, enPassantTargetSquare);
+              if (legalMoves.length > 0) {
+                const chosenDefinitiveMoveAlg = legalMoves[0];
+                const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
+                let overrideMoveType: AIMoveType['type'] = 'move';
+                const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
+                if (targetSquareForOverride?.piece) overrideMoveType = targetSquareForOverride.piece.color === currentPlayer ? 'swap' : 'capture';
+                let promoteToOverrideType: PieceType | undefined = undefined;
+                if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === (currentPlayer === 'white' ? 0 : 7)) {
+                    overrideMoveType = (fbSquareState.piece!.type === 'commander') ? 'move' : 'promotion';
+                    promoteToOverrideType = fbSquareState.piece!.type === 'commander' ? 'hero' : 'queen';
+                }
+                aiFromAlg = fromAlg; aiToAlg = chosenDefinitiveMoveAlg;
+                aiMoveDataFromVibeAI = { from: [r,c], to: [newToCoords.row, newToCoords.col], type: overrideMoveType, promoteTo: promoteToOverrideType };
+                isAiMoveActuallyLegal = true; foundFallbackMove = true; break; 
+              }
+            }
+          }
+          if (foundFallbackMove) break; 
+        }
+        if (!foundFallbackMove) aiErrorOccurredRef.current = true;
+      }
+      if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI && aiFromAlg && aiToAlg) {
+        const { row: aiToR, col: aiToC } = algebraicToCoords(aiToAlg as AlgebraicSquare);
+        const { row: aiFromR, col: aiFromC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
+        saveStateToHistory();
+        let aiMoveType = (aiMoveDataFromVibeAI.type || 'move') as Move['type'];
+        let aiPromoteTo = aiMoveDataFromVibeAI.promoteTo as PieceType | undefined;
+        setLastMoveFrom(aiFromAlg as AlgebraicSquare);
+        setLastMoveTo(aiMoveType === 'self-destruct' ? (aiFromAlg as AlgebraicSquare) : (aiToAlg as AlgebraicSquare));
+        setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(aiToAlg as AlgebraicSquare);
+        const isStandardStartingSquareAI = (currentPlayer === 'white' && aiFromAlg === 'e1') || (currentPlayer === 'black' && aiFromAlg === 'e8');
+        const isStandardTargetSquareAI = (currentPlayer === 'white' && (aiToAlg === 'c1' || aiToAlg === 'g1')) || (currentPlayer === 'black' && (aiToAlg === 'c8' || aiToAlg === 'g8'));
+        if (pieceOnFromSquareForAI?.type === 'king' && !pieceOnFromSquareForAI.hasMoved && isStandardStartingSquareAI && isStandardTargetSquareAI && aiFromR === aiToR && aiMoveType !== 'self-destruct' && !finalBoardStateForAI[aiToR][aiToC].piece) aiMoveType = 'castle';
+        moveForApplyMoveAI = { from: aiFromAlg as AlgebraicSquare, to: aiToAlg as AlgebraicSquare, type: aiMoveType as Move['type'], promoteTo: aiPromoteTo };
+        if (moveForApplyMoveAI.type === 'self-destruct') {
+          const { row: cR, col: cC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
+          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
+          audioManager.playExplosion();
+        }
+        const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare, capturedPieces);
+        const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, reflectionOccurred, ...rest } = applyMoveResult;
+        if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {
+           const pieceThatMadeTheMoveAI = newBoard[aiToR]?.[aiToC]?.piece;
+           if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') audioManager.playObliterate(); else audioManager.playCapture();
+        } else if (moveForApplyMoveAI.type === 'castle' || moveForApplyMoveAI.type === 'swap') audioManager.playMove(); else if (moveForApplyMoveAI.type !== 'self-destruct') audioManager.playMove();
+        finalBoardStateForAI = newBoard;
+        enPassantTargetForNextTurn = rest.enPassantTargetSet;
+        levelFromAIApplyMove = rest.originalPieceLevel;
+        typeFromAIApplyMove = rest.originalPieceType;
+        if (reflectionOccurred) {
+            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
+            const victim = capturedPiece!;
+            finalCapturedPiecesForAI[defenderColor].push({ ...victim, id: `${victim.id}_refl_ai_${Date.now()}` });
+            audioManager.playCapture();
+            toast({ title: "REFLECTED!", description: `Your Mirror Shield reflected the AI's attack!` });
+            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1, [currentPlayer]: 0 }));
+            setBoard(finalBoardStateForAI); setCapturedPieces(finalCapturedPiecesForAI);
+            setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(finalBoardStateForAI, currentPlayer, false, null); }, 800);
+            return;
+        }
+        if (selfDestructCaptures && selfDestructCaptures.length > 0) finalCapturedPiecesForAI[currentPlayer].push(...selfDestructCaptures);
+        if (rest.rallyCryTriggered) { addEffect('shockwave', rest.rallyCryTriggered.square, rest.rallyCryTriggered.color); audioManager.playRally(); }
+        if (rest.infiltrationWin) {
+            setBoard(finalBoardStateForAI); setCapturedPieces(finalCapturedPiecesForAI);
+            toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, duration: 8000 });
+            setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
+            setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); return;
+        }
+        if (rest.shroomConsumed) {
+            const movedPieceDataAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
+                if(movedPieceDataAI) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 8000 }); }
+        }
+        if (rest.queenLevelReducedEvents && rest.queenLevelReducedEvents.length > 0) {
+            rest.queenLevelReducedEvents.forEach(event => {
+                const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
+                toast({ title: "King's Dominion!", description: `${getPlayerDisplayName(event.reducedByKingOfColor)} (AI) King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`, duration: 8000 });
+            });
+        }
+        if (rest.pieceCapturedByAnvil) {
+            if (pieceOnFromSquareForAI?.type !== 'infiltrator') finalCapturedPiecesForAI[currentPlayer].push({ ...rest.pieceCapturedByAnvil, id: `${rest.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
+            audioManager.playObliterate();
+            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${rest.pieceCapturedByAnvil.type}!`, duration: 8000 });
+        }
+        if (rest.selfCheckByPushBack) {
+            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+            toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`, variant: "destructive", duration: 8000 });
+            setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer }));
+            setBoard(finalBoardStateForAI); setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); setSelectedSquare(null); setPossibleMoves([]); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
+            return;
+          }
+          if (capturedPiece) { 
+            const pieceThatMadeTheMoveAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
+            if (pieceThatMadeTheMoveAI?.type !== 'infiltrator') { audioManager.playLevelUp(); finalCapturedPiecesForAI[currentPlayer].push({ ...capturedPiece, id: `${capturedPiece.id}_cap_ai_${Date.now()}` }); }
+          }
+          if (rest.conversionEvents && rest.conversionEvents.length > 0) {
+            rest.conversionEvents.forEach(event => {
+                addEffect('conversion', event.at, event.byPiece.color);
+                if (event.originalPiece.color !== event.convertedPiece.color) { audioManager.playConversion(); toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 }); }
+            });
+          }
+        if(!aiErrorOccurredRef.current) {
+            let capturesThisTurnAI = (capturedPiece ? 1 : 0) + (rest.pieceCapturedByAnvil ? 1 : 0) + (selfDestructCaptures?.length || 0);
+            const oldStreakForAI = killStreaks[currentPlayer] || 0;
+            const newStreakForAI = capturesThisTurnAI > 0 ? (oldStreakForAI + capturesThisTurnAI) : 0;
+            if (capturesThisTurnAI > 0) { setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI })); setShowCaptureFlash(true); setCaptureFlashKey(k => k + 1); }
+            else if (aiMoveType !== 'swap') setKillStreaks(prev => ({...prev, [currentPlayer]: 0}));
+            const aiMovedPieceOnToSquare = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
+            if (aiMovedPieceOnToSquare && (['rook', 'palace'].includes(aiMovedPieceOnToSquare.type)) && aiMoveType !== 'self-destruct' && capturesThisTurnAI > 0) {
+              const oldLevelForAIResCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevel;
+              const aiRookResData = processRookResurrectionCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, aiToAlg as AlgebraicSquare, oldLevelForAIResCheck, finalCapturedPiecesForAI, uniqueIdCounterRef.current);
+              if (aiRookResData.resurrectionPerformed) {
+                  finalBoardStateForAI = aiRookResData.boardWithResurrection; finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection; uniqueIdCounterRef.current = aiRookResData.newResurrectionIdCounter!;
+                  addEffect('light-beam', aiRookResData!.resurrectedSquareAlg!); audioManager.playResurrect(); setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
+                  if (aiRookResData.promotionRequiredForResurrectedPawn) {
+                        const { row: pr_ai, col: pc_ai } = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
+                        if (finalBoardStateForAI[pr_ai][pc_ai].piece) { finalBoardStateForAI[pr_ai][pc_ai].piece!.type = 'queen'; finalBoardStateForAI[pr_ai][pc_ai].piece!.level = 1; }
+                  }
+              }
+            }
+            setBoard(finalBoardStateForAI); setCapturedPieces(finalCapturedPiecesForAI);
+            setTimeout(() => {
+              const pieceAtDestinationAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
+              const rankCheckRowAI = currentPlayer === 'white' ? 0 : 7;
+              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && aiMoveType !== 'self-destruct';
+              let extraTurnForThisAIMove = rest.extraTurn || (oldStreakForAI < 6 && newStreakForAI >= 6);
+              if (isAIPawnPromoting) {
+                  const promotedTypeAI = moveForApplyMoveAI!.promoteTo || 'queen'; 
+                  pieceAtDestinationAI!.type = promotedTypeAI; pieceAtDestinationAI!.level = getPromotionLevel(capturedPiece?.type || rest.pieceCapturedByAnvil?.type || null);
+                  if (pieceAtDestinationAI!.type === 'queen') pieceAtDestinationAI!.level = Math.min(pieceAtDestinationAI!.level, 7);
+                  audioManager.playLevelUp();
+              } 
+              processPawnSacrificeCheck(finalBoardStateForAI, currentPlayer, moveForApplyMoveAI as Move, levelFromAIApplyMove, typeFromAIApplyMove, extraTurnForThisAIMove, enPassantTargetForNextTurn, oldStreakForAI, newStreakForAI);
+              setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
+            }, 800);
+        }
+      }
+    } catch (error) { aiErrorOccurredRef.current = true; }
+    if (aiErrorOccurredRef.current) {
+      const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+      setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponentPlayer!)} wins!`, gameOver: true, winner: opponentPlayer }));
+      setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); return;
+    }
+  };
+
+  const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
+    if (clickGuardRef.current) return;
+    const { row, col } = algebraicToCoords(algebraic);
+    const clickedSquareState = board[row]?.[col];
+    const clickedPiece = clickedSquareState?.piece;
+    setPieceForInfoDisplay(clickedPiece || null);
+
+    const isLocalActionTurn = !localPlayerColor || localPlayerColor === currentPlayer;
+    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
+    if (isAnySpecialModeActive && !isLocalActionTurn) return;
+
+    if (isInventoryOpen) {
+      if (selectedInventoryItemType) {
+        if (clickedPiece && !clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          if (usedSlots >= attunementSlots) { toast({ title: "Attunement Limit", variant: "destructive" }); return; }
+          const pType = clickedPiece.type;
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') return;
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') return;
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) return;
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') return;
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') return;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextBoard);
+          let newInv = [...inventory]; const item = newInv.find(i => i.type === selectedInventoryItemType);
+          if (item) { item.count--; if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); }
+          setInventory(newInv); saveLoadoutToFirestore(nextBoard, newInv); setSelectedInventoryItemType(null); audioManager.playLevelUp();
+        } else if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          const oldItem = clickedPiece.heldItem;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextBoard);
+          const nextInv = [...inventory]; const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
+          if (itemIn) { itemIn.count--; if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1); }
+          const itemOut = nextInv.find(i => i.type === oldItem); if (itemOut) itemOut.count++; else nextInv.push({ type: oldItem, count: 1 });
+          setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); setSelectedInventoryItemType(null); audioManager.playLevelUp();
+        }
+      } else if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
+          const removedItem = clickedPiece.heldItem;
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+          nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
+          const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removedItem); if (item) item.count++; else nextInv.push({ type: removedItem, count: 1 });
+          setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); audioManager.playMove();
+      }
+      return;
+    }
+
+    if (isAwaitingPawnSacrifice && isLocalActionTurn) {
+      if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
+        saveStateToHistory(); let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+        const pawnToSacrifice = { ...boardAfterSacrifice[row][col].piece!, id: `${boardAfterSacrifice[row][col].piece!.id}_sac_${uniqueIdCounterRef.current++}`};
+        boardAfterSacrifice[row][col].piece = null; setBoard(boardAfterSacrifice); audioManager.playCapture();
+        const opponentOfSacrificer = playerWhoMadeQueenMove! === 'white' ? 'black' : 'white';
+        setCapturedPieces(prev => { const next = { ...prev }; next[opponentOfSacrificer] = [...(next[opponentOfSacrificer] || []), pawnToSacrifice]; return next; });
+        if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.send(JSON.stringify({ type: 'pawn-sacrifice', square: algebraic }));
+        setIsAwaitingPawnSacrifice(false); setPlayerToSacrificePawn(null); setBoardForPostSacrifice(null); setPlayerWhoMadeQueenMove(null);
+        triggerSpecialsChain(boardAfterSacrifice, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, isExtraTurnFromQueenMove, anvilDropContext?.newEnPassantTarget || null);
+      }
+      return;
+    }
+
+    if (isAwaitingAnvilDrop && isLocalActionTurn) {
+        if (!clickedSquareState?.piece && !clickedSquareState?.item) {
+            if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'anvil-drop', square: algebraic })); clickGuardRef.current = true; setIsMoveProcessing(true); return; }
+            saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
+            const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s }))); boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
+            setBoard(boardAfterAnvilDrop); audioManager.playAnvil(); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setAnvilDropContext(null);
+            triggerSpecialsChain(boardAfterAnvilDrop, 3, 3, isExtraTurn, newEnPassantTarget);
+        }
+        return;
+    }
+
+    if (isAwaitingHolyShield && isLocalActionTurn) {
+      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen' && clickedPiece.id !== shieldContext?.capturingPieceId) {
+          saveStateToHistory(); if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'holy-shield', square: algebraic })); clickGuardRef.current = true; setIsMoveProcessing(true); return; }
+          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = shieldContext!;
+          const boardAfterShield = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece, isShielded: s.piece.id === clickedPiece.id ? true : s.piece.isShielded } : null })));
+          setBoard(boardAfterShield); audioManager.playShield(); setIsAwaitingHolyShield(false); setShieldContext(null);
+          triggerSpecialsChain(boardAfterShield, 2, 2, isExtraTurn, newEnPassantTarget);
+      }
+      return;
+    }
+
+    if (isAwaitingArcherSnipe && isLocalActionTurn) {
+      if (clickedPiece && clickedPiece.color !== currentPlayer && clickedPiece.level === 1 && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
+          saveStateToHistory(); if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'archer-snipe', square: algebraic })); clickGuardRef.current = true; setIsMoveProcessing(true); return; }
+          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = archerSnipeContext!;
+          const boardAfterSnipe = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
+          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
+          setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), uniqueCapturedPiece] }));
+          boardAfterSnipe[row][col].piece = null; setBoard(boardAfterSnipe); addEffect('poof', algebraic); audioManager.playSnipe();
+          setIsAwaitingArcherSnipe(false); setArcherSnipeContext(null);
+          triggerSpecialsChain(boardAfterSnipe, 5, 99, isExtraTurn, newEnPassantTarget);
+      }
+      return;
+    }
+
+    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
+        if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
+            saveStateToHistory(); if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'commander-promo', square: algebraic })); clickGuardRef.current = true; setIsAwaitingCommanderPromotion(false); setPlayerWhoGotFirstBlood(null); return; }
+            const boardAfterCmdr = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            boardAfterCmdr[row][col].piece!.type = 'commander'; boardAfterCmdr[row][col].piece!.id = `${boardAfterCmdr[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
+            setBoard(boardAfterCmdr); audioManager.playLevelUp(); setIsAwaitingCommanderPromotion(false);
+            triggerSpecialsChain(boardAfterCmdr, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, anvilDropContext?.isExtraTurn || false, anvilDropContext?.newEnPassantTarget || null);
+        }
+        return;
+    }
+
+    if (selectedSquare) {
+      const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
+      const pieceToMove = board[fR][fC].piece; if (!pieceToMove) return;
+      const freshlyCalculatedMoves = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
+      if (freshlyCalculatedMoves.includes(algebraic)) {
+        saveStateToHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+        if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'move' } })); return; }
+        const originalL = pieceToMove.level || 1; const originalT = pieceToMove.type;
+        const result = applyMove(board, { from: selectedSquare, to: algebraic, type: board[row][col].piece ? (board[row][col].piece!.color === pieceToMove.color ? 'swap' : 'capture') : (algebraic === enPassantTargetSquare ? 'enpassant' : 'move') }, enPassantTargetSquare, capturedPieces);
+        let nextBoard = result.newBoard; let nextEp = result.enPassantTargetSet;
+        if (result.reflectionOccurred) {
+            const victim = result.capturedPiece!; setCapturedPieces(prev => ({ ...prev, [currentPlayer === 'white' ? 'black' : 'white']: [...(prev[currentPlayer === 'white' ? 'black' : 'white'] || []), { ...victim, id: `${victim.id}_refl_${Date.now()}` }] }));
+            audioManager.playCapture(); setKillStreaks(prev => ({ ...prev, [currentPlayer === 'white' ? 'black' : 'white']: (prev[currentPlayer === 'white' ? 'black' : 'white'] || 0) + 1, [currentPlayer]: 0 }));
+            setBoard(nextBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextBoard, currentPlayer, false, null); }, 800);
+            return;
+        }
+        if (result.infiltrationWin) { setBoard(nextBoard); setGameInfo(prev => ({ ...prev, gameOver: true, isInfiltrationWin: true, winner: currentPlayer })); return; }
+        const oldStreak = killStreaks[currentPlayer] || 0; let caps = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
+        const newStreak = caps > 0 ? (oldStreak + caps) : 0; setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
+        if (result.capturedPiece) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...result.capturedPiece!, id: `${result.capturedPiece!.id}_cap_${uniqueIdCounterRef.current++}` }] }));
+        if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_${uniqueIdCounterRef.current++}` }] }));
+        setBoard(nextBoard);
+        setTimeout(() => {
+          setIsMoveProcessing(false); clickGuardRef.current = false;
+          const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
+          const pieceAtDest = nextBoard[row][col].piece;
+          if (pieceAtDest?.type === 'queen' && !processPawnSacrificeCheck(nextBoard, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'}, originalL, originalT, isExtra, nextEp, oldStreak, newStreak)) {
+            if (pieceAtDest.type === 'pawn' && (row === 0 || row === 7)) { setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(result.capturedPiece?.type || null)); setIsPromotingPawn(true); setPromotionSquare(algebraic); setAnvilDropContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak }); }
+            else triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp);
+          }
+        }, 800);
+        return;
+      }
+    }
+    if (clickedPiece?.color === currentPlayer) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare)); }
+    else { setSelectedSquare(null); setPossibleMoves([]); setEnemySelectedSquare(clickedPiece ? algebraic : null); setEnemyPossibleMoves(clickedPiece ? getPossibleMoves(board, algebraic, enPassantTargetSquare) : []); }
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, triggerSpecialsChain, processPawnSacrificeCheck, toast, localPlayerColor, usedSlots, attunementSlots, inventory, selectedInventoryItemType, saveLoadoutToFirestore, saveStateToHistory, addEffect, isInventoryOpen, isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isPromotingPawn, promotionSquare, promotionTargetLevel, onlineStatus, isMoveProcessing, isAiThinking, gameInfo.gameOver]);
+
+  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
+    if (!promotionSquare) return;
+    if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) { wsRef.current.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } })); setIsPromotingPawn(false); return; }
+    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+    const { row, col } = algebraicToCoords(promotionSquare);
+    const pieceBeingPromoted = boardToUpdate[row][col].piece;
+    if (!pieceBeingPromoted) return;
+    boardToUpdate[row][col].piece = { ...pieceBeingPromoted, type: pieceType, level: promotionTargetLevel, id: `${pieceBeingPromoted.id}_promo_${pieceType}`, hasMoved: true, isShielded: false };
+    if (pieceType === 'queen') boardToUpdate[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
+    setBoard(boardToUpdate); setIsPromotingPawn(false); setPromotionSquare(null); audioManager.playLevelUp();
+    triggerSpecialsChain(boardToUpdate, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, (boardToUpdate[row][col].piece!.level >= 5) || (anvilDropContext?.isExtraTurn || false), anvilDropContext?.newEnPassantTarget || null);
+  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, onlineStatus]);
+
+  const handlePieceHover = useCallback((piece: Piece | null) => {
+    setPieceForInfoDisplay(piece);
   }, []);
+
+  const handleVolumeChange = useCallback((val: number[]) => {
+    const v = val[0];
+    setVolume(v);
+    audioManager.setVolume(v);
+  }, []);
+
+  const sendMessage = useCallback((text: string) => {
+    if (onlineStatus === 'connected' && wsRef.current?.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+            type: 'chat-message',
+            sender: userData?.username || user?.displayName || 'Hero',
+            text,
+            color: localPlayerColor
+        }));
+    }
+  }, [onlineStatus, user, userData, localPlayerColor]);
 
   useEffect(() => {
     if (!board || !prevBoardRef.current) {
@@ -454,3672 +1007,9 @@ export default function EvolvingChessPage() {
     prevBoardRef.current = board;
   }, [board, gameMoveCounter, lastMoveFrom, lastMoveTo, addEffect]);
 
-  const fullGameReset = useCallback(() => {
-    const elo = userData?.eloRating || 1200;
-    let initialBoardState = initializeBoard(elo, 1200);
-    
-    // Apply saved equipment
-    if (userData?.equipment) {
-      initialBoardState = initialBoardState.map(row => row.map(sq => {
-        if (sq.piece && userData.equipment![sq.piece.id]) {
-          return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
-        }
-        return sq;
-      }));
-    }
-    
-    setBoard(initialBoardState);
-    setCurrentPlayer('white');
-    setSelectedSquare(null);
-    setPossibleMoves([]);
-    setEnemySelectedSquare(null);
-    setEnemyPossibleMoves([]);
-    setGameMoveCounter(0);
-
-    setIsWhiteAI(false);
-    setIsBlackAI(false);
-
-    setGameInfo({ ...initialGameStatus });
-    flashedCheckStateRef.current = null;
-    setCapturedPieces({ white: [], black: [] });
-
-    const initialCastlingRights = getCastlingRightsString(initialBoardState);
-    const initialHash = boardToPositionHash(initialBoardState, 'white', initialCastlingRights, null);
-    if(initialHash) setPositionHistory([initialHash]); else setPositionHistory([]);
-
-    setFlashMessage(null);
-    setFlashMessageKey(0);
-    setKillStreakFlashMessage(null);
-    setKillStreakFlashMessageKey(0);
-    setShowCaptureFlash(false);
-    setCaptureFlashKey(0);
-    setShowCheckFlashBackground(false);
-    setCheckFlashBackgroundKey(0);
-    setShowCheckmatePatternFlash(false);
-    setCheckmatePatternFlashKey(0);
-
-    setIsPromotingPawn(false);
-    setPromotionSquare(null);
-    setPlayerToPromote(null);
-    setPromotionMoveWasCapture(false);
-    setPromotionTargetLevel(1);
-    setAnimatedSquareTo(null);
-    setIsMoveProcessing(false);
-    clickGuardRef.current = false;
-    aiErrorOccurredRef.current = false;
-
-    setBoardOrientation('white');
-    setAnimatedSquareTo(null);
-    setIsMoveProcessing(false);
-    clickGuardRef.current = false;
-
-    setIsAwaitingPawnSacrifice(false);
-    setPlayerToSacrificePawn(null);
-    setBoardForPostSacrifice(null);
-    setPlayerWhoMadeQueenMove(null);
-    setIsExtraTurnFromQueenMove(false);
-
-    setIsAwaitingRookSacrifice(false);
-    setPlayerToSacrificeForRook(null);
-    setRookToMakeInvulnerable(null);
-    setBoardForRookSacrifice(null);
-    setOriginalTurnPlayerForRookSacrifice(null);
-    setIsExtraTurnFromRookLevelUp(false);
-
-    setIsResurrectionPromotionInProgress(false);
-    setPlayerForPostResurrectionPromotion(null);
-    setIsExtraTurnForPostResurrectionPromotion(false);
-
-    setFirstBloodAchieved(false);
-    setPlayerWhoGotFirstBlood(null);
-    setIsAwaitingCommanderPromotion(false);
-    firstBloodFlashedRef.current = false;
-    signaledEventsRef.current.clear();
-
-    setShroomSpawnCounter(0);
-    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
-    
-    setLocalPlayerColor(null);
-    setRoomId(null);
-    setOnlineStatus('disconnected');
-    setGamePlayers(null);
-
-    setResurrectedSquares([]);
-    setPieceForInfoDisplay(null);
-    setShowWinScreen(false);
-    setShowLossScreen(false);
-    setEffects([]);
-
-    setTurnTimer(null);
-    setActiveTimerPlayer(null);
-    if (turnTimerIntervalId.current) clearInterval(turnTimerIntervalId.current);
-    setWhiteTimeouts(0);
-    setBlackTimeouts(0);
-    setIsRankedGame(false);
-    setRankedQueueStatus('idle');
-    setEnPassantTargetSquare(null);
-
-    setIsAwaitingAnvilDrop(false);
-    setPlayerToDropAnvil(null);
-    setAnvilDropContext(null);
-    setAnvilDropAfterPromotion(false);
-
-    setIsAwaitingHolyShield(false);
-    setShieldContext(null);
-
-    setIsAwaitingArcherSnipe(false);
-    setArcherSnipeContext(null);
-
-    setChatMessages([]);
-    setIsMessengerOpen(false);
-    setHasUnreadMessages(false);
-    prevBoardRef.current = null;
-
-    setEloResult(null);
-    setShowSummary(false);
-    setIsInventoryOpen(false);
-    setSelectedInventoryItemType(null);
-    setIsAwaitingWindScrollTarget(false);
-    setIsAwaitingAnvilScrollTarget(false);
-    setIsAwaitingShieldScrollTarget(false);
-    setIsAwaitingSwapScrollTarget(false);
-    setAbilityChoiceDialog(null);
-  }, [userData]);
-
-  const loginResetRef = useRef(false);
-  useEffect(() => {
-    if (!isUserLoading && user && userData && !loginResetRef.current) {
-      fullGameReset();
-      loginResetRef.current = true;
-    }
-    if (!user) {
-      loginResetRef.current = false;
-    }
-  }, [user, userData, isUserLoading, fullGameReset]);
-
-  const disconnectAndReset = useCallback(() => {
-    if (wsRef.current) {
-        wsRef.current.onclose = null;
-        wsRef.current.close();
-        wsRef.current = null;
-    }
-    if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
-      fullGameReset();
-      toast({ title: "Disconnected", description: "You have left the online session.", duration: 1000 });
-    }
-  }, [fullGameReset, toast, onlineStatus, rankedQueueStatus]);
-
-  const determineBoardOrientation = useCallback((): PlayerColor => {
-    if (isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
-    if (isWhiteAI && !isBlackAI && onlineStatus === 'disconnected') return 'black';
-    if (!isWhiteAI && isBlackAI && onlineStatus === 'disconnected') return 'white';
-
-    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
-        return localPlayerColor || 'white';
-    }
-
-    if (viewMode === 'flipping') return currentPlayer;
-    return 'white';
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, viewMode, currentPlayer]);
-
-  useEffect(() => {
-    if (animatedSquareTo) {
-      const timer = setTimeout(() => setAnimatedSquareTo(null), 800);
-      return () => clearTimeout(timer);
-    }
-  }, [animatedSquareTo]);
-
-  useEffect(() => {
-    if (resurrectedSquares.length > 0) {
-      setResurrectedSquares(prev => prev.filter(rs => rs.player !== currentPlayer));
-    }
-  }, [currentPlayer]);
-
-  const getKillStreakToastMessage = useCallback((streak: number): string | null => {
-    if (streak === 2) return "DOUBLE KILL!";
-    if (streak === 3) return "TRIPLE KILL!";
-    if (streak === 4) return "ULTRA KILL!";
-    if (streak === 5) return "MONSTER KILL!";
-    if (streak >= 6) return "RAMPAGE!";
-    return null;
-  }, []);
-
-  const saveStateToHistory = useCallback(() => {
-    const snapshot: GameSnapshot = {
-      board: board.map(row => row.map(square => ({
-        ...square,
-        piece: square.piece ? { ...square.piece } : null,
-        item: square.item ? { ...square.item } : null,
-      }))),
-      currentPlayer: currentPlayer,
-      gameInfo: { ...gameInfo },
-      capturedPieces: {
-        white: capturedPieces.white.map(p => ({ ...p })),
-        black: capturedPieces.black.map(p => ({ ...p })),
-      },
-      killStreaks: { ...killStreaks },
-      boardOrientation: boardOrientation,
-      viewMode: viewMode,
-      isWhiteAI: isWhiteAI,
-      isBlackAI: isBlackAI,
-      enemySelectedSquare: enemySelectedSquare,
-      enemyPossibleMoves: [...enemyPossibleMoves],
-      positionHistory: [...positionHistory],
-      lastMoveFrom: lastMoveFrom,
-      lastMoveTo: lastMoveTo,
-      gameMoveCounter: gameMoveCounter,
-      enPassantTargetSquare: enPassantTargetSquare,
-
-      isAwaitingPawnSacrifice: isAwaitingPawnSacrifice,
-      playerToSacrificePawn: playerToSacrificePawn,
-      boardForPostSacrifice: boardForPostSacrifice ? boardForPostSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))) : null,
-      playerWhoMadeQueenMove: playerWhoMadeQueenMove,
-      isExtraTurnFromQueenMove: isExtraTurnFromQueenMove,
-      isAwaitingRookSacrifice: isAwaitingRookSacrifice,
-      playerToSacrificeForRook: playerToSacrificeForRook,
-      rookToMakeInvulnerable: rookToMakeInvulnerable,
-      boardForRookSacrifice: boardForRookSacrifice ? boardForRookSacrifice.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))) : null,
-      originalTurnPlayerForRookSacrifice: originalTurnPlayerForRookSacrifice,
-      isExtraTurnFromRookLevelUp: isExtraTurnFromRookLevelUp,
-      isResurrectionPromotionInProgress: isResurrectionPromotionInProgress,
-      playerForPostResurrectionPromotion: playerForPostResurrectionPromotion,
-      isExtraTurnForPostResurrectionPromotion: isExtraTurnForPostResurrectionPromotion,
-      promotionSquare: promotionSquare,
-      promotionMoveWasCapture: promotionMoveWasCapture,
-      promotionPawnOriginalLevel: null,
-      firstBloodAchieved: firstBloodAchieved,
-      playerWhoGotFirstBlood: playerWhoGotFirstBlood,
-      isAwaitingCommanderPromotion: isAwaitingCommanderPromotion,
-      shroomSpawnCounter: shroomSpawnCounter,
-      nextShroomSpawnTurn: nextShroomSpawnTurn,
-      resurrectedSquares: [...resurrectedSquares],
-      turnTimer: turnTimer,
-      activeTimerPlayer: activeTimerPlayer,
-      whiteTimeouts: whiteTimeouts,
-      blackTimeouts: blackTimeouts,
-      originalPromotionLevel: null,
-      isAwaitingAnvilDrop: isAwaitingAnvilDrop,
-      playerToDropAnvil: playerToDropAnvil,
-      anvilDropContext: anvilDropContext,
-      anvilDropAfterPromotion: anvilDropAfterPromotion,
-      isAwaitingHolyShield: isAwaitingHolyShield,
-      shieldContext: shieldContext,
-      isAwaitingArcherSnipe: isAwaitingArcherSnipe,
-      archerSnipeContext: archerSnipeContext,
-      inventory: [...inventory]
-    };
-    setHistoryStack(prevHistory => {
-      const newHistory = [...prevHistory, snapshot];
-      if (newHistory.length > 20) return newHistory.slice(-20);
-      return newHistory;
-    });
-  }, [
-    board, currentPlayer, gameInfo, capturedPieces, killStreaks, boardOrientation, viewMode,
-    isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare,
-    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
-    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
-    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion, promotionSquare, promotionMoveWasCapture,
-    firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn,
-    resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
-    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
-    isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
-    inventory
-  ]);
-
-  const stopTurnTimer = useCallback(() => {
-      if (turnTimerIntervalId.current) {
-          clearInterval(turnTimerIntervalId.current);
-          turnTimerIntervalId.current = null;
-      }
-      setActiveTimerPlayer(null);
-      setTurnTimer(null);
-  }, []);
-
-  const startTurnTimer = useCallback((player: PlayerColor, duration: number = 45) => {
-    stopTurnTimer();
-
-    setActiveTimerPlayer(player);
-    setTurnTimer(duration);
-
-    turnTimerIntervalId.current = setInterval(() => {
-        setTurnTimer(currentTimerValue => {
-            if (currentTimerValue === null || currentTimerValue <= 0) {
-                 if (turnTimerIntervalId.current) {
-                    clearInterval(turnTimerIntervalId.current);
-                    turnTimerIntervalId.current = null;
-                 }
-                 return 0;
-            }
-            
-            if (currentTimerValue === 11) {
-                setShowTimerWarning(true);
-                setTimerWarningKey(k => k + 1);
-                audioManager.playTick();
-            } else if (currentTimerValue < 11 && currentTimerValue > 0) {
-                audioManager.playTick();
-            }
-            return currentTimerValue - 1;
-        });
-    }, 1000);
-  }, [stopTurnTimer]);
-
-  const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
-    setSelectedSquare(null);
-    setPossibleMoves([]);
-    setEnemySelectedSquare(null);
-    setEnemyPossibleMoves([]);
-
-    setCurrentPlayer(playerTakingExtraTurn);
-
-
-    const opponentColor = playerTakingExtraTurn === 'white' ? 'black' : 'white';
-    const opponentInCheck = isKingInCheck(currentBoard, opponentColor, null);
-
-    if (opponentInCheck) {
-      toast({ title: "Auto-Checkmate!", description: `${getPlayerDisplayName(playerTakingExtraTurn)} wins by delivering check with an extra turn!`, duration: 8000 });
-      setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(playerTakingExtraTurn)} wins!`, isCheck: true, playerWithKingInCheck: opponentColor, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerTakingExtraTurn }));
-      if (onlineStatus === 'connected') {
-        const ws = wsRef.current;
-        if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerTakingExtraTurn, timedOutPlayer: opponentColor, reason: 'auto-checkmate' }));
-        }
-      }
-      return;
-    }
-
-    let message = `${getPlayerDisplayName(playerTakingExtraTurn)} gets an extra turn!`;
-
-    const opponentIsStalemated = isStalemate(currentBoard, opponentColor, null);
-    if (opponentIsStalemated) {
-      setGameInfo(prev => ({ ...prev, message: `Stalemate! It's a draw.`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-      if (onlineStatus === 'connected') {
-        const ws = wsRef.current;
-        if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
-        }
-      }
-    } else {
-      setGameInfo(prev => ({ ...prev, message, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false }));
-    }
-  }, [toast, getPlayerDisplayName, onlineStatus]);
-
-  const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
-    const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
-    
-    const { newBoard: boardAfterPoison, poisonedCaptures } = processPoisonDamage(updatedBoard, nextPlayer);
-    let finalizedBoard = boardAfterPoison;
-    if (poisonedCaptures.length > 0) {
-        setCapturedPieces(prev => ({
-            ...prev,
-            [playerWhoseTurnEnded]: [...(prev[playerWhoseTurnEnded] || []), ...poisonedCaptures]
-        }));
-        setKillStreaks(prev => ({
-            ...prev,
-            [playerWhoseTurnEnded]: (prev[playerWhoseTurnEnded] || 0) + poisonedCaptures.length
-        }));
-        audioManager.playCapture();
-        toast({ title: "Poison Damage!", description: `${poisonedCaptures.length} piece(s) affected by poison!`, duration: 3000 });
-    }
-    setBoard(finalizedBoard);
-
-    setCurrentPlayer(nextPlayer);
-    setEnPassantTargetSquare(newEnPassantTarget);
-    setSelectedSquare(null);
-    setPossibleMoves([]);
-    setEnemySelectedSquare(null);
-    setEnemyPossibleMoves([]);
-
-    const inCheck = isKingInCheck(finalizedBoard, nextPlayer, newEnPassantTarget);
-    let newPlayerWithKingInCheck: PlayerColor | null = null;
-    let currentMessage = " ";
-
-    if (inCheck) {
-      newPlayerWithKingInCheck = nextPlayer;
-      const mate = isCheckmate(finalizedBoard, nextPlayer, newEnPassantTarget);
-      if (mate) {
-        currentMessage = `Checkmate! ${getPlayerDisplayName(playerWhoseTurnEnded)} wins!`;
-        setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: true, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: true, isStalemate: false, gameOver: true, winner: playerWhoseTurnEnded }));
-        if (onlineStatus === 'connected') {
-          const ws = wsRef.current;
-          if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: playerWhoseTurnEnded, timedOutPlayer: nextPlayer, reason: 'checkmate' }));
-          }
-        }
-        return;
-      } else {
-        currentMessage = "Check!";
-      }
-    } else {
-      const stale = isStalemate(finalizedBoard, nextPlayer, newEnPassantTarget);
-      if (stale) {
-        currentMessage = `Stalemate! It's a draw.`;
-        setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }));
-        if (onlineStatus === 'connected') {
-          const ws = wsRef.current;
-          if(ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
-          }
-        }
-        return;
-      }
-    }
-     setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: inCheck, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: false, isStalemate: false, gameOver: false }));
-  }, [getPlayerDisplayName, onlineStatus, toast]);
-
-  const processMoveEnd = useCallback((boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null) => {
-    let currentBoardState = boardForNextStep;
-    const newGameMoveCounter = gameMoveCounter + 1;
-    setGameMoveCounter(newGameMoveCounter);
-    
-    if (onlineStatus !== 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
-      let currentShroomCounter = (shroomSpawnCounter || 0) + 1;
-      setShroomSpawnCounter(currentShroomCounter);
-      if (currentShroomCounter >= (nextShroomSpawnTurn || 5)) {
-          if (onlineStatus === 'connected') {
-              const ws = wsRef.current;
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'shroom-spawn' }));
-              }
-          } else {
-              const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
-              if (spawnedAt) {
-                  currentBoardState = newBoard;
-                  setBoard(currentBoardState);
-                  const newNextTurn = Math.floor(Math.random() * 6) + 5;
-                  toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
-                  audioManager.playShroom();
-                  setShroomSpawnCounter(0);
-                  setNextShroomSpawnTurn(newNextTurn);
-              }
-          }
-      }
-    }
-
-
-    const nextPlayerForHash = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
-    const castlingRights = getCastlingRightsString(currentBoardState);
-    const currentPositionHash = boardToPositionHash(currentBoardState, nextPlayerForHash, castlingRights, newEnPassantTarget);
-
-    const newHistory = [...positionHistory, currentPositionHash];
-    setPositionHistory(newHistory);
-
-    const repetitionCount = newHistory.filter(hash => hash === currentPositionHash).length;
-
-    if (repetitionCount >= 3 && !gameInfo.isCheckmate && !gameInfo.isStalemate && !gameInfo.isThreefoldRepetitionDraw && !gameInfo.isInfiltrationWin) {
-      toast({ title: "Draw!", description: "Draw by Threefold Repetition.", duration: 8000 });
-      setGameInfo(prev => ({
-        ...prev,
-        message: "Draw by Threefold Repetition!",
-        isCheck: false,
-        playerWithKingInCheck: null,
-        isCheckmate: false,
-        isStalemate: true,
-        isThreefoldRepetitionDraw: true,
-        gameOver: true,
-        winner: 'draw',
-      }));
-      if (onlineStatus === 'connected') {
-        const ws = wsRef.current;
-        if(ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: 'draw', reason: 'threefold-repetition' }));
-        }
-      }
-      return;
-    }
-
-    if (gameInfo.gameOver) { 
-      return;
-    }
-
-    if (isExtraTurn) {
-      setGameInfoBasedOnExtraTurn(currentBoardState, playerWhoseTurnCompleted);
-    } else {
-      completeTurn(currentBoardState, playerWhoseTurnCompleted, newEnPassantTarget);
-    }
-  }, [
-    positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver,
-    setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn,
-    gameMoveCounter,
-    getPlayerDisplayName, setCurrentPlayer, isWhiteAI, isBlackAI, 
-    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus,
-    localPlayerColor
-  ]);
-
-
-  useEffect(() => {
-    if (onlineStatus !== 'connected' || gameInfo.gameOver) {
-      stopTurnTimer();
-      return;
-    }
-
-    let timerStarted = false;
-
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === localPlayerColor) {
-      startTurnTimer(playerWhoGotFirstBlood!, 15);
-      timerStarted = true;
-    } else if (isAwaitingAnvilDrop && playerToDropAnvil === localPlayerColor) {
-      startTurnTimer(playerToDropAnvil!, 15);
-      timerStarted = true;
-    } else if (isPromotingPawn && playerToPromote === localPlayerColor) {
-      startTurnTimer(playerToPromote!, 15);
-      timerStarted = true;
-    } else if (isAwaitingHolyShield && localPlayerColor === currentPlayer) {
-      startTurnTimer(currentPlayer!, 15);
-      timerStarted = true;
-    } else if (isAwaitingArcherSnipe && localPlayerColor === currentPlayer) {
-      startTurnTimer(currentPlayer!, 15);
-      timerStarted = true;
-    }
-    
-    const isAnySpecialAction = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-
-    if (!timerStarted && !isAnySpecialAction) {
-      startTurnTimer(currentPlayer);
-      timerStarted = true;
-    }
-
-    if (!timerStarted) {
-      stopTurnTimer();
-    }
-
-    return () => {
-      stopTurnTimer();
-    };
-  }, [
-    onlineStatus,
-    gameInfo.gameOver,
-    currentPlayer,
-    localPlayerColor,
-    isAwaitingCommanderPromotion,
-    playerWhoGotFirstBlood,
-    isAwaitingAnvilDrop,
-    playerToDropAnvil,
-    isPromotingPawn,
-    playerToPromote,
-    isAwaitingPawnSacrifice,
-    isAwaitingRookSacrifice,
-    isResurrectionPromotionInProgress,
-    isAwaitingHolyShield,
-    isAwaitingArcherSnipe,
-    isAwaitingWindScrollTarget,
-    isAwaitingAnvilScrollTarget,
-    isAwaitingShieldScrollTarget,
-    isAwaitingSwapScrollTarget,
-    startTurnTimer,
-    stopTurnTimer,
-  ]);
-
-  const applyServerGameState = useCallback((gameState: any, lastPlayer?: PlayerColor) => {
-    if (!gameState) return;
-
-    setBoard(gameState.board);
-    if (gameState.players) setGamePlayers(gameState.players);
-    setCapturedPieces(gameState.capturedPieces);
-    setKillStreaks(gameState.killStreaks);
-    setGameInfo(gameState.gameInfo);
-    setCurrentPlayer(gameState.currentPlayer);
-    setGameMoveCounter(gameState.gameMoveCounter || 0);
-    setLastMoveFrom(gameState.lastMoveFrom || null);
-    setLastMoveTo(gameState.lastMoveTo || null);
-    setEnPassantTargetSquare(gameState.enPassantTargetSquare || null);
-    setFirstBloodAchieved(gameState.firstBloodAchieved || false);
-    setIsAwaitingCommanderPromotion(gameState.isAwaitingCommanderPromotion || false);
-    setPlayerWhoGotFirstBlood(gameState.playerWhoGotFirstBlood || null);
-    setWhiteTimeouts(gameState.whiteTimeouts || 0);
-    setBlackTimeouts(gameState.blackTimeouts || 0);
-
-    setSelectedSquare(null);
-    setPossibleMoves([]);
-    setEnemySelectedSquare(null);
-    setEnemyPossibleMoves([]);
-    setIsMoveProcessing(false);
-    clickGuardRef.current = false;
-
-    setHistoryStack([]);
-    const castlingRights = getCastlingRightsString(gameState.board);
-    const initialHash = boardToPositionHash(gameState.board, gameState.currentPlayer, castlingRights, gameState.enPassantTargetSquare || null);
-    if (initialHash) {
-        setPositionHistory([initialHash]);
-    } else {
-        setPositionHistory([]);
-    }
-    
-    if (gameState.lastMoveTo) {
-      setAnimatedSquareTo(gameState.lastMoveTo);
-    } else {
-      setAnimatedSquareTo(null);
-    }
-
-    if (gameState.resurrectedSquare && lastPlayer) {
-      addEffect('light-beam', gameState.resurrectedSquare);
-      audioManager.playResurrect();
-      setResurrectedSquares(prev => [...prev, { square: gameState.resurrectedSquare, player: lastPlayer }]);
-    }
-  }, [addEffect]);
-
-
-  const processPawnSacrificeCheck = useCallback((
-    boardAfterPrimaryMove: BoardState,
-    playerWhoseQueenLeveled: PlayerColor,
-    queenMovedWithThis: Move | null,
-    originalPieceLevelIfKnown: number | undefined,
-    originalPieceTypeIfKnown: PieceType | undefined,
-    isExtraTurnFromOriginalMove: boolean,
-    newEnPassantTarget: AlgebraicSquare | null
-  ): boolean => {
-
-    if (!queenMovedWithThis) {
-        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
-        return false;
-    }
-
-    const { row: toR, col: toC } = algebraicToCoords(queenMovedWithThis.to);
-    const queenOnSquare = boardAfterPrimaryMove[toR]?.[toC]?.piece;
-
-    if (!queenOnSquare || queenOnSquare.type !== 'queen' || queenOnSquare.color !== playerWhoseQueenLeveled) {
-        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
-        return false;
-    }
-
-    // Sacrifice ONLY triggers for existing Queens that hit level 7. Promotions are exempt.
-    if (originalPieceTypeIfKnown !== 'queen') {
-        processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
-        return false;
-    }
-
-    const currentQueenLevel = Number(queenOnSquare.level || 1);
-    const previousLevelOfThisPiece = Number(originalPieceLevelIfKnown || 0);
-
-    if (currentQueenLevel === 7 && previousLevelOfThisPiece < 7) {
-      let hasPawnsToSacrifice = false;
-      for (const row of boardAfterPrimaryMove) {
-        for (const square of row) {
-          if (square.piece && (square.piece.type === 'pawn' || square.piece.type === 'commander') && square.piece.color === playerWhoseQueenLeveled) {
-            hasPawnsToSacrifice = true;
-            break;
-          }
-        }
-        if (hasPawnsToSacrifice) break;
-      }
-
-      if (hasPawnsToSacrifice) {
-        const isCurrentPlayerAI = (playerWhoseQueenLeveled === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (playerWhoseQueenLeveled === 'black' && isBlackAI && onlineStatus === 'disconnected');
-        if (isCurrentPlayerAI) {
-          let pawnSacrificed = false;
-          const boardCopyForAISacrifice = boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-          let sacrificedAIPawn: Piece | null = null;
-          let sacrificedPawnPos: AlgebraicSquare | null = null;
-
-          for (let r_idx = 0; r_idx < 8; r_idx++) {
-            for (let c_idx = 0; c_idx < 8; c_idx++) {
-              const pieceAtSquare = boardCopyForAISacrifice[r_idx][c_idx].piece;
-              if (pieceAtSquare && (pieceAtSquare.type === 'pawn' || pieceAtSquare.type === 'commander') && pieceAtSquare.color === playerWhoseQueenLeveled) {
-                sacrificedAIPawn = { ...pieceAtSquare, id: `${pieceAtSquare.id}_sac_AI_${uniqueIdCounterRef.current++}` };
-                sacrificedPawnPos = coordsToAlgebraic(r_idx, c_idx);
-                boardCopyForAISacrifice[r_idx][c_idx].piece = null;
-                pawnSacrificed = true;
-                break;
-              }
-            }
-            if (pawnSacrificed) break;
-          }
-          setBoard(boardCopyForAISacrifice);
-          if (sacrificedAIPawn) {
-            const opponentOfSacrificer = playerWhoseQueenLeveled === 'white' ? 'black' : 'white';
-            setCapturedPieces(prev => ({
-              ...prev,
-              [opponentOfSacrificer]: [...(prev[opponentOfSacrificer] || []), sacrificedAIPawn!]
-            }));
-            audioManager.playCapture();
-          }
-          toast({ title: "Queen's Ascension!", description: `${getPlayerDisplayName(playerWhoseQueenLeveled)} (AI) sacrificed a Pawn/Commander for L7 Queen!`, duration: 8000 });
-          processMoveEnd(boardCopyForAISacrifice, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
-          return false;
-        } else {
-          setIsAwaitingPawnSacrifice(true);
-          setPlayerToSacrificePawn(playerWhoseQueenLeveled);
-          setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))));
-          setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
-          setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
-          setEnPassantTargetSquare(newEnPassantTarget);
-          setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(playerWhoseQueenLeveled)}, select Pawn/Commander to sacrifice for L7 Queen!` }));
-          return true;
-        }
-      }
-    }
-    processMoveEnd(boardAfterPrimaryMove, playerWhoseQueenLeveled, isExtraTurnFromOriginalMove, newEnPassantTarget);
-    return false;
-  }, [getPlayerDisplayName, toast, setGameInfo, setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, processMoveEnd, isWhiteAI, isBlackAI, setBoard, setBoardForPostSacrifice, setPlayerWhoMadeQueenMove, setIsExtraTurnFromQueenMove, setCapturedPieces, onlineStatus]);
-
-
-  const performAiMove = async () => {
-    let enPassantTargetForNextTurn: AlgebraicSquare | null = null;
-    let levelFromAIApplyMove: number | undefined;
-    let typeFromAIApplyMove: PieceType | undefined;
-
-    const currentAiInstance = aiInstanceRef.current;
-    
-    if (!currentAiInstance) {
-      toast({
-        title: "AI Error",
-        description: "AI engine is not territory. Please wait or reset the game.",
-        variant: "destructive",
-        duration: 8000,
-      });
-      setIsAiThinking(false);
-      if(currentPlayer === 'white') setIsWhiteAI(false); else setIsBlackAI(false);
-      return;
-    }
-
-    if (gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) {
-      setIsAiThinking(false);
-      return;
-    }
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood !== currentPlayer) {
-        setIsAiThinking(false);
-        return;
-    }
-    
-    aiErrorOccurredRef.current = false;
-    setIsAiThinking(true);
-    setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) is thinking...` }));
-    setSelectedSquare(null); setPossibleMoves([]);
-    setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-    
-    try {
-      let aiMoveDataFromVibeAI: AIMoveType | null = null;
-      let attemptCount = 0;
-      const MAX_AI_ATTEMPTS = 3;
-      let pieceOnFromSquareForAI: Piece | null = null;
-      let isAiMoveActuallyLegal = false;
-      let aiFromAlg: AlgebraicSquare | null = null;
-      let aiToAlg: AlgebraicSquare | null = null;
-      let moveForApplyMoveAI: Move | null = null;
-      let localAIAwaitingCommanderPromo = false;
-      let selfCheckByAIPushBack = false;
-      let aiAnvilPushedOff = false;
-      let queenLevelReducedEventsAI: QueenLevelReducedEvent[] | null | undefined = null;
-      let aiBecameInfiltrator = false;
-      let aiGameWonByInfiltration = false;
-      let aiExtraTurn = false;
-      let sacrificeNeededForAIQueen = false;
-      
-
-
-      let finalBoardStateForAI = board.map(r_fbs => r_fbs.map(s_fbs => ({ ...s_fbs, piece: s_fbs.piece ? { ...s_fbs.piece } : null, item: s_fbs.item ? {...s_fbs.item} : null })));
-      let finalCapturedPiecesForAI = {
-        white: capturedPieces.white.map(p_cap => ({ ...p_cap })),
-        black: capturedPieces.black.map(p_cap => ({ ...p_cap }))
-      };
-      
-      while (attemptCount < MAX_AI_ATTEMPTS && !isAiMoveActuallyLegal) {
-        attemptCount++;
-        await new Promise(resolve => setTimeout(resolve, 50 * attemptCount)); 
-        const gameStateForAI = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
-        const aiResult = currentAiInstance.getBestMove(gameStateForAI, currentPlayer);
-        aiMoveDataFromVibeAI = aiResult?.move;
-
-        if (!aiMoveDataFromVibeAI || !aiMoveDataFromVibeAI.from || !aiMoveDataFromVibeAI.to ||
-            !Array.isArray(aiMoveDataFromVibeAI.from) || aiMoveDataFromVibeAI.from.length !== 2 ||
-            !Array.isArray(aiMoveDataFromVibeAI.to) || aiMoveDataFromVibeAI.to.length !== 2) {
-            continue; 
-        }
-
-        aiFromAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.from[0], aiMoveDataFromVibeAI.from[1]);
-        aiToAlg = coordsToAlgebraic(aiMoveDataFromVibeAI.to[0], aiMoveDataFromVibeAI.to[1]);
-        const pieceDataAtFromAI = finalBoardStateForAI[aiMoveDataFromVibeAI.from[0]]?.[aiMoveDataFromVibeAI.from[1]];
-        pieceOnFromSquareForAI = pieceDataAtFromAI?.piece || null;
-
-        if (!pieceOnFromSquareForAI || pieceOnFromSquareForAI.color !== currentPlayer) {
-            continue; 
-        }
-
-        const definitiveLegalMovesForPiece = getPossibleMoves(finalBoardStateForAI, aiFromAlg as AlgebraicSquare, enPassantTargetSquare);
-        isAiMoveActuallyLegal = definitiveLegalMovesForPiece.includes(aiToAlg as AlgebraicSquare);
-        
-        if (!isAiMoveActuallyLegal && aiMoveDataFromVibeAI.type === 'self-destruct' && aiFromAlg === aiToAlg) {
-            const tempStateAfterSelfDestruct = finalBoardStateForAI.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-            tempStateAfterSelfDestruct[aiMoveDataFromVibeAI.from[0]][aiMoveDataFromVibeAI.from[1]].piece = null;
-            if (!isKingInCheck(tempStateAfterSelfDestruct, currentPlayer, enPassantTargetSquare)) {
-              isAiMoveActuallyLegal = true;
-            }
-        }
-      }
-
-
-      if (!isAiMoveActuallyLegal) { 
-        toast({ title: "AI Recalibrating...", description: "AI suggested an invalid move, picking any valid move.", duration: 8000 });
-        
-        let foundFallbackMove = false;
-        for (let r = 0; r < 8; r++) {
-          for (let c = 0; c < 8; c++) {
-            const fbSquareState = finalBoardStateForAI[r]?.[c];
-            if (fbSquareState?.piece?.color === currentPlayer && !(fbSquareState.piece.cooldownTurnsRemaining && fbSquareState.piece.cooldownTurnsRemaining > 0) && !(fbSquareState.piece.frozenTurnsRemaining && fbSquareState.piece.frozenTurnsRemaining > 0)) {
-              const fromAlg = coordsToAlgebraic(r, c);
-              const legalMoves = getPossibleMoves(finalBoardStateForAI, fromAlg, enPassantTargetSquare);
-              
-              if (legalMoves.length > 0) {
-                const chosenDefinitiveMoveAlg = legalMoves[0];
-                const newToCoords = algebraicToCoords(chosenDefinitiveMoveAlg);
-                let overrideMoveType: AIMoveType['type'] = 'move';
-                const targetSquareForOverride = finalBoardStateForAI[newToCoords.row]?.[newToCoords.col];
-                if (targetSquareForOverride?.piece) {
-                    if (targetSquareForOverride.piece.color === currentPlayer) {
-                        overrideMoveType = 'swap';
-                    } else {
-                        overrideMoveType = 'capture';
-                    }
-                }
-                let promoteToOverrideType: PieceType | undefined = undefined;
-                if ((fbSquareState.piece!.type === 'pawn' || fbSquareState.piece!.type === 'commander') && newToCoords.row === (currentPlayer === 'white' ? 0 : 7)) {
-                    overrideMoveType = (fbSquareState.piece!.type === 'commander') ? 'move' : 'promotion';
-                    promoteToOverrideType = fbSquareState.piece!.type === 'commander' ? 'hero' : 'queen';
-                }
-
-                aiFromAlg = fromAlg;
-                aiToAlg = chosenDefinitiveMoveAlg;
-                aiMoveDataFromVibeAI = { from: [r,c], to: [newToCoords.row, newToCoords.col], type: overrideMoveType, promoteTo: promoteToOverrideType };
-                isAiMoveActuallyLegal = true;
-                foundFallbackMove = true;
-                break; 
-              }
-            }
-          }
-          if (foundFallbackMove) break; 
-        }
-
-        if (!foundFallbackMove) {
-          aiErrorOccurredRef.current = true;
-        }
-      }
-
-
-      if (!aiErrorOccurredRef.current && aiMoveDataFromVibeAI && aiFromAlg && aiToAlg) {
-        const { row: aiToR, col: aiToC } = algebraicToCoords(aiToAlg as AlgebraicSquare);
-        const { row: aiFromR, col: aiFromC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
-
-        saveStateToHistory();
-        let aiMoveType = (aiMoveDataFromVibeAI.type || 'move') as Move['type'];
-        let aiPromoteTo = aiMoveDataFromVibeAI.promoteTo as PieceType | undefined;
-
-        setLastMoveFrom(aiFromAlg as AlgebraicSquare);
-        setLastMoveTo(aiMoveType === 'self-destruct' ? (aiFromAlg as AlgebraicSquare) : (aiToAlg as AlgebraicSquare));
-        setIsMoveProcessing(true);
-        clickGuardRef.current = true;
-        setAnimatedSquareTo(aiToAlg as AlgebraicSquare);
-
-        const isStandardStartingSquareAI = (currentPlayer === 'white' && aiFromAlg === 'e1') || (currentPlayer === 'black' && aiFromAlg === 'e8');
-        const isStandardTargetSquareAI = (currentPlayer === 'white' && (aiToAlg === 'c1' || aiToAlg === 'g1')) || (currentPlayer === 'black' && (aiToAlg === 'c8' || aiToAlg === 'g8'));
-        
-        if (pieceOnFromSquareForAI?.type === 'king' && !pieceOnFromSquareForAI.hasMoved && isStandardStartingSquareAI && isStandardTargetSquareAI && aiFromR === aiToR && aiMoveType !== 'self-destruct' && !finalBoardStateForAI[aiToR][aiToC].piece) {
-            aiMoveType = 'castle';
-        }
-
-        moveForApplyMoveAI = {
-            from: aiFromAlg as AlgebraicSquare,
-            to: aiToAlg as AlgebraicSquare,
-            type: aiMoveType as Move['type'],
-            promoteTo: aiPromoteTo
-        };
-        
-        if (moveForApplyMoveAI.type === 'self-destruct') {
-          const { row: cR, col: cC } = algebraicToCoords(aiFromAlg as AlgebraicSquare);
-          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
-          audioManager.playExplosion();
-        }
-
-        const applyMoveResult = applyMove(finalBoardStateForAI, moveForApplyMoveAI, enPassantTargetSquare, capturedPieces);
-        const { newBoard, capturedPiece, selfDestructCaptures, destroyedAnvils, reflectionOccurred, ...rest } = applyMoveResult;
-        
-        if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {
-           const pieceThatMadeTheMoveAI = newBoard[aiToR]?.[aiToC]?.piece;
-           if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') audioManager.playObliterate();
-           else audioManager.playCapture();
-        } else if (moveForApplyMoveAI.type === 'castle') {
-           audioManager.playMove();
-        } else if (moveForApplyMoveAI.type === 'swap') {
-            audioManager.playMove();
-        } else if (moveForApplyMoveAI.type !== 'self-destruct') {
-           audioManager.playMove();
-        }
-
-        finalBoardStateForAI = newBoard;
-        
-        enPassantTargetForNextTurn = rest.enPassantTargetSet;
-        levelFromAIApplyMove = rest.originalPieceLevel;
-        typeFromAIApplyMove = rest.originalPieceType;
-        selfCheckByAIPushBack = rest.selfCheckByPushBack;
-        aiAnvilPushedOff = rest.anvilPushedOffBoard;
-        queenLevelReducedEventsAI = rest.queenLevelReducedEvents;
-        aiBecameInfiltrator = rest.promotedToInfiltrator || false;
-        aiGameWonByInfiltration = rest.infiltrationWin || false;
-        aiExtraTurn = rest.extraTurn || false;
-
-        if (reflectionOccurred) {
-            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
-            const victim = capturedPiece!;
-            finalCapturedPiecesForAI[defenderColor].push({ ...victim, id: `${victim.id}_refl_ai_${Date.now()}` });
-            audioManager.playCapture();
-            toast({ title: "REFLECTED!", description: `Your Mirror Shield reflected the AI's attack!` });
-            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1 }));
-            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
-            setBoard(finalBoardStateForAI);
-            setCapturedPieces(finalCapturedPiecesForAI);
-            setTimeout(() => {
-                setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false;
-                processMoveEnd(finalBoardStateForAI, currentPlayer, false, null);
-            }, 800);
-            return;
-        }
-
-        if (selfDestructCaptures && selfDestructCaptures.length > 0) {
-            finalCapturedPiecesForAI[currentPlayer].push(...selfDestructCaptures);
-        }
-
-        if (rest.rallyCryTriggered) {
-            addEffect('shockwave', rest.rallyCryTriggered.square, rest.rallyCryTriggered.color);
-            audioManager.playRally();
-        }
-
-        if (aiBecameInfiltrator) {
-            toast({ title: "AI Infiltrator!", description: `AI's pawn promoted to an Infiltrator!`, duration: 8000 });
-        }
-
-
-        if (aiGameWonByInfiltration) {
-            setBoard(finalBoardStateForAI);
-            setCapturedPieces(finalCapturedPiecesForAI);
-            toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, duration: 8000 });
-            setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} (AI) wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
-            setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); 
-            return;
-        }
-
-        if (rest.shroomConsumed) {
-            const movedPieceDataAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-                if(movedPieceDataAI) {
-                audioManager.playShroom();
-                audioManager.playLevelUp();
-                toast({ title: "AI Level Up!", description: `AI's ${movedPieceDataAI.type} consumed a Shroom 🍄 and leveled up to L${movedPieceDataAI.level}!`, duration: 8000 });
-                }
-        }
-
-
-        if (queenLevelReducedEventsAI && queenLevelReducedEventsAI.length > 0) {
-            queenLevelReducedEventsAI.forEach(event => {
-                const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
-                toast({
-                    title: "King's Dominion!",
-                    description: `${getPlayerDisplayName(event.reducedByKingOfColor)} (AI) King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
-                    duration: 8000,
-                });
-            });
-        }
-        
-        if (rest.pieceCapturedByAnvil) {
-            if (pieceOnFromSquareForAI?.type !== 'infiltrator') {
-                finalCapturedPiecesForAI[currentPlayer].push({ ...rest.pieceCapturedByAnvil, id: `${rest.pieceCapturedByAnvil.id}_cap_anvil_ai_${Date.now()}` });
-            }
-            audioManager.playObliterate();
-            toast({ title: "AI Anvil Crush!", description: `AI's Pawn push made an Anvil capture a ${rest.pieceCapturedByAnvil.type}!`, duration: 8000 });
-        }
-        if (aiAnvilPushedOff) {
-            toast({ title: "AI Anvil Removed!", description: "AI Anvil pushed off by AI.", duration: 8000 });
-        }
-        
-        if (destroyedAnvils && destroyedAnvils > 0) {
-             toast({ title: "AI Smashes Anvils!", description: `${destroyedAnvils} anvil${destroyedAnvils > 1 ? 's' : ''} destroyed.`, duration: 8000 });
-        }
-
-
-        if (selfCheckByAIPushBack) {
-            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-            toast({
-              title: "Auto-Checkmate!",
-              description: `${getPlayerDisplayName(currentPlayer)} (AI)'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
-              variant: "destructive",
-              duration: 8000,
-            });
-            setGameInfo(prev => ({
-              ...prev,
-              message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
-              isCheck: true,
-              playerWithKingInCheck: currentPlayer,
-              isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
-            }));
-            setBoard(finalBoardStateForAI);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-            setIsAiThinking(false);
-            setSelectedSquare(null); setPossibleMoves([]);
-            setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-            if (onlineStatus === 'connected') {
-              const ws = wsRef.current;
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
-              }
-            }
-            return;
-          }
-          toast({ title: `AI (${getPlayerDisplayName(currentPlayer)}) moves`, description: `${aiFromAlg} to ${aiToAlg}`, duration: 1000 });
-
-          if (capturedPiece) { 
-            const pieceThatMadeTheMoveAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-            if (pieceThatMadeTheMoveAI && pieceThatMadeTheMoveAI.type === 'infiltrator') {
-            } else {
-                audioManager.playLevelUp();
-                finalCapturedPiecesForAI[currentPlayer].push({ ...capturedPiece, id: `${capturedPiece.id}_cap_ai_${Date.now()}` });
-            }
-          }
-
-          if (rest.conversionEvents && rest.conversionEvents.length > 0) {
-            rest.conversionEvents.forEach(event => {
-                addEffect('conversion', event.at, event.byPiece.color);
-                if (event.originalPiece.color !== event.convertedPiece.color) {
-                  audioManager.playConversion();
-                  toast({ title: "AI Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} (AI) ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
-                }
-            });
-          }
-
-        if(!aiErrorOccurredRef.current) {
-            const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-            let capturesThisTurnAI = 0;
-            if (capturedPiece) capturesThisTurnAI++;
-            if (rest.pieceCapturedByAnvil) capturesThisTurnAI++;
-            if (selfDestructCaptures) capturesThisTurnAI += selfDestructCaptures.length;
-            
-            const oldStreakForAI = killStreaks[currentPlayer] || 0;
-            const newStreakForAI = capturesThisTurnAI > 0 ? (oldStreakForAI + capturesThisTurnAI) : 0;
-
-            if (capturesThisTurnAI > 0) {
-                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreakForAI }));
-                setShowCaptureFlash(true);
-                setCaptureFlashKey(k => k + 1);
-            } else {
-                if (killStreaks[currentPlayer] > 0) {
-                    setKillStreaks(prev => ({...prev, [currentPlayer]: 0}));
-                }
-            }
-            
-            let enteringSpecialModeAI = false;
-            
-            if (newStreakForAI >= 2 && oldStreakForAI < 2) {
-                 const hasArchbishopAI = finalBoardStateForAI.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === currentPlayer);
-                 if (hasArchbishopAI) {
-                     enteringSpecialModeAI = true;
-                     const alliesToShield = [];
-                     const capturingPieceIdAI = finalBoardStateForAI[aiToR][aiToC].piece?.id;
-                     for (let r_sh = 0; r_sh < 8; r_sh++) {
-                         for (let c_sh = 0; c_sh < 8; c_sh++) {
-                             const sq_sh = finalBoardStateForAI[r_sh][c_sh];
-                             if (sq_sh.piece && sq_sh.piece.color === currentPlayer && sq_sh.piece.type !== 'king' && sq_sh.piece.type !== 'queen' && sq_sh.piece.id !== capturingPieceIdAI) {
-                                 alliesToShield.push({ piece: sq_sh.piece, r: r_sh, c: c_sh });
-                             }
-                         }
-                     }
-                     if (alliesToShield.length > 0) {
-                         const shieldChoice = alliesToShield[Math.floor(Math.random() * alliesToShield.length)];
-                         finalBoardStateForAI.forEach(row_sh => row_sh.forEach(sq_sh => {
-                             if (sq_sh.piece?.id === shieldChoice.piece.id) sq_sh.piece.isShielded = true;
-                         }));
-                         audioManager.playShield();
-                         toast({ title: "AI Holy Shield!", description: `AI shielded their ${shieldChoice.piece.type}!` });
-                     }
-                 }
-            }
-
-            if (!enteringSpecialModeAI && oldStreakForAI < 3 && newStreakForAI >= 3) {
-                enteringSpecialModeAI = true;
-                const emptySquares: [number, number][] = [];
-                for (let r_anvil = 0; r_anvil < 8; r_anvil++) for (let c_anvil = 0; c_anvil < 8; c_anvil++) if (!finalBoardStateForAI[r_anvil][c_anvil].piece && !finalBoardStateForAI[r_anvil][c_anvil].item) emptySquares.push([r_anvil, c_anvil]);
-                if (emptySquares.length > 0) {
-                    const oppKingPos = findKing(finalBoardStateForAI, opponentPlayer);
-                    let bestAnvilCoords: [number, number];
-                    if (oppKingPos) {
-                      emptySquares.sort((a,b) => {
-                        return (Math.abs(a[0] - oppKingPos.row) + Math.abs(a[1] - oppKingPos.col)) - (Math.abs(b[0] - oppKingPos.row) + Math.abs(b[1] - oppKingPos.col));
-                      });
-                      bestAnvilCoords = emptySquares[0];
-                    } else {
-                      bestAnvilCoords = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                    }
-                    finalBoardStateForAI[bestAnvilCoords[0]][bestAnvilCoords[1]].item = { type: 'anvil' };
-                    const anvilAlg = coordsToAlgebraic(bestAnvilCoords[0], bestAnvilCoords[1]);
-                    audioManager.playAnvil();
-                    toast({ title: "AI Anvil Drop!", description: `AI placed an anvil on ${anvilAlg}.`});
-
-                    const hasCrossbowArcherAI = finalBoardStateForAI.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
-                    if (hasCrossbowArcherAI) {
-                      const victims = finalBoardStateForAI.flat().filter(sq => sq.piece && sq.piece.color === opponentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                      if (victims.length > 0) {
-                        const victimSq = victims[Math.floor(Math.random() * victims.length)];
-                        const captured = { ...victimSq.piece! };
-                        finalBoardStateForAI.forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === victimSq.algebraic) sq_v.piece = null; }));
-                        finalCapturedPiecesForAI[currentPlayer].push(captured);
-                        audioManager.playSnipe();
-                        addEffect('poof', victimSq.algebraic);
-                        toast({ title: "AI Crossbow Snipe!", description: `AI sniped your ${captured.type}!` });
-                      }
-                    }
-                }
-            }
-
-            if (capturesThisTurnAI > 0) {
-                if (!firstBloodAchieved) {
-                    setFirstBloodAchieved(true);
-                    setPlayerWhoGotFirstBlood(currentPlayer);
-                    localAIAwaitingCommanderPromo = true;
-                }
-                
-                if (oldStreakForAI < 4 && newStreakForAI >= 4) {
-                  const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
-                  let piecesOfAICapturedByOpponent = [...(finalCapturedPiecesForAI[opponentColorAI] || [])];
-                  if (piecesOfAICapturedByOpponent.length > 0) {
-                      const pieceToResurrect = piecesOfAICapturedByOpponent.pop();
-                      if (pieceToResurrect) {
-                      const emptySqAI: [number, number][] = [];
-                      for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) if (!finalBoardStateForAI[rr][cc].piece && !finalBoardStateForAI[rr][cc].item) emptySqAI.push([rr, cc]);
-                      if (emptySqAI.length > 0) {
-                          const [resRAI, resCAI] = emptySqAI[Math.floor(Math.random() * emptySqAI.length)];
-                          const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-
-                          const promoRowAI = currentPlayer === 'white' ? 0 : 7;
-                          const randSqAI_alg = coordsToAlgebraic(resRAI, resCAI);
-                          if (resurrectedAI.type === 'commander' && resRAI === promoRowAI) {
-                              resurrectedAI.type = 'hero';
-                              resurrectedAI.id = `${resurrectedAI.id}_HeroPromo_Res`;
-                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
-                          } else if (resurrectedAI.type === 'pawn' && resRAI === promoRowAI) {
-                              resurrectedAI.type = 'queen'; 
-                              resurrectedAI.id = `${resurrectedAI.id}_QueenPromo_Res`;
-                               toast({ title: "AI Resurrection & Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L1)`, duration: 8000 });
-                          } else {
-                               toast({ title: "AI Resurrection!", description: `${getPlayerDisplayName(currentPlayer)} (AI) occupies ${resurrectedAI.type} returns! (L1)`, duration: 8000 });
-                          }
-                          finalBoardStateForAI[resRAI][resCAI].piece = resurrectedAI;
-                          addEffect('light-beam', randSqAI_alg);
-                          audioManager.playResurrect();
-                          setResurrectedSquares(prev => [...prev, { square: randSqAI_alg, player: currentPlayer }]);
-                          finalCapturedPiecesForAI[opponentColorAI] = piecesOfAICapturedByOpponent.filter(p => p.id !== pieceToResurrect.id);
-                      }
-                      }
-                  }
-                }
-            }
-
-            if (localAIAwaitingCommanderPromo && currentAiInstance) {
-                const gameStateForAICmdrSelect = adaptBoardForAI(finalBoardStateForAI, currentPlayer, killStreaks, finalCapturedPiecesForAI, gameMoveCounter, true, currentPlayer, enPassantTargetSquare, shroomSpawnCounter, nextShroomSpawnTurn);
-                const commanderPawnCoords = currentAiInstance.selectPawnForCommanderPromotion(gameStateForAICmdrSelect);
-                if (commanderPawnCoords) {
-                    const [pawnR, pawnC] = commanderPawnCoords;
-                    if(finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.type === 'pawn' && finalBoardStateForAI[pawnR]?.[pawnC]?.piece?.level === 1) {
-                        finalBoardStateForAI[pawnR][pawnC].piece!.type = 'commander';
-                        finalBoardStateForAI[pawnR][pawnC].piece!.id = `${finalBoardStateForAI[pawnR][pawnC].piece!.id}_CMD_AI`;
-                        finalBoardStateForAI[pawnR][pawnC].piece!.isPoisoned = false;
-                        finalBoardStateForAI[pawnR][pawnC].piece!.cooldownTurnsRemaining = 0;
-                        finalBoardStateForAI[pawnR][pawnC].piece!.frozenTurnsRemaining = 0;
-                        audioManager.playLevelUp();
-                    }
-                }
-            }
-
-
-            const aiMovedPieceOnToSquare = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-            let aiRookResData: RookResurrectionResult | null = null;
-
-            if (aiMovedPieceOnToSquare &&
-                (aiMovedPieceOnToSquare.type === 'rook' || aiMovedPieceOnToSquare.type === 'palace' || (moveForApplyMoveAI!.type === 'promotion' && (moveForApplyMoveAI!.promoteTo === 'rook' || moveForApplyMoveAI!.promoteTo === 'palace'))) &&
-                moveForApplyMoveAI!.type !== 'self-destruct' &&
-                (capturedPiece || rest.pieceCapturedByAnvil) 
-            ) {
-              const oldLevelForAIResCheck = levelFromAIApplyMove !== undefined ? levelFromAIApplyMove : originalPieceLevel;
-              aiRookResData = processRookResurrectionCheck(
-                  finalBoardStateForAI,
-                  currentPlayer,
-                  moveForApplyMoveAI as Move,
-                  aiToAlg as AlgebraicSquare,
-                  oldLevelForAIResCheck,
-                  finalCapturedPiecesForAI,
-                  uniqueIdCounterRef.current
-              );
-              if (aiRookResData.resurrectionPerformed) {
-                  finalBoardStateForAI = aiRookResData.boardWithResurrection;
-                  finalCapturedPiecesForAI = aiRookResData.capturedPiecesAfterResurrection;
-                  uniqueIdCounterRef.current = aiRookResData.newResurrectionIdCounter!;
-                  addEffect('light-beam', aiRookResData!.resurrectedSquareAlg!);
-                  audioManager.playResurrect();
-                  setResurrectedSquares(prev => [...prev, { square: aiRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
-                  const resType = aiMovedPieceOnToSquare.type === 'palace' ? 'Master' : 'Rook\'s';
-                  toast({ title: `AI ${resType} Call!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected their ${aiRookResData.resurrectedPieceData!.type} to ${aiRookResData.resurrectedSquareAlg!}! (L${aiRookResData.resurrectedPieceData!.level})`, duration: 8000 });
-
-                  if (aiRookResData.promotionRequiredForResurrectedPawn) {
-                        const { row: promoR_AI, col: promoC_AI } = algebraicToCoords(aiRookResData.resurrectedSquareAlg!);
-                        const resurrectedPawnOnBoardAI = finalBoardStateForAI[promoR_AI]?.[promoC_AI]?.piece;
-                        if (resurrectedPawnOnBoardAI && resurrectedPawnOnBoardAI.type === 'pawn') {
-                            resurrectedPawnOnBoardAI.type = 'queen'; 
-                            resurrectedPawnOnBoardAI.id = `${resurrectedPawnOnBoardAI.id}_resPromo_Q_AI`;
-                            resurrectedPawnOnBoardAI.isPoisoned = false;
-                            resurrectedPawnOnBoardAI.cooldownTurnsRemaining = 0;
-                            resurrectedPawnOnBoardAI.frozenTurnsRemaining = 0;
-                            toast({ title: "AI Resurrection Promotion!", description: `${getPlayerDisplayName(currentPlayer)} (AI) resurrected Pawn promoted to Queen! (L${resurrectedPawnOnBoardAI.level})`, duration: 8000 });
-                        }
-                  }
-              }
-            }
-
-            setBoard(finalBoardStateForAI);
-            setCapturedPieces(finalCapturedPiecesForAI);
-            
-            setTimeout(() => {
-              const pieceAtDestinationAI = finalBoardStateForAI[aiToR]?.[aiToC]?.piece;
-              const rankCheckRowAI = currentPlayer === 'white' ? 0 : 7;
-              const isAIPawnPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'pawn' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct';
-              const isAICommanderPromoting = pieceAtDestinationAI && pieceAtDestinationAI.type === 'hero' && aiToR === rankCheckRowAI && moveForApplyMoveAI!.type !== 'self-destruct' && pieceOnFromSquareForAI?.type === 'commander';
-
-              let extraTurnForThisAIMove = aiExtraTurn || (oldStreakForAI < 6 && newStreakForAI >= 6);
-
-              if (isAIPawnPromoting) {
-                  const promotedTypeAI = moveForApplyMoveAI!.promoteTo || 'queen'; 
-
-                  const {row: promoR, col: promoC} = algebraicToCoords(aiToAlg as AlgebraicSquare);
-                  if(finalBoardStateForAI[promoR][promoC].piece && finalBoardStateForAI[promoR][promoC].piece!.type === 'pawn') {
-                      finalBoardStateForAI[promoR][promoC].piece!.type = promotedTypeAI;
-                      finalBoardStateForAI[promoR][promoC].piece!.level = getPromotionLevel(capturedPiece?.type || rest.pieceCapturedByAnvil?.type || null); 
-                      finalBoardStateForAI[promoR][promoC].piece!.id = `${finalBoardStateForAI[promoR][promoC].piece!.id}_promo_${promotedTypeAI}`;
-                      finalBoardStateForAI[promoR][promoC].piece!.isPoisoned = false; 
-                      finalBoardStateForAI[promoR][promoC].piece!.cooldownTurnsRemaining = 0;
-                      finalBoardStateForAI[promoR][promoC].piece!.frozenTurnsRemaining = 0;
-                      audioManager.playLevelUp();
-                      setBoard(finalBoardStateForAI.map(r_bd => r_bd.map(s_bd => ({...s_bd, piece: s_bd.piece ? {...s_bd.piece} : null, item: s_bd.item ? {...s_bd.item} : null }))));
-                  }
-                  toast({ title: `AI Pawn Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) pawn promoted to ${promotedTypeAI}! (L${finalBoardStateForAI[promoR][promoC].piece!.level})`, duration: 8000 });
-
-                  // AI Queen Ascension (handled by processPawnSacrificeCheck below)
-              } else if (isAICommanderPromoting) {
-                    toast({ title: `AI Commander Promoted!`, description: `${getPlayerDisplayName(currentPlayer)} (AI) Commander promoted to Hero! (L${pieceAtDestinationAI!.level})`, duration: 8000 });
-              } 
-
-              if (localAIAwaitingCommanderPromo) {
-                processMoveEnd(finalBoardStateForAI, currentPlayer, extraTurnForThisAIMove, enPassantTargetForNextTurn);
-              } else {
-                  sacrificeNeededForAIQueen = processPawnSacrificeCheck(
-                      finalBoardStateForAI, 
-                      currentPlayer, 
-                      moveForApplyMoveAI as Move, 
-                      levelFromAIApplyMove, 
-                      typeFromAIApplyMove, 
-                      extraTurnForThisAIMove, 
-                      enPassantTargetForNextTurn
-                  );
-              }
-
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              setIsAiThinking(false);
-            }, 800);
-        }
-      }
-    } catch (error) {
-      console.error("[AI_LOOP] Uncaught exception in performAiMove:", error);
-      aiErrorOccurredRef.current = true;
-    }
-
-    if (aiErrorOccurredRef.current) {
-      toast({
-        title: `AI Error/Forfeit`,
-        description: "AI move forfeited due to an internal error or no legal moves.",
-        variant: "destructive",
-        duration: 8000,
-      });
-  
-      const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-  
-      if (!getPossibleMoves(board, coordsToAlgebraic(0,0), null).length && isKingInCheck(board, currentPlayer, enPassantTargetSquare)) {
-          setGameInfo(prev => ({ ...prev, message: `Checkmate! ${getPlayerDisplayName(opponentPlayer!)} wins!`, isCheck: true, playerWithKingInCheck: currentPlayer, isCheckmate: true, gameOver: true, winner: opponentPlayer }));
-      } else {
-          setGameInfo(prev => ({ ...prev, message: `AI Forfeits. ${getPlayerDisplayName(opponentPlayer!)} wins!`, gameOver: true, winner: opponentPlayer }));
-      }
-  
-      if (currentPlayer === 'white') setIsWhiteAI(false);
-      else setIsBlackAI(false);
-  
-      setIsMoveProcessing(false);
-      clickGuardRef.current = false;
-      setIsAiThinking(false);
-      return;
-    }
-  };
-
-
-  useEffect(() => {
-    const isCurrentPlayerAI = (currentPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (currentPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected');
-    if (isCurrentPlayerAI && !gameInfo.gameOver && !isAiThinking && !isPromotingPawn && !isMoveProcessing && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isResurrectionPromotionInProgress && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe && !isAwaitingWindScrollTarget && !isAwaitingAnvilScrollTarget && !isAwaitingShieldScrollTarget && !isAwaitingSwapScrollTarget) {
-        if (!isAwaitingCommanderPromotion || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
-             performAiMove();
-        }
-    }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isAiThinking, isPromotingPawn, isMoveProcessing, performAiMove, isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, onlineStatus, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget]);
-
-  useEffect(() => {
-    if (!board || positionHistory.length > 0) return;
-    const initialCastlingRights = getCastlingRightsString(board);
-    const initialHash = boardToPositionHash(board, currentPlayer, initialCastlingRights, enPassantTargetSquare);
-    if (initialHash) {
-      setPositionHistory([initialHash]);
-    }
-  }, [board, currentPlayer, positionHistory, enPassantTargetSquare]);
-
-  useEffect(() => {
-    if (gameInfo.gameOver && gameInfo.winner) {
-        const isHumanWinner = () => {
-          if (gameInfo.winner === 'draw') return false;
-          if (onlineStatus !== 'disconnected') {
-            return gameInfo.winner === localPlayerColor;
-          }
-          if (gameInfo.winner === 'white') return !isWhiteAI;
-          if (gameInfo.winner === 'black') return !isBlackAI;
-          return false;
-        };
-
-        if (isHumanWinner()) audioManager.playVictory();
-        else if (gameInfo.winner !== 'draw') audioManager.playDefeat();
-
-        const isResignation = gameInfo.message.includes('resigned');
-        const hasPrimaryAnnouncement = !isResignation && (gameInfo.isCheckmate || gameInfo.isInfiltrationWin || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw);
-        const delay = hasPrimaryAnnouncement ? 2700 : (isResignation ? 1000 : 1500);
-        const timerId = setTimeout(() => {
-             setShowSummary(true);
-             if (localPlayerColor !== null) {
-                if (gameInfo.winner === localPlayerColor) {
-                    setShowWinScreen(true);
-                } else if (gameInfo.winner !== 'draw' && gameInfo.winner !== undefined) {
-                    setShowLossScreen(true);
-                }
-            }
-        }, delay + 1000);
-        return () => clearTimeout(timerId);
-    } else {
-      setShowWinScreen(false);
-      setShowLossScreen(false);
-      setShowSummary(false);
-    }
-  }, [gameInfo.gameOver, gameInfo.winner, gameInfo.message, localPlayerColor, onlineStatus, isWhiteAI, isBlackAI]);
-
-  useEffect(() => {
-    let currentCheckStateString: string | null = null;
-    if (gameInfo.gameOver) {
-      if (gameInfo.winner === 'draw' || gameInfo.isStalemate || gameInfo.isThreefoldRepetitionDraw) {
-        currentCheckStateString = 'draw';
-      } else if (gameInfo.isCheckmate && gameInfo.playerWithKingInCheck) {
-        currentCheckStateString = `checkmate-${gameInfo.playerWithKingInCheck}`;
-      } else if (gameInfo.isInfiltrationWin) {
-        currentCheckStateString = `infiltration-${gameInfo.winner}`;
-      }
-    } else if (gameInfo.isCheck && !gameInfo.gameOver && gameInfo.playerWithKingInCheck && !gameInfo.isStalemate && !gameInfo.isThreefoldRepetitionDraw) {
-      currentCheckStateString = `${gameInfo.playerWithKingInCheck}-check`;
-    }
-
-
-    if (currentCheckStateString) {
-      if (flashedCheckStateRef.current !== currentCheckStateString) {
-        if (currentCheckStateString.startsWith('draw')) {
-          setFlashMessage('DRAW!');
-          setShowCheckmatePatternFlash(true);
-          setCheckmatePatternFlashKey(k => k + 1);
-        } else if (currentCheckStateString.startsWith('checkmate')) {
-          setFlashMessage('CHECKMATE!');
-          setShowCheckmatePatternFlash(true);
-          setCheckmatePatternFlashKey(k => k + 1);
-        } else if (currentCheckStateString.startsWith('infiltration')) {
-          setFlashMessage('INFILTRATION!');
-          setShowCheckmatePatternFlash(true);
-          setCheckmatePatternFlashKey(k => k + 1);
-        } else if (currentCheckStateString.endsWith('-check')) {
-          setFlashMessage('CHECK!');
-          setShowCheckFlashBackground(true);
-          setShowCheckFlashBackground(true);
-          setCheckFlashBackgroundKey(k => k + 1);
-          audioManager.playCheck();
-        }
-        setFlashMessageKey(k => k + 1);
-        flashedCheckStateRef.current = currentCheckStateString;
-      }
-    } else {
-      if (flashedCheckStateRef.current) {
-        flashedCheckStateRef.current = null;
-      }
-    }
-  }, [gameInfo]);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (flashMessage) {
-      const duration = (flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!') ? 2500 : 1500;
-      timerId = setTimeout(() => {
-        setFlashMessage(null);
-      }, duration);
-    }
-    return () => {
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [flashMessage, flashMessageKey]);
-
-  useEffect(() => {
-    const { white: currentWhite, black: currentBlack } = killStreaks;
-
-    if (firstBloodAchieved && !firstBloodFlashedRef.current) {
-        setFlashMessage("FIRST BLOOD!");
-        setFlashMessageKey(k => k + 1);
-        firstBloodFlashedRef.current = true;
-        toast({ title: "FIRST BLOOD!", description: `${getPlayerDisplayName(playerWhoGotFirstBlood!)} can promote a Level 1 Pawn to Commander!`, duration: 8000 });
-    } else {
-        const { white: prevWhite, black: prevBlack } = prevKillStreaksRef.current;
-        let playerWithNewStreak: PlayerColor | null = null;
-        let newStreakValue = 0;
-        
-        if (currentWhite > prevWhite) { playerWithNewStreak = 'white'; newStreakValue = currentWhite; }
-        else if (currentBlack > prevBlack) { playerWithNewStreak = 'black'; newStreakValue = currentBlack; }
-        
-        if (playerWithNewStreak) {
-            const streakMsg = getKillStreakToastMessage(newStreakValue);
-            if (streakMsg) {
-                setKillStreakFlashMessage(streakMsg);
-                setKillStreakFlashMessageKey(k => k + 1);
-            }
-        }
-    }
-
-    prevKillStreaksRef.current = { ...killStreaks };
-
-  }, [killStreaks, firstBloodAchieved, getKillStreakToastMessage, playerWhoGotFirstBlood, getPlayerDisplayName, toast]);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (killStreakFlashMessage) {
-      timerId = setTimeout(() => {
-        setKillStreakFlashMessage(null);
-      }, 1500);
-    }
-    return () => {
-      if (timerId) clearTimeout(timerId);
-    };
-  }, [killStreakFlashMessage, killStreakFlashMessageKey]);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (showTimerWarning) {
-      timerId = setTimeout(() => {
-        setShowTimerWarning(false);
-      }, 1500);
-    }
-    return () => { if (timerId) clearTimeout(timerId); };
-  }, [showTimerWarning, timerWarningKey]);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (showCaptureFlash) {
-      timerId = setTimeout(() => {
-        setShowCaptureFlash(false);
-      }, 2250);
-    }
-    return () => { if (timerId) clearTimeout(timerId); };
-  }, [showCaptureFlash, captureFlashKey]);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (showCheckFlashBackground) {
-      timerId = setTimeout(() => {
-        setShowCheckFlashBackground(false);
-      }, 2250);
-    }
-    return () => { if (timerId) clearTimeout(timerId); };
-  }, [showCheckFlashBackground, checkFlashBackgroundKey]);
-
-  useEffect(() => {
-    let timerId: NodeJS.Timeout | null = null;
-    if (showCheckmatePatternFlash) {
-      timerId = setTimeout(() => {
-        setShowCheckmatePatternFlash(false);
-      }, 5250);
-    }
-    return () => { if (timerId) clearTimeout(timerId); };
-  }, [showCheckmatePatternFlash, checkmatePatternFlashKey]);
-
-  const resetGame = useCallback(() => {
-    if (onlineStatus === 'connected' && !gameInfo.gameOver) {
-      const ws = wsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
-          const payload = JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor });
-          ws.send(payload);
-      }
-      return;
-    }
-    fullGameReset();
-    toast({ title: "Game Reset", description: "The board has been reset.", duration: 8000 });
-  }, [onlineStatus, localPlayerColor, toast, fullGameReset, gameInfo.gameOver]);
-
-  const handleUndo = useCallback(() => {
-    if (onlineStatus !== 'disconnected' || (isAiThinking && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI))) || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) {
-      toast({ title: "Undo Failed", description: "Undo is disabled in online games and during special turns.", duration: 8000 });
-      return;
-    }
-    if (historyStack.length === 0) {
-      toast({ title: "Undo Failed", description: "No moves to undo.", duration: 8000 });
-      setLastMoveFrom(null);
-      setLastMoveTo(null);
-      return;
-    }
-
-    const isAIGame = isWhiteAI || isBlackAI;
-    let targetIndex = -1;
-    let turnsToUndo = isAIGame ? 2 : 1;
-
-    let playableStatesFound = 0;
-    for (let i = historyStack.length - 1; i >= 0; i--) {
-        const state = historyStack[i];
-        if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield && !state.isAwaitingArcherSnipe) {
-            playableStatesFound++;
-            if (playableStatesFound >= turnsToUndo) {
-                targetIndex = i;
-                break;
-            }
-        }
-    }
-    
-    if (targetIndex === -1 && playableStatesFound > 0) {
-        for (let i = historyStack.length - 1; i >= 0; i--) {
-            const state = historyStack[i];
-            if (state && !state.isAwaitingPawnSacrifice && !state.isAwaitingCommanderPromotion && !state.isResurrectionPromotionInProgress && !state.isAwaitingRookSacrifice && !state.isAwaitingAnvilDrop && !state.isAwaitingHolyShield && !state.isAwaitingArcherSnipe) {
-                targetIndex = i;
-                break;
-            }
-        }
-    }
-
-
-    if (targetIndex === -1) {
-      toast({ title: "Undo Failed", description: "No playable state to undo to.", duration: 8000 });
-      return;
-    }
-
-    const stateToRestore = historyStack[targetIndex];
-    const newHistoryStack = historyStack.slice(0, targetIndex);
-
-    if (stateToRestore) {
-      setBoard(stateToRestore.board);
-      setCurrentPlayer(stateToRestore.currentPlayer);
-      setGameInfo(stateToRestore.gameInfo);
-      setCapturedPieces(stateToRestore.capturedPieces);
-      setKillStreaks(stateToRestore.killStreaks);
-      setPositionHistory(stateToRestore.positionHistory || []);
-      setLastMoveFrom(stateToRestore.lastMoveFrom || null);
-      setLastMoveTo(stateToRestore.lastMoveTo || null);
-      setGameMoveCounter(stateToRestore.gameMoveCounter || 0);
-      setEnPassantTargetSquare(stateToRestore.enPassantTargetSquare || null);
-
-      setIsWhiteAI(stateToRestore.isWhiteAI);
-      setIsBlackAI(stateToRestore.isBlackAI);
-      setViewMode(stateToRestore.viewMode);
-      setBoardOrientation(determineBoardOrientation());
-
-      setSelectedSquare(null);
-      setPossibleMoves([]);
-      setEnemySelectedSquare(stateToRestore.enemySelectedSquare || null);
-      setEnemyPossibleMoves(stateToRestore.enemyPossibleMoves || []);
-
-      flashedCheckStateRef.current = null;
-      setFlashMessage(null);
-      setKillStreakFlashMessage(null);
-      setShowCaptureFlash(false);
-      setShowCheckFlashBackground(false);
-      setShowCheckmatePatternFlash(false);
-      setIsPromotingPawn(false);
-      setPromotionSquare(stateToRestore.promotionSquare || null);
-      setPlayerToPromote(null);
-      setPromotionMoveWasCapture(stateToRestore.promotionMoveWasCapture || false);
-      setAnimatedSquareTo(null);
-      setIsMoveProcessing(false);
-      clickGuardRef.current = false;
-      aiErrorOccurredRef.current = false;
-      setHistoryStack(newHistoryStack);
-      setPieceForInfoDisplay(null);
-
-      setIsAwaitingPawnSacrifice(stateToRestore.isAwaitingPawnSacrifice);
-      setPlayerToSacrificePawn(stateToRestore.playerToSacrificePawn);
-      setBoardForPostSacrifice(stateToRestore.boardForPostSacrifice);
-      setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
-      setPlayerWhoMadeQueenMove(stateToRestore.playerWhoMadeQueenMove);
-      setIsExtraTurnFromQueenMove(stateToRestore.isExtraTurnFromQueenMove);
-
-      setIsAwaitingRookSacrifice(stateToRestore.isAwaitingRookSacrifice);
-      setPlayerToSacrificeForRook(stateToRestore.playerToSacrificeForRook);
-      setRookToMakeInvulnerable(stateToRestore.rookToMakeInvulnerable);
-      setBoardForRookSacrifice(stateToRestore.boardForRookSacrifice);
-      setOriginalTurnPlayerForRookSacrifice(stateToRestore.originalTurnPlayerForRookSacrifice);
-      setIsExtraTurnFromRookLevelUp(stateToRestore.isExtraTurnFromRookLevelUp);
-
-      setIsResurrectionPromotionInProgress(stateToRestore.isResurrectionPromotionInProgress);
-      setPlayerForPostResurrectionPromotion(stateToRestore.playerForPostResurrectionPromotion);
-      setIsExtraTurnForPostResurrectionPromotion(stateToRestore.isExtraTurnForPostResurrectionPromotion);
-
-      setFirstBloodAchieved(stateToRestore.firstBloodAchieved);
-      setPlayerWhoGotFirstBlood(stateToRestore.playerWhoGotFirstBlood);
-      setIsAwaitingCommanderPromotion(stateToRestore.isAwaitingCommanderPromotion);
-
-      setShroomSpawnCounter(stateToRestore.shroomSpawnCounter || 0);
-      setNextShroomSpawnTurn(stateToRestore.nextShroomSpawnTurn || (Math.floor(Math.random() * 6) + 5));
-
-      setResurrectedSquares(stateToRestore.resurrectedSquares || []);
-      
-      setTurnTimer(stateToRestore.turnTimer || null);
-      setActiveTimerPlayer(stateToRestore.activeTimerPlayer || null);
-      setWhiteTimeouts(stateToRestore.whiteTimeouts || 0);
-      setBlackTimeouts(stateToRestore.blackTimeouts || 0);
-      setEffects([]);
-
-      setIsAwaitingAnvilDrop(stateToRestore.isAwaitingAnvilDrop || false);
-      setPlayerToDropAnvil(stateToRestore.playerToDropAnvil || null);
-      setAnvilDropContext(stateToRestore.anvilDropContext || null);
-      setAnvilDropAfterPromotion(stateToRestore.anvilDropAfterPromotion || false);
-
-      setIsAwaitingHolyShield(stateToRestore.isAwaitingHolyShield || false);
-      setShieldContext(stateToRestore.shieldContext || null);
-
-      setIsAwaitingArcherSnipe(stateToRestore.isAwaitingArcherSnipe || false);
-      setArcherSnipeContext(stateToRestore.archerSnipeContext || null);
-      setInventory(stateToRestore.inventory || []);
-      
-      toast({ title: "Move Undone", description: "Returned to previous state.", duration: 8000 });
-    } else {
-      setLastMoveFrom(null);
-      setLastMoveTo(null);
-    }
-  }, [
-    historyStack, isAiThinking, toast, currentPlayer, isWhiteAI, isBlackAI, determineBoardOrientation, isMoveProcessing,
-    isAwaitingPawnSacrifice, isAwaitingRookSacrifice, isResurrectionPromotionInProgress, isAwaitingCommanderPromotion,
-    setBoard, setCurrentPlayer, setGameInfo, setCapturedPieces, setKillStreaks,
-    setPositionHistory, setLastMoveFrom, setLastMoveTo, setIsWhiteAI, setIsBlackAI, setViewMode, setBoardOrientation,
-    setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setFlashMessage,
-    setShowCheckFlashBackground, setShowCaptureFlash, setShowCheckmatePatternFlash, setIsPromotingPawn,
-    setPromotionSquare, setAnimatedSquareTo, setIsMoveProcessing, setHistoryStack, setKillStreakFlashMessage,
-    setIsAwaitingPawnSacrifice, setPlayerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, setIsExtraTurnFromQueenMove,
-    setIsAwaitingRookSacrifice, setPlayerToSacrificeForRook, setRookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, setIsExtraTurnFromRookLevelUp,
-    setIsResurrectionPromotionInProgress, playerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setGameMoveCounter,
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    setShroomSpawnCounter, setNextShroomSpawnTurn,
-    onlineStatus, setPromotionMoveWasCapture, 
-    setResurrectedSquares, playerWhoGotFirstBlood, setEnPassantTargetSquare, isAwaitingAnvilDrop,
-    isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext,
-    isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget
-  ]);
-
-
-  const handleToggleViewMode = useCallback(() => {
-    setViewMode(prevMode => {
-      const newMode = prevMode === 'flipping' ? 'tabletop' : 'flipping';
-      return newMode;
-    });
-    setSelectedSquare(null); setPossibleMoves([]);
-    setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-  }, []);
-
-
-  const handleToggleWhiteAI = useCallback(() => {
-    if ((isAiThinking && currentPlayer === 'white') || isMoveProcessing || onlineStatus !== 'disconnected') {
-      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 8000 });
-      return;
-    }
-    const newIsWhiteAI = !isWhiteAI;
-    setIsWhiteAI(newIsWhiteAI);
-    toast({ title: `White AI ${newIsWhiteAI ? 'On' : 'Off'}`, duration: 1000 });
-    setSelectedSquare(null); setPossibleMoves([]);
-    setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isWhiteAI, toast, onlineStatus]); 
-
-  const handleToggleBlackAI = useCallback(() => {
-     if ((isAiThinking && currentPlayer === 'black') || isMoveProcessing || onlineStatus !== 'disconnected') {
-      if(onlineStatus !== 'disconnected') toast({ title: "AI Control Disabled", description: "Cannot enable/disable AI during an online game.", duration: 8000 });
-      return;
-    }
-    const newIsBlackAI = !isBlackAI;
-    setIsBlackAI(!isBlackAI);
-    toast({ title: `Black AI ${!isBlackAI ? 'On' : 'Off'}`, duration: 1000 });
-    setSelectedSquare(null); setPossibleMoves([]);
-    setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-  }, [isAiThinking, currentPlayer, isMoveProcessing, isBlackAI, toast, onlineStatus]);
-
-  const handlePieceHover = useCallback((piece: Piece | null) => {
-    setPieceForInfoDisplay(piece);
-  }, []);
-
-  const sendMessage = useCallback((text: string) => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const payload = {
-        type: 'chat-message',
-        sender: userData?.username || user?.displayName || 'Anonymous',
-        text,
-        color: localPlayerColor
-      };
-      wsRef.current.send(JSON.stringify(payload));
-    }
-  }, [userData, user, localPlayerColor]);
-
-  const handleIncomingData = useCallback((data: any) => {
-      switch (data.type) {
-        case 'chat-message':
-            setChatMessages(prev => [...prev, data.message]);
-            if (!isMessengerOpenRef.current && data.message.color !== localPlayerColorRef.current) {
-                setHasUnreadMessages(true);
-            }
-            break;
-        case 'promotion-required': {
-            const { square, player } = data;
-            
-            applyServerGameState(data.fullGameState);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-
-            if (player === localPlayerColor) {
-                setPlayerToPromote(player);
-                setPromotionTargetLevel(data.targetLevel || 1);
-                setIsPromotingPawn(true);
-                setPromotionSquare(square);
-                setIsResurrectionPromotionInProgress(!!data.fullGameState.promotionContext?.fromResurrection);
-            }
-            break;
-        }
-        case 'awaiting-archer-snipe': {
-            const { fullGameState, player } = data;
-            if (!fullGameState) return;
-
-            applyServerGameState(fullGameState);
-            setIsMoveProcessing(false); 
-            clickGuardRef.current = false;
-
-            setIsAwaitingArcherSnipe(true);
-            if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy."}));
-            } else {
-              setGameInfo(prev => ({...prev, message: `ARCHER SNIPE! ${getPlayerDisplayName(player)} is aiming...`}));
-            }
-            break;
-        }
-        case 'awaiting-shield-selection': {
-            const { fullGameState, player } = data;
-            if (!fullGameState) return;
-
-            applyServerGameState(fullGameState);
-            setIsMoveProcessing(false); 
-            clickGuardRef.current = false;
-
-            setIsAwaitingHolyShield(true);
-            if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-            } else {
-              setGameInfo(prev => ({...prev, message: `HOLY SHIELD! ${getPlayerDisplayName(player)} is shielding an ally...`}));
-            }
-            break;
-        }
-        case 'awaiting-anvil-drop': {
-            const { fullGameState, player } = data;
-            if (!fullGameState) return;
-
-            applyServerGameState(fullGameState);
-            setIsMoveProcessing(false); 
-            clickGuardRef.current = false;
-
-            setIsAwaitingAnvilDrop(true);
-            setPlayerToDropAnvil(player);
-            if (player === localPlayerColor) {
-              setGameInfo(prev => ({...prev, message: "KILL STREAK REACHED! Place an anvil."}));
-            } else {
-              setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! ${getPlayerDisplayName(player)} is placing an anvil.`}));
-            }
-            break;
-        }
-        case 'commander-promo-finalized': {
-            applyServerGameState(data.fullGameState, data.lastPlayer);
-            break;
-        }
-        case 'game-move': {
-            applyServerGameState(data.fullGameState, data.lastPlayer);
-            setIsAwaitingAnvilDrop(false);
-            setPlayerToDropAnvil(null);
-            setIsAwaitingArcherSnipe(false);
-            setIsAwaitingHolyShield(false);
-            
-            if (data.conversionEvents && data.conversionEvents.length > 0) {
-              data.conversionEvents.forEach((event: ConversionEvent) => {
-                addEffect('conversion', event.at, event.byPiece.color);
-                if (event.originalPiece.color !== event.convertedPiece.color) {
-                  audioManager.playConversion();
-                  toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
-                }
-              });
-            }
-            break;
-        }
-        case 'awaiting-commander-promo': {
-            const { fullGameState } = data;
-            if (!fullGameState) return;
-
-            applyServerGameState(fullGameState);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-
-            setIsAwaitingCommanderPromotion(true);
-            break;
-        }
-        case 'shroom-spawn': {
-            const { square, nextTurn } = data;
-            const { row, col } = algebraicToCoords(square);
-            setBoard(currentBoard => {
-                const newBoard = currentBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-                newBoard[row][col].item = { type: 'shroom' };
-                return newBoard;
-            });
-            setShroomSpawnCounter(0);
-            setNextShroomSpawnTurn(nextTurn);
-            audioManager.playShroom();
-            toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
-            break;
-        }
-        case 'forfeit-timeout':
-        case 'game-over':
-        case 'resign': {
-            const { winner, reason, timedOutPlayer, resigningPlayer, eloChanges } = data;
-            let message = "";
-
-            if (reason === 'checkmate') message = `Checkmate! ${winner === 'draw' ? 'Draw' : (gamePlayers?.[winner as PlayerColor]?.username || winner)} wins!`;
-            else if (reason === 'auto-checkmate') message = `Auto-Checkmate! ${gamePlayers?.[winner as PlayerColor]?.username || winner} wins!`;
-            else if (reason === 'self-check') {
-                toast({
-                    title: "Auto-Checkmate!",
-                    description: `${getPlayerDisplayName(timedOutPlayer!)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(winner)} wins!`,
-                    variant: "destructive",
-                    duration: 8000,
-                });
-                message = `Checkmate! ${getPlayerDisplayName(winner)} wins by self-check!`;
-            }
-            else if (reason === 'self-check-timeout') message = `${gamePlayers?.[timedOutPlayer!]?.username || timedOutPlayer} lost by running out of time in check!`;
-            else if (reason === 'timeout') message = `${gamePlayers?.[timedOutPlayer!]?.username || timedOutPlayer} ran out of time. ${getPlayerDisplayName(winner)} wins!`;
-            else if (data.type === 'resign') message = `${getPlayerDisplayName(resigningPlayer)} resigned. ${getPlayerDisplayName(winner)} wins!`;
-            
-            setGameInfo(prev => ({ ...prev, message, gameOver: true, winner }));
-            
-            if (isRankedGame && eloChanges && user) {
-                const playerEloChange = eloChanges[user.uid];
-                if (playerEloChange) {
-                    const eloChange = playerEloChange.newElo - playerEloChange.oldElo;
-                    const newWins = winner === localPlayerColor ? (playerEloChange.wins || 0) + 1 : (playerEloChange.wins || 0);
-
-                    toast({
-                        title: `Ranked Match Complete! ELO: ${playerEloChange.newElo} (${eloChange > 0 ? '+' : ''}${eloChange})`,
-                        description: `Wins: ${newWins}, Losses: ${playerEloChange.losses}`,
-                        duration: 8000,
-                    });
-                    
-                    const userDocRef = doc(firestore, 'users', user.uid);
-                    updateDocumentNonBlocking(userDocRef, {
-                        eloRating: playerEloChange.newElo,
-                        wins: newWins,
-                        losses: playerEloChange.losses
-                    });
-                }
-            }
-            setIsRankedGame(false);
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-            setAnimatedSquareTo(null);
-            break;
-        }
-    }
-  }, [localPlayerColor, toast, getPlayerDisplayName, isRankedGame, user, firestore, applyServerGameState, addEffect, gamePlayers]);
-
-  const handleOnlinePlay = useCallback(async (action: 'create' | 'join' | 'ranked') => {
-    if (wsRef.current) {
-      disconnectAndReset();
-      return;
-    }
-  
-    fullGameReset();
-
-    setOnlineStatus('connecting');
-  
-    const getWebSocketUrl = () => {
-      if (typeof window === 'undefined') return '';
-      const hostname = window.location.hostname;
-      const websocketHostname = hostname.replace(/^(\d+)-/, '8080-');
-      return `wss://${websocketHostname}`;
-    };
-  
-    const wsUrl = getWebSocketUrl();
-    if (!wsUrl) {
-      toast({ title: "Connection Error", description: "Could not generate a valid WebSocket URL.", variant: 'destructive', duration: 8000 });
-      setOnlineStatus('disconnected');
-      return;
-    }
-    
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-  
-    ws.onopen = () => {
-      // Capture loadout for online sync
-      const equipment: Record<string, string> = {};
-      board.flat().forEach(sq => { if(sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-
-      const userInfo = user ? { 
-        userId: user.uid, 
-        username: userData?.username || user.displayName || 'Anonymous',
-        elo: userData?.eloRating || 1200,
-        wins: userData?.wins || 0,
-        losses: userData?.losses || 0,
-        equipment // Pass loadout to server
-      } : null;
-      
-      let payload;
-      if (action === 'create') {
-        payload = { type: 'create-room', user: userInfo };
-      } else if (action === 'join' && inputRoomId) {
-        payload = { type: 'join-room', roomId: inputRoomId, user: userInfo };
-      } else if (action === 'ranked') {
-          if(user) {
-              setRankedQueueStatus('searching');
-              payload = { 
-                type: 'join-ranked-queue', 
-                userId: user.uid, 
-                username: userData?.username || user.displayName || 'Anonymous', 
-                elo: userData?.eloRating || 1200,
-                wins: userData?.wins || 0,
-                losses: userData?.losses || 0,
-                equipment // Pass loadout to server
-              };
-          }
-      }
-      if (payload) {
-          ws.send(JSON.stringify(payload));
-      }
-    };
-  
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data as string);
-        switch (data.type) {
-          case 'room-created':
-            setRoomId(data.roomId);
-            setLocalPlayerColor(data.color);
-            setOnlineStatus('waiting');
-            applyServerGameState(data.gameState);
-            toast({ title: "Room Created!", description: `Share Room ID: ${data.roomId}`, duration: 8000 });
-            break;
-          case 'player-joined':
-            applyServerGameState(data.gameState);
-            setOnlineStatus('connected');
-            audioManager.playStart();
-            toast({ title: "Player Joined!", description: "Your game is starting.", duration: 8000 });
-            break;
-          case 'room-joined':
-            setRoomId(data.roomId);
-            setLocalPlayerColor(data.color);
-            applyServerGameState(data.gameState);
-            setOnlineStatus('connected');
-            audioManager.playStart();
-            toast({ title: "Joined Room!", description: `Successfully joined room ${data.roomId}.`, duration: 8000 });
-            break;
-          case 'ranked-match-found':
-              setRankedQueueStatus('idle');
-              setRoomId(data.roomId);
-              setLocalPlayerColor(data.color);
-              applyServerGameState(data.gameState);
-              setIsRankedGame(true);
-              setOnlineStatus('connected');
-              audioManager.playStart();
-              toast({ title: "Ranked Match Found!", description: "Your ranked game is starting.", duration: 8000 });
-              break;
-          case 'opponent-disconnected':
-            if (gameInfo.gameOver) return;
-            const winningPlayer = localPlayerColor || (gamePlayers?.white?.userId === user?.uid ? 'white' : 'black');
-            toast({ title: "Opponent Left", description: "Your opponent has disconnected. You win!", duration: 8000 });
-            setGameInfo(prev => ({ ...prev, gameOver: true, winner: winningPlayer, message: "Opponent disconnected. You win!" }));
-            break;
-          case 'error':
-            toast({ title: "Connection Error", description: data.message, variant: 'destructive', duration: 8000 });
-            if(wsRef.current) {
-              wsRef.current.onclose = null;
-              wsRef.current.close();
-              wsRef.current = null;
-            }
-            setOnlineStatus('disconnected');
-            setRankedQueueStatus('idle');
-            break;
-          default:
-            handleIncomingData(data);
-            break;
-        }
-      } catch (err) {
-        console.error('[CLIENT] Error parsing WebSocket message:', err);
-      }
-    };
-  
-    ws.onerror = (err) => {
-      console.error('[CLIENT] WebSocket error:', err);
-      toast({ title: "Connection Error", description: "Could not connect to the game server. Check console for details.", variant: 'destructive', duration: 8000 });
-      setOnlineStatus('disconnected');
-      setRankedQueueStatus('idle');
-    };
-  
-    ws.onclose = () => {
-        if (wsRef.current) {
-            wsRef.current = null;
-            if (onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle') {
-                if (!gameInfo.gameOver) {
-                    toast({ title: "Connection Closed", description: "Disconnected from game server.", duration: 8000});
-                    fullGameReset();
-                } else {
-                    setOnlineStatus('disconnected');
-                }
-            }
-        }
-    };
-  
-  }, [inputRoomId, handleIncomingData, gameInfo.gameOver, localPlayerColor, disconnectAndReset, fullGameReset, toast, onlineStatus, user, userData, rankedQueueStatus, gamePlayers, applyServerGameState, board]);
-
-  const handleRankedPlay = () => {
-    if (rankedQueueStatus === 'searching') {
-        if(wsRef.current) {
-            const payload = JSON.stringify({ type: 'leave-ranked-queue' });
-            wsRef.current.send(payload);
-        }
-        setRankedQueueStatus('idle');
-        disconnectAndReset();
-        toast({ title: "Search Cancelled", description: "You have left the ranked queue.", duration: 8000 });
-    } else {
-        handleOnlinePlay('ranked');
-    }
-  }
-
-  const handleVolumeChange = (val: number[]) => {
-    const newVol = val[0];
-    setVolume(newVol);
-    audioManager.setVolume(newVol);
-  };
-
-  useEffect(() => {
-    const initializeAI = () => {
-      try {
-        aiInstanceRef.current = new VibeChessAI(aiDifficulty);
-      } catch (err: any) {
-        toast({
-          title: "AI Initialization Error",
-          description: `There was an issue loading the AI component: ${err.message}`,
-          variant: "destructive",
-          duration: 8000,
-        });
-      }
-    };
-    initializeAI();
-  }, [toast, aiDifficulty]);
-
-
-  useEffect(() => {
-    setBoardOrientation(determineBoardOrientation());
-  }, [determineBoardOrientation]);
-
-
-  useEffect(() => {
-    return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
-      stopTurnTimer();
-    };
-  }, [stopTurnTimer]);
-
-
-  const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
-    if (clickGuardRef.current) return;
-
-    const { row, col } = algebraicToCoords(algebraic);
-    const clickedSquareState = board[row]?.[col];
-    const clickedPiece = clickedSquareState?.piece;
-    setPieceForInfoDisplay(clickedPiece || null);
-
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-    if (isAnySpecialModeActive && !isLocalActionTurn) {
-        return;
-    }
-
-    if (isInventoryOpen) {
-      if (selectedInventoryItemType) {
-        if (clickedPiece && !clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
-          if (usedSlots >= attunementSlots) {
-            toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
-            return;
-          }
-          
-          const pType = clickedPiece.type;
-          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
-            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
-            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
-            return;
-          }
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
-            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
-            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
-            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
-          setBoard(nextBoard);
-          let newInv = [...inventory];
-          const item = newInv.find(i => i.type === selectedInventoryItemType);
-          if (item) {
-            item.count--;
-            if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType);
-          }
-          setInventory(newInv);
-          saveLoadoutToFirestore(nextBoard, newInv);
-          setSelectedInventoryItemType(null);
-          audioManager.playLevelUp();
-          toast({ title: "Equipped!", description: `${clickedPiece.type} is now using ${ITEM_METADATA[selectedInventoryItemType].name}.` });
-        } else if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
-          const pType = clickedPiece.type;
-          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
-            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
-            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
-            return;
-          }
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
-            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
-            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
-            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-
-          const oldItem = clickedPiece.heldItem;
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
-          setBoard(nextBoard);
-          const nextInv = [...inventory];
-          const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
-          if (itemIn) {
-            itemIn.count--;
-            if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
-          }
-          const itemOut = nextInv.find(i => i.type === oldItem);
-          if (itemOut) itemOut.count++;
-          else nextInv.push({ type: oldItem, count: 1 });
-          setInventory(nextInv);
-          saveLoadoutToFirestore(nextBoard, nextInv);
-          setSelectedInventoryItemType(null);
-          audioManager.playLevelUp();
-          toast({ title: "Swapped!", description: `Swapped ${ITEM_METADATA[oldItem].name} for ${ITEM_METADATA[selectedInventoryItemType].name}.` });
-        }
-      } else {
-        if (clickedPiece && clickedPiece.heldItem && clickedPiece.color === (localPlayerColor || 'white')) {
-          const removedItem = clickedPiece.heldItem;
-          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = null;
-          setBoard(nextBoard);
-          const nextInv = [...inventory];
-          const item = nextInv.find(i => i.type === removedItem);
-          if (item) item.count++;
-          else nextInv.push({ type: removedItem, count: 1 });
-          setInventory(nextInv);
-          saveLoadoutToFirestore(nextBoard, nextInv);
-          audioManager.playMove();
-          toast({ title: "Unequipped", description: `${ITEM_METADATA[removedItem].name} returned to bag.` });
-        }
-      }
-      return;
-    }
-
-    if (isAwaitingWindScrollTarget && isLocalActionTurn) {
-      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-        
-        const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
-        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-        setBoard(result.newBoard);
-        audioManager.playAnvil();
-        toast({ title: "Wind Scroll Cast!", description: `Units pushed back from ${algebraic}.` });
-        
-        setIsAwaitingWindScrollTarget(false);
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setTimeout(() => {
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-        }, 800);
-      } else {
-        toast({ title: "Invalid Target", description: "Target an empty space to cast the Wind Scroll.", variant: "destructive" });
-      }
-      return;
-    }
-
-    if (isAwaitingAnvilScrollTarget && isLocalActionTurn) {
-      if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-        
-        const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
-        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-        setBoard(result.newBoard);
-        audioManager.playAnvil();
-        toast({ title: "Anvil Summoned!", description: `Anvil dropped on ${algebraic}.` });
-        
-        setIsAwaitingAnvilScrollTarget(false);
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setTimeout(() => {
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-          processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-        }, 800);
-      } else {
-        toast({ title: "Invalid Target", description: "Target an empty space to summon an Anvil.", variant: "destructive" });
-      }
-      return;
-    }
-
-    if (isAwaitingShieldScrollTarget && isLocalActionTurn) {
-        if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            setAnimatedSquareTo(algebraic);
-            
-            const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playShield();
-            toast({ title: "Shield Cast!", description: `${clickedPiece.type} is now protected.` });
-            
-            setIsAwaitingShieldScrollTarget(false);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        } else {
-            toast({ title: "Invalid Target", description: "Select an allied non-King/Queen piece.", variant: "destructive" });
-        }
-        return;
-    }
-
-    if (isAwaitingSwapScrollTarget && isLocalActionTurn) {
-        if (clickedPiece && clickedPiece.color === currentPlayer && algebraic !== selectedSquare) {
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            setAnimatedSquareTo(algebraic);
-            
-            const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playMove();
-            toast({ title: "Swap Scroll Used!", description: `Swapped places with allied ${clickedPiece.type}.` });
-            
-            setIsAwaitingSwapScrollTarget(false);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        } else {
-            toast({ title: "Invalid Target", description: "Select another allied piece to swap places.", variant: "destructive" });
-        }
-        return;
-    }
-
-    let moveBeingMade: Move | null = null;
-    let humanPlayerAchievedFirstBloodThisTurn = false;
-    let originalPieceLevelBeforeMove: number | undefined;
-    let originalPieceTypeBeforeMove: PieceType | undefined;
-    let enteringSpecialMode = false;
-
-    if (isAwaitingArcherSnipe && isLocalActionTurn) {
-      if (clickedPiece && clickedPiece.color !== currentPlayer && clickedPiece.level === 1 && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen') {
-          saveStateToHistory();
-          
-          if (onlineStatus === 'connected') {
-              const ws = wsRef.current;
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
-              }
-              clickGuardRef.current = true;
-              setIsMoveProcessing(true);
-              return;
-          }
-
-          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = archerSnipeContext!;
-          const boardAfterSnipe = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-          
-          const archerOnBoard = boardAfterSnipe.flat().find(sq => sq.piece?.type === 'archer' && sq.piece.color === currentPlayer);
-          if (archerOnBoard?.piece) {
-              archerOnBoard.piece.level += 2;
-              archerOnBoard.piece.isPoisoned = false; 
-              archerOnBoard.piece.cooldownTurnsRemaining = 0;
-              archerOnBoard.piece.frozenTurnsRemaining = 0;
-          }
-
-          const uniqueCapturedPiece = { ...clickedPiece, id: `${clickedPiece.id}_sniped_${uniqueIdCounterRef.current++}` };
-          setCapturedPieces(prev => ({
-              ...prev,
-              [currentPlayer]: [...(prev[currentPlayer] || []), uniqueCapturedPiece]
-          }));
-
-          boardAfterSnipe[row][col].piece = null;
-          setBoard(boardAfterSnipe);
-          
-          addEffect('poof', algebraic);
-          audioManager.playSnipe();
-          toast({ title: "Archer Snipe!", description: `${getPlayerDisplayName(currentPlayer)} sniped the ${clickedPiece.type}!` });
-          
-          setIsAwaitingArcherSnipe(false);
-          setArcherSnipeContext(null);
-          
-          processMoveEnd(boardAfterSnipe, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-      } else {
-          if (isLocalActionTurn) {
-            toast({ title: "Invalid Snipe Target", description: "Select an enemy Level 1 piece (not King/Queen).", variant: "destructive" });
-          }
-      }
-      return;
-    }
-
-    if (isAwaitingHolyShield && isLocalActionTurn) {
-      const capturingPieceId = lastMoveTo ? board[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
-      if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type !== 'king' && clickedPiece.type !== 'queen' && clickedPiece.id !== capturingPieceId) {
-          saveStateToHistory();
-          
-          if (onlineStatus === 'connected') {
-              const ws = wsRef.current;
-              if (ws && ws.readyState === WebSocket.OPEN) {
-                  ws.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
-              }
-              clickGuardRef.current = true;
-              setIsMoveProcessing(true);
-              return;
-          }
-
-          const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = shieldContext!;
-          const boardAfterShield = boardForNextStep.map(r => r.map(s => ({
-              ...s,
-              piece: s.piece ? { ...s.piece, isShielded: s.piece.id === clickedPiece.id ? true : s.piece.isShielded } : null
-          })));
-          setBoard(boardAfterShield);
-          audioManager.playShield();
-          toast({ title: "Holy Shield!", description: `${clickedPiece.type} is now shielded!` });
-          setIsAwaitingHolyShield(false);
-          setShieldContext(null);
-          
-          processMoveEnd(boardAfterShield, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-      } else {
-          if (isLocalActionTurn) {
-            toast({ title: "Invalid Shield Target", description: "Cannot shield Kings, Queens, or the piece that just captured.", variant: "destructive" });
-          }
-      }
-      return;
-    }
-
-    if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer) {
-        if (clickedPiece) {
-            if (clickedPiece.color === localPlayerColor) {
-                setSelectedSquare(algebraic);
-                setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
-                setEnemySelectedSquare(null);
-                setEnemyPossibleMoves([]);
-            } else {
-                setSelectedSquare(null);
-                setPossibleMoves([]);
-                setEnemySelectedSquare(algebraic);
-                setEnemyPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare));
-            }
-        } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-        return; 
-    }
-
-    if (isAwaitingAnvilDrop && playerToDropAnvil === currentPlayer) {
-        if (!clickedSquareState?.piece && !clickedSquareState?.item) {
-            if (onlineStatus === 'connected') {
-                const ws = wsRef.current;
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
-                }
-                clickGuardRef.current = true;
-                setIsMoveProcessing(true); 
-                return;
-            }
-    
-            saveStateToHistory();
-            const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget } = anvilDropContext!;
-            const boardAfterAnvilDrop = boardForNextStep.map(r => r.map(s => ({ ...s })));
-            boardAfterAnvilDrop[row][col].item = { type: 'anvil' };
-            setBoard(boardAfterAnvilDrop);
-            audioManager.playAnvil();
-            
-            toast({ title: "Anvil Dropped!", description: `Anvil placed on ${algebraic}.`, duration: 2000 });
-        
-            const hasCrossbowArcher = boardAfterAnvilDrop.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === currentPlayer);
-            if (hasCrossbowArcher) {
-              const hasVictims = boardAfterAnvilDrop.flat().some(sq => sq.piece && sq.piece.color !== currentPlayer && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-              if (hasVictims) {
-                setArcherSnipeContext({ boardForNextStep: boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget });
-                setIsAwaitingArcherSnipe(true);
-                setGameInfo(prev => ({...prev, message: "CROSSBOW SNIPE! Select Level 1 enemy."}));
-                setIsAwaitingAnvilDrop(false);
-                setPlayerToDropAnvil(null);
-                setAnvilDropContext(null);
-                return;
-              }
-            }
-
-            processMoveEnd(boardAfterAnvilDrop, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget);
-        
-            setIsAwaitingAnvilDrop(false);
-            setPlayerToDropAnvil(null);
-            setAnvilDropContext(null);
-        } else {
-            if (isLocalActionTurn) {
-                toast({ title: "Invalid Placement", description: "Anvil must be placed on an empty square.", variant: "destructive" });
-            }
-        }
-        return;
-    }
-
-    if (gameInfo.gameOver || isPromotingPawn || isAiThinking || isMoveProcessing || isAwaitingRookSacrifice || isResurrectionPromotionInProgress) {
-      if (!(isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer)) {
-          return;
-      }
-    }
-    
-    const clickedItem = clickedSquareState?.item;
-
-    if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
-        if (clickedPiece && clickedPiece.type === 'pawn' && clickedPiece.color === currentPlayer && clickedPiece.level === 1) {
-            saveStateToHistory();
-            
-            if (onlineStatus === 'connected') {
-                const ws = wsRef.current;
-                if(ws && ws.readyState === WebSocket.OPEN) {
-                    const payload = JSON.stringify({ type: 'commander-promo', square: algebraic });
-                    ws.send(payload);
-                }
-                clickGuardRef.current = true;
-                setIsAwaitingCommanderPromotion(false);
-                setPlayerWhoGotFirstBlood(null);
-                return;
-            }
-
-            const boardAfterCommanderPromo = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null })));
-            boardAfterCommanderPromo[row][col].piece!.type = 'commander';
-            boardAfterCommanderPromo[row][col].piece!.id = `${boardAfterCommanderPromo[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
-            boardAfterCommanderPromo[row][col].piece!.isPoisoned = false; 
-            boardAfterCommanderPromo[row][col].piece!.cooldownTurnsRemaining = 0;
-            boardAfterCommanderPromo[row][col].piece!.frozenTurnsRemaining = 0;
-            setBoard(boardAfterCommanderPromo);
-            audioManager.playLevelUp();
-            toast({ title: "Commander Promoted!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn on ${algebraic} is now a Commander!`, duration: 8000});
-            
-            setIsAwaitingCommanderPromotion(false);
-            const actingPlayerForComplete = playerWhoGotFirstBlood!;
-            setPlayerWhoGotFirstBlood(null);
-            
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-
-            if (!isPromotingPawn && !isAwaitingHolyShield && !isAwaitingAnvilDrop && !isAwaitingArcherSnipe) {
-                processMoveEnd(boardAfterCommanderPromo, actingPlayerForComplete, false, enPassantTargetSquare);
-            }
-            return;
-        } else {
-            if (isLocalActionTurn) {
-                toast({title: "Invalid Commander Choice", description: "Select one of your own Level 1 Pawns to promote.", duration: 8000});
-            }
-        }
-        return;
-    }
-
-
-    if (isAwaitingPawnSacrifice && playerToSacrificePawn === currentPlayer) {
-      if (clickedPiece && (clickedPiece.type === 'pawn' || clickedPiece.type === 'commander') && clickedPiece.color === currentPlayer) {
-        saveStateToHistory();
-        let boardAfterSacrifice = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-        const pawnToSacrificeBase = { ...boardAfterSacrifice[row][col].piece! };
-        const pawnToSacrifice = { ...pawnToSacrificeBase, id: `${pawnToSacrificeBase.id}_sac_${uniqueIdCounterRef.current++}`};
-        
-        boardAfterSacrifice[row][col].piece = null;
-
-        setBoard(boardAfterSacrifice);
-        audioManager.playCapture();
-
-        const opponentOfSacrificer = playerWhoMadeQueenMove! === 'white' ? 'black' : 'white';
-        setCapturedPieces(prevCaptured => {
-          const newCaptured = { ...prevCaptured };
-          newCaptured[opponentOfSacrificer] = [...(newCaptured[opponentOfSacrificer] || []), pawnToSacrifice];
-          return newCaptured;
-        });
-
-        toast({ title: "Pawn/Commander Sacrificed!", description: `${getPlayerDisplayName(currentPlayer)} sacrificed their ${pawnToSacrifice.type}!`, duration: 8000 });
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-                const payload = JSON.stringify({ type: 'pawn-sacrifice', square: algebraic });
-                ws.send(payload);
-            }
-        }
-        
-        const playerWhoTriggeredSacrifice = playerWhoMadeQueenMove;
-        const extraTurnAfterSacrifice = isExtraTurnFromQueenMove;
-
-        setIsAwaitingPawnSacrifice(false);
-        setPlayerToSacrificePawn(null);
-        setBoardForPostSacrifice(null);
-        setPlayerWhoMadeQueenMove(null);
-        setIsExtraTurnFromQueenMove(false);
-
-        setLastMoveFrom(null);
-        setLastMoveTo(algebraic);
-
-        processMoveEnd(boardAfterSacrifice, playerWhoTriggeredSacrifice!, extraTurnAfterSacrifice, enPassantTargetSquare);
-      } else {
-        if (isLocalActionTurn) {
-            toast({ title: "Invalid Sacrifice", description: "Please select one of your Pawns/Commanders to sacrifice for the Queen.", duration: 8000 });
-        }
-      }
-      return;
-    }
-
-    if (clickedItem && clickedItem.type !== 'shroom') {
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setEnemySelectedSquare(null);
-        setEnemyPossibleMoves([]);
-        return;
-    }
-
-    if (isAwaitingRookSacrifice && playerToSacrificeForRook === currentPlayer) {
-      toast({ title: "Rook Action", description: "Rook ability is now automatic on L4+.", duration: 8000 });
-      setIsAwaitingRookSacrifice(false);
-      setPlayerToSacrificeForRook(null);
-      setRookToMakeInvulnerable(null);
-      processMoveEnd(boardForRookSacrifice || board, originalTurnPlayerForRookSacrifice || currentPlayer, isExtraTurnFromRookLevelUp || false, enPassantTargetSquare);
-      setBoardForRookSacrifice(null);
-      setOriginalTurnPlayerForRookSacrifice(null);
-      setIsExtraTurnFromRookLevelUp(false);
-      return;
-    }
-
-    let finalBoardStateForTurn = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-    let finalCapturedPiecesForTurn = {
-      white: capturedPieces.white.map(p => ({ ...p })),
-      black: capturedPieces.black.map(p => ({ ...p }))
-    };
-
-
-    if (selectedSquare) {
-      const { row: fromR_selected, col: fromC_selected } = algebraicToCoords(selectedSquare);
-      const pieceDataAtSelectedSquareFromBoard = board[fromR_selected]?.[fromC_selected];
-      const pieceToMoveFromSelected = pieceDataAtSelectedSquareFromBoard?.piece;
-
-      if (!pieceToMoveFromSelected) {
-        setSelectedSquare(null);
-        setPossibleMoves([]);
-        setIsMoveProcessing(false);
-        clickGuardRef.current = false;
-        return;
-      }
-
-      const effectiveLevelAtSelected = getEffectiveLevel(board, fromR_selected, fromC_selected);
-      const hasSelfSelectionAbility = ((pieceToMoveFromSelected.type === 'knight' || pieceToMoveFromSelected.type === 'hero' || pieceToMoveFromSelected.type === 'archer') && effectiveLevelAtSelected >= 5);
-      const hasMagicScroll = (pieceToMoveFromSelected.heldItem === 'wind_scroll' || pieceToMoveFromSelected.heldItem === 'life_leach' || pieceToMoveFromSelected.heldItem === 'summon_anvil' || pieceToMoveFromSelected.heldItem === 'shield_scroll' || pieceToMoveFromSelected.heldItem === 'rally_scroll' || pieceToMoveFromSelected.heldItem === 'antidote' || pieceToMoveFromSelected.heldItem === 'detonation_scroll' || pieceToMoveFromSelected.heldItem === 'swap_scroll' || pieceToMoveFromSelected.heldItem === 'ice_scroll' || pieceToMoveFromSelected.heldItem === 'resurrection_scroll' || pieceToMoveFromSelected.heldItem === 'faith_scroll');
-
-      if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
-        if ((pieceToMoveFromSelected.cooldownTurnsRemaining && pieceToMoveFromSelected.cooldownTurnsRemaining > 0) || (pieceToMoveFromSelected.frozenTurnsRemaining && pieceToMoveFromSelected.frozenTurnsRemaining > 0)) {
-            toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
-            return;
-        }
-
-        const executeLifeLeach = () => {
-          saveStateToHistory();
-          clickGuardRef.current = true;
-          setIsMoveProcessing(true);
-          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
-          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-          setBoard(result.newBoard);
-          audioManager.playLevelUp();
-          toast({ title: "Life Leach Cast!", description: "All enemy levels reduced by 1." });
-          setSelectedSquare(null);
-          setPossibleMoves([]);
-          setTimeout(() => {
-            setIsMoveProcessing(false);
-            clickGuardRef.current = false;
-            processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-          }, 800);
-        };
-
-        const executeWindScrollMode = () => {
-          setIsAwaitingWindScrollTarget(true);
-          setPossibleMoves([]); 
-          toast({ title: "Targeting Mode", description: "Select an empty square to target with Wind Scroll." });
-        };
-
-        const executeSummonAnvilMode = () => {
-          setIsAwaitingAnvilScrollTarget(true);
-          setPossibleMoves([]); 
-          toast({ title: "Targeting Mode", description: "Select an empty square to summon an Anvil." });
-        };
-
-        const executeShieldScrollMode = () => {
-            if (effectiveLevelAtSelected < 2) {
-                toast({ title: "Level Too Low", description: "Shield Scroll requires Level 2+.", variant: "destructive" });
-                return;
-            }
-            setIsAwaitingShieldScrollTarget(true);
-            setPossibleMoves([]);
-            toast({ title: "Targeting Mode", description: "Select an allied unit to shield." });
-        };
-
-        const executeRallyScroll = () => {
-            if (effectiveLevelAtSelected < 3) {
-                toast({ title: "Level Too Low", description: "Rally Scroll requires Level 3+.", variant: "destructive" });
-                return;
-            }
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playRally();
-            toast({ title: "Rally Scroll Cast!", description: "All other allied units leveled up!" });
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeAntidote = () => {
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            audioManager.playShield();
-            toast({ title: "Antidote Used!", description: "All allied units cured of poison." });
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeSwapScrollMode = () => {
-            if (effectiveLevelAtSelected < 3) {
-                toast({ title: "Level Too Low", description: "Swap Scroll requires Level 3+.", variant: "destructive" });
-                return;
-            }
-            setIsAwaitingSwapScrollTarget(true);
-            setPossibleMoves([]);
-            toast({ title: "Targeting Mode", description: "Select another allied piece to swap places." });
-        };
-        
-        const executeIceScroll = () => {
-          if (effectiveLevelAtSelected < 2) {
-              toast({ title: "Level Too Low", description: "Ice Scroll requires Level 2+.", variant: "destructive" });
-              return;
-          }
-          saveStateToHistory();
-          clickGuardRef.current = true;
-          setIsMoveProcessing(true);
-          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
-          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-          setBoard(result.newBoard);
-          audioManager.playShield();
-          toast({ title: "Ice Scroll Cast!", description: "Adjacent enemies frozen for 2 turns!" });
-          setSelectedSquare(null);
-          setPossibleMoves([]);
-          setTimeout(() => {
-              setIsMoveProcessing(false);
-              clickGuardRef.current = false;
-              processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-          }, 800);
-        };
-
-        const executeResurrectionScroll = () => {
-            if (effectiveLevelAtSelected < 4) {
-                toast({ title: "Level Too Low", description: "Resurrection Scroll requires Level 4+.", variant: "destructive" });
-                return;
-            }
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            if (result.resurrectionScrollEvent) {
-                const p = result.resurrectionScrollEvent.piece;
-                const oppColor = currentPlayer === 'white' ? 'black' : 'white';
-                setCapturedPieces(prev => ({ ...prev, [oppColor]: prev[oppColor].filter(pi => pi.id !== p.id) }));
-                addEffect('light-beam', result.resurrectionScrollEvent.square);
-                audioManager.playResurrect();
-                toast({ title: "Resurrection!", description: `Highest value ally restored: ${p.type}!` });
-            }
-            setBoard(result.newBoard);
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeFaithScroll = () => {
-            if (effectiveLevelAtSelected < 5) {
-                toast({ title: "Level Too Low", description: "Faith Scroll requires Level 5+.", variant: "destructive" });
-                return;
-            }
-            saveStateToHistory();
-            clickGuardRef.current = true;
-            setIsMoveProcessing(true);
-            const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' };
-            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard);
-            if (result.conversionEvents.length > 0) {
-                audioManager.playConversion();
-                result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color));
-                toast({ title: "Conversions!", description: `${result.conversionEvents.length} units have joined your roster!` });
-            }
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setTimeout(() => {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-                processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare);
-            }, 800);
-        };
-
-        const executeSelfDestruct = () => {
-          const tempBoardForCheck = board.map(r => r.map(s => ({...s})));
-          tempBoardForCheck[fromR_selected][fromC_selected].piece = null;
-          if (isKingInCheck(tempBoardForCheck, currentPlayer, enPassantTargetSquare)) {
-            toast({ title: "Illegal Move", description: "Cannot self-destruct into check.", duration: 8000 });
-            return;
-          }
-
-          saveStateToHistory();
-          clickGuardRef.current = true;
-          setLastMoveFrom(selectedSquare);
-          setLastMoveTo(selectedSquare);
-          setIsMoveProcessing(true);
-          setAnimatedSquareTo(algebraic);
-          
-          const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
-          for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
-          audioManager.playExplosion();
-
-          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
-          const applyMoveResult = applyMove(finalBoardStateForTurn, move, enPassantTargetSquare, capturedPieces);
-          let { newBoard, selfDestructCaptures, nextEnPassantTarget } = applyMoveResult;
-          
-          finalBoardStateForTurn = newBoard;
-          if (selfDestructCaptures) selfDestructCaptures.forEach(p => finalCapturedPiecesForTurn[currentPlayer].push(p));
-          
-          const selfDestructPlayer = currentPlayer;
-          const oldStreak = killStreaks[selfDestructPlayer] || 0;
-          let capturesThisTurn = selfDestructCaptures ? selfDestructCaptures.length : 0;
-          const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
-          setKillStreaks(prev => ({...prev, [selfDestructPlayer]: newStreak}));
-          
-          if (capturesThisTurn > 0) {
-              setShowCaptureFlash(true);
-              setCaptureFlashKey(k => k + 1);
-          }
-
-          let humanPlayerAchievedFirstBloodThisTurn = false;
-          if (capturesThisTurn > 0 && !firstBloodAchieved) {
-              setFirstBloodAchieved(true);
-              setPlayerWhoGotFirstBlood(selfDestructPlayer);
-              humanPlayerAchievedFirstBloodThisTurn = true;
-          }
-
-          const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
-          const combinedExtraTurn = streakGrantsExtraTurn || applyMoveResult.extraTurn;
-          setBoard(finalBoardStateForTurn);
-          setCapturedPieces(finalCapturedPiecesForTurn);
-
-          setTimeout(() => {
-            setSelectedSquare(null); setPossibleMoves([]);
-            setIsMoveProcessing(false); clickGuardRef.current = false;
-
-            if (humanPlayerAchievedFirstBloodThisTurn) {
-                setIsAwaitingCommanderPromotion(true);
-                setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(selfDestructPlayer)}: Select L1 Pawn for Commander!`}));
-                return;
-            }
-
-            let enteringSpecialMode = false;
-            const opponentPlayer = selfDestructPlayer === 'white' ? 'black' : 'white';
-
-            if (newStreak >= 2 && oldStreak < 2 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === selfDestructPlayer)) {
-                enteringSpecialMode = true;
-                setShieldContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                setIsAwaitingHolyShield(true);
-                setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-            }
-
-            if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
-                enteringSpecialMode = true;
-                setAnvilDropContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                setIsAwaitingAnvilDrop(true);
-                setPlayerToDropAnvil(selfDestructPlayer);
-                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-            }
-
-            if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5 && finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === selfDestructPlayer)) {
-                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
-                    sq.piece && 
-                    sq.piece.color === opponentPlayer && 
-                    sq.piece.level === 1 && 
-                    sq.piece.type !== 'king' && 
-                    sq.piece.type !== 'queen'
-                );
-                
-                if (hasLevel1Victims) {
-                  enteringSpecialMode = true;
-                  setArcherSnipeContext({ boardForNextStep: finalBoardStateForTurn, playerWhoseTurnCompleted: selfDestructPlayer, isExtraTurn: combinedExtraTurn, newEnPassantTarget: nextEnPassantTarget });
-                  setIsAwaitingArcherSnipe(true);
-                  setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-                }
-            }
-
-            if (!enteringSpecialMode && newStreak >= 4 && oldStreak < 4) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
-                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-                    const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
-                    if (pieceToResurrectOriginalOriginalAI) {
-                      const emptySquares: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
-                      if (emptySquares.length > 0) {
-                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                        addEffect('light-beam', randomSquareAlg);
-                        audioManager.playResurrect();
-                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: selfDestructPlayer }]);
-                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
-                        toast({ title: "Resurrection!", description: `${getPlayerDisplayName(selfDestructPlayer)}'s ${pieceToResurrectOriginalOriginalAI.type} returns!`, duration: 8000 });
-                      }
-                    }
-                  }
-            }
-
-            if (!enteringSpecialMode) {
-                processMoveEnd(finalBoardStateForTurn, selfDestructPlayer, combinedExtraTurn, nextEnPassantTarget);
-            }
-          }, 800);
-        };
-
-        if (hasSelfSelectionAbility && hasMagicScroll) {
-          setAbilityChoiceDialog({
-            isOpen: true,
-            onChoice: (choice) => {
-              setAbilityChoiceDialog(null);
-              if (choice === 'ability') executeSelfDestruct();
-              else {
-                if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
-                else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
-                else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
-                else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
-                else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
-                else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
-                else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
-                    if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
-                    else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
-                }
-                else executeWindScrollMode();
-              }
-            }
-          });
-          return;
-        }
-
-        if (hasMagicScroll) {
-          if (pieceToMoveFromSelected.heldItem === 'life_leach') executeLifeLeach();
-          else if (pieceToMoveFromSelected.heldItem === 'summon_anvil') executeSummonAnvilMode();
-          else if (pieceToMoveFromSelected.heldItem === 'shield_scroll') executeShieldScrollMode();
-          else if (pieceToMoveFromSelected.heldItem === 'rally_scroll') executeRallyScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'antidote') executeAntidote();
-          else if (pieceToMoveFromSelected.heldItem === 'swap_scroll') executeSwapScrollMode();
-          else if (pieceToMoveFromSelected.heldItem === 'ice_scroll') executeIceScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'resurrection_scroll') executeResurrectionScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'faith_scroll') executeFaithScroll();
-          else if (pieceToMoveFromSelected.heldItem === 'detonation_scroll') {
-              if (effectiveLevelAtSelected >= 5) executeSelfDestruct();
-              else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
-          }
-          else executeWindScrollMode();
-        } else if (hasSelfSelectionAbility) {
-          executeSelfDestruct();
-        }
-        return;
-      }
-
-      originalPieceLevelBeforeMove = Number(pieceToMoveFromSelected.level || 1);
-      originalPieceTypeBeforeMove = pieceToMoveFromSelected.type;
-
-      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
-      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
-
-      if (isMoveInFreshList) {
-        let moveType: Move['type'] = 'move';
-        
-        const isStandardStartingSquare = (pieceToMoveFromSelected.color === 'white' && selectedSquare === 'e1') || (pieceToMoveFromSelected.color === 'black' && selectedSquare === 'e8');
-        const isStandardTargetSquare = (pieceToMoveFromSelected.color === 'white' && (algebraic === 'c1' || algebraic === 'g1')) || (pieceToMoveFromSelected.color === 'black' && (algebraic === 'c8' || algebraic === 'g8'));
-        
-        if (pieceToMoveFromSelected.type === 'king' && !pieceToMoveFromSelected.hasMoved && isStandardStartingSquare && isStandardTargetSquare && fromR_selected === row && !clickedPiece) {
-          moveType = 'castle';
-        } else if ((pieceToMoveFromSelected.type === 'pawn' || pieceToMoveFromSelected.type === 'commander') && algebraic === enPassantTargetSquare) {
-          moveType = 'enpassant';
-        } else if (clickedPiece) {
-            if (clickedPiece.color !== pieceToMoveFromSelected.color) {
-                moveType = 'capture';
-            } else {
-                moveType = 'swap';
-            }
-        }
-
-        moveBeingMade = { from: selectedSquare, to: algebraic, type: moveType };
-        
-        saveStateToHistory();
-        clickGuardRef.current = true;
-        setLastMoveFrom(selectedSquare);
-        setLastMoveTo(algebraic);
-        setIsMoveProcessing(true);
-        setAnimatedSquareTo(algebraic);
-
-        if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                const payload = JSON.stringify({ type: 'game-move', payload: moveBeingMade });
-                ws.send(payload);
-            }
-            return;
-        }
-
-        const applyMoveResult = applyMove(finalBoardStateForTurn, moveBeingMade, enPassantTargetSquare, capturedPieces);
-        const { 
-            newBoard: boardAfterMove, 
-            capturedPiece: capturedPieceFromApply, 
-            pieceCapturedByAnvil: pieceCapturedByAnvilFromApply, 
-            selfCheckByPushBack: selfCheckByPushBackFromApply,
-            anvilPushedOffBoard: anvilPushedOffBoardFromApply,
-            conversionEvents: conversionEventsFromApply,
-            queenLevelReducedEvents: queenLevelReducedEventsFromApply,
-            promotedToInfiltrator: becameInfiltratorFromApply,
-            infiltrationWin: gameWonByInfiltrationFromApply,
-            shroomConsumed: shroomConsumedThisMove,
-            rallyCryTriggered,
-            extraTurn: extraTurnFromApplyMove,
-            specialCaptureSquare,
-            originalPieceLevel: levelFromApplyMoveInternal,
-            originalPieceType: typeFromApplyMoveInternal,
-            reflectionOccurred,
-        } = applyMoveResult;
-        
-        finalBoardStateForTurn = boardAfterMove;
-        let nextEnPassantTarget = applyMoveResult.enPassantTargetSet;
-
-        if (reflectionOccurred) {
-            const defenderColor = currentPlayer === 'white' ? 'black' : 'white';
-            const victim = capturedPieceFromApply!;
-            finalCapturedPiecesForTurn[defenderColor].push({ ...victim, id: `${victim.id}_refl_${Date.now()}` });
-            audioManager.playCapture();
-            toast({ title: "REFLECTED!", description: `${getPlayerDisplayName(defenderColor)}'s Mirror Shield reflected the attack!` });
-            setKillStreaks(prev => ({ ...prev, [defenderColor]: (prev[defenderColor] || 0) + 1 }));
-            setKillStreaks(prev => ({ ...prev, [currentPlayer]: 0 }));
-            setBoard(finalBoardStateForTurn);
-            setCapturedPieces(finalCapturedPiecesForTurn);
-            setTimeout(() => {
-                setSelectedSquare(null); setPossibleMoves([]);
-                setIsMoveProcessing(false); clickGuardRef.current = false;
-                processMoveEnd(finalBoardStateForTurn, currentPlayer, false, null);
-            }, 800);
-            return;
-        }
-
-        if (becameInfiltratorFromApply) {
-          toast({ title: "Infiltrator!", description: `${getPlayerDisplayName(currentPlayer)}'s pawn promoted to an Infiltrator!`, duration: 8000 });
-        }
-
-
-        if (gameWonByInfiltrationFromApply) {
-          setBoard(finalBoardStateForTurn);
-          setCapturedPieces(finalCapturedPiecesForTurn);
-          toast({ title: "Infiltration!", description: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, duration: 8000 });
-          setGameInfo(prev => ({ ...prev, message: `${getPlayerDisplayName(currentPlayer)} wins by Infiltration!`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, isInfiltrationWin: true, winner: currentPlayer }));
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-           if (onlineStatus === 'connected') {
-             const ws = wsRef.current;
-            if(ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: currentPlayer, reason: 'infiltration' }));
-            }
-           }
-          
-          return;
-        }
-
-        if (shroomConsumedThisMove) {
-            const movedPieceData = finalBoardStateForTurn[algebraicToCoords(algebraic).row]?.[algebraicToCoords(algebraic).col]?.piece;
-            if(movedPieceData) {
-                audioManager.playShroom();
-                audioManager.playLevelUp();
-                toast({ title: "Level Up!", description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceData.type} consumed a Shroom 🍄 and leveled up to L${movedPieceData.level}!`, duration: 8000 });
-            }
-        }
-
-
-        if (queenLevelReducedEventsFromApply && queenLevelReducedEventsFromApply.length > 0) {
-            queenLevelReducedEventsFromApply.forEach(event => {
-                const queenOwnerName = getPlayerDisplayName(event.reducedByKingOfColor === 'white' ? 'black' : 'white');
-                toast({
-                title: "King's Dominion!",
-                description: `${getPlayerDisplayName(event.reducedByKingOfColor)} King leveled up! ${queenOwnerName}'s Queen (ID: ...${event.queenId.slice(-4)}) level reduced by ${event.reductionAmount} from L${event.originalLevel} to L${event.newLevel}.`,
-                duration: 8000,
-                });
-            });
-        }
-
-
-        if (selfCheckByPushBackFromApply) {
-          const opponentPlayer = currentPlayer === 'white' ? 'black' : 'white';
-          toast({
-            title: "Auto-Checkmate!",
-            description: `${getPlayerDisplayName(currentPlayer)}'s Pawn Push-Back resulted in self-check. ${getPlayerDisplayName(opponentPlayer)} wins!`,
-            variant: "destructive",
-            duration: 8000,
-          });
-          setGameInfo(prev => ({
-            ...prev,
-            message: `Checkmate! ${getPlayerDisplayName(opponentPlayer)} wins by self-check!`,
-            isCheck: true,
-            playerWithKingInCheck: currentPlayer,
-            isCheckmate: true, isStalemate: false, gameOver: true, winner: opponentPlayer
-          }));
-          setBoard(finalBoardStateForTurn);
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-          setSelectedSquare(null); setPossibleMoves([]);
-          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-          if (onlineStatus === 'connected') {
-            const ws = wsRef.current;
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'forfeit-timeout', winner: opponentPlayer, timedOutPlayer: currentPlayer, reason: 'self-check' }));
-            }
-          }
-          return;
-        }
-
-        const capturingPlayer = currentPlayer;
-        const opponentPlayer = capturingPlayer === 'white' ? 'black' : 'white';
-        
-        const oldStreak = killStreaks[capturingPlayer] || 0;
-        let capturesThisTurn = 0;
-        if (capturedPieceFromApply) capturesThisTurn++;
-        if (pieceCapturedByAnvilFromApply) capturesThisTurn++;
-
-        const newStreak = capturesThisTurn > 0 ? (oldStreak + capturesThisTurn) : 0;
-        if (capturesThisTurn > 0) {
-            setKillStreaks(prev => ({
-                ...prev,
-                [capturingPlayer]: newStreak
-            }));
-        } else {
-            if (killStreaks[capturingPlayer] > 0) {
-                setKillStreaks(prev => ({...prev, [capturingPlayer]: 0}));
-            }
-        }
-        
-        const { row: toR_final_check_infiltrator, col: toC_final_check_infiltrator } = algebraicToCoords(algebraic);
-        const pieceThatMadeTheMove = finalBoardStateForTurn[toR_final_check_infiltrator]?.[toC_final_check_infiltrator]?.piece;
-
-        if (capturedPieceFromApply) {
-          if (pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'infiltrator') {
-            audioManager.playObliterate();
-            toast({ title: "Obliterated!", description: `${getPlayerDisplayName(capturingPlayer)}'s Infiltrator obliterated ${capturedPieceFromApply.color} ${capturedPieceFromApply.type}!`, duration: 8000});
-          } else {
-            audioManager.playCapture();
-            audioManager.playLevelUp();
-            const uniqueCapturedPiece = { ...capturedPieceFromApply, id: `${capturedPieceFromApply.id}_cap_${uniqueIdCounterRef.current++}` };
-            finalCapturedPiecesForTurn[capturingPlayer].push(uniqueCapturedPiece);
-          }
-          setShowCaptureFlash(true);
-          setCaptureFlashKey(k => k + 1);
-        } else if (pieceCapturedByAnvilFromApply) {
-          audioManager.playObliterate();
-          finalCapturedPiecesForTurn[capturingPlayer].push({ ...pieceCapturedByAnvilFromApply, id: `${pieceCapturedByAnvilFromApply.id}_cap_anvil_${uniqueIdCounterRef.current++}` });
-          toast({ title: "Anvil Crush!", description: `${getPlayerDisplayName(currentPlayer)}'s Pawn push made an Anvil capture a ${pieceCapturedByAnvilFromApply.type}!`, duration: 8000 });
-          setShowCaptureFlash(true);
-          setCaptureFlashKey(k => k + 1);
-        } else if (moveBeingMade.type === 'castle') {
-           audioManager.playMove();
-        } else if (moveBeingMade.type === 'swap') {
-            audioManager.playMove();
-        } else {
-           audioManager.playMove();
-        }
-
-        if (anvilPushedOffBoardFromApply) {
-            toast({ title: "Anvil Removed!", description: "Anvil pushed off the board.", duration: 8000 });
-        }
-
-        let humanRookResData: RookResurrectionResult | null = null;
-        const { row: toR_final, col: toC_final } = algebraicToCoords(algebraic);
-        const movedPieceOnToSquareHuman = finalBoardStateForTurn[toR_final]?.[toC_final]?.piece;
-
-        if (movedPieceOnToSquareHuman && (['rook', 'palace'].includes(movedPieceOnToSquareHuman.type) || (moveBeingMade.type === 'promotion' && (moveBeingMade.promoteTo === 'rook' || moveBeingMade.promoteTo === 'palace'))) ) {
-           if (capturesThisTurn > 0) { 
-            const oldLevelForResurrectionCheck = levelFromApplyMoveInternal !== undefined ? levelFromApplyMoveInternal : originalPieceLevelBeforeMove;
-            humanRookResData = processRookResurrectionCheck(
-              finalBoardStateForTurn,
-              currentPlayer,
-              moveBeingMade,
-              algebraic,
-              oldLevelForResurrectionCheck,
-              finalCapturedPiecesForTurn,
-              uniqueIdCounterRef.current
-            );
-            if (humanRookResData.resurrectionPerformed) {
-              finalBoardStateForTurn = humanRookResData.boardWithResurrection;
-              finalCapturedPiecesForTurn = humanRookResData.capturedPiecesAfterResurrection;
-              uniqueIdCounterRef.current = humanRookResData.newResurrectionIdCounter!;
-              addEffect('light-beam', humanRookResData!.resurrectedSquareAlg!);
-              audioManager.playResurrect();
-              setResurrectedSquares(prev => [...prev, { square: humanRookResData!.resurrectedSquareAlg!, player: currentPlayer }]);
-              const resType = movedPieceOnToSquareHuman.type === 'palace' ? 'Master' : 'Rook\'s';
-              toast({
-                  title: `${resType} Call!`,
-                  description: `${getPlayerDisplayName(currentPlayer)}'s ${movedPieceOnToSquareHuman.type} resurrected their ${humanRookResData.resurrectedPieceData!.type} to ${humanRookResData.resurrectedSquareAlg!}! (L${humanRookResData.resurrectedPieceData!.level})`,
-                  duration: 8000,
-              });
-
-              if (humanRookResData.promotionRequiredForResurrectedPawn) {
-                  const isExtraTurnForRookResPromo = oldStreak < 6 && newStreak >= 6;
-                  setPlayerForPostResurrectionPromotion(currentPlayer);
-                  setIsExtraTurnForPostResurrectionPromotion(isExtraTurnForRookResPromo);
-                  setIsResurrectionPromotionInProgress(true);
-                  setPlayerToPromote(currentPlayer);
-                  setPromotionTargetLevel(1); // Default for non-capture resurrection
-                  setIsPromotingPawn(true);
-                  setPromotionSquare(humanRookResData.resurrectedSquareAlg!);
-                  setBoard(finalBoardStateForTurn);
-                  setCapturedPieces(finalCapturedPiecesForTurn);
-                  setIsMoveProcessing(false);
-                  clickGuardRef.current = false;
-                  return;
-              }
-            }
-          }
-        }
-
-        if (capturesThisTurn > 0 && !firstBloodAchieved) {
-            setFirstBloodAchieved(true);
-            setPlayerWhoGotFirstBlood(capturingPlayer);
-            const isHumanPlayer = !((capturingPlayer === 'white' && isWhiteAI && onlineStatus === 'disconnected') || (capturingPlayer === 'black' && isBlackAI && onlineStatus === 'disconnected'));
-            if (isHumanPlayer) humanPlayerAchievedFirstBloodThisTurn = true;
-        }
-        
-        const streakGrantsExtraTurn = oldStreak < 6 && newStreak >= 6;
-        const combinedExtraTurn = streakGrantsExtraTurn || extraTurnFromApplyMove;
-
-        const isPawnPromotingMove = pieceThatMadeTheMove && pieceThatMadeTheMove.type === 'pawn' && (row === 0 || row === 7) && !becameInfiltratorFromApply;
-
-        if (newStreak >= 2 && oldStreak < 2) {
-            const hasArchbishop = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === capturingPlayer);
-            if (hasArchbishop) {
-                enteringSpecialMode = true;
-                const shieldCtx = {
-                    boardForNextStep: finalBoardStateForTurn,
-                    playerWhoseTurnCompleted: capturingPlayer,
-                    isExtraTurn: combinedExtraTurn,
-                    newEnPassantTarget: enPassantTargetSquare,
-                    capturingPieceId: pieceThatMadeTheMove?.id
-                };
-                setShieldContext(shieldCtx);
-                if (isPawnPromotingMove) {
-                } else {
-                    setIsAwaitingHolyShield(true);
-                    setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-                }
-            }
-        }
-
-        if (!enteringSpecialMode && newStreak >= 3 && oldStreak < 3) {
-            enteringSpecialMode = true;
-            const anvilDropCtx = {
-                boardForNextStep: finalBoardStateForTurn,
-                playerWhoseTurnCompleted: capturingPlayer,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-            };
-            setAnvilDropContext(anvilDropCtx);
-            if (isPawnPromotingMove) {
-                setAnvilDropAfterPromotion(true);
-            } else {
-                setIsAwaitingAnvilDrop(true);
-                setPlayerToDropAnvil(capturingPlayer);
-                setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-            }
-        } 
-
-        if (!enteringSpecialMode && newStreak >= 5 && oldStreak < 5) {
-            const hasArcher = finalBoardStateForTurn.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === capturingPlayer);
-            if (hasArcher) {
-                const hasLevel1Victims = finalBoardStateForTurn.flat().some(sq => 
-                    sq.piece && 
-                    sq.piece.color === opponentPlayer && 
-                    sq.piece.level === 1 && 
-                    sq.piece.type !== 'king' && 
-                    sq.piece.type !== 'queen'
-                );
-                
-                if (hasLevel1Victims) {
-                  enteringSpecialMode = true;
-                  const snipeCtx = {
-                      boardForNextStep: boardAfterMove, 
-                      playerWhoseTurnCompleted: capturingPlayer,
-                      isExtraTurn: combinedExtraTurn,
-                      newEnPassantTarget: enPassantTargetSquare,
-                  };
-                  setArcherSnipeContext(snipeCtx);
-                  if (isPawnPromotingMove) {
-                  } else {
-                      setIsAwaitingArcherSnipe(true);
-                      setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-                  }
-                }
-            }
-        }
-        
-        if (newStreak >= 4 && oldStreak < 4) {
-              if (!humanRookResData?.resurrectionPerformed) {
-                  let piecesOfCurrentPlayerCapturedByOpponent = [...(finalCapturedPiecesForTurn[opponentPlayer] || [])];
-                  if (piecesOfCurrentPlayerCapturedByOpponent.length > 0) {
-                    const pieceToResurrectOriginalOriginalAI = piecesOfCurrentPlayerCapturedByOpponent.pop();
-                    if (pieceToResurrectOriginalOriginalAI) {
-                      const emptySquares: AlgebraicSquare[] = [];
-                      for (let r_idx = 0; r_idx < 8; r_idx++) for (let c_idx = 0; c_idx < 8; c_idx++) if (!finalBoardStateForTurn[r_idx][c_idx].piece && !finalBoardStateForTurn[r_idx][c_idx].item) emptySquares.push(coordsToAlgebraic(r_idx, c_idx));
-                      if (emptySquares.length > 0) {
-                        const randomSquareAlg = emptySquares[Math.floor(Math.random() * emptySquares.length)];
-                        const { row: resR, col: resC } = algebraicToCoords(randomSquareAlg);
-                        const resurrectedPiece: Piece = { ...pieceToResurrectOriginalOriginalAI, level: 1, id: `${pieceToResurrectOriginalOriginalAI.id}_res_${uniqueIdCounterRef.current++}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-
-                        const promoRow = capturingPlayer === 'white' ? 0 : 7;
-                        if (resurrectedPiece.type === 'commander' && resR === promoRow) {
-                            resurrectedPiece.type = 'hero';
-                            resurrectedPiece.id = `${resurrectedPiece.id}_HeroPromo_Res`;
-                            toast({ title: "Resurrection & Promotion!", description: `${getPlayerDisplayName(capturingPlayer)}'s Commander resurrected and promoted to Hero! (L1)`, duration: 8000 });
-                        } else {
-                            toast({ title: "Resurrection!", description: `${getPlayerDisplayName(capturingPlayer)}'s ${pieceToResurrectOriginalOriginalAI.type} returns! (L1)`, duration: 8000 });
-                        }
-                        finalBoardStateForTurn[resR][resC].piece = resurrectedPiece;
-                        addEffect('light-beam', randomSquareAlg);
-                        audioManager.playResurrect();
-                        setResurrectedSquares(prev => [...prev, { square: randomSquareAlg, player: capturingPlayer }]);
-                        finalCapturedPiecesForTurn[opponentPlayer] = piecesOfCurrentPlayerCapturedByOpponent.filter(p => p.id !== pieceToResurrectOriginalOriginalAI.id);
-
-                        if (resurrectedPiece.type === 'pawn' && resR === promoRow) {
-                            setPlayerForPostResurrectionPromotion(capturingPlayer);
-                            setIsExtraTurnForPostResurrectionPromotion(oldStreak < 6 && newStreak >= 6);
-                            setIsResurrectionPromotionInProgress(true);
-                            setPlayerToPromote(capturingPlayer);
-                            setPromotionTargetLevel(1);
-                            setIsPromotingPawn(true);
-                            setPromotionSquare(randomSquareAlg);
-                            setBoard(finalBoardStateForTurn);
-                            setCapturedPieces(finalCapturedPiecesForTurn);
-                            setIsMoveProcessing(false);
-                            clickGuardRef.current = false;
-                            return;
-                        }
-                      }
-                    }
-                  }
-              }
-        }
-
-
-        if (conversionEventsFromApply && conversionEventsFromApply.length > 0) {
-          conversionEventsFromApply.forEach(event => {
-            addEffect('conversion', event.at, event.byPiece.color);
-            if (event.originalPiece.color !== event.convertedPiece.color) {
-              audioManager.playConversion();
-              toast({ title: "Conversion!", description: `${getPlayerDisplayName(event.byPiece.color)} ${event.byPiece.type} converted ${event.originalPiece.color} ${event.originalPiece.type}!`, duration: 8000 });
-            }
-          });
-        }
-
-        setBoard(finalBoardStateForTurn);
-        setCapturedPieces(finalCapturedPiecesForTurn);
-        
-        if (enteringSpecialMode && !isPawnPromotingMove) {
-            setIsMoveProcessing(false); 
-            clickGuardRef.current = false;
-        }
-
-        setTimeout(() => {
-          setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
-
-          const movedPieceFinalSquare = finalBoardStateForTurn[toR_final]?.[toC_final];
-          const pieceOnBoardAfterMove = movedPieceFinalSquare?.piece;
-          
-          if (humanPlayerAchievedFirstBloodThisTurn) {
-              setIsAwaitingCommanderPromotion(true);
-              setGameInfo(prev => ({...prev, message: `${getPlayerDisplayName(capturingPlayer)}: Select L1 Pawn for Commander!`}));
-              if (onlineStatus === 'disconnected') {
-                setIsMoveProcessing(false);
-                clickGuardRef.current = false;
-              }
-              return;
-          }
-
-          if (enteringSpecialMode) {
-              setIsMoveProcessing(false); 
-              clickGuardRef.current = false;
-              return;
-          }
-
-
-          const isPendingResurrectionPromotion = isResurrectionPromotionInProgress;
-          let sacrificeNeeded = false;
-
-          if (!isPendingResurrectionPromotion && pieceOnBoardAfterMove?.type === 'queen' ) {
-             sacrificeNeeded = processPawnSacrificeCheck(finalBoardStateForTurn, currentPlayer, moveBeingMade, levelFromApplyMoveInternal, typeFromApplyMoveInternal, combinedExtraTurn, nextEnPassantTarget);
-          }
-
-          if (isPawnPromotingMove && !isAwaitingPawnSacrifice && !sacrificeNeeded && !isPendingResurrectionPromotion) {
-            setPlayerToPromote(currentPlayer);
-            setPromotionTargetLevel(getPromotionLevel(capturedPieceFromApply?.type || pieceCapturedByAnvilFromApply?.type || null));
-            setIsPromotingPawn(true); 
-            setPromotionSquare(algebraic);
-          } else if (!isPawnPromotingMove && !sacrificeNeeded && !isAwaitingPawnSacrifice && !isAwaitingRookSacrifice && !isPendingResurrectionPromotion && !becameInfiltratorFromApply) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          } else if (humanRookResData?.resurrectionPerformed && !isPendingResurrectionPromotion) {
-             processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          } else if ((becameInfiltratorFromApply) && !isPendingResurrectionPromotion && !isAwaitingPawnSacrifice && !sacrificeNeeded) {
-            processMoveEnd(finalBoardStateForTurn, currentPlayer, combinedExtraTurn, nextEnPassantTarget);
-          }
-
-          setIsMoveProcessing(false);
-          clickGuardRef.current = false;
-        }, 800);
-        return;
-      } else {
-        if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-            if(clickedPiece.color === currentPlayer) { 
-                setSelectedSquare(algebraic);
-                const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-                setPossibleMoves(legalMovesForPlayer);
-                setEnemySelectedSquare(null);
-                setEnemyPossibleMoves([]);
-            } else { 
-                setSelectedSquare(null);
-                setPossibleMoves([]);
-                setEnemySelectedSquare(algebraic);
-                const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-                setEnemyPossibleMoves(enemyMoves);
-            }
-        } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        }
-        setIsMoveProcessing(false);
-        clickGuardRef.current = false;
-        return;
-      }
-    } else if (clickedPiece && (!clickedItem || clickedItem.type === 'shroom')) {
-        if (clickedPiece.color === currentPlayer) {
-            setSelectedSquare(algebraic);
-            const legalMovesForPlayer = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-            setPossibleMoves(legalMovesForPlayer);
-            setEnemySelectedSquare(null);
-            setEnemyPossibleMoves([]);
-        } else {
-            setSelectedSquare(null);
-            setPossibleMoves([]);
-            setEnemySelectedSquare(algebraic);
-            const enemyMoves = getPossibleMoves(board, algebraic, enPassantTargetSquare);
-            setEnemyPossibleMoves(enemyMoves);
-      }
-    } else {
-      setSelectedSquare(null);
-      setPossibleMoves([]);
-      setEnemySelectedSquare(null);
-      setEnemyPossibleMoves([]);
-    }
-
-
-  }, [
-    board, currentPlayer, selectedSquare, gameInfo.gameOver, isPromotingPawn, isAiThinking, isMoveProcessing, killStreaks, capturedPieces, enPassantTargetSquare,
-    saveStateToHistory, processMoveEnd, getPlayerDisplayName, toast, addEffect,
-    setGameInfo, setCapturedPieces, setKillStreaks,
-    setIsPromotingPawn, setPromotionSquare, setSelectedSquare, setPossibleMoves, setEnemySelectedSquare, setEnemyPossibleMoves, setAnimatedSquareTo, setIsMoveProcessing,
-    setShowCaptureFlash, setCaptureFlashKey, setLastMoveFrom, setLastMoveTo, setPlayerToPromote,
-    isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoGotFirstBlood, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, processPawnSacrificeCheck,
-    isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
-    getPossibleMoves,
-    isResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, setIsResurrectionPromotionInProgress,
-    getKillStreakToastMessage, setKillStreakFlashMessage, setKillStreakFlashMessageKey,
-    firstBloodAchieved, 
-    setFirstBloodAchieved, setPlayerWhoGotFirstBlood, setIsAwaitingCommanderPromotion,
-    shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, setResurrectedSquares, user,
-    isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext,
-    isAwaitingHolyShield, shieldContext, lastMoveTo, localPlayerColor, isLocalActionTurn,
-    isAwaitingArcherSnipe, archerSnipeContext, isWhiteAI, isBlackAI,
-    isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, saveLoadoutToFirestore
-  ]);
-
-  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare || isAwaitingCommanderPromotion) {
-        return;
-    }
-
-    if (onlineStatus === 'connected') {
-        const ws = wsRef.current;
-        if(ws && ws.readyState === WebSocket.OPEN) {
-          const payload = JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } });
-          ws.send(payload);
-        }
-        setIsPromotingPawn(false);
-        setPromotionSquare(null);
-        setPlayerToPromote(null);
-        setIsResurrectionPromotionInProgress(false);
-        return;
-    }
-
-    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-    const { row, col } = algebraicToCoords(promotionSquare);
-    const pieceBeingPromoted = boardToUpdate[row]?.[col]?.piece;
-
-    if (!pieceBeingPromoted || (pieceBeingPromoted.type !== 'pawn' && pieceBeingPromoted.type !== 'commander' && !isResurrectionPromotionInProgress) ) {
-      setIsPromotingPawn(false); setPromotionSquare(null); setIsMoveProcessing(false);
-      clickGuardRef.current = false;
-      setPromotionMoveWasCapture(false);
-      setIsResurrectionPromotionInProgress(false);
-      setPlayerToPromote(null);
-      return;
-    }
-
-    saveStateToHistory();
-
-    const pawnColor = pieceBeingPromoted.color;
-    const originalPieceId = pieceBeingPromoted.id;
-    const promotingFromType = pieceBeingPromoted.type;
-
-    const moveThatLedToPromotion: Move = { from: lastMoveFrom!, to: promotionSquare, type: 'promotion', promoteTo: pieceType };
-
-
-    boardToUpdate[row][col].piece = {
-      ...pieceBeingPromoted,
-      type: pieceType,
-      level: promotionTargetLevel,
-      id: isResurrectionPromotionInProgress ? `${originalPieceId}_resPromo_${pieceType}` : `${originalPieceId}_promo_${pieceType}`,
-      hasMoved: true,
-      invulnerableTurnsRemaining: 0,
-      isShielded: false,
-      isPoisoned: false, 
-      cooldownTurnsRemaining: 0,
-      frozenTurnsRemaining: 0
-    };
-    if (pieceType === 'queen') {
-        boardToUpdate[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
-    }
-
-
-    setLastMoveTo(promotionSquare);
-    setIsMoveProcessing(true);
-    clickGuardRef.current = true;
-    setAnimatedSquareTo(promotionSquare);
-    
-    audioManager.playLevelUp();
-
-    setBoard(boardToUpdate);
-
-    setTimeout(() => {
-      const oldStreak = killStreaks[pawnColor] || 0;
-      let currentStreakForPromotingPlayer = oldStreak;
-
-      if (isResurrectionPromotionInProgress) {
-        toast({ title: "Resurrected Piece Promoted!", description: `${getPlayerDisplayName(playerForPostResurrectionPromotion!)}'s ${promotingFromType} on ${promotionSquare} promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
-        currentStreakForPromotingPlayer = killStreaks[playerForPostResurrectionPromotion!] || 0;
-        processMoveEnd(boardToUpdate, playerForPostResurrectionPromotion!, isExtraTurnForPostResurrectionPromotion, enPassantTargetSquare);
-        setIsResurrectionPromotionInProgress(false);
-        setPlayerForPostResurrectionPromotion(null);
-        setIsExtraTurnForPostResurrectionPromotion(false);
-      } else {
-        toast({ title: "Pawn Promoted!", description: `${getPlayerDisplayName(pawnColor)} pawn promoted to ${pieceType}! (L${boardToUpdate[row][col].piece!.level})`, duration: 8000 });
-
-        const piezaLvl = boardToUpdate[row][col].piece!.level;
-        const pawnLevelGrantsExtraTurn = piezaLvl >= 5;
-        
-        const hasTriggeredShield = shieldContext !== null;
-        const hasTriggeredAnvil = anvilDropContext !== null;
-        const hasTriggeredSnipe = archerSnipeContext !== null;
-
-        const streakGrantsExtraTurn = currentStreakForPromotingPlayer >= 6;
-        const combinedExtraTurn = pawnLevelGrantsExtraTurn || streakGrantsExtraTurn;
-
-        let enteringSpecialMode = false;
-        
-        if (hasTriggeredShield) {
-            enteringSpecialMode = true;
-            const updatedShieldCtx = {
-                boardToUpdate,
-                playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-                capturingPieceId: boardToUpdate[row][col].piece?.id
-            };
-            setShieldContext(updatedShieldCtx as any);
-            setIsAwaitingHolyShield(true);
-            setGameInfo(prev => ({...prev, message: "HOLY SHIELD! Select an ally to protect."}));
-        }
-
-        if (!enteringSpecialMode && hasTriggeredSnipe) {
-            enteringSpecialMode = true;
-            const updatedSnipeCtx = {
-                boardForNextStep: boardToUpdate,
-                playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-            };
-            setArcherSnipeContext(updatedSnipeCtx);
-            setIsAwaitingArcherSnipe(true);
-            setGameInfo(prev => ({...prev, message: "ARCHER SNIPE! Select Level 1 enemy to capture."}));
-        }
-
-        if (!enteringSpecialMode && (hasTriggeredAnvil || anvilDropAfterPromotion)) {
-            setAnvilDropAfterPromotion(false);
-            enteringSpecialMode = true;
-            const updatedAnvilDropCtx = {
-                boardForNextStep: boardToUpdate,
-                playerWhoseTurnCompleted: pawnColor,
-                isExtraTurn: combinedExtraTurn,
-                newEnPassantTarget: enPassantTargetSquare,
-            };
-            setAnvilDropContext(updatedAnvilDropCtx);
-            setIsAwaitingAnvilDrop(true);
-            setPlayerToDropAnvil(pawnColor);
-            setGameInfo(prev => ({...prev, message: `KILL STREAK REACHED! Place an anvil.`}));
-        }
-
-        if (!enteringSpecialMode) {
-            let sacrificeNeeded = false;
-
-            if (pieceType === 'queen') {
-              // Promotion bypass: Pawn-to-Queen doesn't trigger sacrifice.
-              sacrificeNeeded = false;
-            } else if (['rook', 'palace'].includes(pieceType)) {
-              if (promotionMoveWasCapture) { 
-                const newRookLevel = boardToUpdate[row][col].piece!.level;
-                if (newRookLevel >= 4) { 
-                  const { boardWithResurrection, capturedPiecesAfterResurrection, resurrectionPerformed: aiPromoRookResPerformed, resurrectedPieceData: aiPromoRookPieceData, resurrectedSquareAlg: aiPromoRookSquareAlg, newResurrectionIdCounter: aiPromoRookIdCounter } = processRookResurrectionCheck(
-                    boardToUpdate, pawnColor, moveThatLedToPromotion, promotionSquare, 
-                    0, 
-                    capturedPieces, uniqueIdCounterRef.current
-                  );
-                  if (aiPromoRookResPerformed) {
-                    boardToUpdate = boardWithResurrection;
-                    setCapturedPieces(capturedPiecesAfterResurrection);
-                    uniqueIdCounterRef.current = aiPromoRookIdCounter!;
-                    setBoard(boardToUpdate);
-                    addEffect('light-beam', aiPromoRookSquareAlg!);
-                    audioManager.playResurrect();
-                    setResurrectedSquares(prev => [...prev, { square: aiPromoRookSquareAlg!, player: pawnColor }]);
-                    toast({ title: `AI ${pieceType === 'palace' ? 'Master' : 'Rook'}'s Call (Post-Promo)!`, description: `${getPlayerDisplayName(currentPlayer)} (AI)'s new ${pieceType} resurrected their ${aiPromoRookPieceData!.type} to ${aiPromoRookSquareAlg!}! (L${aiPromoRookPieceData!.level})`, duration: 8000 });
-                  }
-                }
-              }
-            }
-
-            if (!sacrificeNeeded && !isAwaitingPawnSacrifice && !isResurrectionPromotionInProgress && !isAwaitingCommanderPromotion) {
-               processMoveEnd(boardToUpdate, pawnColor, combinedExtraTurn, enPassantTargetSquare);
-            }
-        }
-      }
-
-      setEnemySelectedSquare(null);
-      setEnemyPossibleMoves([]);
-      setIsPromotingPawn(false);
-      setPromotionSquare(null);
-      setPlayerToPromote(null);
-      setPromotionMoveWasCapture(false);
-      setIsMoveProcessing(false);
-      clickGuardRef.current = false;
-    }, 800);
-  }, [
-    board, promotionSquare, promotionTargetLevel, toast, killStreaks, saveStateToHistory, getPlayerDisplayName, processPawnSacrificeCheck, processRookResurrectionCheck,
-    isMoveProcessing, setIsPromotingPawn, setPromotionSquare, setIsMoveProcessing, setEnemySelectedSquare, setEnemyPossibleMoves,
-    setAnimatedSquareTo, lastMoveFrom, isAwaitingPawnSacrifice, capturedPieces, setCapturedPieces, setPlayerToPromote,
-    isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
-    setIsResurrectionPromotionInProgress, setPlayerForPostResurrectionPromotion, setIsExtraTurnForPostResurrectionPromotion, processMoveEnd, setLastMoveTo,
-    isAwaitingCommanderPromotion, enPassantTargetSquare,
-    onlineStatus, currentPlayer, isWhiteAI, isBlackAI, localPlayerColor, promotionMoveWasCapture, setPromotionMoveWasCapture,
-    setResurrectedSquares, addEffect, anvilDropAfterPromotion, anvilDropContext, isAwaitingHolyShield, isAwaitingArcherSnipe, shieldContext, archerSnipeContext
-  ]);
+  const isLocalActionTurn = !localPlayerColor || localPlayerColor === currentPlayer;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
+  const isInteractionDisabled = isMoveProcessing || gameInfo.gameOver || isAiThinking || (isAnySpecialModeActive && !isLocalActionTurn);
 
   const mobileLayout = (
     <div className="relative z-20 flex flex-col flex-grow w-full p-1 lg:hidden overflow-y-auto scrollbar-hide">
@@ -4127,41 +1017,31 @@ export default function EvolvingChessPage() {
           <div className="w-full flex items-center justify-between">
               <div className="w-1/3"></div>
               <div className="w-1/3 flex items-center justify-center">
-                  <img
-                      src="/images/Vibe_Title.gif"
-                      alt="VIBE CHESS"
-                      className="h-10 w-auto object-contain"
-                  />
+                  <img src="/images/Vibe_Title.gif" alt="VIBE CHESS" className="h-10 w-auto object-contain" />
               </div>
                <div className="w-1/3 flex justify-end">
                   <AuthWidget />
               </div>
           </div>
-
-          <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
-              gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
-              (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
-            )}>
-             {gameInfo.message}
+          <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse", (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse"))}>
+             {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
            </div>
-          
           <div className="w-full">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
-              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : possibleMoves}
-              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : enemySelectedSquare}
-              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : enemyPossibleMoves}
+              selectedSquare={isAnySpecialModeActive ? null : selectedSquare}
+              possibleMoves={isAnySpecialModeActive ? [] : possibleMoves}
+              enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare}
+              enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves}
               onSquareClick={handleSquareClick}
               playerColor={boardOrientation}
               currentPlayerColor={currentPlayer}
               isInteractionDisabled={isInteractionDisabled}
-              applyBoardOpacityEffect={applyBoardOpacityEffect}
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : lastMoveFrom}
-              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : lastMoveTo}
+              lastMoveFrom={lastMoveFrom}
+              lastMoveTo={lastMoveTo}
               isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
               playerToSacrificePawn={playerToSacrificePawn}
               isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
@@ -4181,397 +1061,40 @@ export default function EvolvingChessPage() {
               localPlayerColor={localPlayerColor}
             />
           </div>
-          
-           <GameControls
-              currentPlayer={currentPlayer}
-              capturedPieces={capturedPieces}
-              isGameOver={gameInfo.gameOver}
-              killStreaks={killStreaks}
-              pieceForInfoDisplay={pieceForInfoDisplay}
-              localPlayerColor={localPlayerColor}
-              getPlayerDisplayName={getPlayerDisplayName}
-              onlineStatus={onlineStatus}
-              turnTimer={turnTimer}
-              activeTimerPlayer={playerToDropAnvil === 'white' ? 'white' : activeTimerPlayer}
-              chatMessages={chatMessages}
-              onSendMessage={sendMessage}
-              isMessengerOpen={isMessengerOpen}
-              onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)}
-              hasUnreadMessages={hasUnreadMessages}
-            />
-          
+           <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={playerToDropAnvil === 'white' ? 'white' : activeTimerPlayer} chatMessages={chatMessages} onSendMessage={sendMessage} isMessengerOpen={isMessengerOpen} onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)} hasUnreadMessages={hasUnreadMessages} />
           <div className="flex flex-wrap justify-center items-center gap-1 mt-1">
             <AlertDialog>
               <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-7 px-2 text-xs">
-                  {isOnlineGameInProgress ? <Flag /> : <RefreshCw />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
+                <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
+                  {onlineStatus === 'connected' ? <Flag /> : <RefreshCw />} {onlineStatus === 'connected' ? 'Resign' : 'Reset'}
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {isOnlineGameInProgress ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
-                  </AlertDialogDescription>
+                  <AlertDialogDescription>{onlineStatus === 'connected' ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}</AlertDialogDescription>
                 </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={resetGame}>
-                    {isOnlineGameInProgress ? 'Yes, Resign' : 'Yes, Reset'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
+                <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={resetGame}>{onlineStatus === 'connected' ? 'Yes, Resign' : 'Yes, Reset'}</AlertDialogAction></AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
-              <BookOpen /> Rules
-            </Button>
-            <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs">
-              <Package /> Items
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-                  <Settings /> Settings
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 bg-card border-border">
-                <div className="space-y-6 py-2">
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-pixel uppercase">SFX Volume</span>
-                      <Volume2 className="h-4 w-4 text-primary" />
-                    </div>
-                    <Slider
-                      defaultValue={[volume]}
-                      max={200}
-                      step={1}
-                      onValueChange={handleVolumeChange}
-                    />
-                  </div>
-                  <div className="space-y-4 border-t pt-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-pixel uppercase">AI Depth</span>
-                      <BrainCircuit className="h-4 w-4 text-primary" />
-                    </div>
-                    <Slider
-                      defaultValue={[aiDifficulty]}
-                      min={2}
-                      max={8}
-                      step={1}
-                      onValueChange={(val) => setAiDifficulty(val[0])}
-                    />
-                    <p className="text-[9px] text-muted-foreground italic leading-tight text-center">
-                      The smarter the AI setting, the longer the AI takes to move.
-                    </p>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Link href="/dungeon" className={cn(!user && "pointer-events-none")}>
-              <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState || !user}>
-                <Swords /> Dungeon
-              </Button>
-            </Link>
-            <Link href="/leaderboard">
-              <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
-                <Trophy /> L.board
-              </Button>
-            </Link>
-            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
-              <Undo2 /> Undo
-            </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-7 px-2 text-xs"><BookOpen /> Rules</Button>
+            <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs"><Package /> Items</Button>
+            <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-xs"><Settings /> Settings</Button></PopoverTrigger><PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">SFX Volume</span><Volume2 className="h-4 w-4 text-primary" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={handleVolumeChange} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">AI Depth</span><BrainCircuit className="h-4 w-4 text-primary" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /><p className="text-[9px] text-muted-foreground italic leading-tight text-center">The smarter the AI setting, the longer the AI takes to move.</p></div></div></PopoverContent></Popover>
+            <Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected' || !user}><Swords /> Dungeon</Button></Link>
+            <Link href="/leaderboard"><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected'}><Trophy /> L.board</Button></Link>
+            <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAnySpecialModeActive} className="h-7 px-2 text-xs"><Undo2 /> Undo</Button>
           </div>
-           <div className="flex flex-wrap justify-center items-center gap-1">
-              <Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-7 px-2 text-xs">
-                <Bot /> W:{isWhiteAI ? 'On' : 'Off'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-7 px-2 text-xs">
-                <Bot /> B:{isBlackAI ? 'On' : 'Off'}
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-7 px-2 text-xs">
-                <View /> View
-              </Button>
-           </div>
-           
-           <Card className="w-full mt-2">
-            <CardContent className="p-2 flex flex-col gap-2">
-               <div className="flex flex-col gap-1 items-center" >
-                  <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleRankedPlay}
-                  disabled={!user || onlineStatus !== 'disconnected'}
-                  className="h-7 px-2 text-xs w-full"
-                   aria-label="Play Ranked Match"
-                  >
-                  <Trophy className="mr-1 h-3 w-3" />
-                  {getRankedButtonText()}
-                  </Button>
-                  <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleOnlinePlay('create')}
-                  disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
-                  className="h-7 px-2 text-xs w-full"
-                  aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
-                  >
-                  {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}
-                  {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
-                  </Button>
-                  <div className="flex gap-1 items-center w-full">
-                  <Input
-                      type="text"
-                      placeholder="Room ID"
-                      value={inputRoomId}
-                      onChange={(e) => setInputRoomId(e.target.value)}
-                      className="h-7 px-2 text-xs flex-grow"
-                      disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
-                  />
-                  <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleOnlinePlay('join')}
-                      disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
-                      className="h-7 px-2 text-xs"
-                      aria-label="Join Online Game"
-                  >
-                      Join
-                  </Button>
-                  </div>
-              </div>
-               <div className="w-full text-center h-4 text-xs mt-1">
-                  {getStatusMessage()}
-              </div>
-            </CardContent>
-          </Card>
+           <div className="flex flex-wrap justify-center items-center gap-1"><Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} className="h-7 px-2 text-xs"><Bot /> W:{isWhiteAI ? 'On' : 'Off'}</Button><Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} className="h-7 px-2 text-xs"><Bot /> B:{isBlackAI ? 'On' : 'Off'}</Button><Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} className="h-7 px-2 text-xs"><View /> View</Button></div>
+           <Card className="w-full mt-2"><CardContent className="p-2 flex flex-col gap-2"><div className="flex flex-col gap-1 items-center" ><Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || onlineStatus !== 'disconnected'} className="h-7 px-2 text-xs w-full"><Trophy className="mr-1 h-3 w-3" />Ranked Match</Button><Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)} className="h-7 px-2 text-xs w-full">{onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}{onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}</Button><div className="flex gap-1 items-center w-full"><Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-7 px-2 text-xs flex-grow" disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI} /><Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI} className="h-7 px-2 text-xs">Join</Button></div></div><div className="w-full text-center h-4 text-xs mt-1">{onlineStatus}</div></CardContent></Card>
       </div>
     </div>
   );
 
   const desktopLayout = (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
-      <div className="w-1/4 flex-shrink-0">
-        <GameControls
-            currentPlayer={currentPlayer}
-            capturedPieces={capturedPieces}
-            isGameOver={gameInfo.gameOver}
-            killStreaks={killStreaks}
-            pieceForInfoDisplay={pieceForInfoDisplay}
-            localPlayerColor={localPlayerColor}
-            getPlayerDisplayName={getPlayerDisplayName}
-            onlineStatus={onlineStatus}
-            turnTimer={turnTimer}
-            activeTimerPlayer={playerToDropAnvil === 'white' ? 'white' : activeTimerPlayer}
-            chatMessages={chatMessages}
-            onSendMessage={sendMessage}
-            isMessengerOpen={isMessengerOpen}
-            onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)}
-            hasUnreadMessages={hasUnreadMessages}
-        />
-      </div>
-
-      <div className="w-1/2 flex flex-col items-center gap-2">
-        <div className="w-full flex items-center justify-center">
-            <img
-                src="/images/Vibe_Title.gif"
-                alt="VIBE CHESS"
-                className="h-16 w-auto object-contain"
-            />
-        </div>
-        <div className={cn("text-center text-sm font-bold min-h-[1.25em]",
-            gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse",
-            (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse")
-          )}>
-           {gameInfo.message}
-        </div>
-        <div className="w-full max-lg">
-          <ChessBoard
-              boardState={board}
-              selectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
-              possibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : possibleMoves}
-              enemySelectedSquare={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : enemySelectedSquare}
-              enemyPossibleMoves={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : enemyPossibleMoves}
-              onSquareClick={handleSquareClick}
-              playerColor={boardOrientation}
-              currentPlayerColor={currentPlayer}
-              isInteractionDisabled={isInteractionDisabled}
-              applyBoardOpacityEffect={applyBoardOpacityEffect}
-              playerInCheck={gameInfo.playerWithKingInCheck}
-              viewMode={viewMode}
-              animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : lastMoveFrom}
-              lastMoveTo={(isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : lastMoveTo}
-              isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
-              playerToSacrificePawn={playerToSacrificePawn}
-              isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer}
-              playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null}
-              isEnPassantTarget={enPassantTargetSquare}
-              onPieceHover={handlePieceHover}
-              effects={effects}
-              promotingSquare={promotionSquare}
-              isAwaitingAnvilDrop={isAwaitingAnvilDrop}
-              playerToDropAnvil={playerToDropAnvil}
-              isAwaitingHolyShield={isAwaitingHolyShield}
-              isAwaitingArcherSnipe={isAwaitingArcherSnipe}
-              isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
-              isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
-              isInventoryOpen={isInventoryOpen}
-              selectedInventoryItemType={selectedInventoryItemType}
-              localPlayerColor={localPlayerColor}
-          />
-        </div>
-      </div>
-
-      <div className="w-1/4 flex flex-col gap-4">
-        <AuthWidget />
-        <Card>
-          <CardContent className="p-2 flex flex-col gap-2">
-            <div className="flex flex-wrap justify-center items-center gap-1">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" aria-label={isOnlineGameInProgress ? "Resign Game" : "Reset Game"} className="h-7 px-2 text-xs">
-                    {isOnlineGameInProgress ? <Flag /> : <RefreshCw />} {isOnlineGameInProgress ? 'Resign' : 'Reset'}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {isOnlineGameInProgress ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={resetGame}>
-                      {isOnlineGameInProgress ? 'Yes, Resign' : 'Yes, Reset'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} aria-label="View Game Rules" className="h-7 px-2 text-xs">
-                <BookOpen /> Rules
-              </Button>
-              <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs">
-                <Package /> Items
-              </Button>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-                    <Settings /> Settings
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 bg-card border-border">
-                  <div className="space-y-6 py-2">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-pixel uppercase">SFX Volume</span>
-                        <Volume2 className="h-4 w-4 text-primary" />
-                      </div>
-                      <Slider
-                        defaultValue={[volume]}
-                        max={200}
-                        step={1}
-                        onValueChange={handleVolumeChange}
-                      />
-                    </div>
-                    <div className="space-y-4 border-t pt-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-pixel uppercase">AI Depth</span>
-                        <BrainCircuit className="h-4 w-4 text-primary" />
-                      </div>
-                      <Slider
-                        defaultValue={[aiDifficulty]}
-                        min={2}
-                        max={8}
-                        step={1}
-                        onValueChange={(val) => setAiDifficulty(val[0])}
-                      />
-                      <p className="text-[9px] text-muted-foreground italic leading-tight text-center">
-                        The smarter the AI setting, the longer the AI takes to move.
-                      </p>
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
-              <Link href="/dungeon" className={cn(!user && "pointer-events-none")}>
-                <Button variant="outline" size="sm" aria-label="Start Dungeon Mode" className="h-7 px-2 text-xs" disabled={isAnyOnlineState || !user}>
-                  <Swords /> Dungeon
-                </Button>
-              </Link>
-              <Link href="/leaderboard">
-                <Button variant="outline" size="sm" aria-label="View Leaderboard" className="h-7 px-2 text-xs" disabled={isAnyOnlineState}>
-                  <Trophy /> L.board
-                </Button>
-              </Link>
-              <Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget} aria-label="Undo Move" className="h-7 px-2 text-xs">
-                <Undo2 /> Undo
-              </Button>
-            </div>
-             <div className="flex flex-wrap justify-center items-center gap-1">
-                <Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} aria-label="Toggle White AI" className="h-7 px-2 text-xs">
-                  <Bot /> W:{isWhiteAI ? 'On' : 'Off'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} aria-label="Toggle Black AI" className="h-7 px-2 text-xs">
-                  <Bot /> B:{isBlackAI ? 'On' : 'Off'}
-                </Button>
-                <Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} aria-label="Toggle Board View" className="h-7 px-2 text-xs">
-                  <View /> View
-                </Button>
-             </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-2 flex flex-col gap-2">
-             <div className="flex flex-col gap-1 items-center" >
-                <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRankedPlay}
-                disabled={!user || onlineStatus !== 'disconnected'}
-                className="h-7 px-2 text-xs w-full"
-                 aria-label="Play Ranked Match"
-                >
-                <Trophy className="mr-1 h-3 w-3" />
-                {getRankedButtonText()}
-                </Button>
-                <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleOnlinePlay('create')}
-                disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)}
-                className="h-7 px-2 text-xs w-full"
-                aria-label={onlineStatus !== 'disconnected' ? "Disconnect" : "Create Online Game"}
-                >
-                {onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}
-                {onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}
-                </Button>
-                <div className="flex gap-1 items-center w-full">
-                <Input
-                    type="text"
-                    placeholder="Room ID"
-                    value={inputRoomId}
-                    onChange={(e) => setInputRoomId(e.target.value)}
-                    className="h-7 px-2 text-xs flex-grow"
-                    disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI}
-                />
-                <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleOnlinePlay('join')}
-                    disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI}
-                    className="h-7 px-2 text-xs"
-                    aria-label="Join Online Game"
-                >
-                    Join
-                </Button>
-                </div>
-            </div>
-             <div className="w-full text-center h-4 text-xs mt-1">
-                {getStatusMessage()}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <div className="w-1/4 flex-shrink-0"><GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={playerToDropAnvil === 'white' ? 'white' : activeTimerPlayer} chatMessages={chatMessages} onSendMessage={sendMessage} isMessengerOpen={isMessengerOpen} onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)} hasUnreadMessages={hasUnreadMessages} /></div>
+      <div className="w-1/2 flex flex-col items-center gap-2"><div className="w-full flex items-center justify-center"><img src="/images/Vibe_Title.gif" alt="VIBE CHESS" className="h-16 w-auto object-contain" /></div><div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse", (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse"))}>{isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}</div><div className="w-full max-lg"><ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? null : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isInteractionDisabled} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer} playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} /></div></div>
+      <div className="w-1/4 flex flex-col gap-4"><AuthWidget /><Card><CardContent className="p-2 flex flex-col gap-2"><div className="flex flex-wrap justify-center items-center gap-1"><AlertDialog><AlertDialogTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-xs">{onlineStatus === 'connected' ? <Flag /> : <RefreshCw />} {onlineStatus === 'connected' ? 'Resign' : 'Reset'}</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>{onlineStatus === 'connected' ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={resetGame}>{onlineStatus === 'connected' ? 'Yes, Resign' : 'Yes, Reset'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-7 px-2 text-xs"><BookOpen /> Rules</Button><Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs"><Package /> Items</Button><Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-xs"><Settings /> Settings</Button></PopoverTrigger><PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">SFX Volume</span><Volume2 className="h-4 w-4 text-primary" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={handleVolumeChange} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">AI Depth</span><BrainCircuit className="h-4 w-4 text-primary" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /><p className="text-[9px] text-muted-foreground italic leading-tight text-center">The smarter the AI setting, the longer the AI takes to move.</p></div></div></PopoverContent></Popover><Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected' || !user}><Swords /> Dungeon</Button></Link><Link href="/leaderboard"><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected'}><Trophy /> L.board</Button></Link><Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAnySpecialModeActive} className="h-7 px-2 text-xs"><Undo2 /> Undo</Button></div><div className="flex flex-wrap justify-center items-center gap-1"><Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} className="h-7 px-2 text-xs"><Bot /> W:{isWhiteAI ? 'On' : 'Off'}</Button><Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} className="h-7 px-2 text-xs"><Bot /> B:{isBlackAI ? 'On' : 'Off'}</Button><Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} className="h-7 px-2 text-xs"><View /> View</Button></div></CardContent></Card><Card><CardContent className="p-2 flex flex-col gap-2"><div className="flex flex-col gap-1 items-center" ><Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || onlineStatus !== 'disconnected'} className="h-7 px-2 text-xs w-full"><Trophy className="mr-1 h-3 w-3" />Ranked Match</Button><Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)} className="h-7 px-2 text-xs w-full">{onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}{onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}</Button><div className="flex gap-1 items-center w-full"><Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-7 px-2 text-xs flex-grow" disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI} /><Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI} className="h-7 px-2 text-xs">Join</Button></div></div><div className="w-full text-center h-4 text-xs mt-1">{onlineStatus}</div></CardContent></Card></div>
     </div>
   );
 
@@ -4582,95 +1105,108 @@ export default function EvolvingChessPage() {
       {showCheckmatePatternFlash && <div key={`checkmate-${checkmatePatternFlashKey}`} className="fixed inset-0 z-10 animate-checkmate-pattern-flash pointer-events-none" />}
       {flashMessage && (<div key={`flash-${flashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl ${flashMessage === 'CHECKMATE!' || flashMessage === 'DRAW!' || flashMessage === 'INFILTRATION!' ? 'animate-flash-checkmate' : 'animate-flash-check'}`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{flashMessage}</p></div></div>)}
       {killStreakFlashMessage && (<div key={`streak-${killStreakFlashMessageKey}`} className={`fixed inset-0 flex items-center justify-center z-50 pointer-events-none`} aria-live="assertive"><div className={`bg-black/60 p-6 md:p-8 rounded-md shadow-2xl animate-flash-check`}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-accent font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>{killStreakFlashMessage}</p></div></div>)}
-      
-      {showTimerWarning && (
-        <div key={`timer-warning-${timerWarningKey}`} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none">
-            <div className="animate-flash-timer-warning">
-                <p className="text-7xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
-                    10
-                </p>
-            </div>
-        </div>
-      )}
-
-      {showWinScreen && (
-         <div 
-           className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" 
-           style={{ animation: 'flash-loss 3s forwards' }}
-           onClick={() => fullGameReset()}
-         >
-            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
-              YOU WON
-            </p>
-        </div>
-      )}
-      {showLossScreen && (
-         <div 
-           className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" 
-           style={{ animation: 'flash-loss 3s forwards' }}
-           onClick={() => fullGameReset()}
-         >
-            <p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>
-              YOU LOST
-            </p>
-        </div>
-      )}
-      
-      <div className="lg:hidden h-full">
-        {mobileLayout}
-      </div>
-      <div className="hidden lg:block h-full">
-        {desktopLayout}
-      </div>
-      
-      <InventoryWindow
-        isOpen={isInventoryOpen}
-        onClose={() => setIsInventoryOpen(false)}
-        inventory={inventory}
-        selectedItemType={selectedInventoryItemType}
-        onSelectItem={setSelectedInventoryItemType}
-        attunementSlots={attunementSlots}
-        usedSlots={usedSlots}
-      />
-
-      <PromotionDialog
-        isOpen={isPromotingPawn}
-        onSelectPiece={handlePromotionSelect}
-        pawnColor={playerToPromote}
-      />
+      {showTimerWarning && (<div key={`timer-warning-${timerWarningKey}`} className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"><div className="animate-flash-timer-warning"><p className="text-7xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>10</p></div></div>)}
+      {showWinScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>YOU WON</p></div>)}
+      {showLossScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center" style={{ textShadow: '3px 3px 0px hsl(var(--background)), -3px 3px 0px hsl(var(--background)), 3px -3px 0px hsl(var(--background)), -3px -3px 0px hsl(var(--background)), 3px 0px 0px hsl(var(--background)), -3px 0px 0px hsl(var(--background)), 0px 3px 0px hsl(var(--background)), 0px -3px 0px hsl(var(--background))' }}>YOU LOST</p></div>)}
+      <div className="lg:hidden h-full">{mobileLayout}</div>
+      <div className="hidden lg:block h-full">{desktopLayout}</div>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} attunementSlots={attunementSlots} usedSlots={usedSlots} />
+      <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={isRulesDialogOpen ? () => setIsRulesDialogOpen(false) : undefined} />
-      <GameSummaryDialog
-        isOpen={showSummary}
-        onClose={() => setShowSummary(false)}
-        winner={gameInfo.winner}
-        winnerName={getPlayerDisplayName(gameInfo.winner as PlayerColor)}
-        loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')}
-        eloInfo={eloResult}
-        moveCount={gameMoveCounter}
-        onReset={() => fullGameReset()}
-      />
-
-      <AlertDialog open={abilityChoiceDialog?.isOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Select Action</AlertDialogTitle>
-            <AlertDialogDescription>
-              This piece has multiple special actions available. Choose one to perform.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="flex flex-col gap-2">
-            <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>
-              Use Piece Ability
-            </Button>
-            <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>
-              Use Magic Item (Scroll)
-            </Button>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <GameSummaryDialog isOpen={showSummary} onClose={() => setShowSummary(false)} winner={gameInfo.winner} winnerName={getPlayerDisplayName(gameInfo.winner as PlayerColor)} loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')} eloInfo={eloResult} moveCount={gameMoveCounter} onReset={() => fullGameReset()} />
+      <AlertDialog open={abilityChoiceDialog?.isOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Select Action</AlertDialogTitle><AlertDialogDescription>This piece has multiple special actions available. Choose one to perform.</AlertDialogDescription></AlertDialogHeader><div className="flex flex-col gap-2"><Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>Use Piece Ability</Button><Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>Use Magic Item (Scroll)</Button></div><AlertDialogFooter><AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel></AlertDialogFooter></AlertDialogContent></AlertDialog>
     </div>
   );
+
+  function resetGame() {
+    if (onlineStatus === 'connected') {
+        wsRef.current?.send(JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor }));
+    } else {
+        fullGameReset();
+    }
+  }
+
+  function fullGameReset() {
+    setBoard(initializeBoard());
+    setCurrentPlayer('white');
+    setGameInfo({ ...initialGameStatus });
+    setCapturedPieces({ white: [], black: [] });
+    setKillStreaks({ white: 0, black: 0 });
+    setHistoryStack([]);
+    setPositionHistory([]);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    setLastMoveFrom(null);
+    setLastMoveTo(null);
+    setGameMoveCounter(0);
+    setEnPassantTargetSquare(null);
+    setShroomSpawnCounter(0);
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+    setShowLossScreen(false);
+    setShowWinScreen(false);
+    setShowSummary(false);
+    audioManager.playStart();
+  }
+
+  function handleUndo() {
+    if (historyStack.length === 0) return;
+    const last = historyStack[historyStack.length - 1];
+    setBoard(last.board);
+    setCurrentPlayer(last.currentPlayer);
+    setGameInfo(last.gameInfo);
+    setCapturedPieces(last.capturedPieces);
+    setKillStreaks(last.killStreaks);
+    setBoardOrientation(last.boardOrientation);
+    setViewMode(last.viewMode);
+    setIsWhiteAI(last.isWhiteAI);
+    setIsBlackAI(last.isBlackAI);
+    setEnemySelectedSquare(last.enemySelectedSquare);
+    setEnemyPossibleMoves(last.enemyPossibleMoves || []);
+    setPositionHistory(last.positionHistory);
+    setLastMoveFrom(last.lastMoveFrom);
+    setLastMoveTo(last.lastMoveTo);
+    setGameMoveCounter(last.gameMoveCounter);
+    setEnPassantTargetSquare(last.enPassantTargetSquare);
+    setShroomSpawnCounter(last.shroomSpawnCounter);
+    setNextShroomSpawnTurn(last.nextShroomSpawnTurn);
+    setHistoryStack(prev => prev.slice(0, -1));
+  }
+
+  function saveStateToHistory() {
+    const snapshot: GameSnapshot = {
+        board: board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
+        currentPlayer, gameInfo, capturedPieces: { white: capturedPieces.white.map(p => ({ ...p })), black: capturedPieces.black.map(p => ({ ...p })) },
+        killStreaks: { ...killStreaks }, boardOrientation, viewMode, isWhiteAI, isBlackAI, enemySelectedSquare, enemyPossibleMoves,
+        positionHistory: [...positionHistory], lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare,
+        isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
+        isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
+        isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
+        promotionSquare, promotionMoveWasCapture, originalPromotionLevel: promotionTargetLevel, promotionPawnOriginalLevel: null,
+        firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
+        shroomSpawnCounter, nextShroomSpawnTurn, resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
+        isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, anvilDropAfterPromotion, isAwaitingHolyShield, shieldContext,
+        isAwaitingArcherSnipe, archerSnipeContext, inventory: [...inventory]
+    };
+    setHistoryStack(prev => [...prev, snapshot]);
+  }
+
+  function handleToggleWhiteAI() { setIsWhiteAI(!isWhiteAI); }
+  function handleToggleBlackAI() { setIsBlackAI(!isBlackAI); }
+  function handleToggleViewMode() { setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping'); }
+
+  function handleRankedPlay() {}
+  function handleOnlinePlay(mode: 'create' | 'join') {}
+  function getRankedButtonText() { return "Ranked Match"; }
+  function getStatusMessage() { return onlineStatus; }
+  const isOnlineGameInProgress = onlineStatus === 'connected';
+  const isAnyOnlineState = onlineStatus !== 'disconnected';
+  const applyBoardOpacityEffect = onlineStatus === 'waiting';
+
+  function saveLoadoutToFirestore(b: BoardState, inv: InventoryItem[]) {
+      if (!user || !firestore) return;
+      const equipment: Record<string, string> = {};
+      b.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+      const ref = doc(firestore, 'users', user.uid);
+      updateDocumentNonBlocking(ref, { inventory: inv, equipment });
+  }
 }

@@ -428,6 +428,70 @@ export default function DungeonPage() {
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
 
+  const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null) => {
+    // 1. First Blood -> Commander Promo
+    if (!firstBloodAchieved && newStreak > oldStreak) {
+        setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white');
+        const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+        if (hasL1Targets) {
+            setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
+            setIsAwaitingCommanderPromotion(true);
+            return;
+        }
+    }
+
+    // 2. Killstreak: Holy Shield (Streak 2 + Archbishop)
+    if (newStreak >= 2 && oldStreak < 2 && boardToChain.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
+        setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
+        setIsAwaitingHolyShield(true);
+        return;
+    }
+
+    // 3. Killstreak: Anvil (Streak 3)
+    if (newStreak >= 3 && oldStreak < 3) {
+        setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
+        setIsAwaitingAnvilDrop(true);
+        return;
+    }
+
+    // 4. Killstreak: Resurrection (Streak 4)
+    if (newStreak >= 4 && oldStreak < 4 && capturedPieces.black.length > 0) {
+        const graveyardList = capturedPieces.black;
+        const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+        const pieceToRes = { ...graveyardList[graveyardList.length-1], level: 1, id: `res_H_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+        const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
+        if (empty.length > 0) {
+            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
+            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
+            nextBoard[rr][rc].piece = pieceToRes;
+            setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
+            setBoard(nextBoard);
+            addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
+            if (pieceToRes.type === 'pawn' && rr === 0) { 
+                setPromotionSquare(chosenSq.algebraic);
+                setPromotionTargetLevel(1);
+                setIsPromotingPawn(true);
+                setSpecialActionContext({ extra: isExtra, nextEp, oldStreak: 4, newStreak: 4 }); 
+                return;
+            }
+        }
+        triggerSpecialsChain(nextBoard, 4, 4, isExtra, nextEp);
+        return;
+    }
+
+    // 5. Killstreak: Archer Snipe (Streak 5 + Archer)
+    if (newStreak >= 5 && oldStreak < 5 && boardToChain.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
+        const hasLevel1Enemies = boardToChain.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        if (hasLevel1Enemies) {
+            setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
+            setIsAwaitingArcherSnipe(true);
+            return;
+        }
+    }
+
+    processMoveEnd(boardToChain, 'white', isExtra, nextEp);
+  }, [firstBloodAchieved, capturedPieces.black, addEffect, processMoveEnd]);
+
   const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
     if (!user || !firestore) return;
     const equipment: Record<string, string> = {};
@@ -483,39 +547,6 @@ export default function DungeonPage() {
     if (!board.length && !isUserLoading && userData && user) startRun();
   }, [startRun, board.length, isUserLoading, userData, user]);
 
-  const processPawnSacrificeCheck = useCallback((
-    boardAfterPrimaryMove: BoardState,
-    playerWhoseQueenLeveled: PlayerColor,
-    targetSquareAlg: AlgebraicSquare | null,
-    originalPieceLevelIfKnown: number | undefined,
-    originalPieceTypeIfKnown: PieceType | undefined,
-    isExtraTurnFromOriginalMove: boolean,
-    nextEp: AlgebraicSquare | null
-  ): boolean => {
-    if (originalPieceTypeIfKnown !== 'queen' || !targetSquareAlg) {
-        return false;
-    }
-
-    const { row: tr, col: tc } = algebraicToCoords(targetSquareAlg);
-    const pieceAtDestination = boardAfterPrimaryMove[tr]?.[tc]?.piece;
-    
-    // CRITICAL FIX: Only prompt sacrifice if the Queen on the TARGET square just reached Level 7.
-    if (pieceAtDestination?.type === 'queen' && pieceAtDestination.color === playerWhoseQueenLeveled && pieceAtDestination.level === 7 && (originalPieceLevelIfKnown || 0) < 7) {
-      const hasPawns = boardAfterPrimaryMove.flat().some(sq => sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === playerWhoseQueenLeveled);
-      if (hasPawns) {
-        setBoardForPostSacrifice(boardAfterPrimaryMove);
-        setPlayerToSacrificePawn(playerWhoseQueenLeveled);
-        setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
-        setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
-        setIsAwaitingPawnSacrifice(true);
-        setEnPassantTargetSquare(nextEp);
-        setGameInfo(prev => ({ ...prev, message: "QUEEN'S ASCENSION! Sacrifice a Pawn/Commander." }));
-        return true;
-      }
-    }
-    return false;
-  }, []);
-
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
     let nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
@@ -531,117 +562,51 @@ export default function DungeonPage() {
     setIsPromotingPawn(false);
     setPromotionSquare(null);
 
-    const extraTurnFromPromo = nextBoard[row][col].piece!.level >= 5;
-    const oldStreak = killStreaks['white'];
-    const isExtra = extraTurnFromPromo || (oldStreak < 6 && killStreaks['white'] >= 6);
-
-    let pendingCommander = isAwaitingCommanderPromotion;
-    if (pendingCommander) {
-        const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
-        if (!hasL1Remaining) {
-            setIsAwaitingCommanderPromotion(false);
-            pendingCommander = false;
-        }
-    }
-
-    if (pendingCommander) {
-        setSpecialActionContext({ extra: isExtra });
-        return;
-    }
-
-    processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
-  }, [board, promotionSquare, promotionTargetLevel, processMoveEnd, killStreaks, isAwaitingCommanderPromotion, enPassantTargetSquare]);
+    const isExtra = (nextBoard[row][col].piece!.level >= 5) || specialActionContext?.extra;
+    triggerSpecialsChain(nextBoard, specialActionContext?.oldStreak || 0, specialActionContext?.newStreak || 0, isExtra, enPassantTargetSquare);
+  }, [board, promotionSquare, promotionTargetLevel, specialActionContext, enPassantTargetSquare, triggerSpecialsChain]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
-
-    const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-    if (isAnySpecialModeActive && algebraic !== selectedSquare && !isAwaitingCommanderPromotion && !isAwaitingAnvilDrop && !isAwaitingHolyShield && !isAwaitingArcherSnipe && !isAwaitingPawnSacrifice && !isAwaitingWindScrollTarget && !isAwaitingAnvilScrollTarget && !isAwaitingShieldScrollTarget && !isAwaitingSwapScrollTarget) return;
 
     const { row, col } = algebraicToCoords(algebraic);
     const sq = board[row][col];
     const piece = sq.piece;
     setPieceForInfoDisplay(piece || null);
 
+    const isLocalActionTurn = currentPlayer === 'white';
+
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
         if (piece && !piece.heldItem && piece.color === 'white') {
-          if (usedSlots >= attunementSlots) {
-            toast({ title: "Attunement Limit", description: "You cannot equip any more pieces!", variant: "destructive" });
-            return;
-          }
-          
+          if (usedSlots >= attunementSlots) { toast({ title: "Attunement Limit", variant: "destructive" }); return; }
           const pType = piece.type;
-          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
-            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
-            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
-            return;
-          }
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
-            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
-            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
-            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
+          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') return;
+          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') return;
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) return;
+          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') return;
+          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') return;
 
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
           let newInv = [...inventory];
           const item = newInv.find(i => i.type === selectedInventoryItemType);
-          if (item) {
-            item.count--;
-            if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType);
-          }
+          if (item) { item.count--; if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); }
           setInventory(newInv);
           saveLoadoutToFirestore(nextBoard, newInv);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
-          const pType = piece.type;
-          if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') {
-            toast({ title: "Invalid Equipment", description: "Swift Cloak can only be equipped to Pawns or Commanders.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') {
-            toast({ title: "Invalid Equipment", description: "Queen's Peace can only be equipped to a Queen.", variant: "destructive" });
-            return;
-          }
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) {
-            toast({ title: "Invalid Equipment", description: `${ITEM_METADATA[selectedInventoryItemType].name} can only be equipped to non-Royal pieces.`, variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') {
-            toast({ title: "Invalid Equipment", description: "Crossbow can only be equipped to an Archer.", variant: "destructive" });
-            return;
-          }
-          if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') {
-            toast({ title: "Invalid Equipment", description: "Detonation Scroll cannot be equipped to the King.", variant: "destructive" });
-            return;
-          }
-
           const oldItem = piece.heldItem;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
           const nextInv = [...inventory];
           const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
-          if (itemIn) {
-            itemIn.count--;
-            if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1);
-          }
+          if (itemIn) { itemIn.count--; if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1); }
           const itemOut = nextInv.find(i => i.type === oldItem);
-          if (itemOut) itemOut.count++;
-          else nextInv.push({ type: oldItem, count: 1 });
+          if (itemOut) itemOut.count++; else nextInv.push({ type: oldItem, count: 1 });
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
           setSelectedInventoryItemType(null);
@@ -655,8 +620,7 @@ export default function DungeonPage() {
           setBoard(nextBoard);
           const nextInv = [...inventory];
           const item = nextInv.find(i => i.type === removedItem);
-          if (item) item.count++;
-          else nextInv.push({ type: removedItem, count: 1 });
+          if (item) item.count++; else nextInv.push({ type: removedItem, count: 1 });
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
           audioManager.playMove();
@@ -725,15 +689,7 @@ export default function DungeonPage() {
             setPlayerWhoMadeQueenMove(null);
             setBoardForPostSacrifice(null);
             audioManager.playCapture();
-
-            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
-            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
-              setIsAwaitingCommanderPromotion(false);
-            }
-
-            if (!isAwaitingCommanderPromotion) {
-                processMoveEnd(nextBoard, 'white', isExtraTurnFromQueenMove, enPassantTargetSquare);
-            }
+            triggerSpecialsChain(nextBoard, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare);
         }
         return;
     }
@@ -745,34 +701,18 @@ export default function DungeonPage() {
             setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...piece, id: `${piece.id}_sniped_${Date.now()}` }] }));
             setIsAwaitingArcherSnipe(false);
             audioManager.playSnipe();
-            
-            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
-            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
-              setIsAwaitingCommanderPromotion(false);
-            }
-            
-            if (!isAwaitingCommanderPromotion) {
-                processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
-            }
+            triggerSpecialsChain(nextBoard, specialActionContext.oldStreak, 99, specialActionContext.extra, enPassantTargetSquare); 
         }
         return;
     }
     if (isAwaitingHolyShield) {
-        if (piece && piece.color === 'white' && piece.type !== 'king') {
+        if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen') {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             nextBoard[row][col].piece!.isShielded = true;
             setBoard(nextBoard);
             setIsAwaitingHolyShield(false);
             audioManager.playShield();
-            
-            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
-            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
-              setIsAwaitingCommanderPromotion(false);
-            }
-
-            if (!isAwaitingCommanderPromotion) {
-                processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
-            }
+            triggerSpecialsChain(nextBoard, 2, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare);
         }
         return;
     }
@@ -783,24 +723,7 @@ export default function DungeonPage() {
             setBoard(nextBoard);
             setIsAwaitingAnvilDrop(false);
             audioManager.playAnvil();
-            
-            const hasCrossbow = nextBoard.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === 'white');
-            if (hasCrossbow) {
-              const hasVictims = nextBoard.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-              if (hasVictims) {
-                setIsAwaitingArcherSnipe(true);
-                return;
-              }
-            }
-
-            const hasL1Remaining = nextBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
-            if (isAwaitingCommanderPromotion && !hasL1Remaining) {
-              setIsAwaitingCommanderPromotion(false);
-            }
-
-            if (!isAwaitingCommanderPromotion) {
-                processMoveEnd(nextBoard, 'white', specialActionContext.extra, enPassantTargetSquare);
-            }
+            triggerSpecialsChain(nextBoard, 3, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare);
         }
         return;
     }
@@ -815,7 +738,7 @@ export default function DungeonPage() {
             setBoard(nextBoard);
             setIsAwaitingCommanderPromotion(false);
             audioManager.playLevelUp();
-            processMoveEnd(nextBoard, 'white', specialActionContext?.extra || false, enPassantTargetSquare);
+            triggerSpecialsChain(nextBoard, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare);
         }
         return;
     }
@@ -826,11 +749,11 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = (movingPiece.heldItem === 'wind_scroll' || movingPiece.heldItem === 'life_leach' || movingPiece.heldItem === 'summon_anvil' || movingPiece.heldItem === 'shield_scroll' || movingPiece.heldItem === 'rally_scroll' || movingPiece.heldItem === 'antidote' || movingPiece.heldItem === 'detonation_scroll' || movingPiece.heldItem === 'swap_scroll' || movingPiece.heldItem === 'ice_scroll' || movingPiece.heldItem === 'resurrection_scroll' || movingPiece.heldItem === 'faith_scroll');
+      const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll'].includes(movingPiece.heldItem);
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {
-            toast({ title: "Exhausted", description: "This piece is too weak to use abilities right now.", variant: "destructive" });
+            toast({ title: "Exhausted", variant: "destructive" });
             return;
         }
 
@@ -917,64 +840,11 @@ export default function DungeonPage() {
           if (capturesThisTurn > 0) {
               setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_${Date.now()}` }))] }));
           }
-
-          let humanPlayerAchievedFirstBloodThisTurn = false;
-          if (capturesThisTurn > 0 && !firstBloodAchieved) { 
-              setFirstBloodAchieved(true); 
-              setPlayerWhoGotFirstBlood('white'); 
-              humanPlayerAchievedFirstBloodThisTurn = true;
-          }
-
           const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
           setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]);
-          
           setTimeout(() => {
               setIsMoveProcessing(false); clickGuard.current = false;
-              if (humanPlayerAchievedFirstBloodThisTurn) {
-                  setIsAwaitingCommanderPromotion(true);
-                  setSpecialActionContext({ extra: isExtra });
-                  return;
-              }
-
-              let triggeredSpecial = false;
-              if (newStreak >= 2 && oldStreak < 2 && nextBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-                  triggeredSpecial = true;
-                  setIsAwaitingHolyShield(true);
-                  setSpecialActionContext({ extra: isExtra });
-              }
-              if (!triggeredSpecial && newStreak >= 3 && oldStreak < 3) {
-                  triggeredSpecial = true;
-                  setIsAwaitingAnvilDrop(true);
-                  setSpecialActionContext({ extra: isExtra });
-              }
-              if (!triggeredSpecial && newStreak >= 5 && oldStreak < 5 && nextBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-                  const hasLevel1Enemies = nextBoard.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                  if (hasLevel1Enemies) {
-                      triggeredSpecial = true;
-                      setIsAwaitingArcherSnipe(true);
-                      setSpecialActionContext({ extra: isExtra });
-                  }
-              }
-              if (!triggeredSpecial && newStreak >= 4 && oldStreak < 4) {
-                  const graveyardList = capturedPieces.black;
-                  if (graveyardList.length > 0) {
-                      const pieceToRes = { ...graveyardList[graveyardList.length-1], level: 1, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, id: `res_SD_${Date.now()}` };
-                      const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
-                      if (empty.length > 0) {
-                          const chosenSq = empty[Math.floor(Math.random() * empty.length)];
-                          const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
-                          nextBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
-                          addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                          if (pieceToRes.type === 'pawn' && rr === 0) { 
-                              triggeredSpecial = true; setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); 
-                          }
-                      }
-                  }
-              }
-
-              if (!triggeredSpecial) {
-                  processMoveEnd(nextBoard, 'white', isExtra, enPassantTargetSquare);
-              }
+              triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, enPassantTargetSquare);
           }, 800);
         };
 
@@ -994,7 +864,7 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll();
               else if (movingPiece.heldItem === 'detonation_scroll') {
                   if (effectiveLevel >= 5) executeSelfDestruct();
-                  else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+                  else toast({ title: "Level Too Low", variant: "destructive" });
               }
               else executeWindScrollMode();
             }
@@ -1013,7 +883,7 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll();
           else if (movingPiece.heldItem === 'detonation_scroll') {
               if (effectiveLevel >= 5) executeSelfDestruct();
-              else toast({ title: "Level Too Low", description: "Detonation Scroll requires Level 5+.", variant: "destructive" });
+              else toast({ title: "Level Too Low", variant: "destructive" });
           }
           else executeWindScrollMode();
         } else if (hasSelfSelectionAbility) executeSelfDestruct();
@@ -1025,9 +895,7 @@ export default function DungeonPage() {
 
       if (isMoveInFreshList) {
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
-        
         let moveType: Move['type'] = 'move';
-        
         const isStandardStartingSquare = (movingPiece.color === 'white' && selectedSquare === 'e1') || (movingPiece.color === 'black' && selectedSquare === 'e8');
         const isStandardTargetSquare = (movingPiece.color === 'white' && (algebraic === 'c1' || algebraic === 'g1')) || (movingPiece.color === 'black' && (algebraic === 'c8' || algebraic === 'g8'));
         
@@ -1053,8 +921,7 @@ export default function DungeonPage() {
             setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...victim, id: `${victim.id}_refl_d_${Date.now()}` }] }));
             audioManager.playCapture();
             toast({ title: "REFLECTED!", description: "Enemy Mirror Shield reflected your attack!" });
-            setKillStreaks(prev => ({ ...prev, black: (prev.black || 0) + 1 }));
-            setKillStreaks(prev => ({ ...prev, white: 0 }));
+            setKillStreaks(prev => ({ ...prev, black: (prev.black || 0) + 1, white: 0 }));
             setBoard(newBoard);
             setTimeout(() => {
                 setSelectedSquare(null); setPossibleMoves([]);
@@ -1075,14 +942,14 @@ export default function DungeonPage() {
         if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
         const landedPiece = newBoard[row][col].piece;
         const isInteractivePromo = landedPiece?.type === 'pawn' && (row === 0 || row === 7);
-        let triggeredSpecial = false;
+
         if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
             const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic}, algebraic, originalLevel, capturedPieces, Date.now());
             if (resResult.resurrectionPerformed) {
                 newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection);
                 addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect();
                 toast({ title: "Resurrection!", description: `Fallen ${resResult.resurrectedPieceData?.type} returns!` });
-                if (resResult.promotionRequiredForResurrectedPawn) { setIsPromotingPawn(true); setPromotionSquare(resResult.resurrectedSquareAlg!); triggeredSpecial = true; }
+                if (resResult.promotionRequiredForResurrectedPawn) { setIsPromotingPawn(true); setPromotionSquare(resResult.resurrectedSquareAlg!); }
             }
         }
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
@@ -1093,87 +960,30 @@ export default function DungeonPage() {
           audioManager.playCapture();
           if (capturedPiece) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...capturedPiece!, id: `${capturedPiece!.id}_cap_${Date.now()}` }] }));
           if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_${Date.now()}` }] }));
-          
-          if (!firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white'); }
-          if (newStreak === 2 && newBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
-              triggeredSpecial = true; setTimeout(() => { setIsAwaitingHolyShield(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
-          } else if (newStreak === 3) {
-              triggeredSpecial = true; setTimeout(() => { setIsAwaitingAnvilDrop(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
-          } else if (newStreak === 4) {
-              const graveyardList = capturedPieces.black;
-              if (graveyardList.length > 0) {
-                  const pieceToRes = { ...graveyardList[graveyardList.length-1], level: 1, id: `res_H_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                  const empty = newBoard.flat().filter(sq => !sq.piece && !sq.item);
-                  if (empty.length > 0) {
-                      const chosenSq = empty[Math.floor(Math.random() * empty.length)];
-                      const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
-                      newBoard[rr][rc].piece = pieceToRes; setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
-                      addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-                      if (pieceToRes.type === 'pawn' && rr === 0) { setIsPromotingPawn(true); setPromotionSquare(chosenSq.algebraic); triggeredSpecial = true; }
-                  }
-              }
-          } else if (newStreak === 5 && newBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
-              const hasLevel1Enemies = nextBoard.flat().some(sq => 
-                  sq.piece && 
-                  sq.piece.color === 'black' && 
-                  sq.piece.level === 1 && 
-                  sq.piece.type !== 'king' && 
-                  sq.piece.type !== 'queen'
-              );
-              if (hasLevel1Enemies) {
-                triggeredSpecial = true; setTimeout(() => { setIsAwaitingArcherSnipe(true); setSpecialActionContext({ extra: result.extraTurn || (oldStreak < 6 && newStreak >= 6) }); }, 800);
-              }
-          }
-        } else if (moveType === 'castle') {
+        } else if (moveType === 'castle' || moveType === 'swap') {
           audioManager.playMove();
-        } else if (moveType === 'swap') {
-            audioManager.playMove();
         } else audioManager.playMove();
 
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
+          const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
           
           let sacrificeNeeded = false;
           if (landedPiece?.type === 'queen') {
-              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', algebraic, originalLevel, originalType, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
+              sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', { from: selectedSquare, to: algebraic, type: moveType }, originalLevel, originalType, isExtra, nextEp, oldStreak, newStreak);
           }
           if (sacrificeNeeded) return;
-
-          const hasL1Targets = newBoard.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
-          if (!firstBloodAchieved && streakGain > 0) { 
-              setFirstBloodAchieved(true); 
-              setPlayerWhoGotFirstBlood('white'); 
-              const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
-              if (hasL1Targets) {
-                  setSpecialActionContext({ extra: isExtra }); 
-                  setIsAwaitingCommanderPromotion(true); 
-                  if (isInteractivePromo) {
-                      setPromotionTargetLevel(getPromotionLevel(capturedPiece?.type || null));
-                      setIsPromotingPawn(true);
-                      setPromotionSquare(algebraic);
-                      return;
-                  }
-                  return;
-              } else {
-                  if (isInteractivePromo) {
-                      setPromotionTargetLevel(getPromotionLevel(capturedPiece?.type || null));
-                      setIsPromotingPawn(true);
-                      setPromotionSquare(algebraic);
-                      return;
-                  }
-                  processMoveEnd(newBoard, currentPlayer, isExtra, nextEp);
-                  return;
-              }
-          }
 
           if (isInteractivePromo) {
               setPromotionTargetLevel(getPromotionLevel(capturedPiece?.type || null));
               setIsPromotingPawn(true);
               setPromotionSquare(algebraic);
+              setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
               return;
           }
-          if (!triggeredSpecial) processMoveEnd(newBoard, currentPlayer, result.extraTurn || (oldStreak < 6 && newStreak >= 6), nextEp);
+          
+          triggerSpecialsChain(newBoard, oldStreak, newStreak, isExtra, nextEp);
         }, 800);
         return;
       }
@@ -1182,197 +992,38 @@ export default function DungeonPage() {
     else { setSelectedSquare(null); setPossibleMoves([]); }
   };
 
-  useEffect(() => {
-    const isSpecialActionActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isAwaitingHolyShield || isAwaitingArcherSnipe || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
-    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking && !isSpecialActionActive && aiInstance.current) {
-      const think = async () => {
-        setIsAiThinking(true); setIsMoveProcessing(true);
-        await new Promise(resolve => setTimeout(resolve, 500));
-        const stateForAi = {
-          board: board.map(r => r.map(s => ({ piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))),
-          currentPlayer: 'black' as PlayerColor, killStreaks: { ...killStreaks },
-          capturedPieces: { white: capturedPieces.white.map(p => ({ ...p })), black: capturedPieces.black.map(p => ({ ...p })) },
-          gameMoveCounter: 0, enPassantTargetSquare: enPassantTargetSquare, gameOver: false, firstBloodAchieved, playerWhoGotFirstBlood: playerWhoGotFirstBlood
-        };
-        try {
-          const best = aiInstance.current!.getBestMove(stateForAi, 'black');
-          if (best.move) {
-             setEnemyStuckTurns(0);
-             const from = coordsToAlgebraic(best.move.from[0], best.move.from[1]);
-             const to = coordsToAlgebraic(best.move.to[0], best.move.to[1]);
-             const originalP = board[best.move.from[0]][best.move.from[1]].piece;
-             const originalLevel = originalP?.level || 1;
-             const originalType = originalP?.type || 'pawn';
-             setLastMoveFrom(from); setLastMoveTo(to); setAnimatedSquareTo(to);
-             
-             const moveType = best.move.type as any;
-             const promoteTo = best.move.type === 'promotion' ? (best.move.promoteTo || 'queen') : undefined;
-
-             const result = applyMove(board, { from, to, type: moveType, promoteTo }, enPassantTargetSquare, capturedPieces);
-             
-             if (result.reflectionOccurred) {
-                const victim = result.capturedPiece!;
-                setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...victim, id: `${victim.id}_refl_ai_d_${Date.now()}` }] }));
-                audioManager.playCapture();
-                toast({ title: "REFLECTED!", description: "Hero's Mirror Shield reflected the Dungeon attack!" });
-                setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + 1 }));
-                setKillStreaks(prev => ({ ...prev, black: 0 }));
-                setBoard(result.newBoard);
-                setTimeout(() => {
-                    setIsAiThinking(false); setIsMoveProcessing(false);
-                    processMoveEnd(result.newBoard, 'black', false, null);
-                }, 800);
-                return;
-             }
-
-             if (result.infiltrationWin) { 
-                setIsAiThinking(false);
-                setIsMoveProcessing(false);
-                setBoard(result.newBoard); 
-                setGameInfo({ message: "DUNGEON INFILTRATION! RUN OVER", gameOver: true, winner: 'black' }); 
-                audioManager.playDefeat(); 
-                return; 
-             }
-             let nextBoard = result.newBoard;
-             if (result.phoenixResurrection) { addEffect('light-beam', result.phoenixResurrection.square); audioManager.playResurrect(); }
-             if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
-             if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
-             
-             const { row: tr, col: tc } = algebraicToCoords(to);
-             const landedPiece = nextBoard[tr][tc].piece;
-             let aiPromoExtraTurn = false;
-             if (landedPiece && (landedPiece.type === 'pawn' || landedPiece.type === 'commander') && tr === 7) {
-                 const pType = (landedPiece.type === 'commander') ? 'hero' : (promoteTo || 'queen');
-                 landedPiece.type = pType;
-                 landedPiece.id = `${landedPiece.id}_AI_PROMO_${Date.now()}`;
-                 if (landedPiece.type !== 'hero') {
-                     landedPiece.level = getPromotionLevel(result.capturedPiece?.type || null);
-                 }
-                 if (pType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
-                 audioManager.playLevelUp();
-             }
-
-             if (nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece && (nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece!.type === 'rook' || nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece!.type === 'palace') && result.capturedPiece) {
-                const resResultAI = processRookResurrectionCheck(nextBoard, 'black', {from, to}, to, originalLevel, capturedPieces, Date.now());
-                if (resResultAI.resurrectionPerformed) {
-                    nextBoard = resResultAI.boardWithResurrection; setCapturedPieces(resResultAI.capturedPiecesAfterResurrection);
-                    addEffect('light-beam', resResultAI.resurrectedSquareAlg!); audioManager.playResurrect();
-                    if (resResultAI.promotionRequiredForResurrectedPawn) {
-                        const { row: pr, col: pc } = algebraicToCoords(resResultAI.resurrectedSquareAlg!);
-                        if (nextBoard[pr][pc].piece) { nextBoard[pr][pc].piece!.type = 'queen'; nextBoard[pr][pc].piece!.id += '_res_promo'; nextBoard[pr][pc].piece!.isPoisoned = false; nextBoard[pr][pc].piece!.cooldownTurnsRemaining = 0; nextBoard[pr][pc].piece!.frozenTurnsRemaining = 0; }
-                    }
-                }
-             }
-
-             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalType === 'queen' && originalLevel < 7) {
-                 const hasPawns = nextBoard.flat().some(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
-                 if (hasPawns) {
-                     const pawnToSac = nextBoard.flat().find(sq => sq.piece?.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
-                     if (pawnToSac) {
-                         const {row: pr, col: pc} = algebraicToCoords(pawnToSac.algebraic);
-                         const sacPiece = { ...nextBoard[pr][pc].piece!, id: `${nextBoard[pr][pc].piece!.id}_sac_${Date.now()}` };
-                         nextBoard[pr][pc].piece = null;
-                         setCapturedPieces(prev => ({ ...prev, white: [...prev.white, sacPiece] }));
-                         audioManager.playCapture();
-                         toast({ title: "Queen's Ascension!", description: "Dungeon sacrificed a pawn for its L7 Queen!" });
-                     }
-                 }
-             }
-
-             setBoard(nextBoard);
-             if (result.shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); }
-             const streakGain = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
-             const oldStreak = killStreaks.black || 0;
-             const newStreak = oldStreak + streakGain;
-             if (streakGain > 0 && !firstBloodAchieved) { setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(currentPlayer); }
-             setKillStreaks(prev => ({ ...prev, black: streakGain > 0 ? newStreak : 0 }));
-             if (streakGain > 0) {
-               audioManager.playCapture();
-               if (result.capturedPiece) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...result.capturedPiece!, id: `${result.capturedPiece!.id}_cap_ai_${Date.now()}` }] }));
-               if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_ai_${Date.now()}` }] }));
-               if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_ai_${Date.now()}` }))] }));
-               
-               const hasArchbishop = nextBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'black');
-               const hasArcher = nextBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'black');
-               if (newStreak === 2 && hasArchbishop) {
-                   const allies = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type !== 'king' && sq.piece.id !== nextBoard[algebraicToCoords(to).row][algebraicToCoords(to).col].piece?.id).map(sq => sq.piece!);
-                   if (allies.length > 0) { const player_sh_id = allies[Math.floor(Math.random() * allies.length)].id; nextBoard.flat().forEach(sq => { if (sq.piece?.id === player_sh_id) sq.piece.isShielded = true; }); audioManager.playShield(); }
-               } else if (newStreak === 3) {
-                   const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
-                   if (empty.length > 0) { const chosen = empty[Math.floor(Math.random() * empty.length)]; chosen.item = { type: 'anvil' }; audioManager.playAnvil(); }
-                   const hasCrossbow = nextBoard.flat().some(sq => sq.piece?.heldItem === 'crossbow' && sq.piece.color === 'black');
-                   if (hasCrossbow) {
-                     const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                     if (victims.length > 0) {
-                        const v = victims[Math.floor(Math.random()*victims.length)];
-                        const cp = { ...v.piece!, id: `${v.piece!.id}_sniped_ai_${Date.now()}` };
-                        nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === v.algebraic) sq_v.piece = null; }));
-                        setCapturedPieces(prev => ({ ...prev, black: [...prev.black, cp] }));
-                        audioManager.playSnipe(); addEffect('poof', v.algebraic);
-                     }
-                   }
-               } else if (newStreak === 4) {
-                   const graveyardListForAI = capturedPieces.white;
-                   if (graveyardListForAI.length > 0) {
-                       const pieceToResurrect = graveyardListForAI[graveyardListForAI.length-1];
-                       const emptySqForAIRes: AlgebraicSquare[] = [];
-                       for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) if (!nextBoard[rr][cc].piece && !nextBoard[rr][cc].item) emptySqForAIRes.push(coordsToAlgebraic(rr, cc));
-                       
-                       if (emptySqForAIRes.length > 0) {
-                           const resSqAlg = emptySqForAIRes[Math.floor(Math.random() * emptySqForAIRes.length)];
-                           const { row: resR, col: resC } = algebraicToCoords(resSqAlg);
-                           const resurrectedAI: Piece = { ...pieceToResurrect, level: 1, id: `${pieceToResurrect.id}_res_AI_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                           nextBoard[resR][resC].piece = resurrectedAI;
-                           setCapturedPieces(prev => ({ ...prev, white: prev.white.filter(p => p.id !== pieceToResurrect.id) }));
-                           addEffect('light-beam', resSqAlg); audioManager.playResurrect();
-                           if (resurrectedAI.type === 'pawn' && resR === 7) { nextBoard[resR][resC].piece!.type = 'queen'; nextBoard[resR][resC].piece!.id += '_res_promo'; }
-                       }
-                   }
-               } else if (newStreak === 5 && hasArcher) {
-                   const victims = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-                   if (victims.length > 0) { const victimSq = victims[Math.floor(Math.random() * victims.length)]; const captured = { ...victimSq.piece!, id: `${victimSq.piece!.id}_sniped_ai_${Date.now()}` }; nextBoard.flat().forEach(row_v => row_v.forEach(sq_v => { if (sq_v.algebraic === victimSq.algebraic) sq_v.piece = null; })); setCapturedPieces(prev => ({ ...prev, black: [...prev.black, captured] })); audioManager.playSnipe(); addEffect('poof', victimSq.algebraic); }
-               }
-             } else if (best.move.type === 'castle') {
-               audioManager.playMove();
-             } else if (best.move.type === 'swap') {
-                audioManager.playMove();
-             } else audioManager.playMove();
-             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(nextBoard, 'black', result.extraTurn || (oldStreak < 6 && newStreak >= 6) || aiPromoExtraTurn, result.enPassantTargetSet); }, 800);
-          } else {
-            const nextStuck = enemyStuckTurns + 1;
-            setEnemyStuckTurns(nextStuck);
-            if (nextStuck >= 3) {
-                const stuckPieces = board.flat().filter(sq => sq.piece && sq.piece.color === 'black');
-                let currentBoard = board;
-                stuckPieces.forEach(sq => {
-                    const result = applyMove(currentBoard, { from: sq.algebraic, to: sq.algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces);
-                    currentBoard = result.newBoard;
-                    const { row: cR, col: cC } = algebraicToCoords(sq.algebraic);
-                    for (let dr = -1; dr <= 1; dr++) {
-                        for (let dc = -1; dc <= 1; dc++) {
-                            if (isValidSquare(cR + dr, cC + dc)) {
-                                addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc));
-                            }
-                        }
-                    }
-                });
-                audioManager.playExplosion();
-                setBoard(currentBoard);
-                setEnemyStuckTurns(0);
-                setTimeout(() => { 
-                    setIsAiThinking(false); 
-                    setIsMoveProcessing(false); 
-                    processMoveEnd(currentBoard, 'black', false, enPassantTargetSquare); 
-                }, 800);
-                return;
-            }
-            setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(board, 'black', false, enPassantTargetSquare);
-          }
-        } catch (e) { setIsAiThinking(false); setIsMoveProcessing(false); processMoveEnd(board, 'black', false, enPassantTargetSquare); }
-      };
-      think();
+  const processPawnSacrificeCheck = useCallback((
+    boardAfterPrimaryMove: BoardState,
+    playerWhoseQueenLeveled: PlayerColor,
+    move: Move,
+    originalLevel: number,
+    originalType: PieceType,
+    isExtra: boolean,
+    nextEp: AlgebraicSquare | null,
+    oldStreak: number,
+    newStreak: number
+  ): boolean => {
+    if (originalType !== 'queen') return false;
+    const { row: tr, col: tc } = algebraicToCoords(move.to);
+    const queen = boardAfterPrimaryMove[tr][tc].piece;
+    if (queen && queen.type === 'queen' && queen.level === 7 && originalLevel < 7) {
+      const hasPawns = boardAfterPrimaryMove.flat().some(sq => sq.piece && sq.piece.color === playerWhoseQueenLeveled && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+      if (hasPawns) {
+        setIsAwaitingPawnSacrifice(true);
+        setPlayerToSacrificePawn(playerWhoseQueenLeveled);
+        setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled);
+        setIsExtraTurnFromQueenMove(isExtra);
+        setBoardForPostSacrifice(boardAfterPrimaryMove);
+        setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
+        return true;
+      }
     }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, board, processMoveEnd, killStreaks, capturedPieces, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isPromotingPawn, isAwaitingPawnSacrifice, toast, enPassantTargetSquare, addEffect, enemyStuckTurns, firstBloodAchieved, playerWhoGotFirstBlood, isInventoryOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget]);
+    return false;
+  }, [triggerSpecialsChain]);
+
+  const isLocalActionTurn = currentPlayer === 'white';
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe;
+  const isInteractionDisabled = isMoveProcessing || gameInfo.gameOver || isAiThinking || (isAnySpecialModeActive && !isLocalActionTurn);
 
   if (!user) {
     return (
@@ -1405,19 +1056,19 @@ export default function DungeonPage() {
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
           <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
           <div className="w-full aspect-square">
             <ChessBoard
               boardState={board}
-              selectedSquare={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? null : selectedSquare}
-              possibleMoves={(isInventoryOpen || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget) ? [] : possibleMoves}
+              selectedSquare={isAnySpecialModeActive ? null : selectedSquare}
+              possibleMoves={isAnySpecialModeActive ? [] : possibleMoves}
               enemySelectedSquare={null}
               enemyPossibleMoves={[]}
               onSquareClick={handleSquareClick}
               playerColor="white"
               currentPlayerColor={currentPlayer}
-              isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isInventoryOpen}
+              isInteractionDisabled={isInteractionDisabled}
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode="flipping"
               animatedSquareTo={animatedSquareTo}
