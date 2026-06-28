@@ -329,6 +329,7 @@ export default function DungeonPage() {
   }, []);
 
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe;
+  const isLocalActionTurn = currentPlayer === 'white';
 
   useEffect(() => {
     if (!board.length || !prevBoardRef.current) {
@@ -701,9 +702,44 @@ export default function DungeonPage() {
         const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
         setKillStreaks(prev => ({ ...prev, black: newStreak }));
 
-        if (capturedPiece) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...capturedPiece!, id: `${capturedPiece!.id}_cap_ai_${Date.now()}` }] }));
-        if (selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, ...selfDestructCaptures.map(p => ({...p, id: `${p.id}_sd_ai_${Date.now()}`}))] }));
-        if (result.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, black: [...prev.black, { ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_ai_${Date.now()}` }] }));
+        const updatedCapturedPieces = {
+            white: [...capturedPieces.white],
+            black: [...capturedPieces.black]
+        };
+        if (capturedPiece) updatedCapturedPieces.black.push({ ...capturedPiece!, id: `${capturedPiece!.id}_cap_ai_${Date.now()}` });
+        if (selfDestructCaptures) selfDestructCaptures.forEach(p => updatedCapturedPieces.black.push({ ...p, id: `${p.id}_sd_ai_${Date.now()}` }));
+        if (result.pieceCapturedByAnvil) updatedCapturedPieces.black.push({ ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_ai_${Date.now()}` });
+        setCapturedPieces(updatedCapturedPieces);
+
+        if (result.infiltrationWin) {
+            setBoard(newBoard);
+            setGameInfo({ message: "INFILTRATION! DUNGEON OVERRUN", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: 'black' });
+            audioManager.playDefeat();
+            setIsAiThinking(false); setIsMoveProcessing(false);
+            return;
+        }
+
+        if (result.conversionEvents && result.conversionEvents.length > 0) {
+            result.conversionEvents.forEach(e => {
+                addEffect('conversion', e.at, e.byPiece.color);
+                audioManager.playConversion();
+            });
+        }
+
+        const aiLandedPieceOnToSquare = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
+        if (aiLandedPieceOnToSquare && (['rook', 'palace'].includes(aiLandedPieceOnToSquare.type)) && (streakGain > 0)) {
+            const resResult = processRookResurrectionCheck(newBoard, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, toAlg, originalL, updatedCapturedPieces, uniqueIdCounterRef.current);
+            if (resResult.resurrectionPerformed) {
+                uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!;
+                newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection);
+                addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect();
+                toast({ title: "Dungeon Resurrection!", description: `Fallen ${resResult.resurrectedPieceData?.type} returns!` });
+                if (resResult.promotionRequiredForResurrectedPawn) { 
+                    const {row: pr, col: pc} = algebraicToCoords(resResult.resurrectedSquareAlg!);
+                    newBoard[pr][pc].piece!.type = 'queen';
+                }
+            }
+        }
 
         setBoard(newBoard);
 
@@ -727,7 +763,7 @@ export default function DungeonPage() {
 
             if (landedPiece?.type === 'pawn' && (aiMove.to[0] === 7)) {
                 landedPiece.type = aiMove.promoteTo || 'queen';
-                landedPiece.level = getPromotionLevel(capturedPiece?.type || null);
+                landedPiece.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null);
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
                 audioManager.playLevelUp();
             }
@@ -793,7 +829,7 @@ export default function DungeonPage() {
       console.error("AI Error:", e);
       setIsAiThinking(false);
     }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
@@ -1389,7 +1425,7 @@ export default function DungeonPage() {
               onSquareClick={handleSquareClick}
               playerColor="white"
               currentPlayerColor={currentPlayer}
-              isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white') || isAiThinking}
+              isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && isLocalActionTurn) || isAiThinking}
               playerInCheck={gameInfo.playerWithKingInCheck}
               viewMode="flipping"
               animatedSquareTo={animatedSquareTo}
