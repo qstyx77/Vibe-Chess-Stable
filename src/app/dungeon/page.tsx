@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -296,6 +295,8 @@ export default function DungeonPage() {
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
 
+  const uniqueIdCounterRef = useRef(30000);
+
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -484,11 +485,7 @@ export default function DungeonPage() {
   }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null) => {
-    // 1. Queen Sacrifice (Highest Priority)
-    const activeMovingPiece = boardToChain.flat().find(sq => sq.piece?.color === 'white' && sq.piece.type === 'queen' && sq.piece.level === 7);
-    // Actually sacrifice check was handled in handleSquareClick, but we ensure order here.
-
-    // 2. First Blood -> Commander Promo
+    // 1. First Blood -> Commander Promo
     if (!firstBloodAchieved && newStreak > oldStreak) {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood('white');
         const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
@@ -499,46 +496,44 @@ export default function DungeonPage() {
         }
     }
 
-    // 3. Killstreak: Holy Shield (Streak 2 + Archbishop)
+    // 2. Killstreak: Holy Shield (Streak 2 + Archbishop)
     if (newStreak >= 2 && oldStreak < 2 && boardToChain.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === 'white')) {
         setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
         setIsAwaitingHolyShield(true);
         return;
     }
 
-    // 4. Killstreak: Anvil (Streak 3)
+    // 3. Killstreak: Anvil (Streak 3)
     if (newStreak >= 3 && oldStreak < 3) {
         setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
         setIsAwaitingAnvilDrop(true);
         return;
     }
 
-    // 5. Killstreak: Resurrection (Streak 4)
+    // 4. Killstreak: Resurrection (Streak 4)
     if (newStreak >= 4 && oldStreak < 4 && capturedPieces.black.length > 0) {
-        const graveyardList = capturedPieces.black;
         const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-        const pieceToRes = { ...graveyardList[graveyardList.length-1], level: 1, id: `res_H_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-        const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
-        if (empty.length > 0) {
-            const chosenSq = empty[Math.floor(Math.random() * empty.length)];
-            const { row: rr, col: rc } = algebraicToCoords(chosenSq.algebraic);
-            nextBoard[rr][rc].piece = pieceToRes;
-            setCapturedPieces(prev => ({ ...prev, black: prev.black.slice(0, -1) }));
-            setBoard(nextBoard);
-            addEffect('light-beam', chosenSq.algebraic); audioManager.playResurrect();
-            if (pieceToRes.type === 'pawn' && rr === 0) { 
-                setPromotionSquare(chosenSq.algebraic);
-                setPromotionTargetLevel(1);
+        const resResult = processRookResurrectionCheck(nextBoard, 'white', {from: 'e1', to: 'e1'} as any, 'e1', 0, capturedPieces, uniqueIdCounterRef.current);
+        if (resResult.resurrectionPerformed) {
+            uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!;
+            const nextBoardRes = resResult.boardWithResurrection;
+            setCapturedPieces(resResult.capturedPiecesAfterResurrection);
+            setBoard(nextBoardRes);
+            addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect();
+            
+            if (resResult.promotionRequiredForResurrectedPawn) { 
+                setPromotionTargetLevel(resResult.resurrectedPieceData?.level || 1);
+                setPromotionSquare(resResult.resurrectedSquareAlg!);
                 setIsPromotingPawn(true);
                 setSpecialActionContext({ extra: isExtra, nextEp, oldStreak: 4, newStreak: 4 }); 
                 return;
             }
+            triggerSpecialsChain(nextBoardRes, 4, 4, isExtra, nextEp);
+            return;
         }
-        triggerSpecialsChain(nextBoard, 4, 4, isExtra, nextEp);
-        return;
     }
 
-    // 6. Killstreak: Archer Snipe (Streak 5 + Archer)
+    // 5. Killstreak: Archer Snipe (Streak 5 + Archer)
     if (newStreak >= 5 && oldStreak < 5 && boardToChain.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === 'white')) {
         const hasLevel1Enemies = boardToChain.flat().some(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
         if (hasLevel1Enemies) {
@@ -1112,16 +1107,26 @@ export default function DungeonPage() {
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
         if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
         if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
+        
+        let resPromoRequired = false;
+        let resResult_promo_level = 1;
+        let resResult_promo_square = null;
+
         const landedPiece = newBoard[row][col].piece;
         const isInteractivePromo = landedPiece?.type === 'pawn' && (row === 0 || row === 7);
 
         if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
-            const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic}, algebraic, originalLevel, capturedPieces, Date.now());
+            const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalLevel, capturedPieces, uniqueIdCounterRef.current);
             if (resResult.resurrectionPerformed) {
+                uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!;
                 newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection);
                 addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect();
                 toast({ title: "Resurrection!", description: `Fallen ${resResult.resurrectedPieceData?.type} returns!` });
-                if (resResult.promotionRequiredForResurrectedPawn) { setIsPromotingPawn(true); setPromotionSquare(resResult.resurrectedSquareAlg!); }
+                if (resResult.promotionRequiredForResurrectedPawn) { 
+                    resPromoRequired = true;
+                    resResult_promo_level = resResult.resurrectedPieceData?.level || 1;
+                    resResult_promo_square = resResult.resurrectedSquareAlg!;
+                }
             }
         }
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
@@ -1141,6 +1146,14 @@ export default function DungeonPage() {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
           const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
           
+          if (resPromoRequired) {
+              setPromotionTargetLevel(resResult_promo_level);
+              setPromotionSquare(resResult_promo_square);
+              setIsPromotingPawn(true);
+              setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak });
+              return;
+          }
+
           let sacrificeNeeded = false;
           if (landedPiece?.type === 'queen') {
               sacrificeNeeded = processPawnSacrificeCheck(newBoard, 'white', { from: selectedSquare, to: algebraic, type: moveType }, originalLevel, originalType, isExtra, nextEp, oldStreak, newStreak);
@@ -1314,4 +1327,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-

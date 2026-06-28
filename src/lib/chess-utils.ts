@@ -2,6 +2,21 @@ import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Square
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
+const VAL_MAP: Record<string, number> = {
+  pawn: 1,
+  commander: 2,
+  infiltrator: 2,
+  knight: 3,
+  bishop: 3,
+  archbishop: 4,
+  rook: 5,
+  palace: 6,
+  queen: 9,
+  king: 0,
+  hero: 4,
+  archer: 3
+};
+
 /**
  * Initializes a standard board, optionally upgrading pieces based on ELO.
  * Assigns persistent IDs to pieces so equipment stays attached.
@@ -573,8 +588,6 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
 }
 
-const VAL_MAP: Record<string, number> = {pawn:1, commander:1, infiltrator:1, knight:3, bishop:3, archbishop:3, rook:5, palace:6, queen:9, king:0, hero:3, archer:3};
-
 export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }): ApplyMoveResult {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
   let enPassantTargetSet: AlgebraicSquare | null = null;
@@ -609,7 +622,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const handleHydraSplit = (victim: Piece, r: number, c: number, targetBoard: BoardState) => {
     if (victim.id.startsWith('boss-hydra')) {
         let spawned = 0;
-        const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1],[1,-1],[1,0],[1,1]].sort(() => Math.random() - 0.5);
+        const dirs = [[-1,-1],[-1,0],[-1,1],[0,-1],[0,1], [1,-1],[1,0],[1,1]].sort(() => Math.random() - 0.5);
         for (const [dr, dc] of dirs) {
             if (spawned >= 2) break;
             const nr = r + dr; const nc = c + dc;
@@ -1254,7 +1267,16 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
   const effectiveLevel = getEffectiveLevel(board, r, c);
   if (effectiveLevel >= 4 && effectiveLevel > oldL) {
     const opp = player === 'white' ? 'black' : 'white';
-    const choice = [...graveyard[opp]].sort((a,b) => ( VAL_MAP[b.type] || 0 ) - ( VAL_MAP[a.type] || 0 ))[0];
+    if (!graveyard[opp] || graveyard[opp].length === 0) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
+    
+    // Sort graveyard by value, then by level (highest first)
+    const sortedGraveyard = [...graveyard[opp]].sort((a,b) => {
+        const valDiff = (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0);
+        if (valDiff !== 0) return valDiff;
+        return (b.level || 1) - (a.level || 1);
+    });
+    
+    const choice = sortedGraveyard[0];
     if (choice) {
       const adj = [];
       for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) if(dr!==0 || dc!==0) {
@@ -1263,12 +1285,33 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
       if (adj.length > 0) {
         const target = adj[Math.floor(Math.random()*adj.length)];
         const {row: rr, col: rc} = algebraicToCoords(target);
+        
+        // Determine level based on Rook type (Palace retains level, Rook resets to 1)
+        const resLevel = piece.type === 'palace' ? choice.level : 1;
+        
         // Retain original piece properties but reset temporary state
-        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+        const res = { ...choice, level: resLevel, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+        
+        const oppBackRank = player === 'white' ? 0 : 7;
+        
+        // Automatic Commander -> Hero promotion if landing on opponent back rank
+        if (res.type === 'commander' && rr === oppBackRank) {
+            res.type = 'hero';
+            res.id = `${res.id}_hero_res_auto_${Date.now()}`;
+        }
+
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [opp]: graveyard[opp].filter(p => p.id !== choice.id) };
-        const oppBackRank = player === 'white' ? 0 : 7;
-        return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: res.type === 'pawn' && rr === oppBackRank };
+        
+        return { 
+          boardWithResurrection: board, 
+          capturedPiecesAfterResurrection: newG, 
+          resurrectionPerformed: true, 
+          resurrectedPieceData: res, 
+          resurrectedSquareAlg: target, 
+          newResurrectionIdCounter: idCounter+1, 
+          promotionRequiredForResurrectedPawn: res.type === 'pawn' && rr === oppBackRank 
+        };
       }
     }
   }
