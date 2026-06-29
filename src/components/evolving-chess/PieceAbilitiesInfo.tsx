@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Piece } from '@/types';
@@ -11,9 +10,14 @@ interface PieceAbilitiesInfoProps {
 }
 
 const getPieceAbilities = (piece: Piece): string[] => {
-  const { type, level, heldItem } = piece;
+  const { type, level, heldItem, id } = piece;
   const abilities: string[] = [];
   const l = level || 1;
+
+  // Dungeon Boss Inherent Abilities
+  if (id.startsWith('boss-hydra')) {
+    abilities.push(" Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
+  }
 
   if (heldItem === 'cardinal_greaves') abilities.push(" cardinal: move (no capture) 1 space forward.");
   if (heldItem === 'drift_boots') abilities.push(" drift: move (no capture) 1 space diagonally forward.");
@@ -104,7 +108,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
     case 'rook':
     case 'palace':
       abilities.push("Standard horizontal/vertical move.");
-      if (l >= 4) abilities.push("Resurrects piece on level up via capture.");
+      if (l >= 4) abilities.push("Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece.");
       if (type === 'palace') {
         abilities.push("Master Resurrector: Allies return at their original level.");
         abilities.push("Royal Sanctuary: Castling levels up the King.");
@@ -127,7 +131,20 @@ const getPieceAbilities = (piece: Piece): string[] => {
 
 export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const abilities = getPieceAbilities(piece);
-  const pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
+  
+  let pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
+  if (piece.id.startsWith('boss-hydra')) {
+    pieceName = "Hydra";
+  } else if (piece.id.startsWith('boss-necro')) {
+    pieceName = "Necromancer";
+  } else if (piece.id.startsWith('boss-colossus')) {
+    pieceName = "Colossus";
+  } else if (piece.id.startsWith('boss-mirage')) {
+    pieceName = "Mirage";
+  } else if (piece.id.startsWith('boss-entity')) {
+    pieceName = "Void Entity";
+  }
+
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
