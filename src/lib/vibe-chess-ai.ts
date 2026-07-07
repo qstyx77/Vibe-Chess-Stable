@@ -217,6 +217,12 @@ export class VibeChessAI {
         } else if (targetPiece && targetPiece.color !== currentPlayer) {
             captureOccurred = true; captureCount = 1;
             handleHydraSplit(targetPiece, tR, tC, nextState.board);
+            
+            // Rule: Pawn Capturing a Commander promotes to a Commander
+            if (piece.type === 'pawn' && targetPiece.type === 'commander') {
+                piece.type = 'commander';
+            }
+
             const levelBonus = piece.heldItem === 'berserkers_mask' ? 3 : (this.captureLevelBonuses[targetPiece.type] || 1);
             const currentL = piece.level || 1;
             let newL = currentL + levelBonus;

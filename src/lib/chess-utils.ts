@@ -919,6 +919,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (captured) {
     handleHydraSplit(captured, toRow, toCol, newBoard);
+
+    // Rule: Pawn Capturing a Commander promotes to a Commander
+    if (pieceToLand.type === 'pawn' && captured.type === 'commander') {
+      pieceToLand.type = 'commander';
+    }
+
     let gain = pieceToLand.heldItem === 'berserkers_mask' ? 3 : ({pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
     if (pieceToLand.heldItem === 'gnosis') gain += 1;
