@@ -160,7 +160,7 @@ export class VibeChessAI {
                 for (const [dr, dc] of dirs) {
                     if (spawned >= 2) break;
                     const nr = r + dr; const nc = c + dc;
-                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
+                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nr].piece && !targetBoard[nr][nc].item) {
                         targetBoard[nr][nc].piece = {
                             id: `hydra-head-sim-${Date.now()}-${spawned}-${victim.id}`,
                             type: 'knight',
@@ -232,7 +232,7 @@ export class VibeChessAI {
                 for (let dc = -1; dc <= 1; dc++) {
                     if (dr === 0 && dc === 0) continue;
                     const nr = tR + dr, nc = tC + dc;
-                    if (isValidSquareUtil(nr, nc)) {
+                    if (isValidSquareUtil(nr, nc) ) {
                         const neighbor = nextState.board[nr][nc].piece;
                         if (neighbor && neighbor.color === piece.color && neighbor.heldItem === 'logas') { hasLogasBoost = true; break; }
                     }
@@ -249,8 +249,8 @@ export class VibeChessAI {
             piece.isPoisoned = false;
             piece.cooldownTurnsRemaining = 0;
             piece.frozenTurnsRemaining = 0;
-            if (piece.type === 'commander') this.applyRally(nextState, currentPlayer, 'pawn');
-            else if (piece.type === 'hero') this.applyRally(nextState, currentPlayer, 'all');
+            if (originalType === 'commander') this.applyRally(nextState, currentPlayer, 'pawn');
+            else if (originalType === 'hero') this.applyRally(nextState, currentPlayer, 'all');
             if (piece.type === 'king') this.reduceEnemyQueens(nextState, opponentColor, levelBonus);
             
             if (targetPiece.heldItem === 'soul_link') {

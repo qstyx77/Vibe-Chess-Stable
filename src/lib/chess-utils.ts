@@ -959,8 +959,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         levelGain = gain;
     }
 
-    if (pieceToLand.type === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
-    if (pieceToLand.type === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
+    if (originalPieceType === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
+    if (originalPieceType === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
 
     if (pieceToLand.heldItem === 'poison_dagger') {
