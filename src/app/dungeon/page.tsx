@@ -298,6 +298,8 @@ export default function DungeonPage() {
 
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
 
+  const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
+
   const uniqueIdCounterRef = useRef(30000);
 
   // --- Inventory States ---
@@ -365,6 +367,7 @@ export default function DungeonPage() {
     
     setLevel(nextLevel);
     setAiStalemateStrikes(0);
+    setHasMovedOnCurrentFloor(false);
     setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
@@ -655,6 +658,7 @@ export default function DungeonPage() {
       const aiMove = aiResult?.move;
 
       if (aiMove) {
+        setHasMovedOnCurrentFloor(true);
         setAiStalemateStrikes(0);
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]);
         const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
@@ -853,6 +857,7 @@ export default function DungeonPage() {
     
     setIsMoveProcessing(false);
     clickGuard.current = false;
+    setHasMovedOnCurrentFloor(false);
     
     let army: Piece[] = [];
     const elo = userData.eloRating || 1200;
@@ -974,6 +979,7 @@ export default function DungeonPage() {
 
     if (isAwaitingWindScrollTarget) {
       if (!sq.piece && !sq.item) {
+        setHasMovedOnCurrentFloor(true);
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -986,6 +992,7 @@ export default function DungeonPage() {
     }
     if (isAwaitingAnvilScrollTarget) {
       if (!sq.piece && !sq.item) {
+        setHasMovedOnCurrentFloor(true);
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -998,6 +1005,7 @@ export default function DungeonPage() {
     }
     if (isAwaitingShieldScrollTarget) {
       if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen') {
+        setHasMovedOnCurrentFloor(true);
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -1010,6 +1018,7 @@ export default function DungeonPage() {
     }
     if (isAwaitingSwapScrollTarget) {
         if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
+            setHasMovedOnCurrentFloor(true);
             setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -1101,6 +1110,7 @@ export default function DungeonPage() {
         }
 
         const executeLifeLeach = () => {
+          setHasMovedOnCurrentFloor(true);
           setIsMoveProcessing(true); clickGuard.current = true;
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' };
           const result = applyMove(board, move, enPassantTargetSquare);
@@ -1114,6 +1124,7 @@ export default function DungeonPage() {
         const executeShieldScrollMode = () => { if(effectiveLevel < 2) return; setIsAwaitingShieldScrollTarget(true); setPossibleMoves([]); };
         const executeRallyScroll = () => {
           if(effectiveLevel < 3) return;
+          setHasMovedOnCurrentFloor(true);
           setIsMoveProcessing(true); clickGuard.current = true;
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' };
           const result = applyMove(board, move, enPassantTargetSquare);
@@ -1123,6 +1134,7 @@ export default function DungeonPage() {
           setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
         const executeAntidote = () => {
+            setHasMovedOnCurrentFloor(true);
             setIsMoveProcessing(true); clickGuard.current = true;
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' };
             const result = applyMove(board, move, enPassantTargetSquare);
@@ -1134,6 +1146,7 @@ export default function DungeonPage() {
         const executeSwapScrollMode = () => { if(effectiveLevel < 3) return; setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); };
         const executeIceScroll = () => {
           if (effectiveLevel < 2) return;
+          setHasMovedOnCurrentFloor(true);
           setIsMoveProcessing(true); clickGuard.current = true;
           const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' };
           const result = applyMove(board, move, enPassantTargetSquare);
@@ -1144,6 +1157,7 @@ export default function DungeonPage() {
         };
         const executeResurrectionScroll = () => {
             if (effectiveLevel < 4) return;
+            setHasMovedOnCurrentFloor(true);
             setIsMoveProcessing(true); clickGuard.current = true;
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -1158,6 +1172,7 @@ export default function DungeonPage() {
         };
         const executeFaithScroll = () => {
             if (effectiveLevel < 5) return;
+            setHasMovedOnCurrentFloor(true);
             setIsMoveProcessing(true); clickGuard.current = true;
             const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -1170,6 +1185,7 @@ export default function DungeonPage() {
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
         };
         const executeSelfDestruct = () => {
+          setHasMovedOnCurrentFloor(true);
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare);
           audioManager.playExplosion();
           const { row: cR, col: cC } = algebraicToCoords(selectedSquare);
@@ -1237,6 +1253,7 @@ export default function DungeonPage() {
       const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
 
       if (isMoveInFreshList) {
+        setHasMovedOnCurrentFloor(true);
         setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); moveCounter.current++;
         let moveType: Move['type'] = 'move';
         const isStandardStartingSquare = (movingPiece.color === 'white' && selectedSquare === 'e1') || (movingPiece.color === 'black' && selectedSquare === 'e8');
@@ -1405,7 +1422,12 @@ export default function DungeonPage() {
             {isBossFloor ? `BOSS FLOOR: ${level}` : `Floor ${level}`}
           </h1>
         </div>
-        <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)}>
+        <Button 
+          variant={isInventoryOpen ? "default" : "outline"} 
+          size="sm" 
+          onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+          disabled={hasMovedOnCurrentFloor}
+        >
           <Package className="mr-1 h-4 w-4" /> Items
         </Button>
       </div>
