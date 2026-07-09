@@ -160,7 +160,7 @@ export class VibeChessAI {
                 for (const [dr, dc] of dirs) {
                     if (spawned >= 2) break;
                     const nr = r + dr; const nc = c + dc;
-                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nr].piece && !targetBoard[nr][nc].item) {
+                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
                         targetBoard[nr][nc].piece = {
                             id: `hydra-head-sim-${Date.now()}-${spawned}-${victim.id}`,
                             type: 'knight',
@@ -486,7 +486,7 @@ export class VibeChessAI {
                 if (target.item?.type === 'anvil') target.item = null;
             }
         }
-        return { captures: count };
+        return { captures: number };
     }
 
     generateAllMoves(gs: AIGameState, color: PlayerColor): AIMove[] {

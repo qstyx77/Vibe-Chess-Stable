@@ -880,6 +880,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
+  if (promotedToInfiltrator) {
+    pieceToLand.type = 'infiltrator';
+  }
+
   newBoard[toRow][toCol].piece = pieceToLand;
   newBoard[fromRow][fromCol].piece = null;
 
