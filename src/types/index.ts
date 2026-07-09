@@ -43,6 +43,8 @@ export type InventoryItemType =
   | 'gravity_stone'
   | 'lead_boots'
   | 'blast_shield'
+  | 'monks_robe'
+  | 'training_weights'
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
   | 'portal_scroll_40';
@@ -95,6 +97,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'gravity_stone': { name: 'Gravity Stone', description: 'Accessory. Capturing pieces pulls enemy units that are 2 squares away 1 square closer.', isConsumable: false },
   'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects.', isConsumable: false },
   'blast_shield': { name: 'Blast Shield', description: 'Shield. Non-Royal only. Immune to self-destructs and explosions.', isConsumable: false },
+  'monks_robe': { name: 'Monk\'s Robe', description: 'Robe. Bishops/Archbishops only. Increases conversion chance by 20%.', isConsumable: false },
+  'training_weights': { name: 'Training Weights', description: 'Weights. Non-Royal only. Increases level by 1 every 3 turns.', isConsumable: false },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', isConsumable: true },
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', isConsumable: true },
@@ -112,6 +116,7 @@ export interface Piece {
   heldItem?: InventoryItemType | null;
   cooldownTurnsRemaining?: number;
   frozenTurnsRemaining?: number;
+  itemTurnCount?: number;
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;

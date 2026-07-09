@@ -53,6 +53,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'gravity_stone') abilities.push(" gravity: capturing pulls enemies 2 squares away 1 square closer.");
   if (heldItem === 'lead_boots') abilities.push(" anchored: immune to push-back and gravity pull effects.");
   if (heldItem === 'blast_shield') abilities.push(" blast guard: immune to self-destructs and explosions.");
+  if (heldItem === 'monks_robe') abilities.push(" devotions: conversion success chance increased by 20%.");
+  if (heldItem === 'training_weights') abilities.push(" conditioning: gain +1 level every 3 turns.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");

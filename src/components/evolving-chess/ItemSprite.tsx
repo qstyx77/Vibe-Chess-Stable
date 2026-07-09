@@ -145,6 +145,24 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="6" y="7" width="1" height="1" fill="#DC2626" />
           </svg>
         );
+      case 'monks_robe':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="10" fill="#78350F" />
+            <rect x="1" y="4" width="8" height="6" fill="#78350F" />
+            <rect x="4" y="2" width="2" height="4" fill="#FDE68A" opacity="0.3" />
+            <rect x="3" y="6" width="4" height="1" fill="#92400E" />
+          </svg>
+        );
+      case 'training_weights':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="5" width="8" height="4" fill="#404040" />
+            <rect x="2" y="4" width="6" height="6" fill="#404040" />
+            <rect x="4" y="2" width="2" height="3" fill="#171717" />
+            <rect x="3" y="6" width="4" height="2" fill="#737373" opacity="0.5" />
+          </svg>
+        );
       case 'wind_scroll':
       case 'life_leach':
       case 'summon_anvil':

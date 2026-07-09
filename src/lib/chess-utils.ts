@@ -487,7 +487,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const direction = piece.color === 'white' ? -1 : 1;
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) return true;
       if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) return true;
-      if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
+      if (fromCol === col && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       const isHomeRank = (piece.color === 'white' && (fromRow === 6 || fromRow === 7)) || (piece.color === 'black' && (fromRow === 0 || fromRow === 1));
       const canJumpStart = (!piece.hasMoved && isHomeRank) || piece.heldItem === 'swift_cloak';
       if (fromCol === toCol && !targetPieceOnSquare && canJumpStart && ((piece.color === 'white' && toRow === fromRow - 2) || (piece.color === 'black' && toRow === fromRow + 2))) {
@@ -1159,11 +1159,14 @@ export function triggerPoisonSplash(board: BoardState, r: number, c: number, att
 }
 
 export function triggerConversion(board: BoardState, r: number, c: number, color: PlayerColor, converter: Piece, events: ConversionEvent[]) {
+  const robeBonus = converter.heldItem === 'monks_robe' ? 0.2 : 0;
+  const threshold = 0.5 + robeBonus;
+
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     const nr = r+dr; const nc = c+dc;
     if(isValidSquare(nr, nc)) {
       const v = board[nr][nc].piece;
-      if(v && v.color !== color && v.type !== 'king' && Math.random() < 0.5) {
+      if(v && v.color !== color && v.type !== 'king' && Math.random() < threshold) {
         const orig = {...v};
         v.color = color; v.id = `conv_${v.id}_${Date.now()}`;
         events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...converter}, at: coordsToAlgebraic(nr, nc) });
@@ -1214,6 +1217,19 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
           if (p.isPoisoned) {
             if (p.level > 1) {
               p.level--;
+            }
+          }
+
+          // Training Weights Logic
+          if (p.heldItem === 'training_weights') {
+            const count = (p.itemTurnCount || 0) + 1;
+            if (count >= 3) {
+              if (p.type !== 'queen' || p.level < 7) {
+                p.level++;
+              }
+              p.itemTurnCount = 0;
+            } else {
+              p.itemTurnCount = count;
             }
           }
         }
