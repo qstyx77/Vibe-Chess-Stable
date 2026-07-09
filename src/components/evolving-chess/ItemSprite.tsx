@@ -15,6 +15,20 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   const renderIcon = () => {
     switch (type) {
+      case 'portal_scroll_20':
+      case 'portal_scroll_30':
+      case 'portal_scroll_40':
+        const floorNum = parseInt(type.split('_')[2]);
+        const portalColor = floorNum === 20 ? '#3B82F6' : floorNum === 30 ? '#8B5CF6' : '#EAB308';
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill={portalColor} />
+            <rect x="0" y="1" width="10" height="2" fill="#1e1b4b" />
+            <rect x="0" y="9" width="10" height="2" fill="#1e1b4b" />
+            <circle cx="5" cy="6" r="3" fill="#FFF" fillOpacity="0.4" />
+            <rect x="3" y="4" width="4" height="4" fill="#000" fillOpacity="0.3" />
+          </svg>
+        );
       case 'mirror_shield':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">

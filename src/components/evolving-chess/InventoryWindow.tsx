@@ -16,6 +16,7 @@ interface InventoryWindowProps {
   inventory: InventoryItem[];
   selectedItemType: InventoryItemType | null;
   onSelectItem: (type: InventoryItemType | null) => void;
+  onUseItem?: (type: InventoryItemType) => void;
   attunementSlots: number;
   usedSlots: number;
 }
@@ -26,6 +27,7 @@ export function InventoryWindow({
   inventory,
   selectedItemType,
   onSelectItem,
+  onUseItem,
   usedSlots
 }: InventoryWindowProps) {
   const [position, setPosition] = useState({ x: 20, y: 80 });
@@ -104,6 +106,8 @@ export function InventoryWindow({
                 inventory.map((item, idx) => {
                   const meta = ITEM_METADATA[item.type];
                   const isSelected = selectedItemType === item.type;
+                  const isUsable = item.type.startsWith('portal_scroll_');
+                  
                   return (
                     <button
                       key={`${item.type}-${idx}`}
@@ -114,7 +118,13 @@ export function InventoryWindow({
                           : "border-border hover:border-primary/50"
                       )}
                       style={{ background: 'black' }}
-                      onClick={() => onSelectItem(isSelected ? null : item.type)}
+                      onClick={() => {
+                        if (isSelected && isUsable && onUseItem) {
+                            onUseItem(item.type);
+                        } else {
+                            onSelectItem(isSelected ? null : item.type);
+                        }
+                      }}
                       title={meta.name}
                     >
                       <ItemSprite type={item.type} size={40} />
@@ -138,9 +148,15 @@ export function InventoryWindow({
               <p className="text-[9px] text-muted-foreground italic leading-tight">
                 {ITEM_METADATA[selectedItemType].description}
               </p>
-              <p className="text-[8px] font-pixel text-primary mt-1 animate-pulse uppercase">
-                Select a piece to equip
-              </p>
+              {selectedItemType.startsWith('portal_scroll_') ? (
+                <p className="text-[8px] font-pixel text-secondary mt-1 animate-pulse uppercase">
+                  Select again to warp
+                </p>
+              ) : (
+                <p className="text-[8px] font-pixel text-primary mt-1 animate-pulse uppercase">
+                  Select a piece to equip
+                </p>
+              )}
             </div>
           )}
           {!selectedItemType && usedSlots > 0 && (

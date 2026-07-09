@@ -402,6 +402,57 @@ export default function DungeonPage() {
     audioManager.playLevelUp();
   }, [level, toast]);
 
+  const warpToLevel = useCallback((targetLevel: number, type: InventoryItemType) => {
+    if (hasMovedOnCurrentFloor) return;
+    
+    const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+    
+    // Reset floor state
+    setIsMoveProcessing(false);
+    clickGuard.current = false;
+    setLastMoveFrom(null);
+    setLastMoveTo(null);
+    setAnimatedSquareTo(null);
+    setSelectedSquare(null);
+    setPossibleMoves([]);
+    
+    setLevel(targetLevel);
+    setAiStalemateStrikes(0);
+    setHasMovedOnCurrentFloor(false);
+    setPlayerArmy(survivors);
+    const newBoard = generateDungeonFloor(targetLevel, survivors);
+    setBoard(newBoard);
+    setCapturedPieces(prev => ({ white: [], black: prev.black }));
+    setCurrentPlayer('white');
+    setKillStreaks({ white: 0, black: 0 });
+    setShroomSpawnCounter(0);
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+    setEnPassantTargetSquare(null);
+    
+    setInventory(prev => {
+        const next = [...prev];
+        const item = next.find(i => i.type === type);
+        if (item) {
+            item.count--;
+            if (item.count <= 0) return next.filter(i => i.type !== type);
+        }
+        return next;
+    });
+
+    const isBoss = targetLevel % 10 === 0;
+    setGameInfo({ 
+        message: isBoss ? `BOSS BATTLE: Floor ${targetLevel}` : `Level ${targetLevel} - Wipe them out!`, 
+        isCheck: false, 
+        playerWithKingInCheck: null, 
+        isCheckmate: false, 
+        isStalemate: false, 
+        gameOver: false 
+    });
+
+    toast({ title: "PORTAL ACTIVATED", description: `Warped to Floor ${targetLevel}!` });
+    audioManager.playResurrect();
+  }, [board, hasMovedOnCurrentFloor, toast]);
+
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
     
@@ -812,6 +863,7 @@ export default function DungeonPage() {
                             const targetSq = nextBoard[nr][nc];
                             if (targetSq.item?.type === 'anvil') targetSq.item = null;
                             if (targetSq.piece && targetSq.piece.color === 'white' && targetSq.piece.type !== 'king') {
+                                if (targetSq.piece.heldItem === 'blast_shield') continue;
                                 capturedByCollapse.push({ ...targetSq.piece, id: `${targetSq.piece.id}_collapse_${Date.now()}_${Math.random()}` });
                                 targetSq.piece = null;
                             }
@@ -940,6 +992,8 @@ export default function DungeonPage() {
 
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
+        if (selectedInventoryItemType.startsWith('portal_scroll_')) return;
+
         if (piece && !piece.heldItem && piece.color === 'white') {
           if (usedSlots >= attunementSlots) { toast({ title: "Attunement Limit", variant: "destructive" }); return; }
           const pType = piece.type;
@@ -1510,6 +1564,12 @@ export default function DungeonPage() {
         inventory={inventory}
         selectedItemType={selectedInventoryItemType}
         onSelectItem={setSelectedInventoryItemType}
+        onUseItem={(type) => {
+          if (type.startsWith('portal_scroll_')) {
+            const target = parseInt(type.split('_')[2]);
+            warpToLevel(target, type);
+          }
+        }}
         attunementSlots={attunementSlots}
         usedSlots={usedSlots}
       />
