@@ -486,7 +486,7 @@ export class VibeChessAI {
                 if (target.item?.type === 'anvil') target.item = null;
             }
         }
-        return { captures: number };
+        return { captures: count };
     }
 
     generateAllMoves(gs: AIGameState, color: PlayerColor): AIMove[] {

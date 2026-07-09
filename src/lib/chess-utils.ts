@@ -487,7 +487,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const direction = piece.color === 'white' ? -1 : 1;
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) return true;
       if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) return true;
-      if (fromCol === col && toRow === fromRow + direction && !targetPieceOnSquare) return true;
+      if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       const isHomeRank = (piece.color === 'white' && (fromRow === 6 || fromRow === 7)) || (piece.color === 'black' && (fromRow === 0 || fromRow === 1));
       const canJumpStart = (!piece.hasMoved && isHomeRank) || piece.heldItem === 'swift_cloak';
       if (fromCol === toCol && !targetPieceOnSquare && canJumpStart && ((piece.color === 'white' && toRow === fromRow - 2) || (piece.color === 'black' && toRow === fromRow + 2))) {
