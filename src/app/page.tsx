@@ -901,10 +901,12 @@ export default function EvolvingChessPage() {
           const pType = clickedPiece.type;
           if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') return;
           if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') return;
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield') && (pType === 'king' || pType === 'queen')) return;
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield' || selectedInventoryItemType === 'training_weights') && (pType === 'king' || pType === 'queen')) return;
           if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') return;
           if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') return;
           if (selectedInventoryItemType === 'kings_decree' && pType !== 'king') return;
+          if (selectedInventoryItemType === 'monks_robe' && pType !== 'bishop' && pType !== 'archbishop') return;
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextBoard);
           let newInv = [...inventory]; const item = newInv.find(i => i.type === selectedInventoryItemType);

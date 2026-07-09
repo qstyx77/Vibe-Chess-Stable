@@ -226,7 +226,7 @@ export function ChessBoard({
               if (pType !== 'pawn' && pType !== 'commander') isInvTarget = false;
             } else if (selectedInventoryItemType === 'queens_peace') {
               if (pType !== 'queen') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield') {
+            } else if (selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield' || selectedInventoryItemType === 'training_weights') {
               if (pType === 'king' || pType === 'queen') isInvTarget = false;
             } else if (selectedInventoryItemType === 'crossbow') {
               if (pType !== 'archer') isInvTarget = false;
@@ -234,6 +234,8 @@ export function ChessBoard({
               if (pType === 'king') isInvTarget = false;
             } else if (selectedInventoryItemType === 'kings_decree') {
               if (pType !== 'king') isInvTarget = false;
+            } else if (selectedInventoryItemType === 'monks_robe') {
+              if (pType !== 'bishop' && pType !== 'archbishop') isInvTarget = false;
             }
           }
           

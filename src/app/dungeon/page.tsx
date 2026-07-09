@@ -945,9 +945,11 @@ export default function DungeonPage() {
           const pType = piece.type;
           if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') return;
           if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') return;
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) return;
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield' || selectedInventoryItemType === 'training_weights') && (pType === 'king' || pType === 'queen')) return;
           if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') return;
           if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') return;
+          if (selectedInventoryItemType === 'kings_decree' && pType !== 'king') return;
+          if (selectedInventoryItemType === 'monks_robe' && pType !== 'bishop' && pType !== 'archbishop') return;
 
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
@@ -1115,7 +1117,7 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll'].includes(movingPiece.heldItem);
+      const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree'].includes(movingPiece.heldItem);
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {
