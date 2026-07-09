@@ -1,9 +1,18 @@
-
-import type { Piece, ViewMode, PlayerColor, InventoryItemType } from '@/types';
-import { getPieceUnicode } from '@/lib/chess-utils';
+import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
-import { StarIcon, SkullIcon, PrayerHandsIcon, CastleIcon, BowIcon } from './IconLibrary';
-import { ITEM_METADATA } from '@/types';
+import { 
+  StarIcon, 
+  SkullIcon, 
+  PixelPawn, 
+  PixelKnight, 
+  PixelBishop, 
+  PixelRook, 
+  PixelQueen, 
+  PixelKing, 
+  PixelArchbishop, 
+  PixelPalace, 
+  PixelArcher 
+} from './IconLibrary';
 import { ItemSprite } from './ItemSprite';
 
 interface ChessPieceDisplayProps {
@@ -20,6 +29,21 @@ interface ChessPieceDisplayProps {
   isGrimoirBoosted?: boolean;
 }
 
+const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
+  pawn: PixelPawn,
+  commander: PixelPawn,
+  infiltrator: PixelPawn,
+  knight: PixelKnight,
+  hero: PixelKnight,
+  archer: PixelArcher,
+  bishop: PixelBishop,
+  archbishop: PixelArchbishop,
+  rook: PixelRook,
+  palace: PixelPalace,
+  queen: PixelQueen,
+  king: PixelKing,
+};
+
 export function ChessPieceDisplay({
   piece,
   isKingInCheck = false,
@@ -33,15 +57,8 @@ export function ChessPieceDisplay({
   effectiveLevel,
   isGrimoirBoosted = false,
 }: ChessPieceDisplayProps) {
-  let unicode = getPieceUnicode(piece);
   
-  if (piece.type === 'archbishop') {
-    unicode = piece.color === 'white' ? '♗' : '♝';
-  } else if (piece.type === 'palace') {
-    unicode = piece.color === 'white' ? '♖' : '♜';
-  } else if (piece.type === 'archer') {
-    unicode = piece.color === 'white' ? '♘' : '♞';
-  }
+  const IconComponent = PieceIconMap[piece.type] || PixelPawn;
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   
@@ -49,7 +66,6 @@ export function ChessPieceDisplay({
   if (isConverting) {
     animationClass = piece.color === 'white' ? 'animate-color-flash-wtb' : 'animate-color-flash-btw';
   }
-
 
   if (piece.type === 'king' && isKingInCheck) {
     pieceColorClass = 'text-destructive animate-pulse';
@@ -92,17 +108,17 @@ export function ChessPieceDisplay({
         )}
       >
         {piece.isShielded && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[10]">
             <div className="w-[110%] h-[110%] border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_white]" />
           </div>
         )}
 
-        <span className={cn(
-          "font-sans select-none relative z-[1]",
-          piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator' ? 'text-3xl md:text-4xl' : 'text-4xl md:text-5xl'
+        <div className={cn(
+          "w-4/5 h-4/5 relative z-[1]",
+          (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100"
         )}>
-          {unicode}
-        </span>
+          <IconComponent className="w-full h-full drop-shadow-md" />
+        </div>
 
         {piece.heldItem && (
           <div className="absolute bottom-0 right-0 z-[5] bg-black/40 rounded-sm p-0.5 scale-75 origin-bottom-right">
@@ -113,52 +129,16 @@ export function ChessPieceDisplay({
           </div>
         )}
 
-        {piece.type === 'archbishop' && (
-          <span
-            className="absolute text-sm leading-none z-[2]"
-            style={{
-              top: '0.1rem',
-              left: '0.1rem',
-            }}
-          >
-            <PrayerHandsIcon className="w-4 h-4 text-primary" />
-          </span>
-        )}
-
-        {piece.type === 'palace' && (
-          <span
-            className="absolute text-sm leading-none z-[2]"
-            style={{
-              top: '0.1rem',
-              left: '0.1rem',
-            }}
-          >
-            <CastleIcon className="w-4 h-4 text-primary" />
-          </span>
-        )}
-
-        {piece.type === 'archer' && (
-          <span
-            className="absolute text-sm leading-none z-[2]"
-            style={{
-              top: '0.1rem',
-              left: '0.1rem',
-            }}
-          >
-            <BowIcon className="w-4 h-4 text-primary" />
-          </span>
-        )}
-
         {isCommanderLike && (
           <span
             className="absolute text-sm leading-none z-[2]"
             style={{
-              top: '-0.1rem',
-              right: '-0.1rem',
+              top: '0',
+              right: '0',
             }}
             aria-label={piece.type === 'hero' ? "Hero Star" : "Commander Star"}
           >
-            <StarIcon className="w-4 h-4 text-yellow-400" />
+            <StarIcon className="w-3 h-3 text-yellow-400 drop-shadow-[0_0_2px_black]" />
           </span>
         )}
 
@@ -166,21 +146,31 @@ export function ChessPieceDisplay({
           <span
             className="absolute text-sm leading-none z-[2]"
             style={{
-              top: '-0.1rem',
-              right: '-0.1rem',
+              top: '0',
+              right: '0',
             }}
             aria-label="Infiltrator Skull"
           >
-            <SkullIcon className="w-4 h-4 text-destructive" />
+            <SkullIcon className="w-3 h-3 text-destructive drop-shadow-[0_0_2px_black]" />
           </span>
         )}
 
         {displayLevelValue > 1 && (
           <span
-            className="absolute inset-0 flex items-center justify-center text-sm font-medium pointer-events-none z-[3]"
+            className="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs font-pixel pointer-events-none z-[20]"
             style={{ 
-              textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000',
-              color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))'
+              textShadow: `
+                1.5px 1.5px 0 #000, 
+                -1.5px 1.5px 0 #000, 
+                1.5px -1.5px 0 #000, 
+                -1.5px -1.5px 0 #000,
+                0 1.5px 0 #000,
+                0 -1.5px 0 #000,
+                1.5px 0 0 #000,
+                -1.5px 0 0 #000
+              `,
+              color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
+              marginTop: '4px'
             }}
             aria-label={`Level ${displayLevelValue}`}
           >

@@ -6,6 +6,107 @@ export interface IconProps {
   className?: string;
 }
 
+/** 8-BIT PIXEL PIECE COMPONENTS **/
+
+export const PixelPawn = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="10" y="5" width="4" height="4" />
+    <rect x="9" y="9" width="6" height="2" />
+    <rect x="10" y="11" width="4" height="6" />
+    <rect x="8" y="17" width="8" height="2" />
+  </svg>
+);
+
+export const PixelKnight = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="10" y="4" width="4" height="2" />
+    <rect x="9" y="6" width="6" height="4" />
+    <rect x="7" y="8" width="4" height="4" />
+    <rect x="11" y="10" width="4" height="6" />
+    <rect x="9" y="16" width="8" height="2" />
+  </svg>
+);
+
+export const PixelBishop = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="3" width="2" height="2" />
+    <rect x="10" y="5" width="4" height="4" />
+    <rect x="11" y="9" width="2" height="2" />
+    <rect x="10" y="11" width="4" height="6" />
+    <rect x="8" y="17" width="8" height="2" />
+  </svg>
+);
+
+export const PixelRook = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="8" y="4" width="2" height="2" />
+    <rect x="11" y="4" width="2" height="2" />
+    <rect x="14" y="4" width="2" height="2" />
+    <rect x="8" y="6" width="8" height="3" />
+    <rect x="9" y="9" width="6" height="8" />
+    <rect x="8" y="17" width="8" height="2" />
+  </svg>
+);
+
+export const PixelQueen = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="7" y="3" width="2" height="2" />
+    <rect x="11" y="2" width="2" height="2" />
+    <rect x="15" y="3" width="2" height="2" />
+    <rect x="7" y="5" width="10" height="4" />
+    <rect x="10" y="9" width="4" height="8" />
+    <rect x="8" y="17" width="8" height="2" />
+  </svg>
+);
+
+export const PixelKing = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="1" width="2" height="4" />
+    <rect x="10" y="2" width="4" height="2" />
+    <rect x="8" y="5" width="8" height="4" />
+    <rect x="10" y="9" width="4" height="8" />
+    <rect x="8" y="17" width="8" height="2" />
+  </svg>
+);
+
+export const PixelArcher = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="10" y="4" width="4" height="2" />
+    <rect x="9" y="6" width="6" height="4" />
+    <rect x="7" y="8" width="4" height="4" />
+    <rect x="11" y="10" width="4" height="6" />
+    <rect x="9" y="16" width="8" height="2" />
+    {/* Bow Silhouette */}
+    <rect x="16" y="6" width="1" height="8" />
+    <rect x="15" y="5" width="1" height="1" />
+    <rect x="15" y="14" width="1" height="1" />
+  </svg>
+);
+
+export const PixelArchbishop = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="2" width="2" height="5" />
+    <rect x="10" y="3" width="4" height="2" />
+    <rect x="10" y="7" width="4" height="3" />
+    <rect x="11" y="10" width="2" height="1" />
+    <rect x="10" y="11" width="4" height="6" />
+    <rect x="8" y="17" width="8" height="2" />
+  </svg>
+);
+
+export const PixelPalace = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="7" y="3" width="2" height="2" />
+    <rect x="10" y="3" width="4" height="2" />
+    <rect x="15" y="3" width="2" height="2" />
+    <rect x="7" y="5" width="10" height="3" />
+    <rect x="9" y="8" width="6" height="9" />
+    <rect x="7" y="17" width="10" height="2" />
+  </svg>
+);
+
+/** STANDARD UTILITY ICONS **/
+
 export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M12 22l-1.5-3.5c-1-2.5-2-4.5-2-7.5 0-3 1-5 2.5-6.5L12 2l1 2.5c1.5 1.5 2.5 3.5 2.5 6.5 0 3-1 5-2 7.5L12 22z" fill="currentColor" fillOpacity="0.2" />
@@ -16,11 +117,8 @@ export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
 
 export const ShroomIcon = ({ className = "w-full h-full" }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Squat Cap */}
     <path d="M2 14c0-5 4.5-8 10-8s10 3 10 8c0 1-1 1-1 1H3s-1 0-1-1z" />
-    {/* Thick Stem */}
     <path d="M9 15v4c0 1.5 1 2.5 3 2.5s3-1 3-2.5v-4H9z" />
-    {/* Spots */}
     <circle cx="8" cy="10" r="1.5" fill="white" fillOpacity="0.8" />
     <circle cx="12" cy="8.5" r="1" fill="white" fillOpacity="0.8" />
     <circle cx="16" cy="11.5" r="2" fill="white" fillOpacity="0.8" />
