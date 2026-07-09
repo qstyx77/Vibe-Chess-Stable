@@ -39,6 +39,10 @@ export type InventoryItemType =
   | 'faith_scroll'
   | 'tortoise_hammer'
   | 'leach_blade'
+  | 'kings_decree'
+  | 'gravity_stone'
+  | 'lead_boots'
+  | 'blast_shield'
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
   | 'portal_scroll_40';
@@ -87,6 +91,10 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'faith_scroll': { name: 'Faith Scroll', description: 'Consumable (L5+). 50% chance to convert adjacent enemy non-king pieces.', isConsumable: true },
   'tortoise_hammer': { name: 'Tortoise Hammer', description: 'Limits move/capture to 1 square forward. Captures enemies cardinally adjacent to target.', isConsumable: false },
   'leach_blade': { name: 'Leach Blade', description: 'Dark blade. Capturing reduces all adjacent enemies by 1 level.', isConsumable: false },
+  'kings_decree': { name: 'King\'s Decree', description: 'Consumable. King only. Target an allied Level 1 Pawn to promote it to a Commander.', isConsumable: true },
+  'gravity_stone': { name: 'Gravity Stone', description: 'Accessory. Capturing pieces pulls enemy units that are 2 squares away 1 square closer.', isConsumable: false },
+  'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects.', isConsumable: false },
+  'blast_shield': { name: 'Blast Shield', description: 'Shield. Non-Royal only. Immune to self-destructs and explosions.', isConsumable: false },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', isConsumable: true },
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', isConsumable: true },
@@ -121,7 +129,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree';
   promoteTo?: PieceType;
 }
 
@@ -271,7 +279,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree';
   promoteTo?: PieceType;
 }
 

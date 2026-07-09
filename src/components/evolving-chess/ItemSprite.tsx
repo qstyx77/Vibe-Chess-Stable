@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -105,6 +104,45 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="2" y="4" width="6" height="5" fill="#EF4444" />
             <rect x="1" y="6" width="8" height="2" fill="#EF4444" />
             <rect x="4" y="4" width="2" height="2" fill="#FDE047" />
+          </svg>
+        );
+      case 'kings_decree':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#FDE047" />
+            <rect x="0" y="1" width="10" height="2" fill="#B45309" />
+            <rect x="0" y="9" width="10" height="2" fill="#B45309" />
+            <rect x="3" y="4" width="4" height="4" fill="#B45309" opacity="0.8" />
+          </svg>
+        );
+      case 'gravity_stone':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="3" width="6" height="6" fill="#7C3AED" rx="3" />
+            <rect x="3" y="4" width="4" height="4" fill="#A78BFA" opacity="0.6" rx="2" />
+            <rect x="4.5" y="5.5" width="1" height="1" fill="#FFF" />
+          </svg>
+        );
+      case 'lead_boots':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="6" width="3" height="5" fill="#475569" />
+            <rect x="6" y="6" width="3" height="5" fill="#475569" />
+            <rect x="0" y="9" width="4" height="2" fill="#1E293B" />
+            <rect x="6" y="9" width="4" height="2" fill="#1E293B" />
+          </svg>
+        );
+      case 'blast_shield':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#525252" />
+            <rect x="2" y="3" width="6" height="6" fill="#525252" />
+            <rect x="4" y="2" width="2" height="8" fill="#171717" />
+            <rect x="1" y="5" width="8" height="2" fill="#171717" />
+            <rect x="3" y="4" width="1" height="1" fill="#DC2626" />
+            <rect x="6" y="4" width="1" height="1" fill="#DC2626" />
+            <rect x="3" y="7" width="1" height="1" fill="#DC2626" />
+            <rect x="6" y="7" width="1" height="1" fill="#DC2626" />
           </svg>
         );
       case 'wind_scroll':

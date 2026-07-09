@@ -41,13 +41,12 @@ export function useUser() {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
             
-            // PLAYTEST INITIALIZATION: Only initialize if inventory is missing entirely.
-            // This prevents the "aggressive refresh" that was resetting item counts mid-game.
-            const needsInitialization = !data.inventory;
+            // PLAYTEST INITIALIZATION: Ensure inventory has ALL items (including new ones) for testing.
+            const currentInventoryTypes = new Set(data.inventory?.map(i => i.type) || []);
+            const missingNewItems = ITEM_TYPES.some(t => !currentInventoryTypes.has(t));
 
-            if (needsInitialization) {
+            if (!data.inventory || missingNewItems) {
                 const initialInventory = [...DEFAULT_INVENTORY];
-                // Update Firestore and local state
                 setDoc(userRef, { inventory: initialInventory }, { merge: true });
                 setUserData({ ...data, inventory: initialInventory });
             } else {

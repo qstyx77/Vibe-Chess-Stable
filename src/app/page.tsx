@@ -258,6 +258,7 @@ export default function EvolvingChessPage() {
   const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
   const [isAwaitingShieldScrollTarget, setIsAwaitingShieldScrollTarget] = useState(false);
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
+  const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
 
   // --- Inventory States ---
@@ -614,7 +615,7 @@ export default function EvolvingChessPage() {
     processMoveEnd(boardToChain, actingPlayer, isExtra, nextEp);
   }, [firstBloodAchieved, capturedPieces, addEffect, processMoveEnd, isWhiteAI, isBlackAI, localPlayerColor]);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget;
 
   const processPawnSacrificeCheck = useCallback((
     boardAfterPrimaryMove: BoardState,
@@ -900,9 +901,10 @@ export default function EvolvingChessPage() {
           const pType = clickedPiece.type;
           if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') return;
           if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') return;
-          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') && (pType === 'king' || pType === 'queen')) return;
+          if ((selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield') && (pType === 'king' || pType === 'queen')) return;
           if (selectedInventoryItemType === 'crossbow' && pType !== 'archer') return;
           if (selectedInventoryItemType === 'detonation_scroll' && pType === 'king') return;
+          if (selectedInventoryItemType === 'kings_decree' && pType !== 'king') return;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextBoard);
           let newInv = [...inventory]; const item = newInv.find(i => i.type === selectedInventoryItemType);
@@ -925,6 +927,19 @@ export default function EvolvingChessPage() {
           setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); audioManager.playMove();
       }
       return;
+    }
+
+    if (isAwaitingDecreeTarget && isLocalActionTurn) {
+        if (clickedPiece && clickedPiece.color === currentPlayer && clickedPiece.type === 'pawn' && clickedPiece.level === 1) {
+            setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuardRef.current = true;
+            setAnimatedSquareTo(algebraic);
+            const move: Move = { from: selectedSquare!, to: algebraic, type: 'kings-decree' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard); audioManager.playLevelUp();
+            setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare); }, 800);
+        }
+        return;
     }
 
     if (isAwaitingPawnSacrifice && isLocalActionTurn) {
@@ -991,6 +1006,42 @@ export default function EvolvingChessPage() {
     if (selectedSquare) {
       const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
       const pieceToMove = board[fR][fC].piece; if (!pieceToMove) return;
+
+      const effectiveLevel = getEffectiveLevel(board, fR, fC);
+      const hasMagicScroll = pieceToMove.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree'].includes(pieceToMove.heldItem);
+      const hasSelfAbility = ((pieceToMove.type === 'knight' || pieceToMove.type === 'hero' || pieceToMove.type === 'archer') && effectiveLevel >= 5);
+
+      if (selectedSquare === algebraic && (hasMagicScroll || hasSelfAbility)) {
+          if ((pieceToMove.cooldownTurnsRemaining && pieceToMove.cooldownTurnsRemaining > 0) || (pieceToMove.frozenTurnsRemaining && pieceToMove.frozenTurnsRemaining > 0)) {
+              toast({ title: "Exhausted", variant: "destructive" }); return;
+          }
+          const executeSelfDestruct = () => {
+              saveStateToHistory(); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces);
+              setBoard(result.newBoard); audioManager.playExplosion();
+              const oldStreak = killStreaks[currentPlayer]; const caps = result.selfDestructCaptures?.length || 0; const newStreak = caps > 0 ? (oldStreak + caps) : 0;
+              setKillStreaks(prev => ({ ...prev, [currentPlayer]: newStreak }));
+              if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_${Date.now()}` }))] }));
+              setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); triggerSpecialsChain(result.newBoard, oldStreak, newStreak, result.extraTurn || (oldStreak < 6 && newStreak >= 6), enPassantTargetSquare, currentPlayer, []); }, 800);
+          };
+          const executeDecree = () => { setIsAwaitingDecreeTarget(true); setPossibleMoves([]); };
+
+          if (hasMagicScroll && hasSelfAbility) {
+              setAbilityChoiceDialog({ isOpen: true, onChoice: (c) => { 
+                setAbilityChoiceDialog(null); 
+                if (c === 'ability') executeSelfDestruct(); 
+                else if (pieceToMove.heldItem === 'kings_decree') executeDecree();
+                else if (pieceToMove.heldItem === 'wind_scroll') setIsAwaitingWindScrollTarget(true);
+                else if (pieceToMove.heldItem === 'summon_anvil') setIsAwaitingAnvilScrollTarget(true);
+              }});
+              return;
+          }
+          if (hasSelfAbility) executeSelfDestruct();
+          else if (pieceToMove.heldItem === 'kings_decree') executeDecree();
+          else if (pieceToMove.heldItem === 'wind_scroll') setIsAwaitingWindScrollTarget(true);
+          else if (pieceToMove.heldItem === 'summon_anvil') setIsAwaitingAnvilScrollTarget(true);
+          return;
+      }
+
       const freshlyCalculatedMoves = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       if (freshlyCalculatedMoves.includes(algebraic)) {
         saveStateToHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
@@ -1024,7 +1075,7 @@ export default function EvolvingChessPage() {
     }
     if (clickedPiece?.color === currentPlayer) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare)); }
     else { setSelectedSquare(null); setPossibleMoves([]); setEnemySelectedSquare(clickedPiece ? algebraic : null); setEnemyPossibleMoves(clickedPiece ? getPossibleMoves(board, algebraic, enPassantTargetSquare) : []); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, triggerSpecialsChain, processPawnSacrificeCheck, toast, localPlayerColor, usedSlots, attunementSlots, inventory, selectedInventoryItemType, saveLoadoutToFirestore, saveStateToHistory, addEffect, isInventoryOpen, isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isPromotingPawn, promotionSquare, promotionTargetLevel, onlineStatus, isMoveProcessing, isAiThinking, gameInfo.gameOver, isAnySpecialModeActive]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, triggerSpecialsChain, processPawnSacrificeCheck, toast, localPlayerColor, usedSlots, attunementSlots, inventory, selectedInventoryItemType, saveLoadoutToFirestore, saveStateToHistory, addEffect, isInventoryOpen, isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isPromotingPawn, promotionSquare, promotionTargetLevel, onlineStatus, isMoveProcessing, isAiThinking, gameInfo.gameOver, isAnySpecialModeActive, isAwaitingDecreeTarget]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -1122,7 +1173,7 @@ export default function EvolvingChessPage() {
               </div>
           </div>
           <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse", (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse"))}>
-             {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+             {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
            </div>
           <div className="w-full">
             <ChessBoard
@@ -1191,7 +1242,7 @@ export default function EvolvingChessPage() {
   const desktopLayout = (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
       <div className="w-1/4 flex-shrink-0"><GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={playerToDropAnvil === 'white' ? 'white' : activeTimerPlayer} chatMessages={chatMessages} onSendMessage={sendMessage} isMessengerOpen={isMessengerOpen} onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)} hasUnreadMessages={hasUnreadMessages} /></div>
-      <div className="w-1/2 flex flex-col items-center gap-2"><div className="w-full flex items-center justify-center"><img src="/images/Vibe_Title.gif" alt="VIBE CHESS" className="h-16 w-auto object-contain" /></div><div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse", (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse"))}>{isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}</div><div className="w-full max-lg"><ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? null : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor) || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer} playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} /></div></div>
+      <div className="w-1/2 flex flex-col items-center gap-2"><div className="w-full flex items-center justify-center"><img src="/images/Vibe_Title.gif" alt="VIBE CHESS" className="h-16 w-auto object-contain" /></div><div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse", (gameInfo.message.includes("(AI) is thinking...") && "text-primary animate-pulse"))}>{isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}</div><div className="w-full max-lg"><ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? null : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor) || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer} playerToPromoteCommander={playerWhoGotFirstBlood === currentPlayer ? currentPlayer : null} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} /></div></div>
       <div className="w-1/4 flex flex-col gap-4"><AuthWidget /><Card><CardContent className="p-2 flex flex-col gap-2"><div className="flex flex-wrap justify-center items-center gap-1"><AlertDialog><AlertDialogTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-xs">{onlineStatus === 'connected' ? <Flag /> : <RefreshCw />} {onlineStatus === 'connected' ? 'Resign' : 'Reset'}</Button></AlertDialogTrigger><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle><AlertDialogDescription>{onlineStatus === 'connected' ? "This will end the current online game and you will forfeit." : "This action will reset the game board to the starting position."}</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={resetGame}>{onlineStatus === 'connected' ? 'Yes, Resign' : 'Yes, Reset'}</AlertDialogAction></AlertDialogFooter></AlertDialogContent></AlertDialog><Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-7 px-2 text-xs"><BookOpen /> Rules</Button><Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs"><Package /> Items</Button><Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-xs"><Settings /> Settings</Button></PopoverTrigger><PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">SFX Volume</span><Volume2 className="h-4 w-4 text-primary" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={handleVolumeChange} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">AI Depth</span><BrainCircuit className="h-4 w-4 text-primary" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /><p className="text-[9px] text-muted-foreground italic leading-tight text-center">The smarter the AI setting, the longer the AI takes to move.</p></div></div></PopoverContent></Popover><Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected' || !user}><Swords /> Dungeon</Button></Link><Link href="/leaderboard"><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected'}><Trophy /> L.board</Button></Link><Button variant="outline" size="sm" onClick={handleUndo} disabled={onlineStatus !== 'disconnected' || isAiThinking || isMoveProcessing || isAnySpecialModeActive} className="h-7 px-2 text-xs"><Undo2 /> Undo</Button></div><div className="flex flex-wrap justify-center items-center gap-1"><Button variant="outline" size="sm" onClick={handleToggleWhiteAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'white') || isMoveProcessing} className="h-7 px-2 text-xs"><Bot /> W:{isWhiteAI ? 'On' : 'Off'}</Button><Button variant="outline" size="sm" onClick={handleToggleBlackAI} disabled={onlineStatus !== 'disconnected' || (isAiThinking && currentPlayer === 'black') || isMoveProcessing} className="h-7 px-2 text-xs"><Bot /> B:{isBlackAI ? 'On' : 'Off'}</Button><Button variant="outline" size="sm" onClick={handleToggleViewMode} disabled={onlineStatus === 'connected'} className="h-7 px-2 text-xs"><View /> View</Button></div></CardContent></Card><Card><CardContent className="p-2 flex flex-col gap-2"><div className="flex flex-col gap-1 items-center" ><Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || onlineStatus !== 'disconnected'} className="h-7 px-2 text-xs w-full"><Trophy className="mr-1 h-3 w-3" />Ranked Match</Button><Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)} className="h-7 px-2 text-xs w-full">{onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}{onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}</Button><div className="flex gap-1 items-center w-full"><Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-7 px-2 text-xs flex-grow" disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI} /><Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || !inputRoomId || isWhiteAI || isBlackAI} className="h-7 px-2 text-xs">Join</Button></div></div><div className="w-full text-center h-4 text-xs mt-1">{onlineStatus}</div></CardContent></Card></div>
     </div>
   );

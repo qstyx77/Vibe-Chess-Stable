@@ -14,7 +14,6 @@ const getPieceAbilities = (piece: Piece): string[] => {
   const abilities: string[] = [];
   const l = level || 1;
 
-  // Dungeon Boss Inherent Abilities
   if (id.startsWith('boss-hydra')) {
     abilities.push(" Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
   }
@@ -50,6 +49,10 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'faith_scroll') abilities.push(" spell (L5+): 50% chance to convert adjacent enemies.");
   if (heldItem === 'tortoise_hammer') abilities.push(" heavy: limits move to 1 square forward. Captures enemies cardinally adjacent to target.");
   if (heldItem === 'leach_blade') abilities.push(" leach: capturing an enemy reduces adjacent enemies by 1 level.");
+  if (heldItem === 'kings_decree') abilities.push(" spell: promote an allied Level 1 Pawn to a Commander.");
+  if (heldItem === 'gravity_stone') abilities.push(" gravity: capturing pulls enemies 2 squares away 1 square closer.");
+  if (heldItem === 'lead_boots') abilities.push(" anchored: immune to push-back and gravity pull effects.");
+  if (heldItem === 'blast_shield') abilities.push(" blast guard: immune to self-destructs and explosions.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");

@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
@@ -37,6 +36,7 @@ interface ChessBoardProps {
   isAwaitingArcherSnipe?: boolean;
   isAwaitingShieldScrollTarget?: boolean;
   isAwaitingSwapScrollTarget?: boolean;
+  isAwaitingDecreeTarget?: boolean;
   isInventoryOpen?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   localPlayerColor?: PlayerColor | null;
@@ -145,6 +145,7 @@ export function ChessBoard({
   isAwaitingArcherSnipe,
   isAwaitingShieldScrollTarget,
   isAwaitingSwapScrollTarget,
+  isAwaitingDecreeTarget,
   isInventoryOpen,
   selectedInventoryItemType,
   localPlayerColor
@@ -163,7 +164,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
       onMouseLeave={() => onPieceHover(null)}
@@ -214,6 +215,8 @@ export function ChessBoard({
           
           const isSwapTargetSelection = isLocalActionTurn && isAwaitingSwapScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.algebraic !== selectedSquare;
 
+          const isDecreeTarget = isLocalActionTurn && isAwaitingDecreeTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type === 'pawn' && currentSquareData.piece.level === 1;
+
           const invOwnerColor = localPlayerColor || 'white';
           let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
           
@@ -223,12 +226,14 @@ export function ChessBoard({
               if (pType !== 'pawn' && pType !== 'commander') isInvTarget = false;
             } else if (selectedInventoryItemType === 'queens_peace') {
               if (pType !== 'queen') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask') {
+            } else if (selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield') {
               if (pType === 'king' || pType === 'queen') isInvTarget = false;
             } else if (selectedInventoryItemType === 'crossbow') {
               if (pType !== 'archer') isInvTarget = false;
             } else if (selectedInventoryItemType === 'detonation_scroll') {
               if (pType === 'king') isInvTarget = false;
+            } else if (selectedInventoryItemType === 'kings_decree') {
+              if (pType !== 'king') isInvTarget = false;
             }
           }
           
@@ -247,7 +252,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isShieldScrollTargetSelection && !isSwapTargetSelection}
+              disabled={isInteractionDisabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isShieldScrollTargetSelection && !isSwapTargetSelection && !isDecreeTarget}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
@@ -268,6 +273,7 @@ export function ChessBoard({
               isAnvilDropTarget={isAnvilDropTarget}
               isInvTarget={isInvTarget}
               isSwapTarget={isSwapTargetSelection}
+              isDecreeTarget={isDecreeTarget}
               selectedInventoryItemType={selectedInventoryItemType}
               effectiveLevel={effectiveLevel}
               isGrimoirBoosted={isGrimoirBoosted}
