@@ -36,7 +36,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'poison_dagger') abilities.push(" toxic: splash poison to adjacent enemies on capture.");
   if (heldItem === 'antidote') abilities.push(" cleanse: remove poison from all allied units.");
   if (heldItem === 'crossbow') abilities.push(" double shot: KS 3 triggers Archer Snipe in addition to Anvil.");
-  if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons any piece that captures this unit.");
+  if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons any piece that captures the wearer.");
   if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit to cause a massive explosion.");
   if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units while moving.");
   if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with any allied piece.");
@@ -155,41 +155,41 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
 
   return (
-    <div className="text-center text-xs">
-      <h3 className="font-bold text-primary text-sm">{pieceName} - Level {piece.level || 1}</h3>
-      <div className="flex flex-col gap-0.5 mt-1 mb-1">
+    <div className="text-center text-[10px]">
+      <h3 className="font-bold text-primary text-xs leading-none">{pieceName} - Level {piece.level || 1}</h3>
+      <div className="flex flex-col gap-0.5 mt-0.5 mb-0.5">
         {piece.isPoisoned && (
-          <p className="text-[#22C55E] font-bold text-[10px] animate-pulse uppercase">
+          <p className="text-[#22C55E] font-bold text-[8px] animate-pulse uppercase leading-none">
             STATUS: POISONED
           </p>
         )}
         {isFrozen && (
-          <p className="text-sky-400 font-bold text-[10px] animate-pulse uppercase">
+          <p className="text-sky-400 font-bold text-[8px] animate-pulse uppercase leading-none">
             STATUS: FROZEN
           </p>
         )}
         {!isFrozen && isExhausted && (
-          <p className="text-destructive font-bold text-[10px] animate-pulse uppercase">
+          <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none">
             STATUS: EXHAUSTED
           </p>
         )}
         {piece.heldItem === 'training_weights' && (
-          <p className="text-muted-foreground font-bold text-[10px] uppercase">
+          <p className="text-muted-foreground font-bold text-[8px] uppercase leading-none">
             CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS
           </p>
         )}
       </div>
       {item && (
-        <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
-          <div className="flex items-center justify-center gap-2 mb-1">
-             <ItemSprite type={piece.heldItem!} size={14} />
-             <p className="text-[0.65rem] font-bold text-accent uppercase leading-none">{item.name}</p>
-             <ItemSprite type={piece.heldItem!} size={14} />
+        <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-sm">
+          <div className="flex items-center justify-center gap-1 mb-0.5">
+             <ItemSprite type={piece.heldItem!} size={10} />
+             <p className="text-[0.55rem] font-bold text-accent uppercase leading-none">{item.name}</p>
+             <ItemSprite type={piece.heldItem!} size={10} />
           </div>
-          <p className="text-[0.6rem] text-muted-foreground italic leading-tight">{item.description}</p>
+          <p className="text-[0.55rem] text-muted-foreground italic leading-none">{item.description}</p>
         </div>
       )}
-      <ul className="list-none p-0 m-0 text-[0.7rem] space-y-0.5">
+      <ul className="list-none p-0 m-0 text-[0.65rem] space-y-0">
         {abilities.map((ability, index) => (
           <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>{ability}</li>
         ))}

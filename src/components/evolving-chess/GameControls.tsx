@@ -70,10 +70,10 @@ export function GameControls({
     const pieces = capturedPieces[capturedBy];
     return (
       <div className="flex-grow">
-        <h3 className="text-xs font-medium text-muted-foreground mb-1">Captured {color.charAt(0).toUpperCase() + color.slice(1)}</h3>
-        <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[40px] p-2 border border-border/20">
-          {pieces.length === 0 ? <span className="text-[10px] text-muted-foreground">None</span> : pieces.map(p => (
-            <div key={p.id} className="w-8 h-8 relative" title={`${p.type} L${p.level}`}>
+        <h3 className="text-[10px] font-medium text-muted-foreground uppercase mb-0.5">Captured {color.charAt(0).toUpperCase() + color.slice(1)}</h3>
+        <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[32px] p-1 border border-border/20">
+          {pieces.length === 0 ? <span className="text-[8px] text-muted-foreground">None</span> : pieces.map(p => (
+            <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
               <ChessPieceDisplay piece={p} isMini />
             </div>
           ))}
@@ -85,7 +85,7 @@ export function GameControls({
   const isOnline = onlineStatus === 'connected' || onlineStatus === 'waiting';
 
   return (
-    <Card className="w-full shadow-lg h-full flex flex-col mt-1 relative">
+    <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative">
       {isOnline && (
         <button
           onClick={onToggleMessenger}
@@ -100,9 +100,9 @@ export function GameControls({
       )}
 
       {isMessengerOpen ? (
-        <CardContent className="p-3 flex flex-col h-full space-y-2 pt-10">
-          <h2 className="text-sm font-bold text-primary font-pixel text-center">MESSENGER</h2>
-          <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[200px]" ref={scrollRef}>
+        <CardContent className="p-2 flex flex-col h-full space-y-2 pt-8">
+          <h2 className="text-xs font-bold text-primary font-pixel text-center">MESSENGER</h2>
+          <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[150px]" ref={scrollRef}>
             <div className="space-y-2">
               {chatMessages.length === 0 ? (
                 <p className="text-[0.65rem] text-muted-foreground text-center italic mt-10">No messages yet. Say hi!</p>
@@ -131,22 +131,22 @@ export function GameControls({
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="Type..."
-              className="h-8 text-xs font-sans"
+              className="h-7 text-xs font-sans"
               maxLength={200}
             />
-            <Button type="submit" size="sm" variant="secondary" className="h-8 px-2">
+            <Button type="submit" size="sm" variant="secondary" className="h-7 px-2">
               <Send className="h-3 w-3" />
             </Button>
           </form>
         </CardContent>
       ) : (
-        <CardContent className="space-y-1 flex-grow flex flex-col p-2">
+        <CardContent className="space-y-0.5 flex-grow flex flex-col p-1.5">
           {/* Top Fixed Section */}
-          <div className="flex justify-around items-center text-center pt-2">
+          <div className="flex justify-around items-center text-center">
             <div>
-              <p className="text-xs font-medium text-muted-foreground">Current Player</p>
+              <p className="text-[10px] font-medium text-muted-foreground">Current Player</p>
               <p className={cn(
-                  "text-base font-semibold font-sans",
+                  "text-sm font-semibold font-sans leading-none",
                   currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
                   isGameOver && "opacity-50"
                 )}
@@ -157,35 +157,35 @@ export function GameControls({
 
             {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground">Time</p>
-                <p className="text-base font-semibold font-mono text-primary animate-pulse">
+                <p className="text-[10px] font-medium text-muted-foreground">Time</p>
+                <p className="text-sm font-semibold font-mono text-primary animate-pulse leading-none">
                   {timerDisplay}
                 </p>
               </div>
             )}
 
-            <div className="space-y-0.5">
-              <p className="text-xs font-medium text-destructive">
+            <div className="space-y-0">
+              <p className="text-[10px] font-medium text-destructive leading-none">
                 <span className="text-foreground">W</span>-Streak: {killStreaks.white}
               </p>
-              <p className="text-xs font-medium text-destructive">
+              <p className="text-[10px] font-medium text-destructive leading-none">
                 <span className="text-secondary">B</span>-Streak: {killStreaks.black}
               </p>
             </div>
           </div>
-          <Separator className="my-1"/>
-          <div className="flex flex-col gap-2">
+          <Separator className="my-0.5"/>
+          <div className="flex flex-col gap-1">
               {renderCapturedPieces('black', 'white')}
               {renderCapturedPieces('white', 'black')}
           </div>
           
           {/* Bottom Dynamic Section */}
-          <Separator className="my-1" />
-          <div className="flex-grow flex flex-col justify-center min-h-[60px]">
+          <Separator className="my-0.5" />
+          <div className="flex-grow flex flex-col justify-center min-h-[40px]">
             {pieceForInfoDisplay ? (
               <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
             ) : (
-               <div className="text-center text-xs text-muted-foreground">
+               <div className="text-center text-[10px] text-muted-foreground leading-tight">
                   Hover over a piece to see its abilities.
                </div>
             )}

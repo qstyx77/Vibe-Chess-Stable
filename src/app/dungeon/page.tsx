@@ -761,7 +761,7 @@ export default function DungeonPage() {
 
         if (reflectionOccurred) {
             const victim = capturedPiece!;
-            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...victim, id: `${victim.id}_refl_ai_${Date.now()}` }] }));
+            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...victim, id: `${victim.id}_refl_aj_${Date.now()}` }] }));
             audioManager.playCapture();
             setKillStreaks(prev => ({ ...prev, white: (prev.white || 0) + 1, black: 0 }));
             setBoard(newBoard);
@@ -1514,82 +1514,161 @@ export default function DungeonPage() {
 
   const isBossFloor = level % 10 === 0;
 
-  return (
-    <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-2 md:p-4 gap-2 md:gap-4 overflow-hidden">
-      <div className="w-full max-max-4xl flex items-center justify-between shrink-0">
-        <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
-        <div className="flex items-center gap-2">
-          {isBossFloor ? <Skull className="text-destructive h-6 w-6 animate-pulse" /> : <Swords className="text-primary h-6 w-6" />}
-          <h1 className={cn("text-base md:text-xl font-bold font-pixel uppercase", isBossFloor ? "text-destructive" : "text-primary")}>
-            {isBossFloor ? `BOSS FLOOR: ${level}` : `Floor ${level}`}
-          </h1>
+  const mobileLayout = (
+    <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 lg:hidden overflow-y-auto scrollbar-hide">
+      <div className="flex flex-col items-center justify-between gap-0.5 pb-1">
+        <div className="w-full flex items-center justify-between">
+          <Link href="/"><Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px]"><ArrowLeft className="mr-1 h-3 w-3" /> Exit</Button></Link>
+          <div className="flex items-center gap-1">
+            {isBossFloor ? <Skull className="text-destructive h-5 w-5 animate-pulse" /> : <Swords className="text-primary h-5 w-5" />}
+            <h1 className={cn("text-[10px] md:text-xs font-bold font-pixel uppercase", isBossFloor ? "text-destructive" : "text-primary")}>
+              {isBossFloor ? `BOSS: ${level}` : `Floor ${level}`}
+            </h1>
+          </div>
+          <Button 
+            variant={isInventoryOpen ? "default" : "outline"} 
+            size="sm" 
+            className="h-6 px-1.5 text-[10px]"
+            onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+            disabled={hasMovedOnCurrentFloor}
+          >
+            <Package className="mr-1 h-3 w-3" /> Items
+          </Button>
         </div>
-        <Button 
-          variant={isInventoryOpen ? "default" : "outline"} 
-          size="sm" 
-          onClick={() => setIsInventoryOpen(!isInventoryOpen)}
-          disabled={hasMovedOnCurrentFloor}
-        >
-          <Package className="mr-1 h-4 w-4" /> Items
-        </Button>
+        <div className={cn("text-center text-[10px] font-bold min-h-[1.2em] uppercase font-pixel flex items-center justify-center gap-1", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
+          {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
+          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+        </div>
+        <div className="w-full">
+          <ChessBoard
+            boardState={board}
+            selectedSquare={isAnySpecialModeActive ? null : selectedSquare}
+            possibleMoves={isAnySpecialModeActive ? [] : possibleMoves}
+            enemySelectedSquare={null}
+            enemyPossibleMoves={[]}
+            onSquareClick={handleSquareClick}
+            playerColor="white"
+            currentPlayerColor={currentPlayer}
+            isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && isLocalActionTurn) || isAiThinking}
+            playerInCheck={gameInfo.playerWithKingInCheck}
+            viewMode="flipping"
+            animatedSquareTo={animatedSquareTo}
+            lastMoveFrom={lastMoveFrom}
+            lastMoveTo={lastMoveTo}
+            isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+            playerToSacrificePawn={playerToSacrificePawn}
+            isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
+            playerToPromoteCommander={playerWhoGotFirstBlood === 'white' ? 'white' : null}
+            isEnPassantTarget={enPassantTargetSquare}
+            onPieceHover={setPieceForInfoDisplay}
+            effects={effects}
+            promotingSquare={promotionSquare}
+            isAwaitingAnvilDrop={isAwaitingAnvilDrop}
+            playerToDropAnvil={currentPlayer === 'white' ? 'white' : null}
+            isAwaitingHolyShield={isAwaitingHolyShield}
+            isAwaitingArcherSnipe={isAwaitingArcherSnipe}
+            isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
+            isAwaitingWindScrollTarget={isAwaitingWindScrollTarget}
+            isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget}
+            isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
+            isAwaitingDecreeTarget={isAwaitingDecreeTarget}
+            isInventoryOpen={isInventoryOpen}
+            selectedInventoryItemType={selectedInventoryItemType}
+            localPlayerColor="white"
+          />
+        </div>
+        <GameControls
+          currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false}
+        />
+        {gameInfo.gameOver && (
+          <div className="mt-1 space-y-1 w-full shrink-0">
+            <Button className="w-full font-bold uppercase h-7 text-[10px]" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry</Button>
+            <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-7 text-[10px]">Lobby</Button></Link>
+          </div>
+        )}
       </div>
-      <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full max-w-6xl items-start justify-center flex-1 overflow-hidden">
-        <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
-          <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
-            {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+    </div>
+  );
+
+  return (
+    <div className="flex flex-col items-center justify-start h-[100dvh] bg-background p-1 md:p-4 gap-1 md:gap-4 overflow-hidden">
+      <div className="lg:hidden h-full w-full">{mobileLayout}</div>
+      <div className="hidden lg:flex flex-col items-center justify-start h-full w-full gap-4 shrink-0">
+        <div className="w-full max-max-4xl flex items-center justify-between shrink-0">
+          <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
+          <div className="flex items-center gap-2">
+            {isBossFloor ? <Skull className="text-destructive h-6 w-6 animate-pulse" /> : <Swords className="text-primary h-6 w-6" />}
+            <h1 className={cn("text-base md:text-xl font-bold font-pixel uppercase", isBossFloor ? "text-destructive" : "text-primary")}>
+              {isBossFloor ? `BOSS FLOOR: ${level}` : `Floor ${level}`}
+            </h1>
           </div>
-          <div className="w-full aspect-square">
-            <ChessBoard
-              boardState={board}
-              selectedSquare={isAnySpecialModeActive ? null : selectedSquare}
-              possibleMoves={isAnySpecialModeActive ? [] : possibleMoves}
-              enemySelectedSquare={null}
-              enemyPossibleMoves={[]}
-              onSquareClick={handleSquareClick}
-              playerColor="white"
-              currentPlayerColor={currentPlayer}
-              isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && isLocalActionTurn) || isAiThinking}
-              playerInCheck={gameInfo.playerWithKingInCheck}
-              viewMode="flipping"
-              animatedSquareTo={animatedSquareTo}
-              lastMoveFrom={lastMoveFrom}
-              lastMoveTo={lastMoveTo}
-              isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
-              playerToSacrificePawn={playerToSacrificePawn}
-              isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
-              playerToPromoteCommander={playerWhoGotFirstBlood === 'white' ? 'white' : null}
-              isEnPassantTarget={enPassantTargetSquare}
-              onPieceHover={setPieceForInfoDisplay}
-              effects={effects}
-              promotingSquare={promotionSquare}
-              isAwaitingAnvilDrop={isAwaitingAnvilDrop}
-              playerToDropAnvil={currentPlayer === 'white' ? 'white' : null}
-              isAwaitingHolyShield={isAwaitingHolyShield}
-              isAwaitingArcherSnipe={isAwaitingArcherSnipe}
-              isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
-              isAwaitingWindScrollTarget={isAwaitingWindScrollTarget}
-              isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget}
-              isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
-              isAwaitingDecreeTarget={isAwaitingDecreeTarget}
-              isInventoryOpen={isInventoryOpen}
-              selectedInventoryItemType={selectedInventoryItemType}
-              localPlayerColor="white"
-            />
-          </div>
+          <Button 
+            variant={isInventoryOpen ? "default" : "outline"} 
+            size="sm" 
+            onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+            disabled={hasMovedOnCurrentFloor}
+          >
+            <Package className="mr-1 h-4 w-4" /> Items
+          </Button>
         </div>
-        <div className="w-full lg:w-1/4 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-hide">
-          <div className="flex-1 min-h-0">
-            <GameControls
-              currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false}
-            />
-          </div>
-          {gameInfo.gameOver && (
-            <div className="mt-2 space-y-2 shrink-0 mb-4 lg:mb-0">
-              <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
-              <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-8 text-xs">Back to Lobby</Button></Link>
+        <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full max-w-6xl items-start justify-center flex-1 overflow-hidden">
+          <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
+            <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
+              {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
+              {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
             </div>
-          )}
+            <div className="w-full aspect-square">
+              <ChessBoard
+                boardState={board}
+                selectedSquare={isAnySpecialModeActive ? null : selectedSquare}
+                possibleMoves={isAnySpecialModeActive ? [] : possibleMoves}
+                enemySelectedSquare={null}
+                enemyPossibleMoves={[]}
+                onSquareClick={handleSquareClick}
+                playerColor="white"
+                currentPlayerColor={currentPlayer}
+                isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && isLocalActionTurn) || isAiThinking}
+                playerInCheck={gameInfo.playerWithKingInCheck}
+                viewMode="flipping"
+                animatedSquareTo={animatedSquareTo}
+                lastMoveFrom={lastMoveFrom}
+                lastMoveTo={lastMoveTo}
+                isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
+                playerToSacrificePawn={playerToSacrificePawn}
+                isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
+                playerToPromoteCommander={playerWhoGotFirstBlood === 'white' ? 'white' : null}
+                isEnPassantTarget={enPassantTargetSquare}
+                onPieceHover={setPieceForInfoDisplay}
+                effects={effects}
+                promotingSquare={promotionSquare}
+                isAwaitingAnvilDrop={isAwaitingAnvilDrop}
+                playerToDropAnvil={currentPlayer === 'white' ? 'white' : null}
+                isAwaitingHolyShield={isAwaitingHolyShield}
+                isAwaitingArcherSnipe={isAwaitingArcherSnipe}
+                isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
+                isAwaitingWindScrollTarget={isAwaitingWindScrollTarget}
+                isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget}
+                isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
+                isAwaitingDecreeTarget={isAwaitingDecreeTarget}
+                isInventoryOpen={isInventoryOpen}
+                selectedInventoryItemType={selectedInventoryItemType}
+                localPlayerColor="white"
+              />
+            </div>
+          </div>
+          <div className="w-full lg:w-1/4 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-hide">
+            <div className="flex-1 min-h-0">
+              <GameControls
+                currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false}
+              />
+            </div>
+            {gameInfo.gameOver && (
+              <div className="mt-2 space-y-2 shrink-0 mb-4 lg:mb-0">
+                <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
+                <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-8 text-xs">Back to Lobby</Button></Link>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
