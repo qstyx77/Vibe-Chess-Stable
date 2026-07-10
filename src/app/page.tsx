@@ -450,7 +450,7 @@ export default function EvolvingChessPage() {
       if (currentShroomCounter >= (nextShroomSpawnTurn || 5)) {
           const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(currentBoardState);
           if (shroomSpawnedAt) {
-              currentBoardState = newBoard;
+              currentBoardState = boardAfterShroom;
               setBoard(currentBoardState);
               const newNextTurn = Math.floor(Math.random() * 6) + 5;
               toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
