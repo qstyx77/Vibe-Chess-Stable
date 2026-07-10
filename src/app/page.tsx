@@ -311,6 +311,24 @@ export default function EvolvingChessPage() {
     }
   }, [userData, isUserLoading]);
 
+  // Centralized effect for board flipping/orientation
+  useEffect(() => {
+    // If we are in an online game, lock orientation to the local player's color
+    if (onlineStatus === 'connected' && localPlayerColor) {
+      setBoardOrientation(localPlayerColor);
+      return;
+    }
+
+    // If we are in flipping mode in a local game, flip to face the current human player
+    if (viewMode === 'flipping' && onlineStatus === 'disconnected' && !gameInfo.gameOver) {
+      const isAI = currentPlayer === 'white' ? isWhiteAI : isBlackAI;
+      // Only flip if the next turn is for a human player (to avoid flipping to AI side)
+      if (!isAI) {
+        setBoardOrientation(currentPlayer);
+      }
+    }
+  }, [currentPlayer, viewMode, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, gameInfo.gameOver]);
+
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return 'A player'; 
     if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
@@ -425,8 +443,8 @@ export default function EvolvingChessPage() {
       let currentShroomCounter = (shroomSpawnCounter || 0) + 1;
       setShroomSpawnCounter(currentShroomCounter);
       if (currentShroomCounter >= (nextShroomSpawnTurn || 5)) {
-          const { newBoard, spawnedAt } = spawnShroom(currentBoardState);
-          if (spawnedAt) {
+          const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(currentBoardState);
+          if (shroomSpawnedAt) {
               currentBoardState = newBoard;
               setBoard(currentBoardState);
               const newNextTurn = Math.floor(Math.random() * 6) + 5;
