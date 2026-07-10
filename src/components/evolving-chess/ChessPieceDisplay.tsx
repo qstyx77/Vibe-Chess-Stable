@@ -129,34 +129,34 @@ export function ChessPieceDisplay({
           )}>
              <ItemSprite 
                type={piece.heldItem} 
-               size={isMini ? 12 : 16} 
+               size={isMini ? 10 : 13} 
              />
           </div>
         )}
 
         {isCommanderLike && (
           <span
-            className="absolute text-sm leading-none z-[2]"
+            className="absolute leading-none z-[2]"
             style={{
-              top: '-2px',
-              right: '-2px',
+              top: '-1px',
+              right: '-1px',
             }}
             aria-label={piece.type === 'hero' ? "Hero Star" : "Commander Star"}
           >
-            <StarIcon className={cn(isMini ? "w-2 h-2" : "w-4 h-4", "text-yellow-400 drop-shadow-[0_0_2px_black]")} />
+            <StarIcon className={cn(isMini ? "w-[6.5px] h-[6.5px]" : "w-[13px] h-[13px]", "text-yellow-400 drop-shadow-[0_0_1.5px_black]")} />
           </span>
         )}
 
         {isInfiltrator && (
           <span
-            className="absolute text-sm leading-none z-[2]"
+            className="absolute leading-none z-[2]"
             style={{
-              top: '-2px',
-              right: '-2px',
+              top: '-1px',
+              right: '-1px',
             }}
             aria-label="Infiltrator Skull"
           >
-            <SkullIcon className={cn(isMini ? "w-2 h-2" : "w-4 h-4", "text-destructive drop-shadow-[0_0_2px_black]")} />
+            <SkullIcon className={cn(isMini ? "w-[6.5px] h-[6.5px]" : "w-[13px] h-[13px]", "text-destructive drop-shadow-[0_0_1.5px_black]")} />
           </span>
         )}
 
@@ -164,21 +164,21 @@ export function ChessPieceDisplay({
           <span
             className={cn(
               "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
-              isMini ? "text-[8px]" : "text-[14px] md:text-base"
+              isMini ? "text-[6.5px]" : "text-[11px] md:text-[13px]"
             )}
             style={{ 
               textShadow: `
-                2px 2px 0 #000, 
-                -2px 2px 0 #000, 
-                2px -2px 0 #000, 
-                -2px -2px 0 #000,
-                0 2px 0 #000,
-                0 -2px 0 #000,
-                2px 0 0 #000,
-                -2px 0 0 #000
+                1.5px 1.5px 0 #000, 
+                -1.5px 1.5px 0 #000, 
+                1.5px -1.5px 0 #000, 
+                -1.5px -1.5px 0 #000,
+                0 1.5px 0 #000,
+                0 -1.5px 0 #000,
+                1.5px 0 0 #000,
+                -1.5px 0 0 #000
               `,
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
-              marginTop: isMini ? '2px' : '6px'
+              marginTop: isMini ? '1px' : '5px'
             }}
             aria-label={`Level ${displayLevelValue}`}
           >
