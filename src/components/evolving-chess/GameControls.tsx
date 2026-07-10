@@ -69,11 +69,11 @@ export function GameControls({
   const renderCapturedPieces = (color: PlayerColor, capturedBy: PlayerColor) => {
     const pieces = capturedPieces[capturedBy];
     return (
-      <div className="flex-grow">
-        <h3 className="text-[10px] font-medium text-muted-foreground uppercase mb-0.5">Captured {color.charAt(0).toUpperCase() + color.slice(1)}</h3>
-        <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[32px] p-1 border border-border/20">
-          {pieces.length === 0 ? <span className="text-[8px] text-muted-foreground">None</span> : pieces.map(p => (
-            <div key={p.id} className="w-6 h-6 relative" title={`${p.type} L${p.level}`}>
+      <div className="w-full">
+        <h3 className="text-[9px] font-bold text-muted-foreground uppercase mb-0 leading-none">Captured {color}</h3>
+        <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[24px] p-0.5 border border-border/20">
+          {pieces.length === 0 ? <span className="text-[7px] text-muted-foreground">None</span> : pieces.map(p => (
+            <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
               <ChessPieceDisplay piece={p} isMini />
             </div>
           ))}
@@ -174,7 +174,7 @@ export function GameControls({
             </div>
           </div>
           <Separator className="my-0.5"/>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-0.5">
               {renderCapturedPieces('black', 'white')}
               {renderCapturedPieces('white', 'black')}
           </div>
