@@ -292,6 +292,11 @@ export default function EvolvingChessPage() {
     effectCleanupTimersRef.current[id] = timer;
   }, []);
 
+  // Initialize AI instance based on difficulty
+  useEffect(() => {
+    aiInstanceRef.current = new VibeChessAI(aiDifficulty);
+  }, [aiDifficulty]);
+
   useEffect(() => {
     if (!isUserLoading && userData && !hasInitializedSession.current) {
       hasInitializedSession.current = true;
@@ -610,7 +615,25 @@ export default function EvolvingChessPage() {
         return false;
     }
     if (Number(queenOnSquare.level || 1) === 7 && Number(originalPieceLevelIfKnown || 0) < 7) {
-      if (boardAfterPrimaryMove.flat().some(sq => sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === playerWhoseQueenLeveled)) {
+      const hasPawns = boardAfterPrimaryMove.flat().some(sq => sq.piece && (sq.piece.type === 'pawn' || sq.piece.type === 'commander') && sq.piece.color === playerWhoseQueenLeveled);
+      if (hasPawns) {
+        const isAI = (playerWhoseQueenLeveled === 'white' && isWhiteAI) || (playerWhoseQueenLeveled === 'black' && isBlackAI);
+        if (isAI) {
+            // Auto-sacrifice for AI
+            const nextB = boardAfterPrimaryMove.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            const pawnSq = nextB.flat().find(sq => sq.piece && sq.piece.color === playerWhoseQueenLeveled && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
+            if (pawnSq) {
+                const {row, col} = algebraicToCoords(pawnSq.algebraic);
+                const sac = { ...nextB[row][col].piece!, id: `${nextB[row][col].piece!.id}_sac_ai_${Date.now()}` };
+                nextB[row][col].piece = null;
+                const opp = playerWhoseQueenLeveled === 'white' ? 'black' : 'white';
+                setCapturedPieces(prev => ({ ...prev, [opp]: [...(prev[opp] || []), sac] }));
+                audioManager.playCapture();
+                triggerSpecialsChain(nextB, oldStreak, newStreak, isExtraTurnFromOriginalMove, newEnPassantTarget, playerWhoseQueenLeveled, []);
+            }
+            return true;
+        }
+
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(playerWhoseQueenLeveled);
         setBoardForPostSacrifice(boardAfterPrimaryMove.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))));
         setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled); setIsExtraTurnFromQueenMove(isExtraTurnFromOriginalMove);
@@ -623,7 +646,7 @@ export default function EvolvingChessPage() {
     }
     triggerSpecialsChain(boardAfterPrimaryMove, oldStreak, newStreak, isExtraTurnFromOriginalMove, newEnPassantTarget, playerWhoseQueenLeveled, []);
     return false;
-  }, [triggerSpecialsChain, getPlayerDisplayName]);
+  }, [triggerSpecialsChain, getPlayerDisplayName, isWhiteAI, isBlackAI]);
 
   const performAiMove = useCallback(async () => {
     if (!aiInstanceRef.current || gameInfo.gameOver || isPromotingPawn || isMoveProcessing || isAnySpecialModeActive) { setIsAiThinking(false); return; }
@@ -1062,6 +1085,7 @@ export default function EvolvingChessPage() {
       }));
     }
     setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
 
   function handleUndo() {
