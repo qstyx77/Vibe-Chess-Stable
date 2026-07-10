@@ -71,10 +71,10 @@ export function GameControls({
     return (
       <div className="flex-grow">
         <h3 className="text-xs font-medium text-muted-foreground mb-1">Captured {color.charAt(0).toUpperCase() + color.slice(1)}</h3>
-        <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[24px] p-1">
-          {pieces.length === 0 ? <span className="text-xs text-muted-foreground">None</span> : pieces.map(p => (
-            <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
-              <ChessPieceDisplay piece={p} />
+        <div className="flex flex-wrap gap-1 bg-background rounded-none min-h-[40px] p-2 border border-border/20">
+          {pieces.length === 0 ? <span className="text-[10px] text-muted-foreground">None</span> : pieces.map(p => (
+            <div key={p.id} className="w-8 h-8 relative" title={`${p.type} L${p.level}`}>
+              <ChessPieceDisplay piece={p} isMini />
             </div>
           ))}
         </div>
@@ -174,7 +174,7 @@ export function GameControls({
             </div>
           </div>
           <Separator className="my-1"/>
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
               {renderCapturedPieces('black', 'white')}
               {renderCapturedPieces('white', 'black')}
           </div>

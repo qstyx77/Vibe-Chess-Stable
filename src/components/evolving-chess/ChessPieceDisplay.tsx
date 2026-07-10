@@ -27,6 +27,7 @@ interface ChessPieceDisplayProps {
   isSnipeTarget?: boolean;
   effectiveLevel?: number;
   isGrimoirBoosted?: boolean;
+  isMini?: boolean;
 }
 
 const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
@@ -56,6 +57,7 @@ export function ChessPieceDisplay({
   isSnipeTarget = false,
   effectiveLevel,
   isGrimoirBoosted = false,
+  isMini = false,
 }: ChessPieceDisplayProps) {
   
   const IconComponent = PieceIconMap[piece.type] || PixelPawn;
@@ -109,22 +111,25 @@ export function ChessPieceDisplay({
       >
         {piece.isShielded && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[10]">
-            <div className="w-[110%] h-[110%] border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_white]" />
+            <div className="w-[115%] h-[115%] border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_white]" />
           </div>
         )}
 
         <div className={cn(
-          "w-4/5 h-4/5 relative z-[1]",
+          "w-[95%] h-[95%] relative z-[1]",
           (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100"
         )}>
           <IconComponent className="w-full h-full drop-shadow-md" />
         </div>
 
         {piece.heldItem && (
-          <div className="absolute bottom-0 right-0 z-[5] bg-black/40 rounded-sm p-0.5 scale-75 origin-bottom-right">
+          <div className={cn(
+            "absolute bottom-0 right-0 z-[5] bg-black/40 rounded-sm p-0.5 origin-bottom-right",
+            isMini ? "scale-50" : "scale-100"
+          )}>
              <ItemSprite 
                type={piece.heldItem} 
-               size={14} 
+               size={isMini ? 12 : 16} 
              />
           </div>
         )}
@@ -133,12 +138,12 @@ export function ChessPieceDisplay({
           <span
             className="absolute text-sm leading-none z-[2]"
             style={{
-              top: '0',
-              right: '0',
+              top: '-2px',
+              right: '-2px',
             }}
             aria-label={piece.type === 'hero' ? "Hero Star" : "Commander Star"}
           >
-            <StarIcon className="w-3 h-3 text-yellow-400 drop-shadow-[0_0_2px_black]" />
+            <StarIcon className={cn(isMini ? "w-2 h-2" : "w-4 h-4", "text-yellow-400 drop-shadow-[0_0_2px_black]")} />
           </span>
         )}
 
@@ -146,31 +151,34 @@ export function ChessPieceDisplay({
           <span
             className="absolute text-sm leading-none z-[2]"
             style={{
-              top: '0',
-              right: '0',
+              top: '-2px',
+              right: '-2px',
             }}
             aria-label="Infiltrator Skull"
           >
-            <SkullIcon className="w-3 h-3 text-destructive drop-shadow-[0_0_2px_black]" />
+            <SkullIcon className={cn(isMini ? "w-2 h-2" : "w-4 h-4", "text-destructive drop-shadow-[0_0_2px_black]")} />
           </span>
         )}
 
         {displayLevelValue > 1 && (
           <span
-            className="absolute inset-0 flex items-center justify-center text-[10px] md:text-xs font-pixel pointer-events-none z-[20]"
+            className={cn(
+              "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
+              isMini ? "text-[8px]" : "text-[14px] md:text-base"
+            )}
             style={{ 
               textShadow: `
-                1.5px 1.5px 0 #000, 
-                -1.5px 1.5px 0 #000, 
-                1.5px -1.5px 0 #000, 
-                -1.5px -1.5px 0 #000,
-                0 1.5px 0 #000,
-                0 -1.5px 0 #000,
-                1.5px 0 0 #000,
-                -1.5px 0 0 #000
+                2px 2px 0 #000, 
+                -2px 2px 0 #000, 
+                2px -2px 0 #000, 
+                -2px -2px 0 #000,
+                0 2px 0 #000,
+                0 -2px 0 #000,
+                2px 0 0 #000,
+                -2px 0 0 #000
               `,
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
-              marginTop: '4px'
+              marginTop: isMini ? '2px' : '6px'
             }}
             aria-label={`Level ${displayLevelValue}`}
           >
