@@ -294,13 +294,17 @@ export default function DungeonPage() {
   const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
   const [isAwaitingShieldScrollTarget, setIsAwaitingShieldScrollTarget] = useState(false);
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
+  const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
 
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
-
   const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
-
   const uniqueIdCounterRef = useRef(30000);
+
+  // --- Parity Fix: Effects & Event Signaling ---
+  const prevBoardRef = useRef<BoardState | null>(null);
+  const moveCounter = useRef(0);
+  const signaledEventsRef = useRef<Set<string>>(new Set());
 
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -319,8 +323,6 @@ export default function DungeonPage() {
 
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
-  const moveCounter = useRef(0);
-  const prevBoardRef = useRef<BoardState | null>(null);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
@@ -330,9 +332,10 @@ export default function DungeonPage() {
     }, 1500);
   }, []);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget;
   const isLocalActionTurn = currentPlayer === 'white';
 
+  // PARITY PATCH: EFFECT DIFFING
   useEffect(() => {
     if (!board.length || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -340,17 +343,35 @@ export default function DungeonPage() {
     }
     const currentPieceIds = new Set(board.flat().filter(sq => sq.piece).map(sq => sq.piece!.id));
     const prevPieces = prevBoardRef.current.flat().filter(sq => sq.piece);
-    prevPieces.forEach(prevSq => {
-        if (!currentPieceIds.has(prevSq.piece!.id)) addEffect('poof', prevSq.algebraic);
-    });
+    const moveKey = `move-${moveCounter.current}`;
+
+    const newEffectsToAdd: {type: Effect['type'], square: AlgebraicSquare, val?: number}[] = [];
+
     board.flat().forEach(currSq => {
         if (currSq.piece) {
             const prevSq = prevBoardRef.current!.flat().find(ps => ps.piece?.id === currSq.piece!.id);
             if (prevSq && prevSq.piece!.level !== currSq.piece!.level) {
-                addEffect('level-change', currSq.algebraic, undefined, currSq.piece!.level - prevSq.piece!.level);
+                const diff = currSq.piece!.level - prevSq.piece!.level;
+                const sig = `level-${currSq.piece!.id}-${currSq.piece!.level}-${moveKey}`;
+                if (!signaledEventsRef.current.has(sig)) {
+                  newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff });
+                  signaledEventsRef.current.add(sig);
+                }
             }
         }
     });
+
+    prevPieces.forEach(prevSq => {
+        if (!currentPieceIds.has(prevSq.piece!.id)) {
+            const sig = `capture-${prevSq.piece!.id}-${moveKey}`;
+            if (!signaledEventsRef.current.has(sig)) {
+              newEffectsToAdd.push({ type: 'poof', square: prevSq.algebraic });
+              signaledEventsRef.current.add(sig);
+            }
+        }
+    });
+
+    newEffectsToAdd.forEach(e => addEffect(e.type, e.square, undefined, e.val));
     prevBoardRef.current = board;
   }, [board, addEffect]);
 
@@ -365,7 +386,6 @@ export default function DungeonPage() {
     setIsMoveProcessing(false);
     clickGuard.current = false;
     
-    // Reset highlights and selection for new floor
     setLastMoveFrom(null);
     setLastMoveTo(null);
     setAnimatedSquareTo(null);
@@ -407,7 +427,6 @@ export default function DungeonPage() {
     
     const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     
-    // Reset floor state
     setIsMoveProcessing(false);
     clickGuard.current = false;
     setLastMoveFrom(null);
@@ -552,7 +571,6 @@ export default function DungeonPage() {
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
-    const getPieces = (b: BoardState, p: PlayerColor) => b.flat().filter(sq => sq.piece && sq.piece.color === p).map(sq => sq.piece!);
 
     // 1. First Blood -> Commander Promo
     if (!firstBloodAchieved && newStreak > 0 && !completedMilestones.includes('firstBlood')) {
@@ -620,7 +638,6 @@ export default function DungeonPage() {
 
     // 4. Killstreak: Resurrection (Streak 4+)
     if (newStreak >= 4 && !completedMilestones.includes('resurrection')) {
-        const oppColor = actingPlayer === 'white' ? 'black' : 'white';
         const myGraveyard = actingPlayer === 'white' ? capturedPieces.black : capturedPieces.white; 
         
         if (myGraveyard.length > 0) {
@@ -662,8 +679,8 @@ export default function DungeonPage() {
         }
     }
 
-    // 5. Killstreak: Archer Snipe (Streak 5+ + Archer OR Streak 3+ + Crossbow)
-    const pieces = getPieces(boardToChain, actingPlayer);
+    // 5. Killstreak: Archer Snipe
+    const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
     const hasArcher = pieces.some(p => p.type === 'archer');
     const hasCrossbow = pieces.some(p => p.type === 'archer' && p.heldItem === 'crossbow');
     const isSnipeTime = (newStreak >= 5 && hasArcher) || (newStreak >= 3 && hasCrossbow);
@@ -833,7 +850,6 @@ export default function DungeonPage() {
             triggerSpecialsChain(newBoard, oldStreak, newStreak, isExtra, nextEp, 'black');
         }, 800);
       } else {
-        // AI NO MOVES CASE
         const nextStrikes = aiStalemateStrikes + 1;
         setAiStalemateStrikes(nextStrikes);
         setKillStreaks(prev => ({ ...prev, black: 0 }));
@@ -918,7 +934,6 @@ export default function DungeonPage() {
     clickGuard.current = false;
     setHasMovedOnCurrentFloor(false);
     
-    // Reset highlights and selection for fresh run
     setLastMoveFrom(null);
     setLastMoveTo(null);
     setAnimatedSquareTo(null);
@@ -1047,6 +1062,19 @@ export default function DungeonPage() {
       return;
     }
 
+    if (isAwaitingDecreeTarget) {
+        if (piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) {
+            setHasMovedOnCurrentFloor(true);
+            setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+            const move: Move = { from: selectedSquare!, to: algebraic, type: 'kings-decree' };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+            setBoard(result.newBoard);
+            audioManager.playLevelUp();
+            setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, 'white', false, enPassantTargetSquare); }, 800);
+        }
+        return;
+    }
     if (isAwaitingWindScrollTarget) {
       if (!sq.piece && !sq.item) {
         setHasMovedOnCurrentFloor(true);
@@ -1294,6 +1322,8 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'detonation_scroll') {
                   if (effectiveLevel >= 5) executeSelfDestruct();
                   else toast({ title: "Level Too Low", variant: "destructive" });
+              } else if (movingPiece.heldItem === 'kings_decree') {
+                  setIsAwaitingDecreeTarget(true); setPossibleMoves([]);
               }
               else executeWindScrollMode();
             }
@@ -1313,6 +1343,8 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'detonation_scroll') {
               if (effectiveLevel >= 5) executeSelfDestruct();
               else toast({ title: "Level Too Low", variant: "destructive" });
+          } else if (movingPiece.heldItem === 'kings_decree') {
+              setIsAwaitingDecreeTarget(true); setPossibleMoves([]);
           }
           else executeWindScrollMode();
         } else if (hasSelfSelectionAbility) executeSelfDestruct();
@@ -1505,7 +1537,7 @@ export default function DungeonPage() {
         <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
           <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
             {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+            {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
           </div>
           <div className="w-full aspect-square">
             <ChessBoard
@@ -1536,10 +1568,13 @@ export default function DungeonPage() {
               isAwaitingHolyShield={isAwaitingHolyShield}
               isAwaitingArcherSnipe={isAwaitingArcherSnipe}
               isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
+              isAwaitingWindScrollTarget={isAwaitingWindScrollTarget}
+              isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget}
+              isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
+              isAwaitingDecreeTarget={isAwaitingDecreeTarget}
               isInventoryOpen={isInventoryOpen}
               selectedInventoryItemType={selectedInventoryItemType}
               localPlayerColor="white"
-              isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget}
             />
           </div>
         </div>

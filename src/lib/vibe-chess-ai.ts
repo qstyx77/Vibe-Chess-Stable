@@ -218,7 +218,6 @@ export class VibeChessAI {
             captureOccurred = true; captureCount = 1;
             handleHydraSplit(targetPiece, tR, tC, nextState.board);
             
-            // Rule: Pawn Capturing a Commander promotes to a Commander
             if (piece.type === 'pawn' && targetPiece.type === 'commander') {
                 piece.type = 'commander';
             }
@@ -292,7 +291,12 @@ export class VibeChessAI {
             const rook = nextState.board[fR]?.[rookFC]?.piece;
             if (rook) { nextState.board[fR][rookTC].piece = { ...rook, hasMoved: true }; nextState.board[fR][rookFC].piece = null; }
             targetSquare.piece = piece; movingSquare.piece = null;
-        } else { targetSquare.piece = piece; movingSquare.piece = null; }
+        } else { 
+            targetSquare.piece = piece; movingSquare.piece = null; 
+            
+            // PHYSICS SIMULATION FOR AI
+            this.simulatePhysics(nextState.board, tR, tC, piece, captureOccurred, currentPlayer);
+        }
         
         if (levelGain > 0 && piece.heldItem === 'soul_link') {
           nextState.board.forEach(row => row.forEach(sq => {
@@ -312,13 +316,8 @@ export class VibeChessAI {
             piece.isPoisoned = false;
             piece.cooldownTurnsRemaining = 0;
             piece.frozenTurnsRemaining = 0;
-            
-            // Apply new start level rules
             piece.level = getPromotionLevel(targetPiece?.type || null);
-            
-            if (piece.type === 'queen') {
-                piece.level = Math.min(piece.level, 7);
-            }
+            if (piece.type === 'queen') piece.level = Math.min(piece.level, 7);
             if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
         }
         
@@ -337,9 +336,7 @@ export class VibeChessAI {
             }
         }
 
-        if (piece.isPoisoned && piece.level === 1) {
-            piece.cooldownTurnsRemaining = 1;
-        }
+        if (piece.isPoisoned && piece.level === 1) piece.cooldownTurnsRemaining = 1;
 
         if (captureOccurred) {
             const oldStreak = originalGameState.killStreaks[currentPlayer] || 0;
@@ -372,6 +369,86 @@ export class VibeChessAI {
         return nextState;
     }
 
+    simulatePhysics(board: AIBoardState, r: number, c: number, attacker: Piece, isCapture: boolean, color: PlayerColor) {
+        const effectiveLevel = getEffectiveLevel(board as any, r, c);
+        const hasPush = (attacker.type === 'pawn' || attacker.type === 'commander') && effectiveLevel >= 4;
+        const hasCloak = attacker.heldItem === 'wind_cloak' && effectiveLevel >= 4;
+        const hasWindSword = attacker.heldItem === 'wind_sword' && isCapture;
+
+        if (hasPush || hasCloak || hasWindSword) {
+            this.aiTriggerPushBack(board, r, c, color);
+        }
+
+        if (attacker.heldItem === 'gravity_stone' && isCapture) {
+            this.aiTriggerPull(board, r, c, color);
+        }
+
+        if (attacker.heldItem === 'poison_dagger' && isCapture) {
+            this.aiTriggerPoisonSplash(board, r, c, color);
+        }
+    }
+
+    aiTriggerPushBack(board: AIBoardState, r: number, c: number, color: PlayerColor) {
+        for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+            if(dr===0 && dc===0) continue;
+            const nr = r+dr, nc = c+dc;
+            if(isValidSquareUtil(nr, nc)) {
+                const victim = board[nr][nc];
+                if(victim.item?.type === 'anvil' || (victim.piece && victim.piece.color !== color)) {
+                    if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots') continue;
+                    const tr = nr+dr, tc = nc+dc;
+                    if(!isValidSquareUtil(tr, tc)) { if(victim.item) board[nr][nc].item = null; }
+                    else {
+                        const dest = board[tr][tc];
+                        if (victim.item?.type === 'anvil') {
+                            if (dest.piece && dest.piece.type !== 'king') {
+                                dest.piece = null;
+                                board[tr][tc].item = victim.item;
+                                board[nr][nc].item = null;
+                            } else if (!dest.piece && !dest.item) {
+                                board[tr][tc].item = victim.item;
+                                board[nr][nc].item = null;
+                            }
+                        } else if(!dest.piece && !dest.item) {
+                            board[tr][tc].piece = victim.piece;
+                            board[nr][nc].piece = null;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    aiTriggerPull(board: AIBoardState, r: number, c: number, color: PlayerColor) {
+        const oppColor = color === 'white' ? 'black' : 'white';
+        for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const targetR = r + (dr * 2), targetC = c + (dc * 2);
+            if (isValidSquareUtil(targetR, targetC)) {
+                const victimSq = board[targetR][targetC];
+                if (victimSq.piece && victimSq.piece.color === oppColor) {
+                    if (victimSq.piece.heldItem === 'lead_boots') continue;
+                    const midR = r + dr, midC = c + dc;
+                    if (isValidSquareUtil(midR, midC) && !board[midR][midC].piece && !board[midR][midC].item) {
+                        board[midR][midC].piece = victimSq.piece;
+                        victimSq.piece = null;
+                    }
+                }
+            }
+        }
+    }
+
+    aiTriggerPoisonSplash(board: AIBoardState, r: number, c: number, attackerColor: PlayerColor) {
+        for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+            if(dr===0 && dc===0) continue;
+            const nr = r+dr, nc = c+dc;
+            if(isValidSquareUtil(nr, nc)) {
+                const victim = board[nr][nc].piece;
+                if(victim && victim.color !== attackerColor) victim.isPoisoned = true;
+            }
+        }
+    }
+
     evaluatePosition = (gameState: AIGameState, aiColor: PlayerColor): number => {
         if (gameState.gameOver) { if (gameState.winner === aiColor) return 1000000; if (gameState.winner === 'draw') return 0; return -1000000; }
         const opponentColor = aiColor === 'white' ? 'black' : 'white';
@@ -385,6 +462,10 @@ export class VibeChessAI {
                 const levelIdx = Math.min(effectiveLevel, 10) - 1;
                 const baseValue = this.pieceValues[piece.type][levelIdx] || this.pieceValues[piece.type][0];
                 score += baseValue * mult;
+                
+                if (piece.heldItem === 'monks_robe') score += 100 * mult;
+                if (piece.heldItem === 'training_weights') score += 50 * mult;
+
                 const rcKey = `${r}${c}`; if (this.centerSquares.has(rcKey)) score += 10 * mult;
                 if (piece.type === 'infiltrator') score += Math.abs(r - (piece.color === 'white' ? 7 : 0)) * 40 * mult;
                 if (piece.cooldownTurnsRemaining || piece.frozenTurnsRemaining) score -= 200 * mult;
@@ -474,6 +555,7 @@ export class VibeChessAI {
             if (isValidSquareUtil(nr, nc)) {
                 const target = gs.board[nr][nc];
                 if (target.piece && target.piece.color !== color && target.piece.type !== 'king') { 
+                  if (target.piece.heldItem === 'blast_shield') continue;
                   handleHydraSplit(target.piece, nr, nc, gs.board);
                   if (target.piece.heldItem === 'soul_link') {
                     gs.board.forEach(rrr => rrr.forEach(ss => {
@@ -525,10 +607,7 @@ export class VibeChessAI {
           }
         }
 
-        if (anyBerserkerCanCapture) {
-          return allForcedCaptures;
-        }
-
+        if (anyBerserkerCanCapture) return allForcedCaptures;
         return legalMoves;
     }
 
@@ -663,11 +742,8 @@ export class VibeChessAI {
                             moves.push({ from: [r, c], to: [nr, nc], type: 'swap' });
                         }
                         
-                        if (isBishopPhase || hasPhaseBoots) {
-                            continue; 
-                        } else {
-                            break; 
-                        }
+                        if (isBishopPhase || hasPhaseBoots) continue; 
+                        else break; 
                     }
                 }
             }
@@ -761,10 +837,4 @@ export class VibeChessAI {
     isGameOver(gs: AIGameState) { return gs.gameOver; }
 
     getPositionKey(gs: AIGameState, maximizing: boolean): string { return `${gs.currentPlayer[0]}${maximizing ? 'M' : 'm'}${gs.board.flat().map(s => s.piece ? s.piece.id[0]+s.piece.level : '--').join('')}`; }
-
-    selectPawnForCommanderPromotion(gs: AIGameState): [number, number] | null {
-        const color = gs.currentPlayer; let best: [number, number] | null = null; let minR = color === 'white' ? 8 : -1;
-        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) { const p = gs.board[r][c].piece; if (p && p.color === color && p.type === 'pawn' && p.level === 1) { if ((color === 'white' && r < minR) || (color === 'black' && r > minR)) { minR = r; best = [r, c]; } } }
-        return best;
-    }
 }

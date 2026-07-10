@@ -37,6 +37,8 @@ interface ChessBoardProps {
   isAwaitingShieldScrollTarget?: boolean;
   isAwaitingSwapScrollTarget?: boolean;
   isAwaitingDecreeTarget?: boolean;
+  isAwaitingWindScrollTarget?: boolean;
+  isAwaitingAnvilScrollTarget?: boolean;
   isInventoryOpen?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   localPlayerColor?: PlayerColor | null;
@@ -146,6 +148,8 @@ export function ChessBoard({
   isAwaitingShieldScrollTarget,
   isAwaitingSwapScrollTarget,
   isAwaitingDecreeTarget,
+  isAwaitingWindScrollTarget,
+  isAwaitingAnvilScrollTarget,
   isInventoryOpen,
   selectedInventoryItemType,
   localPlayerColor
@@ -164,7 +168,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
       onMouseLeave={() => onPieceHover(null)}
@@ -209,7 +213,7 @@ export function ChessBoard({
 
           const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level === 1 && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
 
-          const isAnvilDropTarget = isLocalActionTurn && isAwaitingAnvilDrop && !currentSquareData.piece && !currentSquareData.item;
+          const isAnvilDropTarget = isLocalActionTurn && (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget) && !currentSquareData.piece && !currentSquareData.item;
 
           const isShieldScrollTargetSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
           

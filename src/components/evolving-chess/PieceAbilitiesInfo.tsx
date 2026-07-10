@@ -173,6 +173,11 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
             STATUS: EXHAUSTED
           </p>
         )}
+        {piece.heldItem === 'training_weights' && (
+          <p className="text-muted-foreground font-bold text-[10px] uppercase">
+            CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS
+          </p>
+        )}
       </div>
       {item && (
         <div className="mb-2 p-1 border border-accent/30 bg-accent/5 rounded-sm">
