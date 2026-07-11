@@ -315,95 +315,21 @@ export default function EvolvingChessPage() {
     }
   }, [userData, isUserLoading]);
 
-  useEffect(() => {
-    if (onlineStatus === 'connected' && localPlayerColor) {
-      setBoardOrientation(localPlayerColor);
+  const initWebSocket = useCallback((onOpenCallback?: () => void) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      if (onOpenCallback) onOpenCallback();
       return;
     }
-
-    if (viewMode === 'flipping' && onlineStatus === 'disconnected' && !gameInfo.gameOver) {
-      const isAI = currentPlayer === 'white' ? isWhiteAI : isBlackAI;
-      if (!isAI) {
-        setBoardOrientation(currentPlayer);
-      }
-    }
-  }, [currentPlayer, viewMode, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, gameInfo.gameOver]);
-
-  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    if (!player) return 'A player'; 
-    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
-        const username = gamePlayers?.[player]?.username;
-        if (username) {
-            if (player === localPlayerColor) {
-                return `${username} (You)`;
-            }
-            return username;
-        }
-    }
     
-    let baseName: string = player.charAt(0).toUpperCase() + player.slice(1);
-    
-    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
-    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
-
-    return baseName;
-  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
-
-  const handlePieceHover = useCallback((piece: Piece | null) => {
-    setPieceForInfoDisplay(piece);
-  }, []);
-
-  const handleRankedPlay = useCallback(() => {
-    if (!user || onlineStatus !== 'disconnected') return;
-
-    if (rankedQueueStatus === 'searching') {
-        wsRef.current?.send(JSON.stringify({ type: 'leave-ranked-queue' }));
-        setRankedQueueStatus('idle');
-        setOnlineStatus('disconnected');
-    } else {
-        setRankedQueueStatus('searching');
-        setOnlineStatus('connecting');
-        
-        const equipment: Record<string, string> = {};
-        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-
-        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-            initWebSocket();
-            setTimeout(() => {
-                wsRef.current?.send(JSON.stringify({
-                    type: 'join-ranked-queue',
-                    userId: user.uid,
-                    username: userData?.username || user.displayName || 'Player',
-                    elo: userData?.eloRating || 1200,
-                    wins: userData?.wins || 0,
-                    losses: userData?.losses || 0,
-                    equipment
-                }));
-            }, 1000);
-        } else {
-            wsRef.current.send(JSON.stringify({
-                type: 'join-ranked-queue',
-                userId: user.uid,
-                username: userData?.username || user.displayName || 'Player',
-                elo: userData?.eloRating || 1200,
-                wins: userData?.wins || 0,
-                losses: userData?.losses || 0,
-                equipment
-            }));
-        }
-    }
-  }, [user, onlineStatus, rankedQueueStatus, userData, board]);
-
-  const initWebSocket = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-    
+    setOnlineStatus('connecting');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.hostname}:8080`;
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
       console.log('Connected to game server');
-      if (rankedQueueStatus !== 'searching') setOnlineStatus('connected');
+      setOnlineStatus('connected');
+      if (onOpenCallback) onOpenCallback();
     };
 
     ws.onmessage = (event) => {
@@ -520,39 +446,58 @@ export default function EvolvingChessPage() {
     };
 
     wsRef.current = ws;
-  }, [toast, rankedQueueStatus, addEffect]);
+  }, [toast, addEffect]);
+
+  const handleRankedPlay = useCallback(() => {
+    if (!user || (onlineStatus !== 'disconnected' && rankedQueueStatus !== 'searching')) return;
+
+    if (rankedQueueStatus === 'searching') {
+        wsRef.current?.send(JSON.stringify({ type: 'leave-ranked-queue' }));
+        setRankedQueueStatus('idle');
+        setOnlineStatus('disconnected');
+    } else {
+        setRankedQueueStatus('searching');
+        
+        const equipment: Record<string, string> = {};
+        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+
+        initWebSocket(() => {
+          wsRef.current?.send(JSON.stringify({
+              type: 'join-ranked-queue',
+              userId: user.uid,
+              username: userData?.username || user.displayName || 'Player',
+              elo: userData?.eloRating || 1200,
+              wins: userData?.wins || 0,
+              losses: userData?.losses || 0,
+              equipment
+          }));
+        });
+    }
+  }, [user, onlineStatus, rankedQueueStatus, userData, board, initWebSocket]);
 
   const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
     if (!user) return;
     
-    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-        initWebSocket();
-        setTimeout(() => {
-            if (action === 'create') {
-                const equipment: Record<string, string> = {};
-                board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-                wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
-            } else {
-                const equipment: Record<string, string> = {};
-                board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-                wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
-            }
-        }, 1000);
-    } else {
+    const sendPayload = () => {
+        const equipment: Record<string, string> = {};
+        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+        
         if (action === 'create') {
-            const equipment: Record<string, string> = {};
-            board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-            wsRef.current.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+            wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
         } else {
-            const equipment: Record<string, string> = {};
-            board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-            wsRef.current.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+            wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
         }
-    }
+    };
+
+    initWebSocket(sendPayload);
   }, [user, userData, inputRoomId, board, initWebSocket]);
 
+  const handlePieceHover = useCallback((piece: Piece | null) => {
+    setPieceForInfoDisplay(piece);
+  }, []);
+
   const sendMessage = useCallback((text: string) => {
-    if (wsRef.current && wsRef.current.readyState === 1 && text.trim()) {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN && text.trim()) {
       wsRef.current.send(JSON.stringify({
         type: 'chat-message',
         sender: userData?.username || (localPlayerColor === 'white' ? 'White' : 'Black'),
@@ -561,6 +506,40 @@ export default function EvolvingChessPage() {
       }));
     }
   }, [userData, localPlayerColor]);
+
+  useEffect(() => {
+    if (onlineStatus === 'connected' && localPlayerColor) {
+      setBoardOrientation(localPlayerColor);
+      return;
+    }
+
+    if (viewMode === 'flipping' && onlineStatus === 'disconnected' && !gameInfo.gameOver) {
+      const isAI = currentPlayer === 'white' ? isWhiteAI : isBlackAI;
+      if (!isAI) {
+        setBoardOrientation(currentPlayer);
+      }
+    }
+  }, [currentPlayer, viewMode, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, gameInfo.gameOver]);
+
+  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    if (!player) return 'A player'; 
+    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
+        const username = gamePlayers?.[player]?.username;
+        if (username) {
+            if (player === localPlayerColor) {
+                return `${username} (You)`;
+            }
+            return username;
+        }
+    }
+    
+    let baseName: string = player.charAt(0).toUpperCase() + player.slice(1);
+    
+    if (player === 'white' && isWhiteAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
+    if (player === 'black' && isBlackAI && onlineStatus === 'disconnected') return `${baseName} (AI)`;
+
+    return baseName;
+  }, [isWhiteAI, isBlackAI, onlineStatus, localPlayerColor, gamePlayers]);
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
