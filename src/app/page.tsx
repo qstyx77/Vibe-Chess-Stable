@@ -292,7 +292,6 @@ export default function EvolvingChessPage() {
     effectCleanupTimersRef.current[id] = timer;
   }, []);
 
-  // Initialize AI instance based on difficulty
   useEffect(() => {
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }, [aiDifficulty]);
@@ -316,18 +315,14 @@ export default function EvolvingChessPage() {
     }
   }, [userData, isUserLoading]);
 
-  // Centralized effect for board flipping/orientation
   useEffect(() => {
-    // If we are in an online game, lock orientation to the local player's color
     if (onlineStatus === 'connected' && localPlayerColor) {
       setBoardOrientation(localPlayerColor);
       return;
     }
 
-    // If we are in flipping mode in a local game, flip to face the current human player
     if (viewMode === 'flipping' && onlineStatus === 'disconnected' && !gameInfo.gameOver) {
       const isAI = currentPlayer === 'white' ? isWhiteAI : isBlackAI;
-      // Only flip if the next turn is for a human player (to avoid flipping to AI side)
       if (!isAI) {
         setBoardOrientation(currentPlayer);
       }
@@ -358,6 +353,204 @@ export default function EvolvingChessPage() {
     setPieceForInfoDisplay(piece);
   }, []);
 
+  const handleRankedPlay = useCallback(() => {
+    if (!user || onlineStatus !== 'disconnected') return;
+
+    if (rankedQueueStatus === 'searching') {
+        wsRef.current?.send(JSON.stringify({ type: 'leave-ranked-queue' }));
+        setRankedQueueStatus('idle');
+        setOnlineStatus('disconnected');
+    } else {
+        setRankedQueueStatus('searching');
+        setOnlineStatus('connecting');
+        
+        const equipment: Record<string, string> = {};
+        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+
+        if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+            initWebSocket();
+            setTimeout(() => {
+                wsRef.current?.send(JSON.stringify({
+                    type: 'join-ranked-queue',
+                    userId: user.uid,
+                    username: userData?.username || user.displayName || 'Player',
+                    elo: userData?.eloRating || 1200,
+                    wins: userData?.wins || 0,
+                    losses: userData?.losses || 0,
+                    equipment
+                }));
+            }, 1000);
+        } else {
+            wsRef.current.send(JSON.stringify({
+                type: 'join-ranked-queue',
+                userId: user.uid,
+                username: userData?.username || user.displayName || 'Player',
+                elo: userData?.eloRating || 1200,
+                wins: userData?.wins || 0,
+                losses: userData?.losses || 0,
+                equipment
+            }));
+        }
+    }
+  }, [user, onlineStatus, rankedQueueStatus, userData, board]);
+
+  const initWebSocket = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.hostname}:8080`;
+    const ws = new WebSocket(wsUrl);
+
+    ws.onopen = () => {
+      console.log('Connected to game server');
+      if (rankedQueueStatus !== 'searching') setOnlineStatus('connected');
+    };
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      console.log('Server message:', data);
+
+      switch (data.type) {
+        case 'room-created':
+          setRoomId(data.roomId);
+          setLocalPlayerColor(data.color);
+          setBoard(data.gameState.board);
+          setOnlineStatus('waiting');
+          setGamePlayers(data.gameState.players);
+          toast({ title: 'Room Created', description: `Room ID: ${data.roomId}` });
+          break;
+        case 'room-joined':
+          setRoomId(data.roomId);
+          setLocalPlayerColor(data.color);
+          setBoard(data.gameState.board);
+          setOnlineStatus('connected');
+          setGamePlayers(data.gameState.players);
+          setIsRankedGame(data.isRanked || false);
+          toast({ title: 'Joined Room', description: `Connected to ${data.roomId}` });
+          break;
+        case 'ranked-match-found':
+          setRoomId(data.roomId);
+          setLocalPlayerColor(data.color);
+          setBoard(data.gameState.board);
+          setOnlineStatus('connected');
+          setRankedQueueStatus('idle');
+          setIsRankedGame(true);
+          setGamePlayers(data.gameState.players);
+          toast({ title: 'Match Found!', description: `Playing as ${data.color}` });
+          break;
+        case 'player-joined':
+          setGamePlayers(data.gameState.players);
+          setOnlineStatus('connected');
+          setBoard(data.gameState.board);
+          toast({ title: 'Player Joined', description: 'Game is starting!' });
+          break;
+        case 'chat-message':
+          setChatMessages(prev => [...prev, data.message]);
+          if (!isMessengerOpenRef.current) setHasUnreadMessages(true);
+          break;
+        case 'game-move':
+          setBoard(data.gameState.board);
+          setCurrentPlayer(data.gameState.currentPlayer);
+          setEnPassantTargetSquare(data.gameState.enPassantTargetSquare);
+          setKillStreaks(data.gameState.killStreaks);
+          setCapturedPieces(data.gameState.capturedPieces);
+          setGameInfo(data.gameState.gameInfo);
+          setGameMoveCounter(data.gameState.gameMoveCounter);
+          setLastMoveFrom(data.gameState.lastMoveFrom);
+          setLastMoveTo(data.gameState.lastMoveTo);
+          if (data.gameState.resurrectedSquare) addEffect('light-beam', data.gameState.resurrectedSquare);
+          break;
+        case 'awaiting-pawn-sacrifice':
+          setIsAwaitingPawnSacrifice(true);
+          setPlayerToSacrificePawn(data.player);
+          setBoard(data.fullGameState.board);
+          break;
+        case 'awaiting-commander-promo':
+          setIsAwaitingCommanderPromotion(true);
+          setBoard(data.fullGameState.board);
+          break;
+        case 'awaiting-shield-selection':
+          setIsAwaitingHolyShield(true);
+          setShieldContext(data.fullGameState.shieldContext);
+          setBoard(data.fullGameState.board);
+          break;
+        case 'awaiting-anvil-drop':
+          setIsAwaitingAnvilDrop(true);
+          setPlayerToDropAnvil(data.player);
+          setAnvilDropContext(data.fullGameState.anvilDropContext);
+          setBoard(data.fullGameState.board);
+          break;
+        case 'awaiting-archer-snipe':
+          setIsAwaitingArcherSnipe(true);
+          setArcherSnipeContext(data.fullGameState.archerSnipeContext);
+          setBoard(data.fullGameState.board);
+          break;
+        case 'promotion-required':
+          setPromotionSquare(data.square);
+          setPromotionTargetLevel(data.targetLevel);
+          setIsPromotingPawn(true);
+          setPlayerToPromote(data.player);
+          setBoard(data.fullGameState.board);
+          break;
+        case 'game-over':
+          setGameInfo({
+            gameOver: true,
+            winner: data.winner,
+            message: data.reason === 'timeout' ? 'Player Timed Out!' : (data.reason === 'resign' ? 'Opponent Resigned!' : 'Checkmate!'),
+            isCheck: false,
+            isCheckmate: data.reason === 'checkmate',
+            isStalemate: data.reason === 'stalemate',
+            playerWithKingInCheck: null
+          });
+          if (data.eloChanges) {
+            setEloResult(data.eloChanges);
+            setShowSummary(true);
+          }
+          break;
+        case 'error':
+          toast({ title: 'Error', description: data.message, variant: 'destructive' });
+          break;
+      }
+    };
+
+    ws.onclose = () => {
+      console.log('WebSocket disconnected');
+      setOnlineStatus('disconnected');
+      setRankedQueueStatus('idle');
+    };
+
+    wsRef.current = ws;
+  }, [toast, rankedQueueStatus, addEffect]);
+
+  const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
+    if (!user) return;
+    
+    if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        initWebSocket();
+        setTimeout(() => {
+            if (action === 'create') {
+                const equipment: Record<string, string> = {};
+                board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+                wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+            } else {
+                const equipment: Record<string, string> = {};
+                board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+                wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+            }
+        }, 1000);
+    } else {
+        if (action === 'create') {
+            const equipment: Record<string, string> = {};
+            board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+            wsRef.current.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+        } else {
+            const equipment: Record<string, string> = {};
+            board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+            wsRef.current.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+        }
+    }
+  }, [user, userData, inputRoomId, board, initWebSocket]);
+
   const sendMessage = useCallback((text: string) => {
     if (wsRef.current && wsRef.current.readyState === 1 && text.trim()) {
       wsRef.current.send(JSON.stringify({
@@ -368,14 +561,6 @@ export default function EvolvingChessPage() {
       }));
     }
   }, [userData, localPlayerColor]);
-
-  const handleRankedPlay = useCallback(() => {
-    toast({ title: "Ranked Play", description: "Ranked matchmaking is coming soon!" });
-  }, [toast]);
-
-  const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
-    toast({ title: "Online Play", description: "Online play functionality is under maintenance." });
-  }, [toast]);
 
   const completeTurn = useCallback((updatedBoard: BoardState, playerWhoseTurnEnded: PlayerColor, newEnPassantTarget: AlgebraicSquare | null) => {
     const nextPlayer = playerWhoseTurnEnded === 'white' ? 'black' : 'white';
@@ -416,7 +601,7 @@ export default function EvolvingChessPage() {
       }
     }
      setGameInfo(prev => ({ ...prev, message: currentMessage, isCheck: inCheck, playerWithKingInCheck: newPlayerWithKingInCheck, isCheckmate: false, isStalemate: false, gameOver: false }));
-  }, [getPlayerDisplayName, onlineStatus, toast]);
+  }, [getPlayerDisplayName, toast]);
 
   const setGameInfoBasedOnExtraTurn = useCallback((currentBoard: BoardState, playerTakingExtraTurn: PlayerColor) => {
     setSelectedSquare(null);
@@ -444,6 +629,7 @@ export default function EvolvingChessPage() {
     let currentBoardState = boardForNextStep;
     const newGameMoveCounter = gameMoveCounter + 1;
     setGameMoveCounter(newGameMoveCounter);
+    
     if (onlineStatus === 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
       let currentShroomCounter = (shroomSpawnCounter || 0) + 1;
       setShroomSpawnCounter(currentShroomCounter);
@@ -460,12 +646,14 @@ export default function EvolvingChessPage() {
           }
       }
     }
+    
     const nextPlayerForHash = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
     const castlingRights = getCastlingRightsString(currentBoardState);
     const currentPositionHash = boardToPositionHash(currentBoardState, nextPlayerForHash, castlingRights, newEnPassantTarget);
     const newHistory = [...positionHistory, currentPositionHash];
     setPositionHistory(newHistory);
     const repetitionCount = newHistory.filter(hash => hash === currentPositionHash).length;
+    
     if (repetitionCount >= 3 && !gameInfo.isCheckmate && !gameInfo.isStalemate && !gameInfo.isThreefoldRepetitionDraw && !gameInfo.isInfiltrationWin) {
       toast({ title: "Draw!", description: "Draw by Threefold Repetition.", duration: 8000 });
       setGameInfo(prev => ({ ...prev, message: "Draw by Threefold Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, isThreefoldRepetitionDraw: true, gameOver: true, winner: 'draw' }));
@@ -474,7 +662,7 @@ export default function EvolvingChessPage() {
     if (gameInfo.gameOver) return;
     if (isExtraTurn) setGameInfoBasedOnExtraTurn(currentBoardState, playerWhoseTurnCompleted);
     else completeTurn(currentBoardState, playerWhoseTurnCompleted, newEnPassantTarget);
-  }, [positionHistory, toast, gameInfo.isCheckmate, gameInfo.isStalemate, gameInfo.isThreefoldRepetitionDraw, gameInfo.isInfiltrationWin, gameInfo.gameOver, setGameInfo, setPositionHistory, setGameInfoBasedOnExtraTurn, completeTurn, gameMoveCounter, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor]);
+  }, [positionHistory, toast, gameInfo, setGameInfoBasedOnExtraTurn, completeTurn, gameMoveCounter, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = (actingPlayer === 'white' && isWhiteAI) || (actingPlayer === 'black' && isBlackAI);
@@ -592,7 +780,7 @@ export default function EvolvingChessPage() {
     }
 
     processMoveEnd(boardToChain, actingPlayer, isExtra, nextEp);
-  }, [firstBloodAchieved, capturedPieces, addEffect, processMoveEnd, isWhiteAI, isBlackAI, localPlayerColor]);
+  }, [firstBloodAchieved, capturedPieces, addEffect, processMoveEnd, isWhiteAI, isBlackAI, localPlayerColor, toast]);
 
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingRookSacrifice || isResurrectionPromotionInProgress || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget;
 
@@ -619,7 +807,6 @@ export default function EvolvingChessPage() {
       if (hasPawns) {
         const isAI = (playerWhoseQueenLeveled === 'white' && isWhiteAI) || (playerWhoseQueenLeveled === 'black' && isBlackAI);
         if (isAI) {
-            // Auto-sacrifice for AI
             const nextB = boardAfterPrimaryMove.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const pawnSq = nextB.flat().find(sq => sq.piece && sq.piece.color === playerWhoseQueenLeveled && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
             if (pawnSq) {
@@ -709,6 +896,8 @@ export default function EvolvingChessPage() {
     const isLocalTurn = !localPlayerColor || localPlayerColor === currentPlayer;
     if (isAnySpecialModeActive && !isLocalTurn) return;
 
+    if (onlineStatus === 'connected' && localPlayerColor !== currentPlayer && !isAnySpecialModeActive) return;
+
     if (isInventoryOpen) {
       if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
         if (piece && !piece.heldItem && piece.color === (localPlayerColor || 'white')) {
@@ -731,66 +920,95 @@ export default function EvolvingChessPage() {
 
     if (isAwaitingDecreeTarget && isLocalTurn) {
         if (piece && piece.color === currentPlayer && piece.type === 'pawn' && piece.level === 1) {
-            setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(algebraic);
-            const result = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'kings-decree' }, enPassantTargetSquare, capturedPieces);
-            setBoard(result.newBoard); audioManager.playLevelUp(); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]);
-            setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare); }, 800);
+            if (onlineStatus === 'connected') {
+                wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'kings-decree' } }));
+            } else {
+                setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(algebraic);
+                const result = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'kings-decree' }, enPassantTargetSquare, capturedPieces);
+                setBoard(result.newBoard); audioManager.playLevelUp(); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]);
+                setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(result.newBoard, currentPlayer, false, enPassantTargetSquare); }, 800);
+            }
         }
         return;
     }
 
     if (isAwaitingPawnSacrifice && isLocalTurn) {
       if (piece && (piece.type === 'pawn' || piece.type === 'commander') && piece.color === currentPlayer) {
-        saveStateToHistory(); let nextBoard = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-        const sac = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sac_${uniqueIdCounterRef.current++}`};
-        nextBoard[row][col].piece = null; setBoard(nextBoard); audioManager.playCapture();
-        const opp = playerWhoMadeQueenMove === 'white' ? 'black' : 'white';
-        setCapturedPieces(prev => ({ ...prev, [opp]: [...(prev[opp] || []), sac] }));
-        setIsAwaitingPawnSacrifice(false); setPlayerToSacrificePawn(null); setBoardForPostSacrifice(null);
-        triggerSpecialsChain(nextBoard, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, isExtraTurnFromQueenMove, anvilDropContext?.newEnPassantTarget || null, currentPlayer, anvilDropContext?.completedMilestones || []);
+        if (onlineStatus === 'connected') {
+            wsRef.current?.send(JSON.stringify({ type: 'pawn-sacrifice', payload: { square: algebraic } }));
+            setIsAwaitingPawnSacrifice(false);
+        } else {
+            saveStateToHistory(); let nextBoard = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+            const sac = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sac_${uniqueIdCounterRef.current++}`};
+            nextBoard[row][col].piece = null; setBoard(nextBoard); audioManager.playCapture();
+            const opp = playerWhoMadeQueenMove === 'white' ? 'black' : 'white';
+            setCapturedPieces(prev => ({ ...prev, [opp]: [...(prev[opp] || []), sac] }));
+            setIsAwaitingPawnSacrifice(false); setPlayerToSacrificePawn(null); setBoardForPostSacrifice(null);
+            triggerSpecialsChain(nextBoard, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, isExtraTurnFromQueenMove, anvilDropContext?.newEnPassantTarget || null, currentPlayer, anvilDropContext?.completedMilestones || []);
+        }
       }
       return;
     }
 
     if (isAwaitingAnvilDrop && isLocalTurn) {
         if (!sq?.piece && !sq?.item) {
-            saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget, oldStreak, newStreak, completedMilestones } = anvilDropContext!;
-            const nextBoard = boardForNextStep.map(r => r.map(s => ({ ...s }))); nextBoard[row][col].item = { type: 'anvil' };
-            setBoard(nextBoard); audioManager.playAnvil(); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setAnvilDropContext(null);
-            triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtraTurn, newEnPassantTarget, playerWhoseTurnCompleted, [...(completedMilestones || []), 'anvil']);
+            if (onlineStatus === 'connected') {
+                wsRef.current?.send(JSON.stringify({ type: 'anvil-drop', square: algebraic }));
+                setIsAwaitingAnvilDrop(false);
+            } else {
+                saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget, oldStreak, newStreak, completedMilestones } = anvilDropContext!;
+                const nextBoard = boardForNextStep.map(r => r.map(s => ({ ...s }))); nextBoard[row][col].item = { type: 'anvil' };
+                setBoard(nextBoard); audioManager.playAnvil(); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setAnvilDropContext(null);
+                triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtraTurn, newEnPassantTarget, playerWhoseTurnCompleted, [...(completedMilestones || []), 'anvil']);
+            }
         }
         return;
     }
 
     if (isAwaitingHolyShield && isLocalTurn) {
       if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== shieldContext?.capturingPieceId) {
-          saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget, oldStreak, newStreak, completedMilestones } = shieldContext!;
-          const nextBoard = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece, isShielded: s.piece.id === piece.id ? true : s.piece.isShielded } : null })));
-          setBoard(nextBoard); audioManager.playShield(); setIsAwaitingHolyShield(false); setShieldContext(null);
-          triggerSpecialsChain(nextBoard, oldStreak!, newStreak!, isExtraTurn, newEnPassantTarget, playerWhoseTurnCompleted, [...(completedMilestones || []), 'shield']);
+          if (onlineStatus === 'connected') {
+              wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
+              setIsAwaitingHolyShield(false);
+          } else {
+              saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget, oldStreak, newStreak, completedMilestones } = shieldContext!;
+              const nextBoard = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece, isShielded: s.piece.id === piece.id ? true : s.piece.isShielded } : null })));
+              setBoard(nextBoard); audioManager.playShield(); setIsAwaitingHolyShield(false); setShieldContext(null);
+              triggerSpecialsChain(nextBoard, oldStreak!, newStreak!, isExtraTurn, newEnPassantTarget, playerWhoseTurnCompleted, [...(completedMilestones || []), 'shield']);
+          }
       }
       return;
     }
 
     if (isAwaitingArcherSnipe && isLocalTurn) {
       if (piece && piece.color !== currentPlayer && piece.level === 1 && piece.type !== 'king' && piece.type !== 'queen') {
-          saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget, oldStreak, newStreak, completedMilestones } = archerSnipeContext!;
-          const nextBoard = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null })));
-          const sniped = { ...piece, id: `${piece.id}_sniped_${uniqueIdCounterRef.current++}` };
-          setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), sniped] }));
-          nextBoard[row][col].piece = null; setBoard(nextBoard); addEffect('poof', algebraic); audioManager.playSnipe();
-          setIsAwaitingArcherSnipe(false); setArcherSnipeContext(null);
-          triggerSpecialsChain(nextBoard, oldStreak!, 99, isExtraTurn, newEnPassantTarget, playerWhoseTurnCompleted, [...(completedMilestones || []), 'snipe']);
+          if (onlineStatus === 'connected') {
+              wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
+              setIsAwaitingArcherSnipe(false);
+          } else {
+              saveStateToHistory(); const { boardForNextStep, playerWhoseTurnCompleted, isExtraTurn, newEnPassantTarget, oldStreak, newStreak, completedMilestones } = archerSnipeContext!;
+              const nextBoard = boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? {...s.piece} : null })));
+              const sniped = { ...piece, id: `${piece.id}_sniped_${uniqueIdCounterRef.current++}` };
+              setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), sniped] }));
+              nextBoard[row][col].piece = null; setBoard(nextBoard); addEffect('poof', algebraic); audioManager.playSnipe();
+              setIsAwaitingArcherSnipe(false); setArcherSnipeContext(null);
+              triggerSpecialsChain(nextBoard, oldStreak!, 99, isExtraTurn, newEnPassantTarget, playerWhoseTurnCompleted, [...(completedMilestones || []), 'snipe']);
+          }
       }
       return;
     }
 
     if (isAwaitingCommanderPromotion && playerWhoGotFirstBlood === currentPlayer) {
         if (piece?.type === 'pawn' && piece.color === currentPlayer && piece.level === 1) {
-            saveStateToHistory(); const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            nextBoard[row][col].piece!.type = 'commander'; nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
-            setBoard(nextBoard); audioManager.playLevelUp(); setIsAwaitingCommanderPromotion(false);
-            triggerSpecialsChain(nextBoard, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, anvilDropContext?.isExtraTurn || false, anvilDropContext?.newEnPassantTarget || null, currentPlayer, anvilDropContext?.completedMilestones || []);
+            if (onlineStatus === 'connected') {
+                wsRef.current?.send(JSON.stringify({ type: 'commander-promo', square: algebraic }));
+                setIsAwaitingCommanderPromotion(false);
+            } else {
+                saveStateToHistory(); const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                nextBoard[row][col].piece!.type = 'commander'; nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${uniqueIdCounterRef.current++}`;
+                setBoard(nextBoard); audioManager.playLevelUp(); setIsAwaitingCommanderPromotion(false);
+                triggerSpecialsChain(nextBoard, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, anvilDropContext?.isExtraTurn || false, anvilDropContext?.newEnPassantTarget || null, currentPlayer, anvilDropContext?.completedMilestones || []);
+            }
         }
         return;
     }
@@ -805,12 +1023,16 @@ export default function EvolvingChessPage() {
       if (selectedSquare === algebraic && (hasScroll || hasAbility)) {
           if ((moving.cooldownTurnsRemaining || 0) > 0 || (moving.frozenTurnsRemaining || 0) > 0) { toast({ title: "Exhausted", variant: "destructive" }); return; }
           const execSelfDestruct = () => {
-              saveStateToHistory(); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces);
-              setBoard(result.newBoard); audioManager.playExplosion();
-              const oldS = killStreaks[currentPlayer]; const caps = result.selfDestructCaptures?.length || 0; const newS = caps > 0 ? (oldS + caps) : 0;
-              setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
-              if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_${Date.now()}` }))] }));
-              setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); triggerSpecialsChain(result.newBoard, oldS, newS, result.extraTurn || (oldS < 6 && newS >= 6), enPassantTargetSquare, currentPlayer, []); }, 800);
+              if (onlineStatus === 'connected') {
+                wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'self-destruct' } }));
+              } else {
+                saveStateToHistory(); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces);
+                setBoard(result.newBoard); audioManager.playExplosion();
+                const oldS = killStreaks[currentPlayer]; const caps = result.selfDestructCaptures?.length || 0; const newS = caps > 0 ? (oldS + caps) : 0;
+                setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
+                if (result.selfDestructCaptures) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), ...result.selfDestructCaptures!.map(p => ({ ...p, id: `${p.id}_sd_${Date.now()}` }))] }));
+                setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); triggerSpecialsChain(result.newBoard, oldS, newS, result.extraTurn || (oldS < 6 && newS >= 6), enPassantTargetSquare, currentPlayer, []); }, 800);
+              }
           };
           if (hasScroll && hasAbility) { setAbilityChoiceDialog({ isOpen: true, onChoice: (c) => { setAbilityChoiceDialog(null); if (c === 'ability') execSelfDestruct(); else if (moving.heldItem === 'kings_decree') setIsAwaitingDecreeTarget(true); else if (moving.heldItem === 'wind_scroll') setIsAwaitingWindScrollTarget(true); else if (moving.heldItem === 'summon_anvil') setIsAwaitingAnvilScrollTarget(true); }}); return; }
           if (hasAbility) execSelfDestruct(); else if (moving.heldItem === 'kings_decree') setIsAwaitingDecreeTarget(true); else if (moving.heldItem === 'wind_scroll') setIsAwaitingWindScrollTarget(true); else if (moving.heldItem === 'summon_anvil') setIsAwaitingAnvilScrollTarget(true);
@@ -819,54 +1041,64 @@ export default function EvolvingChessPage() {
 
       const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       if (freshlyCalculated.includes(algebraic)) {
-        saveStateToHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
-        const originalL = moving.level || 1; const originalT = moving.type;
-        const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: board[row][col].piece ? (board[row][col].piece!.color === moving.color ? 'swap' : 'capture') : (algebraic === enPassantTargetSquare ? 'enpassant' : 'move') }, enPassantTargetSquare, capturedPieces);
-        let nextB = applyResult.newBoard; let nextEp = applyResult.enPassantTargetSet;
-        if (applyResult.reflectionOccurred) {
-            const victim = applyResult.capturedPiece!; const def = currentPlayer === 'white' ? 'black' : 'white';
-            setCapturedPieces(prev => ({ ...prev, [def]: [...(prev[def] || []), { ...victim, id: `${victim.id}_refl_${Date.now()}` }] }));
-            audioManager.playCapture(); setKillStreaks(prev => ({ ...prev, [def]: (prev[def] || 0) + 1, [currentPlayer]: 0 }));
-            setBoard(nextB); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, currentPlayer, false, null); }, 800);
-            return;
+        if (onlineStatus === 'connected') {
+            const moveType = board[row][col].piece ? (board[row][col].piece!.color === moving.color ? 'swap' : 'capture') : (algebraic === enPassantTargetSquare ? 'enpassant' : 'move');
+            wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: moveType } }));
+        } else {
+            saveStateToHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            const originalL = moving.level || 1; const originalT = moving.type;
+            const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: board[row][col].piece ? (board[row][col].piece!.color === moving.color ? 'swap' : 'capture') : (algebraic === enPassantTargetSquare ? 'enpassant' : 'move') }, enPassantTargetSquare, capturedPieces);
+            let nextB = applyResult.newBoard; let nextEp = applyResult.enPassantTargetSet;
+            if (applyResult.reflectionOccurred) {
+                const victim = applyResult.capturedPiece!; const def = currentPlayer === 'white' ? 'black' : 'white';
+                setCapturedPieces(prev => ({ ...prev, [def]: [...(prev[def] || []), { ...victim, id: `${victim.id}_refl_${Date.now()}` }] }));
+                audioManager.playCapture(); setKillStreaks(prev => ({ ...prev, [def]: (prev[def] || 0) + 1, [currentPlayer]: 0 }));
+                setBoard(nextB); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, currentPlayer, false, null); }, 800);
+                return;
+            }
+            const oldS = killStreaks[currentPlayer] || 0; let caps = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
+            const newS = caps > 0 ? (oldS + caps) : 0; setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
+            if (applyResult.capturedPiece) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `${applyResult.capturedPiece!.id}_cap_${uniqueIdCounterRef.current++}` }] }));
+            if (applyResult.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.pieceCapturedByAnvil!, id: `${applyResult.pieceCapturedByAnvil!.id}_anvil_${uniqueIdCounterRef.current++}` }] }));
+            setBoard(nextB);
+            setTimeout(() => {
+                setIsMoveProcessing(false); clickGuardRef.current = false;
+                const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
+                const pieceAtDest = nextB[row][col].piece;
+                let handled = false;
+                if (pieceAtDest?.type === 'queen' && originalT === 'queen') handled = processPawnSacrificeCheck(nextB, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'}, originalL, originalT, isExtra, nextEp, oldS, newS);
+                if (handled) return;
+                if (pieceAtDest?.type === 'pawn' && (row === 0 || row === 7)) {
+                    setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || null)); 
+                    setIsPromotingPawn(true); setPromotionSquare(algebraic); setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak: oldS, newStreak: newS, completedMilestones: [] });
+                    handled = true;
+                }
+                if (!handled) triggerSpecialsChain(nextB, oldS, newS, isExtra, nextEp, currentPlayer, []);
+            }, 800);
         }
-        const oldS = killStreaks[currentPlayer] || 0; let caps = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
-        const newS = caps > 0 ? (oldS + caps) : 0; setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
-        if (applyResult.capturedPiece) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `${applyResult.capturedPiece!.id}_cap_${uniqueIdCounterRef.current++}` }] }));
-        if (applyResult.pieceCapturedByAnvil) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.pieceCapturedByAnvil!, id: `${applyResult.pieceCapturedByAnvil!.id}_anvil_${uniqueIdCounterRef.current++}` }] }));
-        setBoard(nextB);
-        setTimeout(() => {
-          setIsMoveProcessing(false); clickGuardRef.current = false;
-          const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
-          const pieceAtDest = nextB[row][col].piece;
-          let handled = false;
-          if (pieceAtDest?.type === 'queen' && originalT === 'queen') handled = processPawnSacrificeCheck(nextB, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'}, originalL, originalT, isExtra, nextEp, oldS, newS);
-          if (handled) return;
-          if (pieceAtDest?.type === 'pawn' && (row === 0 || row === 7)) {
-              setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || null)); 
-              setIsPromotingPawn(true); setPromotionSquare(algebraic); setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak: oldS, newStreak: newS, completedMilestones: [] });
-              handled = true;
-          }
-          if (!handled) triggerSpecialsChain(nextB, oldS, newS, isExtra, nextEp, currentPlayer, []);
-        }, 800);
         return;
       }
     }
     if (piece?.color === currentPlayer) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare)); }
     else { setSelectedSquare(null); setPossibleMoves([]); setEnemySelectedSquare(piece ? algebraic : null); setEnemyPossibleMoves(piece ? getPossibleMoves(board, algebraic, enPassantTargetSquare) : []); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, triggerSpecialsChain, processPawnSacrificeCheck, toast, localPlayerColor, usedSlots, attunementSlots, inventory, selectedInventoryItemType, saveStateToHistory, isInventoryOpen, isAwaitingPawnSacrifice, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingAnvilDrop, anvilDropContext, isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isPromotingPawn, promotionSquare, promotionTargetLevel, isMoveProcessing, gameInfo.gameOver, isAnySpecialModeActive, isAwaitingDecreeTarget, handlePieceHover, saveLoadoutToFirestore]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, triggerSpecialsChain, processPawnSacrificeCheck, toast, localPlayerColor, usedSlots, attunementSlots, inventory, selectedInventoryItemType, saveStateToHistory, isInventoryOpen, isAwaitingPawnSacrifice, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingAnvilDrop, anvilDropContext, isAwaitingHolyShield, shieldContext, isAwaitingArcherSnipe, archerSnipeContext, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isPromotingPawn, promotionSquare, promotionTargetLevel, isMoveProcessing, gameInfo.gameOver, isAnySpecialModeActive, isAwaitingDecreeTarget, handlePieceHover, saveLoadoutToFirestore, onlineStatus, inputRoomId, initWebSocket]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
-    let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-    const { row, col } = algebraicToCoords(promotionSquare);
-    const beingPromoted = boardToUpdate[row][col].piece;
-    if (!beingPromoted) return;
-    boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: promotionTargetLevel, id: `${beingPromoted.id}_promo_${pieceType}`, hasMoved: true, isShielded: false };
-    if (pieceType === 'queen') boardToUpdate[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
-    setBoard(boardToUpdate); setIsPromotingPawn(false); setPromotionSquare(null); audioManager.playLevelUp();
-    triggerSpecialsChain(boardToUpdate, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, (boardToUpdate[row][col].piece!.level >= 5) || (anvilDropContext?.isExtraTurn || false), anvilDropContext?.newEnPassantTarget || null, currentPlayer, anvilDropContext?.completedMilestones || []);
-  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer]);
+    if (onlineStatus === 'connected') {
+        wsRef.current?.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } }));
+        setIsPromotingPawn(false); setPromotionSquare(null);
+    } else {
+        let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+        const { row, col } = algebraicToCoords(promotionSquare);
+        const beingPromoted = boardToUpdate[row][col].piece;
+        if (!beingPromoted) return;
+        boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: promotionTargetLevel, id: `${beingPromoted.id}_promo_${pieceType}`, hasMoved: true, isShielded: false };
+        if (pieceType === 'queen') boardToUpdate[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
+        setBoard(boardToUpdate); setIsPromotingPawn(false); setPromotionSquare(null); audioManager.playLevelUp();
+        triggerSpecialsChain(boardToUpdate, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, (boardToUpdate[row][col].piece!.level >= 5) || (anvilDropContext?.isExtraTurn || false), anvilDropContext?.newEnPassantTarget || null, currentPlayer, anvilDropContext?.completedMilestones || []);
+    }
+  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus]);
 
   const handleVolumeChange = useCallback((val: number[]) => { const v = val[0]; setVolume(v); audioManager.setVolume(v); }, []);
 
@@ -977,7 +1209,7 @@ export default function EvolvingChessPage() {
         <Card className="w-full mt-1">
           <CardContent className="p-1.5 flex flex-col gap-1.5">
             <div className="flex flex-col gap-1 items-center">
-              <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || onlineStatus !== 'disconnected'} className="h-6 px-1.5 text-[10px] w-full"><Trophy className="mr-1 h-3 w-3" />Ranked Match</Button>
+              <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || (onlineStatus !== 'disconnected' && rankedQueueStatus !== 'searching')} className="h-6 px-1.5 text-[10px] w-full"><Trophy className="mr-1 h-3 w-3" />{rankedQueueStatus === 'searching' ? 'Leave Queue' : 'Ranked Match'}</Button>
               <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)} className="h-6 px-1.5 text-[10px] w-full">{onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}{onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}</Button>
               <div className="flex gap-1 items-center w-full">
                 <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[10px] flex-grow" disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI} />
@@ -1041,7 +1273,7 @@ export default function EvolvingChessPage() {
         <Card>
           <CardContent className="p-2 flex flex-col gap-2">
             <div className="flex flex-col gap-1 items-center">
-              <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || onlineStatus !== 'disconnected'} className="h-7 px-2 text-xs w-full"><Trophy className="mr-1 h-3 w-3" />Ranked Match</Button>
+              <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || (onlineStatus !== 'disconnected' && rankedQueueStatus !== 'searching')} className="h-7 px-2 text-xs w-full"><Trophy className="mr-1 h-3 w-3" />{rankedQueueStatus === 'searching' ? 'Leave Queue' : 'Ranked Match'}</Button>
               <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || (isWhiteAI || isBlackAI)} className="h-7 px-2 text-xs w-full">{onlineStatus !== 'disconnected' ? <Link2Off className="mr-1 h-3 w-3" /> : <Globe className="mr-1 h-3 w-3" />}{onlineStatus !== 'disconnected' ? 'Disconnect' : 'Create Online Game'}</Button>
               <div className="flex gap-1 items-center w-full">
                 <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-7 px-2 text-xs flex-grow" disabled={onlineStatus !== 'disconnected' || rankedQueueStatus !== 'idle' || isWhiteAI || isBlackAI} />
@@ -1084,7 +1316,13 @@ export default function EvolvingChessPage() {
     </div>
   );
 
-  function resetGame() { fullGameReset(); }
+  function resetGame() {
+    if (onlineStatus === 'connected') {
+        wsRef.current?.send(JSON.stringify({ type: 'resign', resigningPlayer: localPlayerColor }));
+    } else {
+        fullGameReset();
+    }
+  }
 
   function fullGameReset() {
     let initial = initializeBoard(userData?.eloRating || 1200, 1200);
@@ -1115,7 +1353,7 @@ export default function EvolvingChessPage() {
         isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove,
         isAwaitingRookSacrifice, playerToSacrificeForRook, rookToMakeInvulnerable, boardForRookSacrifice, originalTurnPlayerForRookSacrifice, isExtraTurnFromRookLevelUp,
         isResurrectionPromotionInProgress, playerForPostResurrectionPromotion, isExtraTurnForPostResurrectionPromotion,
-        promotionSquare, promotionMoveWasCapture, originalPromotionLevel: promotionTargetLevel, promotionPawnOriginalLevel: null,
+        promotionSquare, promotionMoveWasCapture: false, originalPromotionLevel: promotionTargetLevel, promotionPawnOriginalLevel: null,
         firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion,
         shroomSpawnCounter, nextShroomSpawnTurn, resurrectedSquares, turnTimer, activeTimerPlayer, whiteTimeouts, blackTimeouts,
         isAwaitingAnvilDrop, playerToDropAnvil, anvilDropContext, anvilDropAfterPromotion, isAwaitingHolyShield, shieldContext,
