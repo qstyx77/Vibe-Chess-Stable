@@ -38,10 +38,10 @@ export function PromotionDialog({ isOpen, onSelectPiece, pawnColor }: PromotionD
             <Button
               key={type}
               variant="outline"
-              className="h-24 flex flex-col items-center justify-center gap-2 text-lg hover:bg-accent hover:text-accent-foreground"
+              className="h-32 flex flex-col items-center justify-center gap-2 hover:bg-accent hover:text-accent-foreground border-2"
               onClick={() => onSelectPiece(type)}
             >
-              <div className="w-10 h-10">
+              <div className="w-16 h-16 flex items-center justify-center">
                 <ChessPieceDisplay piece={{ id: `promo-${type}`, type, color: pawnColor, level: 1 }} />
               </div>
               <span className="capitalize text-sm font-medium">{type}</span>
