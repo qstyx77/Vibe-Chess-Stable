@@ -386,6 +386,32 @@ export class VibeChessAI {
         if (attacker.heldItem === 'poison_dagger' && isCapture) {
             this.aiTriggerPoisonSplash(board, r, c, color);
         }
+
+        if (attacker.heldItem === 'tortoise_hammer' && isCapture) {
+            const oppColor = color === 'white' ? 'black' : 'white';
+            const forwardDir = color === 'white' ? -1 : 1;
+            const splashTargets = [
+                { r: r, c: c - 1 },
+                { r: r, c: c + 1 },
+                { r: r + forwardDir, c: c },
+                { r: r - forwardDir, c: c } // Corrected: All 4 cardinal directions
+            ];
+
+            splashTargets.forEach(target => {
+                if (isValidSquareUtil(target.r, target.c)) {
+                    const victim = board[target.r][target.c].piece;
+                    if (victim && victim.color === oppColor && victim.type !== 'king') {
+                        if (victim.heldItem === 'blast_shield') return;
+                        if (victim.heldItem === 'soul_link') {
+                            board.forEach(row => row.forEach(sq => {
+                                if (sq.piece && sq.piece.color === oppColor && sq.piece.heldItem === 'soul_link') sq.piece = null;
+                            }));
+                        }
+                        board[target.r][target.c].piece = null;
+                    }
+                }
+            });
+        }
     }
 
     aiTriggerPushBack(board: AIBoardState, r: number, c: number, color: PlayerColor) {
@@ -402,6 +428,12 @@ export class VibeChessAI {
                         const dest = board[tr][tc];
                         if (victim.item?.type === 'anvil') {
                             if (dest.piece && dest.piece.type !== 'king') {
+                                const crushedPiece = dest.piece;
+                                if (crushedPiece.heldItem === 'soul_link') {
+                                    board.forEach(row => row.forEach(sq => {
+                                        if (sq.piece && sq.piece.color === crushedPiece.color && sq.piece.heldItem === 'soul_link') sq.piece = null;
+                                    }));
+                                }
                                 dest.piece = null;
                                 board[tr][tc].item = victim.item;
                                 board[nr][nc].item = null;

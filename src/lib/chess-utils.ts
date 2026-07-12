@@ -1001,7 +1001,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         const splashTargets = [
             { r: toRow, c: toCol - 1 },
             { r: toRow, c: toCol + 1 },
-            { r: toRow + forwardDir, c: toCol }
+            { r: toRow + forwardDir, c: toCol },
+            { r: toRow - forwardDir, c: toCol } // Corrected: Splash all 4 cardinal directions
         ];
 
         splashTargets.forEach(target => {
@@ -1098,6 +1099,14 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
           if (victim.item?.type === 'anvil') {
              if (dest.piece && dest.piece.type !== 'king') {
                 crushed = { ...dest.piece };
+                // Soul Link: Shared destruction for anvil crush
+                if (crushed.heldItem === 'soul_link') {
+                    board.forEach(row => row.forEach(sq => {
+                        if (sq.piece && sq.piece.color === crushed!.color && sq.piece.heldItem === 'soul_link') {
+                            sq.piece = null;
+                        }
+                    }));
+                }
                 dest.piece = null;
                 board[tr][tc].item = victim.item;
                 board[nr][nc].item = null;

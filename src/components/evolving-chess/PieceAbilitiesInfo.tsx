@@ -96,7 +96,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
           abilities.push("Queen Hunter.");
       }
       if (type === 'archer') {
-          abilities.push("Archer Snipe: KS 5 grants global Level 1 capture.");
+          abilities.push("Archer Snipe: KS 5 grants global Level 1 capture (Non-Royals only).");
       }
       break;
     case 'bishop':
