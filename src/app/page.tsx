@@ -399,7 +399,7 @@ export default function EvolvingChessPage() {
             winner: data.winner,
             message: data.reason === 'timeout' ? 'Player Timed Out!' : (data.reason === 'resign' ? 'Opponent Resigned!' : 'Checkmate!'),
             isCheck: false,
-            isCheckmate: data.reason === 'checkmate',
+            isCheckmate: data.reason === 'checkmate' || data.reason === 'auto-checkmate',
             isStalemate: data.reason === 'stalemate',
             playerWithKingInCheck: null
           });
@@ -529,6 +529,21 @@ export default function EvolvingChessPage() {
     setEnPassantTargetSquare(newEnPassantTarget);
     
     const inCheck = isKingInCheck(boardAfterPoison, nextPlayer, newEnPassantTarget);
+
+    // Auto-checkmate rule: Deliver check and earn an extra turn = instant win.
+    if (inCheck && isExtraTurn) {
+        setGameInfo({
+            message: `Auto-Checkmate! ${getPlayerDisplayName(playerWhoseTurnCompleted)} wins!`,
+            isCheck: true,
+            playerWithKingInCheck: nextPlayer,
+            isCheckmate: true,
+            isStalemate: false,
+            gameOver: true,
+            winner: playerWhoseTurnCompleted
+        });
+        return;
+    }
+
     const mate = inCheck && isCheckmate(boardAfterPoison, nextPlayer, newEnPassantTarget);
     const stale = !inCheck && isStalemate(boardAfterPoison, nextPlayer, newEnPassantTarget);
 
@@ -598,7 +613,7 @@ export default function EvolvingChessPage() {
 
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
     const hasArcher = pieces.some(p => p.type === 'archer');
-    const hasCrossbow = pieces.some(p => p.type === 'archer' && p.heldItem === 'crossbow');
+    const hasCrossbow = pieces.some(p => p.type === 'archer' && p.color === actingPlayer && p.heldItem === 'crossbow');
     const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && hasArcher && !completedMilestones.includes('snipe')) || 
                         (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
 
@@ -645,7 +660,7 @@ export default function EvolvingChessPage() {
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random()*empty.length)];
-                const {row, col} = algebraicToCoords(sq.algebraic);
+                const {row: rr, col: rc} = algebraicToCoords(sq);
                 nextBoard[row][col].piece = { ...choice, level: 1, id: `${choice.id}_res_${Date.now()}`, hasMoved: true, isShielded: false };
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
                 triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'resurrection']);
@@ -705,16 +720,20 @@ export default function EvolvingChessPage() {
         const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
         let nextB = applyResult.newBoard;
         if (applyResult.reflectionOccurred) {
-            const defColor = currentPlayer === 'white' ? 'black' : 'white';
-            setCapturedPieces(prev => ({ ...prev, [defColor]: [...(prev[defColor] || []), { ...applyResult.capturedPiece!, id: `refl_${Date.now()}` }] }));
-            audioManager.playCapture(); setKillStreaks(prev => ({ ...prev, [defColor]: (prev[defColor] || 0) + 1, [currentPlayer]: 0 }));
+            const def = currentPlayer === 'white' ? 'black' : 'white';
+            setCapturedPieces(prev => ({ ...prev, [def]: [...(prev[def] || []), { ...applyResult.capturedPiece!, id: `refl_${Date.now()}` }] }));
+            audioManager.playCapture(); setKillStreaks(prev => ({ ...prev, [def]: (prev[def] || 0) + 1, [currentPlayer]: 0 }));
             setBoard(nextB); setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, currentPlayer, false, null); }, 800);
             return;
         }
         const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
         const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
         setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
-        if (applyResult.capturedPiece) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }] }));
+        
+        // Infiltrator Obliteration
+        const isObliteration = applyResult.promotedToInfiltrator || (piece.type === 'infiltrator' && applyResult.capturedPiece);
+        if (applyResult.capturedPiece && !isObliteration) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }] }));
+        
         setBoard(nextB);
         setTimeout(() => {
           setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
@@ -848,13 +867,17 @@ export default function EvolvingChessPage() {
             const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
             const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
             setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
-            if (applyResult.capturedPiece) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }] }));
+            
+            // Infiltrator Obliteration
+            const isObliteration = applyResult.promotedToInfiltrator || (moving.type === 'infiltrator' && applyResult.capturedPiece);
+            if (applyResult.capturedPiece && !isObliteration) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }] }));
+            
             setBoard(nextB);
             setTimeout(() => {
                 setIsMoveProcessing(false); clickGuardRef.current = false;
                 const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
                 if (nextB[row][col].piece?.type === 'pawn' && (row === 0 || row === 7)) {
-                    setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || null));
+                    setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
                     setIsPromotingPawn(true); setPromotionSquare(algebraic);
                     setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS });
                 } else {

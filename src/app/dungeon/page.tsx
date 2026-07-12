@@ -556,6 +556,14 @@ export default function DungeonPage() {
       return;
     }
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare);
+
+    // Rule Parity: Auto-checkmate on extra turn
+    if (inCheck && extra) {
+        setGameInfo({ message: `Auto-Checkmate! ${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} wins!`, isCheck: true, playerWithKingInCheck: nextP, isCheckmate: true, isStalemate: false, gameOver: true, winner: turnPlayer });
+        audioManager.playVictory();
+        return;
+    }
+
     if (inCheck) audioManager.playCheck();
     
     const isBoss = level % 10 === 0;
@@ -622,7 +630,7 @@ export default function DungeonPage() {
     // 3. Killstreak: Archer Snipe
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
     const hasArcher = pieces.some(p => p.type === 'archer');
-    const hasCrossbow = pieces.some(p => p.type === 'archer' && p.heldItem === 'crossbow');
+    const hasCrossbow = pieces.some(p => p.type === 'archer' && p.color === actingPlayer && p.heldItem === 'crossbow');
     const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && hasArcher && !completedMilestones.includes('snipe')) || 
                         (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
 
@@ -787,7 +795,11 @@ export default function DungeonPage() {
             white: [...capturedPieces.white],
             black: [...capturedPieces.black]
         };
-        if (capturedPiece) updatedCapturedPieces.black.push({ ...capturedPiece!, id: `${capturedPiece!.id}_cap_ai_${Date.now()}` });
+        
+        // Infiltrator Obliteration for AI
+        const isObliteration = result.promotedToInfiltrator || (movingPiece.type === 'infiltrator' && capturedPiece);
+
+        if (capturedPiece && !isObliteration) updatedCapturedPieces.black.push({ ...capturedPiece!, id: `${capturedPiece!.id}_cap_ai_${Date.now()}` });
         if (selfDestructCaptures) selfDestructCaptures.forEach(p => updatedCapturedPieces.black.push({ ...p, id: `${p.id}_sd_ai_${Date.now()}` }));
         if (result.pieceCapturedByAnvil) updatedCapturedPieces.black.push({ ...result.pieceCapturedByAnvil!, id: `${result.pieceCapturedByAnvil!.id}_anvil_ai_${Date.now()}` });
         setCapturedPieces(updatedCapturedPieces);

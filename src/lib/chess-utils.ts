@@ -248,10 +248,17 @@ function getPossibleMovesInternal(
             if (!isValidSquare(toR, toC) || (board[toR][toC].item && board[toR][toC].item?.type !== 'shroom')) continue;
             const finalTargetSquareAlgebraic = coordsToAlgebraic(toR, toC);
             const pieceOnFinalTarget = board[toR][toC].piece;
+            
             if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2) ) {
                 const midR = fromRow + Math.sign(dr); const midC = fromCol + Math.sign(dc);
                 if (!isValidSquare(midR, midC) || board[midR][midC].piece || (board[midR][midC].item && board[midR][midC].item?.type !== 'shroom') ) continue;
-                if (checkKingSafety && isSquareAttacked(board, coordsToAlgebraic(midR, midC), opponentColor, false, pieceOnFinalTarget ? finalTargetSquareAlgebraic : null, enPassantTargetSquare )) continue;
+                
+                // Pathfinding Adjustment: If capturing the specific piece that is checking us, 
+                // we can ignore its attack on the intermediate square.
+                const targetPieceAtDest = board[toR][toC].piece;
+                const isCheckCapture = targetPieceAtDest && targetPieceAtDest.color === opponentColor;
+
+                if (checkKingSafety && isSquareAttacked(board, coordsToAlgebraic(midR, midC), opponentColor, false, isCheckCapture ? finalTargetSquareAlgebraic : null, enPassantTargetSquare )) continue;
             }
             const targetPiece = board[toR][toC].piece;
             const targetLevel = getEffectiveLevel(board, toR, toC);

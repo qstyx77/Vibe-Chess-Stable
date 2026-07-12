@@ -110,7 +110,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <PieceRule title="Infiltrator Abilities">
                   <ul className="list-none pl-0 space-y-1">
                     <li>
-                      <strong>Movement & Capture:</strong> An Infiltrator can move one square directly forward OR one square diagonally forward. It captures in the same manner (one square forward or one square diagonally forward).
+                      <strong>Movement & Capture:</strong> An Infiltrator can move one square directly forward OR one square directly sideways, or one square diagonally forward. It captures in the same manner (one square forward or one square diagonally forward).
                     </li>
                      <li>
                       <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely and do not go to the captured pieces pile.
@@ -209,11 +209,17 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Activation">Achieved by capturing enemy pieces (including anvil captures). A player's streak only resets if that player makes a non-capturing move.</PieceRule>
+                <PieceRule title="Streak of 2 (Holy Shield)">
+                  Available if you have an **Archbishop** on the board. You are prompted to apply a holy shield to an allied piece (excluding Royals).
+                </PieceRule>
                 <PieceRule title="Streak of 3 (Anvil Drop)">
                   You are prompted to place an Anvil on any empty square on the board. This action is part of your turn.
                 </PieceRule>
                 <PieceRule title="Streak of 4 (Resurrection)">
                    One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn.
+                </PieceRule>
+                <PieceRule title="Streak of 5 (Archer Snipe)">
+                  Available if you have an **Archer** on the board. You are prompted to target and destroy any Level 1 enemy unit.
                 </PieceRule>
                 <PieceRule title="Streak of 6 (Extra Turn)">
                   You gain an extra turn immediately.
@@ -267,7 +273,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <ul>
                   <LevelRule level="1-3" description="Standard horizontal/vertical move/capture (needs line of sight)." />
-                  <LevelRule level="4+" description="Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. The resurrected piece (highest value available) is placed on a random empty square adjacent (horizontally, vertically, or diagonally) to this Rook. The resurrected piece returns at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn. If no captured pieces are available or no empty adjacent squares exist, this ability has no effect." />
+                  <LevelRule level="4+" description="Resurrection Call & Master Resurrector: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. If the Rook is a Palace (ELO 1800+), the piece returns at its original captured level. If it's a standard Rook, it returns at Level 1." />
                 </ul>
               </AccordionContent>
             </AccordionItem>
@@ -293,6 +299,18 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </ul>
               </AccordionContent>
             </AccordionItem>
+
+            <AccordionItem value="dungeon">
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Dungeon Mode Specials</AccordionTrigger>
+              <AccordionContent>
+                <PieceRule title="Dungeon Collapse">
+                  In Dungeon Mode, if your forces have no legal moves for 3 consecutive attempts (Stalemate Strikes), the dungeon undergoes a "Collapse". This triggers a catastrophic explosion on all enemy squares, likely ending your run.
+                </PieceRule>
+                 <PieceRule title="Boss Loot">
+                  Defeating a boss on Floor 10, 20, 30, 40, or 50 grants unique consumable items like Portal Scrolls or Mirror Shields.
+                </PieceRule>
+              </AccordionContent>
+            </AccordionItem>
           </Accordion>
         </ScrollArea>
         <DialogClose asChild>
@@ -304,12 +322,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-    
-    
-
-    
-
-    
-
-
-    

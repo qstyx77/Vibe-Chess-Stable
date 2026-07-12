@@ -18,6 +18,8 @@ import {
     isValidSquare,
     getPromotionLevel,
     VAL_MAP,
+    boardToPositionHash,
+    getCastlingRightsString
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
 
@@ -37,7 +39,7 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; }> = {};
+const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
 const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; equipment?: Record<string, string>; timestamp: number }[] = [];
@@ -198,11 +200,27 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
     const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare);
 
+    // Rule Parity: Auto-checkmate on extra turn
+    if (inCheck && isExtraTurn) {
+        onGameOver(room.clients[0].roomId, movingPlayerColor, 'auto-checkmate');
+        return;
+    }
+
     if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
         onGameOver(room.clients[0].roomId, movingPlayerColor, 'checkmate');
         return;
     } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
         onGameOver(room.clients[0].roomId, 'draw', 'stalemate');
+        return;
+    }
+
+    // Threefold Repetition Check
+    const rights = getCastlingRightsString(room.gameState.board);
+    const hash = boardToPositionHash(room.gameState.board, nextPlayer, rights, room.gameState.enPassantTargetSquare);
+    room.positionHistory.push(hash);
+    const occurrences = room.positionHistory.filter((h: string) => h === hash).length;
+    if (occurrences >= 3) {
+        onGameOver(room.clients[0].roomId, 'draw', 'threefold-repetition');
         return;
     }
 
@@ -335,6 +353,7 @@ const processRankedQueue = async () => {
         rooms[roomId] = {
             clients: [whitePlayer.ws, blackPlayer.ws],
             isRanked: true,
+            positionHistory: [],
             gameState: {
                 board,
                 currentPlayer: 'white',
@@ -409,6 +428,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     rooms[roomId] = {
                         clients: [ws],
                         isRanked: false,
+                        positionHistory: [],
                         gameState: {
                             board,
                             currentPlayer: 'white',
@@ -617,11 +637,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const originalLevel = movingPieceStart.level || 1;
                         const originalType = movingPieceStart.type;
-                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
+                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, promotedToInfiltrator, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
                         
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
-                        if (capturedPiece) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
+                        
+                        // Infiltrator Obliteration Logic: Captures by Infiltrators are permanently removed.
+                        const isObliterationMove = promotedToInfiltrator || (movingPieceStart.type === 'infiltrator' && capturedPiece);
+
+                        if (capturedPiece && !isObliterationMove) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
                         if (selfDestructCaptures) selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayer].push(p));
                         if (rest.pieceCapturedByAnvil) room.gameState.capturedPieces[movingPlayer].push(rest.pieceCapturedByAnvil);
                         
