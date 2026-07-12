@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -65,6 +64,20 @@ const broadcastToRoom = (roomId: string, message: any) => {
             }
         });
     }
+};
+
+const applyEquipment = (b: any, equip: Record<string, string> | undefined, targetColor: PlayerColor) => {
+  if(!equip) return b;
+  return b.map((row: any) => row.map((sq: any) => {
+    if (sq.piece && sq.piece.color === targetColor) {
+      // Map the server piece ID back to its lobby "white" equivalent ID for lookup
+      const lobbyEquivalentId = sq.piece.id.replace(/^[wb]/, 'w');
+      if (equip[lobbyEquivalentId]) {
+        return { ...sq, piece: { ...sq.piece, heldItem: equip[lobbyEquivalentId] } };
+      }
+    }
+    return sq;
+  }));
 };
 
 const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string, details: any = {}) => {
@@ -200,7 +213,6 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
     const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare);
 
-    // Rule Parity: Auto-checkmate on extra turn
     if (inCheck && isExtraTurn) {
         onGameOver(room.clients[0].roomId, movingPlayerColor, 'auto-checkmate');
         return;
@@ -214,7 +226,6 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
         return;
     }
 
-    // Threefold Repetition Check
     const rights = getCastlingRightsString(room.gameState.board);
     const hash = boardToPositionHash(room.gameState.board, nextPlayer, rights, room.gameState.enPassantTargetSquare);
     room.positionHistory.push(hash);
@@ -334,21 +345,9 @@ const processRankedQueue = async () => {
         whitePlayer.ws.roomId = roomId;
         blackPlayer.ws.roomId = roomId;
 
-        // Use new ELO-aware initializeBoard
         let board = initializeBoard(whitePlayer.elo, blackPlayer.elo);
-        
-        const applyEquipment = (b: any, equip: Record<string, string> | undefined) => {
-          if(!equip) return b;
-          return b.map((row: any) => row.map((sq: any) => {
-            if (sq.piece && equip[sq.piece.id]) {
-              return { ...sq, piece: { ...sq.piece, heldItem: equip[sq.piece.id] } };
-            }
-            return sq;
-          }));
-        };
-
-        board = applyEquipment(board, whitePlayer.equipment);
-        board = applyEquipment(board, blackPlayer.equipment);
+        board = applyEquipment(board, whitePlayer.equipment, 'white');
+        board = applyEquipment(board, blackPlayer.equipment, 'black');
 
         rooms[roomId] = {
             clients: [whitePlayer.ws, blackPlayer.ws],
@@ -414,16 +413,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     ws.roomId = roomId;
                     ws.userId = data.user?.userId;
                     
-                    // Use new ELO-aware initializeBoard (assume black is default 1200 for now)
                     let board = initializeBoard(data.user?.elo || 1200, 1200);
-                    if(data.user?.equipment) {
-                      board = board.map((row: any) => row.map((sq: any) => {
-                        if (sq.piece && data.user.equipment[sq.piece.id]) {
-                          return { ...sq, piece: { ...sq.piece, heldItem: data.user.equipment[sq.piece.id] } };
-                        }
-                        return sq;
-                      }));
-                    }
+                    board = applyEquipment(board, data.user?.equipment, 'white');
 
                     rooms[roomId] = {
                         clients: [ws],
@@ -464,31 +455,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         roomToJoin.clients.push(ws);
                         roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null;
                         
-                        // Re-initialize board with BOTH players ELOs now that black has joined
                         const whiteElo = roomToJoin.gameState.players.white?.elo || 1200;
                         const blackElo = data.user?.elo || 1200;
                         let newBoard = initializeBoard(whiteElo, blackElo);
 
-                        // Restore white equipment
-                        const whiteEquip = roomToJoin.gameState.players.white?.equipment;
-                        if(whiteEquip) {
-                            newBoard = newBoard.map((row: any) => row.map((sq: any) => {
-                                if (sq.piece && sq.piece.color === 'white' && whiteEquip[sq.piece.id]) {
-                                    return { ...sq, piece: { ...sq.piece, heldItem: whiteEquip[sq.piece.id] } };
-                                }
-                                return sq;
-                            }));
-                        }
-
-                        // Restore black equipment
-                        if(data.user?.equipment) {
-                          newBoard = newBoard.map((row: any) => row.map((sq: any) => {
-                            if (sq.piece && sq.piece.color === 'black' && data.user.equipment[sq.piece.id]) {
-                              return { ...sq, piece: { ...sq.piece, heldItem: data.user.equipment[sq.piece.id] } };
-                            }
-                            return sq;
-                          }));
-                        }
+                        newBoard = applyEquipment(newBoard, roomToJoin.gameState.players.white?.equipment, 'white');
+                        newBoard = applyEquipment(newBoard, data.user?.equipment, 'black');
+                        
                         roomToJoin.gameState.board = newBoard;
 
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
@@ -642,7 +615,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         
-                        // Infiltrator Obliteration Logic: Captures by Infiltrators are permanently removed.
                         const isObliterationMove = promotedToInfiltrator || (movingPieceStart.type === 'infiltrator' && capturedPiece);
 
                         if (capturedPiece && !isObliterationMove) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
@@ -684,7 +656,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
-                        // Resurrection Streak 4
                         if (newStreak >= 4 && oldStreak < 4) {
                             const oppColor = movingPlayer === 'white' ? 'black' : 'white';
                             const myFallenPieces = room.gameState.capturedPieces[oppColor];

@@ -284,7 +284,6 @@ export default function EvolvingChessPage() {
     setOnlineStatus('connecting');
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     
-    // Support Google Cloud Workstation port forwarded domains
     let wsUrl = '';
     if (window.location.hostname.includes('cloudworkstations.dev')) {
       const parts = window.location.hostname.split('-');
@@ -506,9 +505,9 @@ export default function EvolvingChessPage() {
     setGameMoveCounter(newGameMoveCounter);
     
     if (onlineStatus === 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
-      let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
+      let currentShroomCounter = shroomSpawnCounter + 1;
       setShroomSpawnCounter(currentShroomCounter);
-      if (currentShroomCounter >= (nextShroomSpawnTurn || 5)) {
+      if (currentShroomCounter >= nextShroomSpawnTurn) {
           const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(currentBoardState);
           if (shroomSpawnedAt) {
               currentBoardState = boardAfterShroom;
@@ -529,7 +528,6 @@ export default function EvolvingChessPage() {
     
     const inCheck = isKingInCheck(boardAfterPoison, nextPlayer, newEnPassantTarget);
 
-    // Auto-checkmate rule: Deliver check and earn an extra turn = instant win.
     if (inCheck && isExtraTurn) {
         setGameInfo({
             message: `Auto-Checkmate! ${getPlayerDisplayName(playerWhoseTurnCompleted)} wins!`,
@@ -659,8 +657,8 @@ export default function EvolvingChessPage() {
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random()*empty.length)];
-                const {row: rr, col: rc} = algebraicToCoords(sq);
-                nextBoard[row][col].piece = { ...choice, level: 1, id: `${choice.id}_res_${Date.now()}`, hasMoved: true, isShielded: false };
+                const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
+                nextBoard[rr][rc].piece = { ...choice, level: 1, id: `${choice.id}_res_${Date.now()}`, hasMoved: true, isShielded: false };
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
                 triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'resurrection']);
                 return;
@@ -729,7 +727,6 @@ export default function EvolvingChessPage() {
         const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
         setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
         
-        // Infiltrator Obliteration
         const isObliteration = applyResult.promotedToInfiltrator || (piece.type === 'infiltrator' && applyResult.capturedPiece);
         if (applyResult.capturedPiece && !isObliteration) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }] }));
         
@@ -867,7 +864,6 @@ export default function EvolvingChessPage() {
             const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
             setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
             
-            // Infiltrator Obliteration
             const isObliteration = applyResult.promotedToInfiltrator || (moving.type === 'infiltrator' && applyResult.capturedPiece);
             if (applyResult.capturedPiece && !isObliteration) setCapturedPieces(prev => ({ ...prev, [currentPlayer]: [...(prev[currentPlayer] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }] }));
             
@@ -980,7 +976,7 @@ export default function EvolvingChessPage() {
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={activeTimerPlayer} chatMessages={chatMessages} onSendMessage={sendMessage} isMessengerOpen={isMessengerOpen} onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)} hasUnreadMessages={hasUnreadMessages} />
         <div className="flex flex-wrap justify-center items-center gap-0.5 mt-0.5">
           <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-6 px-1.5 text-[10px]"><BookOpen /> Rules</Button>
-          <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-6 px-1.5 text-[10px]"><Package /> Items</Button>
+          <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user || onlineStatus !== 'disconnected'} className="h-6 px-1.5 text-[10px]"><Package /> Items</Button>
           <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-6 px-1.5 text-[10px]"><Settings /> Settings</Button></PopoverTrigger><PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">SFX Volume</span><Volume2 className="h-4 w-4 text-primary" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-xs font-pixel uppercase">AI Depth</span><BrainCircuit className="h-4 w-4 text-primary" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent></Popover>
           <Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-6 px-1.5 text-[10px]" disabled={onlineStatus !== 'disconnected' || !user}><Swords /> Dungeon</Button></Link>
           <Link href="/leaderboard"><Button variant="outline" size="sm" className="h-6 px-1.5 text-[10px]" disabled={onlineStatus !== 'disconnected'}><Trophy /> L.board</Button></Link>
@@ -1041,7 +1037,7 @@ export default function EvolvingChessPage() {
           <CardContent className="p-2 flex flex-col gap-2">
             <div className="flex flex-wrap justify-center items-center gap-1">
               <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-7 px-2 text-xs"><BookOpen /> Rules</Button>
-              <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user} className="h-7 px-2 text-xs"><Package /> Items</Button>
+              <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={!user || onlineStatus !== 'disconnected'} className="h-7 px-2 text-xs"><Package /> Items</Button>
               <Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected' || !user}><Swords /> Dungeon</Button></Link>
               <Link href="/leaderboard"><Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={onlineStatus !== 'disconnected'}><Trophy /> L.board</Button></Link>
             </div>
