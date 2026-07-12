@@ -177,6 +177,26 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="6" width="4" height="2" fill="#737373" opacity="0.5" />
           </svg>
         );
+      case 'ice_tunic':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#93C5FD" />
+            <rect x="1" y="3" width="8" height="6" fill="#93C5FD" />
+            <rect x="3" y="0" width="4" height="3" fill="#93C5FD" />
+            <rect x="4" y="4" width="2" height="3" fill="#BAE6FD" />
+            <rect x="3" y="5" width="4" height="1" fill="#BAE6FD" />
+          </svg>
+        );
+      case 'ice_sword':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="0" width="2" height="9" fill="#93C5FD" />
+            <rect x="3" y="1" width="4" height="7" fill="#93C5FD" />
+            <rect x="2" y="9" width="6" height="2" fill="#1E3A8A" />
+            <rect x="4" y="11" width="2" height="1" fill="#1E3A8A" />
+            <rect x="4" y="2" width="2" height="4" fill="#F0F9FF" opacity="0.7" />
+          </svg>
+        );
       case 'wind_scroll':
       case 'life_leach':
       case 'summon_anvil':

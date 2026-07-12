@@ -55,6 +55,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'blast_shield') abilities.push(" blast guard: immune to self-destructs and explosions.");
   if (heldItem === 'monks_robe') abilities.push(" devotions: conversion success chance increased by 20%.");
   if (heldItem === 'training_weights') abilities.push(" conditioning: gain +1 level every 3 turns.");
+  if (heldItem === 'ice_tunic') abilities.push(" cryo skin: freezes any piece that captures the wearer for 1 turn.");
+  if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 1 turn.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");

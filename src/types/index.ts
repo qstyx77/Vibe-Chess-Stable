@@ -45,6 +45,8 @@ export type InventoryItemType =
   | 'blast_shield'
   | 'monks_robe'
   | 'training_weights'
+  | 'ice_tunic'
+  | 'ice_sword'
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
   | 'portal_scroll_40';
@@ -99,6 +101,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'blast_shield': { name: 'Blast Shield', description: 'Shield. Non-Royal only. Immune to self-destructs and explosions.', isConsumable: false },
   'monks_robe': { name: 'Monk\'s Robe', description: 'Robe. Bishops/Archbishops only. Increases conversion chance by 20%.', isConsumable: false },
   'training_weights': { name: 'Training Weights', description: 'Weights. Non-Royal only. Increases level by 1 every 3 turns.', isConsumable: false },
+  'ice_tunic': { name: 'Ice Tunic', description: 'Frosty vest. Freezes any piece that captures the wearer for 1 turn.', isConsumable: false },
+  'ice_sword': { name: 'Ice Sword', description: 'Crystalline blade. Capturing freezes cardinally adjacent enemies for 1 turn.', isConsumable: false },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', isConsumable: true },
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', isConsumable: true },

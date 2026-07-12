@@ -954,6 +954,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (captured) {
     handleHydraSplit(captured, toRow, toCol, newBoard);
 
+    if (captured.heldItem === 'ice_tunic') {
+        pieceToLand.frozenTurnsRemaining = 2;
+        pieceToLand.cooldownTurnsRemaining = 2;
+    }
+
     if (pieceToLand.type === 'pawn' && captured.type === 'commander') {
       pieceToLand.type = 'commander';
     }
@@ -997,6 +1002,20 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
     if (pieceToLand.heldItem === 'poison_dagger') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
     if (captured.heldItem === 'poison_tunic') pieceToLand.isPoisoned = true;
+
+    if (pieceToLand.heldItem === 'ice_sword') {
+        const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
+        [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
+            const nr = toRow + dr, nc = toCol + dc;
+            if (isValidSquare(nr, nc)) {
+                const victim = newBoard[nr][nc].piece;
+                if (victim && victim.color === oppColor) {
+                    victim.frozenTurnsRemaining = 2;
+                    victim.cooldownTurnsRemaining = 2;
+                }
+            }
+        });
+    }
 
     if (pieceToLand.heldItem === 'leach_blade') {
         const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
