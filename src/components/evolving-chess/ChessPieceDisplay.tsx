@@ -117,7 +117,9 @@ export function ChessPieceDisplay({
 
         <div className={cn(
           "w-[95%] h-[95%] relative z-[1]",
-          (piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100"
+          isMini 
+            ? ((piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-[180%]" : "scale-[200%]")
+            : ((piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100")
         )}>
           <IconComponent className="w-full h-full drop-shadow-md" />
         </div>
