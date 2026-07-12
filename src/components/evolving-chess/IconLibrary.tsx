@@ -105,6 +105,74 @@ export const PixelPalace = ({ className }: IconProps) => (
   </svg>
 );
 
+/** BOSS ICONS **/
+
+export const PixelHydra = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    {/* Left Head */}
+    <rect x="4" y="6" width="3" height="3" />
+    <rect x="5" y="9" width="2" height="4" />
+    {/* Center Head */}
+    <rect x="10" y="4" width="4" height="4" />
+    <rect x="11" y="8" width="2" height="8" />
+    {/* Right Head */}
+    <rect x="17" y="6" width="3" height="3" />
+    <rect x="17" y="9" width="2" height="4" />
+    {/* Body Base */}
+    <rect x="6" y="14" width="12" height="4" />
+    <rect x="5" y="18" width="14" height="2" />
+  </svg>
+);
+
+export const PixelNecromancer = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    {/* Hood & Skull Face */}
+    <rect x="9" y="2" width="6" height="7" />
+    <rect x="11" y="4" width="1" height="1" fill="white" />
+    <rect x="13" y="4" width="1" height="1" fill="white" />
+    {/* Robes */}
+    <rect x="7" y="9" width="10" height="9" />
+    <rect x="6" y="18" width="12" height="3" />
+    {/* Staff of Power */}
+    <rect x="18" y="3" width="2" height="16" />
+    <rect x="17" y="2" width="4" height="2" />
+  </svg>
+);
+
+export const PixelColossus = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    {/* Massive Bulk */}
+    <rect x="9" y="1" width="6" height="5" />
+    <rect x="5" y="6" width="14" height="5" />
+    <rect x="7" y="11" width="10" height="9" />
+    <rect x="4" y="8" width="4" height="9" />
+    <rect x="16" y="8" width="4" height="9" />
+    <rect x="6" y="20" width="12" height="2" />
+  </svg>
+);
+
+export const PixelMirage = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    {/* Layered Ethereal Form */}
+    <rect x="10" y="2" width="4" height="18" opacity="0.7" />
+    <rect x="8" y="4" width="8" height="14" opacity="0.4" />
+    <rect x="6" y="6" width="12" height="10" opacity="0.2" />
+    <rect x="11" y="4" width="2" height="14" fill="white" opacity="0.9" />
+  </svg>
+);
+
+export const PixelVoidEntity = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    {/* Swirling Darkness */}
+    <rect x="8" y="8" width="8" height="8" />
+    <rect x="6" y="6" width="12" height="12" opacity="0.6" />
+    <rect x="4" y="4" width="16" height="16" opacity="0.3" />
+    <rect x="2" y="2" width="20" height="20" opacity="0.1" />
+    {/* Golden Void Core */}
+    <rect x="11" y="11" width="2" height="2" fill="#EAB308" />
+  </svg>
+);
+
 /** STANDARD UTILITY ICONS **/
 
 export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (

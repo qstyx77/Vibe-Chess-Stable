@@ -11,7 +11,12 @@ import {
   PixelKing, 
   PixelArchbishop, 
   PixelPalace, 
-  PixelArcher 
+  PixelArcher,
+  PixelHydra,
+  PixelNecromancer,
+  PixelColossus,
+  PixelMirage,
+  PixelVoidEntity
 } from './IconLibrary';
 import { ItemSprite } from './ItemSprite';
 
@@ -60,9 +65,28 @@ export function ChessPieceDisplay({
   isMini = false,
 }: ChessPieceDisplayProps) {
   
-  const IconComponent = PieceIconMap[piece.type] || PixelPawn;
+  let IconComponent = PieceIconMap[piece.type] || PixelPawn;
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
+  let bossStyle: React.CSSProperties = {};
+
+  // --- CUSTOM BOSS VISUALS ---
+  if (piece.id.startsWith('boss-hydra')) {
+    IconComponent = PixelHydra;
+    pieceColorClass = ""; bossStyle = { color: '#10B981' }; // Emerald
+  } else if (piece.id === 'boss-necro') {
+    IconComponent = PixelNecromancer;
+    pieceColorClass = ""; bossStyle = { color: '#8B5CF6' }; // Violet
+  } else if (piece.id === 'boss-colossus') {
+    IconComponent = PixelColossus;
+    pieceColorClass = ""; bossStyle = { color: '#64748B' }; // Slate
+  } else if (piece.id === 'boss-mirage') {
+    IconComponent = PixelMirage;
+    pieceColorClass = ""; bossStyle = { color: '#38BDF8' }; // Sky
+  } else if (piece.id === 'boss-entity') {
+    IconComponent = PixelVoidEntity;
+    pieceColorClass = ""; bossStyle = { color: '#1E1B4B' }; // Deep Indigo
+  }
   
   let animationClass = '';
   if (isConverting) {
@@ -108,6 +132,7 @@ export function ChessPieceDisplay({
           isExhausted && "grayscale opacity-60 contrast-50",
           "origin-bottom"
         )}
+        style={bossStyle}
       >
         {piece.isShielded && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[10]">
