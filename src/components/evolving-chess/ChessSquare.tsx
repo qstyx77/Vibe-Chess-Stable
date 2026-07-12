@@ -3,8 +3,7 @@
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
-import Image from 'next/image';
-import { ShroomIcon } from './IconLibrary';
+import { ShroomIcon, PixelAnvil } from './IconLibrary';
 
 interface ChessSquareProps {
   squareData: SquareState;
@@ -142,17 +141,10 @@ export function ChessSquare({
 
       {item && item.type === 'anvil' && (
         <div className={cn(
-          "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-1",
+          "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2",
           shouldRotateItemForTabletop && "rotate-180"
         )}>
-          <Image
-            src="/images/Anvil.png"
-            alt="Anvil item"
-            width={40}
-            height={40}
-            className="object-contain opacity-75"
-            data-ai-hint="anvil icon"
-          />
+          <PixelAnvil className="w-full h-full text-muted-foreground/90" />
         </div>
       )}
       {item && item.type === 'shroom' && (

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { cn } from '@/lib/utils';
 
 export interface IconProps {
   className?: string;
@@ -76,7 +77,6 @@ export const PixelArcher = ({ className }: IconProps) => (
     <rect x="7" y="8" width="4" height="4" />
     <rect x="11" y="10" width="4" height="6" />
     <rect x="9" y="16" width="8" height="2" />
-    {/* Bow Silhouette */}
     <rect x="16" y="6" width="1" height="8" />
     <rect x="15" y="5" width="1" height="1" />
     <rect x="15" y="14" width="1" height="1" />
@@ -109,16 +109,12 @@ export const PixelPalace = ({ className }: IconProps) => (
 
 export const PixelHydra = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Left Head */}
     <rect x="4" y="6" width="3" height="3" />
     <rect x="5" y="9" width="2" height="4" />
-    {/* Center Head */}
     <rect x="10" y="4" width="4" height="4" />
     <rect x="11" y="8" width="2" height="8" />
-    {/* Right Head */}
     <rect x="17" y="6" width="3" height="3" />
     <rect x="17" y="9" width="2" height="4" />
-    {/* Body Base */}
     <rect x="6" y="14" width="12" height="4" />
     <rect x="5" y="18" width="14" height="2" />
   </svg>
@@ -126,14 +122,11 @@ export const PixelHydra = ({ className }: IconProps) => (
 
 export const PixelNecromancer = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Hood & Skull Face */}
     <rect x="9" y="2" width="6" height="7" />
     <rect x="11" y="4" width="1" height="1" fill="white" />
     <rect x="13" y="4" width="1" height="1" fill="white" />
-    {/* Robes */}
     <rect x="7" y="9" width="10" height="9" />
     <rect x="6" y="18" width="12" height="3" />
-    {/* Staff of Power */}
     <rect x="18" y="3" width="2" height="16" />
     <rect x="17" y="2" width="4" height="2" />
   </svg>
@@ -141,7 +134,6 @@ export const PixelNecromancer = ({ className }: IconProps) => (
 
 export const PixelColossus = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Massive Bulk */}
     <rect x="9" y="1" width="6" height="5" />
     <rect x="5" y="6" width="14" height="5" />
     <rect x="7" y="11" width="10" height="9" />
@@ -153,7 +145,6 @@ export const PixelColossus = ({ className }: IconProps) => (
 
 export const PixelMirage = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Layered Ethereal Form */}
     <rect x="10" y="2" width="4" height="18" opacity="0.7" />
     <rect x="8" y="4" width="8" height="14" opacity="0.4" />
     <rect x="6" y="6" width="12" height="10" opacity="0.2" />
@@ -163,17 +154,99 @@ export const PixelMirage = ({ className }: IconProps) => (
 
 export const PixelVoidEntity = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Swirling Darkness */}
     <rect x="8" y="8" width="8" height="8" />
     <rect x="6" y="6" width="12" height="12" opacity="0.6" />
     <rect x="4" y="4" width="16" height="16" opacity="0.3" />
     <rect x="2" y="2" width="20" height="20" opacity="0.1" />
-    {/* Golden Void Core */}
     <rect x="11" y="11" width="2" height="2" fill="#EAB308" />
   </svg>
 );
 
-/** STANDARD UTILITY ICONS **/
+/** SPECIAL ASSETS **/
+
+export const PixelAnvil = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="2" y="16" width="20" height="4" />
+    <rect x="6" y="10" width="12" height="6" />
+    <rect x="4" y="6" width="16" height="4" />
+    <rect x="18" y="8" width="2" height="2" />
+    <rect x="4" y="8" width="2" height="2" />
+    <rect x="10" y="12" width="4" height="1" fillOpacity="0.3" />
+  </svg>
+);
+
+export const VibeChessTitle = ({ className }: IconProps) => (
+  <svg viewBox="0 0 200 40" className={cn("drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]", className)} xmlns="http://www.w3.org/2000/svg">
+    <g className="animate-pixel-title-flash">
+       {/* VIBE (Cyan) */}
+       <g fill="hsl(var(--primary))">
+          {/* V with Sword Points */}
+          <rect x="10" y="8" width="3" height="16" />
+          <rect x="13" y="24" width="4" height="4" />
+          <rect x="17" y="8" width="3" height="16" />
+          <path d="M10 8l1.5-6 1.5 6h-3zM17 8l1.5-6 1.5 6h-3z" />
+          
+          {/* I as Bishop */}
+          <rect x="30" y="12" width="4" height="14" />
+          <rect x="28" y="26" width="8" height="2" />
+          <circle cx="32" cy="7" r="3.5" />
+          
+          {/* B */}
+          <rect x="45" y="6" width="3" height="22" />
+          <rect x="48" y="6" width="8" height="3" />
+          <rect x="56" y="9" width="3" height="6" />
+          <rect x="48" y="15" width="8" height="3" />
+          <rect x="56" y="18" width="3" height="7" />
+          <rect x="48" y="25" width="8" height="3" />
+          
+          {/* E */}
+          <rect x="70" y="6" width="3" height="22" />
+          <rect x="73" y="6" width="10" height="3" />
+          <rect x="73" y="15" width="7" height="3" />
+          <rect x="73" y="25" width="10" height="3" />
+       </g>
+       
+       {/* CHESS (Magenta) */}
+       <g fill="hsl(var(--accent))" transform="translate(95, 0)">
+          {/* C */}
+          <rect x="5" y="6" width="3" height="22" />
+          <rect x="8" y="6" width="10" height="3" />
+          <rect x="8" y="25" width="10" height="3" />
+          
+          {/* H as Two Rooks */}
+          <rect x="25" y="6" width="3" height="22" />
+          <rect x="23" y="6" width="2" height="3" />
+          <rect x="28" y="6" width="2" height="3" />
+          <rect x="28" y="15" width="5" height="3" />
+          <rect x="33" y="6" width="3" height="22" />
+          <rect x="31" y="6" width="2" height="3" />
+          <rect x="36" y="6" width="2" height="3" />
+          
+          {/* E */}
+          <rect x="48" y="6" width="3" height="22" />
+          <rect x="51" y="6" width="10" height="3" />
+          <rect x="51" y="15" width="7" height="3" />
+          <rect x="51" y="25" width="10" height="3" />
+          
+          {/* S */}
+          <rect x="68" y="6" width="12" height="3" />
+          <rect x="68" y="9" width="3" height="6" />
+          <rect x="68" y="15" width="12" height="3" />
+          <rect x="77" y="18" width="3" height="7" />
+          <rect x="68" y="25" width="12" height="3" />
+          
+          {/* S */}
+          <rect x="85" y="6" width="12" height="3" />
+          <rect x="85" y="9" width="3" height="6" />
+          <rect x="85" y="15" width="12" height="3" />
+          <rect x="94" y="18" width="3" height="7" />
+          <rect x="85" y="25" width="12" height="3" />
+       </g>
+    </g>
+  </svg>
+);
+
+/** UTILITY ICONS **/
 
 export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>

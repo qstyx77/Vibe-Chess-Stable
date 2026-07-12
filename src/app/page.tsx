@@ -58,6 +58,7 @@ import Link from 'next/link';
 import { audioManager } from '@/lib/audio-manager';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
+import { VibeChessTitle } from '@/components/evolving-chess/IconLibrary';
 
 
 const initialGameStatus: GameStatus = {
@@ -933,7 +934,10 @@ export default function EvolvingChessPage() {
       <div className="flex flex-col items-center justify-between gap-0.5 pb-1">
         <div className="w-full flex items-center justify-between">
           <div className="w-1/3 flex items-center justify-center">
-            <img src="/images/Vibe_Title.gif" alt="VIBE CHESS" className="h-8 w-auto object-contain" />
+            {/* Symmetrical empty space */}
+          </div>
+          <div className="w-1/3 flex items-center justify-center">
+            <VibeChessTitle className="h-8 w-auto" />
           </div>
           <div className="w-1/3 flex justify-end">
             <AuthWidget />
@@ -1022,7 +1026,7 @@ export default function EvolvingChessPage() {
       </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
         <div className="w-full flex items-center justify-center">
-          <img src="/images/Vibe_Title.gif" alt="VIBE CHESS" className="h-16 w-auto object-contain" />
+          <VibeChessTitle className="h-16 w-auto" />
         </div>
         <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}>
           {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
@@ -1054,7 +1058,7 @@ export default function EvolvingChessPage() {
               <div className="flex flex-col gap-2 items-center border-t pt-2">
                 <div className="flex items-center gap-2 text-xs font-pixel text-primary uppercase">
                   <span>Room: {roomId || inputRoomId}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); toast({ title: "Copied!" }); }}>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.clipboard.writeText(roomId || inputRoomId); toast({ title: "Copied!" }); }}>
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
