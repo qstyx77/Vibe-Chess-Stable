@@ -168,7 +168,7 @@ export function ChessBoard({
       className={cn(
         "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
-        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
+        isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
       )}
       onMouseLeave={() => onPieceHover(null)}
@@ -224,22 +224,31 @@ export function ChessBoard({
           const invOwnerColor = localPlayerColor || 'white';
           let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
           
-          if (isInvTarget && selectedInventoryItemType) {
-            const pType = currentSquareData.piece?.type;
-            if (selectedInventoryItemType === 'swift_cloak') {
-              if (pType !== 'pawn' && pType !== 'commander') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'queens_peace') {
-              if (pType !== 'queen') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'gnosis' || selectedInventoryItemType === 'mirror_shield' || selectedInventoryItemType === 'berserkers_mask' || selectedInventoryItemType === 'blast_shield' || selectedInventoryItemType === 'training_weights') {
-              if (pType === 'king' || pType === 'queen') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'crossbow') {
-              if (pType !== 'archer') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'detonation_scroll') {
-              if (pType === 'king') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'kings_decree') {
-              if (pType !== 'king') isInvTarget = false;
-            } else if (selectedInventoryItemType === 'monks_robe') {
-              if (pType !== 'bishop' && pType !== 'archbishop') isInvTarget = false;
+          // REFINED PORTAL AND EQUIPMENT LOGIC
+          if (isInvTarget) {
+            if (selectedInventoryItemType) {
+              const pType = currentSquareData.piece?.type;
+              // Portal items are NEVER equippable
+              if (selectedInventoryItemType.startsWith('portal_scroll_')) {
+                isInvTarget = false;
+              } else if (selectedInventoryItemType === 'swift_cloak') {
+                if (pType !== 'pawn' && pType !== 'commander') isInvTarget = false;
+              } else if (selectedInventoryItemType === 'queens_peace') {
+                if (pType !== 'queen') isInvTarget = false;
+              } else if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights'].includes(selectedInventoryItemType)) {
+                if (pType === 'king' || pType === 'queen') isInvTarget = false;
+              } else if (selectedInventoryItemType === 'crossbow') {
+                if (pType !== 'archer') isInvTarget = false;
+              } else if (selectedInventoryItemType === 'detonation_scroll') {
+                if (pType === 'king') isInvTarget = false;
+              } else if (selectedInventoryItemType === 'kings_decree') {
+                if (pType !== 'king') isInvTarget = false;
+              } else if (selectedInventoryItemType === 'monks_robe') {
+                if (pType !== 'bishop' && pType !== 'archbishop') isInvTarget = false;
+              }
+            } else {
+              // If no item selected, only pieces WITH items are unequip targets
+              if (!currentSquareData.piece?.heldItem) isInvTarget = false;
             }
           }
           

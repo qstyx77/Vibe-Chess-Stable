@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -507,7 +506,7 @@ export default function EvolvingChessPage() {
     setGameMoveCounter(newGameMoveCounter);
     
     if (onlineStatus === 'disconnected' || localPlayerColor === playerWhoseTurnCompleted) {
-      let currentShroomCounter = (shroomSpawnCounter || 0) + 1;
+      let currentShroomCounter = (room.gameState.shroomSpawnCounter || 0) + 1;
       setShroomSpawnCounter(currentShroomCounter);
       if (currentShroomCounter >= (nextShroomSpawnTurn || 5)) {
           const { newBoard: boardAfterShroom, spawnedAt: shroomSpawnedAt } = spawnShroom(currentBoardState);
@@ -1079,7 +1078,20 @@ export default function EvolvingChessPage() {
       {showLossScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center">YOU LOST</p></div>)}
       <div className="lg:hidden h-full">{mobileLayout}</div>
       <div className="hidden lg:block h-full">{desktopLayout}</div>
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} usedSlots={usedSlots} attunementSlots={attunementSlots} />
+      <InventoryWindow 
+        isOpen={isInventoryOpen} 
+        onClose={() => setIsInventoryOpen(false)} 
+        inventory={inventory} 
+        selectedItemType={selectedInventoryItemType} 
+        onSelectItem={setSelectedInventoryItemType} 
+        onUseItem={(type) => {
+          if (type.startsWith('portal_scroll_')) {
+            toast({ title: "Portal Logic", description: "Use this in Dungeon Mode to skip floors!" });
+          }
+        }}
+        usedSlots={usedSlots} 
+        attunementSlots={attunementSlots} 
+      />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
       <GameSummaryDialog isOpen={showSummary} onClose={() => setShowSummary(false)} winner={gameInfo.winner} winnerName={getPlayerDisplayName(gameInfo.winner as PlayerColor)} loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')} eloInfo={eloResult} moveCount={gameMoveCounter} onReset={() => fullGameReset()} />
