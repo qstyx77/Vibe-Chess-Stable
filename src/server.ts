@@ -18,7 +18,9 @@ import {
     getPromotionLevel,
     VAL_MAP,
     boardToPositionHash,
-    getCastlingRightsString
+    getCastlingRightsString,
+    getEffectiveLevel,
+    syncSoulLink
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
 
@@ -70,7 +72,6 @@ const applyEquipment = (b: any, equip: Record<string, string> | undefined, targe
   if(!equip) return b;
   return b.map((row: any) => row.map((sq: any) => {
     if (sq.piece && sq.piece.color === targetColor) {
-      // Map the server piece ID back to its lobby "white" equivalent ID for lookup
       const lobbyEquivalentId = sq.piece.id.replace(/^[wb]/, 'w');
       if (equip[lobbyEquivalentId]) {
         return { ...sq, piece: { ...sq.piece, heldItem: equip[lobbyEquivalentId] } };
@@ -211,6 +212,13 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
     }
 
     const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
+    
+    const movingPlayerSelfCheck = isKingInCheck(room.gameState.board, movingPlayerColor, room.gameState.enPassantTargetSquare);
+    if (movingPlayerSelfCheck && !isExtraTurn) {
+        onGameOver(room.clients[0].roomId, movingPlayerColor === 'white' ? 'black' : 'white', 'self-check');
+        return;
+    }
+
     const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare);
 
     if (inCheck && isExtraTurn) {
@@ -584,16 +592,21 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         let isLegal = false;
                         if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll'].includes(moveType)) {
-                            const level = movingPieceStart.level || 1;
+                            const effLevel = getEffectiveLevel(room.gameState.board, fromCoords.row, fromCoords.col);
                             const hItem = movingPieceStart.heldItem;
                             if (from === to) {
-                                if (moveType === 'self-destruct' && level >= 5 && ['knight', 'hero', 'archer'].includes(movingPieceStart.type)) isLegal = true;
-                                if (moveType === 'resurrection-scroll' && hItem === 'resurrection_scroll' && level >= 4) isLegal = true;
-                                if (moveType === 'faith-scroll' && hItem === 'faith_scroll' && level >= 5) isLegal = true;
-                                if (['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll'].includes(moveType)) isLegal = true;
+                                if (moveType === 'self-destruct' && effLevel >= 5 && ['knight', 'hero', 'archer'].includes(movingPieceStart.type)) isLegal = true;
+                                if (moveType === 'resurrection-scroll' && hItem === 'resurrection_scroll' && effLevel >= 4) isLegal = true;
+                                if (moveType === 'faith-scroll' && hItem === 'faith_scroll' && effLevel >= 5) isLegal = true;
+                                if (moveType === 'ice-scroll' && hItem === 'ice_scroll' && effLevel >= 2) isLegal = true;
+                                if (moveType === 'swap-scroll' && hItem === 'swap_scroll' && effLevel >= 3) isLegal = true;
+                                if (moveType === 'shield-scroll' && hItem === 'shield_scroll' && effLevel >= 2) isLegal = true;
+                                if (moveType === 'rally-scroll' && hItem === 'rally_scroll' && effLevel >= 3) isLegal = true;
+                                if (moveType === 'kings-decree' && hItem === 'kings_decree' && movingPieceStart.type === 'king') isLegal = true;
+                                if (['wind-scroll', 'life-leach', 'summon-anvil', 'antidote'].includes(moveType)) isLegal = true;
                                 
                                 if (isLegal) {
-                                    const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s})));
+                                    const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s, piece: s.piece ? {...s.piece} : null})));
                                     if (moveType === 'self-destruct') tempBoard[fromCoords.row][fromCoords.col].piece = null;
                                     if (isKingInCheck(tempBoard, actingColor, null)) isLegal = false;
                                 }
@@ -690,6 +703,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     finalizedBoard[spawnPos.r][spawnPos.c].piece = resurrectedPiece;
                                     room.gameState.capturedPieces[oppColor] = myFallenPieces.filter(p => p.id !== pieceToResurrect.id);
                                     room.gameState.resurrectedSquare = coordsToAlgebraic(spawnPos.r, spawnPos.c);
+                                    
+                                    syncSoulLink(finalizedBoard, movingPlayer);
+
                                     if (resurrectedPiece.type === 'pawn' && spawnPos.r === oppBackRank) {
                                         room.gameState.pendingPromotion = { square: room.gameState.resurrectedSquare, player: movingPlayer, fromResurrection: true, targetLevel: 1 };
                                     }

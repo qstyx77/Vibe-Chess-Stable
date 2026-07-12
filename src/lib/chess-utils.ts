@@ -253,8 +253,6 @@ function getPossibleMovesInternal(
                 const midR = fromRow + Math.sign(dr); const midC = fromCol + Math.sign(dc);
                 if (!isValidSquare(midR, midC) || board[midR][midC].piece || (board[midR][midC].item && board[midR][midC].item?.type !== 'shroom') ) continue;
                 
-                // Pathfinding Adjustment: If capturing the specific piece that is checking us, 
-                // we can ignore its attack on the intermediate square.
                 const targetPieceAtDest = board[toR][toC].piece;
                 const isCheckCapture = targetPieceAtDest && targetPieceAtDest.color === opponentColor;
 
@@ -593,6 +591,27 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
     if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && ['pawn', 'commander', 'infiltrator'].includes(attackingPiece.type)) return true;
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
+}
+
+export function syncSoulLink(board: BoardState | any[][], color: PlayerColor) {
+    let maxLevel = 0;
+    let hasSoulLink = false;
+    board.forEach(row => row.forEach(sq => {
+        if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
+            hasSoulLink = true;
+            maxLevel = Math.max(maxLevel, sq.piece.level || 1);
+        }
+    }));
+
+    if (hasSoulLink) {
+        board.forEach(row => row.forEach(sq => {
+            if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
+                if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
+                    sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, maxLevel);
+                }
+            }
+        }));
+    }
 }
 
 export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }): ApplyMoveResult {
@@ -1002,7 +1021,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
             { r: toRow, c: toCol - 1 },
             { r: toRow, c: toCol + 1 },
             { r: toRow + forwardDir, c: toCol },
-            { r: toRow - forwardDir, c: toCol } // Corrected: Splash all 4 cardinal directions
+            { r: toRow - forwardDir, c: toCol } 
         ];
 
         splashTargets.forEach(target => {
@@ -1099,7 +1118,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
           if (victim.item?.type === 'anvil') {
              if (dest.piece && dest.piece.type !== 'king') {
                 crushed = { ...dest.piece };
-                // Soul Link: Shared destruction for anvil crush
                 if (crushed.heldItem === 'soul_link') {
                     board.forEach(row => row.forEach(sq => {
                         if (sq.piece && sq.piece.color === crushed!.color && sq.piece.heldItem === 'soul_link') {
@@ -1189,6 +1207,7 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
       }
     }
   }));
+  syncSoulLink(board, color);
 }
 
 export function applyKingDominion(board: BoardState, color: PlayerColor, gain: number) {
@@ -1366,7 +1385,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
 
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [opp]: graveyard[opp].filter(p => p.id !== choice.id) };
-        
+        syncSoulLink(board, player);
         return { 
           boardWithResurrection: board, 
           capturedPiecesAfterResurrection: newG, 
