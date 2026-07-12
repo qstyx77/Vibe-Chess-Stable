@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -598,7 +599,7 @@ export default function DungeonPage() {
     }
 
     // 2. Killstreak: Holy Shield (Streak 2+ + Archbishop)
-    if (newStreak >= 2 && !completedMilestones.includes('shield')) {
+    if (newStreak >= 2 && oldStreak < 2 && !completedMilestones.includes('shield')) {
         const hasArchbishop = boardToChain.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === actingPlayer);
         if (hasArchbishop) {
             if (isAI) {
@@ -618,8 +619,38 @@ export default function DungeonPage() {
         }
     }
 
-    // 3. Killstreak: Anvil (Streak 3+)
-    if (newStreak >= 3 && !completedMilestones.includes('anvil')) {
+    // 3. Killstreak: Archer Snipe
+    const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
+    const hasArcher = pieces.some(p => p.type === 'archer');
+    const hasCrossbow = pieces.some(p => p.type === 'archer' && p.heldItem === 'crossbow');
+    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && hasArcher && !completedMilestones.includes('snipe')) || 
+                        (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
+
+    if (isSnipeTime) {
+        const oppColor = actingPlayer === 'white' ? 'black' : 'white';
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        
+        if (victims.length > 0) {
+            if (isAI) {
+                const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                const v = victims[Math.floor(Math.random() * victims.length)];
+                const {row, col} = algebraicToCoords(v.algebraic);
+                const sniped = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_AI_${Date.now()}` };
+                setCapturedPieces(prev => ({ ...prev, [actingPlayer]: [...(prev[actingPlayer] || []), sniped] }));
+                nextBoard[row][col].piece = null;
+                addEffect('poof', v.algebraic); audioManager.playSnipe();
+                triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe']);
+                return;
+            } else {
+                setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], actingPlayer });
+                setIsAwaitingArcherSnipe(true);
+                return;
+            }
+        }
+    }
+
+    // 4. Killstreak: Anvil (Streak 3+)
+    if (newStreak >= 3 && oldStreak < 3 && !completedMilestones.includes('anvil')) {
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
@@ -636,8 +667,8 @@ export default function DungeonPage() {
         }
     }
 
-    // 4. Killstreak: Resurrection (Streak 4+)
-    if (newStreak >= 4 && !completedMilestones.includes('resurrection')) {
+    // 5. Killstreak: Resurrection (Streak 4+)
+    if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {
         const myGraveyard = actingPlayer === 'white' ? capturedPieces.black : capturedPieces.white; 
         
         if (myGraveyard.length > 0) {
@@ -674,35 +705,6 @@ export default function DungeonPage() {
                 }
 
                 triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'resurrection']);
-                return;
-            }
-        }
-    }
-
-    // 5. Killstreak: Archer Snipe
-    const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
-    const hasArcher = pieces.some(p => p.type === 'archer');
-    const hasCrossbow = pieces.some(p => p.type === 'archer' && p.heldItem === 'crossbow');
-    const isSnipeTime = (newStreak >= 5 && hasArcher) || (newStreak >= 3 && hasCrossbow);
-
-    if (isSnipeTime && !completedMilestones.includes('snipe')) {
-        const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
-        
-        if (victims.length > 0) {
-            if (isAI) {
-                const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const v = victims[Math.floor(Math.random() * victims.length)];
-                const {row, col} = algebraicToCoords(v.algebraic);
-                const sniped = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_AI_${Date.now()}` };
-                setCapturedPieces(prev => ({ ...prev, [actingPlayer]: [...(prev[actingPlayer] || []), sniped] }));
-                nextBoard[row][col].piece = null;
-                addEffect('poof', v.algebraic); audioManager.playSnipe();
-                triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe']);
-                return;
-            } else {
-                setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], actingPlayer });
-                setIsAwaitingArcherSnipe(true);
                 return;
             }
         }

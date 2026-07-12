@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -142,8 +143,10 @@ const triggerNextSpecialAction = (room: any, actingPlayer: PlayerColor) => {
         return;
     }
 
-    if (room.gameState.pendingKSAction) {
-        const { type, context } = room.gameState.pendingKSAction;
+    if (room.gameState.pendingKSActions && room.gameState.pendingKSActions.length > 0) {
+        const nextAction = room.gameState.pendingKSActions.shift();
+        const { type, context } = nextAction;
+        
         if (type === 'holy-shield') {
             room.gameState.shieldContext = context;
             broadcastToRoom(roomId, { type: 'awaiting-shield-selection', player: actingPlayer, fullGameState: room.gameState });
@@ -157,7 +160,6 @@ const triggerNextSpecialAction = (room: any, actingPlayer: PlayerColor) => {
             broadcastToRoom(roomId, { type: 'awaiting-archer-snipe', player: actingPlayer, fullGameState: room.gameState });
             startSpecialActionTimer(roomId, 'archer-snipe', actingPlayer);
         }
-        delete room.gameState.pendingKSAction;
         return;
     }
 
@@ -259,8 +261,6 @@ const startSpecialActionTimer = (roomId: string, actionType: string, actingPlaye
             roomAfterTimeout.gameState.pendingCommanderPromo = false;
         } else if (actionType === 'pawn-promo') {
             delete roomAfterTimeout.gameState.pendingPromotion;
-        } else if (actionType === 'anvil-drop' || actionType === 'holy-shield' || actionType === 'archer-snipe') {
-            delete roomAfterTimeout.gameState.pendingKSAction;
         }
 
         triggerNextSpecialAction(roomAfterTimeout, actingPlayer);
@@ -506,24 +506,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     break;
                 case 'anvil-drop':
                     if (room && data.square) {
-                        if (!room.gameState.anvilDropContext || actingColor !== room.gameState.anvilDropContext.playerWhoseTurnCompleted) {
-                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Anvil Drop.' }));
-                            return;
-                        }
                         const { row, col } = algebraicToCoords(data.square);
                         if (!room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
                             room.gameState.board[row][col].item = { type: 'anvil' };
-                            delete room.gameState.anvilDropContext;
                             triggerNextSpecialAction(room, actingColor);
                         }
                     }
                     break;
                 case 'holy-shield':
                     if (room && data.square) {
-                        if (!room.gameState.shieldContext || actingColor !== room.gameState.shieldContext.playerWhoseTurnCompleted) {
-                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Shield Action.' }));
-                            return;
-                        }
                         const { row, col } = algebraicToCoords(data.square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece && piece.color === actingColor && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== room.gameState.shieldContext.capturingPieceId) {
@@ -535,10 +526,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     break;
                 case 'archer-snipe':
                     if (room && data.square) {
-                        if (!room.gameState.archerSnipeContext || actingColor !== room.gameState.archerSnipeContext.playerWhoseTurnCompleted) {
-                            ws.send(JSON.stringify({ type: 'error', message: 'Illegal Archer Snipe.' }));
-                            return;
-                        }
                         const { row, col } = algebraicToCoords(data.square);
                         const targetPiece = room.gameState.board[row]?.[col]?.piece;
                         if (targetPiece && targetPiece.color !== actingColor && targetPiece.level === 1 && targetPiece.type !== 'king' && targetPiece.type !== 'queen') {
@@ -694,10 +681,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             };
                         }
 
-                        if (newStreak >= 2 && oldStreak < 2 && finalizedBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer)) {
-                            const capturerId = finalizedBoard[toCoords.row][toCoords.col].piece?.id;
-                            room.gameState.pendingKSAction = { type: 'holy-shield', context: { capturingPieceId: capturerId, playerWhoseTurnCompleted: movingPlayer } };
-                        } else if (newStreak >= 5 && oldStreak < 5 && finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer)) {
+                        room.gameState.pendingKSActions = [];
+
+                        if (newStreak >= 2 && oldStreak < 2) {
+                            const hasArchbishop = finalizedBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer);
+                            if (hasArchbishop) {
+                                const capturerId = finalizedBoard[toCoords.row][toCoords.col].piece?.id;
+                                room.gameState.pendingKSActions.push({ type: 'holy-shield', context: { capturingPieceId: capturerId, playerWhoseTurnCompleted: movingPlayer } });
+                            }
+                        }
+
+                        const hasArcher = finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer);
+                        const hasCrossbow = finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer && sq.piece.heldItem === 'crossbow');
+                        
+                        if ((newStreak >= 5 && oldStreak < 5 && hasArcher) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow)) {
                             const opponentColorForSnipe = movingPlayer === 'white' ? 'black' : 'white';
                             const hasVictims = finalizedBoard.flat().some(sq => 
                                 sq.piece && 
@@ -707,10 +704,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 sq.piece.type !== 'queen'
                             );
                             if (hasVictims) {
-                              room.gameState.pendingKSAction = { type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer } };
+                                room.gameState.pendingKSActions.push({ type: 'archer-snipe', context: { playerWhoseTurnCompleted: movingPlayer } });
                             }
-                        } else if (newStreak >= 3 && oldStreak < 3) {
-                            room.gameState.pendingKSAction = { type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer } };
+                        }
+
+                        if (newStreak >= 3 && oldStreak < 3) {
+                            room.gameState.pendingKSActions.push({ type: 'anvil-drop', context: { playerWhoseTurnCompleted: movingPlayer } });
                         }
 
                         if (isQueenSacrificeRequired(finalizedBoard, movingPlayer, data.payload, originalLevel, originalType)) {
