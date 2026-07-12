@@ -17,6 +17,7 @@ import {
     getPossibleMoves,
     isValidSquare,
     getPromotionLevel,
+    VAL_MAP,
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
 
@@ -650,10 +651,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             }
                         }
 
-                        room.gameState.board = finalizedBoard;
-                        room.gameState.lastMoveFrom = from;
-                        room.gameState.lastMoveTo = to;
-
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) room.gameState.killStreaks[movingPlayer] += caps;
                         else {
@@ -662,6 +659,52 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             }
                         }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
+
+                        // Resurrection Streak 4
+                        if (newStreak >= 4 && oldStreak < 4) {
+                            const oppColor = movingPlayer === 'white' ? 'black' : 'white';
+                            const myFallenPieces = room.gameState.capturedPieces[oppColor];
+                            if (myFallenPieces && myFallenPieces.length > 0) {
+                                const sorted = [...myFallenPieces].sort((a, b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
+                                const pieceToResurrect = sorted[0];
+                                const emptySquares = [];
+                                for (let r = 0; r < 8; r++) {
+                                    for (let c = 0; c < 8; c++) {
+                                        if (!finalizedBoard[r][c].piece && !finalizedBoard[r][c].item) {
+                                            emptySquares.push({ r, c });
+                                        }
+                                    }
+                                }
+                                if (emptySquares.length > 0) {
+                                    const spawnPos = emptySquares[Math.floor(Math.random() * emptySquares.length)];
+                                    const resurrectedPiece = {
+                                        ...pieceToResurrect,
+                                        level: 1,
+                                        id: `${pieceToResurrect.id}_res_KS_${Date.now()}`,
+                                        hasMoved: true,
+                                        isShielded: false,
+                                        isPoisoned: false,
+                                        cooldownTurnsRemaining: 0,
+                                        frozenTurnsRemaining: 0,
+                                        heldItem: pieceToResurrect.heldItem || null
+                                    };
+                                    const oppBackRank = movingPlayer === 'white' ? 0 : 7;
+                                    if (resurrectedPiece.type === 'commander' && spawnPos.r === oppBackRank) {
+                                        resurrectedPiece.type = 'hero';
+                                    }
+                                    finalizedBoard[spawnPos.r][spawnPos.c].piece = resurrectedPiece;
+                                    room.gameState.capturedPieces[oppColor] = myFallenPieces.filter(p => p.id !== pieceToResurrect.id);
+                                    room.gameState.resurrectedSquare = coordsToAlgebraic(spawnPos.r, spawnPos.c);
+                                    if (resurrectedPiece.type === 'pawn' && spawnPos.r === oppBackRank) {
+                                        room.gameState.pendingPromotion = { square: room.gameState.resurrectedSquare, player: movingPlayer, fromResurrection: true, targetLevel: 1 };
+                                    }
+                                }
+                            }
+                        }
+
+                        room.gameState.board = finalizedBoard;
+                        room.gameState.lastMoveFrom = from;
+                        room.gameState.lastMoveTo = to;
 
                         room.gameState.isPendingExtraTurn = rest.extraTurn || (oldStreak < 6 && newStreak >= 6);
                         room.gameState.pendingEnPassantTarget = rest.enPassantTargetSet;
