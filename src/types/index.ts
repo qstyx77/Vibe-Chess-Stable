@@ -23,7 +23,7 @@ export type InventoryItemType =
   | 'gnosis'
   | 'shield_scroll'
   | 'rally_scroll'
-  | 'poison_dagger'
+  | 'poison_sword'
   | 'antidote'
   | 'crossbow'
   | 'poison_tunic'
@@ -81,7 +81,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture.', isConsumable: false },
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true },
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true },
-  'poison_dagger': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
+  'poison_sword': { name: 'Poison Sword', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
   'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },

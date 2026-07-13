@@ -420,7 +420,7 @@ export class VibeChessAI {
             this.aiTriggerPull(board, r, c, color);
         }
 
-        if (attacker.heldItem === 'poison_dagger' && isCapture) {
+        if (attacker.heldItem === 'poison_sword' && isCapture) {
             this.aiTriggerPoisonSplash(board, r, c, color);
         }
 

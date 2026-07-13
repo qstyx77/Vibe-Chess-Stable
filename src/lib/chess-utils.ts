@@ -1045,7 +1045,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (originalPieceType === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
 
-    if (pieceToLand.heldItem === 'poison_dagger') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
+    if (pieceToLand.heldItem === 'poison_sword') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
     if (captured.heldItem === 'poison_tunic') pieceToLand.isPoisoned = true;
 
     if (pieceToLand.heldItem === 'ice_sword') {

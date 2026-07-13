@@ -272,7 +272,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="2" width="2" height="4" fill="#FEF9C3" opacity="0.7" />
           </svg>
         );
-      case 'poison_dagger':
+      case 'poison_sword':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="4" y="1" width="2" height="7" fill="#22C55E" />
