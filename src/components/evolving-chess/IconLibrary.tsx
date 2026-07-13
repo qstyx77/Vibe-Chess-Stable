@@ -188,8 +188,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <path d="M5 8l1.5-6 1.5 6h-3zM12 8l1.5-6 1.5 6h-3z" />
           </g>
           
-          {/* I as TALLER Bishop silhouette - Equalized spacing between V and B */}
-          <g transform="translate(22.6, 2) scale(1.1, 1.4)">
+          {/* I as Bishop - Equalized Spacing */}
+          <g transform="translate(31.2, 2) scale(1.1, 1.4)">
             <rect x="11" y="3" width="2" height="2" />
             <rect x="10" y="5" width="4" height="4" />
             <rect x="11" y="9" width="2" height="2" />
@@ -197,8 +197,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="8" y="17" width="8" height="2" />
           </g>
           
-          {/* B - Shifted to maintain uniform gap */}
-          <g transform="translate(46.6, 0)">
+          {/* B - Maintained Spacing from I */}
+          <g transform="translate(52.4, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="8" height="3" />
             <rect x="11" y="9" width="3" height="6" />
@@ -207,8 +207,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="3" y="25" width="8" height="3" />
           </g>
           
-          {/* E - Shifted to maintain uniform gap */}
-          <g transform="translate(67, 0)">
+          {/* E */}
+          <g transform="translate(73, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="10" height="3" />
             <rect x="3" y="15" width="7" height="3" />
@@ -216,14 +216,14 @@ export const VibeChessTitle = ({ className }: IconProps) => (
           </g>
        </g>
        
-       {/* CHESS (Magenta) - Shifted group to fit updated tracking */}
-       <g fill="hsl(var(--accent))" transform="translate(90.3, 0)">
+       {/* CHESS (Magenta) */}
+       <g fill="hsl(var(--accent))" transform="translate(94, 0)">
           {/* C */}
           <rect x="0" y="6" width="3" height="22" />
           <rect x="3" y="6" width="10" height="3" />
           <rect x="3" y="25" width="10" height="3" />
           
-          {/* H as Two Rooks - BIGGER */}
+          {/* H as Two Rooks */}
           <g transform="translate(20, 2) scale(1.1, 1.4)">
              <rect x="0" y="4" width="2" height="2" />
              <rect x="3" y="4" width="2" height="2" />
@@ -250,7 +250,7 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="3" y="25" width="10" height="3" />
           </g>
           
-          {/* S1 as Mirrored Knight - BIGGER */}
+          {/* S1 as Mirrored Knight */}
           <g transform="translate(90, 2) scale(-1.1, 1.4)">
             <rect x="10" y="4" width="4" height="2" />
             <rect x="9" y="6" width="6" height="4" />
@@ -259,7 +259,7 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="9" y="16" width="8" height="2" />
           </g>
           
-          {/* S2 as Mirrored Knight - BIGGER */}
+          {/* S2 as Mirrored Knight */}
           <g transform="translate(110, 2) scale(-1.1, 1.4)">
             <rect x="10" y="4" width="4" height="2" />
             <rect x="9" y="6" width="6" height="4" />
@@ -282,13 +282,21 @@ export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
   </svg>
 );
 
-export const ShroomIcon = ({ className = "w-full h-full" }: IconProps) => (
+export const ShroomIcon = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M2 14c0-5 4.5-8 10-8s10 3 10 8c0 1-1 1-1 1H3s-1 0-1-1z" />
-    <path d="M9 15v4c0 1.5 1 2.5 3 2.5s3-1 3-2.5v-4H9z" />
-    <circle cx="8" cy="10" r="1.5" fill="white" fillOpacity="0.8" />
-    <circle cx="12" cy="8.5" r="1" fill="white" fillOpacity="0.8" />
-    <circle cx="16" cy="11.5" r="2" fill="white" fillOpacity="0.8" />
+    {/* Cap: Main Shape */}
+    <rect x="9" y="6" width="6" height="2" />
+    <rect x="7" y="8" width="10" height="2" />
+    <rect x="5" y="10" width="14" height="4" />
+    
+    {/* Stem */}
+    <rect x="10" y="14" width="4" height="5" />
+    <rect x="9" y="19" width="6" height="2" />
+    
+    {/* High-Contrast Spots (Pixel Blocks) */}
+    <rect x="11" y="8" width="2" height="2" fill="white" fillOpacity="0.6" />
+    <rect x="7" y="11" width="2" height="2" fill="white" fillOpacity="0.6" />
+    <rect x="15" y="11" width="2" height="2" fill="white" fillOpacity="0.6" />
   </svg>
 );
 
