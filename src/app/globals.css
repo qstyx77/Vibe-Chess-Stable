@@ -201,15 +201,15 @@ body {
 
 @keyframes pixel-title-flash {
   0%, 40%, 80%, 100% { 
-    filter: brightness(1) drop-shadow(0 0 8px hsl(var(--primary)));
+    filter: brightness(1) drop-shadow(0 0 12px hsl(var(--primary)));
     opacity: 1;
   }
   20%, 60%, 90% { 
-    filter: brightness(2.5) contrast(1.2) drop-shadow(0 0 20px hsl(var(--primary)));
+    filter: brightness(2.5) contrast(1.2) drop-shadow(0 0 30px hsl(var(--primary)));
     opacity: 0.95;
   }
 }
 
 .animate-pixel-title-flash {
-  animation: pixel-title-flash 2.5s ease-in-out infinite;
+  animation: pixel-title-flash 2s ease-in-out infinite;
 }

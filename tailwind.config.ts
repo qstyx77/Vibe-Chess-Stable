@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -94,32 +93,6 @@ export default {
           '20%': { opacity: '1', transform: 'scale(1.05) translateY(0)' },
           '80%': { opacity: '1', transform: 'scale(1) translateY(0)' },
           '100%': { opacity: '0', transform: 'scale(0.8) translateY(20px)' },
-        },
-        'pixel-title-flash': {
-          '0%, 49.9%': { 
-            textShadow: `
-              3px 3px 0px hsl(var(--background)), 
-              -3px 3px 0px hsl(var(--background)), 
-              3px -3px 0px hsl(var(--background)), 
-              -3px -3px 0px hsl(var(--background)),
-              3px 0px 0px hsl(var(--background)),
-              -3px 0px 0px hsl(var(--background)),
-              0px 3px 0px hsl(var(--background)),
-              0px -3px 0px hsl(var(--background))
-            ` 
-          },
-          '50%, 99.9%': { 
-            textShadow: `
-              3px 3px 0px hsl(var(--primary)), 
-              -3px 3px 0px hsl(var(--primary)), 
-              3px -3px 0px hsl(var(--primary)), 
-              -3px -3px 0px hsl(var(--primary)),
-              3px 0px 0px hsl(var(--primary)),
-              -3px 0px 0px hsl(var(--primary)),
-              0px 3px 0px hsl(var(--primary)),
-              0px -3px 0px hsl(var(--primary))
-            `
-          },
         },
         'capture-pattern-flash': {
           '0%, 100%': { opacity: '0', backgroundSize: '80px 80px', backgroundImage: 'repeating-linear-gradient(45deg, hsl(var(--primary)) 0, hsl(var(--primary)) 20px, hsl(var(--secondary)) 20px, hsl(var(--secondary)) 40px)' },

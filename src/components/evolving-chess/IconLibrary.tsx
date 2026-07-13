@@ -176,7 +176,7 @@ export const PixelAnvil = ({ className }: IconProps) => (
 );
 
 export const VibeChessTitle = ({ className }: IconProps) => (
-  <svg viewBox="0 0 200 40" className={cn("drop-shadow-[0_0_15px_hsl(var(--primary)/0.9)]", className)} xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 200 40" className={cn(className)} xmlns="http://www.w3.org/2000/svg">
     <g className="animate-pixel-title-flash">
        {/* VIBE (Cyan) */}
        <g fill="hsl(var(--primary))">
@@ -188,8 +188,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <path d="M5 8l1.5-6 1.5 6h-3zM12 8l1.5-6 1.5 6h-3z" />
           </g>
           
-          {/* I as TALLER Bishop silhouette - Spacing Tightened */}
-          <g transform="translate(25, 2) scale(1.1, 1.4)">
+          {/* I as TALLER Bishop silhouette - Spacing Tightened to V */}
+          <g transform="translate(18, 2) scale(1.1, 1.4)">
             <rect x="11" y="3" width="2" height="2" />
             <rect x="10" y="5" width="4" height="4" />
             <rect x="11" y="9" width="2" height="2" />
