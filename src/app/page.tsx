@@ -58,7 +58,7 @@ import Link from 'next/link';
 import { audioManager } from '@/lib/audio-manager';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Slider } from '@/components/ui/slider';
-import { VibeChessTitle } from '@/components/evolving-chess/IconLibrary';
+import { VibeChessTitle, PixelAnvil, ShroomIcon } from '@/components/evolving-chess/IconLibrary';
 
 
 const initialGameStatus: GameStatus = {
@@ -950,7 +950,11 @@ export default function EvolvingChessPage() {
             {/* Symmetrical empty space */}
           </div>
           <div className="w-1/3 flex items-center justify-center">
-            <VibeChessTitle className="h-8 w-auto" />
+            <div className="flex items-center gap-1.5 shrink-0">
+               <PixelAnvil className="h-5 w-5 text-muted-foreground/50 shrink-0" />
+               <VibeChessTitle className="h-8 w-auto" />
+               <ShroomIcon className="h-5 w-5 text-primary/50 shrink-0" />
+            </div>
           </div>
           <div className="w-1/3 flex justify-end">
             <AuthWidget />
@@ -1038,8 +1042,10 @@ export default function EvolvingChessPage() {
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={activeTimerPlayer} chatMessages={chatMessages} onSendMessage={sendMessage} isMessengerOpen={isMessengerOpen} onToggleMessenger={() => setIsMessengerOpen(!isMessengerOpen)} hasUnreadMessages={hasUnreadMessages} />
       </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
-        <div className="w-full flex items-center justify-center">
+        <div className="w-full flex items-center justify-center gap-6">
+          <PixelAnvil className="h-12 w-12 text-muted-foreground/50 shrink-0" />
           <VibeChessTitle className="h-16 w-auto" />
+          <ShroomIcon className="h-12 w-12 text-primary/50 shrink-0" />
         </div>
         <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}>
           {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
