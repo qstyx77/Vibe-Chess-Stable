@@ -176,7 +176,7 @@ export const PixelAnvil = ({ className }: IconProps) => (
 );
 
 export const VibeChessTitle = ({ className }: IconProps) => (
-  <svg viewBox="0 0 200 40" className={cn("drop-shadow-[0_0_12px_hsl(var(--primary)/0.6)]", className)} xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 200 40" className={cn("drop-shadow-[0_0_12px_hsl(var(--primary)/0.8)]", className)} xmlns="http://www.w3.org/2000/svg">
     <g className="animate-pixel-title-flash">
        {/* VIBE (Cyan) */}
        <g fill="hsl(var(--primary))">
@@ -186,61 +186,78 @@ export const VibeChessTitle = ({ className }: IconProps) => (
           <rect x="17" y="8" width="3" height="16" />
           <path d="M10 8l1.5-6 1.5 6h-3zM17 8l1.5-6 1.5 6h-3z" />
           
-          {/* I as Bishop */}
-          <rect x="30" y="12" width="4" height="14" />
-          <rect x="28" y="26" width="8" height="2" />
-          <circle cx="32" cy="7" r="3.5" />
+          {/* I as Bishop silhouette */}
+          <g transform="translate(30, 5) scale(1.1)">
+            <rect x="11" y="3" width="2" height="2" />
+            <rect x="10" y="5" width="4" height="4" />
+            <rect x="11" y="9" width="2" height="2" />
+            <rect x="10" y="11" width="4" height="6" />
+            <rect x="8" y="17" width="8" height="2" />
+          </g>
           
           {/* B */}
-          <rect x="45" y="6" width="3" height="22" />
-          <rect x="48" y="6" width="8" height="3" />
-          <rect x="56" y="9" width="3" height="6" />
-          <rect x="48" y="15" width="8" height="3" />
-          <rect x="56" y="18" width="3" height="7" />
-          <rect x="48" y="25" width="8" height="3" />
+          <rect x="52" y="6" width="3" height="22" />
+          <rect x="55" y="6" width="8" height="3" />
+          <rect x="63" y="9" width="3" height="6" />
+          <rect x="55" y="15" width="8" height="3" />
+          <rect x="63" y="18" width="3" height="7" />
+          <rect x="55" y="25" width="8" height="3" />
           
           {/* E */}
-          <rect x="70" y="6" width="3" height="22" />
-          <rect x="73" y="6" width="10" height="3" />
-          <rect x="73" y="15" width="7" height="3" />
-          <rect x="73" y="25" width="10" height="3" />
+          <rect x="75" y="6" width="3" height="22" />
+          <rect x="78" y="6" width="10" height="3" />
+          <rect x="78" y="15" width="7" height="3" />
+          <rect x="78" y="25" width="10" height="3" />
        </g>
        
        {/* CHESS (Magenta) */}
-       <g fill="hsl(var(--accent))" transform="translate(95, 0)">
+       <g fill="hsl(var(--accent))" transform="translate(102, 0)">
           {/* C */}
           <rect x="5" y="6" width="3" height="22" />
           <rect x="8" y="6" width="10" height="3" />
           <rect x="8" y="25" width="10" height="3" />
           
           {/* H as Two Rooks */}
-          <rect x="25" y="6" width="3" height="22" />
-          <rect x="23" y="6" width="2" height="3" />
-          <rect x="28" y="6" width="2" height="3" />
-          <rect x="28" y="15" width="5" height="3" />
-          <rect x="33" y="6" width="3" height="22" />
-          <rect x="31" y="6" width="2" height="3" />
-          <rect x="36" y="6" width="2" height="3" />
+          <g transform="translate(25, 5) scale(1.1)">
+             {/* Left Rook Tower */}
+             <rect x="0" y="4" width="2" height="2" />
+             <rect x="3" y="4" width="2" height="2" />
+             <rect x="6" y="4" width="2" height="2" />
+             <rect x="0" y="6" width="8" height="3" />
+             <rect x="1" y="9" width="6" height="8" />
+             <rect x="0" y="17" width="8" height="2" />
+             {/* Connection Bar */}
+             <rect x="8" y="11" width="4" height="3" />
+             {/* Right Rook Tower */}
+             <g transform="translate(12, 0)">
+               <rect x="0" y="4" width="2" height="2" />
+               <rect x="3" y="4" width="2" height="2" />
+               <rect x="6" y="4" width="2" height="2" />
+               <rect x="0" y="6" width="8" height="3" />
+               <rect x="1" y="9" width="6" height="8" />
+               <rect x="0" y="17" width="8" height="2" />
+             </g>
+          </g>
           
           {/* E */}
-          <rect x="48" y="6" width="3" height="22" />
-          <rect x="51" y="6" width="10" height="3" />
-          <rect x="51" y="15" width="7" height="3" />
-          <rect x="51" y="25" width="10" height="3" />
+          <rect x="58" y="6" width="3" height="22" />
+          <rect x="61" y="6" width="10" height="3" />
+          <rect x="61" y="15" width="7" height="3" />
+          <rect x="61" y="25" width="10" height="3" />
           
           {/* S */}
-          <rect x="68" y="6" width="12" height="3" />
-          <rect x="68" y="9" width="3" height="6" />
-          <rect x="68" y="15" width="12" height="3" />
-          <rect x="77" y="18" width="3" height="7" />
-          <rect x="68" y="25" width="12" height="3" />
+          <rect x="78" y="6" width="10" height="3" />
+          <rect x="78" y="9" width="3" height="6" />
+          <rect x="78" y="15" width="10" height="3" />
+          <rect x="85" y="18" width="3" height="7" />
+          <rect x="78" y="25" width="10" height="3" />
           
           {/* S */}
-          <rect x="85" y="6" width="12" height="3" />
-          <rect x="85" y="9" width="3" height="6" />
-          <rect x="85" y="15" width="12" height="3" />
-          <rect x="94" y="18" width="3" height="7" />
-          <rect x="85" y="25" width="12" height="3" />
+          <rect x="93" y="6" width="10" height="3" />
+          <rect x="93" y="9" width="3" height="6" />
+          <rect x="93" y="15" width="10" height="3" />
+          <rect x="100" y="18" width="3" height="7" />
+          <rect x="93" y="25" width="10" height="3" />
        </g>
     </g>
   </svg>
