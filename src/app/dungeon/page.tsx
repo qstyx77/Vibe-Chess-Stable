@@ -25,7 +25,7 @@ import {
   getPromotionLevel,
   VAL_MAP,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, SquareState } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
@@ -351,10 +351,14 @@ export default function DungeonPage() {
   ) => {
     if (!user || !firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
+    
+    // Firestore does not support nested arrays. Flatten the board state to a 1D array.
+    const flattenedBoard = currentBoard.flat();
+
     updateDocumentNonBlocking(userDocRef, {
       dungeonState: {
         level: currentLevel,
-        board: currentBoard,
+        board: flattenedBoard,
         currentPlayer: currentP,
         killStreaks: ks,
         capturedPieces: caps,
@@ -1002,14 +1006,33 @@ export default function DungeonPage() {
     const saved = userData.dungeonState;
     if (!reset && saved && saved.board && saved.board.length > 0) {
       setLevel(saved.level);
-      setBoard(saved.board);
+      
+      // Re-inflate the flattened board from Firestore back into a 2D BoardState
+      const loadedBoard: BoardState = [];
+      const savedBoard1D = saved.board as SquareState[];
+      if (savedBoard1D.length === 64) {
+          for (let i = 0; i < 8; i++) {
+              loadedBoard.push(savedBoard1D.slice(i * 8, i * 8 + 8));
+          }
+          setBoard(loadedBoard);
+      } else {
+          // Fallback if data is corrupted or formatted differently
+          const army: Piece[] = [];
+          const elo = userData.eloRating || 1200;
+          let initial = initializeBoard(elo, 1200);
+          initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
+          setBoard(generateDungeonFloor(1, army));
+          setLevel(1);
+      }
+
       setCurrentPlayer(saved.currentPlayer);
       setKillStreaks(saved.killStreaks);
       setCapturedPieces(saved.capturedPieces);
       setShroomSpawnCounter(saved.shroomSpawnCounter);
       setNextShroomSpawnTurn(saved.nextShroomSpawnTurn);
       setEnPassantTargetSquare(saved.enPassantTargetSquare);
-      const survivors = saved.board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+      const currentBoard = loadedBoard.length === 8 ? loadedBoard : board;
+      const survivors = currentBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
       setPlayerArmy(survivors);
       setFirstBloodAchieved(survivors.some(p => p.type === 'commander' || p.type === 'hero'));
       setGameInfo({ message: `Floor ${saved.level} - Resume`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
@@ -1048,7 +1071,7 @@ export default function DungeonPage() {
     if (userData.inventory) setInventory(userData.inventory);
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
-  }, [userData, isUserLoading, user, saveDungeonState]);
+  }, [userData, isUserLoading, user, saveDungeonState, board]);
 
   useEffect(() => {
     if (!isInitialized.current && !isUserLoading && userData && user) {
@@ -1239,7 +1262,7 @@ export default function DungeonPage() {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             nextBoard[row][col].piece = null;
             setBoard(nextBoard);
-            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, { ...piece, id: `${piece.id}_sniped_${Date.now()}` }] }));
+            setCapturedPieces(prev => ({ ...prev, white: [...prev.white, ... (piece ? [{ ...piece, id: `${piece.id}_sniped_${Date.now()}` }] : [])] }));
             setIsAwaitingArcherSnipe(false);
             audioManager.playSnipe();
             triggerSpecialsChain(nextBoard, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', [...(specialActionContext.completedMilestones || []), 'snipe']); 
