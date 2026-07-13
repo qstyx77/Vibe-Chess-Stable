@@ -105,6 +105,9 @@ export function InventoryWindow({
               ) : (
                 inventory.map((item, idx) => {
                   const meta = ITEM_METADATA[item.type];
+                  // Safety Guard: Skip items without metadata (legacy/deleted items)
+                  if (!meta) return null;
+                  
                   const isSelected = selectedItemType === item.type;
                   const isUsable = item.type.startsWith('portal_scroll_');
                   
@@ -140,7 +143,7 @@ export function InventoryWindow({
             </div>
           </ScrollArea>
           
-          {selectedItemType && (
+          {selectedItemType && ITEM_METADATA[selectedItemType] && (
             <div className="mt-2 p-2 bg-[#111] border border-accent/30 rounded-none animate-in fade-in slide-in-from-bottom-1">
               <p className="text-[10px] font-bold text-accent uppercase leading-none mb-1">
                 {ITEM_METADATA[selectedItemType].name}

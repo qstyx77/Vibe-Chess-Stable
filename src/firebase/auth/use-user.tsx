@@ -8,7 +8,7 @@ import { ITEM_METADATA } from '@/types';
 
 interface DungeonState {
   level: number;
-  board: BoardState;
+  board: any[]; // Use any[] for the flattened board from Firestore
   currentPlayer: PlayerColor;
   killStreaks: { white: number, black: number };
   capturedPieces: { white: Piece[], black: Piece[] };
@@ -53,9 +53,43 @@ export function useUser() {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
             
+            // LEGACY MIGRATION: poison_dagger -> poison_sword
+            let needsUpdate = false;
+            
+            // 1. Migrate Inventory
+            if (data.inventory) {
+                data.inventory = data.inventory.map(item => {
+                    if ((item.type as any) === 'poison_dagger') {
+                        needsUpdate = true;
+                        return { ...item, type: 'poison_sword' as InventoryItemType };
+                    }
+                    return item;
+                });
+            }
+
+            // 2. Migrate Equipment
+            if (data.equipment) {
+                for (const key in data.equipment) {
+                    if (data.equipment[key] === 'poison_dagger') {
+                        needsUpdate = true;
+                        data.equipment[key] = 'poison_sword';
+                    }
+                }
+            }
+
+            // 3. Migrate Dungeon State
+            if (data.dungeonState?.board) {
+                data.dungeonState.board = data.dungeonState.board.map((sq: any) => {
+                    if (sq.piece?.heldItem === 'poison_dagger') {
+                        needsUpdate = true;
+                        return { ...sq, piece: { ...sq.piece, heldItem: 'poison_sword' } };
+                    }
+                    return sq;
+                });
+            }
+            
             // PLAYTEST INITIALIZATION: Ensure inventory has ALL items (including new ones) for testing.
             const currentInventoryMap = new Map(data.inventory?.map(i => [i.type, i.count]) || []);
-            let needsUpdate = false;
             
             const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
               const existingCount = currentInventoryMap.get(type);
@@ -67,7 +101,11 @@ export function useUser() {
             });
 
             if (needsUpdate || !data.inventory) {
-                setDoc(userRef, { inventory: updatedInventory }, { merge: true });
+                setDoc(userRef, { 
+                    inventory: updatedInventory, 
+                    equipment: data.equipment || {},
+                    dungeonState: data.dungeonState || null 
+                }, { merge: true });
                 setUserData({ ...data, inventory: updatedInventory });
             } else {
                 setUserData(data);
