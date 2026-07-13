@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -816,7 +815,7 @@ export default function DungeonPage() {
         }
 
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: mType, promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
-        let { newBoard, capturedPiece, selfDestructCaptures, shroomConsumed, enPassantTargetSet: nextEp, reflectionOccurred } = result;
+        let { newBoard, capturedPiece, selfDestructCaptures, shroomConsumed, enPassantTargetSet: nextEp, reflectionOccurred, promotedToHero } = result;
 
         if (reflectionOccurred) {
             const victim = capturedPiece!;
@@ -834,6 +833,11 @@ export default function DungeonPage() {
         if (shroomConsumed) audioManager.playShroom();
         if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) audioManager.playCapture();
         else audioManager.playMove();
+
+        if (promotedToHero) {
+          audioManager.playLevelUp();
+          addEffect('light-beam', toAlg);
+        }
 
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (selfDestructCaptures?.length || 0);
         const oldStreak = killStreaks.black;
@@ -1490,7 +1494,7 @@ export default function DungeonPage() {
         const originalLevel = movingPiece?.level || 1; 
         const originalType = movingPiece?.type || 'pawn';
         const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces);
-        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred } = result;
+        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
         
         if (reflectionOccurred) {
             const victim = capturedPiece!;
@@ -1517,6 +1521,12 @@ export default function DungeonPage() {
         if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
         if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
         
+        if (promotedToHero) {
+          audioManager.playLevelUp();
+          addEffect('light-beam', algebraic);
+          toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" });
+        }
+
         let resPromoRequired = false;
         let resResult_promo_level = 1;
         let resResult_promo_square = null;
@@ -1553,7 +1563,7 @@ export default function DungeonPage() {
         setBoard(newBoard);
         setTimeout(() => {
           setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false;
-          const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
+          const isExtra = result.extraTurn || (oldS < 6 && newStreak >= 6);
           
           if (resPromoRequired) {
               setPromotionTargetLevel(resResult_promo_level);

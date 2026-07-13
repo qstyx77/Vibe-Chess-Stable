@@ -197,6 +197,7 @@ export interface ApplyMoveResult {
   selfCheckByPushBack: boolean;
   queenLevelReducedEvents?: QueenLevelReducedEvent[] | null;
   promotedToInfiltrator?: boolean;
+  promotedToHero?: boolean;
   infiltrationWin?: boolean;
   shroomConsumed?: boolean;
   enPassantTargetSet: AlgebraicSquare | null;

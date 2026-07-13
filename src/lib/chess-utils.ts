@@ -626,6 +626,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let anvilPushedOffBoard = false;
   let queenLevelReducedEvents: QueenLevelReducedEvent[] | null = null;
   let promotedToInfiltrator = false;
+  let promotedToHero = false;
   let infiltrationWin = false;
   let shroomConsumed = false;
   let extraTurn = false;
@@ -677,7 +678,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[pr][pc].piece!.type = 'commander';
     }
     newBoard[fromRow][fromCol].piece!.heldItem = null;
-    return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+    return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'resurrection-scroll') {
@@ -701,7 +702,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, resurrectionScrollEvent };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, resurrectionScrollEvent };
   }
 
   if (move.type === 'faith-scroll') {
@@ -720,7 +721,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'ice-scroll') {
@@ -737,7 +738,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'swap-scroll') {
@@ -746,7 +747,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[fromRow][fromCol].piece = p2;
       newBoard[toRow][toCol].piece = p1;
       if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'swap') {
@@ -754,7 +755,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const p2 = newBoard[toRow][toCol].piece;
       newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
       newBoard[toRow][toCol].piece = p1 ? { ...p1, hasMoved: true, isShielded: false } : null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield') {
@@ -790,6 +791,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           selfCheckByPushBack: false,
           queenLevelReducedEvents: null,
           promotedToInfiltrator: false,
+          promotedToHero: false,
           infiltrationWin: false,
           shroomConsumed: false,
           enPassantTargetSet: null,
@@ -807,20 +809,20 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           }
       }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'wind-scroll') {
       const crush = triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); 
       if (crush) pieceCapturedByAnvil = crush;
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'summon-anvil') {
       newBoard[toRow][toCol].item = { type: 'anvil' };
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'shield-scroll') {
@@ -829,14 +831,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           newBoard[tr][tc].piece!.isShielded = true;
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'rally-scroll') {
       applyRally(newBoard, movingPiece.color, 'all', move.from);
       newBoard[fromRow][fromCol].piece!.level = 1; 
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'antidote') {
@@ -847,7 +849,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           }
       }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'self-destruct') {
@@ -856,7 +858,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
-          const nr = fromRow + dr; const nc = fromCol + dc;
+          const nr = fromRow + dr; const nc = col + dc;
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc];
               if (victim.item?.type === 'anvil') { victim.item = null; destroyedAnvils++; }
@@ -879,7 +881,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           if (sq.piece && sq.piece.color === sdColor && sq.piece.heldItem === 'soul_link') sq.piece = null;
         }));
       }
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, infiltrationWin, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection: undefined };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection: undefined };
   }
 
   let captured: Piece | null = null;
@@ -908,6 +910,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     pieceToLand.type = 'hero';
     pieceToLand.id = `${pieceToLand.id}_hero_auto_${Date.now()}`;
     if (originalEffectiveLevelBeforeMove >= 5) extraTurn = true;
+    promotedToHero = true;
   } else if (pieceToLand.type === 'pawn' && toRow === opponentBackRank && move.type !== 'self-destruct' && !promotedToInfiltrator) {
     if (originalEffectiveLevelBeforeMove >= 5) extraTurn = true;
   }
@@ -1118,7 +1121,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent };
 }
 
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor): Piece | null {

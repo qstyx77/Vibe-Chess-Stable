@@ -724,6 +724,12 @@ export default function EvolvingChessPage() {
             setBoard(nextB); setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, currentPlayer, false, null); }, 800);
             return;
         }
+
+        if (applyResult.promotedToHero) {
+          audioManager.playLevelUp();
+          addEffect('light-beam', toAlg);
+        }
+
         const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
         const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
         setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
@@ -861,6 +867,13 @@ export default function EvolvingChessPage() {
                 setBoard(nextB); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, currentPlayer, false, null); }, 800);
                 return;
             }
+
+            if (applyResult.promotedToHero) {
+              audioManager.playLevelUp();
+              addEffect('light-beam', algebraic);
+              toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" });
+            }
+
             const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
             const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
             setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));
@@ -1058,7 +1071,7 @@ export default function EvolvingChessPage() {
               <div className="flex flex-col gap-2 items-center border-t pt-2">
                 <div className="flex items-center gap-2 text-xs font-pixel text-primary uppercase">
                   <span>Room: {roomId || inputRoomId}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { navigator.clipboard.clipboard.writeText(roomId || inputRoomId); toast({ title: "Copied!" }); }}>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.clipboard.writeText(roomId || inputRoomId); toast({ title: "Copied!" }); }}>
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
