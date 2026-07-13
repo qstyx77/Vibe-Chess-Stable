@@ -180,16 +180,16 @@ export const VibeChessTitle = ({ className }: IconProps) => (
     <g className="animate-pixel-title-flash">
        {/* VIBE (Cyan) */}
        <g fill="hsl(var(--primary))">
-          {/* V with Sword Points - Moved to x=5 */}
-          <g transform="translate(5, 0)">
+          {/* V with Sword Points - Spacing Tightened */}
+          <g transform="translate(10, 0)">
             <rect x="5" y="8" width="3" height="16" />
             <rect x="8" y="24" width="4" height="4" />
             <rect x="12" y="8" width="3" height="16" />
             <path d="M5 8l1.5-6 1.5 6h-3zM12 8l1.5-6 1.5 6h-3z" />
           </g>
           
-          {/* I as TALLER Bishop silhouette - Moved to x=22 */}
-          <g transform="translate(22, 2) scale(1.1, 1.4)">
+          {/* I as TALLER Bishop silhouette - Spacing Tightened */}
+          <g transform="translate(25, 2) scale(1.1, 1.4)">
             <rect x="11" y="3" width="2" height="2" />
             <rect x="10" y="5" width="4" height="4" />
             <rect x="11" y="9" width="2" height="2" />
@@ -197,7 +197,7 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="8" y="17" width="8" height="2" />
           </g>
           
-          {/* B - Moved to x=42 */}
+          {/* B */}
           <g transform="translate(42, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="8" height="3" />
@@ -207,7 +207,7 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="3" y="25" width="8" height="3" />
           </g>
           
-          {/* E - Moved to x=62 */}
+          {/* E */}
           <g transform="translate(62, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="10" height="3" />
@@ -216,15 +216,15 @@ export const VibeChessTitle = ({ className }: IconProps) => (
           </g>
        </g>
        
-       {/* CHESS (Magenta) - Group starts at x=88 */}
-       <g fill="hsl(var(--accent))" transform="translate(88, 0)">
+       {/* CHESS (Magenta) - Group starts at x=85 */}
+       <g fill="hsl(var(--accent))" transform="translate(85, 0)">
           {/* C */}
           <rect x="0" y="6" width="3" height="22" />
           <rect x="3" y="6" width="10" height="3" />
           <rect x="3" y="25" width="10" height="3" />
           
-          {/* H as Two Rooks - Starts at x=20 */}
-          <g transform="translate(20, 5) scale(1.1)">
+          {/* H as Two Rooks - BIGGER (Matching Bishop I) */}
+          <g transform="translate(20, 2) scale(1.1, 1.4)">
              <rect x="0" y="4" width="2" height="2" />
              <rect x="3" y="4" width="2" height="2" />
              <rect x="6" y="4" width="2" height="2" />
@@ -242,7 +242,7 @@ export const VibeChessTitle = ({ className }: IconProps) => (
              </g>
           </g>
           
-          {/* E - Starts at x=52 */}
+          {/* E */}
           <g transform="translate(52, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="10" height="3" />
@@ -250,8 +250,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="3" y="25" width="10" height="3" />
           </g>
           
-          {/* S1 as Mirrored Knight - Starts at x=72 */}
-          <g transform="translate(90, 6) scale(-1.1, 1.1)">
+          {/* S1 as Mirrored Knight - BIGGER (Matching Bishop I) */}
+          <g transform="translate(90, 2) scale(-1.1, 1.4)">
             <rect x="10" y="4" width="4" height="2" />
             <rect x="9" y="6" width="6" height="4" />
             <rect x="7" y="8" width="4" height="4" />
@@ -259,8 +259,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="9" y="16" width="8" height="2" />
           </g>
           
-          {/* S2 as Mirrored Knight - Starts at x=90 */}
-          <g transform="translate(110, 6) scale(-1.1, 1.1)">
+          {/* S2 as Mirrored Knight - BIGGER (Matching Bishop I) */}
+          <g transform="translate(110, 2) scale(-1.1, 1.4)">
             <rect x="10" y="4" width="4" height="2" />
             <rect x="9" y="6" width="6" height="4" />
             <rect x="7" y="8" width="4" height="4" />
