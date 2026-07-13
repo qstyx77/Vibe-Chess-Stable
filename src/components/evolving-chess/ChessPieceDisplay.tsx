@@ -1,11 +1,11 @@
-
 import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
-  StarIcon, 
-  SkullIcon, 
   PixelPawn, 
+  PixelCommander,
+  PixelInfiltrator,
   PixelKnight, 
+  PixelHero,
   PixelBishop, 
   PixelRook, 
   PixelQueen, 
@@ -38,10 +38,10 @@ interface ChessPieceDisplayProps {
 
 const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
   pawn: PixelPawn,
-  commander: PixelPawn,
-  infiltrator: PixelPawn,
+  commander: PixelCommander,
+  infiltrator: PixelInfiltrator,
   knight: PixelKnight,
-  hero: PixelKnight,
+  hero: PixelHero,
   archer: PixelArcher,
   bishop: PixelBishop,
   archbishop: PixelArchbishop,
@@ -100,9 +100,6 @@ export function ChessPieceDisplay({
 
   const shouldRotateBlackPieceForTabletop = viewMode === 'tabletop' && piece.color === 'black';
 
-  const isCommanderLike = piece.type === 'commander' || piece.type === 'hero';
-  const isInfiltrator = piece.type === 'infiltrator';
-
   const level = piece.level || 1;
   let powerGlowClass = '';
   if (level >= 6) {
@@ -160,32 +157,6 @@ export function ChessPieceDisplay({
                size={isMini ? 10 : 13} 
              />
           </div>
-        )}
-
-        {isCommanderLike && (
-          <span
-            className="absolute leading-none z-[2]"
-            style={{
-              top: '-1px',
-              right: '-1px',
-            }}
-            aria-label={piece.type === 'hero' ? "Hero Star" : "Commander Star"}
-          >
-            <StarIcon className={cn(isMini ? "w-[6.5px] h-[6.5px]" : "w-[13px] h-[13px]", "text-yellow-400 drop-shadow-[0_0_1.5px_black]")} />
-          </span>
-        )}
-
-        {isInfiltrator && (
-          <span
-            className="absolute leading-none z-[2]"
-            style={{
-              top: '-1px',
-              right: '-1px',
-            }}
-            aria-label="Infiltrator Skull"
-          >
-            <SkullIcon className={cn(isMini ? "w-[6.5px] h-[6.5px]" : "w-[13px] h-[13px]", "text-destructive drop-shadow-[0_0_1.5px_black]")} />
-          </span>
         )}
 
         {displayLevelValue > 1 && (

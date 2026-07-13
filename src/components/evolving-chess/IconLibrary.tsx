@@ -18,6 +18,28 @@ export const PixelPawn = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelCommander = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="2" width="2" height="3" /> {/* Plume */}
+    <rect x="10" y="5" width="4" height="4" /> {/* Head */}
+    <rect x="8" y="9" width="8" height="2" /> {/* Armored Collar */}
+    <rect x="10" y="11" width="4" height="6" /> {/* Body */}
+    <rect x="8" y="17" width="8" height="2" /> {/* Base */}
+  </svg>
+);
+
+export const PixelInfiltrator = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="5" width="2" height="2" /> {/* Hood Peak */}
+    <rect x="10" y="7" width="4" height="3" /> {/* Head */}
+    <rect x="9" y="10" width="6" height="1" /> {/* Shoulder Line */}
+    <rect x="10" y="11" width="4" height="6" /> {/* Body */}
+    <rect x="7" y="13" width="1" height="4" /> {/* Left Blade */}
+    <rect x="16" y="13" width="1" height="4" /> {/* Right Blade */}
+    <rect x="8" y="17" width="8" height="2" /> {/* Base */}
+  </svg>
+);
+
 export const PixelKnight = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <rect x="10" y="4" width="4" height="2" />
@@ -25,6 +47,19 @@ export const PixelKnight = ({ className }: IconProps) => (
     <rect x="7" y="8" width="4" height="4" />
     <rect x="11" y="10" width="4" height="6" />
     <rect x="9" y="16" width="8" height="2" />
+  </svg>
+);
+
+export const PixelHero = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="1" width="2" height="3" /> {/* Plume Top */}
+    <rect x="10" y="2" width="4" height="2" /> {/* Plume Base */}
+    <rect x="10" y="4" width="4" height="2" /> {/* Head */}
+    <rect x="9" y="6" width="6" height="4" /> {/* Helmet */}
+    <rect x="7" y="8" width="5" height="4" /> {/* Snout */}
+    <rect x="11" y="10" width="4" height="6" /> {/* Body */}
+    <rect x="13" y="10" width="3" height="4" /> {/* Cape Detail */}
+    <rect x="9" y="16" width="8" height="2" /> {/* Base */}
   </svg>
 );
 
