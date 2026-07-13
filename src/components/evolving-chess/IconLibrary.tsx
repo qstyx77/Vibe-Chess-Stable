@@ -176,18 +176,20 @@ export const PixelAnvil = ({ className }: IconProps) => (
 );
 
 export const VibeChessTitle = ({ className }: IconProps) => (
-  <svg viewBox="0 0 200 40" className={cn("drop-shadow-[0_0_12px_hsl(var(--primary)/0.8)]", className)} xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 200 40" className={cn("drop-shadow-[0_0_15px_hsl(var(--primary)/0.9)]", className)} xmlns="http://www.w3.org/2000/svg">
     <g className="animate-pixel-title-flash">
        {/* VIBE (Cyan) */}
        <g fill="hsl(var(--primary))">
-          {/* V with Sword Points */}
-          <rect x="10" y="8" width="3" height="16" />
-          <rect x="13" y="24" width="4" height="4" />
-          <rect x="17" y="8" width="3" height="16" />
-          <path d="M10 8l1.5-6 1.5 6h-3zM17 8l1.5-6 1.5 6h-3z" />
+          {/* V with Sword Points - Moved to x=5 */}
+          <g transform="translate(5, 0)">
+            <rect x="5" y="8" width="3" height="16" />
+            <rect x="8" y="24" width="4" height="4" />
+            <rect x="12" y="8" width="3" height="16" />
+            <path d="M5 8l1.5-6 1.5 6h-3zM12 8l1.5-6 1.5 6h-3z" />
+          </g>
           
-          {/* I as Bishop silhouette */}
-          <g transform="translate(30, 5) scale(1.1)">
+          {/* I as TALLER Bishop silhouette - Moved to x=22 */}
+          <g transform="translate(22, 2) scale(1.1, 1.4)">
             <rect x="11" y="3" width="2" height="2" />
             <rect x="10" y="5" width="4" height="4" />
             <rect x="11" y="9" width="2" height="2" />
@@ -195,40 +197,41 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="8" y="17" width="8" height="2" />
           </g>
           
-          {/* B */}
-          <rect x="52" y="6" width="3" height="22" />
-          <rect x="55" y="6" width="8" height="3" />
-          <rect x="63" y="9" width="3" height="6" />
-          <rect x="55" y="15" width="8" height="3" />
-          <rect x="63" y="18" width="3" height="7" />
-          <rect x="55" y="25" width="8" height="3" />
+          {/* B - Moved to x=42 */}
+          <g transform="translate(42, 0)">
+            <rect x="0" y="6" width="3" height="22" />
+            <rect x="3" y="6" width="8" height="3" />
+            <rect x="11" y="9" width="3" height="6" />
+            <rect x="3" y="15" width="8" height="3" />
+            <rect x="11" y="18" width="3" height="7" />
+            <rect x="3" y="25" width="8" height="3" />
+          </g>
           
-          {/* E */}
-          <rect x="75" y="6" width="3" height="22" />
-          <rect x="78" y="6" width="10" height="3" />
-          <rect x="78" y="15" width="7" height="3" />
-          <rect x="78" y="25" width="10" height="3" />
+          {/* E - Moved to x=62 */}
+          <g transform="translate(62, 0)">
+            <rect x="0" y="6" width="3" height="22" />
+            <rect x="3" y="6" width="10" height="3" />
+            <rect x="3" y="15" width="7" height="3" />
+            <rect x="3" y="25" width="10" height="3" />
+          </g>
        </g>
        
-       {/* CHESS (Magenta) */}
-       <g fill="hsl(var(--accent))" transform="translate(102, 0)">
+       {/* CHESS (Magenta) - Group starts at x=88 */}
+       <g fill="hsl(var(--accent))" transform="translate(88, 0)">
           {/* C */}
-          <rect x="5" y="6" width="3" height="22" />
-          <rect x="8" y="6" width="10" height="3" />
-          <rect x="8" y="25" width="10" height="3" />
+          <rect x="0" y="6" width="3" height="22" />
+          <rect x="3" y="6" width="10" height="3" />
+          <rect x="3" y="25" width="10" height="3" />
           
-          {/* H as Two Rooks */}
-          <g transform="translate(25, 5) scale(1.1)">
-             {/* Left Rook Tower */}
+          {/* H as Two Rooks - Starts at x=20 */}
+          <g transform="translate(20, 5) scale(1.1)">
              <rect x="0" y="4" width="2" height="2" />
              <rect x="3" y="4" width="2" height="2" />
              <rect x="6" y="4" width="2" height="2" />
              <rect x="0" y="6" width="8" height="3" />
              <rect x="1" y="9" width="6" height="8" />
              <rect x="0" y="17" width="8" height="2" />
-             {/* Connection Bar */}
              <rect x="8" y="11" width="4" height="3" />
-             {/* Right Rook Tower */}
              <g transform="translate(12, 0)">
                <rect x="0" y="4" width="2" height="2" />
                <rect x="3" y="4" width="2" height="2" />
@@ -239,25 +242,31 @@ export const VibeChessTitle = ({ className }: IconProps) => (
              </g>
           </g>
           
-          {/* E */}
-          <rect x="58" y="6" width="3" height="22" />
-          <rect x="61" y="6" width="10" height="3" />
-          <rect x="61" y="15" width="7" height="3" />
-          <rect x="61" y="25" width="10" height="3" />
+          {/* E - Starts at x=52 */}
+          <g transform="translate(52, 0)">
+            <rect x="0" y="6" width="3" height="22" />
+            <rect x="3" y="6" width="10" height="3" />
+            <rect x="3" y="15" width="7" height="3" />
+            <rect x="3" y="25" width="10" height="3" />
+          </g>
           
-          {/* S */}
-          <rect x="78" y="6" width="10" height="3" />
-          <rect x="78" y="9" width="3" height="6" />
-          <rect x="78" y="15" width="10" height="3" />
-          <rect x="85" y="18" width="3" height="7" />
-          <rect x="78" y="25" width="10" height="3" />
+          {/* S1 as Mirrored Knight - Starts at x=72 */}
+          <g transform="translate(90, 6) scale(-1.1, 1.1)">
+            <rect x="10" y="4" width="4" height="2" />
+            <rect x="9" y="6" width="6" height="4" />
+            <rect x="7" y="8" width="4" height="4" />
+            <rect x="11" y="10" width="4" height="6" />
+            <rect x="9" y="16" width="8" height="2" />
+          </g>
           
-          {/* S */}
-          <rect x="93" y="6" width="10" height="3" />
-          <rect x="93" y="9" width="3" height="6" />
-          <rect x="93" y="15" width="10" height="3" />
-          <rect x="100" y="18" width="3" height="7" />
-          <rect x="93" y="25" width="10" height="3" />
+          {/* S2 as Mirrored Knight - Starts at x=90 */}
+          <g transform="translate(110, 6) scale(-1.1, 1.1)">
+            <rect x="10" y="4" width="4" height="2" />
+            <rect x="9" y="6" width="6" height="4" />
+            <rect x="7" y="8" width="4" height="4" />
+            <rect x="11" y="10" width="4" height="6" />
+            <rect x="9" y="16" width="8" height="2" />
+          </g>
        </g>
     </g>
   </svg>
