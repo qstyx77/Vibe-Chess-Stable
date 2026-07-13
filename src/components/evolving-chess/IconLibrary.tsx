@@ -176,7 +176,7 @@ export const PixelAnvil = ({ className }: IconProps) => (
 );
 
 export const VibeChessTitle = ({ className }: IconProps) => (
-  <svg viewBox="0 0 200 40" className={cn(className)} xmlns="http://www.w3.org/2000/svg">
+  <svg viewBox="0 0 220 40" className={cn(className)} xmlns="http://www.w3.org/2000/svg">
     <g className="animate-pixel-title-flash">
        {/* VIBE (Cyan) */}
        <g fill="hsl(var(--primary))">
@@ -188,8 +188,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <path d="M5 8l1.5-6 1.5 6h-3zM12 8l1.5-6 1.5 6h-3z" />
           </g>
           
-          {/* I as Bishop - Equalized Spacing */}
-          <g transform="translate(31.2, 2) scale(1.1, 1.4)">
+          {/* I as Bishop - Spacing Adjusted for Equal Gaps */}
+          <g transform="translate(27, 2) scale(1.1, 1.4)">
             <rect x="11" y="3" width="2" height="2" />
             <rect x="10" y="5" width="4" height="4" />
             <rect x="11" y="9" width="2" height="2" />
@@ -197,8 +197,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="8" y="17" width="8" height="2" />
           </g>
           
-          {/* B - Maintained Spacing from I */}
-          <g transform="translate(52.4, 0)">
+          {/* B - Spacing Adjusted */}
+          <g transform="translate(53, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="8" height="3" />
             <rect x="11" y="9" width="3" height="6" />
@@ -207,8 +207,8 @@ export const VibeChessTitle = ({ className }: IconProps) => (
             <rect x="3" y="25" width="8" height="3" />
           </g>
           
-          {/* E */}
-          <g transform="translate(73, 0)">
+          {/* E - Spacing Adjusted */}
+          <g transform="translate(77, 0)">
             <rect x="0" y="6" width="3" height="22" />
             <rect x="3" y="6" width="10" height="3" />
             <rect x="3" y="15" width="7" height="3" />
@@ -217,7 +217,7 @@ export const VibeChessTitle = ({ className }: IconProps) => (
        </g>
        
        {/* CHESS (Magenta) */}
-       <g fill="hsl(var(--accent))" transform="translate(94, 0)">
+       <g fill="hsl(var(--accent))" transform="translate(104, 0)">
           {/* C */}
           <rect x="0" y="6" width="3" height="22" />
           <rect x="3" y="6" width="10" height="3" />
@@ -293,10 +293,10 @@ export const ShroomIcon = ({ className }: IconProps) => (
     <rect x="10" y="14" width="4" height="5" />
     <rect x="9" y="19" width="6" height="2" />
     
-    {/* High-Contrast Spots (Pixel Blocks) */}
-    <rect x="11" y="8" width="2" height="2" fill="white" fillOpacity="0.6" />
-    <rect x="7" y="11" width="2" height="2" fill="white" fillOpacity="0.6" />
-    <rect x="15" y="11" width="2" height="2" fill="white" fillOpacity="0.6" />
+    {/* High-Contrast Spots (Stay white regardless of parent color) */}
+    <rect x="11" y="8" width="2" height="2" fill="white" />
+    <rect x="7" y="11" width="2" height="2" fill="white" />
+    <rect x="15" y="11" width="2" height="2" fill="white" />
   </svg>
 );
 

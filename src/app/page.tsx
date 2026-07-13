@@ -953,7 +953,7 @@ export default function EvolvingChessPage() {
             <div className="flex items-center gap-1.5 shrink-0">
                <PixelAnvil className="h-5 w-5 text-muted-foreground/50 shrink-0" />
                <VibeChessTitle className="h-8 w-auto" />
-               <ShroomIcon className="h-5 w-5 text-primary/50 shrink-0" />
+               <ShroomIcon className="h-5 w-5 text-destructive/50 shrink-0" />
             </div>
           </div>
           <div className="w-1/3 flex justify-end">
@@ -1045,7 +1045,7 @@ export default function EvolvingChessPage() {
         <div className="w-full flex items-center justify-center gap-6">
           <PixelAnvil className="h-12 w-12 text-muted-foreground/50 shrink-0" />
           <VibeChessTitle className="h-16 w-auto" />
-          <ShroomIcon className="h-12 w-12 text-primary/50 shrink-0" />
+          <ShroomIcon className="h-12 w-12 text-destructive/50 shrink-0" />
         </div>
         <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}>
           {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}

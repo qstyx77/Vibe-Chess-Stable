@@ -155,7 +155,7 @@ export function ChessSquare({
           "absolute inset-0 flex items-center justify-center pointer-events-none z-0",
           shouldRotateItemForTabletop && "rotate-180"
         )}>
-          <div className="w-4/5 h-4/5 opacity-70">
+          <div className="w-4/5 h-4/5 opacity-70 text-destructive">
             <ShroomIcon />
           </div>
         </div>
