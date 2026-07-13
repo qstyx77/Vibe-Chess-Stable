@@ -1256,18 +1256,23 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
           if (p.isPoisoned) {
             if (p.level > 1) {
               p.level--;
+            } else {
+              // Capture pieces that die from poison at level 1
+              poisonedCaptures.push({ ...p });
+              sq.piece = null;
             }
           }
 
-          if (p.heldItem === 'training_weights') {
-            const count = (p.itemTurnCount || 0) + 1;
+          const currentP = sq.piece; // check piece again since it might have died from poison
+          if (currentP && currentP.heldItem === 'training_weights') {
+            const count = (currentP.itemTurnCount || 0) + 1;
             if (count >= 3) {
-              if (p.type !== 'queen' || p.level < 7) {
-                p.level++;
+              if (currentP.type !== 'queen' || currentP.level < 7) {
+                currentP.level++;
               }
-              p.itemTurnCount = 0;
+              currentP.itemTurnCount = 0;
             } else {
-              p.itemTurnCount = count;
+              currentP.itemTurnCount = count;
             }
           }
         }
