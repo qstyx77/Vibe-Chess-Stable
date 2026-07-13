@@ -1855,7 +1855,7 @@ export default function DungeonPage() {
             viewMode="flipping"
             animatedSquareTo={animatedSquareTo}
             lastMoveFrom={lastMoveFrom}
-            lastMoveTo={toAlg}
+            lastMoveTo={lastMoveTo}
             isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
             playerToSacrificePawn={playerToSacrificePawn}
             isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}
