@@ -10,7 +10,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { getPieceUnicode } from '@/lib/chess-utils';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 
 interface PromotionDialogProps {
@@ -28,23 +27,29 @@ export function PromotionDialog({ isOpen, onSelectPiece, pawnColor }: PromotionD
     <Dialog open={isOpen} onOpenChange={() => { /* Controlled externally */ }}>
       <DialogContent className="sm:max-w-[425px] bg-card border-border font-sans">
         <DialogHeader>
-          <DialogTitle className="text-primary text-center">Promote Pawn</DialogTitle>
-          <DialogDescription className="text-center text-muted-foreground">
+          <DialogTitle className="text-primary text-center font-pixel uppercase text-xs">Promote Pawn</DialogTitle>
+          <DialogDescription className="text-center text-muted-foreground font-pixel uppercase text-[9px] mt-1">
             Select a piece to promote your pawn to.
           </DialogDescription>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-4 py-4">
+        <div className="grid grid-cols-2 gap-4 py-6">
           {promotionOptions.map((type) => (
             <Button
               key={type}
               variant="outline"
-              className="h-32 flex flex-col items-center justify-center gap-2 hover:bg-accent hover:text-accent-foreground border-2"
+              className="h-40 flex flex-col items-center justify-center gap-4 hover:bg-accent/10 hover:border-accent border-2 transition-all group bg-black/40"
               onClick={() => onSelectPiece(type)}
             >
-              <div className="w-16 h-16 flex items-center justify-center">
-                <ChessPieceDisplay piece={{ id: `promo-${type}`, type, color: pawnColor, level: 1 }} />
+              <div className="w-24 h-24 flex items-center justify-center relative">
+                {/* 
+                  The 8-bit icons have significant padding in their viewBox.
+                  Scaling by 2.8x ensures they fill the selection button correctly.
+                */}
+                <div className="w-full h-full scale-[2.8] transform-gpu flex items-center justify-center">
+                  <ChessPieceDisplay piece={{ id: `promo-${type}`, type, color: pawnColor, level: 1 }} />
+                </div>
               </div>
-              <span className="capitalize text-sm font-medium">{type}</span>
+              <span className="capitalize text-xs font-pixel tracking-tighter group-hover:text-accent">{type}</span>
             </Button>
           ))}
         </div>
