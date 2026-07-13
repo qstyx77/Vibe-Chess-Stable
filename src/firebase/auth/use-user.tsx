@@ -1,4 +1,3 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -55,13 +54,21 @@ export function useUser() {
             const data = docSnap.data() as UserData;
             
             // PLAYTEST INITIALIZATION: Ensure inventory has ALL items (including new ones) for testing.
-            const currentInventoryTypes = new Set(data.inventory?.map(i => i.type) || []);
-            const missingNewItems = ITEM_TYPES.some(t => !currentInventoryTypes.has(t));
+            const currentInventoryMap = new Map(data.inventory?.map(i => [i.type, i.count]) || []);
+            let needsUpdate = false;
+            
+            const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
+              const existingCount = currentInventoryMap.get(type);
+              if (existingCount === undefined || existingCount < 5) {
+                needsUpdate = true;
+                return { type, count: 5 };
+              }
+              return { type, count: existingCount };
+            });
 
-            if (!data.inventory || missingNewItems) {
-                const initialInventory = [...DEFAULT_INVENTORY];
-                setDoc(userRef, { inventory: initialInventory }, { merge: true });
-                setUserData({ ...data, inventory: initialInventory });
+            if (needsUpdate || !data.inventory) {
+                setDoc(userRef, { inventory: updatedInventory }, { merge: true });
+                setUserData({ ...data, inventory: updatedInventory });
             } else {
                 setUserData(data);
             }

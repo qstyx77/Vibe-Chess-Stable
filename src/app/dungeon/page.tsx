@@ -1754,7 +1754,7 @@ export default function DungeonPage() {
                 onClick={() => setIsInventoryOpen(!isInventoryOpen)}
                 disabled={hasMovedOnCurrentFloor}
             >
-                <Package className="mr-1 h-3 w-3" /> Items
+                <Package className="mr-1 h-3 w-3" /> Loot
             </Button>
           </div>
         </div>
@@ -1834,7 +1834,7 @@ export default function DungeonPage() {
             onClick={() => setIsInventoryOpen(!isInventoryOpen)}
             disabled={hasMovedOnCurrentFloor}
           >
-            <Package className="mr-1 h-4 w-4" /> Items
+            <Package className="mr-1 h-4 w-4" /> Loot
           </Button>
         </div>
         <div className="flex flex-col lg:flex-row gap-4 lg:gap-6 w-full max-w-6xl items-start justify-center flex-1 overflow-hidden">
