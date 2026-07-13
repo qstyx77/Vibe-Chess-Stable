@@ -57,6 +57,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'training_weights') abilities.push(" conditioning: gain +1 level every 3 turns.");
   if (heldItem === 'ice_tunic') abilities.push(" cryo skin: freezes any piece that captures the wearer for 1 turn.");
   if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 1 turn.");
+  if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies for 2 turns.");
+  if (heldItem === 'soul_harvest') abilities.push(" spell: reduce adjacent pieces to L1 to absorb their power.");
   if (heldItem === 'swift_cloak') {
       if (type === 'pawn' || type === 'commander') {
           abilities.push(" swift: double move range for small units.");
@@ -98,7 +100,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
           abilities.push("Queen Hunter.");
       }
       if (type === 'archer') {
-          abilities.push("Archer Snipe: KS 5 grants global Level 1 capture (Non-Royals only).");
+          abilities.push("Archer Snipe: KS 3 grants global targeting (Non-Royals only).");
       }
       break;
     case 'bishop':

@@ -208,6 +208,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'ice_scroll':
       case 'resurrection_scroll':
       case 'faith_scroll':
+      case 'ice_blast':
+      case 'soul_harvest':
         const scrollColors: Record<string, string> = {
           wind_scroll: '#BAE6FD',
           life_leach: '#C084FC',
@@ -219,7 +221,9 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           swap_scroll: '#D946EF',
           ice_scroll: '#93C5FD',
           resurrection_scroll: '#FEF08A',
-          faith_scroll: '#F8FAFC'
+          faith_scroll: '#F8FAFC',
+          ice_blast: '#BAE6FD',
+          soul_harvest: '#4C1D95'
         };
         const iconColors: Record<string, string> = {
           wind_scroll: '#0284C7',
@@ -232,7 +236,9 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           swap_scroll: '#701A75',
           ice_scroll: '#1D4ED8',
           resurrection_scroll: '#06B6D4',
-          faith_scroll: '#2563EB'
+          faith_scroll: '#2563EB',
+          ice_blast: '#2563EB',
+          soul_harvest: '#000'
         };
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -242,6 +248,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="4" width="4" height="4" fill={iconColors[type] || '#000'} opacity="0.6" />
             {type === 'resurrection_scroll' && <rect x="4" y="5" width="2" height="2" fill="#FFF" />}
             {type === 'faith_scroll' && <rect x="4" y="4" width="2" height="4" fill="#FFF" />}
+            {type === 'soul_harvest' && <rect x="4" y="4" width="2" height="4" fill="#8B5CF6" />}
           </svg>
         );
       case 'wind_cloak':

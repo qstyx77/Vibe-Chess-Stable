@@ -179,6 +179,42 @@ export class VibeChessAI {
             }
         };
 
+        if (move.type === 'ice-blast') {
+            for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                if(dr===0 && dc===0) continue;
+                const nr=fR+dr; const nc=fC+dc;
+                if(isValidSquareUtil(nr,nc)) {
+                    const victim = nextState.board[nr][nc].piece;
+                    if(victim && victim.color !== currentPlayer) {
+                        victim.frozenTurnsRemaining = 2;
+                        victim.cooldownTurnsRemaining = 2;
+                    }
+                }
+            }
+            piece.heldItem = null;
+            nextState.currentPlayer = opponentColor;
+            return nextState;
+        }
+
+        if (move.type === 'soul-harvest') {
+            let totalGained = 0;
+            for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                if(dr===0 && dc===0) continue;
+                const nr=fR+dr; const nc=fC+dc;
+                if(isValidSquareUtil(nr,nc)) {
+                    const victim = nextState.board[nr][nc].piece;
+                    if(victim && victim.level > 1) {
+                        totalGained += (victim.level - 1);
+                        victim.level = 1;
+                    }
+                }
+            }
+            piece.level += totalGained;
+            piece.heldItem = null;
+            nextState.currentPlayer = opponentColor;
+            return nextState;
+        }
+
         if (targetPiece && targetPiece.color !== currentPlayer && targetPiece.heldItem === 'mirror_shield') {
             const reflectedAttacker = { ...piece };
             nextState.board[fR][fC].piece = null;
@@ -528,6 +564,8 @@ export class VibeChessAI {
             }
         }
         if (move.type === 'promotion') score += 500; if (move.type === 'self-destruct') score += 100;
+        if (move.type === 'soul-harvest') score += 800;
+        if (move.type === 'ice-blast') score += 400;
         if (target.item?.type === 'shroom') score += 150;
         return score;
     }
@@ -647,6 +685,9 @@ export class VibeChessAI {
         const moves: AIMove[] = []; const effectiveLevel = getEffectiveLevel(gs.board as any, r, c);
         const color = p.color;
         const opponentBackRank = color === 'white' ? 0 : 7;
+
+        if (p.heldItem === 'ice_blast') moves.push({ from: [r,c], to: [r,c], type: 'ice-blast' });
+        if (p.heldItem === 'soul_harvest') moves.push({ from: [r,c], to: [r,c], type: 'soul-harvest' });
 
         switch (p.type) {
             case 'pawn':

@@ -1158,6 +1158,12 @@ export default function DungeonPage() {
 
         if (piece && !piece.heldItem && piece.color === 'white') {
           if (usedSlots >= attunementSlots) { toast({ title: "Attunement Limit", variant: "destructive" }); return; }
+          
+          if (selectedInventoryItemType === 'soul_harvest' && (piece.type === 'king' || piece.type === 'queen')) {
+              toast({ title: "Royal Restriction", description: "Kings and Queens cannot harvest souls.", variant: "destructive" });
+              return;
+          }
+
           const pType = piece.type;
           if (selectedInventoryItemType === 'swift_cloak' && pType !== 'pawn' && pType !== 'commander') return;
           if (selectedInventoryItemType === 'queens_peace' && pType !== 'queen') return;
@@ -1367,7 +1373,7 @@ export default function DungeonPage() {
 
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
       const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-      const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree'].includes(movingPiece.heldItem);
+      const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest'].includes(movingPiece.heldItem);
 
       if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
         if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) {
@@ -1418,6 +1424,26 @@ export default function DungeonPage() {
           const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
           setBoard(result.newBoard);
           audioManager.playShield();
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeIceBlast = () => {
+          setHasMovedOnCurrentFloor(true);
+          setIsMoveProcessing(true); clickGuard.current = true;
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-blast' };
+          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+          setBoard(result.newBoard);
+          audioManager.playLevelUp();
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
+        };
+        const executeSoulHarvest = () => {
+          setHasMovedOnCurrentFloor(true);
+          setIsMoveProcessing(true); clickGuard.current = true;
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'soul-harvest' };
+          const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
+          setBoard(result.newBoard);
+          audioManager.playLevelUp();
           setSelectedSquare(null); setPossibleMoves([]);
           setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
         };
@@ -1490,6 +1516,8 @@ export default function DungeonPage() {
               else if (movingPiece.heldItem === 'antidote') executeAntidote();
               else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
               else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll();
+              else if (movingPiece.heldItem === 'ice_blast') executeIceBlast();
+              else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest();
               else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll();
               else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll();
               else if (movingPiece.heldItem === 'detonation_scroll') {
@@ -1511,6 +1539,8 @@ export default function DungeonPage() {
           else if (movingPiece.heldItem === 'antidote') executeAntidote();
           else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode();
           else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll();
+          else if (movingPiece.heldItem === 'ice_blast') executeIceBlast();
+          else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest();
           else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll();
           else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll();
           else if (movingPiece.heldItem === 'detonation_scroll') {

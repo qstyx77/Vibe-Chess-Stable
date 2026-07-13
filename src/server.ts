@@ -600,7 +600,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         let isLegal = false;
-                        if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll'].includes(moveType)) {
+                        if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest'].includes(moveType)) {
                             const effLevel = getEffectiveLevel(room.gameState.board, fromCoords.row, fromCoords.col);
                             const hItem = movingPieceStart.heldItem;
                             if (from === to) {
@@ -612,6 +612,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 if (moveType === 'shield-scroll' && hItem === 'shield_scroll' && effLevel >= 2) isLegal = true;
                                 if (moveType === 'rally-scroll' && hItem === 'rally_scroll' && effLevel >= 3) isLegal = true;
                                 if (moveType === 'kings-decree' && hItem === 'kings_decree' && movingPieceStart.type === 'king') isLegal = true;
+                                if (moveType === 'ice-blast' && hItem === 'ice_blast') isLegal = true;
+                                if (moveType === 'soul-harvest' && hItem === 'soul_harvest' && !(['king', 'queen'].includes(movingPieceStart.type))) isLegal = true;
                                 if (['wind-scroll', 'life-leach', 'summon-anvil', 'antidote'].includes(moveType)) isLegal = true;
                                 
                                 if (isLegal) {
@@ -672,7 +674,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) room.gameState.killStreaks[movingPlayer] += caps;
                         else {
-                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll'].includes(moveType)) {
+                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest'].includes(moveType)) {
                                 room.gameState.killStreaks[movingPlayer] = 0;
                             }
                         }

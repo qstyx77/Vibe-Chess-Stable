@@ -777,6 +777,12 @@ export default function EvolvingChessPage() {
       if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
         if (piece && !piece.heldItem && piece.color === (localPlayerColor || 'white')) {
           if (usedSlots >= attunementSlots) { toast({ title: "Attunement Limit", variant: "destructive" }); return; }
+          
+          if (selectedInventoryItemType === 'soul_harvest' && (piece.type === 'king' || piece.type === 'queen')) {
+              toast({ title: "Royal Restriction", description: "Kings and Queens cannot harvest souls.", variant: "destructive" });
+              return;
+          }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
@@ -873,6 +879,24 @@ export default function EvolvingChessPage() {
       const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
       const moving = board[fR][fC].piece; if (!moving) return;
       if (selectedSquare === algebraic && moving.heldItem === 'summon_anvil') { setIsAwaitingAnvilScrollTarget(true); return; }
+
+      if (selectedSquare === algebraic) {
+        if (moving.heldItem === 'ice_blast' || moving.heldItem === 'soul_harvest') {
+          if (onlineStatus === 'connected') {
+            wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: moving.heldItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' } }));
+          } else {
+            clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: moving.heldItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' }, enPassantTargetSquare, capturedPieces);
+            setBoard(applyResult.newBoard);
+            audioManager.playLevelUp();
+            setTimeout(() => {
+              setIsMoveProcessing(false); clickGuardRef.current = false;
+              processMoveEnd(applyResult.newBoard, currentPlayer, false, null);
+            }, 800);
+          }
+          return;
+        }
+      }
 
       const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare);
       if (freshlyCalculated.includes(algebraic)) {
@@ -976,7 +1000,7 @@ export default function EvolvingChessPage() {
             <div className="flex items-center gap-1.5 shrink-0">
                <PixelAnvil className="h-5 w-5 text-muted-foreground/50 shrink-0" />
                <VibeChessTitle className="h-8 w-auto" />
-               <ShroomIcon className="h-5 w-5 text-destructive/50 shrink-0" />
+               <ShroomIcon className="h-5 w-5 shrink-0" />
             </div>
           </div>
           <div className="w-1/3 flex justify-end">
@@ -1066,9 +1090,9 @@ export default function EvolvingChessPage() {
       </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
         <div className="w-full flex items-center justify-center gap-6">
-          <PixelAnvil className="h-12 w-12 text-muted-foreground/50 shrink-0" />
+          <PixelAnvil className="h-10 w-10 text-muted-foreground/50 shrink-0" />
           <VibeChessTitle className="h-16 w-auto" />
-          <ShroomIcon className="h-12 w-12 text-destructive/50 shrink-0" />
+          <ShroomIcon className="h-10 w-10 shrink-0" />
         </div>
         <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}>
           {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A TARGET!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
@@ -1143,7 +1167,7 @@ export default function EvolvingChessPage() {
 
   function fullGameReset() {
     let initial = initializeBoard(userData?.eloRating || 1200, 1200);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
 
