@@ -29,7 +29,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package, Skull } from 'lucide-react';
+import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package, Skull, RotateCcw } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -297,6 +297,7 @@ export default function DungeonPage() {
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
+  const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
 
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
   const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
@@ -306,6 +307,7 @@ export default function DungeonPage() {
   const prevBoardRef = useRef<BoardState | null>(null);
   const moveCounter = useRef(0);
   const signaledEventsRef = useRef<Set<string>>(new Set());
+  const isInitialized = useRef(false);
 
   // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
@@ -335,6 +337,33 @@ export default function DungeonPage() {
 
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget;
   const isLocalActionTurn = currentPlayer === 'white';
+
+  // --- PERSISTENCE LOGIC ---
+  const saveDungeonState = useCallback((
+    currentLevel: number,
+    currentBoard: BoardState,
+    currentP: PlayerColor,
+    ks: any,
+    caps: any,
+    shroomC: number,
+    nextShroom: number,
+    ep: AlgebraicSquare | null
+  ) => {
+    if (!user || !firestore) return;
+    const userDocRef = doc(firestore, 'users', user.uid);
+    updateDocumentNonBlocking(userDocRef, {
+      dungeonState: {
+        level: currentLevel,
+        board: currentBoard,
+        currentPlayer: currentP,
+        killStreaks: ks,
+        capturedPieces: caps,
+        shroomSpawnCounter: shroomC,
+        nextShroomSpawnTurn: nextShroom,
+        enPassantTargetSquare: ep
+      }
+    });
+  }, [user, firestore]);
 
   // PARITY PATCH: EFFECT DIFFING
   useEffect(() => {
@@ -401,13 +430,18 @@ export default function DungeonPage() {
     setBoard(newBoard);
     setCapturedPieces(prev => ({ white: [], black: prev.black }));
     setCurrentPlayer('white');
-    setKillStreaks({ white: 0, black: 0 });
-    setShroomSpawnCounter(0);
-    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+    const ks = { white: 0, black: 0 };
+    setKillStreaks(ks);
+    const sC = 0;
+    const nS = Math.floor(Math.random() * 6) + 5;
+    setShroomSpawnCounter(sC);
+    setNextShroomSpawnTurn(nS);
     setEnPassantTargetSquare(null);
     const hasCommander = survivorsFromLastBoard.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
+
+    saveDungeonState(nextLevel, newBoard, 'white', ks, { white: [], black: capturedPieces.black }, sC, nS, null);
 
     const isBoss = nextLevel % 10 === 0;
     setGameInfo({ 
@@ -421,7 +455,7 @@ export default function DungeonPage() {
 
     toast({ title: "Level Up!", description: `Descending to Floor ${nextLevel}...` });
     audioManager.playLevelUp();
-  }, [level, toast]);
+  }, [level, toast, saveDungeonState, capturedPieces.black]);
 
   const warpToLevel = useCallback((targetLevel: number, type: InventoryItemType) => {
     if (hasMovedOnCurrentFloor) return;
@@ -444,9 +478,12 @@ export default function DungeonPage() {
     setBoard(newBoard);
     setCapturedPieces(prev => ({ white: [], black: prev.black }));
     setCurrentPlayer('white');
-    setKillStreaks({ white: 0, black: 0 });
-    setShroomSpawnCounter(0);
-    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+    const ks = { white: 0, black: 0 };
+    setKillStreaks(ks);
+    const sC = 0;
+    const nS = Math.floor(Math.random() * 6) + 5;
+    setShroomSpawnCounter(sC);
+    setNextShroomSpawnTurn(nS);
     setEnPassantTargetSquare(null);
     
     setInventory(prev => {
@@ -458,6 +495,8 @@ export default function DungeonPage() {
         }
         return next;
     });
+
+    saveDungeonState(targetLevel, newBoard, 'white', ks, { white: [], black: capturedPieces.black }, sC, nS, null);
 
     const isBoss = targetLevel % 10 === 0;
     setGameInfo({ 
@@ -471,7 +510,7 @@ export default function DungeonPage() {
 
     toast({ title: "PORTAL ACTIVATED", description: `Warped to Floor ${targetLevel}!` });
     audioManager.playResurrect();
-  }, [board, hasMovedOnCurrentFloor, toast]);
+  }, [board, hasMovedOnCurrentFloor, toast, saveDungeonState, capturedPieces.black]);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
@@ -536,19 +575,25 @@ export default function DungeonPage() {
       toast({ title: "EXTRA TURN!", description: `${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} gains another move!`, duration: 2000 });
       audioManager.playLevelUp();
     }
-    const newCounter = shroomSpawnCounter + 1;
-    setShroomSpawnCounter(newCounter);
+    let newCounter = shroomSpawnCounter + 1;
+    let finalNextShroom = nextShroomSpawnTurn;
     if (newCounter >= nextShroomSpawnTurn) {
         const { newBoard: boardWithShroom, spawnedAt } = spawnShroom(nextBoard);
         if (spawnedAt) {
             nextBoard = boardWithShroom;
             setBoard(nextBoard);
-            setShroomSpawnCounter(0);
-            setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+            newCounter = 0;
+            finalNextShroom = Math.floor(Math.random() * 6) + 5;
+            setShroomSpawnCounter(newCounter);
+            setNextShroomSpawnTurn(finalNextShroom);
             toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 });
             audioManager.playShroom();
         }
     }
+    
+    // PERSIST MOVE END
+    saveDungeonState(level, nextBoard, nextP, killStreaks, capturedPieces, newCounter, finalNextShroom, nextEpSquare);
+
     const playerKing = findKing(nextBoard, 'white');
     if (!playerKing || isCheckmate(nextBoard, 'white', nextEpSquare)) {
       setGameInfo({ message: "YOUR KING HAS FALLEN", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' });
@@ -576,7 +621,7 @@ export default function DungeonPage() {
         gameOver: false 
     });
     setCurrentPlayer(nextP);
-  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn]);
+  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, killStreaks, capturedPieces]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
@@ -941,7 +986,7 @@ export default function DungeonPage() {
     updateDocumentNonBlocking(userDocRef, { inventory: currentInv, equipment });
   }, [user, firestore]);
 
-  const startRun = useCallback(() => {
+  const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
     
     setIsMoveProcessing(false);
@@ -954,11 +999,25 @@ export default function DungeonPage() {
     setSelectedSquare(null);
     setPossibleMoves([]);
 
-    let army: Piece[] = [];
-    const elo = userData.eloRating || 1200;
-    let initial = initializeBoard(elo, 1200);
-    
-    if (userData) {
+    const saved = userData.dungeonState;
+    if (!reset && saved && saved.board && saved.board.length > 0) {
+      setLevel(saved.level);
+      setBoard(saved.board);
+      setCurrentPlayer(saved.currentPlayer);
+      setKillStreaks(saved.killStreaks);
+      setCapturedPieces(saved.capturedPieces);
+      setShroomSpawnCounter(saved.shroomSpawnCounter);
+      setNextShroomSpawnTurn(saved.nextShroomSpawnTurn);
+      setEnPassantTargetSquare(saved.enPassantTargetSquare);
+      const survivors = saved.board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+      setPlayerArmy(survivors);
+      setFirstBloodAchieved(survivors.some(p => p.type === 'commander' || p.type === 'hero'));
+      setGameInfo({ message: `Floor ${saved.level} - Resume`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+    } else {
+      let army: Piece[] = [];
+      const elo = userData.eloRating || 1200;
+      let initial = initializeBoard(elo, 1200);
+      
       if (userData.equipment) {
         initial = initial.map(row => row.map(sq => {
           if (sq.piece && userData.equipment![sq.piece.id]) {
@@ -967,30 +1026,42 @@ export default function DungeonPage() {
           return sq;
         }));
       }
-      if (userData.inventory) setInventory(userData.inventory);
+      initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
+      setPlayerArmy(army);
+      setLevel(1);
+      const newBoard = generateDungeonFloor(1, army);
+      setBoard(newBoard);
+      setGameInfo({ message: "Welcome to the Dungeon", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+      setCapturedPieces({ white: [], black: [] });
+      setCurrentPlayer('white');
+      setKillStreaks({ white: 0, black: 0 });
+      setShroomSpawnCounter(0);
+      setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+      setEnPassantTargetSquare(null);
+      const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
+      setFirstBloodAchieved(hasCommander);
+      setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
+      
+      saveDungeonState(1, newBoard, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null);
     }
-    initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
-    setPlayerArmy(army);
-    setLevel(1);
-    const newBoard = generateDungeonFloor(1, army);
-    setBoard(newBoard);
-    setGameInfo({ message: "Welcome to the Dungeon", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
-    setCapturedPieces({ white: [], black: [] });
-    setCurrentPlayer('white');
-    setKillStreaks({ white: 0, black: 0 });
-    setShroomSpawnCounter(0);
-    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
-    setEnPassantTargetSquare(null);
-    const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
-    setFirstBloodAchieved(hasCommander);
-    setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
+    
+    if (userData.inventory) setInventory(userData.inventory);
     aiInstance.current = new VibeChessAI(4);
     audioManager.playStart();
-  }, [userData, isUserLoading, user]);
+  }, [userData, isUserLoading, user, saveDungeonState]);
 
   useEffect(() => {
-    if (!board.length && !isUserLoading && userData && user) startRun();
-  }, [startRun, board.length, isUserLoading, userData, user]);
+    if (!isInitialized.current && !isUserLoading && userData && user) {
+      isInitialized.current = true;
+      startRun();
+    }
+  }, [startRun, isUserLoading, userData, user]);
+
+  const handleResetRun = () => {
+    setIsResetConfirmOpen(false);
+    startRun(true);
+    toast({ title: "Run Reset", description: "Returning to Floor 1..." });
+  };
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     if (!promotionSquare) return;
@@ -1042,6 +1113,8 @@ export default function DungeonPage() {
           if (item) { item.count--; if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); }
           setInventory(newInv);
           saveLoadoutToFirestore(nextBoard, newInv);
+          // SAVE TO DUNGEON STATE
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
@@ -1056,6 +1129,8 @@ export default function DungeonPage() {
           if (itemOut) itemOut.count++; else nextInv.push({ type: oldItem, count: 1 });
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
+          // SAVE TO DUNGEON STATE
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         }
@@ -1070,6 +1145,8 @@ export default function DungeonPage() {
           if (item) item.count++; else nextInv.push({ type: removedItem, count: 1 });
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
+          // SAVE TO DUNGEON STATE
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare);
           audioManager.playMove();
         }
       }
@@ -1539,15 +1616,18 @@ export default function DungeonPage() {
               {isBossFloor ? `BOSS: ${level}` : `Floor ${level}`}
             </h1>
           </div>
-          <Button 
-            variant={isInventoryOpen ? "default" : "outline"} 
-            size="sm" 
-            className="h-6 px-1.5 text-[10px]"
-            onClick={() => setIsInventoryOpen(!isInventoryOpen)}
-            disabled={hasMovedOnCurrentFloor}
-          >
-            <Package className="mr-1 h-3 w-3" /> Items
-          </Button>
+          <div className="flex gap-0.5">
+            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[10px] text-destructive" onClick={() => setIsResetConfirmOpen(true)}><RotateCcw className="h-3 w-3" /></Button>
+            <Button 
+                variant={isInventoryOpen ? "default" : "outline"} 
+                size="sm" 
+                className="h-6 px-1.5 text-[10px]"
+                onClick={() => setIsInventoryOpen(!isInventoryOpen)}
+                disabled={hasMovedOnCurrentFloor}
+            >
+                <Package className="mr-1 h-3 w-3" /> Items
+            </Button>
+          </div>
         </div>
         <div className={cn("text-center text-[10px] font-bold min-h-[1.2em] uppercase font-pixel flex items-center justify-center gap-1", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
           {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
@@ -1596,7 +1676,7 @@ export default function DungeonPage() {
         />
         {gameInfo.gameOver && (
           <div className="mt-1 space-y-1 w-full shrink-0">
-            <Button className="w-full font-bold uppercase h-7 text-[10px]" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry</Button>
+            <Button className="w-full font-bold uppercase h-7 text-[10px]" onClick={() => startRun(true)}><RefreshCw className="mr-2 h-4 w-4" /> Retry</Button>
             <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-7 text-[10px]">Lobby</Button></Link>
           </div>
         )}
@@ -1609,7 +1689,10 @@ export default function DungeonPage() {
       <div className="lg:hidden h-full w-full">{mobileLayout}</div>
       <div className="hidden lg:flex flex-col items-center justify-start h-full w-full gap-4 shrink-0">
         <div className="w-full max-max-4xl flex items-center justify-between shrink-0">
-          <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
+          <div className="flex gap-2">
+            <Link href="/"><Button variant="ghost" size="sm"><ArrowLeft className="mr-2 h-4 w-4" /> Exit Run</Button></Link>
+            <Button variant="outline" size="sm" className="text-destructive" onClick={() => setIsResetConfirmOpen(true)}><RotateCcw className="mr-2 h-4 w-4" /> Reset Run</Button>
+          </div>
           <div className="flex items-center gap-2">
             {isBossFloor ? <Skull className="text-destructive h-6 w-6 animate-pulse" /> : <Swords className="text-primary h-6 w-6" />}
             <h1 className={cn("text-base md:text-xl font-bold font-pixel uppercase", isBossFloor ? "text-destructive" : "text-primary")}>
@@ -1678,7 +1761,7 @@ export default function DungeonPage() {
             </div>
             {gameInfo.gameOver && (
               <div className="mt-2 space-y-2 shrink-0 mb-4 lg:mb-0">
-                <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun()}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
+                <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun(true)}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button>
                 <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-8 text-xs">Back to Lobby</Button></Link>
               </div>
             )}
@@ -1704,6 +1787,21 @@ export default function DungeonPage() {
 
       <RulesDialog isOpen={false} onOpenChange={() => {}} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
+
+      <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-pixel text-primary uppercase">Reset Run?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will erase your current floor progress and return you to Floor 1. All dungeon captures and streaks will be lost.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="font-pixel text-[10px] uppercase">Cancel</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive font-pixel text-[10px] uppercase" onClick={handleResetRun}>Confirm Reset</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={abilityChoiceDialog?.isOpen}>
         <AlertDialogContent>

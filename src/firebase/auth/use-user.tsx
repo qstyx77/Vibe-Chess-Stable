@@ -1,10 +1,22 @@
+
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth } from '@/firebase';
-import type { InventoryItem, InventoryItemType } from '@/types';
+import type { InventoryItem, InventoryItemType, BoardState, PlayerColor, Piece } from '@/types';
 import { ITEM_METADATA } from '@/types';
+
+interface DungeonState {
+  level: number;
+  board: BoardState;
+  currentPlayer: PlayerColor;
+  killStreaks: { white: number, black: number };
+  capturedPieces: { white: Piece[], black: Piece[] };
+  shroomSpawnCounter: number;
+  nextShroomSpawnTurn: number;
+  enPassantTargetSquare: string | null;
+}
 
 interface UserData {
   username: string;
@@ -14,6 +26,7 @@ interface UserData {
   losses: number;
   inventory?: InventoryItem[];
   equipment?: Record<string, string>;
+  dungeonState?: DungeonState;
 }
 
 // Generate item list dynamically from the central metadata to avoid missing items

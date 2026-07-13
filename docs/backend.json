@@ -47,6 +47,20 @@
           "type": "object",
           "description": "Mapping of piece IDs to equipped item types.",
           "additionalProperties": { "type": "string" }
+        },
+        "dungeonState": {
+          "type": "object",
+          "description": "Saved state of the player's current dungeon run.",
+          "properties": {
+            "level": { "type": "number" },
+            "board": { "type": "array" },
+            "currentPlayer": { "type": "string" },
+            "killStreaks": { "type": "object" },
+            "capturedPieces": { "type": "object" },
+            "shroomSpawnCounter": { "type": "number" },
+            "nextShroomSpawnTurn": { "type": "number" },
+            "enPassantTargetSquare": { "type": ["string", "null"] }
+          }
         }
       },
       "required": [
