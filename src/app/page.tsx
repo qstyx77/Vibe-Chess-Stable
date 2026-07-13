@@ -610,19 +610,30 @@ export default function EvolvingChessPage() {
     }
 
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
-    const hasArcher = pieces.some(p => p.type === 'archer');
+    const archers = pieces.filter(p => p.type === 'archer');
+    const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
     const hasCrossbow = pieces.some(p => p.type === 'archer' && p.color === actingPlayer && p.heldItem === 'crossbow');
-    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && hasArcher && !completedMilestones.includes('snipe')) || 
+    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && archers.length > 0 && !completedMilestones.includes('snipe')) || 
                         (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
 
     if (isSnipeTime) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxArcherLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const v = victims[Math.floor(Math.random() * victims.length)];
                 const {row, col} = algebraicToCoords(v.algebraic);
+                
+                // Level up AI archer
+                const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
+                if (responsibleAIArcher) {
+                    const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
+                    nextBoard[arRow][arCol].piece!.level += gain;
+                }
+
                 nextBoard[row][col].piece = null;
                 audioManager.playSnipe();
                 triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe']);
@@ -727,7 +738,7 @@ export default function EvolvingChessPage() {
 
         if (applyResult.promotedToHero) {
           audioManager.playLevelUp();
-          addEffect('light-beam', toAlg);
+          addEffect('light-beam', algebraic);
         }
 
         const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
@@ -831,16 +842,28 @@ export default function EvolvingChessPage() {
 
     if (isAwaitingArcherSnipe) {
         const oppColor = currentPlayer === 'white' ? 'black' : 'white';
-        if (piece && piece.color === oppColor && piece.level === 1 && piece.type !== 'king' && piece.type !== 'queen') {
-            if (onlineStatus === 'connected') {
-                wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
-                setIsAwaitingArcherSnipe(false);
-            } else {
-                const nextB = archerSnipeContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-                const {row: tr, col: tc} = algebraicToCoords(algebraic);
-                nextB[tr][tc].piece = null;
-                setBoard(nextB); audioManager.playSnipe(); setIsAwaitingArcherSnipe(false);
-                triggerSpecialsChain(nextB, archerSnipeContext!.oldStreak!, archerSnipeContext!.newStreak!, archerSnipeContext!.isExtraTurn, archerSnipeContext!.newEnPassantTarget, currentPlayer, [...(archerSnipeContext!.completedMilestones || []), 'snipe']);
+        const myArchers = board.flat().filter(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.type === 'archer').map(sq => sq.piece!);
+        if (piece && piece.color === oppColor && piece.type !== 'king' && piece.type !== 'queen') {
+            const responsibleArcher = myArchers.find(a => a.level >= piece.level);
+            if (responsibleArcher) {
+                if (onlineStatus === 'connected') {
+                    wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));
+                    setIsAwaitingArcherSnipe(false);
+                } else {
+                    const nextB = archerSnipeContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+                    const {row: tr, col: tc} = algebraicToCoords(algebraic);
+                    const snipedPiece = nextB[tr][tc].piece!;
+                    nextB[tr][tc].piece = null;
+                    
+                    // Level up the archer
+                    const arRow = nextB.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arCol = nextB[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
+                    nextB[arRow][arCol].piece!.level += gain;
+
+                    setBoard(nextB); audioManager.playSnipe(); setIsAwaitingArcherSnipe(false);
+                    triggerSpecialsChain(nextB, archerSnipeContext!.oldStreak!, archerSnipeContext!.newStreak!, archerSnipeContext!.isExtraTurn, archerSnipeContext!.newEnPassantTarget, currentPlayer, [...(archerSnipeContext!.completedMilestones || []), 'snipe']);
+                }
             }
         }
         return;
@@ -961,7 +984,7 @@ export default function EvolvingChessPage() {
           </div>
         </div>
         <div className={cn("text-center text-[10px] font-bold min-h-[1.2em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}>
-          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
+          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A TARGET!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
         </div>
         <div className="w-full">
           <ChessBoard
@@ -1048,7 +1071,7 @@ export default function EvolvingChessPage() {
           <ShroomIcon className="h-12 w-12 text-destructive/50 shrink-0" />
         </div>
         <div className={cn("text-center text-sm font-bold min-h-[1.25em]", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}>
-          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
+          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingArcherSnipe ? "SNIPE A TARGET!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? `${getPlayerDisplayName(currentPlayer)} is thinking...` : gameInfo.message}
         </div>
         <div className="w-full max-w-lg">
           <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? null : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor) || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} />

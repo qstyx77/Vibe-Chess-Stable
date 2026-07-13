@@ -81,7 +81,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true },
   'poison_dagger': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
   'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
-  'crossbow': { name: 'Crossbow', description: 'Archer only. Grants a Snipe Killstreak at 3 in addition to Anvil. (Non-Royals only)', isConsumable: false },
+  'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },
   'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
   'phase_boots': { name: 'Phase Boots', description: 'Ethereal boots (L2+). Jump over friendly pieces while moving.', isConsumable: false },

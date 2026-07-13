@@ -687,14 +687,15 @@ export default function DungeonPage() {
 
     // 3. Killstreak: Archer Snipe
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
-    const hasArcher = pieces.some(p => p.type === 'archer');
+    const archers = pieces.filter(p => p.type === 'archer');
+    const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
     const hasCrossbow = pieces.some(p => p.type === 'archer' && p.color === actingPlayer && p.heldItem === 'crossbow');
-    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && hasArcher && !completedMilestones.includes('snipe')) || 
+    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && archers.length > 0 && !completedMilestones.includes('snipe')) || 
                         (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
 
     if (isSnipeTime) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level === 1 && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxArcherLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
         
         if (victims.length > 0) {
             if (isAI) {
@@ -702,6 +703,15 @@ export default function DungeonPage() {
                 const v = victims[Math.floor(Math.random() * victims.length)];
                 const {row, col} = algebraicToCoords(v.algebraic);
                 const sniped = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_AI_${Date.now()}` };
+                
+                // Level up the enemy archer
+                const aiArchers = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type === 'archer').map(sq => sq.piece!);
+                const responsibleAIArcher = aiArchers.find(a => a.level >= (v.piece?.level || 1));
+                if (responsibleAIArcher) {
+                    const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
+                    responsibleAIArcher.level += gain;
+                }
+
                 nextGraveyard[actingPlayer] = [...nextGraveyard[actingPlayer], sniped];
                 setCapturedPieces({ ...nextGraveyard });
                 nextBoard[row][col].piece = null;
@@ -1288,16 +1298,28 @@ export default function DungeonPage() {
         return;
     }
     if (isAwaitingArcherSnipe) {
-        if (piece && piece.color === 'black' && piece.level === 1 && piece.type !== 'king' && piece.type !== 'queen') {
-            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            nextBoard[row][col].piece = null;
-            setBoard(nextBoard);
-            const snipedPiece = { ...piece, id: `${piece.id}_sniped_${Date.now()}` };
-            const updatedGraveyard = { ...capturedPieces, white: [...capturedPieces.white, snipedPiece] };
-            setCapturedPieces(updatedGraveyard);
-            setIsAwaitingArcherSnipe(false);
-            audioManager.playSnipe();
-            triggerSpecialsChain(nextBoard, updatedGraveyard, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', [...(specialActionContext.completedMilestones || []), 'snipe']); 
+        const myArchers = board.flat().filter(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.type === 'archer').map(sq => sq.piece!);
+        if (piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen') {
+            const responsibleArcher = myArchers.find(a => a.level >= piece.level);
+            if (responsibleArcher) {
+                const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                const {row: tr, col: tc} = algebraicToCoords(algebraic);
+                const snipedPiece = { ...nextBoard[tr][tc].piece!, id: `${nextBoard[tr][tc].piece!.id}_sniped_${Date.now()}` };
+                nextBoard[tr][tc].piece = null;
+                
+                // Level up the archer
+                const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
+                nextBoard[arRow][arCol].piece!.level += gain;
+                
+                setBoard(nextBoard);
+                const updatedGraveyard = { ...capturedPieces, white: [...capturedPieces.white, snipedPiece] };
+                setCapturedPieces(updatedGraveyard);
+                setIsAwaitingArcherSnipe(false);
+                audioManager.playSnipe();
+                triggerSpecialsChain(nextBoard, updatedGraveyard, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', [...(specialActionContext.completedMilestones || []), 'snipe']); 
+            }
         }
         return;
     }
@@ -1708,7 +1730,7 @@ export default function DungeonPage() {
         </div>
         <div className={cn("text-center text-[10px] font-bold min-h-[1.2em] uppercase font-pixel flex items-center justify-center gap-1", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
           {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+          {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A TARGET!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
         </div>
         <div className="w-full">
           <ChessBoard
@@ -1789,7 +1811,7 @@ export default function DungeonPage() {
           <div className="w-full lg:w-1/2 flex flex-col items-center gap-2 md:gap-4 shrink-0">
             <div className={cn("text-center text-[10px] md:text-sm font-bold min-h-[1.25em] uppercase font-pixel flex items-center justify-center gap-2", (gameInfo.isCheck || isBossFloor) && !gameInfo.gameOver && "animate-pulse", isBossFloor ? "text-destructive" : "text-primary", isAiThinking && "text-primary")}>
               {isAiThinking && <BrainCircuit className="h-4 w-4 animate-spin" />}
-              {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A LEVEL 1 ENEMY!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+              {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingDecreeTarget ? "SELECT A PAWN TO PROMOTE!" : isAwaitingPawnSacrifice ? "SACRIFICE A PAWN FOR THE QUEEN!" : isAwaitingCommanderPromotion ? "SELECT A PAWN TO PROMOTE!" : isAwaitingHolyShield ? "SELECT AN ALLY TO SHIELD!" : isAwaitingAnvilDrop ? "PLACE AN ANVIL!" : isAwaitingArcherSnipe ? "SNIPE A TARGET!" : isAwaitingWindScrollTarget ? "SELECT TARGET FOR WIND!" : isAwaitingAnvilScrollTarget ? "SELECT TARGET FOR ANVIL!" : isAwaitingShieldScrollTarget ? "SELECT TARGET FOR SHIELD!" : isAwaitingSwapScrollTarget ? "SELECT ALLY TO SWAP!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
             </div>
             <div className="w-full aspect-square">
               <ChessBoard

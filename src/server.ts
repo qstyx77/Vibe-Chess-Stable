@@ -530,11 +530,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room && data.square) {
                         const { row, col } = algebraicToCoords(data.square);
                         const targetPiece = room.gameState.board[row]?.[col]?.piece;
-                        if (targetPiece && targetPiece.color !== actingColor && targetPiece.level === 1 && targetPiece.type !== 'king' && targetPiece.type !== 'queen') {
-                            room.gameState.capturedPieces[actingColor].push(targetPiece);
-                            room.gameState.board[row][col].piece = null;
-                            delete room.gameState.archerSnipeContext;
-                            triggerNextSpecialAction(room, actingColor);
+                        if (targetPiece && targetPiece.color !== actingColor && targetPiece.type !== 'king' && targetPiece.type !== 'queen') {
+                            const archers = room.gameState.board.flat().filter((sq: any) => sq.piece && sq.piece.color === actingColor && sq.piece.type === 'archer').map((sq: any) => sq.piece);
+                            const responsibleArcher = archers.find((a: Piece) => a.level >= (targetPiece.level || 1));
+                            
+                            if (responsibleArcher) {
+                                // Level up the responsible archer
+                                const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[targetPiece.type] || 0;
+                                responsibleArcher.level += gain;
+
+                                room.gameState.capturedPieces[actingColor].push(targetPiece);
+                                room.gameState.board[row][col].piece = null;
+                                delete room.gameState.archerSnipeContext;
+                                triggerNextSpecialAction(room, actingColor);
+                            }
                         }
                     }
                     break;
@@ -745,15 +754,16 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             }
                         }
 
-                        const hasArcher = finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer);
+                        const archers = finalizedBoard.flat().filter(sq => sq.piece && sq.piece.color === movingPlayer && sq.piece.type === 'archer').map(sq => sq.piece);
+                        const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
                         const hasCrossbow = finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer && sq.piece.heldItem === 'crossbow');
                         
-                        if ((newStreak >= 5 && oldStreak < 5 && hasArcher) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow)) {
+                        if ((newStreak >= 5 && oldStreak < 5 && archers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow)) {
                             const opponentColorForSnipe = movingPlayer === 'white' ? 'black' : 'white';
                             const hasVictims = finalizedBoard.flat().some(sq => 
                                 sq.piece && 
                                 sq.piece.color === opponentColorForSnipe && 
-                                sq.piece.level === 1 && 
+                                sq.piece.level <= maxArcherLevel && 
                                 sq.piece.type !== 'king' && 
                                 sq.piece.type !== 'queen'
                             );
