@@ -313,6 +313,7 @@ export interface AIGameState {
   enPassantTargetSquare: AlgebraicSquare | null;
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
+  necroResurrectionCounter?: number;
 }
 
 export interface ChatMessage {

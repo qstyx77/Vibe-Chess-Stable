@@ -206,7 +206,8 @@ function adaptBoardForAI(
   playerWhoGotFirstBlood: PlayerColor | null,
   enPassantTargetSquare: AlgebraicSquare | null,
   shroomSpawnCounter?: number,
-  nextShroomSpawnTurn?: number
+  nextShroomSpawnTurn?: number,
+  necroResurrectionCounter?: number
 ): AIGameState {
   const newAiBoard: AIBoardState = [];
   for (let r_idx = 0; r_idx < 8; r_idx++) {
@@ -248,6 +249,7 @@ function adaptBoardForAI(
     enPassantTargetSquare: enPassantTargetSquare,
     shroomSpawnCounter: shroomSpawnCounter,
     nextShroomSpawnTurn: nextShroomSpawnTurn,
+    necroResurrectionCounter: necroResurrectionCounter,
   };
 }
 
@@ -281,6 +283,7 @@ export default function DungeonPage() {
   const [promotionTargetLevel, setPromotionTargetLevel] = useState<number>(1);
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
+  const [necroResurrectionCounter, setNecroResurrectionCounter] = useState(0);
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
@@ -353,7 +356,8 @@ export default function DungeonPage() {
     caps: any,
     shroomC: number,
     nextShroom: number,
-    ep: AlgebraicSquare | null
+    ep: AlgebraicSquare | null,
+    nrc: number
   ) => {
     if (!user || !firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
@@ -370,7 +374,8 @@ export default function DungeonPage() {
         capturedPieces: caps,
         shroomSpawnCounter: shroomC,
         nextShroomSpawnTurn: nextShroom,
-        enPassantTargetSquare: ep
+        enPassantTargetSquare: ep,
+        necroResurrectionCounter: nrc
       }
     });
   }, [user, firestore]);
@@ -448,12 +453,13 @@ export default function DungeonPage() {
     const nS = Math.floor(Math.random() * 6) + 5;
     setShroomSpawnCounter(sC);
     setNextShroomSpawnTurn(nS);
+    setNecroResurrectionCounter(0);
     setEnPassantTargetSquare(null);
     const hasCommander = survivorsFromLastBoard.some(p => p.type === 'commander' || p.type === 'hero');
     setFirstBloodAchieved(hasCommander);
     setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
 
-    saveDungeonState(nextLevel, newBoard, 'white', ks, updatedGraveyard, sC, nS, null);
+    saveDungeonState(nextLevel, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0);
 
     const isBoss = nextLevel % 10 === 0;
     setGameInfo({ 
@@ -496,6 +502,7 @@ export default function DungeonPage() {
     const nS = Math.floor(Math.random() * 6) + 5;
     setShroomSpawnCounter(sC);
     setNextShroomSpawnTurn(nS);
+    setNecroResurrectionCounter(0);
     setEnPassantTargetSquare(null);
     
     setInventory(prev => {
@@ -508,7 +515,7 @@ export default function DungeonPage() {
         return next;
     });
 
-    saveDungeonState(targetLevel, newBoard, 'white', ks, { white: [], black: capturedPieces.black }, sC, nS, null);
+    saveDungeonState(targetLevel, newBoard, 'white', ks, { white: [], black: capturedPieces.black }, sC, nS, null, 0);
 
     const isBoss = targetLevel % 10 === 0;
     setGameInfo({ 
@@ -549,6 +556,39 @@ export default function DungeonPage() {
         
         audioManager.playCapture();
         toast({ title: "Poison Damage!", description: `${poisonedCaptures.length} piece(s) affected by poison!`, duration: 3000 });
+    }
+
+    // --- NECROMANCER AUTO-RESURRECTION ---
+    let finalNRC = necroResurrectionCounter;
+    if (turnPlayer === 'white' && !extra) {
+        const necroSq = nextBoard.flat().find(sq => sq.piece?.id === 'boss-necro');
+        if (necroSq) {
+            finalNRC++;
+            if (finalNRC >= 5) {
+                const myGraveyard = nextGraveyard.white; // Black pieces captured by White
+                if (myGraveyard.length > 0) {
+                    const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
+                    const choice = sorted[0];
+                    const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
+                    if (choice && empty.length > 0) {
+                        const sq = empty[Math.floor(Math.random() * empty.length)];
+                        const {row, col} = algebraicToCoords(sq.algebraic);
+                        const res = { ...choice, level: 1, id: `${choice.id}_necro_res_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                        
+                        if (res.type === 'pawn' && row === 7) res.type = 'queen';
+
+                        nextBoard[row][col].piece = res;
+                        nextGraveyard.white = nextGraveyard.white.filter(p => p.id !== choice.id);
+                        setCapturedPieces({ ...nextGraveyard });
+                        addEffect('light-beam', sq.algebraic);
+                        audioManager.playResurrect();
+                        toast({ title: "Necromancy!", description: "The Necromancer has brought back a fallen soul!", variant: "destructive" });
+                        finalNRC = 0;
+                    }
+                }
+            }
+            setNecroResurrectionCounter(finalNRC);
+        }
     }
     setBoard(nextBoard);
 
@@ -605,7 +645,7 @@ export default function DungeonPage() {
     }
     
     // PERSIST MOVE END WITH FINALIZED STATE
-    saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, newCounter, finalNextShroom, nextEpSquare);
+    saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, newCounter, finalNextShroom, nextEpSquare, finalNRC);
 
     const playerKing = findKing(nextBoard, 'white');
     if (!playerKing || isCheckmate(nextBoard, 'white', nextEpSquare)) {
@@ -634,7 +674,7 @@ export default function DungeonPage() {
         gameOver: false 
     });
     setCurrentPlayer(nextP);
-  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState]);
+  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
@@ -807,7 +847,8 @@ export default function DungeonPage() {
         playerWhoGotFirstBlood,
         enPassantTargetSquare,
         shroomSpawnCounter,
-        nextShroomSpawnTurn
+        nextShroomSpawnTurn,
+        necroResurrectionCounter
       );
 
       const aiResult = aiInstance.current?.getBestMove(gameStateForAi, 'black');
@@ -1021,7 +1062,7 @@ export default function DungeonPage() {
       console.error("AI Error:", e);
       setIsAiThinking(false);
     }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast, necroResurrectionCounter]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
@@ -1080,6 +1121,7 @@ export default function DungeonPage() {
       setCapturedPieces(saved.capturedPieces);
       setShroomSpawnCounter(saved.shroomSpawnCounter);
       setNextShroomSpawnTurn(saved.nextShroomSpawnTurn);
+      setNecroResurrectionCounter(saved.necroResurrectionCounter || 0);
       setEnPassantTargetSquare(saved.enPassantTargetSquare);
       const currentBoard = loadedBoard.length === 8 ? loadedBoard : board;
       const survivors = currentBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
@@ -1110,12 +1152,13 @@ export default function DungeonPage() {
       setKillStreaks({ white: 0, black: 0 });
       setShroomSpawnCounter(0);
       setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+      setNecroResurrectionCounter(0);
       setEnPassantTargetSquare(null);
       const hasCommander = army.some(p => p.type === 'commander' || p.type === 'hero');
       setFirstBloodAchieved(hasCommander);
       setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
       
-      saveDungeonState(1, newBoard, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null);
+      saveDungeonState(1, newBoard, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0);
     }
     
     if (userData.inventory) setInventory(userData.inventory);
@@ -1206,7 +1249,7 @@ export default function DungeonPage() {
           setInventory(newInv);
           saveLoadoutToFirestore(nextBoard, newInv);
           // SAVE TO DUNGEON STATE
-          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare);
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
@@ -1222,7 +1265,7 @@ export default function DungeonPage() {
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
           // SAVE TO DUNGEON STATE
-          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare);
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         }
@@ -1238,7 +1281,7 @@ export default function DungeonPage() {
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
           // SAVE TO DUNGEON STATE
-          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare);
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter);
           audioManager.playMove();
         }
       }
@@ -1812,7 +1855,7 @@ export default function DungeonPage() {
             viewMode="flipping"
             animatedSquareTo={animatedSquareTo}
             lastMoveFrom={lastMoveFrom}
-            lastMoveTo={lastMoveTo}
+            lastMoveTo={toAlg}
             isAwaitingPawnSacrifice={isAwaitingPawnSacrifice}
             playerToSacrificePawn={playerToSacrificePawn}
             isAwaitingCommanderPromotion={isAwaitingCommanderPromotion}

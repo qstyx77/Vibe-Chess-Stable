@@ -16,6 +16,22 @@ const getPieceAbilities = (piece: Piece): string[] => {
 
   if (id.startsWith('boss-hydra')) {
     abilities.push(" Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
+  } else if (id === 'boss-necro') {
+    abilities.push(" Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators.");
+    abilities.push(" Ethereal Phasing: Can move through friendly units.");
+    abilities.push(" Dark Conversion: 50% chance to convert adjacent enemy units after moving.");
+    abilities.push(" Necromancy: Automatically resurrects the strongest fallen ally every 5 turns.");
+  } else if (id === 'boss-colossus') {
+    abilities.push(" Iron Guard: Starts with a Holy Shield.");
+    abilities.push(" Heavyweight: Immune to Push-Back and Gravity effects.");
+    abilities.push(" King's Dominion: Leveling up reduces enemy Queen levels.");
+  } else if (id === 'boss-mirage') {
+    abilities.push(" Phantom Mirror: Summons a phalanx of Phantom Bishops.");
+    abilities.push(" Illusionist: Can jump over any unit while moving.");
+  } else if (id === 'boss-entity') {
+    abilities.push(" Void Shield: Starts with a permanent Holy Shield.");
+    abilities.push(" Void Command: Surrounds itself with elite Hero and Infiltrator Aspects.");
+    abilities.push(" The End: Wins immediately if it reaches your back rank.");
   }
 
   if (heldItem === 'cardinal_greaves') abilities.push(" cardinal: move (no capture) 1 space forward.");
@@ -142,16 +158,18 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const abilities = getPieceAbilities(piece);
   
   let pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
+  const isBoss = piece.id.startsWith('boss-');
+  
   if (piece.id.startsWith('boss-hydra')) {
-    pieceName = "Hydra";
-  } else if (piece.id.startsWith('boss-necro')) {
-    pieceName = "Necromancer";
-  } else if (piece.id.startsWith('boss-colossus')) {
-    pieceName = "Colossus";
-  } else if (piece.id.startsWith('boss-mirage')) {
-    pieceName = "Mirage";
-  } else if (piece.id.startsWith('boss-entity')) {
-    pieceName = "Void Entity";
+    pieceName = "The Hydra";
+  } else if (piece.id === 'boss-necro') {
+    pieceName = "The Necromancer";
+  } else if (piece.id === 'boss-colossus') {
+    pieceName = "The Colossus";
+  } else if (piece.id === 'boss-mirage') {
+    pieceName = "The Mirage";
+  } else if (piece.id === 'boss-entity') {
+    pieceName = "The Void Entity";
   }
 
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
@@ -160,7 +178,9 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
 
   return (
     <div className="text-center text-[10px]">
-      <h3 className="font-bold text-primary text-xs leading-none">{pieceName} - Level {piece.level || 1}</h3>
+      <h3 className={cn("font-bold text-xs leading-none", isBoss ? "text-destructive" : "text-primary")}>
+        {pieceName} - Level {piece.level || 1}
+      </h3>
       <div className="flex flex-col gap-0.5 mt-0.5 mb-0.5">
         {piece.isPoisoned && (
           <p className="text-[#22C55E] font-bold text-[8px] animate-pulse uppercase leading-none">

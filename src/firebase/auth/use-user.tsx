@@ -15,6 +15,7 @@ interface DungeonState {
   shroomSpawnCounter: number;
   nextShroomSpawnTurn: number;
   enPassantTargetSquare: string | null;
+  necroResurrectionCounter?: number;
 }
 
 interface UserData {
