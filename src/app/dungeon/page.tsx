@@ -23,6 +23,7 @@ import {
   getEffectiveLevel,
   getPromotionLevel,
   VAL_MAP,
+  isItemValidForPiece,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, ResurrectedSquareInfo, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, SquareState } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -844,6 +845,16 @@ export default function DungeonPage() {
             black: [...capturedPieces.black]
         };
 
+        if (result.itemReturned) {
+          setInventory(prev => {
+            const next = [...prev];
+            const existing = next.find(i => i.type === result.itemReturned);
+            if (existing) existing.count++;
+            else next.push({ type: result.itemReturned!, count: 1 });
+            return next;
+          });
+        }
+
         if (reflectionOccurred) {
             const victim = capturedPiece!;
             updatedCapturedPieces.white.push({ ...victim, id: `${victim.id}_refl_aj_${Date.now()}` });
@@ -1131,6 +1142,19 @@ export default function DungeonPage() {
     const { row, col } = algebraicToCoords(promotionSquare);
     const pieceBeingPromoted = nextBoard[row][col].piece;
     if (!pieceBeingPromoted) return;
+
+    if (pieceBeingPromoted.heldItem && !isItemValidForPiece(pieceBeingPromoted.heldItem, pieceType)) {
+      const item = pieceBeingPromoted.heldItem;
+      setInventory(prev => {
+        const next = [...prev];
+        const existing = next.find(i => i.type === item);
+        if (existing) existing.count++;
+        else next.push({ type: item, count: 1 });
+        return next;
+      });
+      pieceBeingPromoted.heldItem = null;
+      toast({ title: "Equipment Returned", description: `${ITEM_METADATA[item].name} unequipped.` });
+    }
     
     nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, level: promotionTargetLevel, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
     if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
@@ -1142,7 +1166,7 @@ export default function DungeonPage() {
 
     const isExtra = (nextBoard[row][col].piece!.level >= 5) || specialActionContext?.extra;
     triggerSpecialsChain(nextBoard, specialActionContext?.currentGraveyard || capturedPieces, specialActionContext?.currentKs || killStreaks, specialActionContext?.oldStreak || 0, specialActionContext?.newStreak || 0, isExtra, enPassantTargetSquare, specialActionContext?.actingPlayer || 'white', specialActionContext?.completedMilestones || []);
-  }, [board, promotionSquare, promotionTargetLevel, specialActionContext, enPassantTargetSquare, triggerSpecialsChain, capturedPieces, killStreaks]);
+  }, [board, promotionSquare, promotionTargetLevel, specialActionContext, enPassantTargetSquare, triggerSpecialsChain, capturedPieces, killStreaks, toast]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current || gameInfo.gameOver) return;
@@ -1310,7 +1334,7 @@ export default function DungeonPage() {
             if (responsibleArcher) {
                 const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const {row: tr, col: tc} = algebraicToCoords(algebraic);
-                const snipedPiece = { ...nextBoard[tr][tc].piece!, id: `${nextBoard[tr][tc].piece!.id}_sniped_${Date.now()}` };
+                const snipedPiece = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_${Date.now()}` };
                 nextBoard[tr][tc].piece = null;
                 
                 // Level up the archer
@@ -1582,6 +1606,17 @@ export default function DungeonPage() {
         let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
         
         const updatedGraveyard = { ...capturedPieces };
+
+        if (result.itemReturned) {
+          setInventory(prev => {
+            const next = [...prev];
+            const existing = next.find(i => i.type === result.itemReturned);
+            if (existing) existing.count++;
+            else next.push({ type: result.itemReturned!, count: 1 });
+            return next;
+          });
+          toast({ title: "Equipment Returned", description: `${ITEM_METADATA[result.itemReturned].name} unequipped.` });
+        }
 
         if (reflectionOccurred) {
             const victim = capturedPiece!;

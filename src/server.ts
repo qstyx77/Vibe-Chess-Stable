@@ -20,7 +20,8 @@ import {
     boardToPositionHash,
     getCastlingRightsString,
     getEffectiveLevel,
-    syncSoulLink
+    syncSoulLink,
+    isItemValidForPiece
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
 
@@ -557,6 +558,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const { row, col } = algebraicToCoords(square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece && (piece.type === 'pawn' || piece.type === 'commander' || room.gameState.pendingPromotion.fromResurrection)) {
+                            
+                            // Equipment Return Logic
+                            if (piece.heldItem && !isItemValidForPiece(piece.heldItem, promoteTo)) {
+                              ws.send(JSON.stringify({ type: 'equipment-returned', item: piece.heldItem }));
+                              piece.heldItem = null;
+                            }
+
                             piece.type = promoteTo;
                             piece.level = room.gameState.pendingPromotion.targetLevel || 1;
                             if (promoteTo === 'queen') piece.level = Math.min(piece.level, 7);
@@ -634,11 +642,16 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const originalLevel = movingPieceStart.level || 1;
                         const originalType = movingPieceStart.type;
-                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, promotedToInfiltrator, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
+                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, promotedToInfiltrator, itemReturned, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
                         
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         
+                        // Handle automatic promotion item returns
+                        if (itemReturned) {
+                          ws.send(JSON.stringify({ type: 'equipment-returned', item: itemReturned }));
+                        }
+
                         const isObliterationMove = promotedToInfiltrator || (movingPieceStart.type === 'infiltrator' && capturedPiece);
 
                         if (capturedPiece && !isObliterationMove) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);

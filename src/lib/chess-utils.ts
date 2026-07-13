@@ -1,4 +1,4 @@
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
@@ -201,6 +201,19 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
   if (['pawn', 'commander', 'infiltrator'].includes(capturedPieceType)) return 2;
   if (capturedPieceType === 'queen') return 4;
   return 3;
+}
+
+export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
+  if (item === 'swift_cloak') return (type === 'pawn' || type === 'commander');
+  if (item === 'queens_peace') return (type === 'queen');
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest'].includes(item)) {
+    return (type !== 'king' && type !== 'queen');
+  }
+  if (item === 'crossbow') return (type === 'archer');
+  if (item === 'detonation_scroll') return (type !== 'king');
+  if (item === 'kings_decree') return (type === 'king');
+  if (item === 'monks_robe') return (type === 'bishop' || type === 'archbishop');
+  return true;
 }
 
 function getPossibleMovesInternal(
@@ -636,6 +649,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let phoenixResurrection: { piece: Piece, square: AlgebraicSquare } | undefined = undefined;
   let reflectionOccurred = false;
   let resurrectionScrollEvent: { piece: Piece, square: AlgebraicSquare } | undefined = undefined;
+  let itemReturned: InventoryItemType | null = null;
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
@@ -959,6 +973,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (promotedToInfiltrator) pieceToLand.type = 'infiltrator';
 
+  // Return equipment if promotion makes it invalid (Automatic promotions only)
+  if (pieceToLand.heldItem && !isItemValidForPiece(pieceToLand.heldItem, pieceToLand.type)) {
+    itemReturned = pieceToLand.heldItem;
+    pieceToLand.heldItem = null;
+  }
+
   newBoard[toRow][toCol].piece = pieceToLand;
   newBoard[fromRow][fromCol].piece = null;
 
@@ -1165,7 +1185,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned };
 }
 
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor): Piece | null {

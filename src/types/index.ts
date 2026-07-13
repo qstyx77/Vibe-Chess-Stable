@@ -210,6 +210,7 @@ export interface ApplyMoveResult {
   phoenixResurrection?: { piece: Piece, square: AlgebraicSquare };
   reflectionOccurred?: boolean;
   resurrectionScrollEvent?: { piece: Piece, square: AlgebraicSquare };
+  itemReturned?: InventoryItemType | null;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

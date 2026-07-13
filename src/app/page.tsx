@@ -30,6 +30,7 @@ import {
   getPromotionLevel,
   VAL_MAP,
   spawnShroom,
+  isItemValidForPiece,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -728,6 +729,17 @@ export default function EvolvingChessPage() {
         setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(toAlg);
         const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
         let nextB = applyResult.newBoard;
+
+        if (applyResult.itemReturned) {
+          setInventory(prev => {
+            const next = [...prev];
+            const existing = next.find(i => i.type === applyResult.itemReturned);
+            if (existing) existing.count++;
+            else next.push({ type: applyResult.itemReturned!, count: 1 });
+            return next;
+          });
+        }
+
         if (applyResult.reflectionOccurred) {
             const def = currentPlayer === 'white' ? 'black' : 'white';
             setCapturedPieces(prev => ({ ...prev, [def]: [...(prev[def] || []), { ...applyResult.capturedPiece!, id: `refl_${Date.now()}` }] }));
@@ -907,6 +919,18 @@ export default function EvolvingChessPage() {
             const oldL = moving.level; const oldT = moving.type;
             const applyResult = applyMove(board, { from: selectedSquare, to: algebraic }, enPassantTargetSquare, capturedPieces);
             let nextB = applyResult.newBoard;
+
+            if (applyResult.itemReturned) {
+              setInventory(prev => {
+                const next = [...prev];
+                const existing = next.find(i => i.type === applyResult.itemReturned);
+                if (existing) existing.count++;
+                else next.push({ type: applyResult.itemReturned!, count: 1 });
+                return next;
+              });
+              toast({ title: "Equipment Returned", description: `${ITEM_METADATA[applyResult.itemReturned].name} unequipped.` });
+            }
+
             if (applyResult.reflectionOccurred) {
                 const def = currentPlayer === 'white' ? 'black' : 'white';
                 setCapturedPieces(prev => ({ ...prev, [def]: [...(prev[def] || []), { ...applyResult.capturedPiece!, id: `refl_${Date.now()}` }] }));
@@ -935,7 +959,7 @@ export default function EvolvingChessPage() {
                 if (nextB[row][col].piece?.type === 'pawn' && (row === 0 || row === 7)) {
                     setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
                     setIsPromotingPawn(true); setPromotionSquare(algebraic);
-                    setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS });
+                    setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldS, newS });
                 } else {
                     processPawnSacrificeCheck(nextB, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
                 }
@@ -958,11 +982,25 @@ export default function EvolvingChessPage() {
         const { row, col } = algebraicToCoords(promotionSquare);
         const beingPromoted = boardToUpdate[row][col].piece;
         if (!beingPromoted) return;
+
+        if (beingPromoted.heldItem && !isItemValidForPiece(beingPromoted.heldItem, pieceType)) {
+          const item = beingPromoted.heldItem;
+          setInventory(prev => {
+            const next = [...prev];
+            const existing = next.find(i => i.type === item);
+            if (existing) existing.count++;
+            else next.push({ type: item, count: 1 });
+            return next;
+          });
+          beingPromoted.heldItem = null;
+          toast({ title: "Equipment Returned", description: `${ITEM_METADATA[item].name} unequipped.` });
+        }
+
         boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: promotionTargetLevel, hasMoved: true };
         setBoard(boardToUpdate); setIsPromotingPawn(false); setPromotionSquare(null); audioManager.playLevelUp();
-        triggerSpecialsChain(boardToUpdate, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, (boardToUpdate[row][col].piece!.level >= 5) || (anvilDropContext?.isExtraTurn || false), anvilDropContext?.newEnPassantTarget || null, currentPlayer, []);
+        triggerSpecialsChain(boardToUpdate, anvilDropContext?.oldS || 0, anvilDropContext?.newS || 0, (boardToUpdate[row][col].piece!.level >= 5) || (anvilDropContext?.isExtraTurn || false), anvilDropContext?.newEnPassantTarget || null, currentPlayer, []);
     }
-  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus]);
+  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus, toast]);
 
   useEffect(() => {
     if (!board || !prevBoardRef.current) { prevBoardRef.current = board; return; }
@@ -1124,7 +1162,7 @@ export default function EvolvingChessPage() {
               <div className="flex flex-col gap-2 items-center border-t pt-2">
                 <div className="flex items-center gap-2 text-xs font-pixel text-primary uppercase">
                   <span>Room: {roomId || inputRoomId}</span>
-                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.clipboard.writeText(roomId || inputRoomId); toast({ title: "Copied!" }); }}>
+                  <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); toast({ title: "Copied!" }); }}>
                     <Copy className="h-3 w-3" />
                   </Button>
                 </div>
@@ -1167,7 +1205,7 @@ export default function EvolvingChessPage() {
 
   function fullGameReset() {
     let initial = initializeBoard(userData?.eloRating || 1200, 1200);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
 
