@@ -160,7 +160,7 @@ export class VibeChessAI {
                 for (const [dr, dc] of dirs) {
                     if (spawned >= 2) break;
                     const nr = r + dr; const nc = c + dc;
-                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nr].piece && !targetBoard[nr][nr].item) {
+                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
                         targetBoard[nr][nc].piece = {
                             id: `hydra-head-sim-${Date.now()}-${spawned}-${victim.id}`,
                             type: 'knight',
@@ -247,9 +247,14 @@ export class VibeChessAI {
             targetSquare.item = null;
         }
         if (move.type === 'enpassant') {
-            const epRow = piece.color === 'white' ? tR + 1 : tR - 1;
-            if (nextState.board[epRow]?.[tC]) nextState.board[epRow][tC].piece = null;
-            piece.type = 'infiltrator'; captureOccurred = true; captureCount = 1;
+            const epRow = piece.color === 'white' ? fR : fR; // Capturing pawn is on moving rank
+            if (nextState.board[fR]?.[tC]?.piece) {
+                nextState.board[fR][tC].piece = null;
+                piece.type = 'infiltrator'; captureOccurred = true; captureCount = 1;
+            } else {
+                // Should not happen with strict isMoveValid, but safety guard prevents phantom promotion
+                captureOccurred = false;
+            }
         } else if (targetPiece && targetPiece.color !== currentPlayer) {
             captureOccurred = true; captureCount = 1;
             handleHydraSplit(targetPiece, tR, tC, nextState.board);
@@ -431,7 +436,7 @@ export class VibeChessAI {
                 { r: r, c: c - 1 },
                 { r: r, c: c + 1 },
                 { r: r + forwardDir, c: c },
-                { r: r - forwardDir, c: c } // Corrected: All 4 cardinal directions
+                { r: r - forwardDir, c: c } 
             ];
 
             splashTargets.forEach(target => {
@@ -721,7 +726,9 @@ export class VibeChessAI {
                 const ep = gs.enPassantTargetSquare;
                 if (ep) {
                   const { row: epR, col: epC } = algebraicToCoords(ep);
-                  if (r + dir === epR && Math.abs(c - epC) === 1) {
+                  // Added strict check: capture row must contain an actual opponent piece for en passant moves to be generated
+                  const victim = gs.board[r]?.[epC]?.piece;
+                  if (r + dir === epR && Math.abs(c - epC) === 1 && victim && victim.color !== color && (victim.type === 'pawn' || victim.type === 'commander' || victim.type === 'infiltrator')) {
                     moves.push({ from: [r, c], to: [epR, epC], type: 'enpassant' });
                   }
                 }
