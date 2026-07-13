@@ -269,7 +269,7 @@ function getPossibleMovesInternal(
         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
         for (const [dr_n, dc_n] of knightDeltas) {
             const toR_n = fromRow + dr_n; const toC_n = fromCol + dc_n;
-            if (isValidSquare(toR_n, toC_n) && (!board[toR_n][toC_n].item || board[toR_n][toC_n].item?.type === 'shroom')) {
+            if (isValidSquareUtil(toR_n, toC_n) && (!board[toR_n][toC_n].item || board[toR_n][toC_n].item?.type === 'shroom')) {
                 const targetPiece_n = board[toR_n][toC_n].piece;
                 const targetLevel_n = getEffectiveLevel(board, toR_n, toC_n);
                 if (!targetPiece_n || targetPiece_n.color !== pieceColor) {
@@ -1127,7 +1127,9 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     pieceToLand.frozenTurnsRemaining = 0;
   }
 
-  if (pieceToLand.isPoisoned && pieceToLand.level === 1) pieceToLand.cooldownTurnsRemaining = 1;
+  // Poison exhaustion penalty for Level 1 pieces that move/capture without leveling up
+  if (pieceToLand.isPoisoned && pieceToLand.level === 1) pieceToLand.cooldownTurnsRemaining = 2;
+  
   if (movingPiece.heldItem === 'wind_sword' && captured) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;
@@ -1298,11 +1300,8 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
           if (p.isPoisoned) {
             if (p.level > 1) {
               p.level--;
-            } else {
-              // Capture pieces that die from poison at level 1
-              poisonedCaptures.push({ ...p });
-              sq.piece = null;
             }
+            // Poison is no longer lethal to Level 1 pieces
           }
 
           const currentP = sq.piece; // check piece again since it might have died from poison

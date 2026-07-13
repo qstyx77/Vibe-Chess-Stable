@@ -160,7 +160,7 @@ export class VibeChessAI {
                 for (const [dr, dc] of dirs) {
                     if (spawned >= 2) break;
                     const nr = r + dr; const nc = c + dc;
-                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
+                    if (isValidSquareUtil(nr, nc) && !targetBoard[nr][nr].piece && !targetBoard[nr][nr].item) {
                         targetBoard[nr][nc].piece = {
                             id: `hydra-head-sim-${Date.now()}-${spawned}-${victim.id}`,
                             type: 'knight',
@@ -372,7 +372,8 @@ export class VibeChessAI {
             }
         }
 
-        if (piece.isPoisoned && piece.level === 1) piece.cooldownTurnsRemaining = 1;
+        // Apply exhaustion penalty for Level 1 pieces moving while poisoned
+        if (piece.isPoisoned && piece.level === 1) piece.cooldownTurnsRemaining = 2;
 
         if (captureOccurred) {
             const oldStreak = originalGameState.killStreaks[currentPlayer] || 0;
