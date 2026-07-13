@@ -88,11 +88,14 @@ export function ChessSquare({
       currentBgClass = 'bg-sky-500/40';
   }
 
-  if (isPossibleMove && (!piece || item?.type === 'shroom') && !disabled) {
-    currentBgClass = 'bg-accent/40';
-  }
-  if (isPossibleMove && piece && item?.type !== 'shroom' && !disabled) {
-    currentBgClass = 'bg-destructive/60';
+  // UNIFIED HIGHLIGHT: All legal moves (standard and capture) now highlight with the Accent (Purple) color
+  if (isPossibleMove && !disabled) {
+    if (piece && item?.type !== 'shroom') {
+      // For captures, we use a slightly stronger opacity of the same purple accent
+      currentBgClass = 'bg-accent/60';
+    } else {
+      currentBgClass = 'bg-accent/40';
+    }
   }
 
   if (isEnemyPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-blue-600/30';
