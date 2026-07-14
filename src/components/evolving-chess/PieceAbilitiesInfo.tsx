@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Piece } from '@/types';
@@ -77,34 +76,21 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 1 turn.");
   if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies for 2 turns.");
   if (heldItem === 'soul_harvest') abilities.push(" spell: reduce adjacent pieces to L1 to absorb their power.");
-  if (heldItem === 'swift_cloak') {
-      if (type === 'pawn' || type === 'commander') {
-          abilities.push(" swift: double move range for small units.");
-      } else {
-          abilities.push(" swift: inactive (only for small units).");
-      }
-  }
+  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'commander'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {
     case 'pawn':
+    case 'dancer':
     case 'commander':
       if (l >= 1) abilities.push("Standard pawn move/capture.");
       if (l >= 2) abilities.push("Can move 1 square backward.");
       if (l >= 3) abilities.push("Can move 1 square sideways.");
       if (l >= 4) abilities.push("Push-Back adjacent entities.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
-      if (type === 'commander') {
-          abilities.push("Rallying Cry on capture (levels up other pawns).");
-          abilities.push("Promotes to Hero.");
-          abilities.push("Queen Hunter.");
-      }
+      if (type === 'commander') { abilities.push("Rallying Cry on capture (levels up other pawns)."); abilities.push("Promotes to Hero."); abilities.push("Queen Hunter."); }
+      if (type === 'dancer') { abilities.push("Dance: KS 1 triggers a cardinal move or adjacent swap."); }
       break;
-    case 'infiltrator':
-      abilities.push("Moves/captures 1 square forward or diagonally forward.");
-      abilities.push("Obliterates captured pieces.");
-      abilities.push("Wins game on back rank.");
-      abilities.push("Queen Hunter.");
-      break;
+    case 'infiltrator': abilities.push("Moves/captures 1 square forward or diagonally forward."); abilities.push("Obliterates captured pieces."); abilities.push("Wins game on back rank."); abilities.push("Queen Hunter."); break;
     case 'knight':
     case 'hero':
     case 'archer':
@@ -113,13 +99,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (l >= 3) abilities.push("Can jump 3 squares cardinally.");
       if (l >= 4) abilities.push("Swap with friendly Bishop.");
       if (l >= 5) abilities.push("Self-Destruct ability.");
-      if (type === 'hero') {
-          abilities.push("Hero's Rallying Cry on capture (levels up all other pieces).");
-          abilities.push("Queen Hunter.");
-      }
-      if (type === 'archer') {
-          abilities.push("Archer Snipe: KS 3 grants global targeting (Non-Royals only).");
-      }
+      if (type === 'hero') { abilities.push("Hero's Rallying Cry on capture (levels up all other pieces)."); abilities.push("Queen Hunter."); }
+      if (type === 'archer') { abilities.push("Archer Snipe: KS 3 grants global targeting (Non-Royals only)."); }
       break;
     case 'bishop':
     case 'archbishop':
@@ -128,18 +109,13 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (l >= 3) abilities.push("Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators.");
       if (l >= 4) abilities.push("Swap with friendly Knight/Hero/Archer.");
       if (l >= 5) abilities.push("50% chance to Convert adjacent enemies.");
-      if (type === 'archbishop') {
-        abilities.push("Holy Shield: KS 2 grants protection to an ally.");
-      }
+      if (type === 'archbishop') abilities.push("Holy Shield: KS 2 grants protection to an ally.");
       break;
     case 'rook':
     case 'palace':
       abilities.push("Standard horizontal/vertical move.");
       if (l >= 4) abilities.push("Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece.");
-      if (type === 'palace') {
-        abilities.push("Master Resurrector: Allies return at their original level.");
-        abilities.push("Royal Sanctuary: Castling levels up the King.");
-      }
+      if (type === 'palace') { abilities.push("Master Resurrector: Allies return at their original level."); abilities.push("Royal Sanctuary: Castling levels up the King."); }
       break;
     case 'queen':
       abilities.push("Standard Queen movement.");
@@ -152,74 +128,32 @@ const getPieceAbilities = (piece: Piece): string[] => {
       abilities.push("Reduces enemy Queen levels on King level up.");
       break;
   }
-
   return abilities;
 };
 
 export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const abilities = getPieceAbilities(piece);
-  
   let pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
   const isBoss = piece.id.startsWith('boss-');
-  
-  if (piece.id.startsWith('boss-hydra')) {
-    pieceName = "The Hydra";
-  } else if (piece.id === 'boss-necro') {
-    pieceName = "The Necromancer";
-  } else if (piece.id.startsWith('boss-colossus')) {
-    pieceName = "The Colossus";
-  } else if (piece.id === 'boss-mirage') {
-    pieceName = "The Mirage";
-  } else if (piece.id === 'boss-entity') {
-    pieceName = "The Void Entity";
-  }
-
+  if (piece.id.startsWith('boss-hydra')) pieceName = "The Hydra";
+  else if (piece.id === 'boss-necro') pieceName = "The Necromancer";
+  else if (piece.id.startsWith('boss-colossus')) pieceName = "The Colossus";
+  else if (piece.id === 'boss-mirage') pieceName = "The Mirage";
+  else if (piece.id === 'boss-entity') pieceName = "The Void Entity";
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
-
   return (
     <div className="text-center text-[10px]">
-      <h3 className={cn("font-bold text-xs leading-none", isBoss ? "text-destructive" : "text-primary")}>
-        {pieceName} - Level {piece.level || 1}
-      </h3>
+      <h3 className={cn("font-bold text-xs leading-none", isBoss ? "text-destructive" : "text-primary")}> {pieceName} - Level {piece.level || 1} </h3>
       <div className="flex flex-col gap-0.5 mt-0.5 mb-0.5">
-        {piece.isPoisoned && (
-          <p className="text-[#22C55E] font-bold text-[8px] animate-pulse uppercase leading-none">
-            STATUS: POISONED
-          </p>
-        )}
-        {isFrozen && (
-          <p className="text-sky-400 font-bold text-[8px] animate-pulse uppercase leading-none">
-            STATUS: FROZEN
-          </p>
-        )}
-        {!isFrozen && isExhausted && (
-          <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none">
-            STATUS: EXHAUSTED
-          </p>
-        )}
-        {piece.heldItem === 'training_weights' && (
-          <p className="text-muted-foreground font-bold text-[8px] uppercase leading-none">
-            CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS
-          </p>
-        )}
+        {piece.isPoisoned && <p className="text-[#22C55E] font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: POISONED </p>}
+        {isFrozen && <p className="text-sky-400 font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: FROZEN </p>}
+        {!isFrozen && isExhausted && <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: EXHAUSTED </p>}
+        {piece.heldItem === 'training_weights' && <p className="text-muted-foreground font-bold text-[8px] uppercase leading-none"> CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS </p>}
       </div>
-      {item && (
-        <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-sm">
-          <div className="flex items-center justify-center gap-1 mb-0.5">
-             <ItemSprite type={piece.heldItem!} size={10} />
-             <p className="text-[0.55rem] font-bold text-accent uppercase leading-none">{item.name}</p>
-             <ItemSprite type={piece.heldItem!} size={10} />
-          </div>
-          <p className="text-[0.55rem] text-muted-foreground italic leading-none">{item.description}</p>
-        </div>
-      )}
-      <ul className="list-none p-0 m-0 text-[0.65rem] space-y-0">
-        {abilities.map((ability, index) => (
-          <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>{ability}</li>
-        ))}
-      </ul>
+      {item && ( <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-sm"> <div className="flex items-center justify-center gap-1 mb-0.5"> <ItemSprite type={piece.heldItem!} size={10} /> <p className="text-[0.55rem] font-bold text-accent uppercase leading-none">{item.name}</p> <ItemSprite type={piece.heldItem!} size={10} /> </div> <p className="text-[0.55rem] text-muted-foreground italic leading-none">{item.description}</p> </div> )}
+      <ul className="list-none p-0 m-0 text-[0.65rem] space-y-0"> {abilities.map((ability, index) => ( <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>{ability}</li> ))} </ul>
     </div>
   );
 }

@@ -18,6 +18,18 @@ export const PixelPawn = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelDancer = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="4" width="2" height="4" /> {/* Head */}
+    <rect x="9" y="8" width="6" height="2" /> {/* Shoulders */}
+    <rect x="10" y="10" width="4" height="6" /> {/* Body */}
+    <rect x="7" y="14" width="2" height="4" /> {/* Left Leg (Extended) */}
+    <rect x="15" y="12" width="2" height="4" /> {/* Right Leg (Lifted) */}
+    <rect x="5" y="10" width="2" height="2" /> {/* Left Arm Pointing Up */}
+    <rect x="17" y="10" width="2" height="2" /> {/* Right Arm Pointing Up */}
+  </svg>
+);
+
 export const PixelCommander = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <rect x="11" y="2" width="2" height="3" /> {/* Plume */}

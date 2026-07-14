@@ -35,6 +35,7 @@ interface ChessSquareProps {
   isInvTarget?: boolean;
   isSwapTarget?: boolean;
   isDecreeTarget?: boolean;
+  isDanceTarget?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   isAnvilDropTarget?: boolean;
   effectiveLevel?: number;
@@ -70,6 +71,7 @@ export function ChessSquare({
   isInvTarget = false,
   isSwapTarget = false,
   isDecreeTarget = false,
+  isDanceTarget = false,
   selectedInventoryItemType,
   isAnvilDropTarget = false,
   effectiveLevel,
@@ -79,111 +81,44 @@ export function ChessSquare({
   const item = squareData.item;
 
   const isJustMoved = !!(animatedSquareTo && squareData.algebraic === animatedSquareTo && piece);
-  
   const shouldRotateItemForTabletop = viewMode === 'tabletop' && squareData.rowIndex <= 3;
 
   let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted';
-
-  if (isLastMoveFrom || isLastMoveTo) {
-      currentBgClass = 'bg-sky-500/40';
-  }
-
-  // UNIFIED HIGHLIGHT: All legal moves (standard and capture) now highlight with the Accent (Purple) color
+  if (isLastMoveFrom || isLastMoveTo) currentBgClass = 'bg-sky-500/40';
   if (isPossibleMove && !disabled) {
-    if (piece && item?.type !== 'shroom') {
-      // For captures, we use a slightly stronger opacity of the same purple accent
-      currentBgClass = 'bg-accent/60';
-    } else {
-      currentBgClass = 'bg-accent/40';
-    }
+    if (piece && item?.type !== 'shroom') currentBgClass = 'bg-accent/60';
+    else currentBgClass = 'bg-accent/40';
   }
-
   if (isEnemyPossibleMove && !piece && !item && !disabled) currentBgClass = 'bg-blue-600/30';
   if (isEnemyPossibleMove && piece && !item && !disabled) currentBgClass = 'bg-yellow-500/50';
-
-  if (isEnPassantTarget && isPossibleMove && !piece) {
-    currentBgClass = 'bg-purple-400/50';
-  }
+  if (isEnPassantTarget && isPossibleMove && !piece) currentBgClass = 'bg-purple-400/50';
 
   let selectionRingClass = '';
-  // Standardized blinky blue for all special selections
   const specialSelectionBlue = 'ring-4 ring-inset ring-sky-400 animate-pulse';
-
-  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget) {
+  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget || isDanceTarget) {
     selectionRingClass = specialSelectionBlue;
   } else if (isInvTarget) {
-    if (selectedInventoryItemType) {
-        selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-yellow-400' : 'ring-4 ring-inset ring-primary animate-pulse';
-    } else {
-        selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-destructive animate-pulse' : '';
-    }
-  } else if (isSelected && !disabled) {
-    selectionRingClass = 'ring-2 ring-inset ring-accent';
-  } else if (isEnemySelected && !disabled) {
-    selectionRingClass = 'ring-2 ring-inset ring-blue-600';
-  }
+    if (selectedInventoryItemType) selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-yellow-400' : 'ring-4 ring-inset ring-primary animate-pulse';
+    else selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-destructive animate-pulse' : '';
+  } else if (isSelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-accent';
+  else if (isEnemySelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-blue-600';
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget;
-
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget;
 
   return (
     <button
       onClick={() => !effectiveDisabled && onClick(squareData.algebraic)}
       onMouseEnter={() => onPieceHover(squareData.piece)}
       onMouseLeave={() => onPieceHover(null)}
-      className={cn(
-        'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu font-sans text-sm font-medium',
-        currentBgClass,
-        selectionRingClass,
-        effectiveDisabled && 'cursor-not-allowed',
-        item && item.type !== 'shroom' && 'cursor-not-allowed'
-      )}
+      className={cn( 'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu font-sans text-sm font-medium', currentBgClass, selectionRingClass, effectiveDisabled && 'cursor-not-allowed', item && item.type !== 'shroom' && 'cursor-not-allowed' )}
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
-
-      {item && item.type === 'anvil' && (
-        <div className={cn(
-          "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2",
-          shouldRotateItemForTabletop && "rotate-180"
-        )}>
-          <PixelAnvil className="w-full h-full text-muted-foreground/90" />
-        </div>
-      )}
-      {item && item.type === 'shroom' && (
-        <div className={cn(
-          "absolute inset-0 flex items-center justify-center pointer-events-none z-0",
-          shouldRotateItemForTabletop && "rotate-180"
-        )}>
-          <div className="w-4/5 h-4/5 opacity-70 text-destructive">
-            <ShroomIcon />
-          </div>
-        </div>
-      )}
-      {piece && (
-        <div className="relative z-10 w-full h-full">
-          <ChessPieceDisplay
-            piece={piece}
-            isKingInCheck={isKingInCheck}
-            viewMode={viewMode}
-            isJustMoved={isJustMoved}
-            isSacrificeTarget={isSacrificeTarget}
-            isCommanderPromoTarget={isCommanderPromoTarget}
-            isPromoting={isPromoting}
-            isConverting={isConverting}
-            isSnipeTarget={isSnipeTarget}
-            effectiveLevel={effectiveLevel}
-            isGrimoirBoosted={isGrimoirBoosted}
-            isOnBoard={true}
-          />
-        </div>
-      )}
-      <span className="absolute bottom-0.5 left-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20">
-        {squareData.algebraic}
-      </span>
-       <span className="absolute top-0.5 right-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20">
-        {squareData.algebraic}
-      </span>
+      {item && item.type === 'anvil' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2", shouldRotateItemForTabletop && "rotate-180" )}> <PixelAnvil className="w-full h-full text-muted-foreground/90" /> </div> )}
+      {item && item.type === 'shroom' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0", shouldRotateItemForTabletop && "rotate-180" )}> <div className="w-4/5 h-4/5 opacity-70 text-destructive"> <ShroomIcon /> </div> </div> )}
+      {piece && ( <div className="relative z-10 w-full h-full"> <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} viewMode={viewMode} isJustMoved={isJustMoved} isSacrificeTarget={isSacrificeTarget} isCommanderPromoTarget={isCommanderPromoTarget} isPromoting={isPromoting} isConverting={isConverting} isSnipeTarget={isSnipeTarget} effectiveLevel={effectiveLevel} isGrimoirBoosted={isGrimoirBoosted} isOnBoard={true} /> </div> )}
+      <span className="absolute bottom-0.5 left-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20"> {squareData.algebraic} </span>
+       <span className="absolute top-0.5 right-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20"> {squareData.algebraic} </span>
     </button>
   );
 }

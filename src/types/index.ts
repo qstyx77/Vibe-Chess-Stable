@@ -1,5 +1,5 @@
 export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer';
 export type ItemType = 'anvil' | 'shroom';
 
 export interface Item {
@@ -142,7 +142,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap';
   promoteTo?: PieceType;
 }
 

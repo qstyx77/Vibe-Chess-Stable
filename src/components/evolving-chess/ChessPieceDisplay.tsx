@@ -2,6 +2,7 @@ import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
   PixelPawn, 
+  PixelDancer,
   PixelCommander,
   PixelInfiltrator,
   PixelKnight, 
@@ -39,6 +40,7 @@ interface ChessPieceDisplayProps {
 
 const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
   pawn: PixelPawn,
+  dancer: PixelDancer,
   commander: PixelCommander,
   infiltrator: PixelInfiltrator,
   knight: PixelKnight,
@@ -148,8 +150,8 @@ export function ChessPieceDisplay({
         <div className={cn(
           "w-[95%] h-[95%] relative z-[1] flex items-center justify-center",
           isMini 
-            ? ((piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-[180%]" : "scale-[200%]")
-            : ((piece.type === 'pawn' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100")
+            ? ((piece.type === 'pawn' || piece.type === 'dancer' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-[180%]" : "scale-[200%]")
+            : ((piece.type === 'pawn' || piece.type === 'dancer' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100")
         )}>
           <IconComponent className="w-full h-full drop-shadow-md" />
         </div>
