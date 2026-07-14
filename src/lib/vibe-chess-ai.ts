@@ -128,11 +128,16 @@ export class VibeChessAI {
         const targetPiece = targetSq.piece;
         let captureCount = 0;
 
+        // --- AGGRESSIVE MEGA STRIDE COLOSSUS AI SIMULATION ---
         if (movingPiece.id.startsWith('boss-colossus')) {
             const parts = [{dr:0,dc:0},{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1}];
             let tlR=-1, tlC=-1;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(next.board[r][c].piece?.id === 'boss-colossus-tl') { tlR=r; tlC=c; break; }
+            
+            // Clear old position
             parts.forEach(pt => { if(isValidSquareUtil(tlR+pt.dr, tlC+pt.dc)) next.board[tlR+pt.dr][tlC+pt.dc].piece = null; });
+            
+            // CRUSHING STRIDE: AoE Capture all Hero units in 2x2 zone
             parts.forEach(pt => { 
                 const nr=tR+pt.dr, nc=tC+pt.dc; 
                 if(isValidSquareUtil(nr,nc)) { 
@@ -186,17 +191,24 @@ export class VibeChessAI {
                 }
             }
         }
+
+        // CRUSH VALUE: Bonus score for having more captured hero units
+        const heroGraveyardCount = gs.capturedPieces?.black?.length || 0;
+        score += heroGraveyardCount * 50;
+
         return score;
     }
 
     cloneGameState(gs: AIGameState): AIGameState {
+        const whiteCaps = gs.capturedPieces?.white || [];
+        const blackCaps = gs.capturedPieces?.black || [];
         return {
             ...gs,
             board: gs.board.map(row => row.map(sq => ({ piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null }))),
             killStreaks: { ...gs.killStreaks },
             capturedPieces: { 
-                white: [...(gs.capturedPieces?.white || [])], 
-                black: [...(gs.capturedPieces?.black || [])] 
+                white: [...whiteCaps], 
+                black: [...blackCaps] 
             }
         };
     }
@@ -223,11 +235,14 @@ export class VibeChessAI {
 
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece): AIMove[] {
         const moves: AIMove[] = [];
-        const effLevel = p.level || 1; // Simplified for AI speed
+        const effLevel = p.level || 1; 
         
         if (p.id.startsWith('boss-colossus')) {
-            const deltas = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]];
-            deltas.forEach(([dr,dc]) => { 
+            // TITAN MOVEMENT: 4x4 displacement and Mega-L jumps
+            const strides = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]];
+            const leaps = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];
+            
+            [...strides, ...leaps].forEach(([dr,dc]) => { 
                 const nr=r+dr, nc=c+dc; 
                 if(isValidSquareUtil(nr,nc) && isValidSquareUtil(nr+1,nc+1)) {
                     moves.push({from:[r,c], to:[nr,nc], type:'move'}); 
@@ -241,25 +256,19 @@ export class VibeChessAI {
         switch (p.type) {
             case 'pawn':
             case 'commander':
-                // Forward
                 if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
                     if (!p.hasMoved && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece) {
                         moves.push({from:[r,c], to:[r+2*dir,c], type:'move'});
                     }
                 }
-                // Captures
                 [-1,1].forEach(dc => { 
                     if(isValidSquareUtil(r+dir, c+dc)) {
                         const target = gs.board[r+dir][c+dc].piece;
                         if (target && target.color !== p.color) moves.push({from:[r,c], to:[r+dir,c+dc], type:'capture'});
-                        // En Passant
-                        if (!target && gs.enPassantTargetSquare === coordsToAlgebraic(r+dir, c+dc)) {
-                            moves.push({from:[r,c], to:[r+dir,c+dc], type:'enpassant'});
-                        }
+                        if (!target && gs.enPassantTargetSquare === coordsToAlgebraic(r+dir, c+dc)) moves.push({from:[r,c], to:[r+dir,c+dc], type:'enpassant'});
                     }
                 });
-                // Backward/Sideways (L2/L3)
                 if (effLevel >= 2 && isValidSquareUtil(r-dir, c) && !gs.board[r-dir][c].piece) moves.push({from:[r,c], to:[r-dir,c], type:'move'});
                 if (effLevel >= 3) {
                     [-1,1].forEach(dc => { if(isValidSquareUtil(r, c+dc) && !gs.board[r][c+dc].piece) moves.push({from:[r,c], to:[r,c+dc], type:'move'}); });
@@ -272,12 +281,9 @@ export class VibeChessAI {
                         const target = gs.board[nr][nc].piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) moves.push({from:[r,c], to:[nr,nc], type:'capture'});
-                        else if (effLevel >= 4 && (target.type === 'bishop' || target.type === 'archbishop')) {
-                            moves.push({from:[r,c], to:[nr,nc], type:'swap'});
-                        }
+                        else if (effLevel >= 4 && (target.type === 'bishop' || target.type === 'archbishop')) moves.push({from:[r,c], to:[nr,nc], type:'swap'});
                     }
                 });
-                // L2 Cardinal
                 if (effLevel >= 2) {
                     [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
                         const nr=r+dr, nc=c+dc;
@@ -297,10 +303,8 @@ export class VibeChessAI {
                         if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else { 
                             if(target.color !== p.color) moves.push({from:[r,c], to:[nr,nc], type:'capture'}); 
-                            else if (effLevel >= 4 && (target.type === 'knight' || target.type === 'hero' || target.type === 'archer')) {
-                                moves.push({from:[r,c], to:[nr,nc], type:'swap'});
-                            }
-                            if (effLevel < 2) break; // Phase through friendly
+                            else if (effLevel >= 4 && (target.type === 'knight' || target.type === 'hero' || target.type === 'archer')) moves.push({from:[r,c], to:[nr,nc], type:'swap'});
+                            if (effLevel < 2) break;
                         }
                     }
                 });
@@ -323,11 +327,13 @@ export class VibeChessAI {
         if (color === 'black') {
             const parts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
             if (parts.length > 0) {
-                // Invulnerable while minions alive
+                // Dormancy check
                 if (gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'))) return false;
+                // Evaluate 2x2 hitbox for any threats
                 return parts.some(pt => {
-                    const { row, col } = this.findPieceCoordsById(gs, pt.piece!.id);
-                    return this.isSquareAttacked(gs, row, col, 'white');
+                    const coords = this.findPieceCoordsById(gs, pt.piece!.id);
+                    if (coords.row === -1) return false;
+                    return this.isSquareAttacked(gs, coords.row, coords.col, 'white');
                 });
             }
         }
@@ -352,14 +358,12 @@ export class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
-                    // Simplified move generation for attack checking
                     if (p.type === 'pawn' || p.type === 'commander') {
                         const dir = p.color === 'white' ? -1 : 1;
                         if (r + dir === tr && Math.abs(c - tc) === 1) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
                         if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true;
                     } else {
-                        // Sliding pieces or King
                         const dirs = p.type === 'rook' ? this.directions.rook : (p.type === 'bishop' ? this.directions.bishop : this.directions.queen);
                         for (const [dr, dc] of dirs) {
                             for (let i = 1; i < 8; i++) {

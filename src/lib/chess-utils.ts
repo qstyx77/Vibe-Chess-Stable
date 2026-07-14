@@ -231,7 +231,7 @@ function getPossibleMovesInternal(
   const opponentColor = pieceColor === 'white' ? 'black' : 'white';
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
 
-  // --- 2x2 COLOSSUS LOGIC ---
+  // --- AGGRESSIVE MEGA STRIDE COLOSSUS LOGIC ---
   if (piece.id.startsWith('boss-colossus')) {
     const isMaster = piece.id === 'boss-colossus-tl';
     if (!isMaster) return []; 
@@ -240,9 +240,18 @@ function getPossibleMovesInternal(
     const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
     if (otherMinions) return []; 
 
-    const deltas = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [-2, 2], [2, -2], [2, 2]];
-    for (const [dr, dc] of deltas) {
+    // MEGA STRIDE: Moves 2 squares at a time (leaves its 2x2 footprint entirely)
+    const strideDeltas = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [-2, 2], [2, -2], [2, 2]];
+    
+    // MEGA-L-SHAPE (KNIGHT): Because King level is 15, it gains Knight moves. 
+    // For a 2x2 entity, this scales to (4,2) leaps.
+    const knightDeltas = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];
+    
+    const allDeltas = [...strideDeltas, ...knightDeltas];
+
+    for (const [dr, dc] of allDeltas) {
         const nr = fromRow + dr; const nc = fromCol + dc;
+        // Verify entire 2x2 footprint is on board
         if (isValidSquare(nr, nc) && isValidSquare(nr+1, nc+1)) {
             possible.push(coordsToAlgebraic(nr, nc));
         }
@@ -686,6 +695,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
 
+  // --- AGGRESSIVE MEGA STRIDE COLOSSUS EXECUTION ---
   if (movingPiece.id.startsWith('boss-colossus')) {
       const parts = [
           { id: 'boss-colossus-tl', dr: 0, dc: 0 },
@@ -697,29 +707,30 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       let curTL_R = -1, curTL_C = -1;
       for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(newBoard[r][c].piece?.id === 'boss-colossus-tl') { curTL_R = r; curTL_C = c; break; }
 
+      // Clear old 2x2 position
       parts.forEach(p => {
           if (isValidSquare(curTL_R + p.dr, curTL_C + p.dc)) newBoard[curTL_R + p.dr][curTL_C + p.dc].piece = null;
       });
 
+      // AREA OF EFFECT CAPTURE: Everything in the 2x2 landing zone is crushed
       parts.forEach(p => {
           const nr = toRow + p.dr; const nc = toCol + p.dc;
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc].piece;
+              // Titan captures all units of opposite color (white in dungeon)
               if (victim && victim.color === 'white') {
                   selfDestructCaptures.push({ ...victim, id: `${victim.id}_colossus_crush_${Date.now()}` });
                   newBoard[nr][nc].piece = null;
               }
+              // Set new part piece
+              newBoard[nr][nc].piece = { 
+                  id: p.id, 
+                  type: 'king', 
+                  color: 'black', 
+                  level: movingPiece.level, 
+                  hasMoved: true 
+              };
           }
-      });
-
-      parts.forEach(p => {
-          newBoard[toRow + p.dr][toCol + p.dc].piece = { 
-              id: p.id, 
-              type: 'king', 
-              color: 'black', 
-              level: movingPiece.level, 
-              hasMoved: true 
-          };
       });
 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'king', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
