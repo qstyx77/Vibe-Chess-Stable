@@ -21,10 +21,11 @@ const getPieceAbilities = (piece: Piece): string[] => {
     abilities.push(" Ethereal Phasing: Can move through friendly units.");
     abilities.push(" Dark Conversion: 50% chance to convert adjacent enemy units after moving.");
     abilities.push(" Necromancy: Automatically resurrects the strongest fallen ally every 5 turns.");
-  } else if (id === 'boss-colossus') {
-    abilities.push(" Iron Guard: Starts with a Holy Shield.");
+  } else if (id.startsWith('boss-colossus')) {
+    abilities.push(" Massive Entity: Occupies a 2x2 area. Vulnerable to Check on any part.");
     abilities.push(" Heavyweight: Immune to Push-Back and Gravity effects.");
-    abilities.push(" King's Dominion: Leveling up reduces enemy Queen levels.");
+    abilities.push(" Iron Guard: Invulnerable until all minions are cleared.");
+    abilities.push(" Crushing Stride: Moves 2 squares at a time. Captures all enemy units in its 2x2 area of arrival.");
   } else if (id === 'boss-mirage') {
     abilities.push(" Phantom Mirror: Summons a phalanx of Phantom Bishops.");
     abilities.push(" Illusionist: Can jump over any unit while moving.");
@@ -164,7 +165,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
     pieceName = "The Hydra";
   } else if (piece.id === 'boss-necro') {
     pieceName = "The Necromancer";
-  } else if (piece.id === 'boss-colossus') {
+  } else if (piece.id.startsWith('boss-colossus')) {
     pieceName = "The Colossus";
   } else if (piece.id === 'boss-mirage') {
     pieceName = "The Mirage";

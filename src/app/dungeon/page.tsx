@@ -150,8 +150,20 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
       case 3: 
-        board[0][4].piece = { id: 'boss-colossus', type: 'king', color: 'black', level: 15, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
-        for(let i=0; i<8; i++) board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        // --- 2x2 COLOSSUS DEPLOYMENT ---
+        const colL = 15;
+        board[0][3].piece = { id: 'boss-colossus-tl', type: 'king', color: 'black', level: colL, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[0][4].piece = { id: 'boss-colossus-tr', type: 'king', color: 'black', level: colL, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[1][3].piece = { id: 'boss-colossus-bl', type: 'king', color: 'black', level: colL, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        board[1][4].piece = { id: 'boss-colossus-br', type: 'king', color: 'black', level: colL, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        
+        for(let i=0; i<8; i++) {
+            if (i === 3 || i === 4) continue;
+            board[1][i].piece = { id: `shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: true, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        }
+        for(let i=0; i<8; i++) {
+            board[2][i].piece = { id: `front-shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+        }
         break;
       case 4: 
         board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
@@ -181,7 +193,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     } else if (formation === 'triangle') {
        for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
     } else {
-       for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
+       for(let r=0; r<4; r++) for(let c=8; c<8; c++) possibleSquares.push({r,c});
     }
     const chosenSquares = possibleSquares.sort(() => Math.random() - 0.5).slice(0, pieceCount);
     chosenSquares.forEach((pos, i) => {
@@ -462,8 +474,11 @@ export default function DungeonPage() {
     saveDungeonState(nextLevel, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0);
 
     const isBoss = nextLevel % 10 === 0;
+    let welcomeMsg = isBoss ? `BOSS BATTLE: Floor ${nextLevel}` : `Level ${nextLevel} - Wipe them out!`;
+    if (nextLevel === 30) welcomeMsg = "Floor 30: Clear the minions to awaken the Colossus!";
+
     setGameInfo({ 
-        message: isBoss ? `BOSS BATTLE: Floor ${nextLevel}` : `Level ${nextLevel} - Wipe them out!`, 
+        message: welcomeMsg,
         isCheck: false, 
         playerWithKingInCheck: null, 
         isCheckmate: false, 
@@ -518,8 +533,11 @@ export default function DungeonPage() {
     saveDungeonState(targetLevel, newBoard, 'white', ks, { white: [], black: capturedPieces.black }, sC, nS, null, 0);
 
     const isBoss = targetLevel % 10 === 0;
+    let msg = isBoss ? `BOSS BATTLE: Floor ${targetLevel}` : `Level ${targetLevel} - Wipe them out!`;
+    if (targetLevel === 30) msg = "Floor 30: Clear minions to awaken the Colossus!";
+
     setGameInfo({ 
-        message: isBoss ? `BOSS BATTLE: Floor ${targetLevel}` : `Level ${targetLevel} - Wipe them out!`, 
+        message: msg,
         isCheck: false, 
         playerWithKingInCheck: null, 
         isCheckmate: false, 
@@ -599,6 +617,14 @@ export default function DungeonPage() {
     const dungeonKing = findKing(nextBoard, 'black');
     const isDungeonCheckmated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare);
     
+    // --- Floor 30 Objective Sync ---
+    if (level === 30) {
+        const minions = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+        if (minions.length === 0 && !isDungeonCheckmated) {
+            toast({ title: "COLOSSUS AWAKENS!", description: "He can now be checkmated! Watch out for his crushing stride!", duration: 5000 });
+        }
+    }
+
     if (enemyCount === 0 || isDungeonCheckmated) {
       if (level % 10 === 0) {
         const dropMap: Record<number, InventoryItemType> = {
@@ -665,8 +691,16 @@ export default function DungeonPage() {
     if (inCheck) audioManager.playCheck();
     
     const isBoss = level % 10 === 0;
+    let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${level} - Wipe them out!`);
+    if (level === 30) {
+        const minions = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+        if (minions.length > 0) gameMsg = `Floor 30: Clear Minions! (${minions.length} left)`;
+        else if (inCheck) gameMsg = "Check! Corral the Colossus!";
+        else gameMsg = "Checkmate the Colossus!";
+    }
+
     setGameInfo({ 
-        message: inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${level} - Wipe them out!`), 
+        message: gameMsg,
         isCheck: inCheck, 
         playerWithKingInCheck: inCheck ? nextP : null, 
         isCheckmate: false, 
@@ -736,7 +770,7 @@ export default function DungeonPage() {
 
     if (isSnipeTime) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxArcherLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxArcherLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.id.startsWith('boss-colossus'));
         
         if (victims.length > 0) {
             if (isAI) {
@@ -1062,7 +1096,7 @@ export default function DungeonPage() {
       console.error("AI Error:", e);
       setIsAiThinking(false);
     }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast, necroResurrectionCounter]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast, necroResurrectionCounter, level]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
@@ -1372,7 +1406,7 @@ export default function DungeonPage() {
     }
     if (isAwaitingArcherSnipe) {
         const myArchers = board.flat().filter(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.type === 'archer').map(sq => sq.piece!);
-        if (piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen') {
+        if (piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen' && !piece.id.startsWith('boss-colossus')) {
             const responsibleArcher = myArchers.find(a => a.level >= piece.level);
             if (responsibleArcher) {
                 const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));

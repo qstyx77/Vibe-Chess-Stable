@@ -78,9 +78,23 @@ export function ChessPieceDisplay({
   } else if (piece.id === 'boss-necro') {
     IconComponent = PixelNecromancer;
     pieceColorClass = ""; bossStyle = { color: '#8B5CF6' }; // Violet
-  } else if (piece.id === 'boss-colossus') {
+  } else if (piece.id.startsWith('boss-colossus')) {
+    // 2x2 Colossus implementation:
+    // Only the anchor tile (top-left) renders the giant sprite.
+    // The others are hidden logic-containers.
+    if (piece.id !== 'boss-colossus-tl') return null;
     IconComponent = PixelColossus;
-    pieceColorClass = ""; bossStyle = { color: '#64748B' }; // Slate
+    pieceColorClass = ""; 
+    bossStyle = { 
+        color: '#64748B', 
+        width: '200%', 
+        height: '200%', 
+        position: 'absolute', 
+        top: 0, 
+        left: 0, 
+        zIndex: 40,
+        pointerEvents: 'none'
+    };
   } else if (piece.id === 'boss-mirage') {
     IconComponent = PixelMirage;
     pieceColorClass = ""; bossStyle = { color: '#38BDF8' }; // Sky
@@ -159,7 +173,7 @@ export function ChessPieceDisplay({
           </div>
         )}
 
-        {displayLevelValue > 1 && (
+        {!piece.id.startsWith('boss-colossus') && displayLevelValue > 1 && (
           <span
             className={cn(
               "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
@@ -183,6 +197,19 @@ export function ChessPieceDisplay({
           >
             {displayLevelValue}
           </span>
+        )}
+        
+        {/* Giant Level Counter for Colossus */}
+        {piece.id === 'boss-colossus-tl' && (
+           <span
+           className="absolute top-2 left-2 font-pixel z-[60] text-[16px]"
+           style={{ 
+             textShadow: '2px 2px 0 #000',
+             color: 'hsl(var(--destructive))'
+           }}
+         >
+           L{displayLevelValue}
+         </span>
         )}
       </div>
     </div>

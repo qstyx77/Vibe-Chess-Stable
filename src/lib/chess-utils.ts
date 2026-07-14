@@ -230,6 +230,27 @@ function getPossibleMovesInternal(
   const opponentColor = pieceColor === 'white' ? 'black' : 'white';
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
 
+  // --- 2x2 COLOSSUS LOGIC ---
+  if (piece.id.startsWith('boss-colossus')) {
+    // Only "active" if all minions are gone (handled in isPieceInvulnerable)
+    // Movement is 2-square jumps (4x4 board style)
+    const isMaster = piece.id === 'boss-colossus-tl';
+    if (!isMaster) return []; // Only the anchor tile generates moves
+
+    const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+    if (otherMinions) return []; // Dormant phase
+
+    const deltas = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [-2, 2], [2, -2], [2, 2]];
+    for (const [dr, dc] of deltas) {
+        const nr = fromRow + dr; const nc = fromCol + dc;
+        // Verify entire 2x2 area is valid
+        if (isValidSquare(nr, nc) && isValidSquare(nr+1, nc+1)) {
+            possible.push(coordsToAlgebraic(nr, nc));
+        }
+    }
+    return possible;
+  }
+
   const hasMagicScroll = (piece.heldItem === 'wind_scroll' || piece.heldItem === 'life_leach' || piece.heldItem === 'summon_anvil' || piece.heldItem === 'shield_scroll' || piece.heldItem === 'rally_scroll' || piece.heldItem === 'antidote' || piece.heldItem === 'detonation_scroll' || piece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll' || piece.heldItem === 'kings_decree' || piece.heldItem === 'ice_blast' || piece.heldItem === 'soul_harvest');
   const hasSelfAbility = ((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && currentLevel >= 5);
   
@@ -245,7 +266,7 @@ function getPossibleMovesInternal(
         if (!targetSq.piece || targetSq.piece.color !== pieceColor) {
             if (!targetSq.item || targetSq.item.type === 'shroom') {
                 const targetLevel = getEffectiveLevel(board, nr, fromCol);
-                if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel)) {
+                if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel, board)) {
                     possible.push(coordsToAlgebraic(nr, fromCol));
                 }
             }
@@ -274,7 +295,7 @@ function getPossibleMovesInternal(
             const targetPiece = board[toR][toC].piece;
             const targetLevel = getEffectiveLevel(board, toR, toC);
             if (!targetPiece || targetPiece.color !== pieceColor) {
-                 if (!isPieceInvulnerableToAttack(targetPiece, piece, targetLevel, currentLevel)) possible.push(coordsToAlgebraic(toR, toC));
+                 if (!isPieceInvulnerableToAttack(targetPiece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(toR, toC));
             }
         }
     }
@@ -286,7 +307,7 @@ function getPossibleMovesInternal(
                 const targetPiece_n = board[toR_n][toC_n].piece;
                 const targetLevel_n = getEffectiveLevel(board, toR_n, toC_n);
                 if (!targetPiece_n || targetPiece_n.color !== pieceColor) {
-                     if (!isPieceInvulnerableToAttack(targetPiece_n, piece, targetLevel_n, currentLevel)) possible.push(coordsToAlgebraic(toR_n, toC_n));
+                     if (!isPieceInvulnerableToAttack(targetPiece_n, piece, targetLevel_n, currentLevel, board)) possible.push(coordsToAlgebraic(toR_n, toC_n));
                 }
             }
         }
@@ -337,7 +358,7 @@ function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const isSwapTarget = currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
@@ -361,7 +382,7 @@ function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
@@ -385,7 +406,7 @@ function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
@@ -451,26 +472,26 @@ export function isSquareAttacked(
                 const effectiveLevel = getEffectiveLevel(board, r, c);
                 if (attackingPiece.type === 'pawn' || attackingPiece.type === 'commander') {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
-                    if (r + direction === targetR && Math.abs(c - targetC) === 1) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel)) return true;
+                    if (r + direction === targetR && Math.abs(c - targetC) === 1) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                 } else if (attackingPiece.type === 'infiltrator') {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
-                    if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel)) return true;
+                    if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                 } else if (attackingPiece.type === 'king') {
                     const maxDistance = effectiveLevel >= 2 && !simplifyKingCheck ? 2 : 1;
                     const dr = targetR - r; const dc = targetC - c;
                     if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                         if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
                             const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type === 'shroom')) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel)) return true;
-                        } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel)) return true;
+                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type === 'shroom')) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                        } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                     }
                     if (effectiveLevel >= 5 && !simplifyKingCheck) {
                         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-                        for (const [dr_n, dc_n] of knightDeltas) if (r + dr_n === targetR && c + dc_n === targetC) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel)) return true;
+                        for (const [dr_n, dc_n] of knightDeltas) if (r + dr_n === targetR && c + dc_n === targetC) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                     }
                 } else {
                     const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare);
-                    if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel)) return true;
+                    if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                 }
             }
         }
@@ -497,7 +518,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color) return false;
   
   const targetLevel = getEffectiveLevel(board, toRow, toCol);
-  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color) if (isPieceInvulnerableToAttack(targetPieceOnSquare, piece, targetLevel, effectiveLevel)) return false;
+  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color) if (isPieceInvulnerableToAttack(targetPieceOnSquare, piece, targetLevel, effectiveLevel, board)) return false;
 
   switch (piece.type) {
     case 'pawn':
@@ -599,8 +620,17 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   return false;
 }
 
-export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, targetLevel: number, attackingLevel: number): boolean {
+export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, targetLevel: number, attackingLevel: number, board?: BoardState): boolean {
     if (!targetPiece || !attackingPiece) return false;
+
+    // --- 2x2 COLOSSUS INVULNERABILITY ---
+    if (targetPiece.id.startsWith('boss-colossus')) {
+        if (board) {
+            const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+            if (otherMinions) return true; // Invulnerable until minions cleared
+        }
+    }
+
     if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) return true;
     if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
     if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
@@ -658,6 +688,50 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet, extraTurn, specialCaptureSquare };
+
+  // --- 2x2 COLOSSUS APPLY LOGIC ---
+  if (movingPiece.id.startsWith('boss-colossus')) {
+      const parts = [
+          { id: 'boss-colossus-tl', dr: 0, dc: 0 },
+          { id: 'boss-colossus-tr', dr: 0, dc: 1 },
+          { id: 'boss-colossus-bl', dr: 1, dc: 0 },
+          { id: 'boss-colossus-br', dr: 1, dc: 1 }
+      ];
+
+      // Find actual current TL square
+      let curTL_R = -1, curTL_C = -1;
+      for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(newBoard[r][c].piece?.id === 'boss-colossus-tl') { curTL_R = r; curTL_C = c; break; }
+
+      // 1. Clear old positions
+      parts.forEach(p => {
+          if (isValidSquare(curTL_R + p.dr, curTL_C + p.dc)) newBoard[curTL_R + p.dr][curTL_C + p.dc].piece = null;
+      });
+
+      // 2. Perform AOE Capture at destination
+      parts.forEach(p => {
+          const nr = toRow + p.dr; const nc = toCol + p.dc;
+          if (isValidSquare(nr, nc)) {
+              const victim = newBoard[nr][nc].piece;
+              if (victim && victim.color === 'white') {
+                  selfDestructCaptures.push({ ...victim, id: `${victim.id}_colossus_crush_${Date.now()}` });
+                  newBoard[nr][nc].piece = null;
+              }
+          }
+      });
+
+      // 3. Place parts at new position
+      parts.forEach(p => {
+          newBoard[toRow + p.dr][toCol + p.dc].piece = { 
+              id: p.id, 
+              type: 'king', 
+              color: 'black', 
+              level: movingPiece.level, 
+              hasMoved: true 
+          };
+      });
+
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'king', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
+  }
 
   const originalPieceLevel = Number(movingPiece.level || 1);
   const originalPieceType = movingPiece.type;
@@ -1352,6 +1426,19 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
 }
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null): boolean {
+  // --- 2x2 COLOSSUS CHECK LOGIC ---
+  if (kingColor === 'black') {
+      const colossusParts = board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
+      if (colossusParts.length > 0) {
+          // If any black minions exist, he is invulnerable to check
+          const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+          if (otherMinions) return false;
+
+          // If any of his 4 squares are attacked, he is in check
+          return colossusParts.some(part => isSquareAttacked(board, part.algebraic, 'white', false, null, enPassantTargetSquare));
+      }
+  }
+
   let k = null;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.type === 'king' && board[r][c].piece?.color === kingColor) k = coordsToAlgebraic(r,c);
   if (!k) return false;
@@ -1511,6 +1598,10 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
 }
 
 export function findKing(board: BoardState, color: PlayerColor): { row: number; col: number; piece: Piece } | null {
+    // --- 2x2 COLOSSUS FIND LOGIC ---
+    if (color === 'black') {
+        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.id === 'boss-colossus-tl') return { row: r, col: c, piece: board[r][c].piece! };
+    }
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.type === 'king' && board[r][c].piece?.color === color) return { row: r, col: c, piece: board[r][c].piece! };
     return null;
 }
