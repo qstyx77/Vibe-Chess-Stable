@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel } from '@/lib/chess-utils';
 
@@ -37,11 +36,13 @@ export class VibeChessAI {
             'infiltrator': [400, 450, 500, 600, 700, 800, 900, 1000, 1100, 1200],
             'archbishop': [450, 550, 650, 800, 950, 1050, 1150, 1250, 1350, 1450],
             'palace': [650, 750, 850, 1000, 1150, 1250, 1350, 1450, 1550, 1650],
-            'archer': [400, 500, 600, 750, 900, 1000, 1100, 1200, 1300, 1400]
+            'archer': [400, 500, 600, 750, 900, 1000, 1100, 1200, 1300, 1400],
+            'dancer': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+            'mimic': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
         };
 
         this.captureLevelBonuses = {
-            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1, 'archbishop': 2, 'palace': 2, 'archer': 2
+            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1, 'archbishop': 2, 'palace': 2, 'archer': 2, 'dancer': 1, 'mimic': 1
         };
 
         this.centerSquares = new Set(['33', '34', '43', '44']); 
@@ -128,6 +129,8 @@ export class VibeChessAI {
         const targetPiece = targetSq.piece;
         let captureCount = 0;
 
+        next.lastMovedPieceType = movingPiece.type;
+
         // --- AGGRESSIVE MEGA STRIDE COLOSSUS AI SIMULATION ---
         if (movingPiece.id.startsWith('boss-colossus')) {
             const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
@@ -137,12 +140,12 @@ export class VibeChessAI {
             // Clear old position
             parts.forEach(pt => { if(isValidSquareUtil(tlR+pt.dr, tlC+pt.dc)) next.board[tlR+pt.dr][tlC+pt.dc].piece = null; });
             
-            // CRUSHING STRIDE: AoE Capture all Hero units in 2x2 zone
+            // CRUSHING STRIDE: AoE Capture all units in 2x2 zone
             parts.forEach(pt => { 
                 const nr=tR+pt.dr, nc=tC+pt.dc; 
                 if(isValidSquareUtil(nr,nc)) { 
-                    if(next.board[nr][nc].piece?.color === 'white') captureCount++; 
-                    next.board[nr][nc].piece = { id: `boss-colossus-${pt.id}`, type:'king', color:'black', level: movingPiece.level, hasMoved:true }; 
+                    if(next.board[nr][nc].piece?.color === (player === 'white' ? 'black' : 'white')) captureCount++; 
+                    next.board[nr][nc].piece = { id: `boss-colossus-${pt.id}`, type:'king', color:player, level: movingPiece.level, hasMoved:true }; 
                 } 
             });
         } else if (move.type === 'swap') {
@@ -191,11 +194,6 @@ export class VibeChessAI {
                 }
             }
         }
-
-        // CRUSH VALUE: Bonus score for having more captured hero units
-        const heroGraveyardCount = gs.capturedPieces?.black?.length || 0;
-        score += heroGraveyardCount * 50;
-
         return score;
     }
 
@@ -221,7 +219,7 @@ export class VibeChessAI {
                 if (p && p.color === color) {
                     if (p.id.startsWith('boss-colossus')) {
                         if (p.id === 'boss-colossus-tl') {
-                            const minions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+                            const minions = gs.board.flat().some(sq => sq.piece && sq.piece.color === p.color && !sq.piece.id.startsWith('boss-colossus'));
                             if (!minions) moves.push(...this.generatePieceMoves(gs, r, c, p));
                         }
                     } else {
@@ -236,6 +234,13 @@ export class VibeChessAI {
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece): AIMove[] {
         const moves: AIMove[] = [];
         const effLevel = p.level || 1; 
+
+        // MIMIC LOGIC in AI
+        if (p.type === 'mimic') {
+            const patternType = gs.lastMovedPieceType || 'pawn';
+            const virtualPiece = { ...p, type: patternType };
+            return this.generatePieceMoves(gs, r, c, virtualPiece);
+        }
         
         if (p.id.startsWith('boss-colossus')) {
             // TITAN MOVEMENT: 4x4 displacement and Mega-L jumps
@@ -255,6 +260,7 @@ export class VibeChessAI {
         
         switch (p.type) {
             case 'pawn':
+            case 'dancer':
             case 'commander':
                 if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
@@ -363,6 +369,11 @@ export class VibeChessAI {
                     if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator') {
                         const dir = p.color === 'white' ? -1 : 1;
                         if (r + dir === tr && Math.abs(c - tc) === 1) return true;
+                    } else if (p.type === 'mimic') {
+                        // AI-Mimic check: approximate as queen/knight/rook/bishop union
+                        const patternType = gs.lastMovedPieceType || 'pawn';
+                        const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType });
+                        if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
                         if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true;
                     } else if (p.type === 'king') {

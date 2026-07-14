@@ -30,6 +30,17 @@ export const PixelDancer = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelMimic = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="6" y="8" width="12" height="10" /> {/* Main Box */}
+    <rect x="5" y="10" width="14" height="6" />
+    <rect x="8" y="6" width="8" height="2" /> {/* Lid */}
+    <rect x="11" y="11" width="2" height="2" fill="white" fillOpacity="0.4" /> {/* Latch */}
+    <rect x="7" y="12" width="2" height="2" fill="currentColor" opacity="0.3" /> {/* Glitch Squares */}
+    <rect x="15" y="14" width="2" height="2" fill="currentColor" opacity="0.3" />
+  </svg>
+);
+
 export const PixelCommander = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <rect x="11" y="2" width="2" height="3" /> {/* Plume */}

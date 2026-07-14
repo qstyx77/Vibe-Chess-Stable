@@ -1,5 +1,5 @@
 export type PlayerColor = 'white' | 'black';
-export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer';
+export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer' | 'mimic';
 export type ItemType = 'anvil' | 'shroom';
 
 export interface Item {
@@ -314,6 +314,7 @@ export interface AIGameState {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
   necroResurrectionCounter?: number;
+  lastMovedPieceType?: PieceType | null;
 }
 
 export interface ChatMessage {
