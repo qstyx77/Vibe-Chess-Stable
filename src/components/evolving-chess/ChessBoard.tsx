@@ -69,15 +69,18 @@ const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardSt
       }}
     >
        <PixelColossus className="w-full h-full drop-shadow-xl" />
-       <span
-          className="absolute top-2 left-2 font-pixel z-[60] text-[16px]"
-          style={{ 
-              textShadow: '2px 2px 0 #000',
-              color: 'hsl(var(--destructive))'
-          }}
-       >
-          L{colossusAnchor.piece.level}
-       </span>
+       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <span
+              className="font-pixel z-[60] text-[22px]"
+              style={{ 
+                  textShadow: '3px 3px 0 #000',
+                  color: 'hsl(var(--destructive))',
+                  marginTop: '8%' // Slight visual adjustment to center with the torso
+              }}
+          >
+              {colossusAnchor.piece.level}
+          </span>
+       </div>
     </div>
   );
 };

@@ -232,11 +232,10 @@ function getPossibleMovesInternal(
 
   // --- 2x2 COLOSSUS LOGIC ---
   if (piece.id.startsWith('boss-colossus')) {
-    // Only "active" if all minions are gone (handled in isPieceInvulnerable)
-    // Movement is 2-square jumps (4x4 board style)
     const isMaster = piece.id === 'boss-colossus-tl';
     if (!isMaster) return []; // Only the anchor tile generates moves
 
+    // Immobile until all other black units are destroyed
     const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
     if (otherMinions) return []; // Dormant phase
 
@@ -1234,7 +1233,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   // Poison exhaustion penalty for Level 1 pieces that move/capture without leveling up
   if (pieceToLand.isPoisoned && pieceToLand.level === 1) pieceToLand.cooldownTurnsRemaining = 2;
   
-  if (movingPiece.heldItem === 'wind_sword' && (captured || rest.pieceCapturedByAnvil)) {
+  if (movingPiece.heldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;
   }

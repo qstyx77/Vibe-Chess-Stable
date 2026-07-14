@@ -246,97 +246,129 @@ export class VibeChessAI {
             }
             targetSquare.item = null;
         }
-        if (move.type === 'enpassant') {
-            const epRow = piece.color === 'white' ? fR : fR; // Capturing pawn is on moving rank
-            if (nextState.board[fR]?.[tC]?.piece) {
-                nextState.board[fR][tC].piece = null;
-                piece.type = 'infiltrator'; captureOccurred = true; captureCount = 1;
-            } else {
-                // Should not happen with strict isMoveValid, but safety guard prevents phantom promotion
-                captureOccurred = false;
-            }
-        } else if (targetPiece && targetPiece.color !== currentPlayer) {
-            captureOccurred = true; captureCount = 1;
-            handleHydraSplit(targetPiece, tR, tC, nextState.board);
-            
-            if (piece.type === 'pawn' && targetPiece.type === 'commander') {
-                piece.type = 'commander';
-            }
 
-            const levelBonus = piece.heldItem === 'berserkers_mask' ? 3 : (this.captureLevelBonuses[targetPiece.type] || 1);
-            const currentL = piece.level || 1;
-            let newL = currentL + levelBonus;
-            
-            let hasLogasBoost = false;
-            for (let dr = -1; dr <= 1; dr++) {
-                for (let dc = -1; dc <= 1; dc++) {
-                    if (dr === 0 && dc === 0) continue;
-                    const nr = tR + dr, nc = tC + dc;
-                    if (isValidSquareUtil(nr, nc) ) {
-                        const neighbor = nextState.board[nr][nc].piece;
-                        if (neighbor && neighbor.color === piece.color && neighbor.heldItem === 'logas') { hasLogasBoost = true; break; }
+        // --- 2x2 COLOSSUS APPLY LOGIC (FOR AI SIMULATION) ---
+        if (piece.id.startsWith('boss-colossus')) {
+            const parts = [
+                { id: 'boss-colossus-tl', dr: 0, dc: 0 },
+                { id: 'boss-colossus-tr', dr: 0, dc: 1 },
+                { id: 'boss-colossus-bl', dr: 1, dc: 0 },
+                { id: 'boss-colossus-br', dr: 1, dc: 1 }
+            ];
+
+            let curTL_R = -1, curTL_C = -1;
+            for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(nextState.board[r][c].piece?.id === 'boss-colossus-tl') { curTL_R = r; curTL_C = c; break; }
+
+            parts.forEach(p => {
+                if (isValidSquareUtil(curTL_R + p.dr, curTL_C + p.dc)) nextState.board[curTL_R + p.dr][curTL_C + p.dc].piece = null;
+            });
+
+            parts.forEach(p => {
+                const nr = tR + p.dr; const nc = tC + p.dc;
+                if (isValidSquareUtil(nr, nc)) {
+                    const victim = nextState.board[nr][nc].piece;
+                    if (victim && victim.color === 'white') {
+                        captureCount++;
+                        nextState.board[nr][nc].piece = null;
                     }
                 }
-                if (hasLogasBoost) break;
+            });
+
+            parts.forEach(p => {
+                nextState.board[tR + p.dr][tC + p.dc].piece = { 
+                    id: p.id, 
+                    type: 'king', 
+                    color: 'black', 
+                    level: piece.level, 
+                    hasMoved: true 
+                };
+            });
+            captureOccurred = captureCount > 0;
+        } else {
+            if (move.type === 'enpassant') {
+                if (nextState.board[fR]?.[tC]?.piece) {
+                    nextState.board[fR][tC].piece = null;
+                    piece.type = 'infiltrator'; captureOccurred = true; captureCount = 1;
+                }
+            } else if (targetPiece && targetPiece.color !== currentPlayer) {
+                captureOccurred = true; captureCount = 1;
+                handleHydraSplit(targetPiece, tR, tC, nextState.board);
+                
+                if (piece.type === 'pawn' && targetPiece.type === 'commander') {
+                    piece.type = 'commander';
+                }
+
+                const levelBonus = piece.heldItem === 'berserkers_mask' ? 3 : (this.captureLevelBonuses[targetPiece.type] || 1);
+                const currentL = piece.level || 1;
+                let newL = currentL + levelBonus;
+                
+                let hasLogasBoost = false;
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        const nr = tR + dr, nc = tC + dc;
+                        if (isValidSquareUtil(nr, nc) ) {
+                            const neighbor = nextState.board[nr][nc].piece;
+                            if (neighbor && neighbor.color === piece.color && neighbor.heldItem === 'logas') { hasLogasBoost = true; break; }
+                        }
+                    }
+                    if (hasLogasBoost) break;
+                }
+                if (hasLogasBoost) newL += 1;
+
+                if (piece.type === 'queen') newL = Math.min(7, newL);
+                levelGain = newL - currentL;
+                piece.level = newL;
+                piece.isPoisoned = false;
+                piece.cooldownTurnsRemaining = 0;
+                piece.frozenTurnsRemaining = 0;
+                if (originalType === 'commander') this.applyRally(nextState, currentPlayer, 'pawn');
+                else if (originalType === 'hero') this.applyRally(nextState, currentPlayer, 'all');
+                if (piece.type === 'king') this.reduceEnemyQueens(nextState, opponentColor, levelBonus);
+                
+                if (targetPiece.heldItem === 'soul_link') {
+                  nextState.board.forEach(row => row.forEach(sq => {
+                    if (sq.piece && sq.piece.color === targetPiece.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== targetPiece.id) sq.piece = null;
+                  }));
+                }
             }
-            if (hasLogasBoost) newL += 1;
 
-            if (piece.type === 'queen') {
-                newL = Math.min(7, newL);
+            const opponentBackRank = piece.color === 'white' ? 0 : 7;
+            const originalEffectiveLevel = getEffectiveLevel(originalGameState.board as any, fR, fC);
+
+            if (piece.type === 'commander' && tR === opponentBackRank && move.type !== 'self-destruct') {
+                piece.type = 'hero';
+                piece.id = `${piece.id}_hero_ai_${Date.now()}`;
+                if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
             }
-            levelGain = newL - currentL;
-            piece.level = newL;
-            piece.isPoisoned = false;
-            piece.cooldownTurnsRemaining = 0;
-            piece.frozenTurnsRemaining = 0;
-            if (originalType === 'commander') this.applyRally(nextState, currentPlayer, 'pawn');
-            else if (originalType === 'hero') this.applyRally(nextState, currentPlayer, 'all');
-            if (piece.type === 'king') this.reduceEnemyQueens(nextState, opponentColor, levelBonus);
-            
-            if (targetPiece.heldItem === 'soul_link') {
-              nextState.board.forEach(row => row.forEach(sq => {
-                if (sq.piece && sq.piece.color === targetPiece.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== targetPiece.id) sq.piece = null;
-              }));
+
+            if ((piece.type === 'pawn' || piece.type === 'commander') && Math.abs(fR - tR) === 2) {
+                nextState.enPassantTargetSquare = coordsToAlgebraic(fR + Math.sign(tR - fR), fC);
             }
-        }
 
-        const opponentBackRank = piece.color === 'white' ? 0 : 7;
-        const originalEffectiveLevel = getEffectiveLevel(originalGameState.board as any, fR, fC);
-
-        if (piece.type === 'commander' && tR === opponentBackRank && move.type !== 'self-destruct') {
-            piece.type = 'hero';
-            piece.id = `${piece.id}_hero_ai_${Date.now()}`;
-            if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
-        }
-
-        if ((piece.type === 'pawn' || piece.type === 'commander') && Math.abs(fR - tR) === 2) {
-            nextState.enPassantTargetSquare = coordsToAlgebraic(fR + Math.sign(tR - fR), fC);
-        }
-
-        if (move.type === 'self-destruct') {
-            const sdResult = this.handleSelfDestruct(nextState, fR, fC, currentPlayer);
-            captureCount = sdResult.captures; captureOccurred = captureCount > 0;
-            if (piece.heldItem === 'soul_link') {
-              nextState.board.forEach(row => row.forEach(sq => {
-                if (sq.piece && sq.piece.color === piece.color && sq.piece.heldItem === 'soul_link') sq.piece = null;
-              }));
+            if (move.type === 'self-destruct') {
+                const sdResult = this.handleSelfDestruct(nextState, fR, fC, currentPlayer);
+                captureCount = sdResult.captures; captureOccurred = captureCount > 0;
+                if (piece.heldItem === 'soul_link') {
+                  nextState.board.forEach(row => row.forEach(sq => {
+                    if (sq.piece && sq.piece.color === piece.color && sq.piece.heldItem === 'soul_link') sq.piece = null;
+                  }));
+                }
+                nextState.board[fR][fC].piece = null;
+            } else if (move.type === 'swap') {
+                const p1 = piece;
+                const p2 = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
+                nextState.board[tR][tC].piece = p1;
+                nextState.board[fR][fC].piece = p2;
+            } else if (move.type === 'castle') {
+                const isKingside = tC > fC; const rookFC = isKingside ? 7 : 0; const rookTC = isKingside ? tC - 1 : tC + 1;
+                const rook = nextState.board[fR]?.[rookFC]?.piece;
+                if (rook) { nextState.board[fR][rookTC].piece = { ...rook, hasMoved: true }; nextState.board[fR][rookFC].piece = null; }
+                targetSquare.piece = piece; movingSquare.piece = null;
+            } else { 
+                targetSquare.piece = piece; movingSquare.piece = null; 
+                this.simulatePhysics(nextState.board, tR, tC, piece, captureOccurred, currentPlayer);
             }
-            nextState.board[fR][fC].piece = null;
-        } else if (move.type === 'swap') {
-            const p1 = piece;
-            const p2 = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
-            nextState.board[tR][tC].piece = p1;
-            nextState.board[fR][fC].piece = p2;
-        } else if (move.type === 'castle') {
-            const isKingside = tC > fC; const rookFC = isKingside ? 7 : 0; const rookTC = isKingside ? tC - 1 : tC + 1;
-            const rook = nextState.board[fR]?.[rookFC]?.piece;
-            if (rook) { nextState.board[fR][rookTC].piece = { ...rook, hasMoved: true }; nextState.board[fR][rookFC].piece = null; }
-            targetSquare.piece = piece; movingSquare.piece = null;
-        } else { 
-            targetSquare.piece = piece; movingSquare.piece = null; 
-            
-            // PHYSICS SIMULATION FOR AI
-            this.simulatePhysics(nextState.board, tR, tC, piece, captureOccurred, currentPlayer);
         }
         
         if (levelGain > 0 && piece.heldItem === 'soul_link') {
@@ -359,6 +391,7 @@ export class VibeChessAI {
             piece.frozenTurnsRemaining = 0;
             piece.level = getPromotionLevel(targetPiece?.type || null);
             if (piece.type === 'queen') piece.level = Math.min(piece.level, 7);
+            const originalEffectiveLevel = getEffectiveLevel(originalGameState.board as any, fR, fC);
             if (originalEffectiveLevel >= 5) nextState.extraTurn = true;
         }
         
@@ -377,7 +410,6 @@ export class VibeChessAI {
             }
         }
 
-        // Apply exhaustion penalty for Level 1 pieces moving while poisoned
         if (piece.isPoisoned && piece.level === 1) piece.cooldownTurnsRemaining = 2;
 
         if (captureOccurred) {
@@ -390,7 +422,8 @@ export class VibeChessAI {
               const opponentColorAI = currentPlayer === 'white' ? 'black' : 'white';
               const piecesOfAICapturedByOpponent = [...(nextState.capturedPieces[opponentColorAI] || [])];
               if (piecesOfAICapturedByOpponent.length > 0) {
-                  const pieceToResurrect = piecesOfAICapturedByOpponent.pop();
+                  const sortedAI = [...piecesOfAICapturedByOpponent].sort((a,b) => (this.captureLevelBonuses[b.type]||1) - (this.captureLevelBonuses[a.type]||1));
+                  const pieceToResurrect = sortedAI[0];
                   if (pieceToResurrect) {
                       const emptySqAI: [number, number][] = [];
                       for (let rr = 0; rr < 8; rr++) for (let cc = 0; cc < 8; cc++) if (!nextState.board[rr][cc].piece && !nextState.board[rr][cc].item) emptySqAI.push([rr, cc]);
@@ -515,7 +548,7 @@ export class VibeChessAI {
     aiTriggerPoisonSplash(board: AIBoardState, r: number, c: number, attackerColor: PlayerColor) {
         for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
             if(dr===0 && dc===0) continue;
-            const nr = r+dr, nc = c+dc;
+            const nr = r+dr; const nc = c+dc;
             if(isValidSquareUtil(nr, nc)) {
                 const victim = board[nr][nc].piece;
                 if(victim && victim.color !== attackerColor) victim.isPoisoned = true;
@@ -653,7 +686,18 @@ export class VibeChessAI {
           for (let c = 0; c < 8; c++) {
             const p = gs.board[r][c].piece; 
             if (p && p.color === color && !(p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) && !(p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0)) {
-                moves.push(...this.generatePieceMoves(gs, r, c, p));
+                // --- 2x2 COLOSSUS LOGIC ---
+                if (p.id.startsWith('boss-colossus')) {
+                    if (p.id === 'boss-colossus-tl') {
+                        // Immobile until all other black units are destroyed
+                        const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+                        if (!otherMinions) {
+                            moves.push(...this.generatePieceMoves(gs, r, c, p));
+                        }
+                    }
+                } else {
+                    moves.push(...this.generatePieceMoves(gs, r, c, p));
+                }
             }
           }
         }
@@ -692,6 +736,17 @@ export class VibeChessAI {
         const color = p.color;
         const opponentBackRank = color === 'white' ? 0 : 7;
 
+        if (p.id.startsWith('boss-colossus')) {
+            const deltas = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [-2, 2], [2, -2], [2, 2]];
+            for (const [dr, dc] of deltas) {
+                const nr = r + dr; const nc = c + dc;
+                if (isValidSquareUtil(nr, nc) && isValidSquareUtil(nr+1, nc+1)) {
+                    moves.push({ from: [r, c], to: [nr, nc], type: 'move' });
+                }
+            }
+            return moves;
+        }
+
         if (p.heldItem === 'ice_blast') moves.push({ from: [r,c], to: [r,c], type: 'ice-blast' });
         if (p.heldItem === 'soul_harvest') moves.push({ from: [r,c], to: [r,c], type: 'soul-harvest' });
 
@@ -726,7 +781,6 @@ export class VibeChessAI {
                 const ep = gs.enPassantTargetSquare;
                 if (ep) {
                   const { row: epR, col: epC } = algebraicToCoords(ep);
-                  // Added strict check: capture row must contain an actual opponent piece for en passant moves to be generated
                   const victim = gs.board[r]?.[epC]?.piece;
                   if (r + dir === epR && Math.abs(c - epC) === 1 && victim && victim.color !== color && (victim.type === 'pawn' || victim.type === 'commander' || victim.type === 'infiltrator')) {
                     moves.push({ from: [r, c], to: [epR, epC], type: 'enpassant' });
