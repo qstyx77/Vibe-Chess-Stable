@@ -316,6 +316,7 @@ export default function DungeonPage() {
 
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
   const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
+  const [colossusAwakened, setColossusAwakened] = useState(false);
   const uniqueIdCounterRef = useRef(30000);
 
   const capturedPiecesRef = useRef(capturedPieces);
@@ -445,6 +446,7 @@ export default function DungeonPage() {
     setLevel(nextLevel);
     setAiStalemateStrikes(0);
     setHasMovedOnCurrentFloor(false);
+    setColossusAwakened(false);
     setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard);
     setBoard(newBoard);
@@ -499,6 +501,7 @@ export default function DungeonPage() {
     setLevel(targetLevel);
     setAiStalemateStrikes(0);
     setHasMovedOnCurrentFloor(false);
+    setColossusAwakened(false);
     setPlayerArmy(survivors);
     const newBoard = generateDungeonFloor(targetLevel, survivors);
     setBoard(newBoard);
@@ -611,7 +614,8 @@ export default function DungeonPage() {
     
     if (level === 30) {
         const minions = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
-        if (minions.length === 0 && !isDungeonCheckmated) {
+        if (minions.length === 0 && !colossusAwakened) {
+            setColossusAwakened(true);
             toast({ title: "COLOSSUS AWAKENS!", description: "He can now be checkmated! Watch out for his crushing stride!", duration: 5000 });
         }
     }
@@ -697,7 +701,7 @@ export default function DungeonPage() {
         gameOver: false 
     });
     setCurrentPlayer(nextP);
-  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect]);
+  }, [advanceLevel, level, toast, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
@@ -992,8 +996,8 @@ export default function DungeonPage() {
                 if (landedPiece.level === 7 && originalL < 7 && originalT === 'queen') {
                    const pawns = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && (sq.piece.type === 'pawn' || sq.piece.type === 'commander'));
                    if (pawns.length > 0) {
-                       const sac = pawns[0];
-                       const {row: sr, col: sc} = algebraicToCoords(sac.algebraic);
+                       const sacPiece = pawns[0];
+                       const {row: sr, col: sc} = algebraicToCoords(sacPiece.algebraic);
                        const sacPieceData = { ...newBoard[sr][sc].piece! };
                        newBoard[sr][sc].piece = null;
                        updatedCapturedPieces.white.push({ ...sacPieceData, id: `${sacPieceData.id}_sac_ai_${Date.now()}` });
@@ -1101,6 +1105,7 @@ export default function DungeonPage() {
     setIsMoveProcessing(false);
     clickGuard.current = false;
     setHasMovedOnCurrentFloor(false);
+    setColossusAwakened(false);
     
     setLastMoveFrom(null);
     setLastMoveTo(null);
@@ -1378,7 +1383,9 @@ export default function DungeonPage() {
     if (isAwaitingPawnSacrifice) {
         if (piece && piece.color === playerToSacrificePawn && (piece.type === 'pawn' || piece.type === 'commander')) {
             const nextBoard = (boardForPostSacrifice || board).map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const sacrificed = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sac_${Date.now()}` };
+            const sacrificedPiece = nextBoard[row][col].piece;
+            if (!sacrificedPiece) return;
+            const sacrificed = { ...sacrificedPiece, id: `${sacrificedPiece.id}_sac_${Date.now()}` };
             nextBoard[row][col].piece = null;
             const updatedGraveyard = { ...capturedPieces, black: [...capturedPieces.black, sacrificed] };
             setCapturedPieces(updatedGraveyard);
@@ -1398,7 +1405,9 @@ export default function DungeonPage() {
             if (responsibleArcher) {
                 const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const {row: tr, col: tc} = algebraicToCoords(algebraic);
-                const snipedPiece = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_${Date.now()}` };
+                const snipedPieceData = nextBoard[row][col].piece;
+                if (!snipedPieceData) return;
+                const snipedPiece = { ...snipedPieceData, id: `${snipedPieceData.id}_sniped_${Date.now()}` };
                 nextBoard[tr][tc].piece = null;
                 
                 const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));

@@ -130,7 +130,7 @@ export class VibeChessAI {
 
         // --- AGGRESSIVE MEGA STRIDE COLOSSUS AI SIMULATION ---
         if (movingPiece.id.startsWith('boss-colossus')) {
-            const parts = [{dr:0,dc:0},{dr:0,dc:1},{dr:1,dc:0},{dr:1,dc:1}];
+            const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
             let tlR=-1, tlC=-1;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(next.board[r][c].piece?.id === 'boss-colossus-tl') { tlR=r; tlC=c; break; }
             
@@ -142,7 +142,7 @@ export class VibeChessAI {
                 const nr=tR+pt.dr, nc=tC+pt.dc; 
                 if(isValidSquareUtil(nr,nc)) { 
                     if(next.board[nr][nc].piece?.color === 'white') captureCount++; 
-                    next.board[nr][nc].piece = { id: `boss-colossus-${pt.dr === 0 ? 't' : 'b'}${pt.dc === 0 ? 'l' : 'r'}`, type:'king', color:'black', level: movingPiece.level, hasMoved:true }; 
+                    next.board[nr][nc].piece = { id: `boss-colossus-${pt.id}`, type:'king', color:'black', level: movingPiece.level, hasMoved:true }; 
                 } 
             });
         } else if (move.type === 'swap') {
@@ -328,7 +328,9 @@ export class VibeChessAI {
             const parts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
             if (parts.length > 0) {
                 // Dormancy check
-                if (gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'))) return false;
+                const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+                if (otherMinions) return false;
+                
                 // Evaluate 2x2 hitbox for any threats
                 return parts.some(pt => {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
@@ -358,13 +360,15 @@ export class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
-                    if (p.type === 'pawn' || p.type === 'commander') {
+                    if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator') {
                         const dir = p.color === 'white' ? -1 : 1;
                         if (r + dir === tr && Math.abs(c - tc) === 1) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
                         if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true;
+                    } else if (p.type === 'king') {
+                        if (this.kingMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true;
                     } else {
-                        const dirs = p.type === 'rook' ? this.directions.rook : (p.type === 'bishop' ? this.directions.bishop : this.directions.queen);
+                        const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (p.type === 'bishop' || p.type === 'archbishop' ? this.directions.bishop : this.directions.queen);
                         for (const [dr, dc] of dirs) {
                             for (let i = 1; i < 8; i++) {
                                 const nr = r + i * dr, nc = c + i * dc;
