@@ -150,7 +150,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
       case 3: 
-        // --- 2x2 COLOSSUS DEPLOYMENT ---
         const colL = 15;
         board[0][3].piece = { id: 'boss-colossus-tl', type: 'king', color: 'black', level: colL, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         board[0][4].piece = { id: 'boss-colossus-tr', type: 'king', color: 'black', level: colL, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
@@ -318,19 +317,16 @@ export default function DungeonPage() {
   const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
   const uniqueIdCounterRef = useRef(30000);
 
-  // --- Refs for Persistence Synchronization ---
   const capturedPiecesRef = useRef(capturedPieces);
   useEffect(() => { capturedPiecesRef.current = capturedPieces; }, [capturedPieces]);
   const killStreaksRef = useRef(killStreaks);
   useEffect(() => { killStreaksRef.current = killStreaks; }, [killStreaks]);
 
-  // --- Parity Fix: Effects & Event Signaling ---
   const prevBoardRef = useRef<BoardState | null>(null);
   const moveCounter = useRef(0);
   const signaledEventsRef = useRef<Set<string>>(new Set());
   const isInitialized = useRef(false);
 
-  // --- Inventory States ---
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
@@ -359,7 +355,6 @@ export default function DungeonPage() {
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget;
   const isLocalActionTurn = currentPlayer === 'white';
 
-  // --- PERSISTENCE LOGIC ---
   const saveDungeonState = useCallback((
     currentLevel: number,
     currentBoard: BoardState,
@@ -373,8 +368,6 @@ export default function DungeonPage() {
   ) => {
     if (!user || !firestore) return;
     const userDocRef = doc(firestore, 'users', user.uid);
-    
-    // Firestore does not support nested arrays. Flatten the board state to a 1D array.
     const flattenedBoard = currentBoard.flat();
 
     updateDocumentNonBlocking(userDocRef, {
@@ -392,7 +385,6 @@ export default function DungeonPage() {
     });
   }, [user, firestore]);
 
-  // PARITY PATCH: EFFECT DIFFING
   useEffect(() => {
     if (!board.length || !prevBoardRef.current) {
         prevBoardRef.current = board;
@@ -576,14 +568,13 @@ export default function DungeonPage() {
         toast({ title: "Poison Damage!", description: `${poisonedCaptures.length} piece(s) affected by poison!`, duration: 3000 });
     }
 
-    // --- NECROMANCER AUTO-RESURRECTION ---
     let finalNRC = necroResurrectionCounter;
     if (turnPlayer === 'white' && !extra) {
         const necroSq = nextBoard.flat().find(sq => sq.piece?.id === 'boss-necro');
         if (necroSq) {
             finalNRC++;
             if (finalNRC >= 5) {
-                const myGraveyard = nextGraveyard.white; // Black pieces captured by White
+                const myGraveyard = nextGraveyard.white; 
                 if (myGraveyard.length > 0) {
                     const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
                     const choice = sorted[0];
@@ -617,7 +608,6 @@ export default function DungeonPage() {
     const dungeonKing = findKing(nextBoard, 'black');
     const isDungeonCheckmated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare);
     
-    // --- Floor 30 Objective Sync ---
     if (level === 30) {
         const minions = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
         if (minions.length === 0 && !isDungeonCheckmated) {
@@ -670,7 +660,6 @@ export default function DungeonPage() {
         }
     }
     
-    // PERSIST MOVE END WITH FINALIZED STATE
     saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, newCounter, finalNextShroom, nextEpSquare, finalNRC);
 
     const playerKing = findKing(nextBoard, 'white');
@@ -681,7 +670,6 @@ export default function DungeonPage() {
     }
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare);
 
-    // Rule Parity: Auto-checkmate on extra turn
     if (inCheck && extra) {
         setGameInfo({ message: `Auto-Checkmate! ${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} wins!`, isCheck: true, playerWithKingInCheck: nextP, isCheckmate: true, isStalemate: false, gameOver: true, winner: turnPlayer });
         audioManager.playVictory();
@@ -714,7 +702,6 @@ export default function DungeonPage() {
     const isAI = actingPlayer === 'black';
     let nextGraveyard = { white: [...currentGraveyard.white], black: [...currentGraveyard.black] };
 
-    // 1. First Blood -> Commander Promo
     if (!firstBloodAchieved && newStreak > 0 && !completedMilestones.includes('firstBlood')) {
         setFirstBloodAchieved(true);
         setPlayerWhoGotFirstBlood(actingPlayer);
@@ -739,7 +726,6 @@ export default function DungeonPage() {
         }
     }
 
-    // 2. Killstreak: Holy Shield (Streak 2+ + Archbishop)
     if (newStreak >= 2 && oldStreak < 2 && !completedMilestones.includes('shield')) {
         const hasArchbishop = boardToChain.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === actingPlayer);
         if (hasArchbishop) {
@@ -760,7 +746,6 @@ export default function DungeonPage() {
         }
     }
 
-    // 3. Killstreak: Archer Snipe
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
     const archers = pieces.filter(p => p.type === 'archer');
     const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
@@ -779,7 +764,6 @@ export default function DungeonPage() {
                 const {row, col} = algebraicToCoords(v.algebraic);
                 const sniped = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_AI_${Date.now()}` };
                 
-                // Level up the enemy archer
                 const aiArchers = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type === 'archer').map(sq => sq.piece!);
                 const responsibleAIArcher = aiArchers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
@@ -801,7 +785,6 @@ export default function DungeonPage() {
         }
     }
 
-    // 4. Killstreak: Anvil (Streak 3+)
     if (newStreak >= 3 && oldStreak < 3 && !completedMilestones.includes('anvil')) {
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
@@ -819,7 +802,6 @@ export default function DungeonPage() {
         }
     }
 
-    // 5. Killstreak: Resurrection (Streak 4+)
     if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {
         const myGraveyard = actingPlayer === 'white' ? nextGraveyard.black : nextGraveyard.white; 
         
@@ -960,7 +942,6 @@ export default function DungeonPage() {
         const currentKs = { ...killStreaks, black: newStreak };
         setKillStreaks(currentKs);
         
-        // Infiltrator Obliteration for AI
         const isObliteration = result.promotedToInfiltrator || (movingPiece.type === 'infiltrator' && capturedPiece);
 
         if (capturedPiece && !isObliteration) updatedCapturedPieces.black.push({ ...capturedPiece!, id: `${capturedPiece!.id}_cap_ai_${Date.now()}` });
@@ -1132,7 +1113,6 @@ export default function DungeonPage() {
     if (!reset && saved && saved.board && saved.board.length > 0) {
       setLevel(saved.level);
       
-      // Re-inflate the flattened board from Firestore back into a 2D BoardState
       const loadedBoard: BoardState = [];
       const savedBoard1D = saved.board as SquareState[];
       if (savedBoard1D.length === 64) {
@@ -1141,7 +1121,6 @@ export default function DungeonPage() {
           }
           setBoard(loadedBoard);
       } else {
-          // Fallback if data is corrupted or formatted differently
           const army: Piece[] = [];
           const elo = userData.eloRating || 1200;
           let initial = initializeBoard(elo, 1200);
@@ -1250,7 +1229,16 @@ export default function DungeonPage() {
 
     const { row, col } = algebraicToCoords(algebraic);
     const sq = board[row][col];
-    const piece = sq.piece;
+    let piece = sq.piece;
+
+    if (piece?.id.startsWith('boss-colossus-')) {
+        const tl = board.flat().find(s => s.piece?.id === 'boss-colossus-tl');
+        if (tl && tl.algebraic) {
+            piece = tl.piece;
+            algebraic = tl.algebraic;
+        }
+    }
+
     setPieceForInfoDisplay(piece || null);
 
     if (isInventoryOpen) {
@@ -1275,21 +1263,22 @@ export default function DungeonPage() {
           if (selectedInventoryItemType === 'monks_robe' && pType !== 'bishop' && pType !== 'archbishop') return;
 
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
+          const {row: pr, col: pc} = algebraicToCoords(algebraic);
+          nextBoard[pr][pc].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
           let newInv = [...inventory];
           const item = newInv.find(i => i.type === selectedInventoryItemType);
           if (item) { item.count--; if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); }
           setInventory(newInv);
           saveLoadoutToFirestore(nextBoard, newInv);
-          // SAVE TO DUNGEON STATE
           saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
         } else if (piece && piece.heldItem && piece.color === 'white') {
           const oldItem = piece.heldItem;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType;
+          const {row: pr, col: pc} = algebraicToCoords(algebraic);
+          nextBoard[pr][pc].piece!.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
           const nextInv = [...inventory];
           const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
@@ -1298,7 +1287,6 @@ export default function DungeonPage() {
           if (itemOut) itemOut.count++; else nextInv.push({ type: oldItem, count: 1 });
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
-          // SAVE TO DUNGEON STATE
           saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter);
           setSelectedInventoryItemType(null);
           audioManager.playLevelUp();
@@ -1307,14 +1295,14 @@ export default function DungeonPage() {
         if (piece && piece.heldItem && piece.color === 'white') {
           const removedItem = piece.heldItem;
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-          nextBoard[row][col].piece!.heldItem = null;
+          const {row: pr, col: pc} = algebraicToCoords(algebraic);
+          nextBoard[pr][pc].piece!.heldItem = null;
           setBoard(nextBoard);
           const nextInv = [...inventory];
           const item = nextInv.find(i => i.type === removedItem);
           if (item) item.count++; else nextInv.push({ type: removedItem, count: 1 });
           setInventory(nextInv);
           saveLoadoutToFirestore(nextBoard, nextInv);
-          // SAVE TO DUNGEON STATE
           saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter);
           audioManager.playMove();
         }
@@ -1414,7 +1402,6 @@ export default function DungeonPage() {
                 const snipedPiece = { ...nextBoard[row][col].piece!, id: `${nextBoard[row][col].piece!.id}_sniped_${Date.now()}` };
                 nextBoard[tr][tc].piece = null;
                 
-                // Level up the archer
                 const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
                 const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                 const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
@@ -1798,8 +1785,13 @@ export default function DungeonPage() {
         return;
       }
     }
-    if (sq.piece?.color === currentPlayer) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare)); }
-    else { setSelectedSquare(null); setPossibleMoves([]); }
+    if (sq.piece?.color === currentPlayer) { 
+        setSelectedSquare(algebraic); 
+        setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare)); 
+    } else { 
+        setSelectedSquare(null); 
+        setPossibleMoves([]); 
+    }
   };
 
   const processPawnSacrificeCheck = useCallback((

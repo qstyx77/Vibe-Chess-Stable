@@ -174,6 +174,7 @@ export function ChessSquare({
             isSnipeTarget={isSnipeTarget}
             effectiveLevel={effectiveLevel}
             isGrimoirBoosted={isGrimoirBoosted}
+            isOnBoard={true}
           />
         </div>
       )}

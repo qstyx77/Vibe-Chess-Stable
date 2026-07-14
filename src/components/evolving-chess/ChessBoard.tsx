@@ -4,7 +4,7 @@ import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect,
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 import { algebraicToCoords, getEffectiveLevel } from '@/lib/chess-utils';
-import { ExplosionIcon } from './IconLibrary';
+import { ExplosionIcon, PixelColossus } from './IconLibrary';
 
 interface ChessBoardProps {
   boardState: BoardState;
@@ -43,6 +43,44 @@ interface ChessBoardProps {
   selectedInventoryItemType?: InventoryItemType | null;
   localPlayerColor?: PlayerColor | null;
 }
+
+const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardState: BoardState, visuallyFlipBoardForLogic: boolean }) => {
+  // Only the top-left anchor renders the giant sprite
+  const colossusAnchor = boardState.flat().find(sq => sq.piece?.id === 'boss-colossus-tl');
+  if (!colossusAnchor || !colossusAnchor.piece) return null;
+
+  const { row, col } = algebraicToCoords(colossusAnchor.algebraic);
+  
+  // Calculate visual position
+  // In 8x8, pieces at r=0 are at the top visually unless flipped.
+  const visualRow = visuallyFlipBoardForLogic ? 7 - (row + 1) : row;
+  const visualCol = visuallyFlipBoardForLogic ? 7 - (col + 1) : col;
+
+  const top = `${visualRow * 12.5}%`;
+  const left = `${visualCol * 12.5}%`;
+
+  return (
+    <div 
+      className="absolute pointer-events-none z-[40]"
+      style={{ 
+          top, left, 
+          width: '25%', height: '25%', 
+          color: '#64748B' 
+      }}
+    >
+       <PixelColossus className="w-full h-full drop-shadow-xl" />
+       <span
+          className="absolute top-2 left-2 font-pixel z-[60] text-[16px]"
+          style={{ 
+              textShadow: '2px 2px 0 #000',
+              color: 'hsl(var(--destructive))'
+          }}
+       >
+          L{colossusAnchor.piece.level}
+       </span>
+    </div>
+  );
+};
 
 const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, visuallyFlipBoardForLogic: boolean }) => {
   const { row, col } = algebraicToCoords(effect.square);
@@ -166,7 +204,7 @@ export function ChessBoard({
   return (
     <div
       className={cn(
-        "grid grid-cols-8 w-full max-w-lg aspect-square overflow-hidden group shadow-lg mx-auto relative",
+        "grid grid-cols-8 w-full max-w-lg aspect-square group shadow-lg mx-auto relative",
         applyBoardOpacityEffect && "opacity-70",
         isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed",
         viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d"
@@ -224,11 +262,9 @@ export function ChessBoard({
           const invOwnerColor = localPlayerColor || 'white';
           let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
           
-          // REFINED PORTAL AND EQUIPMENT LOGIC
           if (isInvTarget) {
             if (selectedInventoryItemType) {
               const pType = currentSquareData.piece?.type;
-              // Portal items are NEVER equippable
               if (selectedInventoryItemType.startsWith('portal_scroll_')) {
                 isInvTarget = false;
               } else if (selectedInventoryItemType === 'swift_cloak') {
@@ -247,7 +283,6 @@ export function ChessBoard({
                 if (pType !== 'bishop' && pType !== 'archbishop') isInvTarget = false;
               }
             } else {
-              // If no item selected, only pieces WITH items are unequip targets
               if (!currentSquareData.piece?.heldItem) isInvTarget = false;
             }
           }
@@ -296,6 +331,7 @@ export function ChessBoard({
           );
         })
       )}
+       <LargeEntityOverlay boardState={boardState} visuallyFlipBoardForLogic={visuallyFlipBoardForLogic} />
        {effects.map(effect => (
          <EffectOverlay 
            key={effect.id} 
