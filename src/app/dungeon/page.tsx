@@ -248,8 +248,8 @@ function adaptBoardForAI(
       black: currentKillStreaks?.black || 0,
     },
     capturedPieces: {
-      white: currentKillStreaks?.white ? currentCapturedPieces?.white?.map(p => ({ ...p })) || [] : [],
-      black: currentKillStreaks?.black ? currentCapturedPieces?.black?.map(p => ({ ...p })) || [] : [],
+      white: currentCapturedPieces?.white ? currentCapturedPieces.white.map(p => ({ ...p })) : [],
+      black: currentCapturedPieces?.black ? currentCapturedPieces.black.map(p => ({ ...p })) : [],
     },
     gameOver: false,
     winner: undefined,
@@ -996,8 +996,9 @@ export default function DungeonPage() {
                    if (pawns.length > 0) {
                        const sac = pawns[0];
                        const {row: sr, col: sc} = algebraicToCoords(sac.algebraic);
+                       const sacPieceData = { ...newBoard[sr][sc].piece! };
                        newBoard[sr][sc].piece = null;
-                       updatedCapturedPieces.white.push({ ...sac.piece!, id: `${sac.piece!.id}_sac_ai_${Date.now()}` });
+                       updatedCapturedPieces.white.push({ ...sacPieceData, id: `${sacPieceData.id}_sac_ai_${Date.now()}` });
                        setCapturedPieces({ ...updatedCapturedPieces });
                        audioManager.playCapture();
                    }
