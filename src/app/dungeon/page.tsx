@@ -575,7 +575,7 @@ export default function DungeonPage() {
         if (necroSq) {
             finalNRC++;
             if (finalNRC >= 5) {
-                const myGraveyard = nextGraveyard.black; // The Dungeon's graveyard
+                const myGraveyard = nextGraveyard.black; 
                 if (myGraveyard.length > 0) {
                     const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
                     const choice = sorted[0];
@@ -889,11 +889,8 @@ export default function DungeonPage() {
         setLastMoveTo(toAlg);
         moveCounter.current++;
 
-        let mType: Move['type'] = aiMove.type as Move['type'];
-        const targetSq = board[aiMove.to[0]][aiMove.to[1]];
-        if (mType === 'move' && targetSq.piece) {
-            mType = targetSq.piece.color === 'black' ? 'swap' : 'capture';
-        }
+        //Trust the AI's move type - removing forceful swap/capture override
+        const mType: Move['type'] = aiMove.type as Move['type'];
 
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: mType, promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
         let { newBoard, capturedPiece, selfDestructCaptures, shroomConsumed, enPassantTargetSet: nextEp, reflectionOccurred, promotedToHero } = result;
