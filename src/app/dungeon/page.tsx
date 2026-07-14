@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -192,7 +193,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     } else if (formation === 'triangle') {
        for(let r=0; r<4; r++) for(let c=r; c<8-r; c++) possibleSquares.push({r,c});
     } else {
-       for(let r=0; r<4; r++) for(let c=8; c<8; c++) possibleSquares.push({r,c});
+       for(let r=0; r<4; r++) for(let c=0; c<8; c++) possibleSquares.push({r,c});
     }
     const chosenSquares = possibleSquares.sort(() => Math.random() - 0.5).slice(0, pieceCount);
     chosenSquares.forEach((pos, i) => {
@@ -574,7 +575,7 @@ export default function DungeonPage() {
         if (necroSq) {
             finalNRC++;
             if (finalNRC >= 5) {
-                const myGraveyard = nextGraveyard.white; 
+                const myGraveyard = nextGraveyard.black; // The Dungeon's graveyard
                 if (myGraveyard.length > 0) {
                     const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
                     const choice = sorted[0];
@@ -587,7 +588,7 @@ export default function DungeonPage() {
                         if (res.type === 'pawn' && row === 7) res.type = 'queen';
 
                         nextBoard[row][col].piece = res;
-                        nextGraveyard.white = nextGraveyard.white.filter(p => p.id !== choice.id);
+                        nextGraveyard.black = nextGraveyard.black.filter(p => p.id !== choice.id);
                         setCapturedPieces({ ...nextGraveyard });
                         addEffect('light-beam', sq.algebraic);
                         audioManager.playResurrect();
@@ -771,7 +772,7 @@ export default function DungeonPage() {
                     responsibleAIArcher.level += gain;
                 }
 
-                nextGraveyard[actingPlayer] = [...nextGraveyard[actingPlayer], sniped];
+                nextGraveyard[actingPlayer === 'white' ? 'black' : 'white'] = [...nextGraveyard[actingPlayer === 'white' ? 'black' : 'white'], sniped];
                 setCapturedPieces({ ...nextGraveyard });
                 nextBoard[row][col].piece = null;
                 addEffect('poof', v.algebraic); audioManager.playSnipe();
