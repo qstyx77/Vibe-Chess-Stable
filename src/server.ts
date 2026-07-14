@@ -44,7 +44,7 @@ const wss = new WebSocket.Server({ server });
 const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
 let globalServerUniqueIdCounter = 10000;
 
-const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; equipment?: Record<string, string>; timestamp: number }[] = [];
+const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; equipment?: Record<string, string>; unlockedPieces?: string[]; timestamp: number }[] = [];
 
 const calculateElo = (playerElo: number, opponentElo: number, result: 'win' | 'loss' | 'draw') => {
     const K = 32;
@@ -354,7 +354,7 @@ const processRankedQueue = async () => {
         whitePlayer.ws.roomId = roomId;
         blackPlayer.ws.roomId = roomId;
 
-        let board = initializeBoard(whitePlayer.elo, blackPlayer.elo);
+        let board = initializeBoard(whitePlayer.elo, blackPlayer.elo, whitePlayer.unlockedPieces || [], blackPlayer.unlockedPieces || []);
         board = applyEquipment(board, whitePlayer.equipment, 'white');
         board = applyEquipment(board, blackPlayer.equipment, 'black');
 
@@ -381,8 +381,8 @@ const processRankedQueue = async () => {
                 blackTimeouts: 0,
                 specialActionId: 0,
                 players: {
-                    white: { userId: whitePlayer.userId, elo: whitePlayer.elo, username: whitePlayer.username, wins: whitePlayer.wins, losses: whitePlayer.losses },
-                    black: { userId: blackPlayer.userId, elo: blackPlayer.elo, username: blackPlayer.username, wins: blackPlayer.wins, losses: blackPlayer.losses }
+                    white: { userId: whitePlayer.userId, elo: whitePlayer.elo, username: whitePlayer.username, wins: whitePlayer.wins, losses: whitePlayer.losses, unlockedPieces: whitePlayer.unlockedPieces },
+                    black: { userId: blackPlayer.userId, elo: blackPlayer.elo, username: blackPlayer.username, wins: blackPlayer.wins, losses: blackPlayer.losses, unlockedPieces: blackPlayer.unlockedPieces }
                 }
             }
         };
@@ -422,7 +422,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     ws.roomId = roomId;
                     ws.userId = data.user?.userId;
                     
-                    let board = initializeBoard(data.user?.elo || 1200, 1200);
+                    let board = initializeBoard(data.user?.elo || 1200, 1200, data.user?.unlockedPieces || []);
                     board = applyEquipment(board, data.user?.equipment, 'white');
 
                     rooms[roomId] = {
@@ -448,7 +448,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             blackTimeouts: 0,
                             specialActionId: 0,
                             players: {
-                                white: data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null,
+                                white: data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment, unlockedPieces: data.user.unlockedPieces || [] } : null,
                                 black: null
                             }
                         }
@@ -462,11 +462,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         ws.roomId = data.roomId;
                         ws.userId = data.user?.userId;
                         roomToJoin.clients.push(ws);
-                        roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment } : null;
+                        roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment, unlockedPieces: data.user.unlockedPieces || [] } : null;
                         
                         const whiteElo = roomToJoin.gameState.players.white?.elo || 1200;
                         const blackElo = data.user?.elo || 1200;
-                        let newBoard = initializeBoard(whiteElo, blackElo);
+                        const whiteUnlocks = roomToJoin.gameState.players.white?.unlockedPieces || [];
+                        const blackUnlocks = data.user?.unlockedPieces || [];
+                        
+                        let newBoard = initializeBoard(whiteElo, blackElo, whiteUnlocks, blackUnlocks);
 
                         newBoard = applyEquipment(newBoard, roomToJoin.gameState.players.white?.equipment, 'white');
                         newBoard = applyEquipment(newBoard, data.user?.equipment, 'black');
@@ -484,7 +487,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                 case 'join-ranked-queue':
                     ws.userId = data.userId;
                     if (!rankedQueue.some(p => p.ws === ws)) {
-                        rankedQueue.push({ ws, userId: data.userId, elo: data.elo, username: data.username, wins: data.wins, losses: data.losses, equipment: data.equipment, timestamp: Date.now() });
+                        rankedQueue.push({ 
+                            ws, 
+                            userId: data.userId, 
+                            elo: data.elo, 
+                            username: data.username, 
+                            wins: data.wins, 
+                            losses: data.losses, 
+                            equipment: data.equipment, 
+                            unlockedPieces: data.unlockedPieces || [],
+                            timestamp: Date.now() 
+                        });
                     }
                     break;
                 case 'leave-ranked-queue':

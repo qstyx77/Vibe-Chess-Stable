@@ -21,9 +21,14 @@ export const VAL_MAP: Record<string, number> = {
 };
 
 /**
- * Initializes a standard board, optionally upgrading pieces based on ELO and unlocked pieces.
+ * Initializes a board with piece upgrades based on ELO and unlockable pieces for both players.
  */
-export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200, unlockedPieces: string[] = []): BoardState {
+export function initializeBoard(
+  whiteElo: number = 1200, 
+  blackElo: number = 1200, 
+  whiteUnlocks: string[] = [],
+  blackUnlocks: string[] = []
+): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
     const row: SquareState[] = [];
@@ -92,23 +97,29 @@ export function initializeBoard(whiteElo: number = 1200, blackElo: number = 1200
   board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   for (let c = 0; c < 8; c++) board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
-  // Apply Unlockable Pieces (Dancer, Mimic, Grappler)
-  const specialPawnTypes: PieceType[] = [];
-  if (unlockedPieces.includes('dancer')) specialPawnTypes.push('dancer');
-  if (unlockedPieces.includes('mimic')) specialPawnTypes.push('mimic');
-  if (unlockedPieces.includes('grappler')) specialPawnTypes.push('grappler');
+  // Apply Special Pieces (Dancer, Mimic, Grappler) to both sides
+  const applySpecialUnlocks = (row: SquareState[], unlocks: string[]) => {
+    if (!unlocks || unlocks.length === 0) return;
+    const specialPawnTypes: PieceType[] = [];
+    if (unlocks.includes('dancer')) specialPawnTypes.push('dancer');
+    if (unlocks.includes('mimic')) specialPawnTypes.push('mimic');
+    if (unlocks.includes('grappler')) specialPawnTypes.push('grappler');
 
-  if (specialPawnTypes.length > 0) {
-    const whitePawnSquares = board[6].filter(sq => sq.piece?.type === 'pawn');
-    const shuffledTypes = shuffle(specialPawnTypes);
-    shuffledTypes.forEach(type => {
-      if (whitePawnSquares.length > 0) {
-        const idx = Math.floor(Math.random() * whitePawnSquares.length);
-        const choice = whitePawnSquares.splice(idx, 1)[0];
-        choice.piece!.type = type;
-      }
-    });
-  }
+    if (specialPawnTypes.length > 0) {
+      const pawnSquares = row.filter(sq => sq.piece?.type === 'pawn');
+      const shuffledTypes = shuffle(specialPawnTypes);
+      shuffledTypes.forEach(type => {
+        if (pawnSquares.length > 0) {
+          const idx = Math.floor(Math.random() * pawnSquares.length);
+          const choice = pawnSquares.splice(idx, 1)[0];
+          choice.piece!.type = type;
+        }
+      });
+    }
+  };
+
+  applySpecialUnlocks(board[6], whiteUnlocks);
+  applySpecialUnlocks(board[1], blackUnlocks);
 
   return board;
 }
@@ -242,7 +253,7 @@ function getPossibleMovesInternal(
   if (piece.id.startsWith('boss-colossus')) {
     const isMaster = piece.id === 'boss-colossus-tl';
     if (!isMaster) return []; 
-    const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === p.color && !sq.piece.id.startsWith('boss-colossus'));
+    const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === pieceColor && !sq.piece.id.startsWith('boss-colossus'));
     if (otherMinions) return []; 
     const strideDeltas = [[-2, 0], [2, 0], [0, -2], [0, 2], [-2, -2], [-2, 2], [2, -2], [2, 2]];
     const knightDeltas = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];

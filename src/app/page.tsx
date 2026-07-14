@@ -104,7 +104,7 @@ function adaptBoardForAI(
         newAiRow.push({ piece: null, item: null });
       }
     }
-    newAiBoard.push(newAiRow);
+    newAiBoard.push(newAiBoard);
   }
 
   return {
@@ -453,7 +453,8 @@ export default function EvolvingChessPage() {
               elo: userData?.eloRating || 1200,
               wins: userData?.wins || 0,
               losses: userData?.losses || 0,
-              equipment
+              equipment,
+              unlockedPieces: userData?.unlockedPieces || []
           }));
         });
     }
@@ -465,9 +466,9 @@ export default function EvolvingChessPage() {
         const equipment: Record<string, string> = {};
         board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
         if (action === 'create') {
-            wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+            wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } }));
         } else {
-            wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment } }));
+            wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } }));
         }
     });
   }, [user, userData, inputRoomId, board, initWebSocket]);
@@ -910,7 +911,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingHolyShield) {
-        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== shieldContext?.capturingPieceId) {
+        if (piece && piece.color === currentPlayer && piece.type !== ' king' && piece.type !== 'queen' && piece.id !== shieldContext?.capturingPieceId) {
             if (onlineStatus === 'connected') {
                 wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
                 setIsAwaitingHolyShield(false);
