@@ -76,12 +76,13 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 1 turn.");
   if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies for 2 turns.");
   if (heldItem === 'soul_harvest') abilities.push(" spell: reduce adjacent pieces to L1 to absorb their power.");
-  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'commander'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
+  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {
     case 'pawn':
     case 'dancer':
     case 'mimic':
+    case 'grappler':
     case 'commander':
       if (l >= 1) abilities.push("Standard pawn move/capture.");
       if (l >= 2) abilities.push("Can move 1 square backward.");
@@ -91,6 +92,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (type === 'commander') { abilities.push("Rallying Cry on capture (levels up other pawns)."); abilities.push("Promotes to Hero."); abilities.push("Queen Hunter."); }
       if (type === 'dancer') { abilities.push("Dance: KS 1 triggers a cardinal move or adjacent swap."); }
       if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move."); }
+      if (type === 'grappler') { abilities.push("Toss: Can pick up adjacent piece and throw it to an empty space (radius = Level)."); }
       break;
     case 'infiltrator': abilities.push("Moves/captures 1 square forward or diagonally forward."); abilities.push("Obliterates captured pieces."); abilities.push("Wins game on back rank."); abilities.push("Queen Hunter."); break;
     case 'knight':

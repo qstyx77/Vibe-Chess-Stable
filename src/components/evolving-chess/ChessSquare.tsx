@@ -36,6 +36,7 @@ interface ChessSquareProps {
   isSwapTarget?: boolean;
   isDecreeTarget?: boolean;
   isDanceTarget?: boolean;
+  isThrowTarget?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   isAnvilDropTarget?: boolean;
   effectiveLevel?: number;
@@ -72,6 +73,7 @@ export function ChessSquare({
   isSwapTarget = false,
   isDecreeTarget = false,
   isDanceTarget = false,
+  isThrowTarget = false,
   selectedInventoryItemType,
   isAnvilDropTarget = false,
   effectiveLevel,
@@ -95,7 +97,7 @@ export function ChessSquare({
 
   let selectionRingClass = '';
   const specialSelectionBlue = 'ring-4 ring-inset ring-sky-400 animate-pulse';
-  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget || isDanceTarget) {
+  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget || isDanceTarget || isThrowTarget) {
     selectionRingClass = specialSelectionBlue;
   } else if (isInvTarget) {
     if (selectedInventoryItemType) selectionRingClass = piece?.heldItem ? 'ring-4 ring-inset ring-yellow-400' : 'ring-4 ring-inset ring-primary animate-pulse';
@@ -103,7 +105,7 @@ export function ChessSquare({
   } else if (isSelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-accent';
   else if (isEnemySelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-blue-600';
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget && !isThrowTarget;
 
   return (
     <button

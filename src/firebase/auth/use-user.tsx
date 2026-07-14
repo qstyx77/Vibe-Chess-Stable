@@ -27,6 +27,8 @@ interface UserData {
   inventory?: InventoryItem[];
   equipment?: Record<string, string>;
   dungeonState?: DungeonState;
+  unlockedPieces?: string[];
+  colossusDefeats?: number;
 }
 
 // Generate item list dynamically from the central metadata to avoid missing items
@@ -120,7 +122,9 @@ export function useUser() {
               wins: 0,
               losses: 0,
               inventory: DEFAULT_INVENTORY,
-              equipment: {}
+              equipment: {},
+              unlockedPieces: [],
+              colossusDefeats: 0
             };
             setDoc(userRef, newUserProfile, { merge: true }).catch(error => {
                 console.error("Error creating user profile:", error);

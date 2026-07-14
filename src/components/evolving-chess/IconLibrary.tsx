@@ -41,6 +41,17 @@ export const PixelMimic = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelGrappler = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="10" y="5" width="4" height="4" /> {/* Head */}
+    <rect x="7" y="9" width="10" height="3" /> {/* Broad Shoulders */}
+    <rect x="6" y="11" width="2" height="4" /> {/* Left Arm */}
+    <rect x="16" y="11" width="2" height="4" /> {/* Right Arm */}
+    <rect x="9" y="12" width="6" height="5" /> {/* Torso */}
+    <rect x="8" y="17" width="8" height="2" /> {/* Base */}
+  </svg>
+);
+
 export const PixelCommander = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <rect x="11" y="2" width="2" height="3" /> {/* Plume */}
