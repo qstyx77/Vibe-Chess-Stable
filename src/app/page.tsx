@@ -636,14 +636,21 @@ export default function EvolvingChessPage() {
         if (hasArchbishop) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const targets = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+                const targets = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded);
                 if (targets.length > 0) targets[0].piece!.isShielded = true;
                 triggerSpecialsChain(nextBoard, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'shield']);
                 return;
             } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-                setShieldContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'shield'] });
-                setIsAwaitingHolyShield(true);
-                return;
+                const hasUnshieldedTargets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded);
+                if (hasUnshieldedTargets) {
+                    setShieldContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'shield'] });
+                    setIsAwaitingHolyShield(true);
+                    return;
+                } else {
+                    // Skip if no eligible targets
+                    triggerSpecialsChain(boardToChain, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'shield']);
+                    return;
+                }
             }
         }
     }
@@ -916,7 +923,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingHolyShield) {
-        if (piece && piece.color === currentPlayer && piece.type !== ' king' && piece.type !== 'queen' && piece.id !== shieldContext?.capturingPieceId) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== shieldContext?.capturingPieceId) {
             if (onlineStatus === 'connected') {
                 wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
                 setIsAwaitingHolyShield(false);
@@ -944,7 +951,7 @@ export default function EvolvingChessPage() {
                     const snipedPiece = nextB[row][col].piece!;
                     nextB[row][col].piece = null;
                     const arRow = nextB.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
-                    const arCol = nextB[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
                     nextB[arRow][arCol].piece!.level += gain;
                     setBoard(nextB); audioManager.playSnipe(); setIsAwaitingArcherSnipe(false);

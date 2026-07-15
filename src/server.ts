@@ -533,7 +533,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (room && data.square) {
                         const { row, col } = algebraicToCoords(data.square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece && piece.color === actingColor && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== room.gameState.shieldContext.capturingPieceId) {
+                        if (piece && piece.color === actingColor && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== room.gameState.shieldContext.capturingPieceId) {
                             piece.isShielded = true;
                             delete room.gameState.shieldContext;
                             triggerNextSpecialAction(room, actingColor);
@@ -778,7 +778,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             const hasArchbishop = finalizedBoard.flat().some(sq => sq.piece?.type === 'archbishop' && sq.piece.color === movingPlayer);
                             if (hasArchbishop) {
                                 const capturerId = finalizedBoard[toCoords.row][toCoords.col].piece?.id;
-                                room.gameState.pendingKSActions.push({ type: 'holy-shield', context: { capturingPieceId: capturerId, playerWhoseTurnCompleted: movingPlayer } });
+                                const eligibleTargets = finalizedBoard.flat().some(sq => sq.piece && sq.piece.color === movingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturerId);
+                                if (eligibleTargets) {
+                                    room.gameState.pendingKSActions.push({ type: 'holy-shield', context: { capturingPieceId: capturerId, playerWhoseTurnCompleted: movingPlayer } });
+                                }
                             }
                         }
 
@@ -826,7 +829,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
     ws.on('close', () => {
         const qIdx = rankedQueue.findIndex(p => p.ws === ws);
-        if (qIdx > -1) rankedQueue.splice(qIdx, 1);
+        if (qIdx > -1) rankedQueue.splice(idx, 1);
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {
