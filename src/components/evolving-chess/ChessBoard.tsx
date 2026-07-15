@@ -43,6 +43,7 @@ interface ChessBoardProps {
   selectedInventoryItemType?: InventoryItemType | null;
   localPlayerColor?: PlayerColor | null;
   isAwaitingDanceTarget?: boolean;
+  dancerToDance?: AlgebraicSquare | null;
   isAwaitingGrappleThrow?: boolean;
   grappledPieceSubject?: { piece: Piece, from: AlgebraicSquare } | null;
 }
@@ -121,6 +122,7 @@ export function ChessBoard({
   selectedInventoryItemType,
   localPlayerColor,
   isAwaitingDanceTarget,
+  dancerToDance,
   isAwaitingGrappleThrow,
   grappledPieceSubject
 }: ChessBoardProps) {
@@ -156,7 +158,19 @@ export function ChessBoard({
           const isShieldScrollTargetSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
           const isSwapTargetSelection = isLocalActionTurn && isAwaitingSwapScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.algebraic !== selectedSquare;
           const isDecreeTarget = isLocalActionTurn && isAwaitingDecreeTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type === 'pawn' && currentSquareData.piece.level === 1;
-          const isDanceTarget = isLocalActionTurn && isAwaitingDanceTarget && selectedSquare && currentSquareData.algebraic !== selectedSquare;
+          
+          let isDanceTarget = false;
+          if (isLocalActionTurn && isAwaitingDanceTarget) {
+            if (!dancerToDance) {
+                if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
+            } else {
+                const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
+                const isAdj = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
+                const dir = currentPlayerColor === 'white' ? -1 : 1;
+                const isOneForward = actualRowIndex === fr + dir && actualColIndex === fc;
+                if (isAdj || isOneForward) isDanceTarget = true;
+            }
+          }
           
           let isThrowTarget = false;
           if (isLocalActionTurn && isAwaitingGrappleThrow && selectedSquare && !currentSquareData.piece && !currentSquareData.item) {
