@@ -570,7 +570,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const { row, col } = algebraicToCoords(square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece && (piece.type === 'pawn' || piece.type === 'commander' || room.gameState.pendingPromotion.fromResurrection)) {
+                        if (piece && (piece.type === 'pawn' || piece.type === 'commander' || ['dancer', 'mimic', 'grappler'].includes(piece.type) || room.gameState.pendingPromotion.fromResurrection)) {
                             
                             // Equipment Return Logic
                             if (piece.heldItem && !isItemValidForPiece(piece.heldItem, promoteTo)) {
@@ -743,7 +743,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     
                                     syncSoulLink(finalizedBoard, movingPlayer);
 
-                                    if (resurrectedPiece.type === 'pawn' && spawnPos.r === oppBackRank) {
+                                    if (['pawn', 'dancer', 'mimic', 'grappler'].includes(resurrectedPiece.type) && spawnPos.r === oppBackRank) {
                                         room.gameState.pendingPromotion = { square: room.gameState.resurrectedSquare, player: movingPlayer, fromResurrection: true, targetLevel: 1 };
                                     }
                                 }
@@ -764,7 +764,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         const landedPiece = finalizedBoard[toCoords.row][toCoords.col].piece;
-                        if (landedPiece && landedPiece.type === 'pawn' && (toCoords.row === 0 || toCoords.row === 7)) {
+                        if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && (toCoords.row === 0 || toCoords.row === 7)) {
                             room.gameState.pendingPromotion = { 
                                 square: to, 
                                 player: movingPlayer,
@@ -829,7 +829,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
     ws.on('close', () => {
         const qIdx = rankedQueue.findIndex(p => p.ws === ws);
-        if (qIdx > -1) rankedQueue.splice(idx, 1);
+        if (qIdx > -1) rankedQueue.splice(qIdx, 1);
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {

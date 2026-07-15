@@ -672,8 +672,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -795,7 +795,19 @@ export default function EvolvingChessPage() {
         setBoard(nextB);
         setTimeout(() => {
           setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
-          processPawnSacrificeCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, applyResult.extraTurn || (oldS < 6 && newS >= 6), applyResult.enPassantTargetSet, oldS, newS);
+          const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
+          const toRow = aiMove.to[0];
+          const toCol = aiMove.to[1];
+          const landedPiece = nextB[toRow][toCol].piece;
+          
+          if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && (toRow === 0 || toRow === 7)) {
+              landedPiece.type = aiMove.promoteTo || 'queen';
+              landedPiece.level = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
+              if (landedPiece.type === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
+              audioManager.playLevelUp();
+          }
+
+          processPawnSacrificeCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
         }, 800);
       }
     } catch (e) { setIsAiThinking(false); }

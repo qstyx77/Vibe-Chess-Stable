@@ -159,6 +159,18 @@ export class VibeChessAI {
                 landedPiece.level += (this.captureLevelBonuses[targetPiece.type] || 1); 
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
             }
+
+            // Rank Promotion Simulation for AI
+            const backRank = landedPiece.color === 'white' ? 0 : 7;
+            if (tR === backRank) {
+                if (['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type)) {
+                    landedPiece.type = 'queen';
+                    landedPiece.level = 1; // Simplified for minimax evaluation
+                } else if (landedPiece.type === 'commander') {
+                    landedPiece.type = 'hero';
+                }
+            }
+
             next.board[tR][tC].piece = landedPiece; 
             next.board[fR][fC].piece = null;
         }
