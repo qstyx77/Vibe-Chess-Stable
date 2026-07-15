@@ -8,9 +8,8 @@ export class VibeChessAI {
     searchStartTime: number;
     maxSearchTime: number;
 
-    pieceValues: Record<PieceType, number[]>;
-    captureLevelBonuses: Record<PieceType, number>;
-    positionalBonuses: Record<string, number>;
+    pieceValues: Record<string, number[]>;
+    captureLevelBonuses: Record<string, number>;
     centerSquares: Set<string>;
 
     knightMoves: [number, number][];
@@ -38,11 +37,12 @@ export class VibeChessAI {
             'palace': [650, 750, 850, 1000, 1150, 1250, 1350, 1450, 1550, 1650],
             'archer': [400, 500, 600, 750, 900, 1000, 1100, 1200, 1300, 1400],
             'dancer': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
-            'mimic': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
+            'mimic': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+            'grappler': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
         };
 
         this.captureLevelBonuses = {
-            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1, 'archbishop': 2, 'palace': 2, 'archer': 2, 'dancer': 1, 'mimic': 1
+            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1, 'archbishop': 2, 'palace': 2, 'archer': 2, 'dancer': 1, 'mimic': 1, 'grappler': 1
         };
 
         this.centerSquares = new Set(['33', '34', '43', '44']); 
@@ -62,13 +62,12 @@ export class VibeChessAI {
         let bestExtraTurn = false;
         const gameState = this.cloneGameState(originalGameState);
         
-        // Iterative deepening
         for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
             const result = this.minimax(gameState, currentDepth, -Infinity, Infinity, true, color);
             if (Date.now() - this.searchStartTime > this.maxSearchTime) break;
             bestMove = result.move; 
             bestExtraTurn = result.extraTurn || false;
-            if (result.score > 900000) break; // Checkmate found
+            if (result.score > 900000) break;
         }
         
         return { move: bestMove || (this.generateAllMoves(gameState, color)[0] || null), extraTurn: bestExtraTurn };
@@ -81,11 +80,10 @@ export class VibeChessAI {
 
         const moves = this.generateAllMoves(gameState, gameState.currentPlayer);
         
-        // Handle Game Over states
         if (moves.length === 0) {
             const inCheck = this.isInCheck(gameState, gameState.currentPlayer);
             if (inCheck) return { score: isMaximizing ? -1000000 + depth : 1000000 - depth, move: null };
-            return { score: 0, move: null }; // Stalemate
+            return { score: 0, move: null };
         }
 
         let bestScore = isMaximizing ? -Infinity : Infinity;
@@ -131,16 +129,13 @@ export class VibeChessAI {
 
         next.lastMovedPieceType = movingPiece.type;
 
-        // --- AGGRESSIVE MEGA STRIDE COLOSSUS AI SIMULATION ---
         if (movingPiece.id.startsWith('boss-colossus')) {
             const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
             let tlR=-1, tlC=-1;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(next.board[r][c].piece?.id === 'boss-colossus-tl') { tlR=r; tlC=c; break; }
             
-            // Clear old position
             parts.forEach(pt => { if(isValidSquareUtil(tlR+pt.dr, tlC+pt.dc)) next.board[tlR+pt.dr][tlC+pt.dc].piece = null; });
             
-            // CRUSHING STRIDE: AoE Capture all units in 2x2 zone
             parts.forEach(pt => { 
                 const nr=tR+pt.dr, nc=tC+pt.dc; 
                 if(isValidSquareUtil(nr,nc)) { 
@@ -179,15 +174,33 @@ export class VibeChessAI {
 
     evaluatePosition = (gs: AIGameState, aiColor: PlayerColor): number => {
         let score = 0;
+        const opponentColor = aiColor === 'white' ? 'black' : 'white';
+
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const piece = gs.board[r][c].piece;
                 if (!piece) continue;
+
                 const mult = piece.color === aiColor ? 1 : -1;
                 const levelIdx = Math.min(piece.level || 1, 10) - 1;
-                const baseValue = (this.pieceValues[piece.type][levelIdx] || this.pieceValues[piece.type][0]);
-                score += baseValue * mult;
                 
+                // CRASH PROTECTION: Check if type exists in valuation map
+                const values = this.pieceValues[piece.type];
+                if (values) {
+                    const baseValue = (values[levelIdx] || values[0]);
+                    score += baseValue * mult;
+                } else {
+                    // Default value for unknown pieces to prevent crash
+                    score += 100 * mult;
+                }
+                
+                // Infiltrator win heuristic
+                if (piece.type === 'infiltrator') {
+                    const targetRank = piece.color === 'white' ? 0 : 7;
+                    const distance = Math.abs(r - targetRank);
+                    score += (7 - distance) * 50 * mult;
+                }
+
                 // Position bonuses
                 if (piece.color === aiColor && piece.type !== 'king') {
                     if (this.centerSquares.has(`${r}${c}`)) score += 20;
@@ -235,7 +248,6 @@ export class VibeChessAI {
         const moves: AIMove[] = [];
         const effLevel = p.level || 1; 
 
-        // MIMIC LOGIC in AI
         if (p.type === 'mimic') {
             const patternType = gs.lastMovedPieceType || 'pawn';
             const virtualPiece = { ...p, type: patternType };
@@ -243,7 +255,6 @@ export class VibeChessAI {
         }
         
         if (p.id.startsWith('boss-colossus')) {
-            // TITAN MOVEMENT: 4x4 displacement and Mega-L jumps
             const strides = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]];
             const leaps = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];
             
@@ -262,6 +273,7 @@ export class VibeChessAI {
             case 'pawn':
             case 'dancer':
             case 'commander':
+            case 'grappler':
                 if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
                     if (!p.hasMoved && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece) {
@@ -279,6 +291,16 @@ export class VibeChessAI {
                 if (effLevel >= 3) {
                     [-1,1].forEach(dc => { if(isValidSquareUtil(r, c+dc) && !gs.board[r][c+dc].piece) moves.push({from:[r,c], to:[r,c+dc], type:'move'}); });
                 }
+                break;
+            case 'infiltrator':
+                [-1, 0, 1].forEach(dc => {
+                    const nr = r + dir; const nc = c + dc;
+                    if (isValidSquareUtil(nr, nc)) {
+                        const target = gs.board[nr][nc].piece;
+                        if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
+                        else if (target.color !== p.color) moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                    }
+                });
                 break;
             case 'knight': case 'hero': case 'archer':
                 this.knightMoves.forEach(([dr,dc]) => { 
@@ -333,11 +355,9 @@ export class VibeChessAI {
         if (color === 'black') {
             const parts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
             if (parts.length > 0) {
-                // Dormancy check
                 const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
                 if (otherMinions) return false;
                 
-                // Evaluate 2x2 hitbox for any threats
                 return parts.some(pt => {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
                     if (coords.row === -1) return false;
@@ -366,11 +386,11 @@ export class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
-                    if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator') {
+                    if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator' || p.type === 'grappler' || p.type === 'dancer') {
                         const dir = p.color === 'white' ? -1 : 1;
                         if (r + dir === tr && Math.abs(c - tc) === 1) return true;
+                        if (p.type === 'infiltrator' && r + dir === tr && c === tc) return true;
                     } else if (p.type === 'mimic') {
-                        // AI-Mimic check: approximate as queen/knight/rook/bishop union
                         const patternType = gs.lastMovedPieceType || 'pawn';
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType });
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
