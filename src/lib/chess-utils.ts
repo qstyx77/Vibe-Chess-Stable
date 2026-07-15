@@ -790,7 +790,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     const p2 = newBoard[toRow][toCol].piece;
     newBoard[fromRow][fromCol].piece = p2;
     newBoard[toRow][toCol].piece = p1;
-    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: 'dancer', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
+    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, originalPieceType: 'dancer', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
   }
 
   const originalPieceLevel = Number(movingPiece.level || 1);
@@ -929,7 +929,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
-  if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield') {
+  const isAttackerRoyal = movingPiece.type === 'king' || movingPiece.type === 'queen';
+  if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield' && !isAttackerRoyal) {
       const reflectedAttacker = { ...movingPiece };
       newBoard[fromRow][fromCol].piece = null; 
       newBoard[toRow][toCol].piece!.heldItem = null; 
