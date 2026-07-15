@@ -162,13 +162,18 @@ export function ChessBoard({
           let isDanceTarget = false;
           if (isLocalActionTurn && isAwaitingDanceTarget) {
             if (!dancerToDance) {
+                // If no dancer selected, highlight all dancers owned by current player
                 if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
             } else {
+                // If a dancer is selected, highlight valid targets:
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
-                const isAdj = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
+                const isDancerSelf = actualRowIndex === fr && actualColIndex === fc;
                 const dir = currentPlayerColor === 'white' ? -1 : 1;
                 const isOneForward = actualRowIndex === fr + dir && actualColIndex === fc;
-                if (isAdj || isOneForward) isDanceTarget = true;
+                const isAdjacentWithPiece = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && currentSquareData.piece !== null && !isDancerSelf;
+                
+                // Only highlight the dancer itself, the one forward square, or adjacent occupied squares (swaps)
+                if (isDancerSelf || isOneForward || isAdjacentWithPiece) isDanceTarget = true;
             }
           }
           
