@@ -430,16 +430,24 @@ export default function DungeonPage() {
       advanceLevel(survivors, nextGraveyard); return;
     }
     if (extra) { toast({ title: "EXTRA TURN!", description: `${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} gains another move!` }); audioManager.playLevelUp(); }
-    let newCounter = shroomSpawnCounter + 1; let finalNextShroom = nextShroomSpawnTurn;
-    if (newCounter >= nextShroomSpawnTurn) {
+    
+    // --- MUSHROOM SPAWN LOGIC (SYNCHRONIZED) ---
+    let newShroomCounter = shroomSpawnCounter + 1; 
+    let finalNextShroom = nextShroomSpawnTurn;
+    if (newShroomCounter >= nextShroomSpawnTurn) {
         const { newBoard: boardWithShroom, spawnedAt } = spawnShroom(nextBoard);
         if (spawnedAt) {
-            nextBoard = boardWithShroom; setBoard(nextBoard); newCounter = 0; finalNextShroom = Math.floor(Math.random() * 6) + 5;
-            setShroomSpawnCounter(newCounter); setNextShroomSpawnTurn(finalNextShroom);
+            nextBoard = boardWithShroom; setBoard(nextBoard); 
+            newShroomCounter = 0; 
+            finalNextShroom = Math.floor(Math.random() * 6) + 5;
             toast({ title: "Look Out!", description: "A mystical Shroom 🍄 has appeared!", duration: 1000 }); audioManager.playShroom();
         }
     }
-    saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, newCounter, finalNextShroom, nextEpSquare, finalNRC);
+    setShroomSpawnCounter(newShroomCounter);
+    setNextShroomSpawnTurn(finalNextShroom);
+    // ------------------------------------------
+
+    saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, newShroomCounter, finalNextShroom, nextEpSquare, finalNRC);
     const playerKing = findKing(nextBoard, 'white');
     if (!playerKing || isCheckmate(nextBoard, 'white', nextEpSquare, lastMovedPieceType)) {
       setGameInfo({ message: "YOUR KING HAS FALLEN", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' }); audioManager.playDefeat(); return;
@@ -1085,4 +1093,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-
