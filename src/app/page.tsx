@@ -1020,7 +1020,7 @@ export default function EvolvingChessPage() {
                 setBoard(nextB); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, currentPlayer, false, null); }, 800);
                 return;
             }
-            if (applyResult.promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', toAlg); toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" }); }
+            if (applyResult.promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" }); }
             const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
             const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
             setKillStreaks(prev => ({ ...prev, [currentPlayer]: newS }));

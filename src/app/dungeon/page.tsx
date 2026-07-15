@@ -950,7 +950,7 @@ export default function DungeonPage() {
         if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
         if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
         if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
-        if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', toAlg); toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" }); }
+        if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" }); }
         let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null;
         const landedPiece = newBoard[row][col].piece;
         const isInteractivePromo = (['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (row === 0 || row === 7);
