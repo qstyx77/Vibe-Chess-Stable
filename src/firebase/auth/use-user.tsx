@@ -39,6 +39,8 @@ const DEFAULT_INVENTORY: InventoryItem[] = ITEM_TYPES.map(type => ({
   count: 5
 }));
 
+const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler'];
+
 export function useUser() {
   const auth = useAuth();
   const [user, setUser] = useState<User | null>(null);
@@ -103,13 +105,22 @@ export function useUser() {
               return { type, count: existingCount };
             });
 
+            // PLAYTEST INITIALIZATION: Force special piece unlocks for all testers
+            const currentUnlocks = data.unlockedPieces || [];
+            const updatedUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
+            if (updatedUnlocks.length !== currentUnlocks.length) {
+              needsUpdate = true;
+              data.unlockedPieces = updatedUnlocks;
+            }
+
             if (needsUpdate || !data.inventory) {
                 setDoc(userRef, { 
                     inventory: updatedInventory, 
+                    unlockedPieces: updatedUnlocks,
                     equipment: data.equipment || {},
                     dungeonState: data.dungeonState || null 
                 }, { merge: true });
-                setUserData({ ...data, inventory: updatedInventory });
+                setUserData({ ...data, inventory: updatedInventory, unlockedPieces: updatedUnlocks });
             } else {
                 setUserData(data);
             }
@@ -123,7 +134,7 @@ export function useUser() {
               losses: 0,
               inventory: DEFAULT_INVENTORY,
               equipment: {},
-              unlockedPieces: [],
+              unlockedPieces: PLAYTEST_UNLOCKS,
               colossusDefeats: 0
             };
             setDoc(userRef, newUserProfile, { merge: true }).catch(error => {
