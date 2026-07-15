@@ -729,10 +729,12 @@ export default function DungeonPage() {
 
     if (isAwaitingGrappleThrow) {
         if (!sq.piece && !sq.item) {
-            const range = getEffectiveLevel(board, algebraicToCoords(selectedSquare!).row, algebraicToCoords(selectedSquare!).col);
             const {row: fr, col: fc} = algebraicToCoords(selectedSquare!);
+            const range = getEffectiveLevel(board, fr, fc);
+            const isCardinal = fr === row || fc === col;
+            const isDiagonal = Math.abs(fr - row) === Math.abs(fc - col);
             const dist = Math.max(Math.abs(fr-row), Math.abs(fc-col));
-            if (dist <= range) {
+            if ((isCardinal || isDiagonal) && dist <= range && dist > 0) {
                 setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
                 const move: Move = { from: selectedSquare!, to: algebraic, type: 'grapple-throw', thrownPiece: grappledPieceSubject!.piece };
                 const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
@@ -887,7 +889,6 @@ export default function DungeonPage() {
       if (movingPiece.type === 'grappler') {
           if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
               const {row: pr, col: pc} = algebraicToCoords(algebraic);
-              const {row: fr, col: fc} = fromR === pr && fromC === pc ? {row:-1, col:-1} : {row: pr, col: pc};
               const isAdj = Math.abs(fromR-pr) <=1 && Math.abs(fromC-pc) <= 1;
               if (isAdj) {
                 setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });

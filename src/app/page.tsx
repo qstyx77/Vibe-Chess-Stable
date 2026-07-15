@@ -836,10 +836,12 @@ export default function EvolvingChessPage() {
 
     if (isAwaitingGrappleThrow) {
         if (!sq?.piece && !sq?.item) {
-            const range = getEffectiveLevel(board, algebraicToCoords(selectedSquare!).row, algebraicToCoords(selectedSquare!).col);
             const {row: fr, col: fc} = algebraicToCoords(selectedSquare!);
+            const range = getEffectiveLevel(board, fr, fc);
+            const isCardinal = fr === row || fc === col;
+            const isDiagonal = Math.abs(fr - row) === Math.abs(fc - col);
             const dist = Math.max(Math.abs(fr-row), Math.abs(fc-col));
-            if (dist <= range) {
+            if ((isCardinal || isDiagonal) && dist <= range && dist > 0) {
                 clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'grapple-throw', thrownPiece: grappledPieceSubject!.piece }, enPassantTargetSquare, capturedPieces);
                 setBoard(applyResult.newBoard); audioManager.playMove();

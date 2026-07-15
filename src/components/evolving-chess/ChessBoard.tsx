@@ -162,26 +162,25 @@ export function ChessBoard({
           let isDanceTarget = false;
           if (isLocalActionTurn && isAwaitingDanceTarget) {
             if (!dancerToDance) {
-                // If no dancer selected, highlight all dancers owned by current player
                 if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
             } else {
-                // If a dancer is selected, highlight valid targets:
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
                 const isDancerSelf = actualRowIndex === fr && actualColIndex === fc;
                 const dir = currentPlayerColor === 'white' ? -1 : 1;
                 const isOneForward = actualRowIndex === fr + dir && actualColIndex === fc;
                 const isAdjacentWithPiece = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && currentSquareData.piece !== null && !isDancerSelf;
-                
-                // Only highlight the dancer itself, the one forward square, or adjacent occupied squares (swaps)
                 if (isDancerSelf || isOneForward || isAdjacentWithPiece) isDanceTarget = true;
             }
           }
           
           let isThrowTarget = false;
           if (isLocalActionTurn && isAwaitingGrappleThrow && selectedSquare && !currentSquareData.piece && !currentSquareData.item) {
-              const range = getEffectiveLevel(boardState, algebraicToCoords(selectedSquare).row, algebraicToCoords(selectedSquare).col);
-              const dist = Math.max(Math.abs(actualRowIndex - algebraicToCoords(selectedSquare).row), Math.abs(actualColIndex - algebraicToCoords(selectedSquare).col));
-              if (dist <= range) isThrowTarget = true;
+              const {row: fr, col: fc} = algebraicToCoords(selectedSquare);
+              const range = getEffectiveLevel(boardState, fr, fc);
+              const isCardinal = fr === actualRowIndex || fc === actualColIndex;
+              const isDiagonal = Math.abs(fr - actualRowIndex) === Math.abs(fc - actualColIndex);
+              const dist = Math.max(Math.abs(fr - actualRowIndex), Math.abs(fc - actualColIndex));
+              if ((isCardinal || isDiagonal) && dist <= range && dist > 0) isThrowTarget = true;
           }
 
           const invOwnerColor = localPlayerColor || 'white';
