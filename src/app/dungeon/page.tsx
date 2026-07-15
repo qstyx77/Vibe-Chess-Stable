@@ -8,6 +8,7 @@ import { RulesDialog } from '@/components/evolving-chess/RulesDialog';
 import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import {
   initializeBoard,
+  createEmptyBoard,
   applyMove,
   algebraicToCoords,
   getPossibleMoves,
@@ -218,7 +219,7 @@ export default function DungeonPage() {
   const { toast } = useToast();
 
   const [level, setLevel] = useState(1);
-  const [board, setBoard] = useState<BoardState>([]);
+  const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [playerArmy, setPlayerArmy] = useState<Piece[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
@@ -638,7 +639,7 @@ export default function DungeonPage() {
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
   }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast, necroResurrectionCounter, level, lastMovedPieceType]);
 
-  useEffect(() => { if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) { const timer = setTimeout(performAiMove, 500); return () => clearTimeout(timer); } }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove]);
+  useEffect(() => { if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) { const timer = setTimeout(performAiMove, 500); return () => typeof window !== 'undefined' && clearTimeout(timer); } }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove]);
 
   const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
     if (!user || !firestore) return;
@@ -757,7 +758,7 @@ export default function DungeonPage() {
         const isAdjacent = Math.abs(fr - row) <= 1 && Math.abs(fc - col) <= 1 && (fr !== row || fc !== col);
         const isOneForward = row === fr - 1 && col === fc; 
         if (isOneForward || isAdjacent) {
-            let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s} : null})));
             const dancerPiece = nextBoard[fr][fc].piece!;
             if (isOneForward && !nextBoard[row][col].piece && !nextBoard[row][col].item) {
                 nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = null;

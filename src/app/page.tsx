@@ -10,6 +10,7 @@ import { GameSummaryDialog } from '@/components/evolving-chess/GameSummaryDialog
 import { InventoryWindow } from '@/components/evolving-chess/InventoryWindow';
 import {
   initializeBoard,
+  createEmptyBoard,
   applyMove,
   algebraicToCoords,
   getPossibleMoves,
@@ -104,7 +105,7 @@ function adaptBoardForAI(
         newAiRow.push({ piece: null, item: null });
       }
     }
-    newAiBoard.push(newAiBoard);
+    newAiBoard.push(newAiRow);
   }
 
   return {
@@ -137,7 +138,7 @@ export default function EvolvingChessPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const [board, setBoard] = useState<BoardState>(initializeBoard());
+  const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<AlgebraicSquare[]>([]);
@@ -267,13 +268,15 @@ export default function EvolvingChessPage() {
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }, [aiDifficulty]);
 
+  // Initial deterministic setup for hydration safety
   useEffect(() => {
-    if (!isUserLoading && userData && !hasInitializedSession.current) {
+    if (!isUserLoading && !hasInitializedSession.current) {
       hasInitializedSession.current = true;
-      const elo = userData.eloRating || 1200;
-      let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
+      const elo = userData?.eloRating || 1200;
+      const unlocks = userData?.unlockedPieces || [];
+      let initial = initializeBoard(elo, 1200, unlocks, []);
       
-      if (userData.equipment) {
+      if (userData?.equipment) {
         initial = initial.map(row => row.map(sq => {
           if (sq.piece && userData.equipment![sq.piece.id]) {
             return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
@@ -282,7 +285,7 @@ export default function EvolvingChessPage() {
         }));
       }
       setBoard(initial);
-      if (userData.inventory) setInventory(userData.inventory);
+      if (userData?.inventory) setInventory(userData.inventory);
     }
   }, [userData, isUserLoading]);
 
@@ -737,7 +740,7 @@ export default function EvolvingChessPage() {
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(player);
         setBoardForPostSacrifice(boardAfter);
         setPlayerWhoMadeQueenMove(player); setIsExtraTurnFromQueenMove(extra);
-        setAnvilDropContext({ boardForNextStep: boardAfter, playerWhoseTurnCompleted: player, isExtraTurn: extra, newEnPassantTarget: ep, oldStreak: oldS, newStreak: newS, completedMilestones: [] }); 
+        setAnvilDropContext({ boardForNextStep: boardAfter, playerWhoseTurnCompleted: player, isExtraTurn: extra, newEnPassantTarget: ep, oldS, newS }); 
         return true;
       }
     }
@@ -794,7 +797,7 @@ export default function EvolvingChessPage() {
 
   useEffect(() => {
     if (((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive) {
-      const timer = setTimeout(performAiMove, 500); return () => clearTimeout(timer);
+      const timer = setTimeout(performAiMove, 500); return () => typeof window !== 'undefined' && clearTimeout(timer);
     }
   }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove]);
 
@@ -1051,7 +1054,7 @@ export default function EvolvingChessPage() {
   }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus, toast]);
 
   useEffect(() => {
-    if (!board || !prevBoardRef.current) { prevBoardRef.current = board; return; }
+    if (!board || board.length === 0 || !prevBoardRef.current || prevBoardRef.current.length === 0) { prevBoardRef.current = board; return; }
     const prevPieceLevels = new Map<string, number>();
     prevBoardRef.current.forEach(row => row.forEach(sq => { if (sq.piece) prevPieceLevels.set(sq.piece.id, sq.piece.level); }));
     const currentPieceIds = new Set<string>(); board.forEach(row => row.forEach(currSq => { if (currSq.piece) currentPieceIds.add(currSq.piece.id); }));
@@ -1123,7 +1126,7 @@ export default function EvolvingChessPage() {
 
   function fullGameReset() {
     let initial = initializeBoard(userData?.eloRating || 1200, 1200, userData?.unlockedPieces || []);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
 

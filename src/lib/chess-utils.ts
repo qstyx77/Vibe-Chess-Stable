@@ -21,14 +21,10 @@ export const VAL_MAP: Record<string, number> = {
 };
 
 /**
- * Initializes a board with piece upgrades based on ELO and unlockable pieces for both players.
+ * Creates a blank 8x8 board without any pieces or items.
+ * Use this for initial deterministic rendering to avoid hydration errors.
  */
-export function initializeBoard(
-  whiteElo: number = 1200, 
-  blackElo: number = 1200, 
-  whiteUnlocks: string[] = [],
-  blackUnlocks: string[] = []
-): BoardState {
+export function createEmptyBoard(): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
     const row: SquareState[] = [];
@@ -38,6 +34,19 @@ export function initializeBoard(
     }
     board.push(row);
   }
+  return board;
+}
+
+/**
+ * Initializes a board with piece upgrades based on ELO and unlockable pieces for both players.
+ */
+export function initializeBoard(
+  whiteElo: number = 1200, 
+  blackElo: number = 1200, 
+  whiteUnlocks: string[] = [],
+  blackUnlocks: string[] = []
+): BoardState {
+  const board = createEmptyBoard();
 
   // Define stable unit identities for White
   // PLAYTEST Thresholds: Set to 0 so everyone gets them
