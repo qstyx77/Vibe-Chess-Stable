@@ -268,7 +268,6 @@ export default function EvolvingChessPage() {
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }, [aiDifficulty]);
 
-  // Initial deterministic setup for hydration safety
   useEffect(() => {
     if (!isUserLoading && !hasInitializedSession.current) {
       hasInitializedSession.current = true;
@@ -673,8 +672,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -1071,7 +1070,10 @@ export default function EvolvingChessPage() {
     board.forEach(row => row.forEach(currSq => {
       if (currSq.piece) {
         const prevLevel = prevPieceLevels.get(currSq.piece.id);
-        if (prevLevel !== undefined && currSq.piece.level !== prevLevel) { const diff = currSq.piece.level - prevLevel; newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff }); }
+        if (prevLevel !== undefined && currSq.piece.level !== prevLevel) { 
+          const diff = currSq.piece.level - prevLevel; 
+          newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff }); 
+        }
       }
     }));
     prevBoardRef.current.forEach(row => row.forEach(prevSq => { if (prevSq.piece && !currentPieceIds.has(prevSq.piece.id)) { newEffectsToAdd.push({ type: 'poof', square: prevSq.algebraic }); } }));
@@ -1135,7 +1137,27 @@ export default function EvolvingChessPage() {
 
   function fullGameReset() {
     let initial = initializeBoard(userData?.eloRating || 1200, 1200, userData?.unlockedPieces || []);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    
+    // Explicitly reset all special action states when resetting standard game
+    setIsAwaitingDanceTarget(false);
+    setDancerToDance(null);
+    setIsAwaitingCommanderPromotion(false);
+    setIsAwaitingAnvilDrop(false);
+    setIsAwaitingHolyShield(false);
+    setIsAwaitingArcherSnipe(false);
+    setIsAwaitingPawnSacrifice(false);
+    setIsAwaitingGrappleThrow(false);
+    setGrappledPieceSubject(null);
+    setIsInventoryOpen(false);
+    setSpecialActionContext(null);
+    setIsAwaitingWindScrollTarget(false);
+    setIsAwaitingAnvilScrollTarget(false);
+    setIsAwaitingShieldScrollTarget(false);
+    setIsAwaitingSwapScrollTarget(false);
+    setIsAwaitingDecreeTarget(false);
+    setAbilityChoiceDialog(null);
+
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
 

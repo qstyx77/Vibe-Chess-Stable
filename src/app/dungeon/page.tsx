@@ -40,7 +40,6 @@ import {
   AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
-  AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
@@ -658,6 +657,26 @@ export default function DungeonPage() {
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
     setIsMoveProcessing(false); clickGuard.current = false; setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]); setLastMovedPieceType(null);
+    
+    // Explicitly reset all special action states when starting/resetting a run
+    setIsAwaitingDanceTarget(false);
+    setDancerToDance(null);
+    setIsAwaitingCommanderPromotion(false);
+    setIsAwaitingAnvilDrop(false);
+    setIsAwaitingHolyShield(false);
+    setIsAwaitingArcherSnipe(false);
+    setIsAwaitingPawnSacrifice(false);
+    setIsAwaitingGrappleThrow(false);
+    setGrappledPieceSubject(null);
+    setIsInventoryOpen(false);
+    setSpecialActionContext(null);
+    setIsAwaitingWindScrollTarget(false);
+    setIsAwaitingAnvilScrollTarget(false);
+    setIsAwaitingShieldScrollTarget(false);
+    setIsAwaitingSwapScrollTarget(false);
+    setIsAwaitingDecreeTarget(false);
+    setAbilityChoiceDialog(null);
+
     const saved = userData.dungeonState;
     if (!reset && saved && saved.board && saved.board.length > 0) {
       setLevel(saved.level); const loadedBoard: BoardState = []; const savedBoard1D = saved.board as SquareState[];
@@ -979,6 +998,26 @@ export default function DungeonPage() {
     else { setSelectedSquare(null); setPossibleMoves([]); }
   };
 
+  useEffect(() => {
+    if (!board || board.length === 0 || !prevBoardRef.current || prevBoardRef.current.length === 0) { prevBoardRef.current = board; return; }
+    const prevPieceLevels = new Map<string, number>();
+    prevBoardRef.current.forEach(row => row.forEach(sq => { if (sq.piece) prevPieceLevels.set(sq.piece.id, sq.piece.level); }));
+    const currentPieceIds = new Set<string>(); board.forEach(row => row.forEach(currSq => { if (currSq.piece) currentPieceIds.add(currSq.piece.id); }));
+    const newEffectsToAdd: {type: Effect['type'], square: AlgebraicSquare, val?: number}[] = [];
+    board.forEach(row => row.forEach(currSq => {
+      if (currSq.piece) {
+        const prevLevel = prevPieceLevels.get(currSq.piece.id);
+        if (prevLevel !== undefined && currSq.piece.level !== prevLevel) { 
+          const diff = currSq.piece.level - prevLevel; 
+          newEffectsToAdd.push({ type: 'level-change', square: currSq.algebraic, val: diff }); 
+        }
+      }
+    }));
+    prevBoardRef.current.forEach(row => row.forEach(prevSq => { if (prevSq.piece && !currentPieceIds.has(prevSq.piece.id)) { newEffectsToAdd.push({ type: 'poof', square: prevSq.algebraic }); } }));
+    if (newEffectsToAdd.length > 0) newEffectsToAdd.forEach(e => addEffect(e.type, e.square, undefined, e.val));
+    prevBoardRef.current = board;
+  }, [board, addEffect]);
+
   const processPawnSacrificeCheck = useCallback((boardAfterPrimaryMove: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, playerWhoseQueenLeveled: PlayerColor, move: Move, originalLevel: number, originalType: PieceType, isExtra: boolean, nextEp: AlgebraicSquare | null, oldStreak: number, newStreak: number): boolean => {
     if (originalType !== 'queen') return false; const { row: tr, col: tc } = algebraicToCoords(move.to); const queen = boardAfterPrimaryMove[tr][tc].piece;
     if (queen && queen.type === 'queen' && queen.level === 7 && originalLevel < 7) {
@@ -1040,7 +1079,7 @@ export default function DungeonPage() {
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { const target = parseInt(type.split('_')[2]); warpToLevel(target, type); } }} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <RulesDialog isOpen={false} onOpenChange={() => {}} /> <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle className="font-pixel text-primary uppercase">Reset Run?</AlertDialogTitle> <AlertDialogDescription> This will erase your current floor progress and return you to Floor 1. All dungeon captures and streaks will be lost. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel className="font-pixel text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="bg-destructive font-pixel text-[10px] uppercase" onClick={handleResetRun}>Confirm Reset</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
-      <AlertDialog open={abilityChoiceDialog?.isOpen}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Select Action</AlertDialogTitle> <AlertDialogDescription> This piece has multiple special actions available. Choose one to perform. </AlertDialogDescription> </AlertDialogHeader> <div className="flex flex-col gap-2"> <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}> Use Piece Ability </Button> <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}> Use Magic Item (Spell) </Button> </div> <AlertDialogFooter> <AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
+      <AlertDialog open={abilityChoiceDialog?.isOpen} > <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Select Action</AlertDialogTitle> <AlertDialogDescription> This piece has multiple special actions available. Choose one to perform. </AlertDialogDescription> </AlertDialogHeader> <div className="flex flex-col gap-2"> <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}> Use Piece Ability </Button> <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}> Use Magic Item (Spell) </Button> </div> <AlertDialogFooter> <AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
     </div>
   );
 }
