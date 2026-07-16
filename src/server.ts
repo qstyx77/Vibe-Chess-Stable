@@ -553,7 +553,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[targetPiece.type] || 0;
                                 responsibleArcher.level += gain;
 
-                                room.gameState.capturedPieces[actingColor].push(targetPiece);
+                                const targetPile = targetPiece.color === 'white' ? 'black' : 'white';
+                                room.gameState.capturedPieces[targetPile].push(targetPiece);
                                 room.gameState.board[row][col].piece = null;
                                 delete room.gameState.archerSnipeContext;
                                 triggerNextSpecialAction(room, actingColor);
@@ -596,7 +597,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const { row, col } = algebraicToCoords(square);
                         const victim = room.gameState.board[row]?.[col]?.piece;
                         if (victim && (victim.type === 'pawn' || victim.type === 'commander' || ['dancer', 'mimic', 'grappler'].includes(victim.type)) && victim.color === actingColor) {
-                            room.gameState.capturedPieces[actingColor === 'white' ? 'black' : 'white'].push(victim);
+                            const targetPile = victim.color === 'white' ? 'black' : 'white';
+                            room.gameState.capturedPieces[targetPile].push(victim);
                             room.gameState.board[row][col].piece = null;
                             room.gameState.isAwaitingPawnSacrifice = false;
                             triggerNextSpecialAction(room, actingColor);
@@ -666,14 +668,25 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const isObliterationMove = promotedToInfiltrator || (movingPieceStart.type === 'infiltrator' && capturedPiece);
 
-                        if (capturedPiece && !isObliterationMove) room.gameState.capturedPieces[movingPlayer].push(capturedPiece);
-                        if (selfDestructCaptures) selfDestructCaptures.forEach(p => room.gameState.capturedPieces[movingPlayer].push(p));
-                        if (rest.pieceCapturedByAnvil) room.gameState.capturedPieces[movingPlayer].push(rest.pieceCapturedByAnvil);
+                        if (capturedPiece && !isObliterationMove) {
+                            const targetPile = capturedPiece.color === 'white' ? 'black' : 'white';
+                            room.gameState.capturedPieces[targetPile].push(capturedPiece);
+                        }
+                        if (selfDestructCaptures) {
+                            selfDestructCaptures.forEach(p => {
+                                const targetPile = p.color === 'white' ? 'black' : 'white';
+                                room.gameState.capturedPieces[targetPile].push(p);
+                            });
+                        }
+                        if (rest.pieceCapturedByAnvil) {
+                            const targetPile = rest.pieceCapturedByAnvil.color === 'white' ? 'black' : 'white';
+                            room.gameState.capturedPieces[targetPile].push(rest.pieceCapturedByAnvil);
+                        }
                         
                         if (resurrectionScrollEvent) {
                             const p = resurrectionScrollEvent.piece;
-                            const oppColor = movingPlayer === 'white' ? 'black' : 'white';
-                            room.gameState.capturedPieces[oppColor] = room.gameState.capturedPieces[oppColor].filter((pi: any) => pi.id !== p.id) ;
+                            const targetPile = p.color === 'white' ? 'black' : 'white';
+                            room.gameState.capturedPieces[targetPile] = room.gameState.capturedPieces[targetPile].filter((pi: any) => pi.id !== p.id) ;
                             room.gameState.resurrectedSquare = resurrectionScrollEvent.square;
                         }
 
@@ -707,9 +720,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         if (newStreak >= 4 && oldStreak < 4) {
                             const oppColor = movingPlayer === 'white' ? 'black' : 'white';
-                            const myFallenPieces = room.gameState.capturedPieces[oppColor];
-                            if (myFallenPieces && myFallenPieces.length > 0) {
-                                const sorted = [...myFallenPieces].sort((a, b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
+                            // We should pull from the pile intended for the moving player (which contains opponent's pieces)
+                            const myAvailableResurrections = room.gameState.capturedPieces[movingPlayer];
+                            if (myAvailableResurrections && myAvailableResurrections.length > 0) {
+                                const sorted = [...myAvailableResurrections].sort((a, b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
                                 const pieceToResurrect = sorted[0];
                                 const emptySquares = [];
                                 for (let r = 0; r < 8; r++) {
@@ -737,7 +751,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                         resurrectedPiece.type = 'hero';
                                     }
                                     finalizedBoard[spawnPos.r][spawnPos.c].piece = resurrectedPiece;
-                                    room.gameState.capturedPieces[oppColor] = myFallenPieces.filter(p => p.id !== pieceToResurrect.id);
+                                    room.gameState.capturedPieces[movingPlayer] = myAvailableResurrections.filter(p => p.id !== pieceToResurrect.id);
                                     room.gameState.resurrectedSquare = coordsToAlgebraic(spawnPos.r, spawnPos.c);
                                     
                                     syncSoulLink(finalizedBoard, movingPlayer);

@@ -1160,7 +1160,8 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
         else {
           const dest = board[tr][dc_dest];
           if (victim.item?.type === 'anvil') {
-             if (dest.piece && dest.piece.type !== 'king') {
+             // FIX: Check for Holy Shield and Kings
+             if (dest.piece && dest.piece.type !== 'king' && !dest.piece.isShielded) {
                 crushed = { ...dest.piece };
                 dest.piece = null;
                 board[tr][dc_dest].item = victim.item;
