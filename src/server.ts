@@ -595,7 +595,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const { row, col } = algebraicToCoords(square);
                         const victim = room.gameState.board[row]?.[col]?.piece;
-                        if (victim && (victim.type === 'pawn' || victim.type === 'commander') && victim.color === actingColor) {
+                        if (victim && (victim.type === 'pawn' || victim.type === 'commander' || ['dancer', 'mimic', 'grappler'].includes(victim.type)) && victim.color === actingColor) {
                             room.gameState.capturedPieces[actingColor === 'white' ? 'black' : 'white'].push(victim);
                             room.gameState.board[row][col].piece = null;
                             room.gameState.isAwaitingPawnSacrifice = false;
@@ -660,7 +660,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
                         
-                        // Handle automatic promotion item returns
                         if (itemReturned) {
                           ws.send(JSON.stringify({ type: 'equipment-returned', item: itemReturned }));
                         }

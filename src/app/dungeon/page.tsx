@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -254,7 +253,7 @@ export default function DungeonPage() {
   const [playerWhoMadeQueenMove, setPlayerWhoMadeQueenMove] = useState<PlayerColor | null>(null);
   const [isExtraTurnFromQueenMove, setIsExtraTurnFromQueenMove] = useState<boolean>(false);
   const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
-  const [specialActionContext, setSpecialActionContext] = useState<any>(null);
+  const [specialActionContext, setSpecialActionContext] = useState<{ extra: boolean, nextEp: AlgebraicSquare | null, oldStreak: number, newStreak: number, completedMilestones: string[], actingPlayer: PlayerColor, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number } } | null>(null);
 
   const [isAwaitingDanceTarget, setIsAwaitingDanceTarget] = useState(false);
   const [dancerToDance, setDancerToDance] = useState<AlgebraicSquare | null>(null);
@@ -376,7 +375,7 @@ export default function DungeonPage() {
                         const sq = empty[Math.floor(Math.random() * empty.length)];
                         const {row, col} = algebraicToCoords(sq.algebraic);
                         const res = { ...choice, level: 1, id: `${choice.id}_necro_res_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                        if ((['pawn', 'dancer', 'mimic', 'grappler'].includes(res.type)) && row === 7) res.type = 'queen';
+                        if ((['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(res.type)) && row === 7) res.type = 'queen';
                         nextBoard[row][col].piece = res; nextGraveyard.black = nextGraveyard.black.filter(p => p.id !== choice.id);
                         setCapturedPieces({ ...nextGraveyard }); addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
                         toast({ title: "Necromancy!", description: "The Necromancer has brought back a fallen soul!", variant: "destructive" }); finalNRC = 0;
@@ -386,7 +385,7 @@ export default function DungeonPage() {
             setNecroResurrectionCounter(finalNRC);
         }
     }
-    setBoard(nextBoard); setEnPassantTargetSquare(nextEpSquare);
+    setBoard(nextBoard); setEnPassantTargetSquare(nextEpSquare); setCapturedPieces(nextGraveyard); setKillStreaks(currentKs);
     const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     const enemyCount = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black').length;
     const dungeonKing = findKing(nextBoard, 'black');
@@ -431,7 +430,6 @@ export default function DungeonPage() {
     }
     if (extra) { toast({ title: "EXTRA TURN!", description: `${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} gains another move!` }); audioManager.playLevelUp(); }
     
-    // --- MUSHROOM SPAWN LOGIC (SYNCHRONIZED) ---
     let newShroomCounter = shroomSpawnCounter + 1; 
     let finalNextShroom = nextShroomSpawnTurn;
     if (newShroomCounter >= nextShroomSpawnTurn) {
@@ -445,7 +443,6 @@ export default function DungeonPage() {
     }
     setShroomSpawnCounter(newShroomCounter);
     setNextShroomSpawnTurn(finalNextShroom);
-    // ------------------------------------------
 
     saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, newShroomCounter, finalNextShroom, nextEpSquare, finalNRC);
     const playerKing = findKing(nextBoard, 'white');
@@ -465,7 +462,7 @@ export default function DungeonPage() {
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
-    let nextGraveyard = { white: [...currentGraveyard.white], black: [...currentGraveyard.black] };
+    let nextGraveyard = { ...currentGraveyard };
 
     if (newStreak >= 1 && oldStreak < 1 && !completedMilestones.includes('dance')) {
         const hasDancers = boardToChain.flat().some(sq => sq.piece?.type === 'dancer' && sq.piece.color === actingPlayer);
@@ -536,7 +533,6 @@ export default function DungeonPage() {
                 const responsibleAIArcher = aiArchers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) { const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; responsibleAIArcher.level += gain; }
                 nextGraveyard[actingPlayer === 'white' ? 'black' : 'white'] = [...nextGraveyard[actingPlayer === 'white' ? 'black' : 'white'], sniped];
-                setCapturedPieces({ ...nextGraveyard }); nextBoard[row][col].piece = null; addEffect('poof', v.algebraic); audioManager.playSnipe();
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe']); return;
             } else { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], actingPlayer, currentGraveyard: nextGraveyard, currentKs }); setIsAwaitingArcherSnipe(true); return; }
         }
@@ -553,16 +549,17 @@ export default function DungeonPage() {
         const myGraveyard = actingPlayer === 'white' ? nextGraveyard.black : nextGraveyard.white; 
         if (myGraveyard.length > 0) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
+            const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
             const choice = sorted[0]; const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random() * empty.length)]; const {row, col} = algebraicToCoords(sq.algebraic);
                 const res = { ...choice, level: 1, id: `${choice.id}_res_KS_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                 const oppBackRank = actingPlayer === 'white' ? 0 : 7;
                 if (res.type === 'commander' && row === oppBackRank) res.type = 'hero';
-                nextBoard[row][col].piece = res; const updatedG = { ...nextGraveyard };
+                nextBoard[row][col].piece = res; 
+                const updatedG = { ...nextGraveyard };
                 if (actingPlayer === 'white') updatedG.black = updatedG.black.filter(p => p.id !== choice.id); else updatedG.white = updatedG.white.filter(p => p.id !== choice.id);
-                setCapturedPieces(updatedG); addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
+                addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
                 if (!isAI && (['pawn', 'dancer', 'mimic', 'grappler'].includes(res.type)) && row === oppBackRank) {
                     setPromotionTargetLevel(1); setPromotionSquare(sq.algebraic); setIsPromotingPawn(true);
                     setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'resurrection'], actingPlayer, currentGraveyard: updatedG, currentKs }); return;
@@ -573,7 +570,7 @@ export default function DungeonPage() {
         }
     }
     processMoveEnd(boardToChain, nextGraveyard, currentKs, actingPlayer, isExtra, nextEp);
-  }, [firstBloodAchieved, addEffect, processMoveEnd, setCapturedPieces]);
+  }, [firstBloodAchieved, addEffect, processMoveEnd, setCapturedPieces, setKillStreaks]);
 
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black' || isAnySpecialModeActive) return;
@@ -668,7 +665,6 @@ export default function DungeonPage() {
     if (isUserLoading || !userData || !user) return;
     setIsMoveProcessing(false); clickGuard.current = false; setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]); setLastMovedPieceType(null);
     
-    // Explicitly reset all special action states when starting/resetting a run
     setIsAwaitingDanceTarget(false);
     setDancerToDance(null);
     setIsAwaitingCommanderPromotion(false);
@@ -726,7 +722,7 @@ export default function DungeonPage() {
     if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
     audioManager.playLevelUp(); setBoard(nextBoard); setIsPromotingPawn(false); setPromotionSquare(null);
     const isExtra = (nextBoard[row][col].piece!.level >= 5) || specialActionContext?.extra;
-    triggerSpecialsChain(nextBoard, specialActionContext?.currentGraveyard || capturedPieces, specialActionContext?.currentKs || killStreaks, specialActionContext?.oldStreak || 0, specialActionContext?.newStreak || 0, isExtra, enPassantTargetSquare, specialActionContext?.actingPlayer || 'white', specialActionContext?.completedMilestones || []);
+    triggerSpecialsChain(nextBoard, specialActionContext?.currentGraveyard || capturedPieces, specialActionContext?.currentKs || killStreaks, specialActionContext?.oldStreak || 0, specialActionContext?.newStreak || 0, isExtra || false, enPassantTargetSquare, specialActionContext?.actingPlayer || 'white', specialActionContext?.completedMilestones || []);
   }, [board, promotionSquare, promotionTargetLevel, specialActionContext, enPassantTargetSquare, triggerSpecialsChain, capturedPieces, killStreaks, toast]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
@@ -789,7 +785,7 @@ export default function DungeonPage() {
         }
         if (algebraic === dancerToDance) {
             setIsAwaitingDanceTarget(false); setDancerToDance(null); setSelectedSquare(null); setPossibleMoves([]);
-            triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, 'white', specialActionContext.completedMilestones);
+            triggerSpecialsChain(board, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, 'white', specialActionContext!.completedMilestones);
             return;
         }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
@@ -798,16 +794,17 @@ export default function DungeonPage() {
         if (isOneForward || isAdjacent) {
             let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const dancerPiece = nextBoard[fr][fc].piece!;
+            const nextG = { ...specialActionContext!.currentGraveyard };
             if (isOneForward && !nextBoard[row][col].piece && !nextBoard[row][col].item) {
                 nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = null;
             } else if (isAdjacent && nextBoard[row][col].piece) {
                 const targetP = nextBoard[row][col].piece; nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = targetP;
             } else if (isOneForward && nextBoard[row][col].piece && nextBoard[row][col].piece!.color === 'black') {
                 const captured = nextBoard[row][col].piece!; nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = null;
-                specialActionContext.currentGraveyard.white.push({ ...captured, id: `${captured.id}_dance_${Date.now()}` });
+                nextG.white.push({ ...captured, id: `${captured.id}_dance_${Date.now()}` });
             } else { return; }
-            setBoard(nextBoard); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove();
-            triggerSpecialsChain(nextBoard, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, 'white', specialActionContext.completedMilestones);
+            setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove();
+            triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, 'white', specialActionContext!.completedMilestones);
         }
         return;
     }
@@ -866,9 +863,11 @@ export default function DungeonPage() {
             const nextBoard = (boardForPostSacrifice || board).map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const sacrificedPiece = nextBoard[row][col].piece; if (!sacrificedPiece) return;
             const sacrificed = { ...sacrificedPiece, id: `${sacrificedPiece.id}_sac_${Date.now()}` };
-            nextBoard[row][col].piece = null; const updatedGraveyard = { ...capturedPieces, black: [...capturedPieces.black, sacrificed] };
-            setCapturedPieces(updatedGraveyard); setBoard(nextBoard); setIsAwaitingPawnSacrifice(false); setPlayerWhoMadeQueenMove(null); setBoardForPostSacrifice(null); audioManager.playCapture();
-            triggerSpecialsChain(nextBoard, updatedGraveyard, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', specialActionContext.completedMilestones || []);
+            nextBoard[row][col].piece = null; 
+            const nextG = { ...specialActionContext!.currentGraveyard };
+            nextG.black = [...nextG.black, sacrificed];
+            setCapturedPieces(nextG); setBoard(nextBoard); setIsAwaitingPawnSacrifice(false); setPlayerWhoMadeQueenMove(null); setBoardForPostSacrifice(null); audioManager.playCapture();
+            triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', specialActionContext!.completedMilestones || []);
         }
         return;
     }
@@ -883,9 +882,10 @@ export default function DungeonPage() {
                 const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id)); const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                 const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
                 nextBoard[arRow][arCol].piece!.level += gain;
-                setBoard(nextBoard); const updatedGraveyard = { ...capturedPieces, white: [...capturedPieces.white, snipedPiece] };
-                setCapturedPieces(updatedGraveyard); setIsAwaitingArcherSnipe(false); audioManager.playSnipe();
-                triggerSpecialsChain(nextBoard, updatedGraveyard, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', [...(specialActionContext.completedMilestones || []), 'snipe']); 
+                const nextG = { ...specialActionContext!.currentGraveyard };
+                nextG.white = [...nextG.white, snipedPiece];
+                setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingArcherSnipe(false); audioManager.playSnipe();
+                triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', [...(specialActionContext!.completedMilestones || []), 'snipe']); 
             }
         }
         return;
@@ -894,7 +894,7 @@ export default function DungeonPage() {
         if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded) {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); nextBoard[row][col].piece!.isShielded = true;
             setBoard(nextBoard); setIsAwaitingHolyShield(false); audioManager.playShield();
-            triggerSpecialsChain(nextBoard, capturedPieces, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', [...(specialActionContext.completedMilestones || []), 'shield']);
+            triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', [...(specialActionContext!.completedMilestones || []), 'shield']);
         }
         return;
     }
@@ -902,7 +902,7 @@ export default function DungeonPage() {
         if (!sq.piece && !sq.item) {
             const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); nextBoard[row][col].item = { type: 'anvil' };
             setBoard(nextBoard); setIsAwaitingAnvilDrop(false); audioManager.playAnvil();
-            triggerSpecialsChain(nextBoard, capturedPieces, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', specialActionContext.completedMilestones || []);
+            triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', specialActionContext!.completedMilestones || []);
         }
         return;
     }
@@ -912,7 +912,7 @@ export default function DungeonPage() {
             nextBoard[row][col].piece!.type = 'commander'; nextBoard[row][col].piece!.id = `${nextBoard[row][col].piece!.id}_CMD_${Date.now()}`;
             nextBoard[row][col].piece!.isPoisoned = false; nextBoard[row][col].piece!.cooldownTurnsRemaining = 0; nextBoard[row][col].piece!.frozenTurnsRemaining = 0;
             setBoard(nextBoard); setIsAwaitingCommanderPromotion(false); audioManager.playLevelUp();
-            triggerSpecialsChain(nextBoard, capturedPieces, killStreaks, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.extra, enPassantTargetSquare, specialActionContext.actingPlayer || 'white', specialActionContext.completedMilestones || []);
+            triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', specialActionContext!.completedMilestones || []);
         }
         return;
     }
@@ -921,7 +921,6 @@ export default function DungeonPage() {
       if (!movingPiece) return;
       const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
 
-      // GRAPPLER LOGIC
       if (movingPiece.type === 'grappler') {
           if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
               const {row: pr, col: pc} = algebraicToCoords(algebraic);
