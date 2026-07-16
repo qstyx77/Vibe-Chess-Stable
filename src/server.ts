@@ -623,7 +623,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         let isLegal = false;
-                        if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest'].includes(moveType)) {
+                        if (moveType === 'grapple-throw') {
+                            const {row: fr, col: fc} = fromCoords;
+                            const {row: tr, col: tc} = algebraicToCoords(to);
+                            const effLevel = getEffectiveLevel(room.gameState.board, fr, fc);
+                            const dist = Math.max(Math.abs(fr-tr), Math.abs(fc-tc));
+                            const isCardinal = fr === tr || fc === tc;
+                            const isDiagonal = Math.abs(fr - tr) === Math.abs(fc - tc);
+                            if (dist <= effLevel && (isCardinal || isDiagonal) && dist > 0) isLegal = true;
+                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest'].includes(moveType)) {
                             const effLevel = getEffectiveLevel(room.gameState.board, fromCoords.row, fromCoords.col);
                             const hItem = movingPieceStart.heldItem;
                             if (from === to) {
@@ -720,7 +728,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         if (newStreak >= 4 && oldStreak < 4) {
                             const oppColor = movingPlayer === 'white' ? 'black' : 'white';
-                            // We should pull from the pile intended for the moving player (which contains opponent's pieces)
                             const myAvailableResurrections = room.gameState.capturedPieces[movingPlayer];
                             if (myAvailableResurrections && myAvailableResurrections.length > 0) {
                                 const sorted = [...myAvailableResurrections].sort((a, b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));

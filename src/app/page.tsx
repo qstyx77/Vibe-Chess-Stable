@@ -1042,19 +1042,29 @@ export default function EvolvingChessPage() {
       if (moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
           if (moving.type === 'grappler') {
               if (piece && algebraic !== selectedSquare) {
+                  const {row: pr, col: pc} = algebraicToCoords(algebraic);
                   const isAdj = Math.abs(fR - row) <= 1 && Math.abs(fC - col) <= 1;
                   if (isAdj) {
-                    if (piece.type === 'king') {
-                      toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
+                    const dir = moving.color === 'white' ? -1 : 1;
+                    const isDiagForward = (pr === fR + dir) && Math.abs(pc - fC) === 1;
+                    const isEnemy = piece.color !== moving.color;
+
+                    // If it is a diagonally forward enemy, fall through to standard capture
+                    if (isEnemy && isDiagForward) {
+                        // Let logic proceed to move/capture
                     } else {
-                      setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
-                      let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                      nextBoard[row][col].piece = null;
-                      setBoard(nextBoard);
-                      setIsAwaitingGrappleThrow(true);
-                      toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                        if (piece.type === 'king') {
+                          toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
+                        } else {
+                          setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
+                          let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                          nextBoard[row][col].piece = null;
+                          setBoard(nextBoard);
+                          setIsAwaitingGrappleThrow(true);
+                          toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                        }
+                        return;
                     }
-                    return;
                   }
               }
           }

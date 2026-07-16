@@ -49,7 +49,6 @@ export function initializeBoard(
   const board = createEmptyBoard();
 
   // Define stable unit identities for White
-  // PLAYTEST Thresholds: Set to 0 so everyone gets them
   const whiteBishops: Piece[] = [
     { id: 'wB1', type: whiteElo >= 0 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
@@ -288,8 +287,8 @@ function getPossibleMovesInternal(
   }
 
   if (piece.type === 'grappler') {
-    // 1. Regular Pawn Moves (Diagonal Captures ONLY)
     const dir = pieceColor === 'white' ? -1 : 1;
+    // 1. Regular Pawn-style forward moves
     if (isValidSquare(fromRow + dir, fromCol) && !board[fromRow + dir][fromCol].piece && !board[fromRow + dir][fromCol].item) {
         possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
         const startRank = pieceColor === 'white' ? 6 : 1;
@@ -297,6 +296,7 @@ function getPossibleMovesInternal(
             possible.push(coordsToAlgebraic(fromRow + 2 * dir, fromCol));
         }
     }
+    // 2. Diagonal Forward Captures (Standard Pawn Move)
     [-1, 1].forEach(dc => {
         const nr = fromRow + dir, nc = fromCol + dc;
         if (isValidSquare(nr, nc)) {
@@ -311,14 +311,20 @@ function getPossibleMovesInternal(
         }
     });
 
-    // 2. Grapple Pickup (Adjacent Pieces - NON-KINGS ONLY)
+    // 3. Interactions (Cardinal, Backwards Diagonal, and Diagonally Forward Allies)
     for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = fromRow + dr, nc = fromCol + dc;
             if (isValidSquare(nr, nc) && board[nr][nc].piece) {
-                if (board[nr][nc].piece?.type !== 'king') {
-                  possible.push(coordsToAlgebraic(nr, nc));
+                const target = board[nr][nc].piece!;
+                if (target.type !== 'king') {
+                  const isDiagForward = (nr === fromRow + dir) && Math.abs(nc - fromCol) === 1;
+                  const isEnemy = target.color !== pieceColor;
+                  // EXCLUDE diagonally forward enemies from pickups (they are captures handled above)
+                  if (!(isEnemy && isDiagForward)) {
+                    possible.push(coordsToAlgebraic(nr, nc));
+                  }
                 }
             }
         }
@@ -582,6 +588,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   const isSwap = (['knight', 'hero', 'archer'].includes(piece.type) && effectiveLevel >= 4 && targetPieceOnSquare && (['bishop', 'archbishop'].includes(targetPieceOnSquare.type)) && targetPieceOnSquare.color === piece.color) ||
                  ((['bishop', 'archbishop'].includes(piece.type)) && effectiveLevel >= 4 && targetPieceOnSquare && (['knight', 'hero', 'archer'].includes(targetPieceOnSquare.type)) && targetPieceOnSquare.color === piece.color);
   if (isSwap) return true;
+  
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color && piece.type !== 'grappler') return false;
   
   const targetLevel = getEffectiveLevel(board, toRow, toCol);
@@ -594,7 +601,9 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
     case 'grappler':
     case 'commander':
       const direction = piece.color === 'white' ? -1 : 1;
-      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) return true;
+      if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) {
+          return true; // standard pawn capture
+      }
       if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
           const targetSq = board[fromRow][toCol];
           if (targetSq.piece && (['pawn', 'dancer', 'mimic', 'commander', 'infiltrator'].includes(targetSq.piece.type)) && targetSq.piece.color !== piece.color) return true;
@@ -610,8 +619,12 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (effectiveLevel >= 2 && fromCol === toCol && toRow === fromRow - direction && !targetPieceOnSquare) return true;
       if (effectiveLevel >= 3 && toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetPieceOnSquare) return true;
       if (piece.type === 'grappler') {
-          // Pickup Choice: Treatment of adjacent squares as interactions, not standard moves
-          if (Math.abs(fromRow - toRow) <= 1 && Math.abs(fromCol - toCol) <= 1 && (fromRow !== toRow || fromCol !== toCol) && targetPieceOnSquare) return true;
+          const isDiagForward = (toRow === fromRow + direction) && Math.abs(toCol - fromCol) === 1;
+          const isEnemy = targetPieceOnSquare && targetPieceOnSquare.color !== piece.color;
+          // Pickup is valid for all adjacent pieces EXCEPT diagonally forward enemies (which are standard captures)
+          if (Math.abs(fromRow - toRow) <= 1 && Math.abs(fromCol - toCol) <= 1 && (fromRow !== toRow || fromCol !== toCol) && targetPieceOnSquare) {
+              if (!(isEnemy && isDiagForward)) return true;
+          }
       }
       break;
     case 'infiltrator':
@@ -1167,7 +1180,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
         else {
           const dest = board[tr][dc_dest];
           if (victim.item?.type === 'anvil') {
-             // FIX: Check for Holy Shield and Kings
              if (dest.piece && dest.piece.type !== 'king' && !dest.piece.isShielded) {
                 crushed = { ...dest.piece };
                 dest.piece = null;

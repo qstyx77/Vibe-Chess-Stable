@@ -1012,17 +1012,25 @@ export default function DungeonPage() {
                 const {row: pr, col: pc} = algebraicToCoords(algebraic);
                 const isAdj = Math.abs(fromR-pr) <=1 && Math.abs(fromC-pc) <= 1;
                 if (isAdj) {
-                  if (piece.type === 'king') {
-                    toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
+                  const dir = movingPiece.color === 'white' ? -1 : 1;
+                  const isDiagForward = (pr === fromR + dir) && Math.abs(pc - fromC) === 1;
+                  const isEnemy = piece.color !== movingPiece.color;
+
+                  if (isEnemy && isDiagForward) {
+                      // fallback to capture
                   } else {
-                    setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
-                    let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                    nextBoard[pr][pc].piece = null;
-                    setBoard(nextBoard);
-                    setIsAwaitingGrappleThrow(true);
-                    toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                      if (piece.type === 'king') {
+                        toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
+                      } else {
+                        setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
+                        let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                        nextBoard[pr][pc].piece = null;
+                        setBoard(nextBoard);
+                        setIsAwaitingGrappleThrow(true);
+                        toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                      }
+                      return;
                   }
-                  return;
                 }
             }
         }
