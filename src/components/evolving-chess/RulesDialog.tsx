@@ -39,9 +39,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[80vh] font-sans">
         <DialogHeader>
-          <DialogTitle className="text-primary text-center text-base font-medium">VIBE CHESS - Game Rules</DialogTitle>
+          <DialogTitle className="text-primary text-center text-base font-medium uppercase font-pixel tracking-tighter">VIBE CHESS - Game Rules</DialogTitle>
           <DialogDescription className="text-center text-sm font-medium text-muted-foreground">
-            Understand the special abilities and mechanics.
+            Understand the special abilities and elite units.
           </DialogDescription>
         </DialogHeader>
 
@@ -52,134 +52,62 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <PieceRule title="Objective">Checkmate the opponent's King, or achieve an Infiltration Win.</PieceRule>
                 <PieceRule title="Piece Levels">
-                  Pieces level up by capturing opponent pieces or consuming Shrooms 🍄 and do not have a maximum level (except Queens, capped at L7). Each piece type gains different abilities as it levels up. (See individual piece sections for details).
+                  Pieces level up by capturing opponent pieces or consuming Shrooms 🍄 and do not have a maximum level (except Queens, capped at L7). Each piece type gains different abilities as it levels up.
                 </PieceRule>
                 <PieceRule title="Pawn Promotion (Rank)">
-                  When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight of the same color.
+                  When a Pawn (not a Commander, Hero, or Infiltrator) reaches the opponent's back rank, it must be promoted to a Queen, Rook, Bishop, or Knight.
                   <ul className="list-none pl-0 space-y-1 mt-1">
-                    <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move does NOT involve a capture, the promoted piece starts at Level 1.</li>
-                    <li className="text-sm font-medium text-foreground/90 ml-2">&bull; If the promotion move INVOLVES capturing an opponent's piece on the promotion square:
-                      <ul className="list-disc list-inside pl-4">
-                        <li className="text-sm font-medium">If a Pawn was captured: Promoted piece starts at Level 2.</li>
-                        <li className="text-sm font-medium">If a Commander or Infiltrator was captured: Promoted piece starts at Level 2.</li>
-                        <li className="text-sm font-medium">If a Queen was captured: Promoted piece starts at Level 4.</li>
-                        <li className="text-sm font-medium">If a Knight, Bishop, Rook, or Hero was captured: Promoted piece starts at Level 3.</li>
-                      </ul>
-                    </li>
-                     <li className="text-sm font-medium text-foreground/90 ml-2">&bull; A Queen promoted this way is still capped at Level 7.</li>
+                    <li className="text-sm font-medium text-foreground/90 ml-2">&bull; Promotion move without capture: Level 1.</li>
+                    <li className="text-sm font-medium text-foreground/90 ml-2">&bull; Promotion with capture: Level 2 (if Pawn/Cmd captured), Level 3 (if Knight/Bishop/Rook/Hero captured), or Level 4 (if Queen captured).</li>
                   </ul>
                 </PieceRule>
                  <PieceRule title="Commander Promotion to Hero (Rank)">
-                  When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn.
+                  When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". If the Commander was Level 5+, its player receives an extra turn.
                 </PieceRule>
-                <PieceRule title="Castling">Standard chess castling rules apply (King and Rook must not have moved, path clear, King not in check, and King doesn't pass through or land on an attacked square).</PieceRule>
+                <PieceRule title="Castling">Standard chess castling rules apply. King and Rook must not have moved, and path must be clear.</PieceRule>
                 <PieceRule title="Draw Conditions">
-                  A game can end in a draw in several ways:
                   <ul className="list-disc list-inside pl-4 mt-1">
-                    <li className="text-sm font-medium">Stalemate: If the player whose turn it is to move is not in check but has no legal moves.</li>
-                    <li className="text-sm font-medium">Threefold Repetition: If the same board position (including piece locations, current player, castling rights, and en passant target) occurs three times.</li>
+                    <li className="text-sm font-medium">Stalemate: Current player has no legal moves and is not in check.</li>
+                    <li className="text-sm font-medium">Threefold Repetition: The same board position occurs three times.</li>
                   </ul>
-                </PieceRule>
-                <PieceRule title="Auto-Checkmate on Extra Turn">
-                  If a player delivers check to the opponent's King AND earns an extra turn (either through a Level 5+ pawn/commander promotion or a streak of 6) on the same move, it is an immediate checkmate, and that player wins.
-                </PieceRule>
-                <PieceRule title="Push-Back Self-Check (Auto-Loss)">
-                  If a Level 4+ Pawn or Commander uses its Push-Back ability, and this push directly results in its own King being put into check, it is an immediate loss for the player who made the push. The opponent wins by auto-checkmate.
-                </PieceRule>
-                <PieceRule title="Online Play: Turn Timer">
-                  In online games, each player has 45 seconds to make a move. If the timer expires, the turn is automatically passed to the opponent. If a player allows their timer to expire 3 times in a single game, they lose by timeout.
-                </PieceRule>
-                <PieceRule title="Online Play: Timeout in Check (Self-Checkmate)">
-                  If a player is in check and their turn timer expires before they can make a legal move to get out of check, they lose the game immediately.
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="special-units">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">Special Units (Dancer, Mimic, Grappler)</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Special &amp; Elite Units</AccordionTrigger>
               <AccordionContent>
+                <p className="text-xs text-muted-foreground mb-3 italic">These units have unique mechanics that differ from their base piece types.</p>
+                
                 <PieceRule title="Mimic">
-                  <strong>Shape-shift:</strong> Replicates the movement and capture pattern of the very last piece that moved on the board (regardless of color).
-                  <em> Crucially, the Mimic uses its own current Level to determine which abilities within that pattern are unlocked.</em>
+                  <strong>Shape-shift:</strong> Replicates the movement and capture pattern of the very last piece that moved (regardless of color).
+                  <em> Crucially, the Mimic uses its OWN current Level to determine which abilities within that pattern are unlocked.</em>
                 </PieceRule>
+                
                 <PieceRule title="Dancer">
                   <strong>Dance:</strong> Achieving a Kill Streak of 1 (or any multiple thereof) allows the Dancer to perform an immediate bonus move: either one square cardinally to an empty space, or swapping places with an adjacent ally.
                 </PieceRule>
+                
                 <PieceRule title="Grappler">
-                  <strong>Toss:</strong> The Grappler can "pick up" an adjacent allied piece and launch it to any empty square in a straight cardinal or diagonal line. The maximum throw distance is equal to the Grappler's current Level.
+                  <strong>Toss:</strong> Can pick up an adjacent allied piece and launch it to any empty square in a cardinal or diagonal line. Max distance = Grappler's current Level.
                 </PieceRule>
-              </AccordionContent>
-            </AccordionItem>
 
-            <AccordionItem value="enpassant">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">En Passant &amp; Infiltrator</AccordionTrigger>
-              <AccordionContent>
-                <PieceRule title="En Passant Capture">
-                  If an opponent's pawn moves two squares forward from its starting position and lands on a square adjacent (same rank, different file) to one of your pawns, your pawn may capture the opponent's pawn "en passant" (in passing).
-                  This capture must be made on the very next turn. Your pawn moves to the square the opponent's pawn *skipped over*. The opponent's pawn is removed from the board.
+                <PieceRule title="Archbishop (Elite Bishop)">
+                  <strong>Holy Shield:</strong> If an Archbishop is on the board, reaching a Kill Streak of 2 allows you to grant a Holy Shield to an ally, protecting them from one capture attempt.
                 </PieceRule>
-                <PieceRule title="Promotion to Infiltrator">
-                  When one of your pawns successfully captures an opponent's pawn via En Passant, your pawn is immediately promoted to an "Infiltrator". It retains the level it had as a pawn (including any level gained from the en passant capture itself).
-                  The Infiltrator is visually distinct (it appears as a Pawn with a skull 💀 overlay).
-                </PieceRule>
-                <PieceRule title="Infiltrator Abilities">
-                  <ul className="list-none pl-0 space-y-1">
-                    <li>
-                      <strong>Movement & Capture:</strong> An Infiltrator can move one square directly forward OR one square directly sideways, or one square diagonally forward. It captures in the same manner (one square forward or one square diagonally forward).
-                    </li>
-                     <li>
-                      <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely and do not go to the captured pieces pile.
-                    </li>
-                    <li>
-                      <strong>Winning Condition - Infiltration:</strong> If an Infiltrator reaches the opponent's back rank, its player immediately wins the game by "Infiltration". This win condition overrides checkmate or stalemate.
-                    </li>
-                     <li>
-                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of its own level or the Queen's Level 7 invulnerability.
-                    </li>
-                  </ul>
-                </PieceRule>
-              </AccordionContent>
-            </AccordionItem>
 
-            <AccordionItem value="firstblood">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">First Blood, Commander &amp; Hero</AccordionTrigger>
-              <AccordionContent>
-                <PieceRule title="First Blood">
-                  The first player to capture an enemy piece during the game achieves "First Blood".
+                <PieceRule title="Archer (Elite Knight)">
+                  <strong>Snipe:</strong> Reaching a Kill Streak of 5 (or 3 with a Crossbow) allows the Archer to target and destroy any Level 1 enemy unit globally. The Archer levels up based on the value of the target.
                 </PieceRule>
-                <PieceRule title="Commander Promotion (First Blood)">
-                  The player who achieves First Blood immediately gets to select one of their own Level 1 Pawns currently on the board. This chosen Pawn is instantly promoted to a "Commander".
-                  The Commander is visually distinct (it appears as a Pawn with a star 🌟 overlay).
+
+                <PieceRule title="Palace (Elite Rook)">
+                  <strong>Master Resurrector:</strong> Unlike a standard Rook (which resurrects allies at Level 1), the Palace returns fallen allies at their original captured level.
+                  <br/><strong>Royal Sanctuary:</strong> Castling with a Palace levels up the King.
                 </PieceRule>
-                <PieceRule title="Commander Promotion (Pawn Captures Commander)">
-                  If a standard Pawn (not already a Commander) captures an enemy Commander, that Pawn is immediately promoted to a Commander. It retains its current level. This promotion happens automatically and does not use the "First Blood" selection process.
-                </PieceRule>
-                <PieceRule title="Commander Abilities">
-                  <ul className="list-none pl-0 space-y-1">
-                    <li>
-                      <strong>Movement & Standard Abilities:</strong> A Commander moves, captures, and gains leveled abilities exactly like a standard Pawn of its current level (see Pawn & Commander Abilities section).
-                    </li>
-                     <li>
-                      <strong>Rallying Cry (Special):</strong> When the Commander captures an enemy piece, all of its player's other Pawns (not Commanders, Heroes, or Infiltrators) currently on the board immediately level up by 1. This does not affect the Commander itself. If a Pawn leveled up by this ability would promote to a Queen, its level is still capped at 7.
-                    </li>
-                    <li>
-                      <strong>Promotion to Hero:</strong> When a Commander reaches the opponent's back rank, it is automatically promoted to a "Hero". The Hero retains the Commander's current level. If the Commander was Level 5 or higher, its player receives an extra turn. A Hero is visually represented as a Knight with a star 🌟 overlay.
-                    </li>
-                     <li>
-                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of its own level or the Queen's Level 7 invulnerability.
-                    </li>
-                  </ul>
-                </PieceRule>
-                 <PieceRule title="Hero Abilities">
-                   <p className="text-sm font-medium text-foreground/90">A Hero moves and gains leveled abilities identically to Knights (see Knight & Hero Abilities). Heroes also have the following special abilities:</p>
-                  <ul className="list-none pl-0 space-y-1 mt-1">
-                    <li>
-                      <strong>Hero's Rallying Cry (Special):</strong> When the Hero captures an enemy piece, all of its player's other allied pieces (Pawns, Knights, Bishops, Rooks, Queens, Commanders, Infiltrators and other Heroes) currently on the board immediately level up by 1. This does not affect the Hero that made the capture. If a Queen levels up from this ability, its level is still capped at 7.
-                    </li>
-                    <li>
-                      <strong>Queen Hunter:</strong> Can capture an enemy Queen regardless of its own level or the Queen's Level 7 invulnerability.
-                    </li>
-                  </ul>
+
+                <PieceRule title="Infiltrator">
+                  <strong>Obliteration:</strong> Pieces captured by an Infiltrator are removed from the game entirely.
+                  <br/><strong>Win:</strong> Reaching the back rank with an Infiltrator results in an immediate Infiltration Win.
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
@@ -187,34 +115,16 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="items">
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Board Items: Anvils &amp; Shrooms</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title={
-                  <>
-                    <Image src="/images/Anvil.png" alt="Anvil" width={24} height={24} data-ai-hint="anvil icon" />
-                    <span>Anvil</span>
-                  </>
-                }>
+                <PieceRule title="Anvil">
                   <ul className="list-none pl-0 space-y-1">
-                    <li><strong>Spawning:</strong> Awarded on a Kill Streak of 3. The player can place it on any empty square.</li>
-                    <li><strong>Blocking:</strong> Anvils block movement and attacks for all pieces. Pieces cannot move to or through a square occupied by an anvil. Line of sight for attacks is blocked by anvils.</li>
-                    <li><strong>Interaction:</strong> Anvils cannot be captured or destroyed by normal piece moves, but can be destroyed by a Knight/Hero's self-destruct ability.</li>
-                    <li><strong>Pawn Push-Back (L4+ Pawn/Commander):</strong>
-                      <ul className="list-disc list-inside pl-4 mt-1">
-                        <li className="text-sm font-medium">If a pawn/commander pushes an adjacent anvil: The anvil moves one square in the push direction.
-                          <ul className="list-circle list-inside pl-4">
-                            <li className="text-sm font-medium">If the anvil lands on a square occupied by another piece (not a King, not another anvil), that piece is "captured" by the anvil and removed from the game. This still counts towards kill streaks.</li>
-                            <li className="text-sm font-medium">If the anvil is pushed off the board, it is removed from the game.</li>
-                            <li className="text-sm font-medium">An anvil cannot push another anvil; the push fails.</li>
-                          </ul>
-                        </li>
-                        <li className="text-sm font-medium">If a pawn/commander pushes an adjacent piece towards a square occupied by an anvil, the push fails.</li>
-                      </ul>
-                    </li>
+                    <li><strong>Spawning:</strong> Awarded on a Kill Streak of 3.</li>
+                    <li><strong>Blocking:</strong> Anvils block movement and line-of-sight for all pieces.</li>
+                    <li><strong>Pushing:</strong> L4+ Pawns/Commanders can push anvils. If an anvil is pushed into a piece (non-King), that piece is crushed and removed.</li>
                   </ul>
                 </PieceRule>
                  <PieceRule title="Shroom 🍄">
                   <ul className="list-none pl-0 space-y-1">
-                    <li><strong>Spawning:</strong> Every 5 to 10 game moves (randomly determined), a Shroom 🍄 appears on a random empty square (no piece or other item).</li>
-                    <li><strong>Consumption:</strong> If any piece (friendly or enemy) moves onto a square containing a Shroom, the Shroom disappears, and that piece immediately gains 1 level. A Queen's level is still capped at 7.</li>
+                    <li><strong>Consumption:</strong> Moving onto a Shroom 🍄 removes it and grants the piece +1 Level (Queen cap 7).</li>
                   </ul>
                 </PieceRule>
               </AccordionContent>
@@ -223,95 +133,29 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="killstreaks">
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Kill Streaks</AccordionTrigger>
               <AccordionContent>
-                <PieceRule title="Activation">Achieved by capturing enemy pieces (including anvil captures). A player's streak only resets if that player makes a non-capturing move.</PieceRule>
-                <PieceRule title="Streak of 2 (Holy Shield)">
-                  Available if you have an **Archbishop** on the board. You are prompted to apply a holy shield to an allied piece (excluding Royals).
+                <p className="text-sm font-medium text-muted-foreground mb-2">Streaks reset only if a player makes a non-capturing move.</p>
+                <ul className="space-y-2">
+                  <LevelRule level="2" description="Holy Shield (Requires Archbishop): Shield an allied piece." />
+                  <LevelRule level="3" description="Anvil Drop: Place an Anvil on any empty square." />
+                  <LevelRule level="4" description="Resurrection: One captured ally returns at Level 1." />
+                  <LevelRule level="5" description="Archer Snipe (Requires Archer): Destroy a L1 enemy unit." />
+                  <LevelRule level="6" description="Extra Turn: Gain another move immediately." />
+                </ul>
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="royal-rules">
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Royal Mechanics (King &amp; Queen)</AccordionTrigger>
+              <AccordionContent>
+                 <PieceRule title="Queen (Invulnerability)">
+                  At Level 7, the Queen is invulnerable to standard pieces of a lower level. However, **Commanders**, **Heroes**, and **Infiltrators** can capture her regardless of level.
                 </PieceRule>
-                <PieceRule title="Streak of 3 (Anvil Drop)">
-                  You are prompted to place an Anvil on any empty square on the board. This action is part of your turn.
+                <PieceRule title="Queen (Pawn Sacrifice)">
+                  Every time a Queen reaches Level 7, the player must select and sacrifice one of their Pawns or Commanders to satisfy the Royal Guard.
                 </PieceRule>
-                <PieceRule title="Streak of 4 (Resurrection)">
-                   One of your previously captured pieces (if any) is resurrected. It returns to a random empty square on the board at Level 1. The square it appears on will be highlighted in cyan until the start of your next turn.
+                <PieceRule title="King (Dominion)">
+                  Whenever your King levels up via capture, all opponent Queens on the board have their levels reduced by the amount the King gained.
                 </PieceRule>
-                <PieceRule title="Streak of 5 (Archer Snipe)">
-                  Available if you have an **Archer** on the board. You are prompted to target and destroy any Level 1 enemy unit (excluding Kings and Queens).
-                </PieceRule>
-                <PieceRule title="Streak of 6 (Extra Turn)">
-                  You gain an extra turn immediately.
-                </PieceRule>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="pawn">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">Pawn &amp; Commander Abilities</AccordionTrigger>
-              <AccordionContent>
-                <p className="text-sm font-medium text-muted-foreground mb-2">(Commanders gain these abilities as they level up, just like Pawns. Commanders promote to Hero at the opponent's back rank. Pawns can promote to Infiltrator via En Passant. Both Commanders and Infiltrators can capture L7 Queens.)</p>
-                <ul>
-                  <LevelRule level="1" description="Standard forward move (1 or 2 squares from start), diagonal capture. Can perform En Passant." />
-                  <LevelRule level="2+" description="Can also move 1 square directly backward (if empty)." />
-                  <LevelRule level="3+" description="Can also move 1 square sideways (left or right, if empty)." />
-                  <LevelRule level="4+" description="Push-Back: If the Pawn/Commander moves to a square adjacent (horizontally, vertically, or diagonally) to an enemy piece OR an anvil, that entity is pushed 1 square further in the same direction from the Pawn/Commander, if possible. See Anvil Mechanic for details on anvil interaction and General Gameplay for Push-Back Self-Check." />
-                  <LevelRule level="5+" description="Promotion Bonus: If a Level 5+ Pawn (promoting to Queen, Rook, Bishop, or Knight) or a Level 5+ Commander (promoting to Hero) reaches the opponent's back rank, its player gets an extra turn." />
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="knight">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">Knight &amp; Hero Abilities</AccordionTrigger>
-              <AccordionContent>
-                 <p className="text-sm font-medium text-muted-foreground mb-2">(Heroes move and gain leveled abilities identically to Knights. See "First Blood, Commander & Hero" for Hero origin, special Rallying Cry, and their Queen Hunter ability.)</p>
-                <ul>
-                  <LevelRule level="1" description="Standard L-shape move/capture." />
-                  <LevelRule level="2+" description="Can also move/capture 1 square cardinally (forward, backward, left, right)." />
-                  <LevelRule level="3+" description="Can also move/capture by jumping 3 squares cardinally (forward, backward, left, right, clearing intermediate squares. Needs line of sight)." />
-                  <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Bishop on the board." />
-                  <LevelRule level="5+" description="Self-Destruct: Instead of moving, the Knight/Hero can be re-selected to self-destruct. The piece is removed from the board. All adjacent enemy pieces (except Kings) and all adjacent anvils are destroyed. This ability WILL capture enemy Queens regardless of their normal invulnerability or level. This counts towards kill streaks for pieces destroyed." />
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="bishop">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">Bishop Abilities</AccordionTrigger>
-              <AccordionContent>
-                <ul>
-                  <LevelRule level="1" description="Standard diagonal move/capture (needs line of sight)." />
-                  <LevelRule level="2+" description="Phase: Can jump over friendly pieces (still blocked by enemy pieces or anvils in its path)." />
-                  <LevelRule level="3+" description="Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators." />
-                  <LevelRule level="4+" description="Swap: Can move by swapping places with any friendly Knight or Hero on the board." />
-                  <LevelRule level="5+" description="Conversion: After moving, has a 50% chance for each adjacent enemy piece (non-King) to convert that piece to its own color (level and type preserved)." />
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="rook">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">Rook Abilities</AccordionTrigger>
-              <AccordionContent>
-                <ul>
-                  <LevelRule level="1-3" description="Standard horizontal/vertical move/capture (needs line of sight)." />
-                  <LevelRule level="4+" description="Resurrection Call & Master Resurrector: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece. It attempts to resurrect one of its player's own captured pieces. If the Rook is a Palace (ELO 1800+), the piece returns at its original captured level. If it's a standard Rook, it returns at Level 1." />
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="queen">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">Queen Abilities</AccordionTrigger>
-              <AccordionContent>
-                <ul>
-                  <LevelRule level="1-6" description="Standard Queen movement (horizontal, vertical, diagonal; blocked by any piece or item in her path)." />
-                  <LevelRule level="7" description="Royal Guard & Pawn Sacrifice: The Queen's maximum level is 7. At Level 7, she is invulnerable to attacks from any enemy piece of a lower level, *except* for Commanders, Heroes, and Infiltrators, which can capture her regardless of their level or her L7 invulnerability. Additionally, every time a Queen's level becomes 7, if the Queen's player has any Pawns or Commanders on the board, they must select and sacrifice one of their Pawns or Commanders. If none are available, no sacrifice is made." />
-                </ul>
-              </AccordionContent>
-            </AccordionItem>
-
-            <AccordionItem value="king">
-              <AccordionTrigger className="text-sm font-medium hover:text-accent">King Abilities</AccordionTrigger>
-              <AccordionContent>
-                <ul>
-                  <LevelRule level="1" description="Standard 1-square move/capture in any direction. Can castle (if not in check, path is clear, and neither King nor Rook has moved; King cannot pass through an attacked square)." />
-                  <LevelRule level="2-4" description="Extended Reach: Can move/capture up to 2 squares in any straight direction (horizontal, vertical, or diagonal). The intermediate square must be empty (needs line of sight). If moving 2 squares to capture a piece that is checking the King, the King can pass through an intermediate square even if that intermediate square is attacked *only by the piece being captured*." />
-                  <LevelRule level="5+" description="Knight's Agility: Gains the ability to move/capture in an L-shape like a Knight, in addition to all other abilities." />
-                  <LevelRule description="King's Dominion: Whenever the King levels up (due to a capture), all of the opponent's Queens on the board have their levels reduced by the same amount the King gained." />
-                </ul>
               </AccordionContent>
             </AccordionItem>
 
@@ -319,18 +163,18 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-medium hover:text-accent">Dungeon Mode Specials</AccordionTrigger>
               <AccordionContent>
                 <PieceRule title="Dungeon Collapse">
-                  In Dungeon Mode, if your forces have no legal moves for 3 consecutive attempts (Stalemate Strikes), the dungeon undergoes a "Collapse". This triggers a catastrophic explosion on all enemy squares, likely ending your run.
+                  If your forces have no legal moves for 3 consecutive attempts (Stalemate Strikes), the dungeon collapses, triggering explosions on all enemy squares.
                 </PieceRule>
                  <PieceRule title="Boss Loot">
-                  Defeating a boss on Floor 10, 20, 30, 40, or 50 grants unique consumable items like Portal Scrolls or Mirror Shields.
+                  Defeating a boss (Floor 10, 20, 30, etc.) grants rare consumable items like Portal Scrolls or Mirror Shields.
                 </PieceRule>
               </AccordionContent>
             </AccordionItem>
           </Accordion>
         </ScrollArea>
         <DialogClose asChild>
-            <Button type="button" variant="secondary" className="mt-4 w-full text-sm font-medium">
-                Close
+            <Button type="button" variant="secondary" className="mt-4 w-full text-xs font-pixel uppercase">
+                Back to Battle
             </Button>
         </DialogClose>
       </DialogContent>
