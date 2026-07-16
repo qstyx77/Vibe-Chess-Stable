@@ -273,7 +273,8 @@ export default function EvolvingChessPage() {
       hasInitializedSession.current = true;
       const elo = userData?.eloRating || 1200;
       const unlocks = userData?.unlockedPieces || [];
-      let initial = initializeBoard(elo, 1200, unlocks, []);
+      // Synchronize unlocks for both White and Black in local play
+      let initial = initializeBoard(elo, 1200, unlocks, unlocks);
       
       if (userData?.equipment) {
         initial = initial.map(row => row.map(sq => {
@@ -1187,7 +1188,9 @@ export default function EvolvingChessPage() {
   );
 
   function fullGameReset() {
-    let initial = initializeBoard(userData?.eloRating || 1200, 1200, userData?.unlockedPieces || []);
+    // Synchronize unlocks for both White and Black side during local reset
+    const unlocks = userData?.unlockedPieces || [];
+    let initial = initializeBoard(userData?.eloRating || 1200, 1200, unlocks, unlocks);
     setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     
     setIsAwaitingDanceTarget(false);
