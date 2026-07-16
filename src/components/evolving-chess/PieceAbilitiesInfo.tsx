@@ -42,7 +42,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'middle_way') abilities.push(" equilibrium: level locked at 3.");
   if (heldItem === 'phoenix_down') abilities.push(" rebirth: auto-resurrect once on capture.");
   if (heldItem === 'passive_armor') abilities.push(" steady: immune to push-back.");
-  if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects capture attempts once.");
+  if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects one capture attempt from non-royal units.");
   if (heldItem === 'wind_scroll') abilities.push(" spell: push-back units from targeted empty space.");
   if (heldItem === 'life_leach') abilities.push(" spell: reduces all enemy levels by 1.");
   if (heldItem === 'summon_anvil') abilities.push(" spell: drop a solid anvil block.");
@@ -90,9 +90,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (l >= 4) abilities.push("Push-Back adjacent entities.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
       if (type === 'commander') { abilities.push("Rallying Cry on capture (levels up other pawns)."); abilities.push("Promotes to Hero."); abilities.push("Queen Hunter."); }
-      if (type === 'dancer') { abilities.push("Dance: KS 1 triggers a cardinal move or adjacent swap."); }
-      if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move."); }
-      if (type === 'grappler') { abilities.push("Toss: Can pick up adjacent piece and throw it to an empty space (radius = Level)."); }
+      if (type === 'dancer') { abilities.push("Dance: KS 1 allows an immediate 1-square cardinal move or an adjacent swap with an ally."); }
+      if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move, using the Mimic's current Level."); }
+      if (type === 'grappler') { abilities.push("Toss: Can pick up an adjacent ally and throw it to an empty space cardinally or diagonally (Range = Level)."); }
       break;
     case 'infiltrator': abilities.push("Moves/captures 1 square forward or diagonally forward."); abilities.push("Obliterates captured pieces."); abilities.push("Wins game on back rank."); abilities.push("Queen Hunter."); break;
     case 'knight':

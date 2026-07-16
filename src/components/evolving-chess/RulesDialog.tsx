@@ -95,6 +95,22 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value="special-units">
+              <AccordionTrigger className="text-sm font-medium hover:text-accent">Special Units (Dancer, Mimic, Grappler)</AccordionTrigger>
+              <AccordionContent>
+                <PieceRule title="Mimic">
+                  <strong>Shape-shift:</strong> Replicates the movement and capture pattern of the very last piece that moved on the board (regardless of color).
+                  <em> Crucially, the Mimic uses its own current Level to determine which abilities within that pattern are unlocked.</em>
+                </PieceRule>
+                <PieceRule title="Dancer">
+                  <strong>Dance:</strong> Achieving a Kill Streak of 1 (or any multiple thereof) allows the Dancer to perform an immediate bonus move: either one square cardinally to an empty space, or swapping places with an adjacent ally.
+                </PieceRule>
+                <PieceRule title="Grappler">
+                  <strong>Toss:</strong> The Grappler can "pick up" an adjacent allied piece and launch it to any empty square in a straight cardinal or diagonal line. The maximum throw distance is equal to the Grappler's current Level.
+                </PieceRule>
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value="enpassant">
               <AccordionTrigger className="text-sm font-medium hover:text-accent">En Passant &amp; Infiltrator</AccordionTrigger>
               <AccordionContent>
