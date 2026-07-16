@@ -865,7 +865,7 @@ export default function EvolvingChessPage() {
           const toRow = aiMove.to[0];
           const landedPiece = nextB[toRow][aiMove.to[1]].piece;
           
-          if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && (toRow === 0 || toRow === 7)) {
+          if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && toRow === (currentPlayer === 'white' ? 0 : 7)) {
               landedPiece.type = aiMove.promoteTo || 'queen';
               landedPiece.level = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
               if (landedPiece.type === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
@@ -1031,7 +1031,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingHolyShield) {
-        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== shieldContext?.capturingPieceId) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== room.gameState.shieldContext.capturingPieceId) {
             if (onlineStatus === 'connected') {
                 wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
                 setIsAwaitingHolyShield(false);
@@ -1182,7 +1182,7 @@ export default function EvolvingChessPage() {
                 setTimeout(() => {
                     setIsMoveProcessing(false); clickGuardRef.current = false;
                     const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
-                    if (['pawn', 'dancer', 'mimic', 'grappler'].includes(nextB[row][col].piece?.type || '') && (row === 0 || row === 7)) {
+                    if (['pawn', 'dancer', 'mimic', 'grappler'].includes(nextB[row][col].piece?.type || '') && row === (currentPlayer === 'white' ? 0 : 7)) {
                         setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
                         setIsPromotingPawn(true); setPromotionSquare(algebraic);
                         setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs } as any);

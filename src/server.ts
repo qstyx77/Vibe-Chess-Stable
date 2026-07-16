@@ -784,7 +784,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         const landedPiece = finalizedBoard[toCoords.row][toCoords.col].piece;
-                        if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && (toCoords.row === 0 || toCoords.row === 7)) {
+                        if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && toCoords.row === (movingPlayer === 'white' ? 0 : 7)) {
                             room.gameState.pendingPromotion = { 
                                 square: to, 
                                 player: movingPlayer,
