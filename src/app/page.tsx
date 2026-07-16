@@ -362,6 +362,15 @@ export default function EvolvingChessPage() {
           if (!isMessengerOpenRef.current) setHasUnreadMessages(true);
           break;
         case 'game-move':
+          const prevCapsCount = (capturedPieces.white?.length || 0) + (capturedPieces.black?.length || 0);
+          const nextCapsCount = (data.gameState.capturedPieces.white?.length || 0) + (data.gameState.capturedPieces.black?.length || 0);
+          const isCap = nextCapsCount > prevCapsCount;
+          const isObl = data.gameState.lastMovedPieceType === 'infiltrator' && isCap;
+          
+          if (isObl) audioManager.playObliterate();
+          else if (isCap) audioManager.playCapture();
+          else audioManager.playMove();
+
           setBoard(data.gameState.board);
           setCurrentPlayer(data.gameState.currentPlayer);
           setEnPassantTargetSquare(data.gameState.enPassantTargetSquare);
@@ -442,7 +451,7 @@ export default function EvolvingChessPage() {
     };
 
     wsRef.current = ws;
-  }, [toast, addEffect, localPlayerColor]);
+  }, [toast, addEffect, localPlayerColor, capturedPieces]);
 
   const handleRankedPlay = useCallback(() => {
     if (!user || (onlineStatus !== 'disconnected' && rankedQueueStatus !== 'searching')) return;
@@ -828,6 +837,10 @@ export default function EvolvingChessPage() {
         const currentKs = { ...killStreaks, [currentPlayer]: newS };
         const isObliteration = applyResult.promotedToInfiltrator || (piece.type === 'infiltrator' && applyResult.capturedPiece);
         
+        if (isObliteration) audioManager.playObliterate();
+        else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) audioManager.playCapture();
+        else audioManager.playMove();
+
         if (applyResult.capturedPiece && !isObliteration) {
             const targetPile = applyResult.capturedPiece.color === 'white' ? 'black' : 'white';
             updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }];
@@ -870,6 +883,34 @@ export default function EvolvingChessPage() {
       const timer = setTimeout(performAiMove, 500); return () => typeof window !== 'undefined' && clearTimeout(timer);
     }
   }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove]);
+
+  // Turn Timer Tick Sounds and Countdown
+  useEffect(() => {
+    if (onlineStatus !== 'connected' || gameInfo.gameOver || !roomId) {
+      setTurnTimer(null);
+      return;
+    }
+
+    const isSpecialPhase = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn;
+    const duration = isSpecialPhase ? 15 : 45;
+    
+    setTurnTimer(duration);
+
+    const intervalId = setInterval(() => {
+      setTurnTimer(prev => {
+        if (prev === null || prev <= 0) {
+          clearInterval(intervalId);
+          return 0;
+        }
+        const next = prev - 1;
+        if (next <= 10 && next > 0) audioManager.playTickDanger();
+        else if (next > 10) audioManager.playTick();
+        return next;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [currentPlayer, gameInfo.gameOver, onlineStatus, roomId, gameMoveCounter, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingHolyShield, isAwaitingAnvilDrop, isAwaitingArcherSnipe, isPromotingPawn]);
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     if (clickGuardRef.current) return;
@@ -1118,6 +1159,10 @@ export default function EvolvingChessPage() {
                 const currentKs = { ...killStreaks, [currentPlayer]: newS };
                 const isObliteration = applyResult.promotedToInfiltrator || (moving.type === 'infiltrator' && applyResult.capturedPiece);
                 
+                if (isObliteration) audioManager.playObliterate();
+                else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) audioManager.playCapture();
+                else audioManager.playMove();
+
                 if (applyResult.capturedPiece && !isObliteration) {
                     const targetPile = applyResult.capturedPiece.color === 'white' ? 'black' : 'white';
                     updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }];
