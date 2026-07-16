@@ -89,7 +89,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </PieceRule>
                 
                 <PieceRule title="Grappler">
-                  <strong>Toss:</strong> Can pick up an adjacent allied piece and launch it to any empty square in a cardinal or diagonal line. Max distance = Grappler's current Level.
+                  <strong>Toss:</strong> Can pick up an adjacent piece (except Kings) and launch it to any empty square in a cardinal or diagonal line. Max distance = Grappler's current Level.
                 </PieceRule>
 
                 <PieceRule title="Archbishop (Elite Bishop)">

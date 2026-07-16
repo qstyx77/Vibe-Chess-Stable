@@ -1041,15 +1041,19 @@ export default function EvolvingChessPage() {
       // TURN AND OWNERSHIP CHECKS FOR MOVEMENT
       if (moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
           if (moving.type === 'grappler') {
-              if (piece && piece.color === currentPlayer && algebraic !== selectedSquare) {
+              if (piece && algebraic !== selectedSquare) {
                   const isAdj = Math.abs(fR - row) <= 1 && Math.abs(fC - col) <= 1;
                   if (isAdj) {
-                    setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
-                    let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                    nextBoard[row][col].piece = null;
-                    setBoard(nextBoard);
-                    setIsAwaitingGrappleThrow(true);
-                    toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                    if (piece.type === 'king') {
+                      toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
+                    } else {
+                      setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
+                      let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                      nextBoard[row][col].piece = null;
+                      setBoard(nextBoard);
+                      setIsAwaitingGrappleThrow(true);
+                      toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                    }
                     return;
                   }
               }
@@ -1107,6 +1111,12 @@ export default function EvolvingChessPage() {
                 if (applyResult.capturedPiece && !isObliteration) {
                     const targetPile = applyResult.capturedPiece.color === 'white' ? 'black' : 'white';
                     updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }];
+                }
+                if (applyResult.selfDestructCaptures) {
+                    applyResult.selfDestructCaptures.forEach(p => {
+                        const targetPile = p.color === 'white' ? 'black' : 'white';
+                        updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...p, id: `sd_${Date.now()}` }];
+                    });
                 }
                 if (applyResult.pieceCapturedByAnvil) {
                     const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'black' : 'white';

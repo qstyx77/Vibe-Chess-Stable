@@ -288,7 +288,7 @@ function getPossibleMovesInternal(
   }
 
   if (piece.type === 'grappler') {
-    // 1. Regular Pawn Moves
+    // 1. Regular Pawn Moves (Diagonal Captures ONLY)
     const dir = pieceColor === 'white' ? -1 : 1;
     if (isValidSquare(fromRow + dir, fromCol) && !board[fromRow + dir][fromCol].piece && !board[fromRow + dir][fromCol].item) {
         possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
@@ -301,18 +301,25 @@ function getPossibleMovesInternal(
         const nr = fromRow + dir, nc = fromCol + dc;
         if (isValidSquare(nr, nc)) {
             const target = board[nr][nc].piece;
-            if (target && target.color !== pieceColor) possible.push(coordsToAlgebraic(nr, nc));
+            if (target && target.color !== pieceColor) {
+               const targetLevel = getEffectiveLevel(board, nr, nc);
+               if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) {
+                  possible.push(coordsToAlgebraic(nr, nc));
+               }
+            }
             if (!target && coordsToAlgebraic(nr, nc) === enPassantTargetSquare) possible.push(coordsToAlgebraic(nr, nc));
         }
     });
 
-    // 2. Grapple Pickup (Adjacent Pieces)
+    // 2. Grapple Pickup (Adjacent Pieces - NON-KINGS ONLY)
     for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
             const nr = fromRow + dr, nc = fromCol + dc;
             if (isValidSquare(nr, nc) && board[nr][nc].piece) {
-                possible.push(coordsToAlgebraic(nr, nc));
+                if (board[nr][nc].piece?.type !== 'king') {
+                  possible.push(coordsToAlgebraic(nr, nc));
+                }
             }
         }
     }
@@ -603,7 +610,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (effectiveLevel >= 2 && fromCol === toCol && toRow === fromRow - direction && !targetPieceOnSquare) return true;
       if (effectiveLevel >= 3 && toRow === fromRow && Math.abs(fromCol - toCol) === 1 && !targetPieceOnSquare) return true;
       if (piece.type === 'grappler') {
-          // If click is on adjacent square with a piece, it's a valid "pickup" choice
+          // Pickup Choice: Treatment of adjacent squares as interactions, not standard moves
           if (Math.abs(fromRow - toRow) <= 1 && Math.abs(fromCol - toCol) <= 1 && (fromRow !== toRow || fromCol !== toCol) && targetPieceOnSquare) return true;
       }
       break;
@@ -1296,7 +1303,6 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
     } else if (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(p.type) && to === ep) {
       type = 'enpassant';
     } else if (board[toCoords.row][toCoords.col].piece) {
-      if (p.type === 'grappler') return true; // Grappler "moves" to pick up adjacent pieces
       type = board[toCoords.row][toCoords.col].piece!.color === p.color ? 'swap' : 'capture';
     }
     const {newBoard} = applyMove(board, { from, to, type }, ep);

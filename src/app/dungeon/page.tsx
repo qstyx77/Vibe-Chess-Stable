@@ -1008,16 +1008,20 @@ export default function DungeonPage() {
         const effectiveLevel = getEffectiveLevel(board, fromR, fromC);
 
         if (movingPiece.type === 'grappler') {
-            if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
+            if (piece && algebraic !== selectedSquare) {
                 const {row: pr, col: pc} = algebraicToCoords(algebraic);
                 const isAdj = Math.abs(fromR-pr) <=1 && Math.abs(fromC-pc) <= 1;
                 if (isAdj) {
-                  setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
-                  let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                  nextBoard[pr][pc].piece = null;
-                  setBoard(nextBoard);
-                  setIsAwaitingGrappleThrow(true);
-                  toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                  if (piece.type === 'king') {
+                    toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
+                  } else {
+                    setGrappledPieceSubject({ piece: { ...piece }, from: algebraic });
+                    let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                    nextBoard[pr][pc].piece = null;
+                    setBoard(nextBoard);
+                    setIsAwaitingGrappleThrow(true);
+                    toast({ title: "PICKED UP!", description: `Launch the ${piece.type}!` });
+                  }
                   return;
                 }
             }
