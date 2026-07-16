@@ -3,7 +3,7 @@
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
-import { algebraicToCoords, getEffectiveLevel } from '@/lib/chess-utils';
+import { algebraicToCoords, getEffectiveLevel, isItemValidForPiece } from '@/lib/chess-utils';
 import { ExplosionIcon, PixelColossus } from './IconLibrary';
 
 interface ChessBoardProps {
