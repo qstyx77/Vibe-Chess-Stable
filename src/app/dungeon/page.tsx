@@ -728,6 +728,13 @@ export default function DungeonPage() {
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
   }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, triggerSpecialsChain, toast, necroResurrectionCounter, lastMovedPieceType]);
 
+  useEffect(() => {
+    if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
+      const timer = setTimeout(performAiMove, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove, isAiThinking]);
+
   const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
     if (!user || !firestore) return;
     const equipment: Record<string, string> = {};
