@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -289,10 +290,10 @@ function getPossibleMovesInternal(
   if (piece.type === 'grappler') {
     const dir = pieceColor === 'white' ? -1 : 1;
     // 1. Regular Pawn-style forward moves
-    if (isValidSquare(fromRow + dir, fromCol) && !board[fromRow + dir][fromCol].piece && !board[fromRow + dir][fromCol].item) {
+    if (isValidSquare(fromRow + dir, fromCol) && !board[fromRow + dir][fromCol].piece && (!board[fromRow + dir][fromCol].item || board[fromRow + dir][fromCol].item?.type === 'shroom')) {
         possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
         const startRank = pieceColor === 'white' ? 6 : 1;
-        if (fromRow === startRank && isValidSquare(fromRow + 2 * dir, fromCol) && !board[fromRow + 2 * dir][fromCol].piece && !board[fromRow + 2 * dir][fromCol].item && !board[fromRow + dir][fromCol].piece) {
+        if (fromRow === startRank && isValidSquare(fromRow + 2 * dir, fromCol) && !board[fromRow + 2 * dir][fromCol].piece && (!board[fromRow + 2 * dir][fromCol].item || board[fromRow + 2 * dir][fromCol].item?.type === 'shroom') && !board[fromRow + dir][fromCol].piece) {
             possible.push(coordsToAlgebraic(fromRow + 2 * dir, fromCol));
         }
     }
