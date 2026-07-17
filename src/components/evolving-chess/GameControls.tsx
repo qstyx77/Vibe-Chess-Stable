@@ -66,11 +66,13 @@ export function GameControls({
     }
   };
 
-  const renderCapturedPieces = (color: PlayerColor, capturedBy: PlayerColor) => {
-    const pieces = capturedPieces[capturedBy];
+  const renderCapturedPieces = (color: PlayerColor) => {
+    // Standardized Graveyard: 'white' pile contains white pieces, 'black' pile contains black pieces.
+    const pieces = capturedPieces[color];
+    const label = color === 'white' ? 'Captured White' : 'Captured Black';
     return (
       <div className="w-full">
-        <h3 className="text-[9px] font-bold text-muted-foreground uppercase mb-0 leading-none">Captured {color}</h3>
+        <h3 className="text-[9px] font-bold text-muted-foreground uppercase mb-0 leading-none">{label}</h3>
         <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[24px] p-0.5 border border-border/20">
           {pieces.length === 0 ? <span className="text-[7px] text-muted-foreground">None</span> : pieces.map(p => (
             <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
@@ -175,8 +177,8 @@ export function GameControls({
           </div>
           <Separator className="my-0.5"/>
           <div className="flex flex-col gap-0.5">
-              {renderCapturedPieces('black', 'white')}
-              {renderCapturedPieces('white', 'black')}
+              {renderCapturedPieces('black')}
+              {renderCapturedPieces('white')}
           </div>
           
           {/* Bottom Dynamic Section */}

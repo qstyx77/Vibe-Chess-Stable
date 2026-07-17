@@ -553,7 +553,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[targetPiece.type] || 0;
                                 responsibleArcher.level += gain;
 
-                                const targetPile = targetPiece.color === 'white' ? 'black' : 'white';
+                                const targetPile = targetPiece.color;
                                 room.gameState.capturedPieces[targetPile].push(targetPiece);
                                 room.gameState.board[row][col].piece = null;
                                 delete room.gameState.archerSnipeContext;
@@ -597,7 +597,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const { row, col } = algebraicToCoords(square);
                         const victim = room.gameState.board[row]?.[col]?.piece;
                         if (victim && (victim.type === 'pawn' || victim.type === 'commander' || ['dancer', 'mimic', 'grappler'].includes(victim.type)) && victim.color === actingColor) {
-                            const targetPile = victim.color === 'white' ? 'black' : 'white';
+                            const targetPile = victim.color;
                             room.gameState.capturedPieces[targetPile].push(victim);
                             room.gameState.board[row][col].piece = null;
                             room.gameState.isAwaitingPawnSacrifice = false;
@@ -677,23 +677,23 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const isObliterationMove = promotedToInfiltrator || (movingPieceStart.type === 'infiltrator' && capturedPiece);
 
                         if (capturedPiece && !isObliterationMove) {
-                            const targetPile = capturedPiece.color === 'white' ? 'black' : 'white';
+                            const targetPile = capturedPiece.color;
                             room.gameState.capturedPieces[targetPile].push(capturedPiece);
                         }
                         if (selfDestructCaptures) {
                             selfDestructCaptures.forEach(p => {
-                                const targetPile = p.color === 'white' ? 'black' : 'white';
+                                const targetPile = p.color;
                                 room.gameState.capturedPieces[targetPile].push(p);
                             });
                         }
                         if (rest.pieceCapturedByAnvil) {
-                            const targetPile = rest.pieceCapturedByAnvil.color === 'white' ? 'black' : 'white';
+                            const targetPile = rest.pieceCapturedByAnvil.color;
                             room.gameState.capturedPieces[targetPile].push(rest.pieceCapturedByAnvil);
                         }
                         
                         if (resurrectionScrollEvent) {
                             const p = resurrectionScrollEvent.piece;
-                            const targetPile = p.color === 'white' ? 'black' : 'white';
+                            const targetPile = p.color;
                             room.gameState.capturedPieces[targetPile] = room.gameState.capturedPieces[targetPile].filter((pi: any) => pi.id !== p.id) ;
                             room.gameState.resurrectedSquare = resurrectionScrollEvent.square;
                         }
@@ -727,8 +727,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const newStreak = room.gameState.killStreaks[movingPlayer];
 
                         if (newStreak >= 4 && oldStreak < 4) {
-                            const oppColor = movingPlayer === 'white' ? 'black' : 'white';
-                            const myAvailableResurrections = room.gameState.capturedPieces[movingPlayer];
+                            const myPile = movingPlayer;
+                            const myAvailableResurrections = room.gameState.capturedPieces[myPile];
                             if (myAvailableResurrections && myAvailableResurrections.length > 0) {
                                 const sorted = [...myAvailableResurrections].sort((a, b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
                                 const pieceToResurrect = sorted[0];
@@ -758,7 +758,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                         resurrectedPiece.type = 'hero';
                                     }
                                     finalizedBoard[spawnPos.r][spawnPos.c].piece = resurrectedPiece;
-                                    room.gameState.capturedPieces[movingPlayer] = myAvailableResurrections.filter(p => p.id !== pieceToResurrect.id);
+                                    room.gameState.capturedPieces[myPile] = myAvailableResurrections.filter(p => p.id !== pieceToResurrect.id);
                                     room.gameState.resurrectedSquare = coordsToAlgebraic(spawnPos.r, spawnPos.c);
                                     
                                     syncSoulLink(finalizedBoard, movingPlayer);

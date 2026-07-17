@@ -105,7 +105,7 @@ function adaptBoardForAI(
         newAiRow.push({ piece: null, item: null });
       }
     }
-    newAiBoard.push(newAiRow);
+    newAiBoard.push(newAiBoard);
   }
 
   return {
@@ -689,7 +689,7 @@ export default function EvolvingChessPage() {
     }
 
     if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {
-        const myGraveyard = actingPlayer === 'white' ? nextGraveyard.black : nextGraveyard.white; 
+        const myGraveyard = actingPlayer === 'white' ? nextGraveyard.white : nextGraveyard.black; 
         if (myGraveyard.length > 0) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const choice = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
@@ -701,8 +701,8 @@ export default function EvolvingChessPage() {
                 nextBoard[rr][rc].piece = resPiece;
                 
                 const updatedG = { ...nextGraveyard };
-                if (actingPlayer === 'white') updatedG.black = updatedG.black.filter(p => p.id !== choice.id);
-                else updatedG.white = updatedG.white.filter(p => p.id !== choice.id);
+                if (actingPlayer === 'white') updatedG.white = updatedG.white.filter(p => p.id !== choice.id);
+                else updatedG.black = updatedG.black.filter(p => p.id !== choice.id);
                 
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
                 
@@ -776,7 +776,7 @@ export default function EvolvingChessPage() {
                 audioManager.playCapture();
                 
                 const nextG = { ...graveyard };
-                const targetPile = sacrificed.color === 'white' ? 'black' : 'white';
+                const targetPile = sacrificed.color === 'white' ? 'white' : 'black';
                 nextG[targetPile] = [...(nextG[targetPile] || []), sacrificed];
                 
                 triggerSpecialsChain(nextB, nextG, currentKs, oldS, newS, extra, ep, player, []);
@@ -823,7 +823,7 @@ export default function EvolvingChessPage() {
         }
         if (applyResult.reflectionOccurred) {
             const victim = applyResult.capturedPiece!;
-            const targetPile = victim.color === 'white' ? 'black' : 'white';
+            const targetPile = victim.color === 'white' ? 'white' : 'black';
             updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...victim, id: `refl_${Date.now()}` }];
             audioManager.playCapture(); 
             const newKs = { ...killStreaks, white: 0, black: 0 }; // Reset streaks on reflection? Or keep old?
@@ -842,17 +842,17 @@ export default function EvolvingChessPage() {
         else audioManager.playMove();
 
         if (applyResult.capturedPiece && !isObliteration) {
-            const targetPile = applyResult.capturedPiece.color === 'white' ? 'black' : 'white';
+            const targetPile = applyResult.capturedPiece.color === 'white' ? 'white' : 'black';
             updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }];
         }
         if (applyResult.selfDestructCaptures) {
             applyResult.selfDestructCaptures.forEach(p => {
-                const targetPile = p.color === 'white' ? 'black' : 'white';
+                const targetPile = p.color === 'white' ? 'white' : 'black';
                 updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...p, id: `sd_${Date.now()}` }];
             });
         }
         if (applyResult.pieceCapturedByAnvil) {
-            const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'black' : 'white';
+            const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'white' : 'black';
             updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.pieceCapturedByAnvil!, id: `anvil_${Date.now()}` }];
         }
 
@@ -986,7 +986,7 @@ export default function EvolvingChessPage() {
                 const targetP = nextBoard[row][col].piece; nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = targetP;
             } else if (isOneForward && nextBoard[row][col].piece && nextBoard[row][col].piece!.color !== currentPlayer) {
                 const victim = nextBoard[row][col].piece!; nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = null;
-                const targetPile = victim.color === 'white' ? 'black' : 'white';
+                const targetPile = victim.color === 'white' ? 'white' : 'black';
                 nextG[targetPile] = [...(nextG[targetPile] || []), { ...victim, id: `dance_${Date.now()}` }];
             } else { return; }
             setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove();
@@ -1005,7 +1005,7 @@ export default function EvolvingChessPage() {
             const sacrificed = { ...nextB[row][col].piece!, id: `sac_${Date.now()}` };
             nextB[row][col].piece = null; 
             const nextG = { ...anvilDropContext!.currentGraveyard! };
-            const targetPile = sacrificed.color === 'white' ? 'black' : 'white';
+            const targetPile = sacrificed.color === 'white' ? 'white' : 'black';
             nextG[targetPile] = [...(nextG[targetPile] || []), sacrificed];
             setBoard(nextB); setCapturedPieces(nextG); audioManager.playCapture();
             setIsAwaitingPawnSacrifice(false);
@@ -1059,7 +1059,7 @@ export default function EvolvingChessPage() {
                     const snipedPiece = { ...nextB[row][col].piece!, id: `snipe_${Date.now()}` };
                     nextB[row][col].piece = null;
                     const nextG = { ...archerSnipeContext!.currentGraveyard! };
-                    const targetPile = snipedPiece.color === 'white' ? 'black' : 'white';
+                    const targetPile = snipedPiece.color === 'white' ? 'white' : 'black';
                     nextG[targetPile] = [...(nextG[targetPile] || []), snipedPiece];
                     
                     const arRow = nextB.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
@@ -1145,7 +1145,7 @@ export default function EvolvingChessPage() {
                 }
                 if (applyResult.reflectionOccurred) {
                     const victim = applyResult.capturedPiece!;
-                    const targetPile = victim.color === 'white' ? 'black' : 'white';
+                    const targetPile = victim.color === 'white' ? 'white' : 'black';
                     updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...victim, id: `refl_${Date.now()}` }];
                     audioManager.playCapture(); 
                     const newKs = { ...killStreaks, white: 0, black: 0 };
@@ -1164,17 +1164,17 @@ export default function EvolvingChessPage() {
                 else audioManager.playMove();
 
                 if (applyResult.capturedPiece && !isObliteration) {
-                    const targetPile = applyResult.capturedPiece.color === 'white' ? 'black' : 'white';
+                    const targetPile = applyResult.capturedPiece.color === 'white' ? 'white' : 'black';
                     updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.capturedPiece!, id: `cap_${Date.now()}` }];
                 }
                 if (applyResult.selfDestructCaptures) {
                     applyResult.selfDestructCaptures.forEach(p => {
-                        const targetPile = p.color === 'white' ? 'black' : 'white';
+                        const targetPile = p.color === 'white' ? 'white' : 'black';
                         updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...p, id: `sd_${Date.now()}` }];
                     });
                 }
                 if (applyResult.pieceCapturedByAnvil) {
-                    const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'black' : 'white';
+                    const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'white' : 'black';
                     updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.pieceCapturedByAnvil!, id: `anvil_${Date.now()}` }];
                 }
 

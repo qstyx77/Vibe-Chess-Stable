@@ -877,9 +877,9 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (move.type === 'resurrection-scroll') {
       if (graveyard) {
-          const myGraveyard = movingPiece.color === 'white' ? graveyard.black : graveyard.white;
-          if (myGraveyard.length > 0) {
-              const best = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
+          const myGraveyard = movingPiece.color;
+          if (graveyard[myGraveyard].length > 0) {
+              const best = [...graveyard[myGraveyard]].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
               const adjacent = [];
               for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                   if (dr===0 && dc===0) continue;
@@ -946,7 +946,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const p2 = newBoard[toRow][toCol].piece;
       newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
       newBoard[toRow][toCol].piece = p1 ? { ...p1, hasMoved: true, isShielded: false } : null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
   }
 
   const isAttackerRoyal = movingPiece.type === 'king' || movingPiece.type === 'queen';
@@ -1358,9 +1358,9 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
   if (!piece || !['rook', 'palace'].includes(piece.type) || piece.color !== player) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
   const effectiveLevel = getEffectiveLevel(board, r, c);
   if (effectiveLevel >= 4 && effectiveLevel > oldL) {
-    const opp = player === 'white' ? 'black' : 'white';
-    if (!graveyard[opp] || graveyard[opp].length === 0) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
-    const sorted = [...graveyard[opp]].sort((a,b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
+    const myPile = player; 
+    if (!graveyard[myPile] || graveyard[myPile].length === 0) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
+    const sorted = [...graveyard[myPile]].sort((a,b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
     const choice = sorted[0];
     if (choice) {
       const adj = [];
@@ -1372,7 +1372,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
         const {row: rr, col: rc} = algebraicToCoords(target);
         const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false };
         board[rr][rc].piece = res;
-        const newG = { ...graveyard, [opp]: graveyard[opp].filter(p => p.id !== choice.id) };
+        const newG = { ...graveyard, [myPile]: graveyard[myPile].filter(p => p.id !== choice.id) };
         return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: (['pawn', 'dancer', 'mimic', 'grappler'].includes(res.type)) && rr === (player === 'white' ? 0 : 7) };
       }
     }
