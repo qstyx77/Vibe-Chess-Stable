@@ -314,7 +314,11 @@ export default function DungeonPage() {
     setIsMoveProcessing(false); clickGuard.current = false; setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]);
     setLevel(nextLevel); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard); setBoard(newBoard);
-    const updatedGraveyard = { white: [], black: currentGraveyard.black }; setCapturedPieces(updatedGraveyard);
+    
+    // UI FIX: Clear black captured pieces every level while preserving white casualties for resurrection
+    const updatedGraveyard = { white: currentGraveyard.white, black: [] }; 
+    setCapturedPieces(updatedGraveyard);
+    
     const ks = { white: 0, black: 0 }; setKillStreaks(ks);
     const sC = 0; const nS = Math.floor(Math.random() * 6) + 5;
     setShroomSpawnCounter(sC); setNextShroomSpawnTurn(nS); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null); setLastMovedPieceType(null);
@@ -354,7 +358,13 @@ export default function DungeonPage() {
     const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
     setIsMoveProcessing(false); clickGuard.current = false; setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]);
     setLevel(targetLevel); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivors);
-    const newBoard = generateDungeonFloor(targetLevel, survivors); setBoard(newBoard); setCapturedPieces(prev => ({ white: [], black: prev.black })); setCurrentPlayer('white');
+    const newBoard = generateDungeonFloor(targetLevel, survivors); setBoard(newBoard); 
+    
+    // UI FIX: Clear black captured pieces during warp while preserving white casualties
+    const nextGraveyard = { white: capturedPieces.white, black: [] };
+    setCapturedPieces(nextGraveyard); 
+    
+    setCurrentPlayer('white');
     const ks = { white: 0, black: 0 }; setKillStreaks(ks);
     const sC = 0; const nS = Math.floor(Math.random() * 6) + 5;
     setShroomSpawnCounter(sC); setNextShroomSpawnTurn(nS); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null); setLastMovedPieceType(null);
@@ -381,12 +391,12 @@ export default function DungeonPage() {
     setIsPromotingPawn(false);
     setPromotionSquare(null);
 
-    saveDungeonState(targetLevel, newBoard, 'white', ks, { white: [], black: capturedPieces.black }, sC, nS, null, 0);
+    saveDungeonState(targetLevel, newBoard, 'white', ks, nextGraveyard, sC, nS, null, 0);
     const isBoss = targetLevel % 10 === 0;
     let msg = isBoss ? `BOSS BATTLE: Floor ${targetLevel}` : `Level ${targetLevel} - Wipe them out!`;
     setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     toast({ title: "PORTAL ACTIVATED", description: `Warped to Floor ${targetLevel}!` }); audioManager.playResurrect();
-  }, [board, hasMovedOnCurrentFloor, toast, saveDungeonState, capturedPieces.black]);
+  }, [board, hasMovedOnCurrentFloor, toast, saveDungeonState, capturedPieces.white]);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
@@ -987,9 +997,9 @@ export default function DungeonPage() {
     }
     if (isAwaitingHolyShield) {
         if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded) {
-            const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null}))); nextBoard[row][col].piece!.isShielded = true;
-            setBoard(nextBoard); setIsAwaitingHolyShield(false); audioManager.playShield();
-            triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', [...(specialActionContext!.completedMilestones || []), 'shield']);
+            const nextBoard = board.map(r => r.map(s => ({r, c, ...s, piece: s.piece ? {...s.piece} : null}))); nextBoard[row][col].piece!.isShielded = true;
+            setBoard(nextBoard as any); setIsAwaitingHolyShield(false); audioManager.playShield();
+            triggerSpecialsChain(nextBoard as any, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', [...(specialActionContext!.completedMilestones || []), 'shield']);
         }
         return;
     }
