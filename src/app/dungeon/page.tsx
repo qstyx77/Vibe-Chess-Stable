@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -315,7 +316,6 @@ export default function DungeonPage() {
     setLevel(nextLevel); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivorsFromLastBoard);
     const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard); setBoard(newBoard);
     
-    // UI FIX: Clear black captured pieces every level while preserving white casualties for resurrection
     const updatedGraveyard = { white: currentGraveyard.white, black: [] }; 
     setCapturedPieces(updatedGraveyard);
     
@@ -325,7 +325,6 @@ export default function DungeonPage() {
     const hasCommander = survivorsFromLastBoard.some(p => ['commander', 'hero'].includes(p.type));
     setFirstBloodAchieved(hasCommander); setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
     
-    // RESET SPECIAL ACTION STATES
     setIsAwaitingDanceTarget(false);
     setDancerToDance(null);
     setIsAwaitingCommanderPromotion(false);
@@ -360,7 +359,6 @@ export default function DungeonPage() {
     setLevel(targetLevel); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivors);
     const newBoard = generateDungeonFloor(targetLevel, survivors); setBoard(newBoard); 
     
-    // UI FIX: Clear black captured pieces during warp while preserving white casualties
     const nextGraveyard = { white: capturedPieces.white, black: [] };
     setCapturedPieces(nextGraveyard); 
     
@@ -370,7 +368,6 @@ export default function DungeonPage() {
     setShroomSpawnCounter(sC); setNextShroomSpawnTurn(nS); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null); setLastMovedPieceType(null);
     setInventory(prev => { const next = [...prev]; const item = next.find(i => i.type === type); if (item) { item.count--; if (item.count <= 0) return next.filter(i => i.type !== type); } return next; });
     
-    // RESET SPECIAL ACTION STATES
     setIsAwaitingDanceTarget(false);
     setDancerToDance(null);
     setIsAwaitingCommanderPromotion(false);
@@ -606,7 +603,8 @@ export default function DungeonPage() {
         const myPile = actingPlayer; 
         if (nextGraveyard[myPile].length > 0) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const choice = [...nextGraveyard[myPile]].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
+            const sorted = [...nextGraveyard[myPile]].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
+            const choice = sorted[0];
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random() * empty.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
@@ -687,14 +685,14 @@ export default function DungeonPage() {
         }
 
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (selfDestructCaptures ? selfDestructCaptures.length : 0);
-        const oldStreak = killStreaks['black'] || 0;
-        const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
-        const currentKs = { ...killStreaks, black: newStreak };
+        const oldStreakLocal = killStreaks['black'] || 0;
+        const newStreakLocal = streakGain > 0 ? oldStreakLocal + streakGain : 0;
+        const currentKs = { ...killStreaks, black: newStreakLocal };
         setKillStreaks(currentKs);
 
         setBoard(newBoard);
         setTimeout(() => {
-            setIsAiThinking(false); setIsMoveProcessing(false); const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6);
+            setIsAiThinking(false); setIsMoveProcessing(false); const isExtra = result.extraTurn || (oldStreakLocal < 6 && newStreakLocal >= 6);
             const landedPiece = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalL < 7 && originalT === 'queen') {
                    const pawns = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && ['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(sq.piece.type));
@@ -710,7 +708,7 @@ export default function DungeonPage() {
                    }
             }
             if ((['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (aiMove.to[0] === 7)) { landedPiece!.type = aiMove.promoteTo || 'queen'; landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); }
-            triggerSpecialsChain(newBoard, updatedCapturedPieces, currentKs, oldStreak, newStreak, isExtra, nextEp, 'black');
+            triggerSpecialsChain(newBoard, updatedCapturedPieces, currentKs, oldStreakLocal, newStreakLocal, isExtra, nextEp, 'black');
         }, 800);
       } else {
         const nextStrikes = aiStalemateStrikes + 1; setAiStalemateStrikes(nextStrikes); const resetKs = { ...killStreaks, black: 0 }; setKillStreaks(resetKs);
@@ -1104,7 +1102,7 @@ export default function DungeonPage() {
           let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null;
           const landedPiece = newBoard[row][col].piece;
           const isInteractivePromo = (['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (row === 0);
-          if (landedPiece && (landedPiece.type === 'rook' || landedPiece.piece.type === 'palace') && capturedPiece) {
+          if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
               const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalLevel, updatedGraveyard, uniqueIdCounterRef.current);
               if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
           }

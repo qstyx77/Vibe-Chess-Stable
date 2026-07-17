@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -273,7 +274,6 @@ export default function EvolvingChessPage() {
       hasInitializedSession.current = true;
       const elo = userData?.eloRating || 1200;
       const unlocks = userData?.unlockedPieces || [];
-      // Synchronize unlocks for both White and Black in local play
       let initial = initializeBoard(elo, 1200, unlocks, unlocks);
       
       if (userData?.equipment) {
@@ -692,7 +692,8 @@ export default function EvolvingChessPage() {
         const myGraveyard = actingPlayer === 'white' ? nextGraveyard.white : nextGraveyard.black; 
         if (myGraveyard.length > 0) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const choice = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0))[0];
+            const sorted = [...myGraveyard].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
+            const choice = sorted[0];
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random()*empty.length)];
@@ -757,7 +758,7 @@ export default function EvolvingChessPage() {
     processMoveEnd(boardToChain, nextGraveyard, currentKs, actingPlayer, isExtra, nextEp);
   }, [isWhiteAI, isBlackAI, firstBloodAchieved, addEffect, processMoveEnd, localPlayerColor, toast]);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow;
 
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, extra: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number) => {
     if (!move) return false;
@@ -1031,7 +1032,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isAwaitingHolyShield) {
-        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== room.gameState.shieldContext.capturingPieceId) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== shieldContext?.capturingPieceId) {
             if (onlineStatus === 'connected') {
                 wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic }));
                 setIsAwaitingHolyShield(false);
@@ -1079,7 +1080,6 @@ export default function EvolvingChessPage() {
       const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
       const moving = board[fR][fC].piece; 
       
-      // TURN AND OWNERSHIP CHECKS FOR MOVEMENT
       if (moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
           if (moving.type === 'grappler') {
               if (piece && algebraic !== selectedSquare) {
@@ -1090,7 +1090,6 @@ export default function EvolvingChessPage() {
                     const isDiagForward = (pr === fR + dir) && Math.abs(pc - fC) === 1;
                     const isEnemy = piece.color !== moving.color;
 
-                    // If it is a diagonally forward enemy, fall through to standard capture
                     if (isEnemy && isDiagForward) {
                         // Let logic proceed to move/capture
                     } else {
@@ -1195,7 +1194,6 @@ export default function EvolvingChessPage() {
           }
       }
     }
-    // ALLOW SELECTION OF ANY PIECE FOR INSPECTION
     if (piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType)); }
     else { setSelectedSquare(null); setPossibleMoves([]); }
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, anvilDropContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, toast, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, shieldContext, archerSnipeContext, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, lastMovedPieceType, addEffect]);
@@ -1291,10 +1289,9 @@ export default function EvolvingChessPage() {
   );
 
   function fullGameReset() {
-    // Synchronize unlocks for both White and Black side during local reset
     const unlocks = userData?.unlockedPieces || [];
     let initial = initializeBoard(userData?.eloRating || 1200, 1200, unlocks, unlocks);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     
     setIsAwaitingDanceTarget(false);
     setDancerToDance(null);
