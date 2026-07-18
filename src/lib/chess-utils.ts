@@ -409,7 +409,7 @@ function getPossibleMovesInternal(
             }
         }
     }
-  } else if (['pawn', 'dancer', 'commander', 'infiltrator'].includes(piece.type)) {
+  } else if (['pawn', 'dancer', 'commander', 'infiltrator', 'grappler'].includes(piece.type)) {
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
           const to = coordsToAlgebraic(r,c);
           if (isMoveValid(board, fromSquare, to, piece, enPassantTargetSquare)) if(!possible.includes(to)) possible.push(to);
@@ -616,7 +616,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       }
       if (to === enPassantTargetSquare && Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction) {
           const targetSq = board[fromRow][toCol];
-          if (targetSq.piece && (['pawn', 'dancer', 'mimic', 'commander', 'infiltrator'].includes(targetSq.piece.type)) && targetSq.piece.color !== piece.color) return true;
+          if (targetSq.piece && (['pawn', 'dancer', 'mimic', 'commander', 'infiltrator', 'grappler'].includes(targetSq.piece.type)) && targetSq.piece.color !== piece.color) return true;
           return false;
       }
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
@@ -1050,7 +1050,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if(move.type === 'enpassant') {
     const cpR = fromRow; const cpC = toCol;
     captured = newBoard[cpR][cpC].piece;
-    if (captured && (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'infiltrator'].includes(captured.type))) {
+    if (captured && (['pawn', 'dancer', 'mimic', 'commander', 'infiltrator', 'grappler'].includes(captured.type))) {
         newBoard[cpR][cpC].piece = null;
         specialCaptureSquare = coordsToAlgebraic(cpR, cpC);
         promotedToInfiltrator = true;
@@ -1258,7 +1258,7 @@ export function triggerConversion(board: BoardState, r: number, c: number, color
       if(v && v.color !== color && v.type !== 'king' && Math.random() < threshold) {
         const orig = {...v};
         v.color = color; v.id = `conv_${v.id}_${Date.now()}`;
-        events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...converter}, at: coordsToAlgebraic(nr, nc) });
+        events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
       }
     }
   }

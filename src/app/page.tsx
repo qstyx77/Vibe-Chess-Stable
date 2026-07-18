@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -738,8 +739,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -1124,12 +1125,18 @@ export default function EvolvingChessPage() {
           }
           const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType);
           if (freshlyCalculated.includes(algebraic)) {
-            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'move' } })); }
+            const { row: toRow, col: toCol } = algebraicToCoords(algebraic);
+            let moveType: Move['type'] = 'move';
+            if (moving?.type === 'king' && !moving.hasMoved && ((moving.color === 'white' && selectedSquare === 'e1' && (algebraic === 'c1' || algebraic === 'g1')) || (moving.color === 'black' && selectedSquare === 'e8' && (algebraic === 'c8' || algebraic === 'g8'))) && fR === toRow && !board[toRow][toCol].piece) { moveType = 'castle'; }
+            else if (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(moving?.type) && algebraic === enPassantTargetSquare) { moveType = 'enpassant'; }
+            else if (board[toRow][toCol].piece) { if (board[toRow][toCol].piece!.color !== moving?.color) moveType = 'capture'; else moveType = 'swap'; }
+
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: moveType } })); }
             else {
                 clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const oldL = moving.level; const oldT = moving.type;
                 setLastMovedPieceType(oldT);
-                const applyResult = applyMove(board, { from: selectedSquare, to: algebraic }, enPassantTargetSquare, capturedPieces);
+                const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces);
                 let nextB = applyResult.newBoard;
                 const updatedG = { ...capturedPieces };
 
@@ -1187,7 +1194,7 @@ export default function EvolvingChessPage() {
                         setIsPromotingPawn(true); setPromotionSquare(algebraic);
                         setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs } as any);
                     } else {
-                        processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
+                        processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: selectedSquare, to: algebraic, type: moveType}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
                     }
                 }, 800);
             }
@@ -1305,6 +1312,9 @@ export default function EvolvingChessPage() {
       {showLossScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center">YOU LOST</p></div>)}
       <div className="lg:hidden h-full">{mobileLayout}</div>
       <div className="hidden lg:block h-full">{desktopLayout}</div>
+      <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
+        <PixelAnvil className="h-12 w-12 text-muted-foreground opacity-10" />
+      </div>
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { toast({ title: "Portal Logic", description: "Use this in Dungeon Mode to skip floors!" }); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
