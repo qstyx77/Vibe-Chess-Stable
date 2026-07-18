@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -801,19 +800,65 @@ export default function DungeonPage() {
   const handleResetRun = () => { setIsResetConfirmOpen(false); startRun(true); toast({ title: "Run Reset", description: "Returning to Floor 1..." }); };
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare) return;
+    // Clear promotion states immediately
+    const targetSquare = promotionSquare;
+    const currentTargetLevel = promotionTargetLevel;
+    const currentContext = specialActionContext;
+
+    setIsPromotingPawn(false); 
+    setPromotionSquare(null);
+    setSpecialActionContext(null);
+
+    if (!targetSquare) return;
+
     let nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
-    const { row, col } = algebraicToCoords(promotionSquare); const pieceBeingPromoted = nextBoard[row][col].piece;
+    const { row, col } = algebraicToCoords(targetSquare); 
+    const pieceBeingPromoted = nextBoard[row][col].piece;
+    
     if (!pieceBeingPromoted) return;
+
     if (pieceBeingPromoted.heldItem && !isItemValidForPiece(pieceBeingPromoted.heldItem, pieceType)) {
-      const item = pieceBeingPromoted.heldItem; setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === item); if (existing) existing.count++; else next.push({ type: item, count: 1 }); return next; });
-      pieceBeingPromoted.heldItem = null; toast({ title: "Equipment Returned", description: `${ITEM_METADATA[item].name} unequipped.` });
+      const item = pieceBeingPromoted.heldItem; 
+      setInventory(prev => { 
+        const next = [...prev]; 
+        const existing = next.find(i => i.type === item); 
+        if (existing) existing.count++; else next.push({ type: item, count: 1 }); 
+        return next; 
+      });
+      pieceBeingPromoted.heldItem = null; 
+      toast({ title: "Equipment Returned", description: `${ITEM_METADATA[item].name} unequipped.` });
     }
-    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, level: promotionTargetLevel, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
-    audioManager.playLevelUp(); setBoard(nextBoard); setIsPromotingPawn(false); setPromotionSquare(null);
-    const isExtra = (nextBoard[row][col].piece!.level >= 5) || specialActionContext?.extra;
-    triggerSpecialsChain(nextBoard, specialActionContext?.currentGraveyard || capturedPieces, specialActionContext?.currentKs || killStreaks, specialActionContext?.oldStreak || 0, specialActionContext?.newStreak || 0, isExtra || false, enPassantTargetSquare, specialActionContext?.actingPlayer || 'white', specialActionContext?.completedMilestones || []);
+
+    nextBoard[row][col].piece = { 
+        ...pieceBeingPromoted, 
+        type: pieceType, 
+        id: `${pieceBeingPromoted.id}_promo_${Date.now()}`, 
+        level: currentTargetLevel, 
+        hasMoved: true, 
+        isShielded: false, 
+        isPoisoned: false, 
+        cooldownTurnsRemaining: 0, 
+        frozenTurnsRemaining: 0 
+    };
+    
+    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(currentTargetLevel, 7);
+    audioManager.playLevelUp(); 
+    setBoard(nextBoard);
+
+    const pieceLevelForExtra = nextBoard[row][col].piece?.level || 1;
+    const isExtra = (pieceLevelForExtra >= 5) || currentContext?.extra;
+
+    triggerSpecialsChain(
+        nextBoard, 
+        currentContext?.currentGraveyard || capturedPieces, 
+        currentContext?.currentKs || killStreaks, 
+        currentContext?.oldStreak || 0, 
+        currentContext?.newStreak || 0, 
+        isExtra || false, 
+        enPassantTargetSquare, 
+        currentContext?.actingPlayer || 'white', 
+        currentContext?.completedMilestones || []
+    );
   }, [board, promotionSquare, promotionTargetLevel, specialActionContext, enPassantTargetSquare, triggerSpecialsChain, capturedPieces, killStreaks, toast]);
 
   const handleSquareClick = (algebraic: AlgebraicSquare) => {

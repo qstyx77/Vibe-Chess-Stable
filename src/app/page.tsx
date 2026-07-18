@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1199,18 +1198,42 @@ export default function EvolvingChessPage() {
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, anvilDropContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, toast, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, shieldContext, archerSnipeContext, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, lastMovedPieceType, addEffect]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    if (!promotionSquare) return;
-    if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: promotionSquare, promoteTo: pieceType } })); setIsPromotingPawn(false); setPromotionSquare(null); }
+    // Clear promotion states immediately
+    const targetSquare = promotionSquare;
+    const currentTargetLevel = promotionTargetLevel;
+    const currentContext = anvilDropContext;
+
+    setIsPromotingPawn(false);
+    setPromotionSquare(null);
+    setAnvilDropContext(null);
+
+    if (!targetSquare) return;
+
+    if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: targetSquare, promoteTo: pieceType } })); }
     else {
         let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-        const { row, col } = algebraicToCoords(promotionSquare); const beingPromoted = boardToUpdate[row][col].piece; if (!beingPromoted) return;
+        const { row, col } = algebraicToCoords(targetSquare); const beingPromoted = boardToUpdate[row][col].piece; if (!beingPromoted) return;
         if (beingPromoted.heldItem && !isItemValidForPiece(beingPromoted.heldItem, pieceType)) {
           const item = beingPromoted.heldItem; setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === item); if (existing) existing.count++; else next.push({ type: item, count: 1 }); return next; });
           beingPromoted.heldItem = null; toast({ title: "Equipment Returned", description: `${ITEM_METADATA[item].name} unequipped.` });
         }
-        boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: promotionTargetLevel, hasMoved: true };
-        setBoard(boardToUpdate); setIsPromotingPawn(false); setPromotionSquare(null); audioManager.playLevelUp();
-        triggerSpecialsChain(boardToUpdate, anvilDropContext?.currentGraveyard || capturedPieces, anvilDropContext?.currentKs || killStreaks, anvilDropContext?.oldStreak || 0, anvilDropContext?.newStreak || 0, (boardToUpdate[row][col].piece!.level >= 5) || (anvilDropContext?.isExtraTurn || false), anvilDropContext?.newEnPassantTarget || null, currentPlayer, []);
+        boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: currentTargetLevel, hasMoved: true };
+        setBoard(boardToUpdate); audioManager.playLevelUp();
+        
+        const pieceLevelForExtra = boardToUpdate[row][col].piece?.level || 1;
+        const isExtra = (pieceLevelForExtra >= 5) || (currentContext?.isExtraTurn || false);
+
+        triggerSpecialsChain(
+            boardToUpdate, 
+            currentContext?.currentGraveyard || capturedPieces, 
+            currentContext?.currentKs || killStreaks, 
+            currentContext?.oldStreak || 0, 
+            currentContext?.newStreak || 0, 
+            isExtra, 
+            currentContext?.newEnPassantTarget || null, 
+            currentPlayer, 
+            []
+        );
     }
   }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus, toast, capturedPieces, killStreaks]);
 
