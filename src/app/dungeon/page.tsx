@@ -637,6 +637,7 @@ export default function DungeonPage() {
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]); const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
         const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece; if (!movingPiece) throw new Error("AI tried to move non-existent piece");
         const originalL = movingPiece.level || 1; const originalT = movingPiece.type;
+        const originalEffL = getEffectiveLevel(board, aiMove.from[0], aiMove.from[1]);
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg); moveCounter.current++;
         setLastMovedPieceType(originalT);
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
@@ -678,9 +679,20 @@ export default function DungeonPage() {
         if (result.infiltrationWin) { setBoard(newBoard); setGameInfo({ message: "INFILTRATION! DUNGEON OVERRUN", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: 'black' }); audioManager.playDefeat(); setIsAiThinking(false); setIsMoveProcessing(false); return; }
         if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); audioManager.playConversion(); }); }
         const aiLandedPieceOnToSquare = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
+        
+        let resPromoRequired = false;
+        let resPromoL = 1;
+        let resPromoSq = null;
+
         if (aiLandedPieceOnToSquare && (['rook', 'palace'].includes(aiLandedPieceOnToSquare.type)) && (capturedPiece || result.pieceCapturedByAnvil)) {
             const resResult = processRookResurrectionCheck(newBoard, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, toAlg, originalL, updatedCapturedPieces, uniqueIdCounterRef.current);
-            if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection); updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white; updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black; addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); if (resResult.promotionRequiredForResurrectedPawn) { const {row: pr, col: pc} = algebraicToCoords(resResult.resurrectedSquareAlg!); newBoard[pr][pc].piece!.type = 'queen'; } }
+            if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection); updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white; updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black; addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); 
+              if (resResult.promotionRequiredForResurrectedPawn) { 
+                // AI simply picks Queen if promoted via resurrection
+                const {row: pr, col: pc} = algebraicToCoords(resResult.resurrectedSquareAlg!); 
+                newBoard[pr][pc].piece!.type = 'queen'; 
+              } 
+            }
         }
 
         const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (selfDestructCaptures ? selfDestructCaptures.length : 0);
@@ -691,8 +703,18 @@ export default function DungeonPage() {
 
         setBoard(newBoard);
         setTimeout(() => {
-            setIsAiThinking(false); setIsMoveProcessing(false); const isExtra = result.extraTurn || (oldStreakLocal < 6 && newStreakLocal >= 6);
+            setIsAiThinking(false); setIsMoveProcessing(false); 
+            const isExtra = result.extraTurn || (oldStreakLocal < 6 && newStreakLocal >= 6);
             const landedPiece = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
+            
+            if ((['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (aiMove.to[0] === 7)) { 
+              landedPiece!.type = aiMove.promoteTo || 'queen'; 
+              landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); 
+              if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); 
+              audioManager.playLevelUp(); 
+            }
+            
+            // Check for Queen Sacrifice
             if (landedPiece?.type === 'queen' && landedPiece.level === 7 && originalL < 7 && originalT === 'queen') {
                    const pawns = newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && ['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(sq.piece.type));
                    if (pawns.length > 0) { 
@@ -706,7 +728,7 @@ export default function DungeonPage() {
                        audioManager.playCapture(); 
                    }
             }
-            if ((['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (aiMove.to[0] === 7)) { landedPiece!.type = aiMove.promoteTo || 'queen'; landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); }
+            
             triggerSpecialsChain(newBoard, updatedCapturedPieces, currentKs, oldStreakLocal, newStreakLocal, isExtra, nextEp, 'black');
         }, 800);
       } else {
@@ -1146,7 +1168,8 @@ export default function DungeonPage() {
           if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" }); }
           let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null;
           const landedPiece = newBoard[row][col].piece;
-          const isInteractivePromo = (['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (row === 0);
+          const oppBackRank = movingPiece.color === 'white' ? 0 : 7;
+          const isInteractivePromo = (['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece?.type || '')) && (row === oppBackRank);
           if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
               const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalLevel, updatedGraveyard, uniqueIdCounterRef.current);
               if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
