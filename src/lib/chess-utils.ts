@@ -421,7 +421,10 @@ function getPossibleMovesInternal(
               const R = fromRow + i * dr; const C = fromCol + i * dc;
               if (!isValidSquare(R, C)) break;
               const targetSq = board[R][C];
-              if (targetSq.item && targetSq.item.type !== 'shroom') break;
+              if (targetSq.item) {
+                  if (targetSq.item.type === 'shroom') possible.push(coordsToAlgebraic(R, C));
+                  break; // Anvil or Shroom blocks slide
+              }
               const targetP = targetSq.piece;
               if (!targetP) possible.push(coordsToAlgebraic(R, C));
               else {
@@ -444,7 +447,10 @@ function getPossibleMovesInternal(
               const R = fromRow + i * dr; const C = fromCol + i * dc;
               if (!isValidSquare(R, C)) break;
               const targetSq = board[R][C];
-              if (targetSq.item && targetSq.item.type !== 'shroom') break;
+              if (targetSq.item) {
+                  if (targetSq.item.type === 'shroom') possible.push(coordsToAlgebraic(R, C));
+                  break; // Anvil or Shroom blocks slide
+              }
               const targetP = targetSq.piece;
               if (!targetP) possible.push(coordsToAlgebraic(R, C));
               else {
@@ -468,7 +474,10 @@ function getPossibleMovesInternal(
               const R = fromRow + i * dr; const C = fromCol + i * dc;
               if (!isValidSquare(R, C)) break;
               const targetSq = board[R][C];
-              if (targetSq.item && targetSq.item.type !== 'shroom') break;
+              if (targetSq.item) {
+                  if (targetSq.item.type === 'shroom') possible.push(coordsToAlgebraic(R, C));
+                  break; // Anvil or Shroom blocks slide
+              }
               const targetP = targetSq.piece;
               if (!targetP) possible.push(coordsToAlgebraic(R, C));
               else {
@@ -639,8 +648,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if ((dRowK === 2 && dColK === 1) || (dRowK === 1 && dColK === 2)) return true;
       if (effectiveLevel >= 2 && ((dRowK === 0 && dColK === 1) || (dRowK === 1 && dColK === 0))) return true;
       if (effectiveLevel >= 3 && ((dRowK === 0 && dColK === 3) || (dRowK === 3 && dColK === 0))) {
-          if (dRowK === 3) { const s = Math.sign(toRow - fromRow); if (board[fromRow+s][fromCol].piece || board[fromRow+2*s][fromCol].piece) return false; }
-          else { const s = Math.sign(toCol - fromCol); if (board[fromRow][fromCol+s].piece || board[fromRow][fromCol+2*s].piece) return false; }
+          if (dRowK === 3) { const s = Math.sign(toRow - fromRow); if (board[fromRow+s][fromCol].piece || board[fromRow+s][fromCol].item || board[fromRow+2*s][fromCol].piece || board[fromRow+2*s][fromCol].item) return false; }
+          else { const s = Math.sign(toCol - fromCol); if (board[fromRow][fromCol+s].piece || board[fromRow][fromCol+s].item || board[fromRow][fromCol+2*s].piece || board[fromRow][fromCol+2*s].item) return false; }
           return true;
       }
       break;
@@ -650,6 +659,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         const dr = Math.sign(toRow - fromRow); const dc = Math.sign(toCol - fromCol);
         let r = fromRow + dr; let c = fromCol + dc;
         while (r !== toRow || c !== toCol) { 
+            if (board[r][c].item) return false; // Any item on path blocks slide
             if (board[r][c].piece && (!hasPhase || board[r][c].piece?.color !== piece.color)) return false; 
             r += dr; c += dc; 
         }
@@ -662,6 +672,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         const dr = Math.sign(toRow - fromRow); const dc = Math.sign(toCol - fromCol);
         let r = fromRow + dr; let c = fromCol + dc;
         while (r !== toRow || c !== toCol) { 
+            if (board[r][c].item) return false; // Any item on path blocks slide
             if (board[r][c].piece && (effectiveLevel < 2 && !hasPhase || board[r][c].piece?.color !== piece.color)) return false; 
             r += dr; c += dc; 
         }
@@ -673,6 +684,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
         const dr = Math.sign(toRow - fromRow); const dc = Math.sign(toCol - fromCol);
         let r = fromRow + dr; let c = fromCol + dc;
         while (r !== toRow || c !== toCol) { 
+            if (board[r][c].item) return false; // Any item on path blocks slide
             if (board[r][c].piece && (!hasPhase || board[r][c].piece?.color !== piece.color)) return false; 
             r += dr; c += dc; 
         }
@@ -684,7 +696,11 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       const maxD = effectiveLevel >= 2 ? 2 : 1;
       if (effectiveLevel >= 5 && ((dRowKi === 2 && dColKi === 1) || (dRowKi === 1 && dColKi === 2))) return true;
       if (dRowKi <= maxD && dColKi <= maxD && (dRowKi === 0 || dColKi === 0 || dRowKi === dColKi)) {
-          if (maxD === 2 && (dRowKi === 2 || dColKi === 2)) if (board[fromRow + Math.sign(toRow - fromRow)][fromCol + Math.sign(toCol - fromCol)].piece) return false;
+          if (maxD === 2 && (dRowKi === 2 || dColKi === 2)) {
+             const midR = fromRow + Math.sign(toRow - fromRow);
+             const midC = fromCol + Math.sign(toCol - fromCol);
+             if (board[midR][midC].piece || board[midR][midC].item) return false;
+          }
           return true;
       }
       break;

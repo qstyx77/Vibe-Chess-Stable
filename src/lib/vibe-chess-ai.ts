@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel } from '@/lib/chess-utils';
 
@@ -282,35 +283,38 @@ export class VibeChessAI {
             case 'dancer':
             case 'commander':
             case 'grappler':
-                if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece) {
+                if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece && (!gs.board[r+dir][c].item || gs.board[r+dir][c].item?.type === 'shroom')) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
                     const isStartRank = (p.color === 'white' && (r === 6 || r === 7)) || (p.color === 'black' && (r === 0 || r === 1));
-                    if (!p.hasMoved && isStartRank && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece && !gs.board[r+dir][c].piece) {
+                    if (!p.hasMoved && isStartRank && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece && !gs.board[r+2*dir][c].item && !gs.board[r+dir][c].piece && !gs.board[r+dir][c].item) {
                         moves.push({from:[r,c], to:[r+2*dir,c], type:'move'});
                     }
                 }
                 [-1,1].forEach(dc => { 
                     if(isValidSquareUtil(r+dir, c+dc)) {
-                        const target = gs.board[r+dir][c+dc].piece;
+                        const targetSq = gs.board[r+dir][c+dc];
+                        const target = targetSq.piece;
                         if (target && target.color !== p.color) {
                             const targetLevel = getEffectiveLevel(gs.board as any, r+dir, c+dc);
                             if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
                                 moves.push({from:[r,c], to:[r+dir,c+dc], type:'capture'});
                             }
                         }
-                        if (!target && gs.enPassantTargetSquare === coordsToAlgebraic(r+dir, c+dc)) moves.push({from:[r,c], to:[r+dir,c+dc], type:'enpassant'});
+                        if (!target && !targetSq.item && gs.enPassantTargetSquare === coordsToAlgebraic(r+dir, c+dc)) moves.push({from:[r,c], to:[r+dir,c+dc], type:'enpassant'});
                     }
                 });
-                if (effLevel >= 2 && isValidSquareUtil(r-dir, c) && !gs.board[r-dir][c].piece) moves.push({from:[r,c], to:[r-dir,c], type:'move'});
+                if (effLevel >= 2 && isValidSquareUtil(r-dir, c) && !gs.board[r-dir][c].piece && (!gs.board[r-dir][c].item || gs.board[r-dir][c].item?.type === 'shroom')) moves.push({from:[r,c], to:[r-dir,c], type:'move'});
                 if (effLevel >= 3) {
-                    [-1,1].forEach(dc => { if(isValidSquareUtil(r, c+dc) && !gs.board[r][c+dc].piece) moves.push({from:[r,c], to:[r,c+dc], type:'move'}); });
+                    [-1,1].forEach(dc => { if(isValidSquareUtil(r, c+dc) && !gs.board[r][c+dc].piece && (!gs.board[r][c+dc].item || gs.board[r][c+dc].item?.type === 'shroom')) moves.push({from:[r,c], to:[r,c+dc], type:'move'}); });
                 }
                 break;
             case 'infiltrator':
                 [-1, 0, 1].forEach(dc => {
                     const nr = r + dir; const nc = c + dc;
                     if (isValidSquareUtil(nr, nc)) {
-                        const target = gs.board[nr][nc].piece;
+                        const targetSq = gs.board[nr][nc];
+                        if (targetSq.item && targetSq.item.type !== 'shroom') return; // Cannot land on Anvils
+                        const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
                             const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
@@ -325,7 +329,9 @@ export class VibeChessAI {
                 this.knightMoves.forEach(([dr,dc]) => { 
                     const nr=r+dr, nc=c+dc; 
                     if(isValidSquareUtil(nr,nc)) {
-                        const target = gs.board[nr][nc].piece;
+                        const targetSq = gs.board[nr][nc];
+                        if (targetSq.item && targetSq.item.type !== 'shroom') return; // Cannot land on Anvils
+                        const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
                             const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
@@ -340,7 +346,9 @@ export class VibeChessAI {
                     [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
                         const nr=r+dr, nc=c+dc;
                         if (isValidSquareUtil(nr,nc)) {
-                            const target = gs.board[nr][nc].piece;
+                            const targetSq = gs.board[nr][nc];
+                            if (targetSq.item && targetSq.item.type !== 'shroom') return; // Cannot land on Anvils
+                            const target = targetSq.piece;
                             if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                             else if (target.color !== p.color) {
                                 const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
@@ -356,7 +364,12 @@ export class VibeChessAI {
                 this.directions.bishop.forEach(([dr,dc]) => {
                     for(let i=1; i<8; i++) {
                         const nr=r+i*dr, nc=c+i*dc; if(!isValidSquareUtil(nr,nc)) break;
-                        const target = gs.board[nr][nc].piece;
+                        const targetSq = gs.board[nr][nc];
+                        if (targetSq.item) {
+                            if (targetSq.item.type === 'shroom') moves.push({from:[r,c], to:[nr,nc], type:'move'});
+                            break; // Path blocked by item
+                        }
+                        const target = targetSq.piece;
                         if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else { 
                             if(target.color !== p.color) {
@@ -377,7 +390,12 @@ export class VibeChessAI {
                 dirs.forEach(([dr,dc]) => {
                     for(let i=1; i<8; i++) {
                         const nr=r+i*dr, nc=c+i*dc; if(!isValidSquareUtil(nr,nc)) break;
-                        const target = gs.board[nr][nc].piece;
+                        const targetSq = gs.board[nr][nc];
+                        if (targetSq.item) {
+                            if (targetSq.item.type === 'shroom') moves.push({from:[r,c], to:[nr,nc], type:'move'});
+                            break; // Path blocked by item
+                        }
+                        const target = targetSq.piece;
                         if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else { 
                             if(target.color !== p.color) {
@@ -449,7 +467,7 @@ export class VibeChessAI {
                                 const nr = r + i * dr, nc = c + i * dc;
                                 if (!isValidSquareUtil(nr, nc)) break;
                                 if (nr === tr && nc === tc) return true;
-                                if (gs.board[nr][nc].piece) break;
+                                if (gs.board[nr][nc].piece || gs.board[nr][nc].item) break; // Anvil or Shroom blocks attack path
                             }
                         }
                     }
