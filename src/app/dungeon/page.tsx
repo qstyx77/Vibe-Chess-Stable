@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -62,7 +63,11 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const rooks = playerArmy.filter(p => p.type === 'rook' || p.type === 'palace');
   const knights = playerArmy.filter(p => p.type === 'knight' || p.type === 'hero' || p.type === 'archer');
   const bishops = playerArmy.filter(p => p.type === 'bishop' || p.type === 'archbishop');
-  const frontline = playerArmy.filter(p => ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'infiltrator'].includes(p.type));
+  
+  // FRONTLINE RANDOMIZATION: Ensure items follow pieces by shuffling the piece objects themselves
+  const frontline = playerArmy
+    .filter(p => ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'infiltrator'].includes(p.type))
+    .sort(() => Math.random() - 0.5);
   
   const placedIds = new Set<string>();
 
@@ -170,7 +175,7 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         for(let i=0; i<8; i++) {
           const type: PieceType = i % 2 === 0 ? 'hero' : 'archbishop';
           board[0][i].piece = board[0][i].piece || { id: `aspect-${i}`, type, color: 'black', level: 6, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
-          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
+          board[1][i].piece = { id: `void-pawn-${i}`, type: 'infiltrator', color: 'black', level: 5, hasMoved: false, isShielded: false, poisonedTurnsRemaining: 0, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         }
         break;
     }
@@ -1164,7 +1169,7 @@ export default function DungeonPage() {
           if (result.infiltrationWin) { setBoard(newBoard); advanceLevel(newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), capturedPieces); return; }
           if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); toast({ title: "Level Up!", description: `${newBoard[row][col].piece?.type} consumed a Shroom 🍄 and leveled up to L${newBoard[row][col].piece?.level}!` }); }
           if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); }
-          if (result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
+          if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); audioManager.playConversion(); }
           if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); toast({ title: "HERO ASCENDED!", description: "Your Commander has reached the back rank!" }); }
           let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null;
           const landedPiece = newBoard[row][col].piece;

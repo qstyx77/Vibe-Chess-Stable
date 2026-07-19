@@ -48,44 +48,25 @@ export function initializeBoard(
   blackUnlocks: string[] = []
 ): BoardState {
   const board = createEmptyBoard();
+  const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
 
-  // Define stable unit identities for White
+  // --- WHITE PIECES ---
   const whiteBishops: Piece[] = [
-    { id: 'wB1', type: whiteElo >= 0 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'wB1', type: whiteElo >= 1500 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
   const whiteRooks: Piece[] = [
-    { id: 'wR1', type: whiteElo >= 0 ? 'palace' : 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'wR1', type: whiteElo >= 1800 ? 'palace' : 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wR2', type: 'rook', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
   const whiteKnights: Piece[] = [
-    { id: 'wN1', type: whiteElo >= 0 ? 'archer' : 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'wN1', type: whiteElo >= 2100 ? 'archer' : 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wN2', type: 'knight', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
   ];
 
-  // Define stable unit identities for Black
-  const blackBishops: Piece[] = [
-    { id: 'bB1', type: blackElo >= 0 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
-    { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
-  ];
-  const blackRooks: Piece[] = [
-    { id: 'bR1', type: blackElo >= 0 ? 'palace' : 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
-    { id: 'bR2', type: 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
-  ];
-  const blackKnights: Piece[] = [
-    { id: 'bN1', type: blackElo >= 0 ? 'archer' : 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
-    { id: 'bN2', type: 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
-  ];
-
-  const shuffle = <T>(arr: T[]): T[] => [...arr].sort(() => Math.random() - 0.5);
-  
   const wBPos = shuffle([2, 5]);
   const wNPos = shuffle([1, 6]);
   const wRPos = shuffle([0, 7]);
-
-  const bBPos = shuffle([2, 5]);
-  const bNPos = shuffle([1, 6]);
-  const bRPos = shuffle([0, 7]);
 
   board[7][wBPos[0]].piece = whiteBishops[0];
   board[7][wBPos[1]].piece = whiteBishops[1];
@@ -95,7 +76,24 @@ export function initializeBoard(
   board[7][wRPos[1]].piece = whiteRooks[1];
   board[7][3].piece = { id: 'wQ', type: 'queen', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   board[7][4].piece = { id: 'wK', type: 'king', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
-  for (let c = 0; c < 8; c++) board[6][c].piece = { id: `wP${c}`, type: 'pawn', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+
+  // --- BLACK PIECES ---
+  const blackBishops: Piece[] = [
+    { id: 'bB1', type: blackElo >= 1500 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const blackRooks: Piece[] = [
+    { id: 'bR1', type: blackElo >= 1800 ? 'palace' : 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bR2', type: 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const blackKnights: Piece[] = [
+    { id: 'bN1', type: blackElo >= 2100 ? 'archer' : 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bN2', type: 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+
+  const bBPos = shuffle([2, 5]);
+  const bNPos = shuffle([1, 6]);
+  const bRPos = shuffle([0, 7]);
 
   board[0][bBPos[0]].piece = blackBishops[0];
   board[0][bBPos[1]].piece = blackBishops[1];
@@ -105,31 +103,38 @@ export function initializeBoard(
   board[0][bRPos[1]].piece = blackRooks[1];
   board[0][3].piece = { id: 'bQ', type: 'queen', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
-  for (let c = 0; c < 8; c++) board[1][c].piece = { id: `bP${c}`, type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
-  // Apply Special Pieces (Dancer, Mimic, Grappler) to both sides
-  const applySpecialUnlocks = (row: SquareState[], unlocks: string[]) => {
-    if (!unlocks || unlocks.length === 0) return;
-    const specialPawnTypes: PieceType[] = [];
-    if (unlocks.includes('dancer')) specialPawnTypes.push('dancer');
-    if (unlocks.includes('mimic')) specialPawnTypes.push('mimic');
-    if (unlocks.includes('grappler')) specialPawnTypes.push('grappler');
-
-    if (specialPawnTypes.length > 0) {
-      const pawnSquares = row.filter(sq => sq.piece?.type === 'pawn');
-      const shuffledTypes = shuffle(specialPawnTypes);
-      shuffledTypes.forEach(type => {
-        if (pawnSquares.length > 0) {
-          const idx = Math.floor(Math.random() * pawnSquares.length);
-          const choice = pawnSquares.splice(idx, 1)[0];
-          choice.piece!.type = type;
-        }
-      });
+  // --- FRONTLINE INITIALIZATION & RANDOMIZATION ---
+  const createArmyRow = (color: PlayerColor, unlocks: string[]) => {
+    const army: Piece[] = [];
+    const prefix = color === 'white' ? 'w' : 'b';
+    
+    // Create base pawns with stable IDs
+    for (let i = 0; i < 8; i++) {
+      army.push({ id: `${prefix}P${i}`, type: 'pawn', color, level: 1, hasMoved: false, isShielded: false, heldItem: null });
     }
+
+    // Apply special types to specific unit identities before shuffling positions
+    // This ensures that wP0 (if assigned as a Dancer) keeps its equipment assigned in the Lobby
+    const specialTypes: PieceType[] = [];
+    if (unlocks.includes('dancer')) specialTypes.push('dancer');
+    if (unlocks.includes('mimic')) specialTypes.push('mimic');
+    if (unlocks.includes('grappler')) specialTypes.push('grappler');
+
+    shuffle(specialTypes).forEach((type, idx) => {
+      if (army[idx]) army[idx].type = type;
+    });
+
+    return shuffle(army);
   };
 
-  applySpecialUnlocks(board[6], whiteUnlocks);
-  applySpecialUnlocks(board[1], blackUnlocks);
+  const whiteFrontline = createArmyRow('white', whiteUnlocks);
+  const blackFrontline = createArmyRow('black', blackUnlocks);
+
+  for (let c = 0; c < 8; c++) {
+    board[6][c].piece = whiteFrontline[c];
+    board[1][c].piece = blackFrontline[c];
+  }
 
   return board;
 }
@@ -1254,7 +1259,7 @@ export function triggerConversion(board: BoardState, r: number, c: number, color
       if(v && v.color !== color && v.type !== 'king' && Math.random() < threshold) {
         const orig = {...v};
         v.color = color; v.id = `conv_${v.id}_${Date.now()}`;
-        events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
+        events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...converter}, at: coordsToAlgebraic(nr, nc) });
       }
     }
   }
