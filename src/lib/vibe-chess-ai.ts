@@ -313,7 +313,7 @@ export class VibeChessAI {
                     const nr = r + dir; const nc = c + dc;
                     if (isValidSquareUtil(nr, nc)) {
                         const targetSq = gs.board[nr][nc];
-                        if (targetSq.item && targetSq.item.type !== 'shroom') return; // Cannot land on Anvils
+                        if (targetSq.item?.type === 'anvil') return; 
                         const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
@@ -330,7 +330,7 @@ export class VibeChessAI {
                     const nr=r+dr, nc=c+dc; 
                     if(isValidSquareUtil(nr,nc)) {
                         const targetSq = gs.board[nr][nc];
-                        if (targetSq.item && targetSq.item.type !== 'shroom') return; // Cannot land on Anvils
+                        if (targetSq.item?.type === 'anvil') return; 
                         const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
@@ -347,7 +347,7 @@ export class VibeChessAI {
                         const nr=r+dr, nc=c+dc;
                         if (isValidSquareUtil(nr,nc)) {
                             const targetSq = gs.board[nr][nc];
-                            if (targetSq.item && targetSq.item.type !== 'shroom') return; // Cannot land on Anvils
+                            if (targetSq.item?.type === 'anvil') return; 
                             const target = targetSq.piece;
                             if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                             else if (target.color !== p.color) {
@@ -365,10 +365,8 @@ export class VibeChessAI {
                     for(let i=1; i<8; i++) {
                         const nr=r+i*dr, nc=c+i*dc; if(!isValidSquareUtil(nr,nc)) break;
                         const targetSq = gs.board[nr][nc];
-                        if (targetSq.item) {
-                            if (targetSq.item.type === 'shroom') moves.push({from:[r,c], to:[nr,nc], type:'move'});
-                            break; // Path blocked by item
-                        }
+                        if (targetSq.item?.type === 'anvil') break; 
+                        
                         const target = targetSq.piece;
                         if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else { 
@@ -391,10 +389,8 @@ export class VibeChessAI {
                     for(let i=1; i<8; i++) {
                         const nr=r+i*dr, nc=c+i*dc; if(!isValidSquareUtil(nr,nc)) break;
                         const targetSq = gs.board[nr][nc];
-                        if (targetSq.item) {
-                            if (targetSq.item.type === 'shroom') moves.push({from:[r,c], to:[nr,nc], type:'move'});
-                            break; // Path blocked by item
-                        }
+                        if (targetSq.item?.type === 'anvil') break; 
+
                         const target = targetSq.piece;
                         if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else { 
@@ -459,6 +455,7 @@ export class VibeChessAI {
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
                         if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true;
                     } else if (p.type === 'king') {
+                        if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true; 
                         if (this.kingMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) return true;
                     } else {
                         const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (p.type === 'bishop' || p.type === 'archbishop' ? this.directions.bishop : this.directions.queen);
@@ -467,7 +464,7 @@ export class VibeChessAI {
                                 const nr = r + i * dr, nc = c + i * dc;
                                 if (!isValidSquareUtil(nr, nc)) break;
                                 if (nr === tr && nc === tc) return true;
-                                if (gs.board[nr][nc].piece || gs.board[nr][nc].item) break; // Anvil or Shroom blocks attack path
+                                if (gs.board[nr][nc].piece || gs.board[nr][nc].item?.type === 'anvil') break; 
                             }
                         }
                     }
