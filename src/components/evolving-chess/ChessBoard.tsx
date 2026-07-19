@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
@@ -131,6 +132,12 @@ export function ChessBoard({
   const displayBoard = visuallyFlipBoardForLogic ? [...boardState].reverse().map(row => [...row].reverse()) : boardState;
   const isLocalActionTurn = !localPlayerColor || localPlayerColor === currentPlayerColor;
 
+  // Calculate the highest level archer for the current player to facilitate Snipe logic
+  const myArchers = boardState.flat()
+    .filter(sq => sq.piece && sq.piece.color === currentPlayerColor && sq.piece.type === 'archer')
+    .map(sq => sq.piece!);
+  const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
+
   return (
     <div className={cn( "grid grid-cols-8 w-full max-w-lg aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !(isAwaitingDanceTarget && isLocalActionTurn) && !(isAwaitingGrappleThrow && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d" )} onMouseLeave={() => onPieceHover(null)} >
       {displayBoard.map((row, displayedRowIndex) =>
@@ -153,7 +160,7 @@ export function ChessBoard({
               const capturingPieceId = lastMoveTo ? boardState[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
               if (currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== capturingPieceId && !currentSquareData.piece.isShielded) isShieldTarget = true;
           }
-          const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level === 1 && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
+          const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level <= maxArcherLevel && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
           const isAnvilDropTarget = isLocalActionTurn && (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget) && !currentSquareData.piece && !currentSquareData.item;
           const isShieldScrollTargetSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && !currentSquareData.piece.isShielded;
           const isSwapTargetSelection = isLocalActionTurn && isAwaitingSwapScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.algebraic !== selectedSquare;
@@ -203,7 +210,7 @@ export function ChessBoard({
               isEnemySelected={isEnemySelectedFlag}
               isEnemyPossibleMove={isEnemyPossibleMoveFlag}
               onClick={onSquareClick}
-              disabled={isInteractionDisabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isShieldScrollTargetSelection && !isSwapTargetSelection && !isDecreeTarget && !isDanceTarget && !isThrowTarget}
+              disabled={isInteractionDisabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTargetSelection && !isDecreeTarget && !isDanceTarget && !isThrowTarget}
               isKingInCheck={isThisKingInCheck}
               viewMode={viewMode}
               animatedSquareTo={animatedSquareTo}
