@@ -382,6 +382,46 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="5" y="1" width="1" height="7" fill="#A78BFA" opacity="0.6" />
           </svg>
         );
+      case 'aura_silence':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <circle cx="5" cy="6" r="4" fill="#1e1b4b" />
+            <circle cx="5" cy="6" r="2.5" fill="#312e81" stroke="#4f46e5" strokeWidth="1" />
+            <rect x="4" y="5" width="2" height="2" fill="#a5b4fc" opacity="0.5" />
+            <rect x="2" y="6" width="6" height="0.5" fill="#FFF" opacity="0.2" />
+          </svg>
+        );
+      case 'grappling_hook':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="1" width="2" height="8" fill="#475569" />
+            <rect x="2" y="0" width="1" height="3" fill="#64748b" />
+            <rect x="7" y="0" width="1" height="3" fill="#64748b" />
+            <path d="M2 3 Q5 6 8 3" stroke="#94a3b8" strokeWidth="1.5" />
+            <rect x="3" y="9" width="4" height="2" fill="#1e293b" />
+          </svg>
+        );
+      case 'battering_ram':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="3" width="8" height="6" fill="#78350F" />
+            <rect x="0" y="4" width="10" height="4" fill="#78350F" />
+            <rect x="8" y="2" width="2" height="8" fill="#475569" />
+            <rect x="7" y="4" width="1" height="4" fill="#171717" opacity="0.4" />
+            <rect x="3" y="5" width="2" height="2" fill="#FDE68A" />
+          </svg>
+        );
+      case 'knights_boots':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="6" width="4" height="5" fill="#EAB308" />
+            <rect x="5" y="6" width="4" height="5" fill="#EAB308" />
+            <rect x="0" y="9" width="5" height="2" fill="#B45309" />
+            <rect x="5" y="9" width="5" height="2" fill="#B45309" />
+            <rect x="3" y="2" width="2" height="4" fill="#EAB308" />
+            <rect x="6" y="2" width="2" height="4" fill="#EAB308" />
+          </svg>
+        );
       default:
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full opacity-50">

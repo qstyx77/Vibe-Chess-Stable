@@ -76,6 +76,10 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 1 turn.");
   if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies for 2 turns.");
   if (heldItem === 'soul_harvest') abilities.push(" spell: reduce adjacent pieces to L1 to absorb their power.");
+  if (heldItem === 'aura_silence') abilities.push(" silent aura: adjacent enemies cannot trigger active skills.");
+  if (heldItem === 'grappling_hook') abilities.push(" grappling hook: swap positions with distant allies.");
+  if (heldItem === 'battering_ram') abilities.push(" battering ram: push adjacent anvils to crush enemies.");
+  if (heldItem === 'knights_boots') abilities.push(" knight's boots: movement replaced by Knight pattern.");
   if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {

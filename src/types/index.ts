@@ -49,6 +49,10 @@ export type InventoryItemType =
   | 'ice_sword'
   | 'ice_blast'
   | 'soul_harvest'
+  | 'aura_silence'
+  | 'grappling_hook'
+  | 'battering_ram'
+  | 'knights_boots'
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
   | 'portal_scroll_40';
@@ -107,6 +111,10 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'ice_sword': { name: 'Ice Sword', description: 'Crystalline blade. Capturing freezes cardinally adjacent enemies for 1 turn.', isConsumable: false },
   'ice_blast': { name: 'Ice Blast Scroll', description: 'Consumable. Freeze all adjacent enemy pieces for 2 turns.', isConsumable: true },
   'soul_harvest': { name: 'Soul Harvest Scroll', description: 'Consumable. Non-Royal. Reduces adjacent levels to 1; user gains all lost levels.', isConsumable: true },
+  'aura_silence': { name: 'Silence Amulet', description: 'Passive. Adjacent enemy units cannot trigger active skills or use scrolls.', isConsumable: false },
+  'grappling_hook': { name: 'Grappling Hook', description: 'Passive. Can swap positions with an allied piece up to 3 squares away (requires line of sight).', isConsumable: false },
+  'battering_ram': { name: 'Battering Ram', description: 'Passive. Rook/Palace only. Move into an adjacent Anvil to push it up to 3 squares, crushing enemies.', isConsumable: false },
+  'knights_boots': { name: 'Knight\'s Boots', description: 'Passive. Replaces this piece\'s movement with the standard Knight L-shape pattern.', isConsumable: false },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', isConsumable: true },
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', isConsumable: true },
@@ -142,7 +150,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
 }
