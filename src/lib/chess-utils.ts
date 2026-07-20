@@ -115,13 +115,15 @@ export function initializeBoard(
     }
 
     // Apply special types to specific unit identities before shuffling positions
-    // This ensures that wP0 (if assigned as a Dancer) keeps its equipment assigned in the Lobby
+    // We use a FIXED ORDER assignment to ensure that specific IDs (like wP0) 
+    // are always the same type (like Dancer) if that unit is unlocked.
+    // This fixes the issue where equipment would "jump" between types on refresh.
     const specialTypes: PieceType[] = [];
     if (unlocks.includes('dancer')) specialTypes.push('dancer');
     if (unlocks.includes('mimic')) specialTypes.push('mimic');
     if (unlocks.includes('grappler')) specialTypes.push('grappler');
 
-    shuffle(specialTypes).forEach((type, idx) => {
+    specialTypes.forEach((type, idx) => {
       if (army[idx]) army[idx].type = type;
     });
 
@@ -989,7 +991,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'wind-scroll') {
-      const crush = triggerPushBack(newBoard, toRow, toCol, 'neutral' as any); 
+      const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare };
