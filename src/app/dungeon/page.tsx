@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -287,6 +286,8 @@ export default function DungeonPage() {
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
+
+  const isBossFloor = level % 10 === 0;
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
