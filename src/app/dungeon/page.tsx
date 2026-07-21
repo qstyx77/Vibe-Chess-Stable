@@ -485,7 +485,7 @@ export default function DungeonPage() {
       }
       advanceLevel(survivors, nextGraveyard); return;
     }
-    if (extra) { toast({ title: "EXTRA TURN!", description: `${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} gains another move!` }); audioManager.playLevelUp(); }
+    if (extra) { toast({ title: "EXTRA TURN!", description: `${turnPlayer === 'white' ? (userData?.username || 'Hero') : 'Dungeon'} gains another move!` }); audioManager.playLevelUp(); }
     
     let newShroomCounter = shroomSpawnCounter + 1; 
     let finalNextShroom = nextShroomSpawnTurn;
@@ -508,7 +508,7 @@ export default function DungeonPage() {
     }
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, lastMovedPieceType);
     if (inCheck && extra) {
-        setGameInfo({ message: `Auto-Checkmate! ${turnPlayer === 'white' ? 'Hero' : 'Dungeon'} wins!`, isCheck: true, playerWithKingInCheck: nextP, isCheckmate: true, isStalemate: false, gameOver: true, winner: turnPlayer }); audioManager.playVictory(); return;
+        setGameInfo({ message: `Auto-Checkmate! ${turnPlayer === 'white' ? (userData?.username || 'Hero') : 'Dungeon'} wins!`, isCheck: true, playerWithKingInCheck: nextP, isCheckmate: true, isStalemate: false, gameOver: true, winner: turnPlayer }); audioManager.playVictory(); return;
     }
     if (inCheck) audioManager.playCheck();
     const isBoss = level % 10 === 0;
@@ -1237,18 +1237,6 @@ export default function DungeonPage() {
     prevBoardRef.current = board;
   }, [board, addEffect]);
 
-  const processPawnSacrificeCheck = useCallback((boardAfterPrimaryMove: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, playerWhoseQueenLeveled: PlayerColor, move: Move, originalLevel: number, originalType: PieceType, isExtra: boolean, nextEp: AlgebraicSquare | null, oldStreak: number, newStreak: number): boolean => {
-    if (originalType !== 'queen') return false; const { row: tr, col: tc } = algebraicToCoords(move.to); const queen = boardAfterPrimaryMove[tr][tc].piece;
-    if (queen && queen.type === 'queen' && queen.level === 7 && originalLevel < 7) {
-      const hasPawns = boardAfterPrimaryMove.flat().some(sq => sq.piece && sq.piece.color === playerWhoseQueenLeveled && ['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(sq.piece.type));
-      if (hasPawns) { setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(playerWhoseQueenLeveled); setPlayerWhoMadeQueenMove(playerWhoseQueenLeveled); setIsExtraTurnFromQueenMove(isExtra); setBoardForPostSacrifice(boardAfterPrimaryMove); setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, actingPlayer: playerWhoseQueenLeveled, completedMilestones: [], currentGraveyard, currentKs }); return true; }
-    }
-    return false;
-  }, [triggerSpecialsChain]);
-
-  if (!user) { return ( <div className="flex flex-col items-center justify-center h-[100dvh] bg-background p-4 text-center"> <Swords className="h-12 w-12 text-primary mb-4 animate-pulse" /> <h1 className="text-xl font-bold font-pixel text-primary uppercase mb-2">Authentication Required</h1> <p className="text-sm text-muted-foreground mb-6 max-w-xs">Please sign in to your profile to save items and start your dungeon descent.</p> <Link href="/login"><Button className="font-pixel uppercase px-8">Sign In</Button></Link> </div> ); }
-
-  const isBossFloor = level % 10 === 0;
   const mobileLayout = (
     <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 lg:hidden overflow-y-auto scrollbar-hide">
       <div className="flex flex-col items-center justify-between gap-0.5 pb-1">
@@ -1264,7 +1252,7 @@ export default function DungeonPage() {
         <div className="w-full">
           <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && isLocalActionTurn) || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood === 'white' ? 'white' : null} isEnPassantTarget={enPassantTargetSquare} onPieceHover={setPieceForInfoDisplay} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} isAwaitingGrappleThrow={isAwaitingGrappleThrow} grappledPieceSubject={grappledPieceSubject} />
         </div>
-        <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false} />
+        <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? (userData?.username || 'Hero') : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false} />
         {gameInfo.gameOver && ( <div className="mt-1 space-y-1 w-full shrink-0"> <Button className="w-full font-bold uppercase h-7 text-[10px]" onClick={() => startRun(true)}><RefreshCw className="mr-2 h-4 w-4" /> Retry</Button> <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-7 text-[10px]">Lobby</Button></Link> </div> )}
       </div>
     </div>
@@ -1290,7 +1278,7 @@ export default function DungeonPage() {
             </div>
           </div>
           <div className="w-full lg:w-1/4 flex flex-col h-full min-h-0 overflow-y-auto scrollbar-hide">
-            <div className="flex-1 min-h-0"> <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? 'Hero' : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false} /> </div>
+            <div className="flex-1 min-h-0"> <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor="white" getPlayerDisplayName={(p) => p === 'white' ? (userData?.username || 'Hero') : 'Dungeon'} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} chatMessages={[]} onSendMessage={() => {}} isMessengerOpen={false} onToggleMessenger={() => {}} hasUnreadMessages={false} /> </div>
             {gameInfo.gameOver && ( <div className="mt-2 space-y-2 shrink-0 mb-4 lg:mb-0"> <Button className="w-full font-bold uppercase h-8 text-xs" onClick={() => startRun(true)}><RefreshCw className="mr-2 h-4 w-4" /> Retry Run</Button> <Link href="/"><Button variant="outline" className="w-full font-bold uppercase h-8 text-xs">Back to Lobby</Button></Link> </div> )}
           </div>
         </div>
