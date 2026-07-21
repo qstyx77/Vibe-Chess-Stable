@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -679,7 +680,6 @@ export default function DungeonPage() {
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]); const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
         const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece; if (!movingPiece) throw new Error("AI tried to move non-existent piece");
         const originalL = movingPiece.level || 1; const originalT = movingPiece.type;
-        const originalEffL = getEffectiveLevel(board, aiMove.from[0], aiMove.from[1]);
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg); moveCounter.current++;
         setLastMovedPieceType(originalT);
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
@@ -720,11 +720,18 @@ export default function DungeonPage() {
         setCapturedPieces(updatedCapturedPieces);
         if (result.infiltrationWin) { setBoard(newBoard); setGameInfo({ message: "INFILTRATION! DUNGEON OVERRUN", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: 'black' }); audioManager.playDefeat(); setIsAiThinking(false); setIsMoveProcessing(false); return; }
         if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); audioManager.playConversion(); }); }
-        const aiLandedPieceOnToSquare = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
         
+        const aiLandedPieceOnToSquare = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
         if (aiLandedPieceOnToSquare && (['rook', 'palace'].includes(aiLandedPieceOnToSquare.type)) && (capturedPiece || result.pieceCapturedByAnvil)) {
             const resResult = processRookResurrectionCheck(newBoard, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, toAlg, originalL, updatedCapturedPieces, uniqueIdCounterRef.current);
-            if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection); updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white; updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black; addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); 
+            if (resResult.resurrectionPerformed) { 
+              uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; 
+              newBoard = resResult.boardWithResurrection; 
+              setCapturedPieces(resResult.capturedPiecesAfterResurrection); 
+              updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white; 
+              updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black; 
+              addEffect('light-beam', resResult.resurrectedSquareAlg!); 
+              audioManager.playResurrect(); 
               if (resResult.promotionRequiredForResurrectedPawn) { 
                 const {row: pr, col: pc} = algebraicToCoords(resResult.resurrectedSquareAlg!); 
                 newBoard[pr][pc].piece!.type = 'queen'; 
@@ -1123,7 +1130,6 @@ export default function DungeonPage() {
                   const isEnemy = piece.color !== movingPiece.color;
 
                   if (isEnemy && isDiagForward) {
-                      // fallback to capture
                   } else {
                       if (piece.type === 'king') {
                         toast({ title: "Too Heavy!", description: "You cannot grapple a King." });
