@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -238,7 +237,7 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
   if (item === 'swift_cloak') return (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(type));
   if (item === 'queens_peace') return (type === 'queen');
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'battering_ram') return (type === 'rook' || type === 'palace');
@@ -295,7 +294,7 @@ function getPossibleMovesInternal(
     return possible;
   }
 
-  const hasMagicScroll = (piece.heldItem === 'wind_scroll' || piece.heldItem === 'life_leach' || piece.heldItem === 'summon_anvil' || piece.heldItem === 'shield_scroll' || piece.heldItem === 'rally_scroll' || piece.heldItem === 'antidote' || piece.heldItem === 'detonation_scroll' || piece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll' || piece.heldItem === 'kings_decree' || piece.heldItem === 'ice_blast' || piece.heldItem === 'soul_harvest');
+  const hasMagicScroll = (piece.heldItem === 'wind_scroll' || piece.heldItem === 'life_leach' || piece.heldItem === 'summon_anvil' || piece.heldItem === 'shield_scroll' || piece.heldItem === 'rally_scroll' || piece.heldItem === 'antidote' || piece.heldItem === 'detonation_scroll' || piece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll' || piece.heldItem === 'kings_decree' || piece.heldItem === 'ice_blast' || piece.heldItem === 'soul_harvest' || piece.heldItem === 'earthquake_scroll');
   const hasSelfAbility = ((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && currentLevel >= 5);
   
   if (!silenced && (hasMagicScroll || hasSelfAbility)) possible.push(fromSquare);
@@ -642,7 +641,7 @@ export function isSquareAttacked(
 export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, enPassantTargetSquare: AlgebraicSquare | null): boolean {
   const effectiveLevel = getEffectiveLevel(board, algebraicToCoords(from).row, algebraicToCoords(from).col);
   const silenced = isSilenced(board, algebraicToCoords(from).row, algebraicToCoords(from).col, piece.color);
-  if (from === to && !silenced && !((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && effectiveLevel >= 5) && !(['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll', 'resurrection-scroll', 'faith-scroll', 'kings-decree', 'ice-blast', 'soul-harvest'].includes(piece.heldItem || ''))) return false;
+  if (from === to && !silenced && !((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && effectiveLevel >= 5) && !(['wind-scroll', 'life-leach', 'summon-anvil', 'shield-scroll', 'rally-scroll', 'antidote', 'swap-scroll', 'ice-scroll', 'resurrection-scroll', 'faith-scroll', 'kings-decree', 'ice-blast', 'soul-harvest', 'earthquake-scroll'].includes(piece.heldItem || ''))) return false;
   const { row: fromRow, col: fromCol } = algebraicToCoords(from);
   const { row: toRow, col: toCol } = algebraicToCoords(to);
   if (!isValidSquare(toRow, toCol)) return false;
@@ -1083,6 +1082,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
+  if (move.type === 'earthquake-scroll') {
+      const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+      if (crush) pieceCapturedByAnvil = crush;
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+  }
+
   if (move.type === 'summon-anvil') {
       newBoard[toRow][toCol].item = { type: 'anvil' };
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
@@ -1192,6 +1198,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (['pawn', 'dancer', 'mimic', 'grappler'].includes(pieceToLand.type) && captured.type === 'commander') pieceToLand.type = 'commander';
     let gain = pieceToLand.heldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     if (pieceToLand.heldItem === 'gnosis') gain += 1;
+    if (pieceToLand.heldItem === 'golden_chalice') gain += 1;
     let hasLogasBoost = false;
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
         if (dr === 0 && dc === 0) continue;

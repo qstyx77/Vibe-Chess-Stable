@@ -80,6 +80,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'grappling_hook') abilities.push(" grappling hook: swap positions with distant allies.");
   if (heldItem === 'battering_ram') abilities.push(" battering ram: push adjacent anvils to crush enemies.");
   if (heldItem === 'knights_boots') abilities.push(" knight's boots: movement replaced by Knight pattern.");
+  if (heldItem === 'golden_chalice') abilities.push(" experience: +1 extra level gain on every capture.");
+  if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): target a square to push units in a 3x3 area away.");
   if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {

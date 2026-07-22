@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
@@ -40,6 +39,7 @@ interface ChessBoardProps {
   isAwaitingDecreeTarget?: boolean;
   isAwaitingWindScrollTarget?: boolean;
   isAwaitingAnvilScrollTarget?: boolean;
+  isAwaitingEarthquakeScrollTarget?: boolean;
   isInventoryOpen?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   localPlayerColor?: PlayerColor | null;
@@ -119,6 +119,7 @@ export function ChessBoard({
   isAwaitingDecreeTarget,
   isAwaitingWindScrollTarget,
   isAwaitingAnvilScrollTarget,
+  isAwaitingEarthquakeScrollTarget,
   isInventoryOpen,
   selectedInventoryItemType,
   localPlayerColor,
@@ -139,7 +140,7 @@ export function ChessBoard({
   const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
 
   return (
-    <div className={cn( "grid grid-cols-8 w-full max-w-lg aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !(isAwaitingDanceTarget && isLocalActionTurn) && !(isAwaitingGrappleThrow && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d" )} onMouseLeave={() => onPieceHover(null)} >
+    <div className={cn( "grid grid-cols-8 w-full max-w-lg aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", isInteractionDisabled && !(isAwaitingCommanderPromotion && playerToPromoteCommander === currentPlayerColor) && !(isAwaitingHolyShield && isLocalActionTurn) && !(isAwaitingArcherSnipe && isLocalActionTurn) && !(isAwaitingShieldScrollTarget && isLocalActionTurn) && !(isAwaitingSwapScrollTarget && isLocalActionTurn) && !(isAwaitingDecreeTarget && isLocalActionTurn) && !(isAwaitingAnvilScrollTarget && isLocalActionTurn) && !(isAwaitingWindScrollTarget && isLocalActionTurn) && !(isAwaitingEarthquakeScrollTarget && isLocalActionTurn) && !(isAwaitingDanceTarget && isLocalActionTurn) && !(isAwaitingGrappleThrow && isLocalActionTurn) && !isInventoryOpen && "cursor-not-allowed", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d" )} onMouseLeave={() => onPieceHover(null)} >
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
           const actualRowIndex = visuallyFlipBoardForLogic ? 7 - displayedRowIndex : displayedRowIndex;
@@ -161,7 +162,7 @@ export function ChessBoard({
               if (currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== capturingPieceId && !currentSquareData.piece.isShielded) isShieldTarget = true;
           }
           const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level <= maxArcherLevel && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
-          const isAnvilDropTarget = isLocalActionTurn && (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget) && !currentSquareData.piece && !currentSquareData.item;
+          const isAnvilDropTarget = isLocalActionTurn && (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget) && !currentSquareData.piece && !currentSquareData.item;
           const isShieldScrollTargetSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && !currentSquareData.piece.isShielded;
           const isSwapTargetSelection = isLocalActionTurn && isAwaitingSwapScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.algebraic !== selectedSquare;
           const isDecreeTarget = isLocalActionTurn && isAwaitingDecreeTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type === 'pawn' && currentSquareData.piece.level === 1;
