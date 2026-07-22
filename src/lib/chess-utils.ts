@@ -536,7 +536,7 @@ export function getPossibleMovesInternal(
               if (targetSq.item?.type === 'anvil') break;
 
               const targetP = targetSq.piece;
-              if (!targetP) moves.push(coordsToAlgebraic(R, C));
+              if (!targetP) possible.push(coordsToAlgebraic(R, C));
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
@@ -573,7 +573,7 @@ export function getPossibleMovesInternal(
         const {row, col} = algebraicToCoords(to);
         const target = board[row][col].piece;
         if (target && target.color !== piece.color) return true;
-        if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(piece.type) && to === enPassantTargetSquare) return true;
+        if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(piece.type) && to === enPassantTargetSquare) return true;
         return false;
     });
     if (captureMoves.length > 0) return captureMoves;
@@ -1123,7 +1123,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === oppColor) sq.piece.level = Math.max(1, (sq.piece.level || 1) - 1); }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'wind-scroll') {
