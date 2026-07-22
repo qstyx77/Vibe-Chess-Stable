@@ -864,7 +864,7 @@ export default function EvolvingChessPage() {
             return;
         }
         if (applyResult.promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', toAlg); }
-        const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
+        const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
         const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
         const currentKs = { ...killStreaks, [currentPlayer]: newS };
         const isObliteration = applyResult.promotedToInfiltrator || (piece.type === 'infiltrator' && applyResult.capturedPiece);
@@ -895,17 +895,17 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
           const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
           const toRow = aiMove.to[0];
+          const toCol = aiMove.to[1];
           const landedPiece = nextB[toRow][toCol].piece;
           
           const oppBackRank = currentPlayer === 'white' ? 0 : 7;
           if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(landedPiece.type) && toRow === oppBackRank) {
-              landedPiece.type = aiMove.promoteTo || 'queen';
-              landedPiece.level = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
-              if (landedPiece.type === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
-              audioManager.playLevelUp();
+              setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
+              setIsPromotingPawn(true); setPromotionSquare(toAlg);
+              setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs } as any);
+          } else {
+              processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
           }
-
-          processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
         }, 800);
       } else {
         console.warn(`[AI Search Fail] No legal moves found for ${currentPlayer}`);
