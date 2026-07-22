@@ -496,7 +496,7 @@ export default function EvolvingChessPage() {
         if (action === 'create') {
             wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } }));
         } else {
-            wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } }));
+            wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: data.user?.unlockedPieces || [] } }));
         }
     });
   }, [user, userData, inputRoomId, board, initWebSocket]);
@@ -750,8 +750,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -895,7 +895,7 @@ export default function EvolvingChessPage() {
           setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
           const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
           const toRow = aiMove.to[0];
-          const landedPiece = nextB[toRow][aiMove.to[1]].piece;
+          const landedPiece = nextB[toRow][toCol].piece;
           
           const oppBackRank = currentPlayer === 'white' ? 0 : 7;
           if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(landedPiece.type) && toRow === oppBackRank) {
@@ -1041,7 +1041,7 @@ export default function EvolvingChessPage() {
                 clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces);
                 setBoard(applyResult.newBoard); audioManager.playExplosion();
-                setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsSelectingSporeBombShroom(false); setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+                setTimeout(() => { clickGuardRef.current = false; setIsMoveProcessing(false); setIsSelectingSporeBombShroom(false); setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
             }
         }
         return;

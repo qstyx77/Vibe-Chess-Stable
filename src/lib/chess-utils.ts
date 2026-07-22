@@ -280,6 +280,12 @@ export function getPossibleMovesInternal(
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
+  if (piece.type === 'mimic') {
+    const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
+    const virtualPiece = { ...piece, type: patternType };
+    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null);
+  }
+
   if (piece.id.startsWith('boss-colossus')) {
     const isMaster = piece.id === 'boss-colossus-tl';
     if (!isMaster) return []; 
@@ -351,12 +357,6 @@ export function getPossibleMovesInternal(
       }
     });
     return possible;
-  }
-
-  if (piece.type === 'mimic') {
-    const patternType = lastMovedPieceType || 'pawn';
-    const virtualPiece = { ...piece, type: patternType };
-    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null);
   }
 
   if (piece.type === 'grappler') {
@@ -605,7 +605,7 @@ export function isSquareAttacked(
                 const pieceOnTargetSq = board[targetR][targetC].piece;
                 const targetLevel = getEffectiveLevel(board, targetR, targetC);
                 const effectiveLevel = getEffectiveLevel(board, r, c);
-                if (['pawn', 'dancer', 'commander', 'mimic', 'grappler', 'myco_mage'].includes(attackingPiece.type)) {
+                if (['pawn', 'dancer', 'commander', 'infiltrator', 'grappler', 'myco_mage'].includes(attackingPiece.type)) {
                     if (attackingPiece.type === 'mimic') {
                         const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType);
                         if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
@@ -1001,7 +1001,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'soul-harvest') {
@@ -1123,7 +1123,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === oppColor) sq.piece.level = Math.max(1, (sq.piece.level || 1) - 1); }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'wind-scroll') {

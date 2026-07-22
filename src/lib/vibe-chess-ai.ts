@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel } from '@/lib/chess-utils';
 
@@ -260,9 +259,10 @@ export class VibeChessAI {
         const effLevel = getEffectiveLevel(gs.board as any, r, c);
 
         if (p.type === 'mimic') {
-            const patternType = gs.lastMovedPieceType || 'pawn';
+            const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
             const virtualPiece = { ...p, type: patternType };
-            return this.generatePieceMoves(gs, r, c, virtualPiece);
+            const tempGs = { ...gs, lastMovedPieceType: null as any };
+            return this.generatePieceMoves(tempGs, r, c, virtualPiece);
         }
         
         if (p.id.startsWith('boss-colossus')) {
@@ -513,7 +513,7 @@ export class VibeChessAI {
                             if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
                         }
                     } else if (p.type === 'mimic') {
-                        const patternType = gs.lastMovedPieceType || 'pawn';
+                        const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType });
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
