@@ -76,28 +76,28 @@ const spells: { id: MycoSpell, name: string, cost: number, description: string, 
     name: 'Propagate', 
     cost: 1, 
     description: 'Spawn 5 random shrooms.',
-    icon: <PixelSparkles className="w-12 h-12 text-primary" />
+    icon: <PixelSparkles className="w-20 h-20 text-primary" />
   },
   { 
     id: 'teleport', 
     name: 'Tele-portobello', 
     cost: 2, 
     description: 'Teleport ally to a shroom.',
-    icon: <PixelZap className="w-12 h-12 text-secondary" />
+    icon: <PixelZap className="w-20 h-20 text-secondary" />
   },
   { 
     id: 'spore-bomb', 
     name: 'Spore Bomb', 
     cost: 4, 
     description: 'Target shroom explodes.',
-    icon: <PixelBomb className="w-12 h-12 text-destructive" />
+    icon: <PixelBomb className="w-20 h-20 text-destructive" />
   },
   { 
     id: 'raise-mycelimen', 
     name: 'Raise Myceli-Men', 
     cost: 6, 
     description: 'Turn all shrooms into Pawns.',
-    icon: <PixelUserPlus className="w-12 h-12 text-accent" />
+    icon: <PixelUserPlus className="w-20 h-20 text-accent" />
   },
 ];
 
@@ -131,7 +131,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana }: MycoSpellMenuProp
               >
                 {/* Cost Overlay in Top Right */}
                 <div className="absolute top-2 right-2 flex items-center justify-center">
-                    <ShroomIcon className="w-6 h-6 text-primary opacity-30" />
+                    <ShroomIcon className="w-12 h-12 text-primary opacity-30" />
                     <span className="absolute font-pixel text-[10px] text-white" style={{ textShadow: '1px 1px 0px black' }}>
                         {spell.cost}
                     </span>
