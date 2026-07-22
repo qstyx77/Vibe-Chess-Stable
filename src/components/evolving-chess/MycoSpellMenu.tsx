@@ -14,53 +14,67 @@ import { cn } from '@/lib/utils';
 
 export type MycoSpell = 'propagate' | 'teleport' | 'spore-bomb' | 'raise-mycelimen';
 
-/** 8-BIT STYLE SVG ICONS **/
+/** REDESIGNED 8-BIT ICONS (SCALED TO FILL 24x24 VIEWBOX) **/
 
 const PixelSparkles = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="11" y="4" width="2" height="2" />
-    <rect x="10" y="6" width="4" height="2" />
-    <rect x="11" y="8" width="2" height="2" />
-    <rect x="5" y="11" width="2" height="2" />
-    <rect x="4" y="13" width="2" height="2" />
-    <rect x="5" y="15" width="2" height="2" />
-    <rect x="17" y="11" width="2" height="2" />
-    <rect x="18" y="13" width="2" height="2" />
-    <rect x="17" y="15" width="2" height="2" />
+    {/* Large Central Sparkle */}
+    <rect x="10" y="2" width="4" height="4" />
+    <rect x="8" y="6" width="8" height="4" />
+    <rect x="10" y="10" width="4" height="4" />
+    {/* Wide Spread Secondary Sparkles */}
+    <rect x="2" y="12" width="4" height="4" />
+    <rect x="0" y="16" width="4" height="4" />
+    <rect x="2" y="20" width="4" height="4" />
+    <rect x="18" y="12" width="4" height="4" />
+    <rect x="20" y="16" width="4" height="4" />
+    <rect x="18" y="20" width="4" height="4" />
   </svg>
 );
 
 const PixelZap = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="13" y="2" width="4" height="2" />
-    <rect x="12" y="4" width="4" height="2" />
-    <rect x="11" y="6" width="4" height="2" />
-    <rect x="8" y="8" width="10" height="2" />
-    <rect x="9" y="10" width="4" height="2" />
-    <rect x="8" y="12" width="4" height="2" />
-    <rect x="7" y="14" width="4" height="2" />
-    <rect x="8" y="16" width="2" height="2" />
+    <rect x="14" y="0" width="8" height="4" />
+    <rect x="12" y="4" width="8" height="4" />
+    <rect x="10" y="8" width="8" height="4" />
+    <rect x="4" y="12" width="18" height="4" />
+    <rect x="8" y="16" width="8" height="4" />
+    <rect x="6" y="20" width="6" height="4" />
   </svg>
 );
 
 const PixelBomb = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="10" y="4" width="4" height="2" />
-    <rect x="12" y="2" width="2" height="2" fill="#FDE047" />
-    <rect x="7" y="6" width="10" height="2" />
-    <rect x="6" y="8" width="12" height="10" />
-    <rect x="8" y="18" width="8" height="2" />
-    <rect x="9" y="10" width="2" height="2" fill="white" fillOpacity="0.3" />
+    <rect x="8" y="4" width="8" height="4" />
+    <rect x="12" y="0" width="4" height="4" fill="#FDE047" />
+    <rect x="4" y="8" width="16" height="4" />
+    <rect x="2" y="12" width="20" height="10" />
+    <rect x="4" y="22" width="16" height="2" />
+    <rect x="6" y="14" width="4" height="4" fill="white" fillOpacity="0.3" />
   </svg>
 );
 
 const PixelUserPlus = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="9" y="4" width="4" height="4" />
-    <rect x="7" y="9" width="8" height="2" />
-    <rect x="8" y="11" width="6" height="6" />
-    <rect x="17" y="8" width="2" height="6" fill="#10B981" />
-    <rect x="15" y="10" width="6" height="2" fill="#10B981" />
+    <rect x="6" y="2" width="8" height="8" />
+    <rect x="2" y="11" width="16" height="4" />
+    <rect x="4" y="15" width="12" height="9" />
+    {/* Large Plus Sign */}
+    <rect x="19" y="10" width="4" height="12" fill="#10B981" />
+    <rect x="15" y="14" width="12" height="4" fill="#10B981" />
+  </svg>
+);
+
+const BigShroom = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="6" y="2" width="12" height="4" />
+    <rect x="2" y="6" width="20" height="4" />
+    <rect x="0" y="10" width="24" height="6" />
+    <rect x="8" y="16" width="8" height="6" />
+    <rect x="6" y="22" width="12" height="2" />
+    <rect x="11" y="6" width="4" height="4" fill="white" />
+    <rect x="4" y="12" width="4" height="4" fill="white" />
+    <rect x="16" y="12" width="4" height="4" fill="white" />
   </svg>
 );
 
@@ -131,7 +145,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana }: MycoSpellMenuProp
               >
                 {/* Cost Overlay in Top Right */}
                 <div className="absolute top-2 right-2 flex items-center justify-center">
-                    <ShroomIcon className="w-12 h-12 text-primary opacity-30" />
+                    <BigShroom className="w-12 h-12 text-primary opacity-30" />
                     <span className="absolute font-pixel text-[10px] text-white" style={{ textShadow: '1px 1px 0px black' }}>
                         {spell.cost}
                     </span>
