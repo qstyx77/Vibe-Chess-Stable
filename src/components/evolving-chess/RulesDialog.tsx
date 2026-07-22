@@ -101,7 +101,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="skills">
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IV. Unit Skills by Class</AccordionTrigger>
               <AccordionContent>
-                <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander)">
+                <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage)">
                   <RuleText>L2: Move backward. L3: Move sideways. L4: Push-Back adjacent units/items on move. L5: Master Promotion grants an Extra Turn.</RuleText>
                 </SubRule>
                 <SubRule title="The Cavalry (Knight, Hero, Archer)">
@@ -130,6 +130,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>Elite Knight. High Kill Streaks grant Archer Snipe: Destroy any non-royal enemy the same level or lower than your Archer.</RuleText>
                 </RuleSection>
                 <SubRule title="Unique Units">
+                  <RuleText>• Myco Mage: Consumes shroom mana gathered by all allies to cast powerful fungal spells (Propagate, Teleport, Bomb, Army).</RuleText>
                   <RuleText>• Mimic: Shape-shift (copy the pattern of the last piece moved using your current level).</RuleText>
                   <RuleText>• Dancer: Dance (Achieving KS1 allows a cardinal move or adjacent swap with an ally or enemy).</RuleText>
                   <RuleText>• Grappler: Toss (Pick up and launch adjacent units in a straight line; Range = Level).</RuleText>
@@ -143,7 +144,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VI. Board Items</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="Shroom 🍄">
-                  <RuleText>Spawns randomly every 5-10 turns. Does not block paths. Consume for +1 Level.</RuleText>
+                  <RuleText>Spawns randomly every 5-10 turns. Does not block paths. Consume for +1 Level and +1 Mana for allied Myco Mages.</RuleText>
                 </SubRule>
                 <SubRule title="Anvil">
                   <RuleText>Impassable obstacle placed via KS3 or Scrolls. L4+ Front Line can push Anvils to crush enemy units.</RuleText>
@@ -166,7 +167,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VIII. The Royal Guard</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Queen (L7)">
-                  <RuleText>Invulnerable to all except Commanders, Heroes, Infiltrators, or units Level 8+.</RuleText>
+                  <RuleText>Invulnerable to all except Commanders, Heroes, Infiltrators, Myco Mages, or units Level 8+.</RuleText>
                   <RuleText>Sacrifice: Reaching L7 requires the immediate sacrifice of one allied Front Line Unit.</RuleText>
                 </SubRule>
                 <SubRule title="The King">

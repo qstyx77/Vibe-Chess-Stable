@@ -10,7 +10,7 @@ interface PieceAbilitiesInfoProps {
 }
 
 const getPieceAbilities = (piece: Piece): string[] => {
-  const { type, level, heldItem, id } = piece;
+  const { type, level, heldItem, id, shroomMana } = piece;
   const abilities: string[] = [];
   const l = level || 1;
 
@@ -38,7 +38,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'cardinal_greaves') abilities.push(" cardinal: move (no capture) 1 space forward.");
   if (heldItem === 'drift_boots') abilities.push(" drift: move (no capture) 1 space diagonally forward.");
   if (heldItem === 'queens_peace') abilities.push(" invulnerable: cannot be captured or capture others.");
-  if (heldItem === 'wind_sword') abilities.push(" wind edge: push-back adjacent entities on attack.");
+  if (heldItem === 'wind_sword') abilities.push(" wind edge: push-back ability triggered on attack.");
   if (heldItem === 'middle_way') abilities.push(" equilibrium: level locked at 3.");
   if (heldItem === 'phoenix_down') abilities.push(" rebirth: auto-resurrect once on capture.");
   if (heldItem === 'passive_armor') abilities.push(" steady: immune to push-back.");
@@ -82,7 +82,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'knights_boots') abilities.push(" knight's boots: movement replaced by Knight pattern.");
   if (heldItem === 'golden_chalice') abilities.push(" experience: +1 extra level gain on every capture.");
   if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): target a square to push units in a 3x3 area away.");
-  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
+  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {
     case 'pawn':
@@ -90,6 +90,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
     case 'mimic':
     case 'grappler':
     case 'commander':
+    case 'myco_mage':
       if (l >= 1) abilities.push("Standard pawn move/capture.");
       if (l >= 2) abilities.push("Can move 1 square backward.");
       if (l >= 3) abilities.push("Can move 1 square sideways.");
@@ -99,6 +100,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (type === 'dancer') { abilities.push("Dance: KS 1 allows an immediate 1-square cardinal move or an adjacent swap with an ally."); }
       if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move, using the Mimic's current Level."); }
       if (type === 'grappler') { abilities.push("Toss: Can pick up an adjacent piece (except Kings) and throw it to an empty space cardinally or diagonally (Range = Level)."); }
+      if (type === 'myco_mage') { abilities.push(`Myco Grimoire: Spend Shroom Mana (${shroomMana || 0}) for global fungal spells.`); }
       break;
     case 'infiltrator': abilities.push("Moves/captures 1 square forward or diagonally forward."); abilities.push("Obliterates captured pieces."); abilities.push("Wins game on back rank."); abilities.push("Queen Hunter."); break;
     case 'knight':
@@ -150,6 +152,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   else if (piece.id.startsWith('boss-colossus')) pieceName = "The Colossus";
   else if (piece.id === 'boss-mirage') pieceName = "The Mirage";
   else if (piece.id === 'boss-entity') pieceName = "The Void Entity";
+  else if (piece.type === 'myco_mage') pieceName = "Myco Mage";
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;

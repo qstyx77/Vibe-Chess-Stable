@@ -571,7 +571,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const { row, col } = algebraicToCoords(square);
                         const piece = room.gameState.board[row]?.[col]?.piece;
-                        if (piece && (piece.type === 'pawn' || piece.type === 'commander' || ['dancer', 'mimic', 'grappler'].includes(piece.type) || room.gameState.pendingPromotion.fromResurrection)) {
+                        if (piece && (piece.type === 'pawn' || piece.type === 'commander' || ['dancer', 'mimic', 'grappler', 'myco_mage'].includes(piece.type) || room.gameState.pendingPromotion.fromResurrection)) {
                             
                             // Equipment Return Logic
                             if (piece.heldItem && !isItemValidForPiece(piece.heldItem, promoteTo)) {
@@ -596,7 +596,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
                         const { row, col } = algebraicToCoords(square);
                         const victim = room.gameState.board[row]?.[col]?.piece;
-                        if (victim && (victim.type === 'pawn' || victim.type === 'commander' || ['dancer', 'mimic', 'grappler'].includes(victim.type)) && victim.color === actingColor) {
+                        if (victim && (victim.type === 'pawn' || victim.type === 'commander' || ['dancer', 'mimic', 'grappler', 'myco_mage'].includes(victim.type)) && victim.color === actingColor) {
                             const targetPile = victim.color;
                             room.gameState.capturedPieces[targetPile].push(victim);
                             room.gameState.board[row][col].piece = null;
@@ -631,10 +631,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             const isCardinal = fr === tr || fc === tc;
                             const isDiagonal = Math.abs(fr - tr) === Math.abs(fc - tc);
                             if (dist <= effLevel && (isCardinal || isDiagonal) && dist > 0) isLegal = true;
-                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree'].includes(moveType)) {
+                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(moveType)) {
                             const effLevel = getEffectiveLevel(room.gameState.board, fromCoords.row, fromCoords.col);
                             const hItem = movingPieceStart.heldItem;
-                            if (from === to) {
+                            if (from === to || ['tele-portobello', 'spore-bomb'].includes(moveType)) {
                                 if (moveType === 'self-destruct' && effLevel >= 5 && ['knight', 'hero', 'archer'].includes(movingPieceStart.type)) isLegal = true;
                                 if (moveType === 'resurrection-scroll' && hItem === 'resurrection_scroll' && effLevel >= 4) isLegal = true;
                                 if (moveType === 'faith-scroll' && hItem === 'faith_scroll' && effLevel >= 5) isLegal = true;
@@ -647,6 +647,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 if (moveType === 'soul-harvest' && hItem === 'soul_harvest' && !(['king', 'queen'].includes(movingPieceStart.type))) isLegal = true;
                                 if (moveType === 'earthquake-scroll' && hItem === 'earthquake_scroll' && effLevel >= 3) isLegal = true;
                                 if (['wind-scroll', 'life-leach', 'summon-anvil', 'antidote'].includes(moveType)) isLegal = true;
+                                if (['myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(moveType)) isLegal = true;
                                 
                                 if (isLegal) {
                                     const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s, piece: s.piece ? {...s.piece} : null})));
@@ -721,7 +722,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) room.gameState.killStreaks[movingPlayer] += caps;
                         else {
-                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree'].includes(moveType)) {
+                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(moveType)) {
                                 room.gameState.killStreaks[movingPlayer] = 0;
                             }
                         }
@@ -764,7 +765,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     
                                     syncSoulLink(finalizedBoard, movingPlayer);
 
-                                    if (['pawn', 'dancer', 'mimic', 'grappler'].includes(resurrectedPiece.type) && spawnPos.r === oppBackRank) {
+                                    if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(resurrectedPiece.type) && spawnPos.r === oppBackRank) {
                                         room.gameState.pendingPromotion = { square: room.gameState.resurrectedSquare, player: movingPlayer, fromResurrection: true, targetLevel: 1 };
                                     }
                                 }
@@ -785,7 +786,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         }
 
                         const landedPiece = finalizedBoard[toCoords.row][toCoords.col].piece;
-                        if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type) && toCoords.row === (movingPlayer === 'white' ? 0 : 7)) {
+                        if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(landedPiece.type) && toCoords.row === (movingPlayer === 'white' ? 0 : 7)) {
                             room.gameState.pendingPromotion = { 
                                 square: to, 
                                 player: movingPlayer,

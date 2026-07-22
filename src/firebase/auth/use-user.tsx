@@ -39,7 +39,7 @@ const DEFAULT_INVENTORY: InventoryItem[] = ITEM_TYPES.map(type => ({
   count: 5
 }));
 
-const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler'];
+const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler', 'myco_mage'];
 
 export function useUser() {
   const auth = useAuth();

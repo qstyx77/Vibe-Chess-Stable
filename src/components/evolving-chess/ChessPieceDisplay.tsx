@@ -5,6 +5,7 @@ import {
   PixelDancer,
   PixelMimic,
   PixelGrappler,
+  PixelMycoMage,
   PixelCommander,
   PixelInfiltrator,
   PixelKnight, 
@@ -20,7 +21,8 @@ import {
   PixelNecromancer,
   PixelColossus,
   PixelMirage,
-  PixelVoidEntity
+  PixelVoidEntity,
+  ShroomIcon
 } from './IconLibrary';
 import { ItemSprite } from './ItemSprite';
 
@@ -45,6 +47,7 @@ const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
   dancer: PixelDancer,
   mimic: PixelMimic,
   grappler: PixelGrappler,
+  myco_mage: PixelMycoMage,
   commander: PixelCommander,
   infiltrator: PixelInfiltrator,
   knight: PixelKnight,
@@ -154,8 +157,8 @@ export function ChessPieceDisplay({
         <div className={cn(
           "w-[95%] h-[95%] relative z-[1] flex items-center justify-center",
           isMini 
-            ? ((piece.type === 'pawn' || piece.type === 'dancer' || piece.type === 'mimic' || piece.type === 'grappler' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-[180%]" : "scale-[200%]")
-            : ((piece.type === 'pawn' || piece.type === 'dancer' || piece.type === 'mimic' || piece.type === 'grappler' || piece.type === 'commander' || piece.type === 'infiltrator') ? "scale-90" : "scale-100")
+            ? ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-[180%]" : "scale-[200%]")
+            : ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-90" : "scale-100")
         )}>
           <IconComponent className="w-full h-full drop-shadow-md" />
         </div>
@@ -170,6 +173,13 @@ export function ChessPieceDisplay({
                size={isMini ? 10 : 13} 
              />
           </div>
+        )}
+
+        {piece.type === 'myco_mage' && !isMini && (
+            <div className="absolute bottom-0 left-0 z-[20] flex items-center gap-0.5 bg-black/60 px-1 rounded-tr-md">
+                <ShroomIcon className="w-2 h-2 text-white" />
+                <span className="text-[8px] font-pixel text-white">{piece.shroomMana || 0}</span>
+            </div>
         )}
 
         {displayLevelValue > 1 && (

@@ -52,6 +52,19 @@ export const PixelGrappler = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelMycoMage = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="7" y="5" width="10" height="3" /> {/* Mushroom Cap */}
+    <rect x="6" y="7" width="12" height="4" />
+    <rect x="11" y="11" width="2" height="6" /> {/* Stem */}
+    <rect x="9" y="9" width="1" height="1" fill="white" /> {/* Spots */}
+    <rect x="14" y="9" width="1" height="1" fill="white" />
+    <rect x="8" y="17" width="8" height="2" /> {/* Base */}
+    <rect x="4" y="12" width="2" height="2" fill="#EAB308" /> {/* Magic Spark */}
+    <rect x="18" y="12" width="2" height="2" fill="#EAB308" />
+  </svg>
+);
+
 export const PixelCommander = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <rect x="11" y="2" width="2" height="3" /> {/* Plume */}
