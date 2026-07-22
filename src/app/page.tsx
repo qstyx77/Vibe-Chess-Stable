@@ -750,8 +750,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -769,7 +769,7 @@ export default function EvolvingChessPage() {
     processMoveEnd(boardToChain, nextGraveyard, currentKs, actingPlayer, isExtra, nextEp);
   }, [isWhiteAI, isBlackAI, firstBloodAchieved, addEffect, processMoveEnd, localPlayerColor, toast]);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isAwaitingHolyShield || isAwaitingArcherSnipe || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+  const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, extra: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number) => {
     if (!move) return false;
@@ -807,17 +807,26 @@ export default function EvolvingChessPage() {
   }, [isWhiteAI, isBlackAI, triggerSpecialsChain]);
 
   const performAiMove = useCallback(async () => {
-    if (!aiInstanceRef.current || gameInfo.gameOver || isMoveProcessing || isAnySpecialModeActive || isAiThinking) return;
+    if (!aiInstanceRef.current || gameInfo.gameOver || isMoveProcessing || isAnySpecialModeActive || isAiThinking) {
+        console.log(`[AI Thinking Blocked] gameOver: ${gameInfo.gameOver}, moveProcessing: ${isMoveProcessing}, specialMode: ${isAnySpecialModeActive}, thinking: ${isAiThinking}`);
+        return;
+    }
     setIsAiThinking(true);
+    console.log(`[AI Calculation] Turn for ${currentPlayer}. Counter: ${gameMoveCounter}`);
     try {
       const gameStateForAI = adaptBoardForAI(board, currentPlayer, killStreaks, capturedPieces, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn);
       const aiResult = aiInstanceRef.current.getBestMove(gameStateForAI, currentPlayer);
       const aiMove = aiResult?.move;
+      
       if (aiMove) {
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]);
         const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
         const piece = board[aiMove.from[0]][aiMove.from[1]].piece;
+        
+        console.log(`[AI Move Chosen] ${fromAlg} -> ${toAlg} (${aiMove.type})`);
+        
         if (!piece) {
+            console.error(`[AI Error] No piece found at ${fromAlg}`);
             setIsAiThinking(false);
             return;
         }
@@ -825,7 +834,7 @@ export default function EvolvingChessPage() {
         
         const freshlyCalculated = getPossibleMoves(board, fromAlg, enPassantTargetSquare, lastMovedPieceType);
         if (!freshlyCalculated.includes(toAlg)) {
-            // Safety guard: if AI picks an illegal move (e.g. status effect mismatch), reset thinking state
+            console.warn(`[AI Illegal Move Rejection] ${toAlg} is not in calculated possible moves for ${fromAlg}`);
             setIsAiThinking(false);
             return;
         }
@@ -899,9 +908,13 @@ export default function EvolvingChessPage() {
           processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
         }, 800);
       } else {
+        console.warn(`[AI Search Fail] No legal moves found for ${currentPlayer}`);
         setIsAiThinking(false);
       }
-    } catch (e) { setIsAiThinking(false); }
+    } catch (e) { 
+        console.error(`[AI Execution Error]`, e);
+        setIsAiThinking(false); 
+    }
   }, [board, killStreaks, capturedPieces, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, isWhiteAI, isBlackAI, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, processPawnSacrificeCheck, gameMoveCounter, enPassantTargetSquare, lastMovedPieceType, addEffect]);
 
   useEffect(() => {
@@ -1068,7 +1081,6 @@ export default function EvolvingChessPage() {
         const isAdjacent = Math.abs(fr - row) <= 1 && Math.abs(fc - col) <= 1 && (fr !== row || fc !== col);
         const dir = currentPlayer === 'white' ? -1 : 1;
         const isOneForward = row === fr + dir && col === fc;
-        const isAdjacentWithPiece = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && currentSquareData.piece !== null && !isDancerSelf;
         if (isOneForward || isAdjacent) {
             let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const dancerPiece = nextBoard[fr][fc].piece!;

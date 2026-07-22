@@ -700,8 +700,12 @@ export default function DungeonPage() {
   }, [triggerSpecialsChain]);
 
   const performAiMove = useCallback(async () => {
-    if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black' || isAnySpecialModeActive) return;
+    if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black' || isAnySpecialModeActive) {
+        console.log(`[AI Logic Blocked] gameOver: ${gameInfo.gameOver}, moveProcessing: ${isMoveProcessing}, specialMode: ${isAnySpecialModeActive}, thinking: ${isAiThinking}, player: ${currentPlayer}`);
+        return;
+    }
     setIsAiThinking(true);
+    console.log(`[AI Logic] Calculating for Floor ${level}... Counter: ${gameMoveCounter}`);
     try {
       const gameStateForAi = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter);
       const aiResult = aiInstance.current?.getBestMove(gameStateForAi, 'black'); const aiMove = aiResult?.move;
@@ -709,7 +713,11 @@ export default function DungeonPage() {
         setHasMovedOnCurrentFloor(true); setAiStalemateStrikes(0);
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]); const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
         const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece; 
+        
+        console.log(`[AI Move Chosen] ${fromAlg} -> ${toAlg}`);
+
         if (!movingPiece) {
+            console.error(`[AI Error] Piece vanished from ${fromAlg}`);
             setIsAiThinking(false);
             return;
         }
@@ -717,6 +725,7 @@ export default function DungeonPage() {
         
         const freshlyCalculated = getPossibleMoves(board, fromAlg, enPassantTargetSquare, lastMovedPieceType);
         if (!freshlyCalculated.includes(toAlg)) {
+            console.warn(`[AI Illegal Move Rejection] Engine says ${toAlg} is unreachable from ${fromAlg}`);
             setIsAiThinking(false);
             return;
         }
@@ -802,6 +811,7 @@ export default function DungeonPage() {
             processPawnSacrificeCheck(newBoard, updatedCapturedPieces, currentKs, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, originalL, originalT, isExtra, nextEp, oldStreakLocal, newStreakLocal);
         }, 800);
       } else {
+        console.warn(`[AI Fail] Floor ${level}: No legal moves found for black.`);
         const nextStrikes = aiStalemateStrikes + 1; setAiStalemateStrikes(nextStrikes); const resetKs = { ...killStreaks, black: 0 }; setKillStreaks(resetKs);
         if (nextStrikes >= 3) {
             toast({ title: "DUNGEON COLLAPSE!", description: "The Dungeon forces have collapsed after failing to move 3 times!", variant: "destructive" }); audioManager.playExplosion();
@@ -825,7 +835,7 @@ export default function DungeonPage() {
         } else { toast({ title: "Dungeon Skip", description: `The Dungeon has no legal moves! Strike ${nextStrikes}/3` }); setTimeout(() => { setIsAiThinking(false); processMoveEnd(board, capturedPieces, resetKs, 'black', false, null); }, 800); }
       }
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, toast, necroResurrectionCounter, lastMovedPieceType, processPawnSacrificeCheck, userData, gameMoveCounter]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, toast, necroResurrectionCounter, lastMovedPieceType, processPawnSacrificeCheck, userData, gameMoveCounter, level]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
