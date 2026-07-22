@@ -901,9 +901,22 @@ export default function EvolvingChessPage() {
           
           const oppBackRank = currentPlayer === 'white' ? 0 : 7;
           if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(landedPiece.type) && toRow === oppBackRank) {
-              setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
-              setIsPromotingPawn(true); setPromotionSquare(toAlg);
-              setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs } as any);
+              // AI handles its own promotion choice
+              const promoType = aiMove.promoteTo || 'queen';
+              const targetLevel = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
+              
+              landedPiece.type = promoType;
+              landedPiece.level = targetLevel;
+              if (promoType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
+              if (landedPiece.heldItem && !isItemValidForPiece(landedPiece.heldItem, promoType)) landedPiece.heldItem = null;
+              
+              setBoard(nextB);
+              audioManager.playLevelUp();
+              
+              const pieceLevelForExtra = landedPiece.level || 1;
+              const finalExtra = (pieceLevelForExtra >= 5) || isExtra;
+              
+              processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, finalExtra, applyResult.enPassantTargetSet, oldS, newS);
           } else {
               processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
           }
@@ -1493,6 +1506,10 @@ export default function EvolvingChessPage() {
     setIsSelectingTeleportShroom(false);
     setIsSelectingSporeBombShroom(false);
     setIsAiThinking(false);
+    
+    // Reset AI toggles
+    setIsWhiteAI(false);
+    setIsBlackAI(false);
 
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
