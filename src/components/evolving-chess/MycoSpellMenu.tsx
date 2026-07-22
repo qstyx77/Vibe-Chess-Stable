@@ -18,17 +18,22 @@ export type MycoSpell = 'propagate' | 'teleport' | 'spore-bomb' | 'raise-mycelim
 
 const PixelSparkles = ({ className }: { className?: string }) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    {/* Large Central Sparkle */}
-    <rect x="10" y="2" width="4" height="4" />
-    <rect x="8" y="6" width="8" height="4" />
-    <rect x="10" y="10" width="4" height="4" />
-    {/* Wide Spread Secondary Sparkles */}
-    <rect x="2" y="12" width="4" height="4" />
-    <rect x="0" y="16" width="4" height="4" />
-    <rect x="2" y="20" width="4" height="4" />
-    <rect x="18" y="12" width="4" height="4" />
-    <rect x="20" y="16" width="4" height="4" />
-    <rect x="18" y="20" width="4" height="4" />
+    {/* Central Large Magic Cluster */}
+    <rect x="10" y="4" width="4" height="4" />
+    <rect x="8" y="8" width="8" height="8" />
+    <rect x="10" y="16" width="4" height="4" />
+    <rect x="6" y="10" width="4" height="4" />
+    <rect x="14" y="10" width="4" height="4" />
+    
+    {/* Floating Magical Particles */}
+    <rect x="2" y="2" width="4" height="4" />
+    <rect x="18" y="2" width="4" height="4" />
+    <rect x="2" y="18" width="4" height="4" />
+    <rect x="18" y="18" width="4" height="4" />
+    
+    {/* Accents for depth */}
+    <rect x="11" y="6" width="2" height="2" fill="white" fillOpacity="0.4" />
+    <rect x="9" y="11" width="2" height="2" fill="white" fillOpacity="0.4" />
   </svg>
 );
 
