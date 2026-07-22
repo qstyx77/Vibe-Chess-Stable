@@ -63,14 +63,18 @@ export class VibeChessAI {
         let bestExtraTurn = false;
         const gameState = this.cloneGameState(originalGameState);
         
-        for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
-            const result = this.minimax(gameState, currentDepth, -Infinity, Infinity, true, color);
-            if (Date.now() - this.searchStartTime > this.maxSearchTime) break;
-            if (result.move) {
-                bestMove = result.move; 
-                bestExtraTurn = result.extraTurn || false;
+        try {
+            for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
+                const result = this.minimax(gameState, currentDepth, -Infinity, Infinity, true, color);
+                if (Date.now() - this.searchStartTime > this.maxSearchTime) break;
+                if (result.move) {
+                    bestMove = result.move; 
+                    bestExtraTurn = result.extraTurn || false;
+                }
+                if (result.score > 900000) break;
             }
-            if (result.score > 900000) break;
+        } catch (e) {
+            console.error("[AI Internal Error]", e);
         }
         
         return { move: bestMove || (this.generateAllMoves(gameState, color)[0] || null), extraTurn: bestExtraTurn };
@@ -146,11 +150,20 @@ export class VibeChessAI {
                     next.board[nr][nc].piece = { id: `boss-colossus-${pt.id}`, type:'king', color:player, level: movingPiece.level, hasMoved:true }; 
                 } 
             });
-        } else if (move.type === 'swap') {
+        } else if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap') {
             const p1 = { ...movingPiece, hasMoved: true, isShielded: false };
             const p2 = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
             next.board[tR][tC].piece = p1;
             next.board[fR][fC].piece = p2;
+        } else if (move.type === 'self-destruct') {
+            next.board[fR][fC].piece = null;
+            for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                const nr=fR+dr, nc=fC+dc;
+                if(isValidSquareUtil(nr,nc) && next.board[nr][nc].piece?.color === opponent && next.board[nr][nc].piece?.type !== 'king') {
+                    next.board[nr][nc].piece = null;
+                    captureCount++;
+                }
+            }
         } else {
             const landedPiece = { ...movingPiece, hasMoved: true, isShielded: false };
             if (move.type === 'enpassant') { 
@@ -280,6 +293,9 @@ export class VibeChessAI {
 
         const dir = p.color === 'white' ? -1 : 1;
         
+        // Myco Mage Self-Select (Wait/Menu)
+        if (p.type === 'myco_mage') moves.push({from:[r,c], to:[r,c], type:'move'});
+
         switch (p.type) {
             case 'pawn':
             case 'dancer':
@@ -289,7 +305,8 @@ export class VibeChessAI {
                 if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece && (!gs.board[r+dir][c].item || gs.board[r+dir][c].item?.type === 'shroom')) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
                     const isStartRank = (p.color === 'white' && (r === 6 || r === 7)) || (p.color === 'black' && (r === 0 || r === 1));
-                    if (!p.hasMoved && isStartRank && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece && !gs.board[r+2*dir][c].item && !gs.board[r+dir][c].piece && !gs.board[r+dir][c].item) {
+                    const canJump = !p.hasMoved && isStartRank || p.heldItem === 'swift_cloak';
+                    if (canJump && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece && !gs.board[r+2*dir][c].item && !gs.board[r+dir][c].piece && !gs.board[r+dir][c].item) {
                         moves.push({from:[r,c], to:[r+2*dir,c], type:'move'});
                     }
                 }
@@ -382,6 +399,7 @@ export class VibeChessAI {
                         }
                     });
                 }
+                if (effLevel >= 5) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
                 break;
             case 'bishop': case 'archbishop':
                 this.directions.bishop.forEach(([dr,dc]) => {
@@ -462,6 +480,15 @@ export class VibeChessAI {
                     }
                 });
         }
+
+        // Equipment: Boots & Greaves
+        if (p.heldItem === 'cardinal_greaves' && p.heldItem !== 'tortoise_hammer') {
+            if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece) moves.push({from:[r,c], to:[r+dir,c], type:'move'});
+        }
+        if (p.heldItem === 'drift_boots' && p.heldItem !== 'tortoise_hammer') {
+            [-1,1].forEach(dc => { if(isValidSquareUtil(r+dir, c+dc) && !gs.board[r+dir][c+dc].piece) moves.push({from:[r,c], to:[r+dir, c+dc], type:'move'}); });
+        }
+
         return moves;
     }
 
@@ -510,7 +537,7 @@ export class VibeChessAI {
                         if (this.knightMoves.some(([dr, dc]) => r + dr === tr && c + dc === tc)) {
                             if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
                         }
-                        continue; // Skip standard moves if movement is replaced
+                        continue;
                     }
 
                     // --- Standard Attack Patterns ---
@@ -521,6 +548,10 @@ export class VibeChessAI {
                         }
                         if (p.type === 'infiltrator' && r + dir === tr && c === tc) {
                             if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                        }
+                        // Equipment additions to attack simulation
+                        if (p.heldItem === 'drift_boots') {
+                            if (r+dir === tr && Math.abs(c - tc) === 1) if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
                         }
                     } else if (p.type === 'mimic') {
                         const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
