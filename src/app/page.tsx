@@ -720,7 +720,7 @@ export default function EvolvingChessPage() {
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect();
                 
                 const oppBackRank = actingPlayer === 'white' ? 0 : 7;
-                if (!isAI && (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(resPiece.type)) && rr === oppBackRank) {
+                if (!isAI && (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(resPiece.type)) && rr === oppBackRank) {
                     setPromotionTargetLevel(1); setPromotionSquare(sq.algebraic); setIsPromotingPawn(true);
                     setAnvilDropContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'resurrection'], currentGraveyard: updatedG, currentKs } as any);
                     return;
@@ -751,8 +751,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -900,7 +900,7 @@ export default function EvolvingChessPage() {
           const landedPiece = nextB[toRow][toCol].piece;
           
           const oppBackRank = currentPlayer === 'white' ? 0 : 7;
-          if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(landedPiece.type) && toRow === oppBackRank) {
+          if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(landedPiece.type) && toRow === oppBackRank) {
               // AI handles its own promotion choice
               const promoType = aiMove.promoteTo || 'queen';
               const targetLevel = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
@@ -908,7 +908,7 @@ export default function EvolvingChessPage() {
               landedPiece.type = promoType;
               landedPiece.level = targetLevel;
               if (promoType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
-              if (landedPiece.heldItem && !isItemValidForPiece(landedPiece.heldItem, promoType)) landedPiece.heldItem = null;
+              if (landedPiece.heldItem && !isItemValidForPiece(landedPiece.heldItem, landedPiece.type)) landedPiece.heldItem = null;
               
               setBoard(nextB);
               audioManager.playLevelUp();
@@ -1341,7 +1341,7 @@ export default function EvolvingChessPage() {
                     setIsMoveProcessing(false); clickGuardRef.current = false;
                     const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
                     const oppBackRank = currentPlayer === 'white' ? 0 : 7;
-                    if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(nextB[toRow][toCol].piece?.type || '') && toRow === oppBackRank) {
+                    if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(nextB[toRow][toCol].piece?.type || '') && toRow === oppBackRank) {
                         setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
                         setIsPromotingPawn(true); setPromotionSquare(algebraic);
                         setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs } as any);
@@ -1498,6 +1498,7 @@ export default function EvolvingChessPage() {
     setIsAwaitingAnvilScrollTarget(false);
     setIsAwaitingShieldScrollTarget(false);
     setIsAwaitingSwapScrollTarget(false);
+    setIsAwaitingDecreeTarget(false);
     setIsAwaitingDecreeTarget(false);
     setIsAwaitingEarthquakeScrollTarget(false);
     setAbilityChoiceDialog(null);

@@ -440,7 +440,7 @@ export class VibeChessAI {
                 }
                 break;
             default:
-                const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : this.directions.queen;
+                const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (p.type === 'bishop' || p.type === 'archbishop' ? this.directions.bishop : this.directions.queen);
                 dirs.forEach(([dr,dc]) => {
                     for(let i=1; i<8; i++) {
                         const nr=r+i*dr, nc=c+i*dc; if(!isValidSquareUtil(nr,nc)) break;
@@ -504,6 +504,16 @@ export class VibeChessAI {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
                     const effLevel = getEffectiveLevel(gs.board as any, r, c);
+                    
+                    // --- Handle Equipment: Knight's Boots (High Priority) ---
+                    if (p.heldItem === 'knights_boots') {
+                        if (this.knightMoves.some(([dr, dc]) => r + dr === tr && c + dc === tc)) {
+                            if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                        }
+                        continue; // Skip standard moves if movement is replaced
+                    }
+
+                    // --- Standard Attack Patterns ---
                     if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator' || p.type === 'grappler' || p.type === 'dancer' || p.type === 'myco_mage') {
                         const dir = p.color === 'white' ? -1 : 1;
                         if (r + dir === tr && Math.abs(c - tc) === 1) {
@@ -527,7 +537,6 @@ export class VibeChessAI {
                         }
                         if (effLevel >= 3) {
                             if ([[3,0],[-3,0],[0,3],[0,-3]].some(([dr,dc]) => r+dr === tr && c+dc === tc)) {
-                                // Jump clear path check
                                 const sR = Math.sign(tr-r); const sC = Math.sign(tc-c);
                                 let clear = true;
                                 if(Math.abs(tr-r) === 3) for(let i=1; i<3; i++) if(gs.board[r+i*sR][c].piece || gs.board[r+i*sR][c].item?.type === 'anvil') clear = false;
