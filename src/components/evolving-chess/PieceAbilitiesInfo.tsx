@@ -100,7 +100,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (type === 'dancer') { abilities.push("Dance: KS 1 allows an immediate 1-square cardinal move or an adjacent swap with an ally."); }
       if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move, using the Mimic's current Level."); }
       if (type === 'grappler') { abilities.push("Toss: Can pick up an adjacent piece (except Kings) and throw it to an empty space cardinally or diagonally (Range = Level)."); }
-      if (type === 'myco_mage') { abilities.push(`Myco Grimoire: Spend Shroom Mana (${shroomMana || 0}) for global fungal spells.`); }
+      if (type === 'myco_mage') { abilities.push(`Mushroomancy: Spend Shroom Pool (${shroomMana || 0}) for global fungal spells.`); }
       break;
     case 'infiltrator': abilities.push("Moves/captures 1 square forward or diagonally forward."); abilities.push("Obliterates captured pieces."); abilities.push("Wins game on back rank."); abilities.push("Queen Hunter."); break;
     case 'knight':

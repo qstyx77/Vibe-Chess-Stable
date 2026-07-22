@@ -54,14 +54,25 @@ export const PixelGrappler = ({ className }: IconProps) => (
 
 export const PixelMycoMage = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="7" y="5" width="10" height="3" /> {/* Mushroom Cap */}
-    <rect x="6" y="7" width="12" height="4" />
-    <rect x="11" y="11" width="2" height="6" /> {/* Stem */}
-    <rect x="9" y="9" width="1" height="1" fill="white" /> {/* Spots */}
-    <rect x="14" y="9" width="1" height="1" fill="white" />
-    <rect x="8" y="17" width="8" height="2" /> {/* Base */}
-    <rect x="4" y="12" width="2" height="2" fill="#EAB308" /> {/* Magic Spark */}
-    <rect x="18" y="12" width="2" height="2" fill="#EAB308" />
+    {/* Wizard Robe/Body */}
+    <rect x="9" y="11" width="6" height="7" />
+    <rect x="8" y="17" width="8" height="2" />
+    
+    {/* Mushroom Wizard Cap (Wide Brimmed Wizard Hat) */}
+    <rect x="6" y="5" width="12" height="3" /> {/* Brim */}
+    <rect x="8" y="3" width="8" height="2" /> {/* Cap Top */}
+    <rect x="9" y="4" width="1" height="1" fill="white" /> {/* Spots */}
+    <rect x="14" y="4" width="1" height="1" fill="white" />
+    <rect x="11" y="6" width="2" height="1" fill="white" />
+
+    {/* Arms */}
+    <rect x="7" y="12" width="2" height="2" /> {/* Arm holding staff */}
+    <rect x="15" y="12" width="2" height="2" /> {/* Free arm */}
+
+    {/* Fungal Staff */}
+    <rect x="6" y="7" width="1" height="11" fill="#78350F" />
+    <rect x="5" y="5" width="3" height="3" fill="#EAB308" /> {/* Glowing staff crystal */}
+    <rect x="6" y="6" width="1" height="1" fill="white" fillOpacity="0.5" />
   </svg>
 );
 
