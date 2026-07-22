@@ -750,8 +750,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -773,9 +773,8 @@ export default function EvolvingChessPage() {
 
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, extra: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number) => {
     if (!move) return false;
-    const { row: col, col: toCol } = algebraicToCoords(move.to);
-    const { row, col: fromCol } = algebraicToCoords(move.to);
-    const piece = boardAfter[row][fromCol].piece;
+    const { row, col } = algebraicToCoords(move.to);
+    const piece = boardAfter[row][col].piece;
     if (piece?.type === 'queen' && piece.level === 7 && oldT === 'queen' && (oldL || 0) < 7) {
       if (boardAfter.flat().some(sq => sq.piece && sq.piece.color === player && ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(sq.piece.type))) {
         const isAI = (player === 'white' && isWhiteAI) || (player === 'black' && isBlackAI);
@@ -818,8 +817,19 @@ export default function EvolvingChessPage() {
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]);
         const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
         const piece = board[aiMove.from[0]][aiMove.from[1]].piece;
-        if (!piece) throw new Error("AI Move Target Empty");
+        if (!piece) {
+            setIsAiThinking(false);
+            return;
+        }
         const oldL = piece.level; const oldT = piece.type;
+        
+        const freshlyCalculated = getPossibleMoves(board, fromAlg, enPassantTargetSquare, lastMovedPieceType);
+        if (!freshlyCalculated.includes(toAlg)) {
+            // Safety guard: if AI picks an illegal move (e.g. status effect mismatch), reset thinking state
+            setIsAiThinking(false);
+            return;
+        }
+
         setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(toAlg);
         setLastMovedPieceType(oldT);
         const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
@@ -1058,6 +1068,7 @@ export default function EvolvingChessPage() {
         const isAdjacent = Math.abs(fr - row) <= 1 && Math.abs(fc - col) <= 1 && (fr !== row || fc !== col);
         const dir = currentPlayer === 'white' ? -1 : 1;
         const isOneForward = row === fr + dir && col === fc;
+        const isAdjacentWithPiece = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && currentSquareData.piece !== null && !isDancerSelf;
         if (isOneForward || isAdjacent) {
             let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const dancerPiece = nextBoard[fr][fc].piece!;
@@ -1453,11 +1464,10 @@ export default function EvolvingChessPage() {
     setIsAwaitingGrappleThrow(false);
     setGrappledPieceSubject(null);
     setIsInventoryOpen(false);
-    setSpecialActionContext(null);
+    setAnvilDropContext(null);
     setIsAwaitingWindScrollTarget(false);
     setIsAwaitingAnvilScrollTarget(false);
     setIsAwaitingShieldScrollTarget(false);
-    setIsAwaitingSwapScrollTarget(false);
     setIsAwaitingSwapScrollTarget(false);
     setIsAwaitingDecreeTarget(false);
     setIsAwaitingEarthquakeScrollTarget(false);
@@ -1466,6 +1476,7 @@ export default function EvolvingChessPage() {
     setIsSelectingTeleportAlly(false);
     setIsSelectingTeleportShroom(false);
     setIsSelectingSporeBombShroom(false);
+    setIsAiThinking(false);
 
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }

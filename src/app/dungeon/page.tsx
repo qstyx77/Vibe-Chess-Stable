@@ -273,7 +273,7 @@ export default function DungeonPage() {
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
-  const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
+  const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(void 0);
 
   const [isSelectingMycoSpell, setIsSelectingMycoSpell] = useState(false);
   const [isSelectingTeleportAlly, setIsSelectingTeleportAlly] = useState(false);
@@ -358,13 +358,14 @@ export default function DungeonPage() {
     setIsAwaitingSwapScrollTarget(false);
     setIsAwaitingDecreeTarget(false);
     setIsAwaitingEarthquakeScrollTarget(false);
-    setAbilityChoiceDialog(null);
+    setAbilityChoiceDialog(void 0);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setIsSelectingMycoSpell(false);
     setIsSelectingTeleportAlly(false);
     setIsSelectingTeleportShroom(false);
     setIsSelectingSporeBombShroom(false);
+    setIsAiThinking(false);
 
     saveDungeonState(nextLevel, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0);
     const isBoss = nextLevel % 10 === 0;
@@ -407,13 +408,14 @@ export default function DungeonPage() {
     setIsAwaitingSwapScrollTarget(false);
     setIsAwaitingDecreeTarget(false);
     setIsAwaitingEarthquakeScrollTarget(false);
-    setAbilityChoiceDialog(null);
+    setAbilityChoiceDialog(void 0);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setIsSelectingMycoSpell(false);
     setIsSelectingTeleportAlly(false);
     setIsSelectingTeleportShroom(false);
     setIsSelectingSporeBombShroom(false);
+    setIsAiThinking(false);
 
     saveDungeonState(targetLevel, newBoard, 'white', ks, nextGraveyard, sC, nS, null, 0);
     const isBoss = targetLevel % 10 === 0;
@@ -706,8 +708,19 @@ export default function DungeonPage() {
       if (aiMove) {
         setHasMovedOnCurrentFloor(true); setAiStalemateStrikes(0);
         const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]); const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
-        const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece; if (!movingPiece) throw new Error("AI tried to move non-existent piece");
+        const movingPiece = board[aiMove.from[0]][aiMove.from[1]].piece; 
+        if (!movingPiece) {
+            setIsAiThinking(false);
+            return;
+        }
         const originalL = movingPiece.level || 1; const originalT = movingPiece.type;
+        
+        const freshlyCalculated = getPossibleMoves(board, fromAlg, enPassantTargetSquare, lastMovedPieceType);
+        if (!freshlyCalculated.includes(toAlg)) {
+            setIsAiThinking(false);
+            return;
+        }
+
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg); 
         setLastMovedPieceType(originalT);
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces);
@@ -850,13 +863,14 @@ export default function DungeonPage() {
     setIsAwaitingSwapScrollTarget(false);
     setIsAwaitingDecreeTarget(false);
     setIsAwaitingEarthquakeScrollTarget(false);
-    setAbilityChoiceDialog(null);
+    setAbilityChoiceDialog(void 0);
     setIsPromotingPawn(false);
     setPromotionSquare(null);
     setIsSelectingMycoSpell(false);
     setIsSelectingTeleportAlly(false);
     setIsSelectingTeleportShroom(false);
     setIsSelectingSporeBombShroom(false);
+    setIsAiThinking(false);
 
     const saved = userData.dungeonState;
     if (!reset && saved && saved.board && saved.board.length > 0) {
@@ -1095,7 +1109,7 @@ export default function DungeonPage() {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'kings-decree' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces); setBoard(result.newBoard); audioManager.playLevelUp();
             setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]);
-            setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
         }
         return;
     }
@@ -1281,7 +1295,7 @@ export default function DungeonPage() {
           const executeResurrectionScroll = () => { if (effectiveLevel < 4) return; setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces); const updatedGraveyard = { ...capturedPieces }; if (result.resurrectionScrollEvent) { const p = result.resurrectionScrollEvent.piece; const targetPile = p.color; updatedGraveyard[targetPile] = updatedGraveyard[targetPile].filter(pi => pi.id !== p.id); setCapturedPieces(updatedGraveyard); addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); } setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, updatedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeFaithScroll = () => { if (effectiveLevel < 5) return; setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => addEffect('conversion', e.at, e.byPiece.color)); } setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces); audioManager.playExplosion(); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: `${p.id}_sd_${Date.now()}` }); }); setCapturedPieces(updatedGraveyard); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare); }, 800); };
-          if (hasSelfSelectionAbility && hasMagicScroll) { setAbilityChoiceDialog({ isOpen: true, onChoice: (choice) => { setAbilityChoiceDialog(null); if (choice === 'ability') executeSelfDestruct(); else { if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else toast({ title: "Level Too Low", variant: "destructive" }); } else if (movingPiece.heldItem === 'kings_decree') { setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode(); } }}); return; }
+          if (hasSelfSelectionAbility && hasMagicScroll) { setAbilityChoiceDialog({ isOpen: true, onChoice: (choice) => { setAbilityChoiceDialog(void 0); if (choice === 'ability') executeSelfDestruct(); else { if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else toast({ title: "Level Too Low", variant: "destructive" }); } else if (movingPiece.heldItem === 'kings_decree') { setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode(); } }}); return; }
           if (hasMagicScroll) { if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else toast({ title: "Level Too Low", variant: "destructive" }); } else if (movingPiece.heldItem === 'kings_decree') { setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode(); } else if (hasSelfSelectionAbility) executeSelfDestruct(); return;
         }
         const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType);
@@ -1427,7 +1441,7 @@ export default function DungeonPage() {
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} />
       <RulesDialog isOpen={false} onOpenChange={() => {}} /> 
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle className="font-pixel text-primary uppercase">Reset Run?</AlertDialogTitle> <AlertDialogDescription> This will erase your current floor progress and return you to Floor 1. All dungeon captures and streaks will be lost. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel className="font-pixel text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="bg-destructive font-pixel text-[10px] uppercase" onClick={handleResetRun}>Confirm Reset</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
-      <AlertDialog open={abilityChoiceDialog?.isOpen} > <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Select Action</AlertDialogTitle> <AlertDialogDescription> This piece has multiple special actions available. Choose one to perform. </AlertDialogDescription> </AlertDialogHeader> <div className="flex flex-col gap-2"> <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}> Use Piece Ability </Button> <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}> Use Magic Item (Spell) </Button> </div> <AlertDialogFooter> <AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
+      <AlertDialog open={abilityChoiceDialog?.isOpen} > <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Select Action</AlertDialogTitle> <AlertDialogDescription> This piece has multiple special actions available. Choose one to perform. </AlertDialogDescription> </AlertDialogHeader> <div className="flex flex-col gap-2"> <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}> Use Piece Ability </Button> <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}> Use Magic Item (Spell) </Button> </div> <AlertDialogFooter> <AlertDialogCancel onClick={() => setAbilityChoiceDialog(void 0)}>Cancel</AlertDialogCancel> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
     </div>
   );
 }

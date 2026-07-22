@@ -39,11 +39,12 @@ export class VibeChessAI {
             'archer': [400, 500, 600, 750, 900, 1000, 1100, 1200, 1300, 1400],
             'dancer': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
             'mimic': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
-            'grappler': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
+            'grappler': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100],
+            'myco_mage': [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100]
         };
 
         this.captureLevelBonuses = {
-            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1, 'archbishop': 2, 'palace': 2, 'archer': 2, 'dancer': 1, 'mimic': 1, 'grappler': 1
+            'pawn': 1, 'knight': 2, 'bishop': 2, 'rook': 2, 'queen': 3, 'king': 1, 'commander': 1, 'hero': 2, 'infiltrator': 1, 'archbishop': 2, 'palace': 2, 'archer': 2, 'dancer': 1, 'mimic': 1, 'grappler': 1, 'myco_mage': 1
         };
 
         this.centerSquares = new Set(['33', '34', '43', '44']); 
@@ -164,7 +165,7 @@ export class VibeChessAI {
             // Rank Promotion Simulation for AI
             const backRank = landedPiece.color === 'white' ? 0 : 7;
             if (tR === backRank) {
-                if (['pawn', 'dancer', 'mimic', 'grappler'].includes(landedPiece.type)) {
+                if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(landedPiece.type)) {
                     landedPiece.type = 'queen';
                     landedPiece.level = 1; // Simplified for minimax evaluation
                 } else if (landedPiece.type === 'commander') {
@@ -177,7 +178,7 @@ export class VibeChessAI {
         }
 
         if (captureCount > 0) next.killStreaks[player] += captureCount; 
-        else if (move.type !== 'swap') next.killStreaks[player] = 0;
+        else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate'].includes(move.type || '')) next.killStreaks[player] = 0;
         
         if (next.killStreaks[player] >= 6) next.extraTurn = true;
         if (!next.extraTurn) next.currentPlayer = opponent;
@@ -239,6 +240,9 @@ export class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === color) {
+                    // Respect Status Effects in simulation
+                    if ((p.cooldownTurnsRemaining || 0) > 0 || (p.frozenTurnsRemaining || 0) > 0) continue;
+
                     if (p.id.startsWith('boss-colossus')) {
                         if (p.id === 'boss-colossus-tl') {
                             const minions = gs.board.flat().some(sq => sq.piece && sq.piece.color === p.color && !sq.piece.id.startsWith('boss-colossus'));
@@ -283,6 +287,7 @@ export class VibeChessAI {
             case 'dancer':
             case 'commander':
             case 'grappler':
+            case 'myco_mage':
                 if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece && (!gs.board[r+dir][c].item || gs.board[r+dir][c].item?.type === 'shroom')) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
                     const isStartRank = (p.color === 'white' && (r === 6 || r === 7)) || (p.color === 'black' && (r === 0 || r === 1));
@@ -444,7 +449,7 @@ export class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
-                    if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator' || p.type === 'grappler' || p.type === 'dancer') {
+                    if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator' || p.type === 'grappler' || p.type === 'dancer' || p.type === 'myco_mage') {
                         const dir = p.color === 'white' ? -1 : 1;
                         if (r + dir === tr && Math.abs(c - tc) === 1) return true;
                         if (p.type === 'infiltrator' && r + dir === tr && c === tc) return true;
