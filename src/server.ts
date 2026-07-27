@@ -772,7 +772,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                     const resurrectedPiece = {
                                         ...pieceToResurrect,
                                         level: 1,
-                                        id: `${pieceToResurrect.id}_res_KS_${Date.now()}`,
+                                        id: pieceToResurrect.id,
                                         hasMoved: true,
                                         isShielded: false,
                                         isPoisoned: false,
@@ -881,7 +881,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
     ws.on('close', () => {
         const qIdx = rankedQueue.findIndex(p => p.ws === ws);
-        if (qIdx > -1) rankedQueue.splice(idx, 1);
+        if (qIdx > -1) rankedQueue.splice(qIdx, 1);
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {
