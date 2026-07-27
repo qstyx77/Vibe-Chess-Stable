@@ -264,6 +264,26 @@ export function isSilenced(board: BoardState, r: number, c: number, color: Playe
   return false;
 }
 
+export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, targetLevel: number, attackingLevel: number, board?: BoardState): boolean {
+    if (!targetPiece || !attackingPiece) return false;
+
+    if (targetPiece.id.startsWith('boss-colossus')) {
+        if (board) {
+            const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+            if (otherMinions) return true; 
+        }
+    }
+
+    if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) return true;
+    if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
+    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
+    const hunters = ['commander', 'hero', 'infiltrator', 'dancer', 'mimic', 'grappler', 'self-destruct', 'myco_mage'];
+    if (targetPiece.type === 'queen' && hunters.includes(attackingPiece.type)) return false;
+    if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
+    if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'infiltrator', 'myco_mage'].includes(attackingPiece.type)) return true;
+    return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
+}
+
 export function getPossibleMovesInternal(
     board: BoardState,
     fromSquare: AlgebraicSquare,
@@ -280,6 +300,7 @@ export function getPossibleMovesInternal(
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
+  // MIMIC RECURSION GUARD
   if (piece.type === 'mimic') {
     const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
     const virtualPiece = { ...piece, type: patternType };
@@ -784,26 +805,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   return false;
 }
 
-export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, targetLevel: number, attackingLevel: number, board?: BoardState): boolean {
-    if (!targetPiece || !attackingPiece) return false;
-
-    if (targetPiece.id.startsWith('boss-colossus')) {
-        if (board) {
-            const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
-            if (otherMinions) return true; 
-        }
-    }
-
-    if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) return true;
-    if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
-    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
-    const hunters = ['commander', 'hero', 'infiltrator', 'dancer', 'mimic', 'grappler', 'self-destruct', 'myco_mage'];
-    if (targetPiece.type === 'queen' && hunters.includes(attackingPiece.type)) return false;
-    if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
-    if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'infiltrator', 'myco_mage'].includes(attackingPiece.type)) return true;
-    return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
-}
-
 export function syncSoulLink(board: BoardState | any[][], color: PlayerColor) {
     let maxLevel = 0;
     let hasSoulLink = false;
@@ -848,6 +849,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let reflectionOccurred = false;
   let resurrectionScrollEvent: { piece: Piece, square: AlgebraicSquare } | undefined = undefined;
   let itemReturned: InventoryItemType | null = null;
+  const multiPromotions: { square: AlgebraicSquare, targetLevel: number }[] = [];
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
@@ -891,14 +893,18 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'raise-mycelimen') {
-      newBoard.forEach(row => row.forEach(sq => {
+      const oppBackRank = movingPiece.color === 'white' ? 0 : 7;
+      newBoard.forEach((row, rIdx) => row.forEach((sq, cIdx) => {
           if (sq.item?.type === 'shroom') {
               sq.item = null;
-              sq.piece = { id: `myceliman_${sq.algebraic}_${Date.now()}`, type: 'pawn', color: movingPiece.color, level: 1, hasMoved: true, isShielded: false };
+              sq.piece = { id: `myceliman_${sq.algebraic}_${Date.now()}_${rIdx}_${cIdx}`, type: 'pawn', color: movingPiece.color, level: 1, hasMoved: true, isShielded: false };
+              if (sq.rowIndex === oppBackRank) {
+                multiPromotions.push({ square: sq.algebraic, targetLevel: 1 });
+              }
           }
       }));
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === movingPiece.color && sq.piece.type === 'myco_mage') sq.piece.shroomMana = Math.max(0, (sq.piece.shroomMana || 0) - 6); }));
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSquare: null, extraTurn: false, specialCaptureSquare: null };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSquare: null, extraTurn: false, specialCaptureSquare: null, multiPromotions };
   }
 
   if (move.type === 'grapple-hook-swap') {
@@ -1123,18 +1129,18 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === oppColor) sq.piece.level = Math.max(1, (sq.piece.level || 1) - 1); }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'wind-scroll') {
-      const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+      const crush = triggerPushBack(newBoard, toRow, toCol, movingPiece.color);
       if (crush) pieceCapturedByAnvil = crush;
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'earthquake-scroll') {
-      const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+      const crush = triggerPushBack(newBoard, toRow, toCol, movingPiece.color);
       if (crush) pieceCapturedByAnvil = crush;
       newBoard[fromRow][fromCol].piece!.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
@@ -1319,7 +1325,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if(empty.length > 0) {
       const sq = empty[Math.floor(Math.random()*empty.length)];
       const {row: rr, col: rc} = algebraicToCoords(sq);
-      const res = { ...captured, id: `res_${captured.id}_${Date.now()}` };
+      const res = { ...captured, id: `res_${captured.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
       newBoard[rr][rc].piece = res;
       phoenixResurrection = { piece: res, square: sq };
       captured = null;
@@ -1334,7 +1340,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions };
 }
 
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor): Piece | null {
@@ -1554,7 +1560,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
       if (adj.length > 0) {
         const target = adj[Math.floor(Math.random()*adj.length)];
         const {row: rr, col: rc} = algebraicToCoords(target);
-        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false };
+        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         
         // Automatic Commander -> Hero promotion if resurrected onto back rank
         const oppBackRank = player === 'white' ? 0 : 7;

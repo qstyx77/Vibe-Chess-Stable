@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -254,6 +253,8 @@ export default function EvolvingChessPage() {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+
+  const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
 
   const hasInitializedSession = useRef(false);
 
@@ -895,31 +896,39 @@ export default function EvolvingChessPage() {
         setKillStreaks(currentKs);
         setTimeout(() => {
           setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
-          const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
+          let isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
           const toRow = aiMove.to[0];
           const toCol = aiMove.to[1];
           const landedPiece = nextB[toRow][toCol].piece;
           
           const oppBackRank = currentPlayer === 'white' ? 0 : 7;
+          
+          // Handle standard AI promotion
           if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(landedPiece.type) && toRow === oppBackRank) {
               const promoType = aiMove.promoteTo || 'queen';
               const targetLevel = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
-              
               landedPiece.type = promoType;
               landedPiece.level = targetLevel;
               if (promoType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
               if (landedPiece.heldItem && !isItemValidForPiece(landedPiece.heldItem, landedPiece.type)) landedPiece.heldItem = null;
-              
-              setBoard(nextB);
-              audioManager.playLevelUp();
-              
-              const pieceLevelForExtra = landedPiece.level || 1;
-              const finalExtra = (pieceLevelForExtra >= 5) || isExtra;
-              
-              processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, finalExtra, applyResult.enPassantTargetSet, oldS, newS);
-          } else {
-              processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
+              if (landedPiece.level >= 5) isExtra = true;
           }
+
+          // Handle multi-promotions (Myceli-men)
+          if (applyResult.multiPromotions && applyResult.multiPromotions.length > 0) {
+              applyResult.multiPromotions.forEach(promo => {
+                  const { row: pr, col: pc } = algebraicToCoords(promo.square);
+                  if (nextB[pr][pc].piece) {
+                      nextB[pr][pc].piece!.type = 'queen';
+                      nextB[pr][pc].piece!.level = promo.targetLevel;
+                      if (nextB[pr][pc].piece!.level >= 5) isExtra = true;
+                  }
+              });
+          }
+
+          setBoard(nextB);
+          audioManager.playLevelUp();
+          processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
         }, 800);
       } else {
         console.warn(`[AI Search Fail] No legal moves found for ${currentPlayer}`);
@@ -989,11 +998,27 @@ export default function EvolvingChessPage() {
           else {
               clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
               const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces);
-              setBoard(applyResult.newBoard); audioManager.playLevelUp();
-              setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+              const nextB = applyResult.newBoard;
+              const updatedG = { ...capturedPieces };
+              setBoard(nextB); audioManager.playLevelUp();
+              setTimeout(() => { 
+                setIsMoveProcessing(false); clickGuardRef.current = false; setSelectedSquare(null);
+                const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
+                if (queue.length > 0) {
+                    setPromotionQueue(queue);
+                    const first = queue[0];
+                    setPlayerToPromote(currentPlayer);
+                    setPromotionTargetLevel(first.targetLevel);
+                    setIsPromotingPawn(true);
+                    setPromotionSquare(first.square);
+                    setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: false, newEnPassantTarget: null, oldStreak: killStreaks[currentPlayer], newStreak: killStreaks[currentPlayer], currentGraveyard: updatedG, currentKs: killStreaks } as any);
+                } else {
+                    processMoveEnd(nextB, updatedG, killStreaks, currentPlayer, false, null); 
+                }
+              }, 800);
           }
       }
-  }, [selectedSquare, onlineStatus, board, enPassantTargetSquare, capturedPieces, killStreaks, currentPlayer, processMoveEnd, toast]);
+  }, [selectedSquare, onlineStatus, board, enPassantTargetSquare, capturedPieces, killStreaks, currentPlayer, processMoveEnd, toast, processPawnSacrificeCheck]);
 
   const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     if (clickGuardRef.current) return;
@@ -1458,9 +1483,20 @@ export default function EvolvingChessPage() {
                     setIsMoveProcessing(false); clickGuardRef.current = false;
                     const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
                     const oppBackRank = currentPlayer === 'white' ? 0 : 7;
+                    
+                    const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
                     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(nextB[toRow][toCol].piece?.type || '') && toRow === oppBackRank) {
-                        setPlayerToPromote(currentPlayer); setPromotionTargetLevel(getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null));
-                        setIsPromotingPawn(true); setPromotionSquare(algebraic);
+                        queue.push({ 
+                            square: algebraic, 
+                            targetLevel: getPromotionLevel(capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null) 
+                        });
+                    }
+
+                    if (queue.length > 0) {
+                        setPromotionQueue(queue);
+                        const first = queue[0];
+                        setPlayerToPromote(currentPlayer); setPromotionTargetLevel(first.targetLevel);
+                        setIsPromotingPawn(true); setPromotionSquare(first.square);
                         setAnvilDropContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs } as any);
                     } else {
                         processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: selectedSquare, to: algebraic, type: moveType}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS);
@@ -1476,10 +1512,10 @@ export default function EvolvingChessPage() {
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, anvilDropContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, toast, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, shieldContext, archerSnipeContext, dancerToDance, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingGrappleThrow, grappledPieceSubject, lastMovedPieceType, addEffect, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    // Clear promotion states immediately
     const targetSquare = promotionSquare;
     const currentTargetLevel = promotionTargetLevel;
     const currentContext = anvilDropContext;
+    const currentQueue = [...promotionQueue];
 
     setIsPromotingPawn(false);
     setPromotionSquare(null);
@@ -1490,30 +1526,39 @@ export default function EvolvingChessPage() {
     if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'finalize-promotion', payload: { square: targetSquare, promoteTo: pieceType } })); }
     else {
         let boardToUpdate = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-        const { row, col } = algebraicToCoords(targetSquare); const beingPromoted = boardToUpdate[row][col].piece; if (!beingPromoted) return;
+        const { row: row, col: col } = algebraicToCoords(targetSquare); const beingPromoted = boardToUpdate[row][col].piece; if (!beingPromoted) return;
         if (beingPromoted.heldItem && !isItemValidForPiece(beingPromoted.heldItem, pieceType)) {
           const item = beingPromoted.heldItem; setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === item); if (existing) existing.count++; else next.push({ type: item, count: 1 }); return next; });
           beingPromoted.heldItem = null; toast({ title: "Equipment Returned", description: `${ITEM_METADATA[item].name} unequipped.` });
         }
-        boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: currentTargetLevel, hasMoved: true };
+        boardToUpdate[row][col].piece = { ...beingPromoted, type: pieceType, level: currentTargetLevel, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         setBoard(boardToUpdate); audioManager.playLevelUp();
         
-        const pieceLevelForExtra = boardToUpdate[row][col].piece?.level || 1;
-        const isExtra = (pieceLevelForExtra >= 5) || (currentContext?.isExtraTurn || false);
+        let isExtra = (boardToUpdate[row][col].piece?.level >= 5) || (currentContext?.isExtraTurn || false);
 
-        triggerSpecialsChain(
-            boardToUpdate, 
-            currentContext?.currentGraveyard || capturedPieces, 
-            currentContext?.currentKs || killStreaks, 
-            currentContext?.oldStreak || 0, 
-            currentContext?.newStreak || 0, 
-            isExtra, 
-            currentContext?.newEnPassantTarget || null, 
-            currentPlayer, 
-            []
-        );
+        const remainingQueue = currentQueue.filter(p => p.square !== targetSquare);
+        if (remainingQueue.length > 0) {
+            setPromotionQueue(remainingQueue);
+            const next = remainingQueue[0];
+            setPlayerToPromote(currentPlayer); setPromotionTargetLevel(next.targetLevel);
+            setIsPromotingPawn(true); setPromotionSquare(next.square);
+            setAnvilDropContext({ ...currentContext, isExtraTurn: isExtra, boardForNextStep: boardToUpdate } as any);
+        } else {
+            setPromotionQueue([]);
+            triggerSpecialsChain(
+                boardToUpdate, 
+                currentContext?.currentGraveyard || capturedPieces, 
+                currentContext?.currentKs || killStreaks, 
+                currentContext?.oldStreak || 0, 
+                currentContext?.newStreak || 0, 
+                isExtra, 
+                currentContext?.newEnPassantTarget || null, 
+                currentPlayer, 
+                []
+            );
+        }
     }
-  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus, toast, capturedPieces, killStreaks]);
+  }, [board, promotionSquare, promotionTargetLevel, anvilDropContext, triggerSpecialsChain, currentPlayer, onlineStatus, toast, capturedPieces, killStreaks, promotionQueue]);
 
   useEffect(() => {
     if (!board || board.length === 0 || !prevBoardRef.current || prevBoardRef.current.length === 0) { prevBoardRef.current = board; return; }
@@ -1624,10 +1669,9 @@ export default function EvolvingChessPage() {
     setIsSelectingTeleportShroom(false);
     setIsSelectingSporeBombShroom(false);
     setIsAiThinking(false);
-    
-    // Reset AI toggles
     setIsWhiteAI(false);
     setIsBlackAI(false);
+    setPromotionQueue([]);
 
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }

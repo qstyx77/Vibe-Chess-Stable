@@ -211,6 +211,7 @@ export interface ApplyMoveResult {
   conversionEvents: ConversionEvent[];
   rallyCryTriggered: RallyCryEvent | null;
   originalPieceLevel?: number;
+  originalPieceType?: PieceType;
   selfCheckByPushBack: boolean;
   queenLevelReducedEvents?: QueenLevelReducedEvent[] | null;
   promotedToInfiltrator?: boolean;
@@ -224,6 +225,7 @@ export interface ApplyMoveResult {
   reflectionOccurred?: boolean;
   resurrectionScrollEvent?: { piece: Piece, square: AlgebraicSquare };
   itemReturned?: InventoryItemType | null;
+  multiPromotions?: { square: AlgebraicSquare, targetLevel: number }[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -272,6 +274,7 @@ export interface GameSnapshot {
   originalPromotionLevel: number | null;
   promotionPawnOriginalLevel: number | null;
 
+  promotionQueue?: { square: AlgebraicSquare, targetLevel: number }[];
 
   firstBloodAchieved: boolean;
   playerWhoGotFirstBlood: PlayerColor | null;
