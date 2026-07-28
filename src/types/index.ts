@@ -53,9 +53,11 @@ export type InventoryItemType =
   | 'knights_boots'
   | 'golden_chalice'
   | 'earthquake_scroll'
+  | 'portal_scroll_10'
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
-  | 'portal_scroll_40';
+  | 'portal_scroll_40'
+  | 'portal_scroll_50';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -89,7 +91,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },
-  'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
+  'getonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
   'phase_boots': { name: 'Phase Boots', description: 'Ethereal boots (L2+). Jump over friendly pieces while moving.', isConsumable: false },
   'swap_scroll': { name: 'Swap Scroll', description: 'Consumable (L3+). Trade places with another allied piece.', isConsumable: true },
   'grimoir': { name: 'Grimoir', description: 'Dark book. Boosts adjacent non-Royal allies by +2 levels.', isConsumable: false },
@@ -117,9 +119,11 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'knights_boots': { name: 'Knight\'s Boots', description: 'Passive. Replaces this piece\'s movement with the standard Knight L-shape pattern.', isConsumable: false },
   'golden_chalice': { name: 'Golden Chalice', description: 'Passive. Increases the Experience Value of all captures by this unit by +1 Level.', isConsumable: false },
   'earthquake_scroll': { name: 'Earthquake Scroll', description: 'Consumable (L3+). Target a square to push all units in a 3x3 area 1 square away from the center.', isConsumable: true },
-  'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20.', isConsumable: true },
-  'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30.', isConsumable: true },
-  'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40.', isConsumable: true },
+  'portal_scroll_10': { name: 'F10 Portal', description: 'Warp to Floor 10 (Boss).', isConsumable: true },
+  'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20 (Boss).', isConsumable: true },
+  'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30 (Boss).', isConsumable: true },
+  'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40 (Boss).', isConsumable: true },
+  'portal_scroll_50': { name: 'F50 Portal', description: 'Warp to Floor 50 (Final Boss).', isConsumable: true },
 };
 
 export interface Piece {

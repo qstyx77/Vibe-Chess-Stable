@@ -15,11 +15,18 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   const renderIcon = () => {
     switch (type) {
+      case 'portal_scroll_10':
       case 'portal_scroll_20':
       case 'portal_scroll_30':
       case 'portal_scroll_40':
+      case 'portal_scroll_50':
         const floorNum = parseInt(type.split('_')[2]);
-        const portalColor = floorNum === 20 ? '#3B82F6' : floorNum === 30 ? '#8B5CF6' : '#EAB308';
+        let portalColor = '#3B82F6'; // Default Blue
+        if (floorNum === 10) portalColor = '#22D3EE'; // Cyan
+        else if (floorNum === 30) portalColor = '#8B5CF6'; // Purple
+        else if (floorNum === 40) portalColor = '#EAB308'; // Amber
+        else if (floorNum === 50) portalColor = '#F43F5E'; // Crimson/Red
+
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="1" y="2" width="8" height="8" fill={portalColor} />
