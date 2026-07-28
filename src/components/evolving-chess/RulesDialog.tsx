@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -63,7 +64,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">I. Game Modes</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Main Lobby">
-                  <RuleText>• Local Play: Play against yourself or toggle the AI for one or both sides to practice.</RuleText>
+                  <RuleText>• Local Play: Play against a friend on the same device or toggle the AI for practice.</RuleText>
                   <RuleText>• Casual Online: Create or join a private room using a Room ID to play with friends.</RuleText>
                   <RuleText>• Ranked Matchmaking: Winning or losing adjusts your ELO rating, leaderboard standing, and equipment capacity.</RuleText>
                 </RuleSection>
