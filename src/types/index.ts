@@ -60,7 +60,10 @@ export type InventoryItemType =
   | 'portal_scroll_50'
   | 'sclerotia'
   | 'shortbow'
-  | 'smoke_bomb';
+  | 'smoke_bomb'
+  | 'war_drum'
+  | 'cyanide_pill'
+  | 'demonic_possession';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -91,7 +94,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true },
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true },
   'poison_sword': { name: 'Poison Sword', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
-  'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
+  'antidote': { name: 'Antidote', description: 'Consumable vial. Cures all allied units of poison.', isConsumable: true },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },
   'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
@@ -128,8 +131,11 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40 (Boss).', isConsumable: true },
   'portal_scroll_50': { name: 'F50 Portal', description: 'Warp to Floor 50 (Final Boss).', isConsumable: true },
   'sclerotia': { name: 'Sclerotia', description: 'Mushroom amulet. Myco Mage only. Adds 1 Shroom Mana every 4 turns.', isConsumable: false },
-  'shortbow': { name: 'Shortbow', description: 'Ranged tool. Knight only. Enables Archer Snipe (KS 5) if Level 3+.', isConsumable: false },
+  'shortbow': { name: 'Shortbow', description: 'Traditional bow. Knight only. Enables Archer Snipe (KS 5) if Level 3+.', isConsumable: false },
   'smoke_bomb': { name: 'Smoke Bomb', description: 'Escape tool. On capture, wearer escapes to random empty back rank square. Consumable.', isConsumable: true },
+  'war_drum': { name: 'War Drum', description: 'Tribal drum. Dancer only. Allies swapped with gain +1 Level. Enemies swapped with become Exhausted.', isConsumable: false },
+  'cyanide_pill': { name: 'Cyanide Pill', description: 'Suicide capsule. Capturing piece gains 0 levels. Consumed on capture.', isConsumable: true },
+  'demonic_possession': { name: 'Demonic Possession', description: 'Consumable scroll. Gain +5 Levels immediately, but piece is obliterated after 3 turns.', isConsumable: true },
 };
 
 export interface Piece {
@@ -146,6 +152,7 @@ export interface Piece {
   frozenTurnsRemaining?: number;
   itemTurnCount?: number;
   shroomMana?: number;
+  obliterationTurnsRemaining?: number;
 }
 
 export type AlgebraicSquare = `${'a'|'b'|'c'|'d'|'e'|'f'|'g'|'h'}${'1'|'2'|'3'|'4'|'5'|'6'|'7'|'8'}`;
@@ -163,7 +170,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
   teleportPieceId?: string;
@@ -320,7 +327,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession';
   promoteTo?: PieceType;
 }
 

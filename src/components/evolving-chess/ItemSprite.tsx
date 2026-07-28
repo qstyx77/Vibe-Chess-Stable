@@ -227,6 +227,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'ice_blast':
       case 'soul_harvest':
       case 'earthquake_scroll':
+      case 'demonic_possession':
         const scrollColors: Record<string, string> = {
           wind_scroll: '#BAE6FD',
           life_leach: '#C084FC',
@@ -240,7 +241,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           faith_scroll: '#F8FAFC',
           ice_blast: '#BAE6FD',
           soul_harvest: '#4C1D95',
-          earthquake_scroll: '#78350F'
+          earthquake_scroll: '#78350F',
+          demonic_possession: '#000'
         };
         const iconColors: Record<string, string> = {
           wind_scroll: '#0284C7',
@@ -255,18 +257,20 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           faith_scroll: '#2563EB',
           ice_blast: '#2563EB',
           soul_harvest: '#000',
-          earthquake_scroll: '#FDE68A'
+          earthquake_scroll: '#FDE68A',
+          demonic_possession: '#DC2626'
         };
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="1" y="2" width="8" height="8" fill={scrollColors[type] || '#FFF'} />
             <rect x="0" y="1" width="10" height="2" fill="#78350F" />
             <rect x="0" y="9" width="10" height="2" fill="#78350F" />
-            <rect x="3" y="4" width="4" height="4" fill={iconColors[type] || '#000'} opacity="0.6" />
+            <rect x="3" y="4" width="4" height="4" fill={iconColors[type] || '#000'} opacity={type === 'demonic_possession' ? 1 : 0.6} />
             {type === 'resurrection_scroll' && <rect x="4" y="5" width="2" height="2" fill="#FFF" />}
             {type === 'faith_scroll' && <rect x="4" y="4" width="2" height="4" fill="#FFF" />}
             {type === 'soul_harvest' && <rect x="4" y="4" width="2" height="4" fill="#8B5CF6" />}
             {type === 'earthquake_scroll' && <path d="M3 6L5 4L7 6L5 8L3 6Z" fill="#FFF" opacity="0.8" />}
+            {type === 'demonic_possession' && <circle cx="5" cy="6" r="1" fill="#FFF" />}
           </svg>
         );
       case 'wind_cloak':
@@ -314,11 +318,9 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'shortbow':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            {/* Traditional Bow - Side View Arc */}
             <path d="M6 1 C3 1 3 6 3 6 C3 6 3 11 6 11" stroke="#92400E" strokeWidth="1.5" fill="none" />
             <rect x="6" y="1" width="0.5" height="10" fill="#CBD5E1" opacity="0.6" /> {/* String */}
             <rect x="3" y="5" width="1.5" height="2" fill="#78350F" /> {/* Grip */}
-            {/* Horizontal Arrow Nocked */}
             <rect x="3" y="5.75" width="5" height="0.5" fill="#475569" /> 
             <rect x="7.5" y="5.25" width="1" height="1.5" fill="#94A3B8" /> {/* Arrowhead */}
           </svg>
@@ -478,6 +480,23 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="1" width="2" height="3" fill="#EAB308" />
             <path d="M2 3 Q0 5 2 7" stroke="#FFF" strokeWidth="0.5" opacity="0.3" />
             <path d="M8 3 Q10 5 8 7" stroke="#FFF" strokeWidth="0.5" opacity="0.3" />
+          </svg>
+        );
+      case 'war_drum':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="3" width="8" height="6" fill="#78350F" />
+            <rect x="2" y="2" width="6" height="1" fill="#92400E" />
+            <rect x="2" y="9" width="6" height="1" fill="#92400E" />
+            <rect x="2" y="3" width="6" height="6" fill="#FDE68A" opacity="0.5" />
+          </svg>
+        );
+      case 'cyanide_pill':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="2" width="4" height="4" fill="#F8FAFC" />
+            <rect x="3" y="6" width="4" height="4" fill="#3B82F6" />
+            <rect x="4" y="4" width="2" height="1" fill="#000" opacity="0.1" />
           </svg>
         );
       default:

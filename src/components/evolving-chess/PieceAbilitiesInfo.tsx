@@ -82,6 +82,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'knights_boots') abilities.push(" knight's boots: movement replaced by Knight pattern.");
   if (heldItem === 'golden_chalice') abilities.push(" experience: +1 extra level gain on every capture.");
   if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): target a square to push units in a 3x3 area away.");
+  if (heldItem === 'war_drum') abilities.push(" tempo: allies swapped with gain +1 Level; enemies become Exhausted.");
+  if (heldItem === 'cyanide_pill') abilities.push(" spite: capturing unit gains 0 levels from this piece.");
+  if (heldItem === 'demonic_possession') abilities.push(" demonic: Gain +5 Levels, but piece is obliterated after 3 turns.");
   if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {
@@ -163,6 +166,11 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
         {piece.isPoisoned && <p className="text-[#22C55E] font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: POISONED </p>}
         {isFrozen && <p className="text-sky-400 font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: FROZEN </p>}
         {!isFrozen && isExhausted && <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: EXHAUSTED </p>}
+        {piece.obliterationTurnsRemaining !== undefined && piece.obliterationTurnsRemaining > 0 && (
+            <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none">
+                POSSESSED: OBLITERATION IN {piece.obliterationTurnsRemaining} TURNS
+            </p>
+        )}
         {piece.heldItem === 'training_weights' && <p className="text-muted-foreground font-bold text-[8px] uppercase leading-none"> CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS </p>}
       </div>
       {item && ( <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-sm"> <div className="flex items-center justify-center gap-1 mb-0.5"> <ItemSprite type={piece.heldItem!} size={10} /> <p className="text-[0.55rem] font-bold text-accent uppercase leading-none">{item.name}</p> <ItemSprite type={piece.heldItem!} size={10} /> </div> <p className="text-[0.55rem] text-muted-foreground italic leading-none">{item.description}</p> </div> )}
