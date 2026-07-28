@@ -49,168 +49,171 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[90vh] font-sans overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle className="text-primary text-center text-xl font-medium uppercase font-pixel tracking-tighter">
-            VIBE CHESS - COMPLETE RULEBOOK
+            VIBE CHESS - MASTER RULEBOOK (DRAFT 9)
           </DialogTitle>
           <DialogDescription className="sr-only">
-            Revised Rulebook
+            Comprehensive Game Rules
           </DialogDescription>
         </DialogHeader>
 
         <ScrollArea className="flex-1 overflow-y-auto px-6">
           <Accordion type="single" collapsible className="w-full pb-6">
             
-            {/* I. GAME MODES */}
-            <AccordionItem value="modes">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">I. Game Modes</AccordionTrigger>
+            {/* I. OVERVIEW & MODES */}
+            <AccordionItem value="overview">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">I. Overview & Game Modes</AccordionTrigger>
               <AccordionContent>
-                <RuleSection title="Main Lobby">
+                <RuleSection title="The Game">
+                  <RuleText>Vibe Chess is a high-stakes, 8-bit tactical strategy game where every unit levels up through combat, unlocking powerful skills and global effects.</RuleText>
+                </RuleSection>
+                <RuleSection title="Modes">
                   <RuleText>• Local Play: Play against a friend on the same device or toggle the AI for practice.</RuleText>
-                  <RuleText>• Casual Online: Create or join a private room using a Room ID to play with friends.</RuleText>
-                  <RuleText>• Ranked Matchmaking: Winning or losing adjusts your ELO rating, leaderboard standing, and equipment capacity.</RuleText>
-                </RuleSection>
-                <RuleSection title="Dungeon Mode (PvE)">
-                  <RuleText>• A single-player campaign through 50 floors of increasing difficulty. Clearing Floor 50 grants ultimate victory.</RuleText>
+                  <RuleText>• Casual Online: Play with friends via Room IDs.</RuleText>
+                  <RuleText>• Ranked Matchmaking: Gain Elo and unlock elite units. High Elo increases your 'Attunement Slots' for equipment.</RuleText>
+                  <RuleText>• Dungeon Mode (PvE): A 50-floor crawl against boss entities and scaling armies. Progress is persistent.</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            {/* II. OBJECTIVE */}
-            <AccordionItem value="objectives">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">II. Victory Conditions</AccordionTrigger>
-              <AccordionContent>
-                <RuleText>1. Checkmate: Standard chess victory. Trap the enemy King.</RuleText>
-                <RuleText>2. Infiltration: Reach the opponent’s back rank with an Infiltrator for an instant win.</RuleText>
-                <RuleText>3. Dungeon Conquest: Clear all enemy units or checkmate the Dungeon Boss to descend.</RuleText>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* III. LEVELING & SKILLS */}
+            {/* II. LEVELING & EXPERIENCE */}
             <AccordionItem value="leveling">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">III. Leveling & Skills</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">II. Leveling & Experience</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Experience Values">
-                  <RuleText>• Capture Front Line Unit: +1 Level</RuleText>
-                  <RuleText>• Capture Knight, Hero, Archer, Bishop, Archbishop, Rook, or Palace: +2 Levels</RuleText>
+                  <RuleText>Units gain levels immediately upon capturing an opponent:</RuleText>
+                  <RuleText>• Capture Front Line (Pawn, Dancer, etc.): +1 Level</RuleText>
+                  <RuleText>• Capture Cavalry/Clergy (Knight, Bishop, etc.): +2 Levels</RuleText>
                   <RuleText>• Capture Queen: +3 Levels</RuleText>
                   <RuleText>• Consume Shroom 🍄: +1 Level</RuleText>
                 </RuleSection>
-                <RuleText>Queens are strictly capped at Level 7. Most other units have no limit. Skill unlocks are determined by a piece's current level.</RuleText>
+                <RuleSection title="Master Promotion (L5+)">
+                  <RuleText>Reaching the opponent's back rank with a Front Line unit triggers a Master Promotion. If that unit is Level 5 or higher, you are granted an immediate Extra Turn.</RuleText>
+                </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            {/* IV. UNIT SKILLS */}
-            <AccordionItem value="skills">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IV. Unit Skills by Class</AccordionTrigger>
+            {/* III. PIECE INDEX & SKILL TREE */}
+            <AccordionItem value="pieces">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">III. Piece Index & Skill Tree</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage)">
-                  <RuleText>L2: Move backward. L3: Move sideways. L4: Push-Back adjacent units/items on move. L5: Master Promotion grants an Extra Turn.</RuleText>
+                  <RuleText>L2: Can move 1 square backward.</RuleText>
+                  <RuleText>L3: Can move 1 square sideways.</RuleText>
+                  <RuleText>L4: Push-Back: Moving adjacent to units/items pushes them away.</RuleText>
+                  <RuleText>L5: Master Promotion grants an Extra Turn.</RuleText>
                 </SubRule>
                 <SubRule title="The Cavalry (Knight, Hero, Archer)">
-                  <RuleText>L2: Cardinal move. L3: 3-square Long Jump. L4: Swap with allied Bishops. L5: Self-Destruct active ability.</RuleText>
+                  <RuleText>L2: Cardinal move (1 square up/down/left/right).</RuleText>
+                  <RuleText>L3: Long Jump (Jump 3 squares cardinally).</RuleText>
+                  <RuleText>L4: Swap: Can trade places with an allied Bishop/Archbishop.</RuleText>
+                  <RuleText>L5: Self-Destruct: Active skill. Detonates piece to destroy a 3x3 enemy area.</RuleText>
                 </SubRule>
                 <SubRule title="The Clergy (Bishop, Archbishop)">
-                  <RuleText>L2: Phase through allies. L3: Pawn Immunity. L4: Swap with allied Cavalry. L5: 50% Conversion chance.</RuleText>
+                  <RuleText>L2: Phasing: Can move through friendly units.</RuleText>
+                  <RuleText>L3: Pawn Immunity: Cannot be captured by Front Line units.</RuleText>
+                  <RuleText>L4: Swap: Can trade places with an allied Knight/Hero/Archer.</RuleText>
+                  <RuleText>L5: Faith: 50% chance to convert adjacent enemies to your side after moving.</RuleText>
                 </SubRule>
                 <SubRule title="The Fortress (Rook, Palace)">
-                  <RuleText>L4: Resurrection Call (Returns ally at L1 on capture).</RuleText>
+                  <RuleText>L4: Resurrection Call: Capturing a unit triggers a random resurrection of your strongest fallen ally at L1.</RuleText>
                 </SubRule>
               </AccordionContent>
             </AccordionItem>
 
-            {/* V. SPECIALIZED ELITE UNITS */}
-            <AccordionItem value="elite">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">V. Specialized Elite Units</AccordionTrigger>
+            {/* IV. ELITE & UNIQUE UNITS */}
+            <AccordionItem value="unique">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IV. Elite & Unique Units</AccordionTrigger>
               <AccordionContent>
-                <RuleSection title="Archbishop (Unlock: 1500 Elo)">
-                  <RuleText>Elite Bishop. Kill Streaks grant Holy Shield (Target becomes invulnerable until they move).</RuleText>
+                <RuleSection title="Ranked Unlocks">
+                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally.</RuleText>
+                  <RuleText>• Palace (1800 Elo): Elite Fortress. Resurrects units at their original level. Castling levels up the King.</RuleText>
+                  <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 3/5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
-                <RuleSection title="Palace (Unlock: 1800 Elo)">
-                  <RuleText>Elite Rook. Resurrects allies at their original captured level. Castling levels up the King.</RuleText>
+                <RuleSection title="Specialists">
+                  <RuleText>• Infiltrator: Capturing 'obliterates' units (removes from game). Wins game if it reaches the back rank.</RuleText>
+                  <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
+                  <RuleText>• Mimic: Replicates the movement pattern of the piece that moved before it.</RuleText>
+                  <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free adjacent move or swap.</RuleText>
+                  <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level).</RuleText>
                 </RuleSection>
-                <RuleSection title="Archer (Unlock: 2100 Elo)">
-                  <RuleText>Elite Knight. High Kill Streaks grant Archer Snipe: Destroy any non-royal enemy the same level or lower than your Archer.</RuleText>
-                </RuleSection>
-                <SubRule title="Unique Units">
-                  <RuleText>• Myco Mage: Consumes shroom mana gathered by all allies to cast powerful fungal spells (Propagate, Teleport, Bomb, Army).</RuleText>
-                  <RuleText>• Mimic: Shape-shift (copy the pattern of the last piece moved using your current level).</RuleText>
-                  <RuleText>• Dancer: Dance (Achieving KS1 allows a cardinal move or adjacent swap with an ally or enemy).</RuleText>
-                  <RuleText>• Grappler: Toss (Pick up and launch adjacent units in a straight line; Range = Level).</RuleText>
-                  <RuleText>• Infiltrator: Obliteration (Captured pieces removed from the game). Instant win on back rank.</RuleText>
-                </SubRule>
               </AccordionContent>
             </AccordionItem>
 
-            {/* VI. BOARD ITEMS */}
-            <AccordionItem value="items">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VI. Board Items</AccordionTrigger>
+            {/* V. THE ROYAL GUARD */}
+            <AccordionItem value="royalty">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">V. The Royal Guard</AccordionTrigger>
               <AccordionContent>
-                <SubRule title="Shroom 🍄">
-                  <RuleText>Spawns randomly every 5-10 turns. Does not block paths. Consume for +1 Level and +1 Mana for allied Myco Mages.</RuleText>
-                </SubRule>
-                <SubRule title="Anvil">
-                  <RuleText>Impassable obstacle placed via KS3 or Scrolls. L4+ Front Line can push Anvils to crush enemy units.</RuleText>
-                </SubRule>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* VII. LOOT & EQUIPMENT */}
-            <AccordionItem value="loot">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VII. Loot & Equipment</AccordionTrigger>
-              <AccordionContent>
-                <RuleText>• Equipping: In Lobby, equip from bag before a match. In Dungeon, equip before the first turn of each floor.</RuleText>
-                <RuleText>• Attunement: Start with 2 slots. Gain +1 slot for every 400 Elo above 1200.</RuleText>
-                <RuleText>• Items: Provide passive boosts or active "Scroll" spells.</RuleText>
-              </AccordionContent>
-            </AccordionItem>
-
-            {/* VIII. ROYAL GUARD */}
-            <AccordionItem value="royal">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VIII. The Royal Guard</AccordionTrigger>
-              <AccordionContent>
-                <SubRule title="The Queen (L7)">
-                  <RuleText>Invulnerable to all except Commanders, Heroes, Infiltrators, Myco Mages, or units Level 8+.</RuleText>
-                  <RuleText>Sacrifice: Reaching L7 requires the immediate sacrifice of one allied Front Line Unit.</RuleText>
+                <SubRule title="The Queen (Max Level 7)">
+                  <RuleText>Invulnerability: At L7, the Queen cannot be captured by units below Level 8, unless they are Hero, Commander, or Infiltrator classes.</RuleText>
+                  <RuleText>Sacrifice: Reaching L7 requires the immediate sacrifice of one allied Front Line unit.</RuleText>
                 </SubRule>
                 <SubRule title="The King">
-                  <RuleText>L2: 2-square range. L5: Knight move. Dominion: Capture reduces enemy Queen levels.</RuleText>
+                  <RuleText>L2: Movement range increases to 2 squares.</RuleText>
+                  <RuleText>L5: Gains the Knight's L-shape movement.</RuleText>
+                  <RuleText>Dominion: Every time the King levels up, all enemy Queens lose levels equal to the gain.</RuleText>
                 </SubRule>
               </AccordionContent>
             </AccordionItem>
 
-            {/* IX. KILL STREAKS */}
-            <AccordionItem value="ks">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IX. The War Path (Kill Streaks)</AccordionTrigger>
+            {/* VI. THE WAR PATH (KILL STREAKS) */}
+            <AccordionItem value="killstreaks">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VI. The War Path (Kill Streaks)</AccordionTrigger>
               <AccordionContent>
-                <RuleText>KS 1: Dance (Dancer only - Cardinal move to empty space or swap with adjacent ally/enemy).</RuleText>
-                <RuleText>KS 2: Holy Shield (Archbishop - Target ally is invulnerable until they move).</RuleText>
-                <RuleText>KS 3: Anvil Drop.</RuleText>
-                <RuleText>KS 4: Resurrection (Captured ally returns to random open space at L1).</RuleText>
-                <RuleText>KS 5: Archer Snipe (Target and destroy non-royal enemy level Archer or lower).</RuleText>
-                <RuleText>KS 6: Extra Turn.</RuleText>
+                <RuleText>Streaks are earned by capturing units or dropping Anvils. Streaks reset if a turn ends without a capture/skill use.</RuleText>
+                <RuleSection title="Milestones">
+                  <RuleText>KS 1: Dance (Dancers only - extra shift).</RuleText>
+                  <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move).</RuleText>
+                  <RuleText>KS 3: Anvil Drop (Drop an impassable obstacle on any empty square).</RuleText>
+                  <RuleText>KS 4: Resurrection (Strongest ally returns to the board at L1).</RuleText>
+                  <RuleText>KS 5: Archer Snipe (Global targeting for Archers).</RuleText>
+                  <RuleText>KS 6: Extra Turn (Take a second move immediately).</RuleText>
+                </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            {/* X. THE STACK */}
-            <AccordionItem value="stack">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">X. The Stack (Order of Operations)</AccordionTrigger>
+            {/* VII. ITEM DATABASE */}
+            <AccordionItem value="items">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VII. Item Database</AccordionTrigger>
               <AccordionContent>
-                <RuleText>1. Impact: Capture or Mirror Shield reflection.</RuleText>
-                <RuleText>2. Immediate Leveling: Experience gain from capture and target-square Shrooms.</RuleText>
-                <RuleText>3. Royal Dominion: Enemy Queen level reduction via King capture.</RuleText>
-                <RuleText>4. Spatial Disruptions: Push-Back, Pulling, or Anvil Crushing.</RuleText>
-                <RuleText>5. Collective Logic: Soul Link level synchronization.</RuleText>
-                <RuleText>6. Interactive Menus: Queen Sacrifice -> Rank Promotion -> Kill Streak Rewards.</RuleText>
-                <RuleText>7. Status Check: Poison damage application.</RuleText>
-                <RuleText>8. Resolution: Checkmate/Infiltration check.</RuleText>
+                <SubRule title="Passive Equipment">
+                  <RuleText>• Mirror Shield: Reflects one capture attempt from a non-royal unit.</RuleText>
+                  <RuleText>• Soul Link: Bound units share level-ups and mutual destruction.</RuleText>
+                  <RuleText>• Cardinal/Drift Boots: Grants extra cardinal/diagonal non-capture shifts.</RuleText>
+                  <RuleText>• Silence Amulet: Adjacent enemies cannot trigger active skills or use scrolls.</RuleText>
+                  <RuleText>• Grimoir: Boosts adjacent non-royal allies by +2 effective levels.</RuleText>
+                </SubRule>
+                <SubRule title="Active Scrolls (Consumables)">
+                  <RuleText>• Wind Scroll: Pushes all units away from target empty square.</RuleText>
+                  <RuleText>• Life Leach: Reduces all enemy levels by 1 globally.</RuleText>
+                  <RuleText>• King's Decree: Promotes a Level 1 Pawn to a Commander.</RuleText>
+                  <RuleText>• Earthquake: Pushes units in a 3x3 area away from center.</RuleText>
+                </SubRule>
               </AccordionContent>
             </AccordionItem>
 
-            {/* XI. DUNGEON MECHANICS */}
+            {/* VIII. DUNGEON MECHANICS */}
             <AccordionItem value="dungeon">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">XI. Dungeon Mechanics</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VIII. Dungeon Survival</AccordionTrigger>
               <AccordionContent>
-                <RuleText>• Floor Collapse: If the enemy army has no legal moves 3 times in a row, their remaining pieces self-destruct, destroying adjacent pieces, collapsing the floor, and progressing you.</RuleText>
-                <RuleText>• Persistence: Your army's casualties, levels, promotions, skills, and items persist between floors.</RuleText>
+                <RuleText>• Persistence: Damage, levels, and items carry over between floors.</RuleText>
+                <RuleText>• Shrooms 🍄: Spawn every 5-10 turns. Consume for +1 Level and +1 Mana for Myco Mages.</RuleText>
+                <RuleText>• Bosses: Every 10 floors features a unique entity (Hydra, Necromancer, Colossus, etc.) with custom passive traits.</RuleText>
+                <RuleText>• Floor Collapse: If the Dungeon Army cannot move for 3 turns, they explode, clearing the floor and advancing you.</RuleText>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* IX. THE STACK (ORDER OF OPERATIONS) */}
+            <AccordionItem value="stack">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IX. The Stack</AccordionTrigger>
+              <AccordionContent>
+                <RuleText>Game events resolve in the following strict order:</RuleText>
+                <RuleText>1. Movement & Capture (Impact)</RuleText>
+                <RuleText>2. Level Gain & Shroom Consumption</RuleText>
+                <RuleText>3. Push-Back / Pull / Anvil Crushing</RuleText>
+                <RuleText>4. Soul Link Synchronization</RuleText>
+                <RuleText>5. Queen Sacrifice -> Rank Promotion -> KS Rewards</RuleText>
+                <RuleText>6. Poison Damage & Status Clear</RuleText>
+                <RuleText>7. Win Condition Check (Mate/Infiltration)</RuleText>
               </AccordionContent>
             </AccordionItem>
 
