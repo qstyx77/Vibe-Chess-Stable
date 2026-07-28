@@ -204,12 +204,21 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="2" width="2" height="4" fill="#F0F9FF" opacity="0.7" />
           </svg>
         );
+      case 'antidote':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="1" width="4" height="2" fill="#94A3B8" /> {/* Vial Neck */}
+            <rect x="2" y="3" width="6" height="8" fill="#10B981" /> {/* Vial Body */}
+            <rect x="1" y="4" width="8" height="6" fill="#10B981" />
+            <rect x="4" y="5" width="2" height="2" fill="#FFF" opacity="0.4" /> {/* Shine */}
+            <rect x="3" y="0" width="4" height="1" fill="#78350F" /> {/* Cork */}
+          </svg>
+        );
       case 'wind_scroll':
       case 'life_leach':
       case 'summon_anvil':
       case 'shield_scroll':
       case 'rally_scroll':
-      case 'antidote':
       case 'detonation_scroll':
       case 'swap_scroll':
       case 'ice_scroll':
@@ -224,7 +233,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           summon_anvil: '#94A3B8',
           shield_scroll: '#FDE68A',
           rally_scroll: '#FDE68A',
-          antidote: '#10B981',
           detonation_scroll: '#FCA5A5',
           swap_scroll: '#D946EF',
           ice_scroll: '#93C5FD',
@@ -240,7 +248,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           summon_anvil: '#334155',
           shield_scroll: '#3B82F6',
           rally_scroll: '#EAB308',
-          antidote: '#064E3B',
           detonation_scroll: '#B91C1C',
           swap_scroll: '#701A75',
           ice_scroll: '#1D4ED8',
@@ -294,16 +301,26 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           </svg>
         );
       case 'crossbow':
-      case 'shortbow':
-        const bowColor = type === 'crossbow' ? '#475569' : '#92400E';
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="1" y="2" width="8" height="2" fill="#78350F" />
             <rect x="0" y="3" width="2" height="2" fill="#78350F" />
             <rect x="8" y="3" width="2" height="2" fill="#78350F" />
-            <rect x="4" y="1" width="2" height="10" fill={bowColor} />
+            <rect x="4" y="1" width="2" height="10" fill="#475569" />
             <rect x="3" y="10" width="4" height="2" fill="#78350F" />
             <rect x="2" y="3" width="6" height="1" fill="#CBD5E1" opacity="0.5" />
+          </svg>
+        );
+      case 'shortbow':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            {/* Traditional Bow - Side View Arc */}
+            <path d="M6 1 C3 1 3 6 3 6 C3 6 3 11 6 11" stroke="#92400E" strokeWidth="1.5" fill="none" />
+            <rect x="6" y="1" width="0.5" height="10" fill="#CBD5E1" opacity="0.6" /> {/* String */}
+            <rect x="3" y="5" width="1.5" height="2" fill="#78350F" /> {/* Grip */}
+            {/* Horizontal Arrow Nocked */}
+            <rect x="3" y="5.75" width="5" height="0.5" fill="#475569" /> 
+            <rect x="7.5" y="5.25" width="1" height="1.5" fill="#94A3B8" /> {/* Arrowhead */}
           </svg>
         );
       case 'poison_tunic':
