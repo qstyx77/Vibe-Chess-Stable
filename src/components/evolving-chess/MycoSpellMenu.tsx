@@ -123,7 +123,7 @@ const spells: { id: MycoSpell, name: string, cost: number, description: string, 
 
 export function MycoSpellMenu({ isOpen, onSelectSpell, mana }: MycoSpellMenuProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={() => {}}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onSelectSpell(null as any); }}>
       <DialogContent className="sm:max-w-[450px] bg-card border-2 border-primary/50 font-pixel p-4">
         <DialogHeader className="space-y-1">
           <div className="flex items-center justify-center gap-2">
