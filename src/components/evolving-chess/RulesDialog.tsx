@@ -49,7 +49,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[90vh] font-sans overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle className="text-primary text-center text-xl font-medium uppercase font-pixel tracking-tighter">
-            VIBE CHESS - MASTER RULEBOOK (DRAFT 9)
+            VIBE CHESS - MASTER RULEBOOK (DRAFT 10)
           </DialogTitle>
           <DialogDescription className="sr-only">
             Comprehensive Game Rules
@@ -92,9 +92,30 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* III. PIECE INDEX & SKILL TREE */}
+            {/* III. SPECIALIZED UNITS */}
+            <AccordionItem value="specialized">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">III. Specialized Units</AccordionTrigger>
+              <AccordionContent>
+                <RuleSection title="Combat Specialists">
+                  <SubRule title="First Blood">
+                    <RuleText>The first player to capture an enemy unit in a match triggers First Blood. This grants the immediate opportunity to promote a Level 1 Pawn into a Commander.</RuleText>
+                  </SubRule>
+                  <SubRule title="Commander">
+                    <RuleText>An elite front-line unit born from First Blood. They gain 'Rallying Cry' on capture (leveling up adjacent allies) and promoted into a Hero upon reaching the back rank. They are specialized 'Queen Hunters'.</RuleText>
+                  </SubRule>
+                  <SubRule title="Hero">
+                    <RuleText>The pinnacle of the Commander's path. They trigger a global 'Heroic Rally' on capture, leveling up all allied units on the board.</RuleText>
+                  </SubRule>
+                  <SubRule title="Infiltrator">
+                    <RuleText>A deadly assassin that moves and captures forward or diagonally. Captures by an Infiltrator 'Obliterate' the target, removing it from the game entirely (no resurrection). Reaching the back rank results in an instant win.</RuleText>
+                  </SubRule>
+                </RuleSection>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* IV. PIECE INDEX & SKILL TREE */}
             <AccordionItem value="pieces">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">III. Piece Index & Skill Tree</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IV. Piece Index & Skill Tree</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage)">
                   <RuleText>L2: Can move 1 square backward.</RuleText>
@@ -120,9 +141,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* IV. ELITE & UNIQUE UNITS */}
+            {/* V. ELITE & UNIQUE UNITS */}
             <AccordionItem value="unique">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IV. Elite & Unique Units</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">V. Elite & Unique Units</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Ranked Unlocks">
                   <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally.</RuleText>
@@ -130,7 +151,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 3/5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
                 <RuleSection title="Specialists">
-                  <RuleText>• Infiltrator: Capturing 'obliterates' units (removes from game). Wins game if it reaches the back rank.</RuleText>
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
                   <RuleText>• Mimic: Replicates the movement pattern of the piece that moved before it.</RuleText>
                   <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free adjacent move or swap.</RuleText>
@@ -139,9 +159,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* V. THE ROYAL GUARD */}
+            {/* VI. THE ROYAL GUARD */}
             <AccordionItem value="royalty">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">V. The Royal Guard</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VI. The Royal Guard</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Queen (Max Level 7)">
                   <RuleText>Invulnerability: At L7, the Queen cannot be captured by units below Level 8, unless they are Hero, Commander, or Infiltrator classes.</RuleText>
@@ -155,9 +175,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* VI. THE WAR PATH (KILL STREAKS) */}
+            {/* VII. THE WAR PATH (KILL STREAKS) */}
             <AccordionItem value="killstreaks">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VI. The War Path (Kill Streaks)</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VII. The War Path (Kill Streaks)</AccordionTrigger>
               <AccordionContent>
                 <RuleText>Streaks are earned by capturing units or dropping Anvils. Streaks reset if a turn ends without a capture/skill use.</RuleText>
                 <RuleSection title="Milestones">
@@ -171,29 +191,45 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* VII. ITEM DATABASE */}
-            <AccordionItem value="items">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VII. Item Database</AccordionTrigger>
+            {/* VIII. BOARD OBJECTS */}
+            <AccordionItem value="objects">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VIII. Board Objects</AccordionTrigger>
               <AccordionContent>
-                <SubRule title="Passive Equipment">
-                  <RuleText>• Mirror Shield: Reflects one capture attempt from a non-royal unit.</RuleText>
-                  <RuleText>• Soul Link: Bound units share level-ups and mutual destruction.</RuleText>
-                  <RuleText>• Cardinal/Drift Boots: Grants extra cardinal/diagonal non-capture shifts.</RuleText>
-                  <RuleText>• Silence Amulet: Adjacent enemies cannot trigger active skills or use scrolls.</RuleText>
-                  <RuleText>• Grimoir: Boosts adjacent non-royal allies by +2 effective levels.</RuleText>
-                </SubRule>
-                <SubRule title="Active Scrolls (Consumables)">
-                  <RuleText>• Wind Scroll: Pushes all units away from target empty square.</RuleText>
-                  <RuleText>• Life Leach: Reduces all enemy levels by 1 globally.</RuleText>
-                  <RuleText>• King's Decree: Promotes a Level 1 Pawn to a Commander.</RuleText>
-                  <RuleText>• Earthquake: Pushes units in a 3x3 area away from center.</RuleText>
-                </SubRule>
+                <RuleSection title="Entities">
+                  <SubRule title="Anvils">
+                    <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except by Phase Boots). They can be crushed/destroyed by self-destructs or pushed by Battering Rams.</RuleText>
+                  </SubRule>
+                  <SubRule title="Shrooms 🍄">
+                    <RuleText>Mystical fungi that spawn periodically. Moving onto a shroom consumes it, granting the unit +1 Level. For Myco Mages, shrooms also fuel their global Mushroomancy pool.</RuleText>
+                  </SubRule>
+                </RuleSection>
               </AccordionContent>
             </AccordionItem>
 
-            {/* VIII. DUNGEON MECHANICS */}
+            {/* IX. STATUS EFFECTS */}
+            <AccordionItem value="status">
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IX. Status Effects</AccordionTrigger>
+              <AccordionContent>
+                <RuleSection title="Active Afflictions">
+                  <SubRule title="Poisoned">
+                    <RuleText>A unit loses 1 Level at the end of their turn. If a Level 1 unit is poisoned, they become 'Exhausted'.</RuleText>
+                  </SubRule>
+                  <SubRule title="Exhausted">
+                    <RuleText>The unit is too tired to move or act. They must wait 2 turns for the effect to wear off.</RuleText>
+                  </SubRule>
+                  <SubRule title="Frozen">
+                    <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns.</RuleText>
+                  </SubRule>
+                  <SubRule title="Shielded">
+                    <RuleText>A protective layer (Holy Shield) that negates the next capture attempt. The shield breaks after one use.</RuleText>
+                  </SubRule>
+                </RuleSection>
+              </AccordionContent>
+            </AccordionItem>
+
+            {/* X. DUNGEON MECHANICS */}
             <AccordionItem value="dungeon">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VIII. Dungeon Survival</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">X. Dungeon Survival</AccordionTrigger>
               <AccordionContent>
                 <RuleText>• Persistence: Damage, levels, and items carry over between floors.</RuleText>
                 <RuleText>• Shrooms 🍄: Spawn every 5-10 turns. Consume for +1 Level and +1 Mana for Myco Mages.</RuleText>
@@ -202,9 +238,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* IX. THE STACK (ORDER OF OPERATIONS) */}
+            {/* XI. THE STACK (ORDER OF OPERATIONS) */}
             <AccordionItem value="stack">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IX. The Stack</AccordionTrigger>
+              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">XI. The Stack</AccordionTrigger>
               <AccordionContent>
                 <RuleText>Game events resolve in the following strict order:</RuleText>
                 <RuleText>1. Movement & Capture (Impact)</RuleText>
