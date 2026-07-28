@@ -316,7 +316,7 @@ export default function DungeonPage() {
     setTimeout(() => { setEffects(curr => curr.filter(e => e.id !== id)); }, 1500);
   }, []);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
   const isLocalActionTurn = currentPlayer === 'white';
 
   const saveDungeonState = useCallback((currentLevel: number, currentBoard: BoardState, currentP: PlayerColor, ks: any, caps: any, shroomC: number, nextShroom: number, ep: AlgebraicSquare | null, nrc: number) => {
@@ -506,6 +506,20 @@ export default function DungeonPage() {
             setColossusAwakened(true); toast({ title: "COLOSSUS AWAKENS!", description: "He can now be checkmated! Watch out for his crushing stride!", duration: 5000 });
         }
     }
+    
+    const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, lastMovedPieceType);
+
+    if (inCheck && extra) {
+        if (turnPlayer === 'white') {
+            advanceLevel(survivors, nextGraveyard);
+        } else {
+            setGameInfo({ message: "DUNGEON VICTORIOUS! YOUR KING HAS FALLEN", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' }); 
+            gameOverRef.current = true;
+            audioManager.playDefeat();
+        }
+        return;
+    }
+
     if (enemyCount === 0 || isDungeonCheckmated) {
       if (level === 50) {
           const ref = doc(firestore, 'users', user!.uid);
@@ -526,18 +540,6 @@ export default function DungeonPage() {
           }
       }
       advanceLevel(survivors, nextGraveyard); return;
-    }
-    
-    const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, lastMovedPieceType);
-    if (inCheck && extra) {
-        if (turnPlayer === 'white') {
-            advanceLevel(survivors, nextGraveyard);
-        } else {
-            setGameInfo({ message: `AUTO-CHECKMATE! DUNGEON OVERRUN`, isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' }); 
-            gameOverRef.current = true;
-            audioManager.playDefeat();
-        }
-        return;
     }
 
     if (extra) { toast({ title: "EXTRA TURN!", description: `${(userData?.username || 'Hero')} gains another move!` }); audioManager.playLevelUp(); }
@@ -778,10 +780,6 @@ export default function DungeonPage() {
                 const targetPile = p.color;
                 updatedCapturedPieces[targetPile].push({ ...p, id: p.id });
             });
-        }
-        if (result.pieceCapturedByAnvil) {
-            const targetPile = result.pieceCapturedByAnvil.color;
-            updatedCapturedPieces[targetPile].push({ ...result.pieceCapturedByAnvil!, id: result.pieceCapturedByAnvil!.id });
         }
         
         setCapturedPieces(updatedCapturedPieces);
@@ -1191,12 +1189,6 @@ export default function DungeonPage() {
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces); 
         
         const finalizedGraveyard = { ...capturedPieces };
-        if (result.pieceCapturedByAnvil) {
-            const victim = result.pieceCapturedByAnvil;
-            const targetPile = victim.color;
-            finalizedGraveyard[targetPile].push(victim);
-        }
-
         setBoard(result.newBoard); audioManager.playAnvil();
         setIsAwaitingWindScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
         setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, finalizedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
@@ -1209,11 +1201,6 @@ export default function DungeonPage() {
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces);
         
         const finalizedGraveyard = { ...capturedPieces };
-        if (result.pieceCapturedByAnvil) {
-            const victim = result.pieceCapturedByAnvil;
-            const targetPile = victim.color;
-            finalizedGraveyard[targetPile].push(victim);
-        }
         setBoard(result.newBoard); audioManager.playExplosion();
         setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
         setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, finalizedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
@@ -1418,10 +1405,6 @@ export default function DungeonPage() {
               if (capturedPiece && !isObliteration) {
                   const targetPile = capturedPiece.color;
                   updatedGraveyard[targetPile].push({ ...capturedPiece!, id: capturedPiece!.id });
-              }
-              if (result.pieceCapturedByAnvil) {
-                  const targetPile = result.pieceCapturedByAnvil.color;
-                  updatedGraveyard[targetPile].push({ ...result.pieceCapturedByAnvil!, id: result.pieceCapturedByAnvil!.id });
               }
               setCapturedPieces({ ...updatedGraveyard }); 
           }

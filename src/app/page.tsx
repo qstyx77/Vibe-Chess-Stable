@@ -756,7 +756,7 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
                     const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
@@ -883,10 +883,6 @@ export default function EvolvingChessPage() {
                 const targetPile = p.color === 'white' ? 'white' : 'black';
                 updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...p, id: p.id }];
             });
-        }
-        if (applyResult.pieceCapturedByAnvil) {
-            const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'white' : 'black';
-            updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.pieceCapturedByAnvil!, id: applyResult.pieceCapturedByAnvil!.id }];
         }
 
         setBoard(nextB);
@@ -1469,10 +1465,6 @@ export default function EvolvingChessPage() {
                         updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...p, id: p.id }];
                     });
                 }
-                if (applyResult.pieceCapturedByAnvil) {
-                    const targetPile = applyResult.pieceCapturedByAnvil.color === 'white' ? 'white' : 'black';
-                    updatedG[targetPile] = [...(updatedG[targetPile] || []), { ...applyResult.pieceCapturedByAnvil!, id: applyResult.pieceCapturedByAnvil!.id }];
-                }
 
                 setBoard(nextB); setCapturedPieces(updatedG); setKillStreaks(currentKs);
                 setTimeout(() => {
@@ -1640,7 +1632,7 @@ export default function EvolvingChessPage() {
   function fullGameReset() {
     const unlocks = userData?.unlockedPieces || [];
     let initial = initializeBoard(userData?.eloRating || 1200, 1200, unlocks, unlocks);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     
     setIsAwaitingDanceTarget(false);
     setDancerToDance(null);
@@ -1672,6 +1664,10 @@ export default function EvolvingChessPage() {
     gameOverRef.current = false;
 
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
+  }
+
+  function setShroomCounter(val: number) {
+    setShroomSpawnCounter(val);
   }
 
   function saveLoadoutToFirestore(b: BoardState, inv: InventoryItem[]) {

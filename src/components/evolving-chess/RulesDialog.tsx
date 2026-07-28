@@ -196,7 +196,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <RuleSection title="Entities">
                   <SubRule title="Anvils">
-                    <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except with Phase Boots). They can be crushed/destroyed by self-destructs or pushed by level 4+ frontline units (or Battering Rams).</RuleText>
+                    <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except with Phase Boots). They can be crushed/destroyed by self-destructs or pushed by level 4+ frontline units (or Battering Rams). Units (except Kings) crushed by a moving anvil are obliterated and removed from the game rather than entering the captured piece zone.</RuleText>
                   </SubRule>
                   <SubRule title="Shrooms 🍄">
                     <RuleText>Mystical fungi that spawn periodically. Moving onto a shroom consumes it, granting the unit +1 Level. For Myco Mages, shrooms also fuel their global Mushroomancy pool.</RuleText>

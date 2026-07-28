@@ -706,10 +706,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 room.gameState.capturedPieces[targetPile].push(p);
                             });
                         }
-                        if (rest.pieceCapturedByAnvil) {
-                            const targetPile = rest.pieceCapturedByAnvil.color;
-                            room.gameState.capturedPieces[targetPile].push(rest.pieceCapturedByAnvil);
-                        }
                         
                         if (resurrectionScrollEvent) {
                             const p = resurrectionScrollEvent.piece;
