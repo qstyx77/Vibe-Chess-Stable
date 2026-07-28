@@ -147,7 +147,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <RuleSection title="Ranked Unlocks">
                   <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally.</RuleText>
                   <RuleText>• Palace (1800 Elo): Elite Fortress. Resurrects units at their original level. Castling levels up the King.</RuleText>
-                  <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 3/5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
+                  <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
                 <RuleSection title="Dungeon Unlocks">
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
