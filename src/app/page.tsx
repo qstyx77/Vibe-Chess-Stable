@@ -289,7 +289,8 @@ export default function EvolvingChessPage() {
       hasInitializedSession.current = true;
       const elo = userData?.eloRating || 1200;
       const unlocks = userData?.unlockedPieces || [];
-      let initial = initializeBoard(elo, 1200, unlocks, unlocks);
+      // Initialize with player's Elo for both sides in the lobby
+      let initial = initializeBoard(elo, elo, unlocks, unlocks);
       
       if (userData?.equipment) {
         initial = initial.map(row => row.map(sq => {
@@ -996,7 +997,12 @@ export default function EvolvingChessPage() {
 
         setBoard(nextB);
         setCapturedPieces(updatedG);
+        const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
+        const oldS = killStreaks[currentPlayer];
+        const newS = gain > 0 ? oldS + gain : 0;
+        const currentKs = { ...killStreaks, [currentPlayer]: newS };
         setKillStreaks(currentKs);
+
         setTimeout(() => {
           setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
           if (gameOverRef.current) return;
@@ -1784,7 +1790,9 @@ export default function EvolvingChessPage() {
 
   function fullGameReset() {
     const unlocks = userData?.unlockedPieces || [];
-    let initial = initializeBoard(userData?.eloRating || 1200, 1200, unlocks, unlocks);
+    const userElo = userData?.eloRating || 1200;
+    // Apply user stats to both sides on reset
+    let initial = initializeBoard(userElo, userElo, unlocks, unlocks);
     setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceHeldItem(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
     
     setIsAwaitingDanceTarget(false);
