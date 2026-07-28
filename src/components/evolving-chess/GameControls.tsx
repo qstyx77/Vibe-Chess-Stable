@@ -50,12 +50,27 @@ export function GameControls({
 }: GameControlsProps) {
   const { messages, friends, sendMessage, acceptChallenge } = useSocial();
   const [chatInput, setChatInput] = useState('');
-  const [category, setCategory] = useState<MessageCategory>('battle');
+  
+  // Multi-select state for filtering visibility
+  const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log']));
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const toggleCategory = (cat: MessageCategory) => {
+    const next = new Set(visibleCategories);
+    if (next.has(cat)) {
+        // Prevent hiding EVERYTHING if you want, or just allow it. 
+        // We'll allow it for full user control.
+        next.delete(cat);
+    } else {
+        next.add(cat);
+    }
+    setVisibleCategories(next);
+  };
+
   const filteredMessages = useMemo(() => {
-      return messages.filter(m => m.category === category);
-  }, [messages, category]);
+      return messages.filter(m => visibleCategories.has(m.category));
+  }, [messages, visibleCategories]);
 
   const timerDisplay = onlineStatus === 'connected' ? (turnTimer !== null ? turnTimer.toString().padStart(2, '0') : '45') : '00';
 
@@ -68,7 +83,9 @@ export function GameControls({
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
-      sendMessage(chatInput.trim(), category);
+      // Logic: if battle is visible, we send a battle message. 
+      // If only social is visible, we might want to default to that, but normally we just send battle for the room.
+      sendMessage(chatInput.trim(), 'battle');
       setChatInput('');
     }
   };
@@ -90,7 +107,13 @@ export function GameControls({
     );
   };
 
-  const isOnline = onlineStatus === 'connected' || onlineStatus === 'waiting';
+  const getMessageColor = (msg: ChatMessage) => {
+      if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; // Cyan
+      if (msg.category === 'social') return 'text-accent'; // Magenta
+      if (msg.color === 'white') return 'text-foreground'; // White
+      if (msg.color === 'black') return 'text-secondary'; // Blue
+      return 'text-muted-foreground';
+  };
 
   return (
     <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative">
@@ -109,53 +132,58 @@ export function GameControls({
         <CardContent className="p-2 flex flex-col h-full space-y-2 pt-8">
           <div className="flex gap-1 justify-center">
               <Button 
-                variant={category === 'battle' ? 'default' : 'outline'} 
+                variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
                 size="sm" 
                 className="h-6 text-[8px] uppercase font-pixel px-2"
-                onClick={() => setCategory('battle')}
+                onClick={() => toggleCategory('battle')}
               >
-                <Sword className="h-3 w-3 mr-1" /> Battle
+                <Sword className={cn("h-3 w-3 mr-1", !visibleCategories.has('battle') && "opacity-50")} /> Battle
               </Button>
               <Button 
-                variant={category === 'social' ? 'default' : 'outline'} 
+                variant={visibleCategories.has('social') ? 'default' : 'outline'} 
                 size="sm" 
                 className="h-6 text-[8px] uppercase font-pixel px-2"
-                onClick={() => setCategory('social')}
+                onClick={() => toggleCategory('social')}
               >
-                <Users className="h-3 w-3 mr-1" /> Social
+                <Users className={cn("h-3 w-3 mr-1", !visibleCategories.has('social') && "opacity-50")} /> Social
               </Button>
               <Button 
-                variant={category === 'log' ? 'default' : 'outline'} 
+                variant={visibleCategories.has('log') ? 'default' : 'outline'} 
                 size="sm" 
                 className="h-6 text-[8px] uppercase font-pixel px-2"
-                onClick={() => setCategory('log')}
+                onClick={() => toggleCategory('log')}
               >
-                <ScrollText className="h-3 w-3 mr-1" /> Log
+                <ScrollText className={cn("h-3 w-3 mr-1", !visibleCategories.has('log') && "opacity-50")} /> Log
               </Button>
           </div>
 
           <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[150px]" ref={scrollRef}>
             <div className="space-y-2">
               {filteredMessages.length === 0 ? (
-                <p className="text-[0.65rem] text-muted-foreground text-center italic mt-10">No entries yet.</p>
+                <div className="flex flex-col items-center justify-center h-full opacity-30 mt-10">
+                    <p className="text-[0.65rem] text-muted-foreground text-center italic">Select categories to view logs.</p>
+                </div>
               ) : (
                 filteredMessages.map((msg) => (
-                  <div key={msg.id} className="flex flex-col">
+                  <div key={msg.id} className="flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
                     <div className="flex items-start gap-1">
-                      <UserInteractionPopover userId={msg.senderId || ''} username={msg.sender}>
-                        <span className={cn(
-                            "text-[0.6rem] font-bold uppercase",
-                            msg.sender === 'SYSTEM' ? 'text-primary' : (msg.color === 'white' ? 'text-foreground' : 'text-secondary')
-                        )}>
-                            {msg.sender}:
-                        </span>
-                      </UserInteractionPopover>
+                      {msg.sender !== 'SYSTEM' ? (
+                        <UserInteractionPopover userId={msg.senderId || ''} username={msg.sender}>
+                            <span className={cn("text-[0.6rem] font-bold uppercase", getMessageColor(msg))}>
+                                {msg.sender}:
+                            </span>
+                        </UserInteractionPopover>
+                      ) : (
+                        <span className="text-[0.6rem] font-bold uppercase text-primary">[SYS]:</span>
+                      )}
                       <div className="flex flex-col gap-1 flex-1">
-                        <span className="text-[0.65rem] break-words">{msg.text}</span>
-                        {msg.isChallenge && category === 'social' && (
+                        <span className={cn("text-[0.65rem] break-words font-pixel leading-tight tracking-tight", getMessageColor(msg))}>
+                            {msg.text}
+                        </span>
+                        {msg.isChallenge && (
                             <Button 
                                 size="sm" 
-                                className="h-6 text-[8px] uppercase font-pixel w-20"
+                                className="h-6 text-[8px] uppercase font-pixel w-20 mt-1 border-2 border-primary bg-primary/20 hover:bg-primary text-foreground"
                                 onClick={() => acceptChallenge(msg.challengeRoomId!)}
                             >
                                 Accept
@@ -169,37 +197,33 @@ export function GameControls({
             </div>
           </ScrollArea>
           
-          {category !== 'log' && (
-            <form onSubmit={handleSend} className="flex gap-1">
+          <form onSubmit={handleSend} className="flex gap-1">
                 <Input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type..."
-                className="h-7 text-xs font-sans"
+                placeholder="Message battle room..."
+                className="h-7 text-xs font-sans bg-background"
                 maxLength={200}
                 />
                 <Button type="submit" size="sm" variant="secondary" className="h-7 px-2">
                 <Send className="h-3 w-3" />
                 </Button>
-            </form>
-          )}
+          </form>
 
-          {category === 'social' && (
-              <div className="border-t pt-2 mt-2">
-                  <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1">Online Friends</h4>
-                  <div className="flex gap-1 overflow-x-auto pb-1">
-                      {friends.map(f => (
-                          <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
-                             <div className="flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/20">
-                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[8px] text-foreground uppercase">{f.username}</span>
-                             </div>
-                          </UserInteractionPopover>
-                      ))}
-                      {friends.length === 0 && <p className="text-[7px] text-muted-foreground italic">Add friends via the leaderboard!</p>}
-                  </div>
+          <div className="border-t pt-2 mt-1">
+              <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1">Online Friends</h4>
+              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+                  {friends.map(f => (
+                      <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
+                         <div className="flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/20 hover:border-primary/50 transition-colors">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[8px] text-foreground uppercase">{f.username}</span>
+                         </div>
+                      </UserInteractionPopover>
+                  ))}
+                  {friends.length === 0 && <p className="text-[7px] text-muted-foreground italic">Click any name to add friends!</p>}
               </div>
-          )}
+          </div>
         </CardContent>
       ) : (
         <CardContent className="space-y-0.5 flex-grow flex flex-col p-1.5">
@@ -256,3 +280,4 @@ export function GameControls({
     </Card>
   );
 }
+
