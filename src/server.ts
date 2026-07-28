@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -23,7 +24,7 @@ import {
     syncSoulLink,
     isItemValidForPiece
 } from './lib/chess-utils';
-import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType } from './types';
+import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage } from './types';
 
 
 const server = http.createServer((req, res) => {
@@ -41,7 +42,8 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
+const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string, username?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
+const userConnections: Record<string, (WebSocket & { userId?: string, roomId?: string, username?: string })> = {};
 let globalServerUniqueIdCounter = 10000;
 
 const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; equipment?: Record<string, string>; unlockedPieces?: string[]; timestamp: number }[] = [];
@@ -405,7 +407,7 @@ const processRankedQueue = async () => {
 setInterval(processRankedQueue, 5000);
 
 
-wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
+wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, username?: string }) => {
     ws.on('message', async (message) => {
         try {
             const data = JSON.parse(message.toString());
@@ -413,24 +415,55 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
             const actingColor: PlayerColor = room && room.clients[0].userId === ws.userId ? 'white' : 'black';
 
             switch (data.type) {
-                case 'chat-message':
-                    if (room) {
-                        broadcastToRoom(ws.roomId!, {
+                case 'identify':
+                    ws.userId = data.userId;
+                    ws.username = data.username;
+                    userConnections[data.userId] = ws;
+                    break;
+                case 'challenge-friend':
+                    const friendWs = userConnections[data.friendId];
+                    if (friendWs && friendWs.readyState === WebSocket.OPEN) {
+                        friendWs.send(JSON.stringify({
                             type: 'chat-message',
                             message: {
-                                id: `msg_${Date.now()}`,
-                                sender: data.sender,
-                                text: data.text,
+                                id: `chal_${Date.now()}`,
+                                sender: data.senderName,
+                                senderId: ws.userId,
+                                text: `Hero ${data.senderName} has challenged you to a duel!`,
                                 timestamp: Date.now(),
-                                color: data.color
+                                category: 'social',
+                                isChallenge: true,
+                                challengeRoomId: data.roomId
                             }
-                        });
+                        }));
+                    }
+                    break;
+                case 'chat-message':
+                    const msg: ChatMessage = {
+                        id: `msg_${Date.now()}`,
+                        sender: data.sender,
+                        senderId: data.senderId,
+                        text: data.text,
+                        timestamp: Date.now(),
+                        color: data.color,
+                        category: data.category
+                    };
+                    
+                    if (data.category === 'battle' && ws.roomId) {
+                        broadcastToRoom(ws.roomId, { type: 'chat-message', message: msg });
+                    } else if (data.category === 'social' && data.targetId) {
+                        const target = userConnections[data.targetId];
+                        if (target && target.readyState === WebSocket.OPEN) {
+                            target.send(JSON.stringify({ type: 'chat-message', message: msg }));
+                        }
+                        ws.send(JSON.stringify({ type: 'chat-message', message: msg }));
                     }
                     break;
                 case 'create-room': {
                     const roomId = Math.random().toString(36).substring(2, 9);
                     ws.roomId = roomId;
                     ws.userId = data.user?.userId;
+                    ws.username = data.user?.username;
                     
                     let board = initializeBoard(data.user?.elo || 1200, 1200, data.user?.unlockedPieces || []);
                     board = applyEquipment(board, data.user?.equipment, 'white');
@@ -473,6 +506,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                     if (roomToJoin && roomToJoin.clients.length < 2) {
                         ws.roomId = data.roomId;
                         ws.userId = data.user?.userId;
+                        ws.username = data.user?.username;
                         roomToJoin.clients.push(ws);
                         roomToJoin.gameState.players.black = data.user ? { userId: data.user.userId, username: data.user.username, elo: data.user.elo, wins: data.user.wins, losses: data.user.losses, equipment: data.user.equipment, unlockedPieces: data.user.unlockedPieces || [] } : null;
                         
@@ -567,7 +601,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             const responsibleArcher = archers.find((a: Piece) => a.level >= (targetPiece.level || 1));
                             
                             if (responsibleArcher) {
-                                // Level up the responsible archer
                                 const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[targetPiece.type] || 0;
                                 responsibleArcher.level += gain;
 
@@ -598,7 +631,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const piece = room.gameState.board[row]?.[col]?.piece;
                         if (piece && (piece.type === 'pawn' || piece.type === 'commander' || ['dancer', 'mimic', 'grappler', 'myco_mage'].includes(piece.type) || nextPromoInQueue.fromResurrection)) {
                             
-                            // Equipment Return Logic
                             if (piece.heldItem && !isItemValidForPiece(piece.heldItem, promoteTo)) {
                               ws.send(JSON.stringify({ type: 'equipment-returned', item: piece.heldItem }));
                               piece.heldItem = null;
@@ -659,7 +691,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             const isCardinal = fr === tr || fc === tc;
                             const isDiagonal = Math.abs(fr - tr) === Math.abs(fc - tc);
                             if (dist <= effLevel && (isCardinal || isDiagonal) && dist > 0) isLegal = true;
-                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(moveType)) {
+                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession'].includes(moveType)) {
                             const effLevel = getEffectiveLevel(room.gameState.board, fromCoords.row, fromCoords.col);
                             const hItem = movingPieceStart.heldItem;
                             if (from === to || ['tele-portobello', 'spore-bomb'].includes(moveType)) {
@@ -897,6 +929,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
     ws.on('close', () => {
         const qIdx = rankedQueue.findIndex(p => p.ws === ws);
         if (qIdx > -1) rankedQueue.splice(qIdx, 1);
+        if (ws.userId) delete userConnections[ws.userId];
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {

@@ -1,3 +1,4 @@
+
 export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer' | 'mimic' | 'grappler' | 'myco_mage';
 export type ItemType = 'anvil' | 'shroom';
@@ -358,10 +359,23 @@ export interface AIGameState {
   lastMovedPieceHeldItem?: InventoryItemType | null;
 }
 
+export type MessageCategory = 'battle' | 'social' | 'log';
+
 export interface ChatMessage {
   id: string;
   sender: string;
+  senderId?: string;
   text: string;
   timestamp: number;
   color?: PlayerColor;
+  category: MessageCategory;
+  isChallenge?: boolean;
+  challengeRoomId?: string;
+}
+
+export interface Friend {
+  id: string;
+  username: string;
+  status: 'accepted' | 'pending' | 'blocked';
+  lastActive?: number;
 }

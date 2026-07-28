@@ -1,17 +1,18 @@
 
 import type {Metadata, Viewport} from 'next';
-import { Geist, Geist_Mono } from 'next/font/google'; // Corrected import name
+import { Geist, Geist_Mono } from 'next/font/google';
 import { Press_Start_2P } from 'next/font/google';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"; // Added Toaster
+import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase';
+import { SocialProvider } from '@/components/social/SocialContext';
 
-const geistSans = Geist({ // Corrected function name
+const geistSans = Geist({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
 
-const geistMono = Geist_Mono({ // Corrected function name
+const geistMono = Geist_Mono({
   variable: '--font-geist-mono',
   subsets: ['latin'],
 });
@@ -42,10 +43,12 @@ export default function RootLayout({
     <html lang="en" className={`${pressStart2P.variable}`}>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased h-screen flex flex-col`}>
         <FirebaseClientProvider>
-          <main className="flex-grow flex flex-col">
-            {children}
-          </main>
-          <Toaster />
+          <SocialProvider>
+            <main className="flex-grow flex flex-col">
+              {children}
+            </main>
+            <Toaster />
+          </SocialProvider>
         </FirebaseClientProvider>
       </body>
     </html>
