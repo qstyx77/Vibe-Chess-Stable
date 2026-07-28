@@ -153,7 +153,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <RuleSection title="Dungeon Unlocks">
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
                   <RuleText>• Mimic: Replicates the movement pattern of the piece that moved before it.</RuleText>
-                  <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free adjacent move or swap.</RuleText>
+                  <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free move forward or swap with an allied or enemy piece.</RuleText>
                   <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level).</RuleText>
                 </RuleSection>
               </AccordionContent>
@@ -181,7 +181,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <RuleText>Streaks are earned by capturing units in consecutive turns. Streaks reset if a turn ends without a capture.</RuleText>
                 <RuleSection title="Milestones">
-                  <RuleText>KS 1: Dance (Dancers only - Allows a free adjacent move or swap with an allied piece).</RuleText>
+                  <RuleText>KS 1: Dance (Dancers only - Allows a free move forward or swap with an allied or enemy piece).</RuleText>
                   <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move).</RuleText>
                   <RuleText>KS 3: Anvil Drop (Drop an impassable obstacle on any empty square).</RuleText>
                   <RuleText>KS 4: Resurrection (Resurrects a random captured ally to a random open space on the board at L1).</RuleText>
@@ -197,7 +197,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <RuleSection title="Entities">
                   <SubRule title="Anvils">
-                    <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except by Phase Boots). They can be crushed/destroyed by self-destructs or pushed by Battering Rams.</RuleText>
+                    <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except with Phase Boots). They can be crushed/destroyed by self-destructs or pushed by level 4+ frontline units (or Battering Rams).</RuleText>
                   </SubRule>
                   <SubRule title="Shrooms 🍄">
                     <RuleText>Mystical fungi that spawn periodically. Moving onto a shroom consumes it, granting the unit +1 Level. For Myco Mages, shrooms also fuel their global Mushroomancy pool.</RuleText>
