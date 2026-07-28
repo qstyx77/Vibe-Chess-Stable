@@ -88,6 +88,7 @@ interface MycoSpellMenuProps {
   isOpen: boolean;
   onSelectSpell: (spell: MycoSpell) => void;
   mana: number;
+  onOpenChange?: (open: boolean) => void;
 }
 
 const spells: { id: MycoSpell, name: string, cost: number, description: string, icon: any }[] = [
@@ -121,9 +122,9 @@ const spells: { id: MycoSpell, name: string, cost: number, description: string, 
   },
 ];
 
-export function MycoSpellMenu({ isOpen, onSelectSpell, mana }: MycoSpellMenuProps) {
+export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: MycoSpellMenuProps) {
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onSelectSpell(null as any); }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); } }}>
       <DialogContent className="sm:max-w-[450px] bg-card border-2 border-primary/50 font-pixel p-4">
         <DialogHeader className="space-y-1">
           <div className="flex items-center justify-center gap-2">
@@ -170,7 +171,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana }: MycoSpellMenuProp
           })}
         </div>
         <div className="text-center pt-2">
-            <Button variant="ghost" className="font-pixel text-[10px] uppercase h-8" onClick={() => onSelectSpell(null as any)}>Cancel Casting</Button>
+            <Button variant="ghost" className="font-pixel text-[10px] uppercase h-8" onClick={() => { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); }}>Cancel Casting</Button>
         </div>
       </DialogContent>
     </Dialog>
