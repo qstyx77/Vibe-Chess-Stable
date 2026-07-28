@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -178,12 +179,12 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="killstreaks">
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VII. The War Path (Kill Streaks)</AccordionTrigger>
               <AccordionContent>
-                <RuleText>Streaks are earned by capturing units or dropping Anvils. Streaks reset if a turn ends without a capture/skill use.</RuleText>
+                <RuleText>Streaks are earned by capturing units in consecutive turns. Streaks reset if a turn ends without a capture.</RuleText>
                 <RuleSection title="Milestones">
-                  <RuleText>KS 1: Dance (Dancers only - extra shift).</RuleText>
+                  <RuleText>KS 1: Dance (Dancers only - Allows a free adjacent move or swap with an allied piece).</RuleText>
                   <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move).</RuleText>
                   <RuleText>KS 3: Anvil Drop (Drop an impassable obstacle on any empty square).</RuleText>
-                  <RuleText>KS 4: Resurrection (Strongest ally returns to the board at L1).</RuleText>
+                  <RuleText>KS 4: Resurrection (Resurrects a random captured ally to a random open space on the board at L1).</RuleText>
                   <RuleText>KS 5: Archer Snipe (Global targeting for Archers).</RuleText>
                   <RuleText>KS 6: Extra Turn (Take a second move immediately).</RuleText>
                 </RuleSection>
