@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -49,7 +48,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[90vh] font-sans overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle className="text-primary text-center text-xl font-medium uppercase font-pixel tracking-tighter">
-            VIBE CHESS - MASTER RULEBOOK (DRAFT 11)
+            VIBE CHESS - RULEBOOK 
           </DialogTitle>
           <DialogDescription className="sr-only">
             Comprehensive Game Rules
@@ -231,7 +230,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <RuleText>• Persistence: Damage, levels, and items carry over between floors.</RuleText>
                 <RuleText>• Shrooms 🍄: Spawn every 5-10 turns. Consume for +1 Level and +1 Mana for Myco Mages.</RuleText>
                 <RuleText>• Bosses: Every 10 floors features a unique entity (Hydra, Necromancer, Colossus, etc.) with custom passive traits.</RuleText>
-                <RuleText>• Floor Collapse: If the Dungeon Army cannot move for 3 turns, they explode, clearing the floor and advancing you.</RuleText>
+                <RuleText>• Floor Collapse: If the dungeon enemy cannot move any pieces for 3 turns in a row, all of their remaining pieces self destruct, destroying your adjacent pieces and advancing you to the next floor.</RuleText>
               </AccordionContent>
             </AccordionItem>
 
