@@ -630,20 +630,24 @@ export default function DungeonPage() {
         }
     }
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
-    const archers = pieces.filter(p => p.type === 'archer');
-    const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
+    const snipers = pieces.filter(p => {
+        if (p.type === 'archer') return true;
+        const coords = boardToChain.flat().find(sq => sq.piece?.id === p.id);
+        if (p.type === 'knight' && p.heldItem === 'shortbow' && coords && getEffectiveLevel(boardToChain, coords.rowIndex, coords.colIndex) >= 3) return true;
+        return false;
+    });
+    const maxSniperLevel = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
     const hasCrossbow = pieces.some(p => p.type === 'archer' && p.color === actingPlayer && p.heldItem === 'crossbow');
-    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && archers.length > 0 && !completedMilestones.includes('snipe')) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
+    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0 && !completedMilestones.includes('snipe')) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
     if (isSnipeTime) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxArcherLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.id.startsWith('boss-colossus'));
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.id.startsWith('boss-colossus'));
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const v = victims[Math.floor(Math.random() * victims.length)]; const {row: row_v, col: col_v} = algebraicToCoords(v.algebraic);
                 const sniped = { ...nextBoard[row_v][col_v].piece!, id: nextBoard[row_v][col_v].piece!.id };
-                const aiArchers = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'black' && sq.piece.type === 'archer').map(sq => sq.piece!);
-                const responsibleAIArcher = aiArchers.find(a => a.level >= (v.piece?.level || 1));
+                const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) { const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; responsibleAIArcher.level += gain; }
                 const targetPile = sniped.color;
                 nextGraveyard[targetPile].push(sniped);
@@ -1251,9 +1255,15 @@ export default function DungeonPage() {
         return;
     }
     if (isAwaitingArcherSnipe) {
-        const myArchers = board.flat().filter(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.type === 'archer').map(sq => sq.piece!);
+        const snipers = board.flat().filter(sq => {
+            const p = sq.piece;
+            if (!p || p.color !== currentPlayer) return false;
+            if (p.type === 'archer') return true;
+            if (p.type === 'knight' && p.heldItem === 'shortbow' && getEffectiveLevel(board, sq.rowIndex, sq.colIndex) >= 3) return true;
+            return false;
+        }).map(sq => sq.piece!);
         if (piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen' && !piece.id.startsWith('boss-colossus')) {
-            const responsibleArcher = myArchers.find(a => a.level >= piece.level);
+            const responsibleArcher = snipers.find(a => a.level >= piece.level);
             if (responsibleArcher) {
                 const nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const {row: tr, col: tc} = algebraicToCoords(algebraic); const snipedPieceData = nextBoard[row][col].piece; if (!snipedPieceData) return;
@@ -1510,7 +1520,7 @@ export default function DungeonPage() {
       </div>
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { const target = parseInt(type.split('_')[2]); warpToLevel(target, type); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
-      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} />
+      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       <RulesDialog isOpen={false} onOpenChange={() => {}} /> 
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle className="font-pixel text-primary uppercase">Reset Run?</AlertDialogTitle> <AlertDialogDescription> This will erase your current floor progress and return you to Floor 1. All dungeon captures and streaks will be lost. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel className="font-pixel text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="bg-destructive font-pixel text-[10px] uppercase" onClick={handleResetRun}>Confirm Reset</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
       <AlertDialog open={abilityChoiceDialog?.isOpen} > <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle>Select Action</AlertDialogTitle> <AlertDialogDescription> This piece has multiple special actions available. Choose one to perform. </AlertDialogDescription> </AlertDialogHeader> <div className="flex flex-col gap-2"> <Button onClick={() => abilityChoiceDialog?.onChoice('ability')}> Use Piece Ability </Button> <Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}> Use Magic Item (Spell) </Button> </div> <AlertDialogFooter> <AlertDialogCancel onClick={() => setAbilityChoiceDialog(void 0)}>Cancel</AlertDialogCancel> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>

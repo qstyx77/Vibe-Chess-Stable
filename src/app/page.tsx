@@ -739,24 +739,29 @@ export default function EvolvingChessPage() {
     }
 
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
-    const archers = pieces.filter(p => p.type === 'archer');
-    const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
+    const snipers = pieces.filter(p => {
+        if (p.type === 'archer') return true;
+        const coords = boardToChain.flat().find(sq => sq.piece?.id === p.id);
+        if (p.type === 'knight' && p.heldItem === 'shortbow' && coords && getEffectiveLevel(boardToChain, coords.rowIndex, coords.colIndex) >= 3) return true;
+        return false;
+    });
+    const maxSniperLevel = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
     const hasCrossbow = pieces.some(p => p.type === 'archer' && p.color === actingPlayer && p.heldItem === 'crossbow');
-    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && archers.length > 0 && !completedMilestones.includes('snipe')) || 
+    const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0 && !completedMilestones.includes('snipe')) || 
                         (newStreak >= 3 && oldStreak < 3 && hasCrossbow && !completedMilestones.includes('snipe'));
 
     if (!silenced && isSnipeTime) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxArcherLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const v = victims[Math.floor(Math.random() * victims.length)];
                 const {row, col} = algebraicToCoords(v.algebraic);
-                const responsibleAIArcher = archers.find(a => a.level >= (v.piece?.level || 1));
+                const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
                     const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
@@ -1110,7 +1115,7 @@ export default function EvolvingChessPage() {
         }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
         const isAdjacent = Math.abs(fr - row) <= 1 && Math.abs(fc - col) <= 1 && (fr !== row || fc !== col);
-        const dir = currentPlayer === 'white' ? -1 : 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
         const isOneForward = row === fr + dir && col === fc;
         if (isOneForward || isAdjacent) {
             let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
@@ -1206,9 +1211,15 @@ export default function EvolvingChessPage() {
 
     if (isAwaitingArcherSnipe) {
         const oppColor = currentPlayer === 'white' ? 'black' : 'white';
-        const myArchers = board.flat().filter(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.type === 'archer').map(sq => sq.piece!);
+        const snipers = board.flat().filter(sq => {
+            const p = sq.piece;
+            if (!p || p.color !== currentPlayer) return false;
+            if (p.type === 'archer') return true;
+            if (p.type === 'knight' && p.heldItem === 'shortbow' && getEffectiveLevel(board, sq.rowIndex, sq.colIndex) >= 3) return true;
+            return false;
+        }).map(sq => sq.piece!);
         if (piece && piece.color === oppColor && piece.type !== 'king' && piece.type !== 'queen') {
-            const responsibleArcher = myArchers.find(a => a.level >= piece.level);
+            const responsibleArcher = snipers.find(a => a.level >= piece.level);
             if (responsibleArcher) {
                 if (onlineStatus === 'connected') {
                     wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic }));

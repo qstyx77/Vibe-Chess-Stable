@@ -57,7 +57,10 @@ export type InventoryItemType =
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
   | 'portal_scroll_40'
-  | 'portal_scroll_50';
+  | 'portal_scroll_50'
+  | 'sclerotia'
+  | 'shortbow'
+  | 'smoke_bomb';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -91,7 +94,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'antidote': { name: 'Antidote', description: 'Consumable. Cures all allied units of poison.', isConsumable: true },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },
-  'getonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
+  'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
   'phase_boots': { name: 'Phase Boots', description: 'Ethereal boots (L2+). Jump over friendly pieces while moving.', isConsumable: false },
   'swap_scroll': { name: 'Swap Scroll', description: 'Consumable (L3+). Trade places with another allied piece.', isConsumable: true },
   'grimoir': { name: 'Grimoir', description: 'Dark book. Boosts adjacent non-Royal allies by +2 levels.', isConsumable: false },
@@ -124,6 +127,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30 (Boss).', isConsumable: true },
   'portal_scroll_40': { name: 'F40 Portal', description: 'Warp to Floor 40 (Boss).', isConsumable: true },
   'portal_scroll_50': { name: 'F50 Portal', description: 'Warp to Floor 50 (Final Boss).', isConsumable: true },
+  'sclerotia': { name: 'Sclerotia', description: 'Mushroom amulet. Myco Mage only. Adds 1 Shroom Mana every 4 turns.', isConsumable: false },
+  'shortbow': { name: 'Shortbow', description: 'Ranged tool. Knight only. Enables Archer Snipe (KS 5) if Level 3+.', isConsumable: false },
+  'smoke_bomb': { name: 'Smoke Bomb', description: 'Escape tool. On capture, wearer escapes to random empty back rank square. Consumable.', isConsumable: true },
 };
 
 export interface Piece {

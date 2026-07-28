@@ -238,11 +238,13 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
   if (item === 'swift_cloak') return (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type));
   if (item === 'queens_peace') return (type === 'queen');
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'battering_ram') return (type === 'rook' || type === 'palace');
   if (item === 'crossbow') return (type === 'archer');
+  if (item === 'shortbow') return (type === 'knight');
+  if (item === 'sclerotia') return (type === 'myco_mage');
   if (item === 'detonation_scroll') return (type !== 'king');
   if (item === 'kings_decree') return (type === 'king');
   if (item === 'monks_robe') return (type === 'bishop' || type === 'archbishop');
@@ -385,8 +387,10 @@ export function getPossibleMovesInternal(
     if (isValidSquare(fromRow + dir, fromCol) && !board[fromRow + dir][fromCol].piece) {
         possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
         const startRank = pieceColor === 'white' ? 6 : 1;
-        if (fromRow === startRank && isValidSquare(fromRow + 2 * dir, fromCol) && !board[fromRow + 2 * dir][fromCol].piece && !board[fromRow + dir][fromCol].piece) {
-            possible.push(coordsToAlgebraic(fromRow + 2 * dir, fromCol));
+        const jumpTarget = fromRow + 2 * dir;
+        const canJumpStart = (!piece.hasMoved && fromRow === startRank) || piece.heldItem === 'swift_cloak';
+        if (canJumpStart && isValidSquare(jumpTarget, fromCol) && !board[jumpTarget][fromCol].piece && !board[fromRow + dir][fromCol].piece) {
+            possible.push(coordsToAlgebraic(jumpTarget, fromCol));
         }
     }
     [-1, 1].forEach(dc => {
@@ -1142,7 +1146,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'earthquake-scroll') {
       const crush = triggerPushBack(newBoard, toRow, toCol, movingPiece.color);
       if (crush) pieceCapturedByAnvil = crush;
-      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
@@ -1208,6 +1212,22 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         promotedToInfiltrator = true;
     } else { captured = null; }
   } else if (targetPiece && targetPiece.color !== movingPiece.color) { captured = { ...targetPiece }; }
+
+  if (captured && captured.heldItem === 'smoke_bomb') {
+      const backRank = captured.color === 'white' ? 7 : 0;
+      const emptyBackRankSquares = [];
+      for (let c = 0; c < 8; c++) {
+          if (!newBoard[backRank][c].piece && !newBoard[backRank][c].item) {
+              emptyBackRankSquares.push(coordsToAlgebraic(backRank, c));
+          }
+      }
+      if (emptyBackRankSquares.length > 0) {
+          const escapeSq = emptyBackRankSquares[Math.floor(Math.random() * emptyBackRankSquares.length)];
+          const { row: er, col: ec } = algebraicToCoords(escapeSq);
+          newBoard[er][ec].piece = { ...captured, heldItem: null, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+          captured = null; 
+      }
+  }
 
   if (captured && captured.heldItem === 'soul_link') {
     newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === captured.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== captured.id) { sq.piece = null; } }));
@@ -1418,7 +1438,7 @@ export function triggerConversion(board: BoardState, r: number, c: number, color
       if(v && v.color !== color && v.type !== 'king' && Math.random() < threshold) {
         const orig = {...v};
         v.color = color; v.id = `conv_${v.id}_${Date.now()}`;
-        events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...converter}, at: coordsToAlgebraic(nr, nc) });
+        events.push({ originalPiece: orig, convertedPiece: {...v}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
       }
     }
   }
@@ -1454,9 +1474,15 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
           if (p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) p.cooldownTurnsRemaining--;
           if (p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0) p.frozenTurnsRemaining--;
           if (p.isPoisoned && p.level > 1) p.level--;
+          
           if (p.heldItem === 'training_weights') {
             const count = (p.itemTurnCount || 0) + 1;
             if (count >= 3) { if (p.type !== 'queen' || p.level < 7) p.level++; p.itemTurnCount = 0; } else p.itemTurnCount = count;
+          }
+
+          if (p.heldItem === 'sclerotia' && p.type === 'myco_mage') {
+            const count = (p.itemTurnCount || 0) + 1;
+            if (count >= 4) { p.shroomMana = (p.shroomMana || 0) + 1; p.itemTurnCount = 0; } else p.itemTurnCount = count;
           }
         }
     }));

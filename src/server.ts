@@ -553,7 +553,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         const { row, col } = algebraicToCoords(data.square);
                         const targetPiece = room.gameState.board[row]?.[col]?.piece;
                         if (targetPiece && targetPiece.color !== actingColor && targetPiece.type !== 'king' && targetPiece.type !== 'queen') {
-                            const archers = room.gameState.board.flat().filter((sq: any) => sq.piece && sq.piece.color === actingColor && sq.piece.type === 'archer').map((sq: any) => sq.piece);
+                            const archers = room.gameState.board.flat().filter((sq: any) => {
+                                const p = sq.piece;
+                                if (!p || p.color !== actingColor) return false;
+                                if (p.type === 'archer') return true;
+                                if (p.type === 'knight' && p.heldItem === 'shortbow' && getEffectiveLevel(room.gameState.board, sq.rowIndex, sq.colIndex) >= 3) return true;
+                                return false;
+                            }).map((sq: any) => sq.piece);
                             const responsibleArcher = archers.find((a: Piece) => a.level >= (targetPiece.level || 1));
                             
                             if (responsibleArcher) {
@@ -833,16 +839,22 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             }
                         }
 
-                        const archers = finalizedBoard.flat().filter(sq => sq.piece && sq.piece.color === movingPlayer && sq.piece.type === 'archer').map(sq => sq.piece);
-                        const maxArcherLevel = archers.length > 0 ? Math.max(...archers.map(a => a.level || 1)) : 0;
+                        const snipers = finalizedBoard.flat().filter(sq => {
+                            const p = sq.piece;
+                            if (!p || p.color !== movingPlayer) return false;
+                            if (p.type === 'archer') return true;
+                            if (p.type === 'knight' && p.heldItem === 'shortbow' && getEffectiveLevel(finalizedBoard, sq.rowIndex, sq.colIndex) >= 3) return true;
+                            return false;
+                        }).map(sq => sq.piece);
+                        const maxSniperLevel = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
                         const hasCrossbow = finalizedBoard.flat().some(sq => sq.piece?.type === 'archer' && sq.piece.color === movingPlayer && sq.piece.heldItem === 'crossbow');
                         
-                        if ((newStreak >= 5 && oldStreak < 5 && archers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow)) {
+                        if ((newStreak >= 5 && oldStreak < 5 && snipers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow)) {
                             const opponentColorForSnipe = movingPlayer === 'white' ? 'black' : 'white';
                             const hasVictims = finalizedBoard.flat().some(sq => 
                                 sq.piece && 
                                 sq.piece.color === opponentColorForSnipe && 
-                                sq.piece.level <= maxArcherLevel && 
+                                sq.piece.level <= maxSniperLevel && 
                                 sq.piece.type !== 'king' && 
                                 sq.piece.type !== 'queen'
                             );

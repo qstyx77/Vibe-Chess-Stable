@@ -294,12 +294,14 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           </svg>
         );
       case 'crossbow':
+      case 'shortbow':
+        const bowColor = type === 'crossbow' ? '#475569' : '#92400E';
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="1" y="2" width="8" height="2" fill="#78350F" />
             <rect x="0" y="3" width="2" height="2" fill="#78350F" />
             <rect x="8" y="3" width="2" height="2" fill="#78350F" />
-            <rect x="4" y="1" width="2" height="10" fill="#475569" />
+            <rect x="4" y="1" width="2" height="10" fill={bowColor} />
             <rect x="3" y="10" width="4" height="2" fill="#78350F" />
             <rect x="2" y="3" width="6" height="1" fill="#CBD5E1" opacity="0.5" />
           </svg>
@@ -441,6 +443,24 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="8" width="2" height="2" fill="#EAB308" />
             <rect x="2" y="10" width="6" height="1" fill="#EAB308" />
             <circle cx="5" cy="4" r="1.5" fill="#FFF" opacity="0.5" />
+          </svg>
+        );
+      case 'sclerotia':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="4" width="8" height="4" fill="#78350F" />
+            <circle cx="5" cy="6" r="3" fill="#10B981" />
+            <rect x="4" y="3" width="2" height="1" fill="#FFF" opacity="0.5" />
+            <rect x="4" y="9" width="2" height="1" fill="#FFF" opacity="0.5" />
+          </svg>
+        );
+      case 'smoke_bomb':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <circle cx="5" cy="7" r="4" fill="#525252" />
+            <rect x="4" y="1" width="2" height="3" fill="#EAB308" />
+            <path d="M2 3 Q0 5 2 7" stroke="#FFF" strokeWidth="0.5" opacity="0.3" />
+            <path d="M8 3 Q10 5 8 7" stroke="#FFF" strokeWidth="0.5" opacity="0.3" />
           </svg>
         );
       default:
