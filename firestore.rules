@@ -26,6 +26,11 @@ service cloud.firestore {
       allow create, delete: if isOwner(userId);
       allow update: if isSignedIn(); 
     }
+
+    // Allow users to manage their own friends list.
+    match /users/{userId}/friends/{friendId} {
+      allow read, write: if isOwner(userId);
+    }
     
     // Leaderboard is a public document that can be read by anyone.
     // It is written to by a server-side process, so client-side writes are denied.
