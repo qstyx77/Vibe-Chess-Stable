@@ -238,7 +238,7 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
   if (item === 'swift_cloak') return (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type));
   if (item === 'queens_peace') return (type === 'queen');
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum') return type === 'dancer';
@@ -249,6 +249,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'detonation_scroll') return (type !== 'king');
   if (item === 'kings_decree') return (type === 'king');
   if (item === 'monks_robe') return (type === 'bishop' || type === 'archbishop');
+  if (item === 'mimic_blade') return type === 'mimic';
   return true;
 }
 
@@ -293,7 +294,8 @@ export function getPossibleMovesInternal(
     piece: Piece,
     checkKingSafety: boolean,
     enPassantTargetSquare: AlgebraicSquare | null,
-    lastMovedPieceType?: PieceType | null
+    lastMovedPieceType?: PieceType | null,
+    lastMovedPieceHeldItem?: InventoryItemType | null
 ): AlgebraicSquare[] {
   if (!piece) return [];
   let possible: AlgebraicSquare[] = [];
@@ -307,7 +309,11 @@ export function getPossibleMovesInternal(
   if (piece.type === 'mimic') {
     const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
     const virtualPiece = { ...piece, type: patternType };
-    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null);
+    // Inherit Item via Mimic Blade
+    if (piece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem) {
+        virtualPiece.heldItem = lastMovedPieceHeldItem;
+    }
+    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null, null);
   }
 
   if (piece.id.startsWith('boss-colossus')) {
@@ -374,7 +380,7 @@ export function getPossibleMovesInternal(
         if (targetSq.item?.type === 'anvil') return;
         const targetP = targetSq.piece;
         if (!targetP || targetP.color !== pieceColor) {
-          if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board)) {
+          if (!targetP || !isPieceInvulnerableToAttackUtil(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board)) {
             possible.push(coordsToAlgebraic(nr, nc));
           }
         }
@@ -400,7 +406,7 @@ export function getPossibleMovesInternal(
             const target = board[nr][nc].piece;
             if (target && target.color !== pieceColor) {
                const targetLevel = getEffectiveLevel(board, nr, nc);
-               if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, nc));
+               if (!isPieceInvulnerableToAttackUtil(target, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, nc));
             }
             if (!target && coordsToAlgebraic(nr, nc) === enPassantTargetSquare) possible.push(coordsToAlgebraic(nr, nc));
         }
@@ -431,7 +437,7 @@ export function getPossibleMovesInternal(
         const targetSq = board[nr][fromCol];
         if (!targetSq.piece || targetSq.piece.color !== pieceColor) {
             const targetLevel = getEffectiveLevel(board, nr, fromCol);
-            if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, fromCol));
+            if (!targetSq.piece || !isPieceInvulnerableToAttackUtil(targetSq.piece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, fromCol));
         }
     }
   } else if (piece.type === 'king') {
@@ -453,7 +459,7 @@ export function getPossibleMovesInternal(
             const targetPiece = board[toR][toC].piece;
             const targetLevel = getEffectiveLevel(board, toR, toC);
             if (!targetPiece || targetPiece.color !== pieceColor) {
-                 if (!isPieceInvulnerableToAttack(targetPiece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(toR, toC));
+                 if (!isPieceInvulnerableToAttackUtil(targetPiece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(toR, toC));
             }
         }
     }
@@ -465,7 +471,7 @@ export function getPossibleMovesInternal(
                 const targetPiece_n = board[toR_n][toC_n].piece;
                 const targetLevel_n = getEffectiveLevel(board, toR_n, toC_n);
                 if (!targetPiece_n || targetPiece_n.color !== pieceColor) {
-                     if (!isPieceInvulnerableToAttack(targetPiece_n, piece, targetLevel_n, currentLevel, board)) possible.push(coordsToAlgebraic(toR_n, toC_n));
+                     if (!isPieceInvulnerableToAttackUtil(targetPiece_n, piece, targetLevel_n, currentLevel, board)) possible.push(coordsToAlgebraic(toR_n, toC_n));
                 }
             }
         }
@@ -517,7 +523,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttackUtil(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const isSwapTarget = currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
@@ -541,7 +547,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttackUtil(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
@@ -566,7 +572,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttackUtil(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
@@ -619,7 +625,8 @@ export function isSquareAttacked(
     simplifyKingCheck: boolean = false,
     ignoreAttackerAtSquare?: AlgebraicSquare | null,
     enPassantTargetSquare?: AlgebraicSquare | null,
-    lastMovedPieceType?: PieceType | null
+    lastMovedPieceType?: PieceType | null,
+    lastMovedPieceHeldItem?: InventoryItemType | null
 ): boolean {
     const { row: targetR, col: targetC } = algebraicToCoords(squareToAttack);
     for (let r = 0; r < 8; r++) {
@@ -633,31 +640,31 @@ export function isSquareAttacked(
                 const effectiveLevel = getEffectiveLevel(board, r, c);
                 if (['pawn', 'dancer', 'commander', 'infiltrator', 'grappler', 'myco_mage'].includes(attackingPiece.type)) {
                     if (attackingPiece.type === 'mimic') {
-                        const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType);
-                        if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                        const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem);
+                        if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                         continue;
                     }
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
-                    if (r + direction === targetR && Math.abs(c - targetC) === 1) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                    if (r + direction === targetR && Math.abs(c - targetC) === 1) if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                 } else if (attackingPiece.type === 'infiltrator') {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
-                    if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                    if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                 } else if (attackingPiece.type === 'king') {
                     const maxDistance = effectiveLevel >= 2 && !simplifyKingCheck ? 2 : 1;
                     const dr = targetR - r; const dc = targetC - c;
                     if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                         if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
                             const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type !== 'anvil')) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
-                        } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type !== 'anvil')) if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                        } else if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                     }
                     if (effectiveLevel >= 5 && !simplifyKingCheck) {
                         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-                        for (const [dr_n, dc_n] of knightDeltas) if (r + dr_n === targetR && c + dc_n === targetC) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                        for (const [dr_n, dc_n] of knightDeltas) if (r + dr_n === targetR && c + dc_n === targetC) if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                     }
                 } else {
-                    const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType);
-                    if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                    const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem);
+                    if (pseudoMoves.includes(squareToAttack)) if (!isPieceInvulnerableToAttackUtil(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                 }
             }
         }
@@ -689,7 +696,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color && piece.type !== 'grappler') return false;
   
   const targetLevel = getEffectiveLevel(board, toRow, toCol);
-  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && piece.type !== 'grappler') if (isPieceInvulnerableToAttack(targetPieceOnSquare, piece, targetLevel, effectiveLevel, board)) return false;
+  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && piece.type !== 'grappler') if (isPieceInvulnerableToAttackUtil(targetPieceOnSquare, piece, targetLevel, effectiveLevel, board)) return false;
 
   switch (piece.type) {
     case 'pawn':
@@ -833,7 +840,25 @@ export function syncSoulLink(board: BoardState | any[][], color: PlayerColor) {
     }
 }
 
-export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }): ApplyMoveResult {
+export function triggerMushroomMagnet(board: BoardState, r: number, c: number) {
+    for (let dr = -2; dr <= 2; dr++) {
+        for (let dc = -2; dc <= 2; dc++) {
+            if (dr === 0 && dc === 0) continue;
+            const mr = r + dr; const mc = c + dc;
+            if (isValidSquare(mr, mc) && board[mr][mc].item?.type === 'shroom') {
+                const moveR = Math.sign(r - mr);
+                const moveC = Math.sign(c - mc);
+                const nr = mr + moveR; const nc = mc + moveC;
+                if (isValidSquare(nr, nc) && !board[nr][nc].item && !board[nr][nc].piece) {
+                    board[nr][nc].item = { type: 'shroom' };
+                    board[mr][mc].item = null;
+                }
+            }
+        }
+    }
+}
+
+export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): ApplyMoveResult {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
   let enPassantTargetSet: AlgebraicSquare | null = null;
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
@@ -860,6 +885,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+
+  // --- MIMIC BLADE INHERITANCE ---
+  let effectiveHeldItem = movingPiece.heldItem;
+  if (movingPiece.type === 'mimic' && movingPiece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem) {
+    effectiveHeldItem = lastMovedPieceHeldItem;
+  }
 
   if (move.type === 'demonic-possession') {
       movingPiece.level = Math.min(movingPiece.type === 'queen' ? 7 : 99, (movingPiece.level || 1) + 5);
@@ -1057,7 +1088,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[pr][pc].piece!.type = 'commander';
     }
     newBoard[fromRow][fromCol].piece!.heldItem = null;
-    return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
+    return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
   if (move.type === 'resurrection-scroll') {
@@ -1232,6 +1263,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     } else { captured = null; }
   } else if (targetPiece && targetPiece.color !== movingPiece.color) { captured = { ...targetPiece }; }
 
+  // --- THIEVES GLOVES STEAL CHECK ---
+  if (captured && effectiveHeldItem === 'thieves_gloves' && captured.heldItem && Math.random() < 0.5) {
+      itemReturned = captured.heldItem;
+      captured.heldItem = null; // Removed from piece before capture/resurrection check
+  }
+
   if (captured && captured.heldItem === 'smoke_bomb') {
       const backRank = captured.color === 'white' ? 7 : 0;
       const emptyBackRankSquares = [];
@@ -1263,7 +1300,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (promotedToInfiltrator) pieceToLand.type = 'infiltrator';
-  if (pieceToLand.heldItem && !isItemValidForPiece(pieceToLand.heldItem, pieceToLand.type)) { itemReturned = pieceToLand.heldItem; pieceToLand.heldItem = null; }
+  if (pieceToLand.heldItem && !isItemValidForPiece(pieceToLand.heldItem, pieceToLand.type)) { 
+      if (!itemReturned) itemReturned = pieceToLand.heldItem; 
+      pieceToLand.heldItem = null; 
+  }
   newBoard[toRow][toCol].piece = pieceToLand;
   newBoard[fromRow][fromCol].piece = null;
 
@@ -1277,7 +1317,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (pieceToLand.type === 'queen') { if (oldL < 7) { pieceToLand.level = Math.min(7, oldL + 1); didLevelUp = true; levelGain = pieceToLand.level - oldL; } }
     else { pieceToLand.level = oldL + 1; didLevelUp = true; levelGain = 1; }
     
-    // Global Allied Shroom Mana Sync
     newBoard.forEach(row => row.forEach(sq => {
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.type === 'myco_mage') {
         sq.piece.shroomMana = (sq.piece.shroomMana || 0) + 1;
@@ -1300,14 +1339,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (captured.heldItem === 'ice_tunic') { pieceToLand.frozenTurnsRemaining = 2; pieceToLand.cooldownTurnsRemaining = 2; }
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceToLand.type) && captured.type === 'commander') pieceToLand.type = 'commander';
     
-    let gain = pieceToLand.heldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
+    let gain = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
     if (captured.heldItem === 'cyanide_pill') {
         gain = 0;
     }
 
-    if (pieceToLand.heldItem === 'gnosis') gain += 1;
-    if (pieceToLand.heldItem === 'golden_chalice') gain += 1;
+    if (effectiveHeldItem === 'gnosis') gain += 1;
+    if (effectiveHeldItem === 'golden_chalice') gain += 1;
     let hasLogasBoost = false;
     for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
         if (dr === 0 && dc === 0) continue;
@@ -1324,9 +1363,9 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (originalPieceType === 'commander') applyRally(newBoard, pieceToLand.color, 'pawn', move.to);
     if (originalPieceType === 'hero') applyRally(newBoard, pieceToLand.color, 'all', move.to);
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, gain);
-    if (pieceToLand.heldItem === 'poison_sword') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
+    if (effectiveHeldItem === 'poison_sword') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
     if (captured.heldItem === 'poison_tunic') pieceToLand.isPoisoned = true;
-    if (pieceToLand.heldItem === 'ice_sword') {
+    if (effectiveHeldItem === 'ice_sword') {
         const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
         [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
             const nr = toRow + dr, nc = toCol + dc;
@@ -1336,7 +1375,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
             }
         });
     }
-    if (pieceToLand.heldItem === 'leach_blade') {
+    if (effectiveHeldItem === 'leach_blade') {
         const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
         for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
             if (dr === 0 && dc === 0) continue;
@@ -1347,10 +1386,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
             }
         }
     }
-    if (pieceToLand.heldItem === 'gravity_stone') triggerPull(newBoard, toRow, toCol, pieceToLand.color);
+    if (effectiveHeldItem === 'gravity_stone') triggerPull(newBoard, toRow, toCol, pieceToLand.color);
   }
 
-  if (didLevelUp && pieceToLand.heldItem === 'soul_link') {
+  if (didLevelUp && effectiveHeldItem === 'soul_link') {
     newBoard.forEach(row => row.forEach(sq => {
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceToLand.id) {
         if (sq.piece.type !== 'queen' || sq.piece.level < 7) sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
@@ -1359,9 +1398,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
   if (didLevelUp) { pieceToLand.isPoisoned = false; pieceToLand.cooldownTurnsRemaining = 0; pieceToLand.frozenTurnsRemaining = 0; }
   if (pieceToLand.isPoisoned && pieceToLand.level === 1) pieceToLand.cooldownTurnsRemaining = 2;
-  if (movingPiece.heldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
+  if (effectiveHeldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;
+  }
+  if (effectiveHeldItem === 'mushroom_magnet') {
+      triggerMushroomMagnet(newBoard, toRow, toCol);
   }
   if (pieceToLand.heldItem === 'middle_way') pieceToLand.level = 3;
   if (captured?.heldItem === 'phoenix_down') {
@@ -1378,7 +1420,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
   const effectiveLevelAfterMove = getEffectiveLevel(newBoard, toRow, toCol);
   const hasInherentPushBack = ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(pieceToLand.type) && effectiveLevelAfterMove >= 4;
-  const hasCloakPushBack = pieceToLand.heldItem === 'wind_cloak' && effectiveLevelAfterMove >= 4;
+  const hasCloakPushBack = effectiveHeldItem === 'wind_cloak' && effectiveLevelAfterMove >= 4;
   if (hasInherentPushBack || hasCloakPushBack) {
     const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
     if (crush) pieceCapturedByAnvil = crush;
@@ -1521,22 +1563,22 @@ export function processPoisonDamage(board: BoardState, player: PlayerColor): { n
     return { newBoard, poisonedCaptures };
 }
 
-export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null): boolean {
+export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): boolean {
   if (kingColor === 'black') {
       const colossusParts = board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
       if (colossusParts.length > 0) {
           const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
           if (otherMinions) return false;
-          return colossusParts.some(part => isSquareAttacked(board, part.algebraic, 'white', false, null, enPassantTargetSquare, lastMovedPieceType));
+          return colossusParts.some(part => isSquareAttacked(board, part.algebraic, 'white', false, null, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem));
       }
   }
   let k = null;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.type === 'king' && board[r][c].piece?.color === kingColor) k = coordsToAlgebraic(r,c);
   if (!k) return false;
-  return isSquareAttacked(board, k, kingColor === 'white' ? 'black' : 'white', false, null, enPassantTargetSquare, lastMovedPieceType);
+  return isSquareAttacked(board, k, kingColor === 'white' ? 'black' : 'white', false, null, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem);
 }
 
-function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: AlgebraicSquare[], player: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null): AlgebraicSquare[] {
+function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: AlgebraicSquare[], player: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): AlgebraicSquare[] {
   const p = board[algebraicToCoords(from).row][algebraicToCoords(from).col].piece;
   if (!p) return [];
   return pseudo.filter(to => {
@@ -1566,16 +1608,16 @@ function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: Alge
       }
     }
     const {newBoard} = applyMove(board, { from, to, type }, ep);
-    return !isKingInCheck(newBoard, player, null, lastMovedPieceType);
+    return !isKingInCheck(newBoard, player, null, lastMovedPieceType, lastMovedPieceHeldItem);
   });
 }
 
-export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null): AlgebraicSquare[] {
+export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): AlgebraicSquare[] {
     const { row, col } = algebraicToCoords(from);
     const piece = board[row][col].piece;
     if (!piece || (piece.cooldownTurnsRemaining || 0) > 0 || (piece.frozenTurnsRemaining || 0) > 0) return [];
-    const pseudo = getPossibleMovesInternal(board, from, piece, true, ep, lastMovedPieceType);
-    const legalMoves = filterLegalMoves(board, from, pseudo, piece.color, ep, lastMovedPieceType);
+    const pseudo = getPossibleMovesInternal(board, from, piece, true, ep, lastMovedPieceType, lastMovedPieceHeldItem);
+    const legalMoves = filterLegalMoves(board, from, pseudo, piece.color, ep, lastMovedPieceType, lastMovedPieceHeldItem);
     if (piece.heldItem === 'berserkers_mask') {
       const captures = legalMoves.filter(to => {
         const {row, col} = algebraicToCoords(to);
@@ -1587,17 +1629,17 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     return legalMoves;
 }
 
-export function hasAnyLegalMoves(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null): boolean {
-  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.color === color && getPossibleMoves(board, board[r][c].algebraic, ep, lastMovedPieceType).length > 0) return true;
+export function hasAnyLegalMoves(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): boolean {
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.color === color && getPossibleMoves(board, board[r][c].algebraic, ep, lastMovedPieceType, lastMovedPieceHeldItem).length > 0) return true;
   return false;
 }
 
-export function isCheckmate(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null): boolean {
-  return isKingInCheck(board, color, ep, lastMovedPieceType) && !hasAnyLegalMoves(board, color, ep, lastMovedPieceType);
+export function isCheckmate(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): boolean {
+  return isKingInCheck(board, color, ep, lastMovedPieceType, lastMovedPieceHeldItem) && !hasAnyLegalMoves(board, color, ep, lastMovedPieceType, lastMovedPieceHeldItem);
 }
 
-export function isStalemate(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null): boolean {
-  return !isKingInCheck(board, color, ep, lastMovedPieceType) && !hasAnyLegalMoves(board, color, ep, lastMovedPieceType);
+export function isStalemate(board: BoardState, color: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): boolean {
+  return !isKingInCheck(board, color, ep, lastMovedPieceType, lastMovedPieceHeldItem) && !hasAnyLegalMoves(board, color, ep, lastMovedPieceType, lastMovedPieceHeldItem);
 }
 
 export function processRookResurrectionCheck(board: BoardState, player: PlayerColor, move: Move, square: AlgebraicSquare, oldL: number, graveyard: { white: Piece[], black: Piece[] }, idCounter: number): RookResurrectionResult {

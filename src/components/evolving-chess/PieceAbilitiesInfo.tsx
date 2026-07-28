@@ -85,6 +85,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'war_drum') abilities.push(" tempo: allies swapped with gain +1 Level; enemies become Exhausted.");
   if (heldItem === 'cyanide_pill') abilities.push(" spite: capturing unit gains 0 levels from this piece.");
   if (heldItem === 'demonic_possession') abilities.push(" demonic: Gain +5 Levels, but piece is obliterated after 3 turns.");
+  if (heldItem === 'mushroom_magnet') abilities.push(" magnetic: Pulls Shrooms within 2 squares 1 space closer on move.");
+  if (heldItem === 'mimic_blade') abilities.push(" item mimic: Replicates the held item of the last moved piece.");
+  if (heldItem === 'thieves_gloves') abilities.push(" plunder: 50% chance to steal equipment from captured units.");
   if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
 
   switch (type) {
@@ -115,7 +118,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (l >= 4) abilities.push("Swap with friendly Bishop.");
       if (l >= 5) abilities.push("Self-Destruct ability.");
       if (type === 'hero') { abilities.push("Hero's Rallying Cry on capture (levels up all other pieces)."); abilities.push("Queen Hunter."); }
-      if (type === 'archer') { abilities.push("Archer Snipe: KS 3 grants global targeting (Non-Royals only)."); }
+      if (type === 'archer') { abilities.push("Archer Snipe: KS 5 grants global targeting (Non-Royals only)."); }
       break;
     case 'bishop':
     case 'archbishop':

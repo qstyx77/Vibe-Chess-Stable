@@ -63,7 +63,10 @@ export type InventoryItemType =
   | 'smoke_bomb'
   | 'war_drum'
   | 'cyanide_pill'
-  | 'demonic_possession';
+  | 'demonic_possession'
+  | 'mushroom_magnet'
+  | 'mimic_blade'
+  | 'thieves_gloves';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -136,6 +139,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'war_drum': { name: 'War Drum', description: 'Tribal drum. Dancer only. Allies swapped with gain +1 Level. Enemies swapped with become Exhausted.', isConsumable: false },
   'cyanide_pill': { name: 'Cyanide Pill', description: 'Suicide capsule. Capturing piece gains 0 levels. Consumed on capture.', isConsumable: true },
   'demonic_possession': { name: 'Demonic Possession', description: 'Consumable scroll. Gain +5 Levels immediately, but piece is obliterated after 3 turns.', isConsumable: true },
+  'mushroom_magnet': { name: 'Shroom Magnet', description: 'Accessory. On move/capture, pulls all Shrooms within 2 spaces 1 square closer.', isConsumable: false },
+  'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the held item of the last piece that moved.', isConsumable: false },
+  'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false },
 };
 
 export interface Piece {
@@ -269,6 +275,7 @@ export interface GameSnapshot {
   lastMoveTo: AlgebraicSquare | null;
   gameMoveCounter: number;
   enPassantTargetSquare: AlgebraicSquare | null;
+  lastMovedPieceHeldItem?: InventoryItemType | null;
 
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
@@ -348,6 +355,7 @@ export interface AIGameState {
   nextShroomSpawnTurn?: number;
   necroResurrectionCounter?: number;
   lastMovedPieceType?: PieceType | null;
+  lastMovedPieceHeldItem?: InventoryItemType | null;
 }
 
 export interface ChatMessage {

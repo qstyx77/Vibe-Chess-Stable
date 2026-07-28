@@ -220,23 +220,23 @@ const finalizeTurn = (room: any, movingPlayerColor: PlayerColor, isExtraTurn: bo
 
     const nextPlayer = isExtraTurn ? movingPlayerColor : (movingPlayerColor === 'white' ? 'black' : 'white');
     
-    const movingPlayerSelfCheck = isKingInCheck(room.gameState.board, movingPlayerColor, room.gameState.enPassantTargetSquare);
+    const movingPlayerSelfCheck = isKingInCheck(room.gameState.board, movingPlayerColor, room.gameState.enPassantTargetSquare, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem);
     if (movingPlayerSelfCheck && !isExtraTurn) {
         onGameOver(room.clients[0].roomId, movingPlayerColor === 'white' ? 'black' : 'white', 'self-check');
         return;
     }
 
-    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare);
+    const inCheck = isKingInCheck(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem);
 
     if (inCheck && isExtraTurn) {
         onGameOver(room.clients[0].roomId, movingPlayerColor, 'auto-checkmate');
         return;
     }
 
-    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
+    if (isCheckmate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem)) {
         onGameOver(room.clients[0].roomId, movingPlayerColor, 'checkmate');
         return;
-    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare)) {
+    } else if (isStalemate(room.gameState.board, nextPlayer, room.gameState.enPassantTargetSquare, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem)) {
         onGameOver(room.clients[0].roomId, 'draw', 'stalemate');
         return;
     }
@@ -334,7 +334,7 @@ const startServerTurnTimer = (roomId: string) => {
             if (timedOutPlayer === 'white') roomAfterTimeout.gameState.whiteTimeouts++;
             else roomAfterTimeout.gameState.blackTimeouts++;
             
-            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTargetSquare);
+            const timedOutPlayerInCheck = isKingInCheck(roomAfterTimeout.gameState.board, timedOutPlayer, roomAfterTimeout.gameState.enPassantTargetSquare, roomAfterTimeout.gameState.lastMovedPieceType, roomAfterTimeout.gameState.lastMovedPieceHeldItem);
             
             if (roomAfterTimeout.gameState.whiteTimeouts >= 3 || roomAfterTimeout.gameState.blackTimeouts >= 3 || (timedOutPlayerInCheck && roomAfterTimeout.gameState[`${timedOutPlayer}Timeouts`] > 0)) {
                 onGameOver(roomId, opponent, timedOutPlayerInCheck ? 'self-check-timeout' : 'timeout', { timedOutPlayer });
@@ -379,6 +379,8 @@ const processRankedQueue = async () => {
                 gameMoveCounter: 0,
                 lastMoveFrom: null,
                 lastMoveTo: null,
+                lastMovedPieceType: null,
+                lastMovedPieceHeldItem: null,
                 firstBloodAchieved: false,
                 playerWhoGotFirstBlood: null,
                 isAwaitingCommanderPromotion: false,
@@ -446,6 +448,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                             gameMoveCounter: 0,
                             lastMoveFrom: null,
                             lastMoveTo: null,
+                            lastMovedPieceType: null,
+                            lastMovedPieceHeldItem: null,
                             firstBloodAchieved: false,
                             playerWhoGotFirstBlood: null,
                             isAwaitingCommanderPromotion: false,
@@ -676,11 +680,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                                 if (isLegal) {
                                     const tempBoard = room.gameState.board.map((r: any) => r.map((s: any) => ({...s, piece: s.piece ? {...s.piece} : null})));
                                     if (moveType === 'self-destruct') tempBoard[fromCoords.row][fromCoords.col].piece = null;
-                                    if (isKingInCheck(tempBoard, actingColor, null)) isLegal = false;
+                                    if (isKingInCheck(tempBoard, actingColor, null, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem)) isLegal = false;
                                 }
                             }
                         } else {
-                            const legalMoves = getPossibleMoves(room.gameState.board, from, room.gameState.enPassantTargetSquare);
+                            const legalMoves = getPossibleMoves(room.gameState.board, from, room.gameState.enPassantTargetSquare, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem);
                             if (legalMoves.includes(to)) isLegal = true;
                         }
 
@@ -691,7 +695,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
 
                         const originalLevel = movingPieceStart.level || 1;
                         const originalType = movingPieceStart.type;
-                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, promotedToInfiltrator, itemReturned, multiPromotions, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces);
+                        const originalHeldItem = movingPieceStart.heldItem;
+                        const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, promotedToInfiltrator, itemReturned, multiPromotions, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem);
                         
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
@@ -807,6 +812,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string }) => {
                         room.gameState.board = finalizedBoard;
                         room.gameState.lastMoveFrom = from;
                         room.gameState.lastMoveTo = to;
+                        room.gameState.lastMovedPieceType = originalType;
+                        room.gameState.lastMovedPieceHeldItem = originalHeldItem;
 
                         room.gameState.isPendingExtraTurn = rest.extraTurn || (oldStreak < 6 && newStreak >= 6);
                         room.gameState.pendingEnPassantTarget = rest.enPassantTargetSet;
