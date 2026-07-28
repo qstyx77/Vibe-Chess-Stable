@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -49,7 +48,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
       <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl bg-card border-border text-foreground max-h-[90vh] font-sans overflow-hidden flex flex-col p-0">
         <DialogHeader className="p-6 pb-2 shrink-0">
           <DialogTitle className="text-primary text-center text-xl font-medium uppercase font-pixel tracking-tighter">
-            VIBE CHESS - MASTER RULEBOOK (DRAFT 10)
+            VIBE CHESS - MASTER RULEBOOK (DRAFT 11)
           </DialogTitle>
           <DialogDescription className="sr-only">
             Comprehensive Game Rules
@@ -150,7 +149,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>• Palace (1800 Elo): Elite Fortress. Resurrects units at their original level. Castling levels up the King.</RuleText>
                   <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 3/5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
-                <RuleSection title="Specialists">
+                <RuleSection title="Dungeon Unlocks">
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
                   <RuleText>• Mimic: Replicates the movement pattern of the piece that moved before it.</RuleText>
                   <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free adjacent move or swap.</RuleText>
@@ -219,9 +218,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   </SubRule>
                   <SubRule title="Frozen">
                     <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns.</RuleText>
-                  </SubRule>
-                  <SubRule title="Shielded">
-                    <RuleText>A protective layer (Holy Shield) that negates the next capture attempt. The shield breaks after one use.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>
