@@ -63,13 +63,13 @@ export default function ProfilePage() {
             <Avatar className="h-24 w-24 border-4 border-accent shadow-[0_0_15px_rgba(255,0,255,0.3)]">
               <AvatarFallback className="bg-muted text-3xl">{userProfile.username?.[0]?.toUpperCase()}</AvatarFallback>
             </Avatar>
-            <h2 className="text-xl font-bold text-primary uppercase">{userProfile.username}</h2>
-            <p className="text-[10px] text-muted-foreground uppercase">{userProfile.email}</p>
             
-            {queryUserId && queryUserId !== user?.uid && (
-                <UserInteractionPopover userId={queryUserId} username={userProfile.username}>
-                    <Button variant="outline" size="sm" className="h-8 text-[8px] uppercase">Interact with Hero</Button>
+            {targetId && targetId !== user?.uid ? (
+                <UserInteractionPopover userId={targetId} username={userProfile.username}>
+                    <h2 className="text-xl font-bold text-primary uppercase hover:text-accent transition-colors cursor-pointer">{userProfile.username}</h2>
                 </UserInteractionPopover>
+            ) : (
+                <h2 className="text-xl font-bold text-primary uppercase">{userProfile.username}</h2>
             )}
           </div>
           
