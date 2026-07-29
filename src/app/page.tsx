@@ -34,6 +34,7 @@ import {
   spawnShroom,
   isItemValidForPiece,
   isSilenced,
+  syncSoulLink,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -144,7 +145,6 @@ export default function EvolvingChessPage() {
   const firestore = getFirestore();
   const { toast } = useToast();
 
-  // --- STATE HOOKS (TOP OF COMPONENT) ---
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
@@ -240,10 +240,8 @@ export default function EvolvingChessPage() {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
 
-  // --- DERIVED CONSTANTS (MUST BE AFTER STATE BUT BEFORE HANDLERS) ---
   const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
-  // --- REFS ---
   const aiInstanceRef = useRef<VibeChessAI | null>(null);
   const clickGuardRef = useRef(false);
   const uniqueIdCounterRef = useRef(20000);
@@ -253,7 +251,6 @@ export default function EvolvingChessPage() {
   const prevBoardRef = useRef<BoardState | null>(null);
   const signaledEventsRef = useRef<Set<string>>(new Set());
 
-  // --- MEMOIZED VALUES ---
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
     if (elo <= 1200) return 2;
@@ -264,7 +261,6 @@ export default function EvolvingChessPage() {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
   }, [board]);
 
-  // --- HANDLERS (CALLBACKS) ---
   const addEffectCallback = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
     setEffects(prev => [...prev, { id, type, square, color, value }]);
@@ -296,7 +292,7 @@ export default function EvolvingChessPage() {
   const saveLoadoutToFirestore = useCallback((b: BoardState, inv: InventoryItem[]) => {
       if (!user || !firestore) return;
       const equipment: Record<string, string> = {};
-      b.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+      b.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.id; });
       updateDocumentNonBlocking(doc(firestore, 'users', user.uid), { inventory: inv, equipment });
   }, [user, firestore]);
 
@@ -630,8 +626,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -812,21 +808,31 @@ export default function EvolvingChessPage() {
             updatedG[targetPile].push({ ...victim, id: victim.id });
             audioManager.playCapture(); 
             addLog("AI attack reflected!");
+            addEffectCallback('poof', toAlg);
             const newKs = { ...killStreaks, white: 0, black: 0 };
             setBoard(nextB); setCapturedPieces(updatedG); setKillStreaks(newKs);
             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, updatedG, newKs, currentPlayer, false, null); }, 800);
             return;
         }
         
-        if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); }
+        if (applyResult.shroomConsumed) { 
+          audioManager.playShroom(); 
+          addLog("AI consumed a Shroom!");
+          addEffectCallback('level-change', toAlg, currentPlayer, 1);
+        }
         if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("AI Hero Ascended!"); }
         if (applyResult.phoenixResurrection) { audioManager.playResurrect(); addLog("AI Phoenix Rebirth!"); }
         if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); addLog("AI Conversion triggered!"); }
 
         const isObliteration = applyResult.promotedToInfiltrator || (piece.type === 'infiltrator' && applyResult.capturedPiece);
-        if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); }
+        if (isObliteration) { 
+          audioManager.playObliterate(); 
+          addLog("AI Obliterated a unit!");
+          addEffectCallback('poof', toAlg);
+        }
         else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) {
             audioManager.playCapture();
+            addEffectCallback('poof', toAlg);
             if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`);
         }
         else {
@@ -842,6 +848,7 @@ export default function EvolvingChessPage() {
             applyResult.selfDestructCaptures.forEach(p => {
                 const targetPile = p.color;
                 updatedG[targetPile].push({ ...p, id: p.id });
+                addEffectCallback('poof', toAlg);
             });
             addLog(`Explosion destroyed ${applyResult.selfDestructCaptures.length} unit(s)!`);
         }
@@ -849,6 +856,9 @@ export default function EvolvingChessPage() {
         setBoard(nextB);
         setCapturedPieces(updatedG);
         const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
+        if (gain > 0) {
+          addEffectCallback('level-change', toAlg, currentPlayer, gain);
+        }
         const oldS = killStreaks[currentPlayer];
         const newS = gain > 0 ? oldS + gain : 0;
         const currentKs = { ...killStreaks, [currentPlayer]: newS };
@@ -1071,6 +1081,7 @@ export default function EvolvingChessPage() {
                 const targetPile = victim.color;
                 nextG[targetPile].push({ ...victim, id: victim.id });
                 addLog(`Dancer Captured ${victim.type}!`);
+                addEffectCallback('poof', algebraic);
             } else { return; }
             setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove();
             triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, isExtraTurnFromQueenMove, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'dance']);
@@ -1180,6 +1191,8 @@ export default function EvolvingChessPage() {
                     
                     setBoard(nextB); setCapturedPieces(nextG); audioManager.playSnipe(); setIsAwaitingArcherSnipe(false);
                     addLog(`Archer Snipe: Destroyed ${snipedPiece.type}!`);
+                    addEffectCallback('poof', algebraic);
+                    addEffectCallback('level-change', coordsToAlgebraic(arRow, arCol), currentPlayer, gain);
                     triggerSpecialsChain(nextB, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'snipe']);
                 }
             }
@@ -1355,6 +1368,7 @@ export default function EvolvingChessPage() {
                     const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'demonic-possession' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
                     setBoard(applyResult.newBoard); audioManager.playLevelUp();
                     addLog("Possession: Massive power gained, but unit is doomed!");
+                    addEffectCallback('level-change', algebraic, currentPlayer, 5);
                     setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
                 }
                 return;
@@ -1373,6 +1387,10 @@ export default function EvolvingChessPage() {
                 const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
                 setBoard(applyResult.newBoard); audioManager.playLevelUp();
                 addLog(`${ITEM_METADATA[hItem].name} triggered!`);
+                if (hItem === 'soul_harvest') {
+                  const gained = applyResult.originalPieceLevel! - moving.level;
+                  addEffectCallback('level-change', algebraic, currentPlayer, gained);
+                }
                 setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
               }
               return;
@@ -1422,13 +1440,18 @@ export default function EvolvingChessPage() {
                     updatedG[targetPile].push({ ...victim, id: victim.id });
                     audioManager.playCapture(); 
                     addLog("REFLECTED! Target used Mirror Shield.");
+                    addEffectCallback('poof', algebraic);
                     const newKs = { ...killStreaks, white: 0, black: 0 };
                     setBoard(nextB); setCapturedPieces(updatedG); setKillStreaks(newKs);
                     setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, updatedG, newKs, currentPlayer, false, null); }, 800);
                     return;
                 }
                 
-                if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("Consumed a Shroom!"); }
+                if (applyResult.shroomConsumed) { 
+                  audioManager.playShroom(); 
+                  addLog("Consumed a Shroom!");
+                  addEffectCallback('level-change', algebraic, currentPlayer, 1);
+                }
                 if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("HERO ASCENDED!"); }
                 if (applyResult.phoenixResurrection) { audioManager.playResurrect(); addLog("REBIRTH! Phoenix Down activated."); }
                 if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); applyResult.conversionEvents.forEach(e => addLog(`Unit converted to ${e.convertedPiece.color}!`)); }
@@ -1438,9 +1461,15 @@ export default function EvolvingChessPage() {
                 const currentKs = { ...killStreaks, [currentPlayer]: newS };
                 const isObliteration = applyResult.promotedToInfiltrator || (moving.type === 'infiltrator' && applyResult.capturedPiece);
                 
-                if (isObliteration) { audioManager.playObliterate(); addLog("OBLITERATED! Unit removed from existence."); }
+                if (isObliteration) { 
+                  audioManager.playObliterate(); 
+                  addLog("OBLITERATED! Unit removed from existence.");
+                  addEffectCallback('poof', algebraic);
+                }
                 else if (gain > 0) {
                     audioManager.playCapture();
+                    addEffectCallback('poof', algebraic);
+                    addEffectCallback('level-change', algebraic, currentPlayer, gain);
                     if (applyResult.capturedPiece) addLog(`Captured ${applyResult.capturedPiece.type} at ${algebraic}!`);
                 }
                 else {
@@ -1456,6 +1485,7 @@ export default function EvolvingChessPage() {
                     applyResult.selfDestructCaptures.forEach(p => {
                         const targetPile = p.color;
                         updatedG[targetPile].push({ ...p, id: p.id });
+                        addEffectCallback('poof', algebraic);
                     });
                     if (applyResult.selfDestructCaptures.length > 0) {
                         addLog(`Explosion destroyed ${applyResult.selfDestructCaptures.length} unit(s)!`);
@@ -1496,7 +1526,6 @@ export default function EvolvingChessPage() {
     else { setSelectedSquare(null); setPossibleMoves([]); }
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, pushHistory, saveLoadoutToFirestore]);
 
-  // --- WEBSOCKET INIT (LATER IN FILE) ---
   const initWebSocket = useCallback((onOpenCallback?: () => void) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       if (onOpenCallback) onOpenCallback();
@@ -1569,8 +1598,16 @@ export default function EvolvingChessPage() {
           const isCap = nextCapsCount > prevCapsCount;
           const isObl = data.gameState.lastMovedPieceType === 'infiltrator' && isCap;
           
-          if (isObl) { audioManager.playObliterate(); addLog("Unit Obliterated!"); }
-          else if (isCap) { audioManager.playCapture(); addLog(`Captured ${data.gameState.lastMovedPieceType || 'unit'} at ${data.gameState.lastMoveTo}!`); }
+          if (isObl) { 
+            audioManager.playObliterate(); 
+            addLog("Unit Obliterated!");
+            addEffectCallback('poof', data.gameState.lastMoveTo);
+          }
+          else if (isCap) { 
+            audioManager.playCapture(); 
+            addLog(`Captured ${data.gameState.lastMovedPieceType || 'unit'} at ${data.gameState.lastMoveTo}!`); 
+            addEffectCallback('poof', data.gameState.lastMoveTo);
+          }
           else {
               audioManager.playMove();
               if (data.gameState.lastMovedPieceType && data.gameState.lastMoveTo) {
@@ -1669,7 +1706,7 @@ export default function EvolvingChessPage() {
     };
 
     wsRef.current = ws;
-  }, [addLog, localPlayerColor, capturedPieces]);
+  }, [addLog, localPlayerColor, capturedPieces, addEffectCallback]);
 
   const handleRankedPlay = useCallback(() => {
     if (!user || (onlineStatus !== 'disconnected' && rankedQueueStatus !== 'searching')) return;
@@ -1684,7 +1721,7 @@ export default function EvolvingChessPage() {
         addLog("Searching for ranked match...");
         initWebSocket(() => {
           const equipment: Record<string, string> = {};
-          board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+          board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.id; });
           wsRef.current?.send(JSON.stringify({
               type: 'join-ranked-queue',
               userId: user.uid,
@@ -1705,7 +1742,7 @@ export default function EvolvingChessPage() {
     else addLog(`Joining room: ${inputRoomId}`);
     initWebSocket(() => {
         const equipment: Record<string, string> = {};
-        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
+        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.id; });
         if (action === 'create') {
             wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } }));
         } else {
@@ -1714,7 +1751,6 @@ export default function EvolvingChessPage() {
     });
   }, [user, userData, inputRoomId, board, initWebSocket, addLog]);
 
-  // --- EFFECTS ---
   useEffect(() => {
     if (onlineStatus === 'connected' && localPlayerColor) {
       setBoardOrientation(localPlayerColor);
@@ -1784,7 +1820,6 @@ export default function EvolvingChessPage() {
     return () => clearInterval(intervalId);
   }, [currentPlayer, gameInfo.gameOver, onlineStatus, roomId, gameMoveCounter, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingHolyShield, isAwaitingAnvilDrop, isAwaitingArcherSnipe, isPromotingPawn, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom]);
 
-  // --- LAYOUTS (BOTTOM OF COMPONENT) ---
   const mobileLayout = (
     <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 lg:hidden overflow-y-auto scrollbar-hide">
       <div className="flex flex-col items-center justify-between gap-0.5 pb-1">
@@ -1816,7 +1851,7 @@ export default function EvolvingChessPage() {
             <Button variant="outline" size="sm" onClick={() => setIsBlackAI(!isBlackAI)} className="h-6 px-1.5 text-[10px]"><Bot className="mr-1 h-3 w-3" /> B:{isBlackAI ? 'On' : 'Off'}</Button>
             <Button variant="outline" size="sm" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="h-6 px-1.5 text-[10px]"><View className="mr-1 h-3 w-3" /> View</Button>
         </div>
-        <Card className="w-full mt-1"> <CardContent className="p-1.5 flex flex-col gap-1.5"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || rankedQueueStatus === 'searching'} className="h-6 px-1.5 text-[10px] w-full"><Trophy className="mr-1 h-3 w-3" />{rankedQueueStatus === 'searching' ? 'Searching...' : 'Ranked Match'}</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[10px] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[10px] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[10px]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[10px] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[10px] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[10px] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
+        <Card className="w-full mt-1"> <CardContent className="p-1.5 flex flex-col gap-1.5"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user || rankedQueueStatus === 'searching'} className="h-6 px-1.5 text-[10px] px-2 w-full"><Trophy className="mr-1 h-3 w-3" />{rankedQueueStatus === 'searching' ? 'Searching...' : 'Ranked Match'}</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[10px] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[10px] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[10px]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[10px] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[10px] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[10px] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
   );

@@ -228,6 +228,10 @@ export default function DungeonPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const handlePieceHover = useCallback((p: Piece | null) => { 
+    setPieceForInfoDisplay(p); 
+  }, []);
+
   const [level, setLevel] = useState(1);
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [playerArmy, setPlayerArmy] = useState<Piece[]>([]);
@@ -305,10 +309,6 @@ export default function DungeonPage() {
   const isInitialized = useRef(false);
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
-
-  const handlePieceHover = useCallback((p: Piece | null) => { 
-    setPieceForInfoDisplay(p); 
-  }, []);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
@@ -413,6 +413,7 @@ export default function DungeonPage() {
           const victim = { ...p, id: p.id };
           const targetPile = victim.color;
           nextGraveyard[targetPile].push(victim);
+          addEffect('poof', findPieceCoords(nextBoard, p.id) || 'e1'); // Fallback to e1 if not found
         });
         setCapturedPieces(nextGraveyard); setKillStreaks({ ...currentKs });
         audioManager.playCapture(); 
@@ -551,6 +552,12 @@ export default function DungeonPage() {
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, gameMoveCounter]);
 
+  // Helper to find piece by ID for poof animation
+  function findPieceCoords(b: BoardState, id: string): AlgebraicSquare | null {
+    for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(b[r][c].piece?.id === id) return b[r][c].algebraic;
+    return null;
+  }
+
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
     let nextGraveyard = { ...currentGraveyard };
@@ -631,9 +638,10 @@ export default function DungeonPage() {
                 const v = victims[Math.floor(Math.random() * victims.length)]; const {row: row_v, col: col_v} = algebraicToCoords(v.algebraic);
                 const sniped = { ...nextBoard[row_v][col_v].piece!, id: nextBoard[row_v][col_v].piece!.id };
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
-                if (responsibleAIArcher) { const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; responsibleAIArcher.level += gain; }
+                if (responsibleAIArcher) { const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; responsibleAIArcher.level += gain; addEffect('level-change', findPieceCoords(nextBoard, responsibleAIArcher.id) || v.algebraic, 'black', gain); }
                 const targetPile = sniped.color;
                 nextGraveyard[targetPile].push(sniped);
+                addEffect('poof', v.algebraic);
                 addLog(`Dungeon Sniper destroyed your ${sniped.type}!`);
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe']); return;
             } else { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], actingPlayer, currentGraveyard: nextGraveyard, currentKs }); setIsAwaitingArcherSnipe(true); addLog("Sniper Skill: Select a target!"); return; }
@@ -693,6 +701,7 @@ export default function DungeonPage() {
                 nextB[pr][pc].piece = null;
                 audioManager.playCapture();
                 addLog(`Dungeon sacrificed ${sacrificed.type} for the Queen!`);
+                addEffect('poof', pawnSq.algebraic);
                 
                 const nextG = { ...graveyard };
                 const targetPile = sacrificed.color;
@@ -714,7 +723,7 @@ export default function DungeonPage() {
     }
     triggerSpecialsChain(boardAfter, graveyard, currentKs, oldS, newS, extra, ep, player, []);
     return false;
-  }, [triggerSpecialsChain, addLog]);
+  }, [triggerSpecialsChain, addLog, addEffect]);
 
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || gameOverRef.current || isMoveProcessing || isAiThinking || currentPlayer !== 'black' || isAnySpecialModeActive) {
@@ -756,14 +765,24 @@ export default function DungeonPage() {
             updatedCapturedPieces[targetPile].push(victim); setCapturedPieces(updatedCapturedPieces);
             audioManager.playCapture(); const newKs = { white: 0, black: 0 }; setKillStreaks(newKs); setBoard(newBoard);
             addLog("Dungeon reflected your attack!");
+            addEffect('poof', toAlg);
             setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedCapturedPieces, newKs, 'black', false, null); }, 800); return;
         }
-        if (shroomConsumed) { audioManager.playShroom(); addLog("Dungeon piece consumed a Shroom!"); }
+        if (shroomConsumed) { 
+          audioManager.playShroom(); 
+          addLog("Dungeon piece consumed a Shroom!");
+          addEffect('level-change', toAlg, 'black', 1);
+        }
         
         const isObliteration = result.promotedToInfiltrator || (movingPiece.type === 'infiltrator' && capturedPiece);
-        if (isObliteration) { audioManager.playObliterate(); addLog("Dungeon Obliterated your piece!"); }
+        if (isObliteration) { 
+          audioManager.playObliterate(); 
+          addLog("Dungeon Obliterated your piece!");
+          addEffect('poof', toAlg);
+        }
         else if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) {
             audioManager.playCapture(); 
+            addEffect('poof', toAlg);
             if (capturedPiece) addLog(`Dungeon captured your ${capturedPiece.type}!`);
         }
         else {
@@ -779,6 +798,7 @@ export default function DungeonPage() {
             selfDestructCaptures.forEach(p => {
                 const targetPile = p.color;
                 updatedCapturedPieces[targetPile].push({ ...p, id: p.id });
+                addEffect('poof', toAlg);
             });
             if (selfDestructCaptures.length > 0) {
                 addLog(`Dungeon explosion destroyed ${selfDestructCaptures.length} unit(s)!`);
@@ -819,6 +839,7 @@ export default function DungeonPage() {
         const newStreakLocal = streakGain > 0 ? oldStreakLocal + streakGain : 0;
         const currentKs = { ...killStreaks, black: newStreakLocal };
         setKillStreaks(currentKs);
+        if (streakGain > 0) addEffect('level-change', toAlg, 'black', streakGain);
 
         setBoard(newBoard);
         setTimeout(() => {
@@ -860,8 +881,9 @@ export default function DungeonPage() {
             const blackPieceSquares: {r: number, c: number}[] = []; for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (nextBoard[r][c].piece?.color === 'black') blackPieceSquares.push({ r, c });
             const capturedByCollapse: Piece[] = [];
             blackPieceSquares.forEach(({ r, c }) => {
-                addEffect('explosion', coordsToAlgebraic(r, c));
-                for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { if (dr === 0 && dc === 0) continue; const nr = r + dr; const nc = c + dc; if (isValidSquare(nr, nc)) { const targetSq = nextBoard[nr][nc]; if (targetSq.item?.type === 'anvil') targetSq.item = null; if (targetSq.piece && targetSq.piece.color === 'white' && targetSq.piece.type !== 'king') { if (targetSq.piece.heldItem === 'blast_shield') continue; capturedByCollapse.push({ ...targetSq.piece, id: targetSq.piece.id }); targetSq.piece = null; } } }
+                const alg = coordsToAlgebraic(r, c);
+                addEffect('explosion', alg);
+                for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { if (dr === 0 && dc === 0) continue; const nr = r + dr; const nc = c + dc; if (isValidSquare(nr, nc)) { const targetSq = nextBoard[nr][nc]; if (targetSq.item?.type === 'anvil') targetSq.item = null; if (targetSq.piece && targetSq.piece.color === 'white' && targetSq.piece.type !== 'king') { if (targetSq.piece.heldItem === 'blast_shield') continue; capturedByCollapse.push({ ...targetSq.piece, id: targetSq.piece.id }); addEffect('poof', targetSq.algebraic); targetSq.piece = null; } } }
                 nextBoard[r][c].piece = null;
             });
             const updatedG = { ...capturedPieces }; 
@@ -1175,6 +1197,7 @@ export default function DungeonPage() {
                 const targetPile = captured.color;
                 nextG[targetPile].push({ ...captured, id: captured.id });
                 addLog(`Dancer Skill: Captured ${captured.type}!`);
+                addEffect('poof', algebraic);
             } else { return; }
             setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove();
             triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, 'white', specialActionContext!.completedMilestones);
@@ -1260,6 +1283,7 @@ export default function DungeonPage() {
             const nextG = { ...specialActionContext!.currentGraveyard };
             const targetPile = sacrificed.color;
             nextG[targetPile].push(sacrificed);
+            addEffect('poof', algebraic);
             setCapturedPieces(nextG); setBoard(nextBoard); setIsAwaitingPawnSacrifice(false); setBoardForPostSacrifice(null); audioManager.playCapture();
             addLog(`Sacrificed ${sacrificed.type} for the Queen.`);
             triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', specialActionContext!.completedMilestones || []);
@@ -1286,6 +1310,8 @@ export default function DungeonPage() {
                 const nextG = { ...specialActionContext!.currentGraveyard };
                 const targetPile = snipedPiece.color;
                 nextG[targetPile].push(snipedPiece);
+                addEffect('poof', algebraic);
+                addEffect('level-change', coordsToAlgebraic(arRow, arCol), 'white', gain);
                 setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingArcherSnipe(false); audioManager.playSnipe();
                 addLog(`Archer Snipe: Destroyed ${snipedPiece.type}!`);
                 triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, specialActionContext!.actingPlayer || 'white', [...(specialActionContext!.completedMilestones || []), 'snipe']); 
@@ -1381,7 +1407,7 @@ export default function DungeonPage() {
           const executeSoulHarvest = () => { setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'soul-harvest' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); setSelectedSquare(null); setPossibleMoves([]); addLog("Soul Harvest: Absorbed adjacent power!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeResurrectionScroll = () => { if (effectiveLevel < 4) return; setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); const updatedGraveyard = { ...capturedPieces }; if (result.resurrectionScrollEvent) { const p = result.resurrectionScrollEvent.piece; const targetPile = p.color; updatedGraveyard[targetPile] = updatedGraveyard[targetPile].filter(pi => pi.id !== p.id); setCapturedPieces(updatedGraveyard); addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); addLog(`Resurrected ${p.type}!`); } setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, updatedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeFaithScroll = () => { if (effectiveLevel < 5) return; setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); } setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare); }, 800); };
+          const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare); }, 800); };
           
           const choice = window.confirm("Use piece ability (OK) or magic scroll (Cancel)?");
           if (choice) executeSelfDestruct();
@@ -1422,12 +1448,19 @@ export default function DungeonPage() {
           if (reflectionOccurred) { 
               const victim = { ...capturedPiece!, id: capturedPiece!.id }; 
               const targetPile = victim.color;
-              updatedGraveyard[targetPile].push(victim); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); const newKs = { white: 0, black: 0 }; setKillStreaks(newKs); setBoard(newBoard); setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, 'white', false, null); }, 800); return; 
+              updatedGraveyard[targetPile].push(victim); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); const newKs = { white: 0, black: 0 }; setKillStreaks(newKs); setBoard(newBoard); 
+              addEffect('poof', algebraic);
+              setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, 'white', false, null); }, 800); return; 
           }
           if (capturedPiece?.id.startsWith('boss-hydra')) { addLog("Hydra Split! The heads regrow into Knights!"); }
           if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); addLog("Rebirth! Phoenix Down triggered."); }
           if (result.infiltrationWin) { setBoard(newBoard); addLog("INFILTRATION WIN! Floor Vanquished."); advanceLevel(newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), capturedPieces); return; }
-          if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); addLog(`${newBoard[row][col].piece?.type} consumed a Shroom 🍄!`); }
+          if (shroomConsumed) { 
+            audioManager.playShroom(); 
+            audioManager.playLevelUp(); 
+            addLog(`${newBoard[row][col].piece?.type} consumed a Shroom 🍄!`); 
+            addEffect('level-change', algebraic, 'white', 1);
+          }
           if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); addLog("Rallying Cry!"); }
           if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); audioManager.playConversion(); }
           if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); addLog("HERO ASCENDED! Your Commander has reached the back rank."); }
@@ -1444,9 +1477,15 @@ export default function DungeonPage() {
           const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs);
           
           const isObliteration = result.promotedToInfiltrator || (movingPiece?.type === 'infiltrator' && capturedPiece);
-          if (isObliteration) { audioManager.playObliterate(); addLog("OBLITERATED! Dungeon target removed from the game."); }
+          if (isObliteration) { 
+            audioManager.playObliterate(); 
+            addLog("OBLITERATED! Dungeon target removed from the game."); 
+            addEffect('poof', algebraic);
+          }
           else if (streakGain > 0) {
               audioManager.playCapture();
+              addEffect('poof', algebraic);
+              addEffect('level-change', algebraic, 'white', streakGain);
               if (capturedPiece) addLog(`Captured ${capturedPiece.type} at ${algebraic}!`);
           }
           else {
