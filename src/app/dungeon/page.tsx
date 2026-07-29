@@ -31,7 +31,7 @@ import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus,
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package, Skull, RotateCcw } from 'lucide-react';
+import { RefreshCw, Swords, ArrowLeft, BrainCircuit, Package, Skull, RotateCcw, BookOpen } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -49,6 +49,9 @@ import {
 } from "@/components/ui/alert-dialog";
 import { audioManager } from '@/lib/audio-manager';
 import { useSocial } from '@/components/social/SocialContext';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
@@ -284,6 +287,7 @@ export default function DungeonPage() {
   const [isSelectingSporeBombShroom, setIsSelectingSporeBombShroom] = useState(false);
 
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
+  const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
 
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
@@ -293,15 +297,18 @@ export default function DungeonPage() {
   const uniqueIdCounterRef = useRef(30000);
   const gameOverRef = useRef(false);
 
-  const prevBoardRef = useRef<BoardState | null>(null);
-  const signaledEventsRef = useRef<Set<string>>(new Set());
   const isInitialized = useRef(false);
 
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
-  const isBossFloor = level % 10 === 0;
+  const aiInstance = useRef<VibeChessAI | null>(null);
+  const clickGuard = useRef(false);
+
+  const handlePieceHover = useCallback((p: Piece | null) => { 
+    setPieceForInfoDisplay(p); 
+  }, []);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
@@ -309,18 +316,15 @@ export default function DungeonPage() {
     return 2 + Math.floor((elo - 1200) / 400);
   }, [userData]);
 
-  const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
-  const aiInstance = useRef<VibeChessAI | null>(null);
-  const clickGuard = useRef(false);
+  const usedSlots = useMemo(() => {
+    return board.flat().filter(sq => sq.piece?.heldItem).length;
+  }, [board]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
     setEffects(prev => [...prev, { id, type, square, color, value }]);
     setTimeout(() => { setEffects(curr => curr.filter(e => e.id !== id)); }, 1500);
   }, []);
-
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
-  const isLocalActionTurn = currentPlayer === 'white';
 
   const saveDungeonState = useCallback((currentLevel: number, currentBoard: BoardState, currentP: PlayerColor, ks: any, caps: any, shroomC: number, nextShroom: number, ep: AlgebraicSquare | null, nrc: number) => {
     if (!user || !firestore) return;
@@ -387,59 +391,6 @@ export default function DungeonPage() {
     audioManager.playLevelUp();
     addLog(`Descending to Floor ${nextLevel}...`);
   }, [level, addLog, saveDungeonState]);
-
-  const warpToLevel = useCallback((targetLevel: number, type: InventoryItemType) => {
-    if (hasMovedOnCurrentFloor) return;
-    const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
-    setIsMoveProcessing(false); clickGuard.current = false; setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]);
-    setLevel(targetLevel); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivors);
-    const newBoard = generateDungeonFloor(targetLevel, survivors); setBoard(newBoard); 
-    
-    const nextGraveyard = { white: capturedPieces.white, black: [] };
-    setCapturedPieces(nextGraveyard); 
-    
-    setCurrentPlayer('white');
-    const ks = { white: 0, black: 0 }; setKillStreaks(ks);
-    const sC = 0; const nS = Math.floor(Math.random() * 6) + 5;
-    setShroomSpawnCounter(sC); setNextShroomSpawnTurn(nS); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null); setLastMovedPieceType(null);
-    setGameMoveCounter(0);
-    setInventory(prev => { const next = [...prev]; const item = next.find(i => i.type === type); if (item) { item.count--; if (item.count <= 0) return next.filter(i => i.type !== type); } return next; });
-    
-    setIsAwaitingDanceTarget(false);
-    setDancerToDance(null);
-    setIsAwaitingCommanderPromotion(false);
-    setIsAwaitingAnvilDrop(false);
-    setIsAwaitingHolyShield(false);
-    setIsAwaitingArcherSnipe(false);
-    setIsAwaitingPawnSacrifice(false);
-    setIsAwaitingGrappleThrow(false);
-    setGrappledPieceSubject(null);
-    setIsInventoryOpen(false);
-    setSpecialActionContext(null);
-    setIsAwaitingWindScrollTarget(false);
-    setIsAwaitingAnvilScrollTarget(false);
-    setIsAwaitingShieldScrollTarget(false);
-    setIsAwaitingSwapScrollTarget(false);
-    setIsAwaitingDecreeTarget(false);
-    setIsAwaitingEarthquakeScrollTarget(false);
-    setAbilityChoiceDialog(void 0);
-    setIsPromotingPawn(false);
-    setPromotionSquare(null);
-    setIsSelectingMycoSpell(false);
-    setIsSelectingTeleportAlly(false);
-    setIsSelectingTeleportShroom(false);
-    setIsSelectingSporeBombShroom(false);
-    setIsAiThinking(false);
-    setPromotionQueue([]);
-
-    saveDungeonState(targetLevel, newBoard, 'white', ks, nextGraveyard, sC, nS, null, 0);
-    const isBoss = targetLevel % 10 === 0;
-    let msg = isBoss ? `BOSS BATTLE: Floor ${targetLevel}` : `Level ${targetLevel} - Wipe them out!`;
-    setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
-    gameOverRef.current = false;
-    audioManager.playResurrect();
-    addLog(`PORTAL ACTIVATED: Warped to Floor ${targetLevel}!`);
-  }, [board, hasMovedOnCurrentFloor, addLog, saveDungeonState, capturedPieces.white]);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
     let nextBoard = boardAfter;
@@ -924,21 +875,7 @@ export default function DungeonPage() {
         } else { addLog(`Dungeon Skip: Strike ${nextStrikes}/3`); setTimeout(() => { setIsAiThinking(false); processMoveEnd(board, capturedPieces, resetKs, 'black', false, null); }, 800); }
       }
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
-  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, isAnySpecialModeActive, aiStalemateStrikes, addEffect, addLog, necroResurrectionCounter, lastMovedPieceType, lastMovedPieceHeldItem, processPawnSacrificeCheck, userData, gameMoveCounter, level]);
-
-  useEffect(() => {
-    if (currentPlayer === 'black' && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
-      const timer = setTimeout(performAiMove, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove, isAiThinking, gameMoveCounter]);
-
-  const saveLoadoutToFirestore = useCallback((currentBoard: BoardState, currentInv: InventoryItem[]) => {
-    if (!user || !firestore) return;
-    const equipment: Record<string, string> = {};
-    currentBoard.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-    updateDocumentNonBlocking(doc(firestore, 'users', user.uid), { inventory: currentInv, equipment });
-  }, [user, firestore]);
+  }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, aiStalemateStrikes, addEffect, addLog, necroResurrectionCounter, lastMovedPieceType, lastMovedPieceHeldItem, processPawnSacrificeCheck, userData, gameMoveCounter, level]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -999,7 +936,12 @@ export default function DungeonPage() {
 
   useEffect(() => { if (!isInitialized.current && !isUserLoading && userData && user) { isInitialized.current = true; startRun(); } }, [startRun, isUserLoading, userData, user]);
 
-  const handleResetRun = () => { setIsResetConfirmOpen(false); startRun(true); addLog("Run Reset. Back to Floor 1."); };
+  useEffect(() => {
+    if (currentPlayer === 'black' && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
+      const timer = setTimeout(performAiMove, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, performAiMove, isAiThinking, gameMoveCounter]);
 
   const handlePromotionSelect = useCallback((pieceType: PieceType) => {
     const targetSquare = promotionSquare;
@@ -1114,16 +1056,11 @@ export default function DungeonPage() {
       }
   }, [selectedSquare, board, enPassantTargetSquare, capturedPieces, killStreaks, currentPlayer, processMoveEnd, addLog, lastMovedPieceType, lastMovedPieceHeldItem]);
 
-  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
-    if (player === 'white') return userData?.username || 'Hero';
-    return 'Dungeon';
-  }, [userData]);
-
   const handleSquareClick = (algebraic: AlgebraicSquare) => {
     if (clickGuard.current) return;
     const { row, col } = algebraicToCoords(algebraic); const sq = board[row][col]; let piece = sq.piece;
     if (piece?.id.startsWith('boss-colossus-')) { const tl = board.flat().find(s => s.piece?.id === 'boss-colossus-tl'); if (tl && tl.algebraic) { piece = tl.piece; algebraic = tl.algebraic; } }
-    setPieceForInfoDisplay(piece || null);
+    handlePieceHover(piece || null);
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
         if (selectedInventoryItemType.startsWith('portal_scroll_')) return;
@@ -1135,7 +1072,7 @@ export default function DungeonPage() {
           nextBoard[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextBoard);
           let newInv = [...inventory]; const item = newInv.find(i => i.type === selectedInventoryItemType);
           if (item) { item.count--; if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); }
-          setInventory(newInv); saveLoadoutToFirestore(nextBoard, newInv); saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter); setSelectedInventoryItemType(null); audioManager.playLevelUp();
+          setInventory(newInv); saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter); setSelectedInventoryItemType(null); audioManager.playLevelUp();
           addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
         } else if (piece && piece.heldItem && piece.color === 'white') {
           const oldItem = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
@@ -1143,14 +1080,14 @@ export default function DungeonPage() {
           const nextInv = [...inventory]; const itemIn = nextInv.find(i => i.type === selectedInventoryItemType);
           if (itemIn) { itemIn.count--; if (itemIn.count <= 0) nextInv.splice(nextInv.indexOf(itemIn), 1); }
           const itemOut = nextInv.find(i => i.type === oldItem); if (itemOut) itemOut.count++; else nextInv.push({ type: oldItem, count: 1 });
-          setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter); setSelectedInventoryItemType(null); audioManager.playLevelUp();
+          setInventory(nextInv); saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter); setSelectedInventoryItemType(null); audioManager.playLevelUp();
           addLog(`Swapped equipment to ${ITEM_METADATA[selectedInventoryItemType].name}`);
         }
       } else if (piece && piece.heldItem && piece.color === 'white') {
           const removedItem = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
           nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
           const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removedItem); if (item) item.count++; else nextInv.push({ type: removedItem, count: 1 });
-          setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter); audioManager.playMove();
+          setInventory(nextInv); saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter); audioManager.playMove();
           addLog(`Unequipped ${ITEM_METADATA[removedItem].name}`);
       }
       return;
@@ -1537,6 +1474,10 @@ export default function DungeonPage() {
     else { setSelectedSquare(null); setPossibleMoves([]); }
   };
 
+  const handleResetRun = () => { setIsResetConfirmOpen(false); startRun(true); addLog("Run Reset. Back to Floor 1."); };
+
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+
   const mobileLayout = (
     <div className="relative z-10 flex flex-col flex-grow w-full max-w-lg mx-auto p-2">
       <div className="flex justify-between items-center mb-2">
@@ -1600,7 +1541,7 @@ export default function DungeonPage() {
         isGameOver={gameInfo.gameOver} 
         killStreaks={killStreaks} 
         pieceForInfoDisplay={pieceForInfoDisplay} 
-        getPlayerDisplayName={getPlayerDisplayName}
+        getPlayerDisplayName={(p) => p.charAt(0).toUpperCase() + p.slice(1)}
         onlineStatus="disconnected"
         turnTimer={null}
         activeTimerPlayer={null}
@@ -1642,7 +1583,7 @@ export default function DungeonPage() {
           isGameOver={gameInfo.gameOver} 
           killStreaks={killStreaks} 
           pieceForInfoDisplay={pieceForInfoDisplay} 
-          getPlayerDisplayName={getPlayerDisplayName}
+          getPlayerDisplayName={(p) => p.charAt(0).toUpperCase() + p.slice(1)}
           onlineStatus="disconnected"
           turnTimer={null}
           activeTimerPlayer={null}
@@ -1723,7 +1664,7 @@ export default function DungeonPage() {
                         <span className="text-[8px] font-pixel uppercase text-foreground/70">Scaling Enemies</span>
                         <span className="text-[8px] font-pixel text-primary uppercase">Lvl {Math.floor(level/7)+1}</span>
                     </div>
-                    {isBossFloor && (
+                    {level % 10 === 0 && (
                         <div className="flex justify-between items-center bg-destructive/10 p-2 border border-destructive/20">
                             <span className="text-[8px] font-pixel uppercase text-destructive font-bold">Boss Presence</span>
                             <span className="text-[8px] font-pixel text-destructive uppercase">ACTIVE</span>
@@ -1746,8 +1687,6 @@ export default function DungeonPage() {
     </div>
   );
 
-  const handlePieceHover = useCallback((p: Piece | null) => { setPieceForInfoDisplay(p); }, []);
-
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col relative overflow-hidden">
       <div className="absolute inset-0 z-0 opacity-5 pointer-events-none" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #fff 1px, transparent 0)', backgroundSize: '24px 24px' }} />
@@ -1756,7 +1695,7 @@ export default function DungeonPage() {
         <div className="hidden lg:flex flex-grow">{desktopLayout}</div>
       </div>
 
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { warpToLevel(parseInt(type.split('_')[2]), type); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { addLog("Portal Logic: skip floors in Dungeon Mode!"); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       
