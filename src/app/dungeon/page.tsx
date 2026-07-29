@@ -229,10 +229,6 @@ export default function DungeonPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const handlePieceHover = useCallback((p: Piece | null) => { 
-    setPieceForInfoDisplay(p); 
-  }, []);
-
   const [level, setLevel] = useState(1);
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [playerArmy, setPlayerArmy] = useState<Piece[]>([]);
@@ -310,6 +306,10 @@ export default function DungeonPage() {
   const isInitialized = useRef(false);
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
+
+  const handlePieceHover = useCallback((p: Piece | null) => { 
+    setPieceForInfoDisplay(p); 
+  }, []);
 
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
@@ -414,7 +414,7 @@ export default function DungeonPage() {
           const victim = { ...p, id: p.id };
           const targetPile = victim.color;
           nextGraveyard[targetPile].push(victim);
-          addEffect('poof', findPieceCoords(nextBoard, p.id) || 'e1'); // Fallback to e1 if not found
+          addEffect('poof', findPieceCoords(nextBoard, p.id) || 'e1'); 
         });
         setCapturedPieces(nextGraveyard); setKillStreaks({ ...currentKs });
         audioManager.playCapture(); 
@@ -553,7 +553,6 @@ export default function DungeonPage() {
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, gameMoveCounter]);
 
-  // Helper to find piece by ID for poof animation
   function findPieceCoords(b: BoardState, id: string): AlgebraicSquare | null {
     for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(b[r][c].piece?.id === id) return b[r][c].algebraic;
     return null;
@@ -639,7 +638,11 @@ export default function DungeonPage() {
                 const v = victims[Math.floor(Math.random() * victims.length)]; const {row: row_v, col: col_v} = algebraicToCoords(v.algebraic);
                 const sniped = { ...nextBoard[row_v][col_v].piece!, id: nextBoard[row_v][col_v].piece!.id };
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
-                if (responsibleAIArcher) { const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; responsibleAIArcher.level += gain; addEffect('level-change', findPieceCoords(nextBoard, responsibleAIArcher.id) || v.algebraic, 'black', gain); }
+                if (responsibleAIArcher) { 
+                    const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; 
+                    responsibleAIArcher.level += gain; 
+                    addEffect('level-change', findPieceCoords(nextBoard, responsibleAIArcher.id) || v.algebraic, 'black', gain); 
+                }
                 const targetPile = sniped.color;
                 nextGraveyard[targetPile].push(sniped);
                 addEffect('poof', v.algebraic);
@@ -812,9 +815,7 @@ export default function DungeonPage() {
                 updatedCapturedPieces[targetPile].push({ ...p, id: p.id });
                 addEffect('poof', toAlg);
             });
-            if (selfDestructCaptures.length > 0) {
-                addLog(`Dungeon explosion destroyed ${selfDestructCaptures.length} unit(s)!`);
-            }
+            addLog(`Dungeon explosion destroyed ${selfDestructCaptures.length} unit(s)!`);
         }
         
         setCapturedPieces(updatedCapturedPieces);
@@ -1629,23 +1630,11 @@ export default function DungeonPage() {
   const desktopLayout = (
     <div className="relative z-10 flex flex-row items-start justify-center gap-6 w-full h-full p-6 max-w-7xl mx-auto">
       <div className="w-1/4 flex flex-col gap-4">
-        <Card className="border-2 border-primary/20">
-          <CardContent className="p-4 flex flex-col gap-4">
-             <div className="flex items-center justify-between">
-                <span className="font-pixel text-xs text-primary uppercase">Hero Party</span>
-                <span className="font-pixel text-[10px] text-muted-foreground uppercase">{playerArmy.length} Units</span>
-             </div>
-             <div className="flex flex-wrap gap-1 max-h-[100px] overflow-y-auto">
-                {playerArmy.map((p, i) => (
-                    <div key={p.id} className="w-6 h-6 bg-muted/30 border border-border/20 flex items-center justify-center p-0.5 rounded-sm">
-                        <ChessPieceDisplay piece={p} isMini />
-                    </div>
-                ))}
-             </div>
-             <Separator />
-             <Link href="/"><Button variant="outline" className="w-full h-9 text-[10px] uppercase font-pixel"><ArrowLeft className="mr-2 h-4 w-4" /> Escape to Lobby</Button></Link>
-          </CardContent>
-        </Card>
+        <Link href="/">
+            <Button variant="outline" className="w-full h-9 text-[10px] uppercase font-pixel">
+                <ArrowLeft className="mr-2 h-4 w-4" /> LOBBY
+            </Button>
+        </Link>
         
         <GameControls 
           currentPlayer={currentPlayer} 
@@ -1719,30 +1708,8 @@ export default function DungeonPage() {
       <div className="w-1/4 flex flex-col gap-4">
         <Button variant="outline" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group">
             <Package className="mr-3 h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
-            <span className="font-pixel text-xs uppercase text-primary">Open Loot Bag</span>
+            <span className="font-pixel text-xs uppercase text-primary">LOOT BAG</span>
         </Button>
-
-        <Card className="border-2 border-border/50 bg-card/80">
-            <CardContent className="p-4 space-y-4">
-                <h3 className="font-pixel text-[10px] text-muted-foreground uppercase text-center border-b pb-2">Active Modifiers</h3>
-                <div className="space-y-2">
-                    <div className="flex justify-between items-center bg-muted/20 p-2 border border-border/10">
-                        <span className="text-[8px] font-pixel uppercase text-foreground/70">Fog of War</span>
-                        <span className="text-[8px] font-pixel text-green-500 uppercase">Inactive</span>
-                    </div>
-                    <div className="flex justify-between items-center bg-muted/20 p-2 border border-border/10">
-                        <span className="text-[8px] font-pixel uppercase text-foreground/70">Scaling Enemies</span>
-                        <span className="text-[8px] font-pixel text-primary uppercase">Lvl {Math.floor(level/7)+1}</span>
-                    </div>
-                    {level % 10 === 0 && (
-                        <div className="flex justify-between items-center bg-destructive/10 p-2 border border-destructive/20">
-                            <span className="text-[8px] font-pixel uppercase text-destructive font-bold">Boss Presence</span>
-                            <span className="text-[8px] font-pixel text-destructive uppercase">ACTIVE</span>
-                        </div>
-                    )}
-                </div>
-            </CardContent>
-        </Card>
 
         <div className="mt-auto space-y-2">
             <Button variant="outline" onClick={() => setIsResetConfirmOpen(true)} className="w-full h-9 text-[10px] uppercase font-pixel border-destructive/30 text-destructive hover:bg-destructive/10">
@@ -1750,7 +1717,7 @@ export default function DungeonPage() {
             </Button>
             <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
             <Button variant="outline" onClick={async () => { setIsRulesDialogOpen(true); }} className="w-full h-9 text-[10px] uppercase font-pixel">
-                <BookOpen className="mr-2 h-4 w-4" /> View Bestiary
+                <BookOpen className="mr-2 h-4 w-4" /> RULEBOOK
             </Button>
         </div>
       </div>
