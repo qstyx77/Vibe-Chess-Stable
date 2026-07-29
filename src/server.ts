@@ -440,7 +440,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         friendWs.send(JSON.stringify({
                             type: 'chat-message',
                             message: {
-                                id: `chal_${Date.now()}`,
+                                id: `chal_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                                 sender: data.senderName,
                                 senderId: ws.userId,
                                 text: `Hero ${data.senderName} has challenged you to a duel!`,
@@ -454,7 +454,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     break;
                 case 'chat-message':
                     const msg: ChatMessage = {
-                        id: `msg_${Date.now()}`,
+                        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                         sender: data.sender,
                         senderId: data.senderId,
                         text: data.text,
@@ -500,7 +500,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                 ws.send(JSON.stringify({
                                     type: 'chat-message',
                                     message: {
-                                        id: `sys_${Date.now()}`,
+                                        id: `sys_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                                         sender: 'SYSTEM',
                                         text: `Hero ${data.targetName || 'unknown'} is not in the realm.`,
                                         timestamp: Date.now(),

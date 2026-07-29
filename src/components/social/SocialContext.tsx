@@ -70,8 +70,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const { data: friendsData } = useCollection<Friend>(friendsQuery);
 
   const addLog = useCallback((text: string) => {
+    const entropy = Math.random().toString(36).substr(2, 9);
     const log: ChatMessage = {
-        id: `log_${Date.now()}_${Math.random()}`,
+        id: `log_${Date.now()}_${entropy}`,
         sender: 'SYSTEM',
         text,
         timestamp: Date.now(),
@@ -113,7 +114,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === 'chat-message') {
-                setMessages(prev => [...prev, data.message]);
+                setMessages(prev => {
+                    // Prevent local duplicate rendering if WebSocket sends back our own message with same ID
+                    if (prev.some(m => m.id === data.message.id)) return prev;
+                    return [...prev, data.message];
+                });
                 const cat = data.message.category as MessageCategory;
                 if (!isMessengerOpen || !visibleCategories.has(cat)) {
                     setHasUnread(prev => ({ ...prev, [cat]: true }));
