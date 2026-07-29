@@ -168,7 +168,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             wsRef.current.send(JSON.stringify({
                 type: 'chat-message',
                 category: 'social',
-                text: `(To All Friends): ${msgBody}`,
+                text: msgBody,
                 sender: userData?.username || user?.displayName || 'Player',
                 senderId: user?.uid,
                 broadcast: 'friends'
@@ -187,7 +187,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             wsRef.current.send(JSON.stringify({
                 type: 'chat-message',
                 category: 'social',
-                text: `(Whisper to ${name}): ${msgBody}`,
+                text: msgBody,
                 targetName: name,
                 sender: userData?.username || user?.displayName || 'Player',
                 senderId: user?.uid

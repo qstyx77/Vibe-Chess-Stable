@@ -462,12 +462,57 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     if (data.category === 'battle' && ws.roomId) {
                         broadcastToRoom(ws.roomId, { type: 'chat-message', message: msg });
-                    } else if (data.category === 'social' && data.targetId) {
-                        const target = userConnections[data.targetId];
-                        if (target && target.readyState === WebSocket.OPEN) {
-                            target.send(JSON.stringify({ type: 'chat-message', message: msg }));
+                    } else if (data.category === 'social') {
+                        // WHISPER / PRIVATE MESSAGE (targetId or targetName)
+                        if (data.targetId || data.targetName) {
+                            let targetWs = null;
+                            if (data.targetId) {
+                                targetWs = userConnections[data.targetId];
+                            } else if (data.targetName) {
+                                // Resolve username to connection (case-insensitive)
+                                targetWs = Object.values(userConnections).find(conn => 
+                                    conn.username?.toLowerCase() === data.targetName.toLowerCase()
+                                );
+                            }
+
+                            if (targetWs && targetWs.readyState === WebSocket.OPEN) {
+                                // Send decorated message to target
+                                targetWs.send(JSON.stringify({
+                                    type: 'chat-message',
+                                    message: {
+                                        ...msg,
+                                        text: `(Whisper from ${msg.sender}): ${data.text}`
+                                    }
+                                }));
+                                // Send confirmation back to sender
+                                ws.send(JSON.stringify({
+                                    type: 'chat-message',
+                                    message: {
+                                        ...msg,
+                                        text: `(Whisper to ${targetWs.username}): ${data.text}`
+                                    }
+                                }));
+                            } else {
+                                // Inform sender target is away
+                                ws.send(JSON.stringify({
+                                    type: 'chat-message',
+                                    message: {
+                                        id: `sys_${Date.now()}`,
+                                        sender: 'SYSTEM',
+                                        text: `Hero ${data.targetName || 'unknown'} is not in the realm.`,
+                                        timestamp: Date.now(),
+                                        category: 'log'
+                                    }
+                                }));
+                            }
+                        } else {
+                            // GLOBAL SOCIAL BROADCAST
+                            wss.clients.forEach(client => {
+                                if (client.readyState === WebSocket.OPEN) {
+                                    client.send(JSON.stringify({ type: 'chat-message', message: msg }));
+                                }
+                            });
                         }
-                        ws.send(JSON.stringify({ type: 'chat-message', message: msg }));
                     }
                     break;
                 case 'create-room': {
