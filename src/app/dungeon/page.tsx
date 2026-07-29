@@ -289,21 +289,20 @@ export default function DungeonPage() {
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
+  const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
 
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
   const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
   const [colossusAwakened, setColossusAwakened] = useState(false);
   const [gameMoveCounter, setGameMoveCounter] = useState(0);
+
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+
   const uniqueIdCounterRef = useRef(30000);
   const gameOverRef = useRef(false);
-
   const isInitialized = useRef(false);
-
-  const [isInventoryOpen, setIsInventoryOpen] = useState(false);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
-  const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
-
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
 
@@ -1382,9 +1381,6 @@ export default function DungeonPage() {
           const executeFaithScroll = () => { if (effectiveLevel < 5) return; setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); } setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare); }, 800); };
           
-          // AbilityChoiceDialog logic needs careful order, defining in handleSquareClick
-          // In actual implementation, we might need a separate state for dialog.
-          // For now, let's just use window.confirm as a fallback if the dialog state isn't clear
           const choice = window.confirm("Use piece ability (OK) or magic scroll (Cancel)?");
           if (choice) executeSelfDestruct();
           else {
@@ -1700,7 +1696,7 @@ export default function DungeonPage() {
                 <RotateCcw className="mr-2 h-4 w-4" /> Restart Run
             </Button>
             <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
-            <Button variant="outline" onClick={() => setIsRulesDialogOpen(true)} className="w-full h-9 text-[10px] uppercase font-pixel">
+            <Button variant="outline" onClick={async () => { setIsRulesDialogOpen(true); }} className="w-full h-9 text-[10px] uppercase font-pixel">
                 <BookOpen className="mr-2 h-4 w-4" /> View Bestiary
             </Button>
         </div>

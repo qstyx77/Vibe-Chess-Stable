@@ -144,6 +144,7 @@ export default function EvolvingChessPage() {
   const firestore = getFirestore();
   const { toast } = useToast();
 
+  // --- STATE HOOKS (TOP OF COMPONENT) ---
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
@@ -165,7 +166,6 @@ export default function EvolvingChessPage() {
   const [isWhiteAI, setIsWhiteAI] = useState(false);
   const [isBlackAI, setIsBlackAI] = useState(false);
   const [isAiThinking, setIsAiThinking] = useState(false);
-  const aiInstanceRef = useRef<VibeChessAI | null>(null);
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
   const [lastMoveFrom, setLastMoveFrom] = useState<AlgebraicSquare | null>(null);
@@ -174,40 +174,27 @@ export default function EvolvingChessPage() {
   const [lastMovedPieceHeldItem, setLastMovedPieceHeldItem] = useState<InventoryItemType | null>(null);
   const [gameMoveCounter, setGameMoveCounter] = useState(0);
   const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
-
-  const clickGuardRef = useRef(false);
-  const uniqueIdCounterRef = useRef(20000);
-  const gameOverRef = useRef(false);
-
   const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
   const [playerToSacrificePawn, setPlayerToSacrificePawn] = useState<PlayerColor | null>(null);
   const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
   const [playerWhoMadeQueenMove, setPlayerWhoMadeQueenMove] = useState<PlayerColor | null>(null);
   const [isExtraTurnFromQueenMove, setIsExtraTurnFromQueenMove] = useState<boolean>(false);
-
   const [isAwaitingDanceTarget, setIsAwaitingDanceTarget] = useState(false);
   const [dancerToDance, setDancerToDance] = useState<AlgebraicSquare | null>(null);
-
   const [isAwaitingGrappleThrow, setIsAwaitingGrappleThrow] = useState(false);
   const [grappledPieceSubject, setGrappledPieceSubject] = useState<{ piece: Piece, from: AlgebraicSquare } | null>(null);
-
   const [firstBloodAchieved, setFirstBloodAchieved] = useState(false);
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
-
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
-
   const [resurrectedSquares, setResurrectedSquares] = useState<ResurrectedSquareInfo[]>([]);
-
   const [pieceForInfoDisplay, setPieceForInfoDisplay] = useState<Piece | null>(null);
-
   const [turnTimer, setTurnTimer] = useState<number | null>(null);
   const [activeTimerPlayer, setActiveTimerPlayer] = useState<PlayerColor | null>(null);
   const [whiteTimeouts, setWhiteTimeouts] = useState(0);
   const [blackTimeouts, setBlackTimeouts] = useState(0);
   const [effects, setEffects] = useState<Effect[]>([]);
-
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [playerToDropAnvil, setPlayerToDropAnvil] = useState<PlayerColor | null>(null);
   const [specialActionContext, setSpecialActionContext] = useState<{ 
@@ -221,28 +208,20 @@ export default function EvolvingChessPage() {
     currentGraveyard: { white: Piece[], black: Piece[] }, 
     currentKs: { white: number, black: number } 
   } | null>(null);
-
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
-
   const [inputRoomId, setInputRoomId] = useState('');
   const [localPlayerColor, setLocalPlayerColor] = useState<PlayerColor | null>(null);
   const [roomId, setRoomId] = useState<string | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'waiting'>('disconnected');
   const [gamePlayers, setGamePlayers] = useState<{white: {username?: string; userId?: string; elo?: number;} | null, black: {username?: string; userId?: string; elo?: number;} | null} | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
   const [showLossScreen, setShowLossScreen] = useState(false);
   const [showWinScreen, setShowWinScreen] = useState(false);
   const [rankedQueueStatus, setRankedQueueStatus] = useState<'idle' | 'searching'>('idle');
-  const prevBoardRef = useRef<BoardState | null>(null);
-  const signaledEventsRef = useRef<Set<string>>(new Set());
-
   const [eloResult, setEloResult] = useState<any | null>(null);
   const [showSummary, setShowSummary] = useState(false);
-
   const [volume, setVolume] = useState(100);
   const [aiDifficulty, setAiDifficulty] = useState(4);
-
   const [isAwaitingWindScrollTarget, setIsAwaitingWindScrollTarget] = useState(false);
   const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
   const [isAwaitingShieldScrollTarget, setIsAwaitingShieldScrollTarget] = useState(false);
@@ -250,24 +229,31 @@ export default function EvolvingChessPage() {
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
   const [abilityChoiceDialog, setAbilityChoiceDialog] = useState<{ isOpen: boolean, onChoice: (choice: 'ability' | 'spell') => void } | null>(null);
-
   const [isSelectingMycoSpell, setIsSelectingMycoSpell] = useState(false);
   const [isSelectingTeleportAlly, setIsSelectingTeleportAlly] = useState(false);
   const [isSelectingTeleportShroom, setIsSelectingTeleportShroom] = useState(false);
   const [teleportAllyPieceId, setTeleportAllyPieceId] = useState<string | null>(null);
   const [isSelectingSporeBombShroom, setIsSelectingSporeBombShroom] = useState(false);
-
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
-
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
 
+  // --- DERIVED CONSTANTS (MUST BE AFTER STATE BUT BEFORE HANDLERS) ---
   const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
+  // --- REFS ---
+  const aiInstanceRef = useRef<VibeChessAI | null>(null);
+  const clickGuardRef = useRef(false);
+  const uniqueIdCounterRef = useRef(20000);
+  const gameOverRef = useRef(false);
   const hasInitializedSession = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const prevBoardRef = useRef<BoardState | null>(null);
+  const signaledEventsRef = useRef<Set<string>>(new Set());
 
+  // --- MEMOIZED VALUES ---
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200;
     if (elo <= 1200) return 2;
@@ -278,6 +264,7 @@ export default function EvolvingChessPage() {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
   }, [board]);
 
+  // --- HANDLERS (CALLBACKS) ---
   const addEffectCallback = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
     setEffects(prev => [...prev, { id, type, square, color, value }]);
@@ -1509,6 +1496,7 @@ export default function EvolvingChessPage() {
     else { setSelectedSquare(null); setPossibleMoves([]); }
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, pushHistory, saveLoadoutToFirestore]);
 
+  // --- WEBSOCKET INIT (LATER IN FILE) ---
   const initWebSocket = useCallback((onOpenCallback?: () => void) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       if (onOpenCallback) onOpenCallback();
@@ -1726,6 +1714,7 @@ export default function EvolvingChessPage() {
     });
   }, [user, userData, inputRoomId, board, initWebSocket, addLog]);
 
+  // --- EFFECTS ---
   useEffect(() => {
     if (onlineStatus === 'connected' && localPlayerColor) {
       setBoardOrientation(localPlayerColor);
@@ -1795,6 +1784,7 @@ export default function EvolvingChessPage() {
     return () => clearInterval(intervalId);
   }, [currentPlayer, gameInfo.gameOver, onlineStatus, roomId, gameMoveCounter, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingHolyShield, isAwaitingAnvilDrop, isAwaitingArcherSnipe, isPromotingPawn, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom]);
 
+  // --- LAYOUTS (BOTTOM OF COMPONENT) ---
   const mobileLayout = (
     <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 lg:hidden overflow-y-auto scrollbar-hide">
       <div className="flex flex-col items-center justify-between gap-0.5 pb-1">
@@ -1839,25 +1829,6 @@ export default function EvolvingChessPage() {
     </div>
   );
 
-  return (
-    <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative", showLossScreen && "after:animate-fade-to-black")}>
-      {showWinScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center">YOU WON</p></div>)}
-      {showLossScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center">YOU LOST</p></div>)}
-      <div className="lg:hidden h-full">{mobileLayout}</div>
-      <div className="hidden lg:block h-full">{desktopLayout}</div>
-      <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
-        <PixelAnvil className="h-12 w-12 text-muted-foreground opacity-10" />
-      </div>
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { addLog("Portal Logic: skip floors in Dungeon Mode!"); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
-      <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
-      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
-      <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
-      <GameSummaryDialog isOpen={showSummary} onClose={() => setShowSummary(false)} winner={gameInfo.winner} winnerName={getPlayerDisplayName(gameInfo.winner as PlayerColor)} loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')} eloInfo={eloResult} moveCount={gameMoveCounter} onReset={() => fullGameReset()} />
-      <AlertDialog open={abilityChoiceDialog?.isOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Select Action</AlertDialogTitle><AlertDialogDescription>This piece has multiple special actions available. Choose one to perform.</AlertDialogDescription></AlertDialogHeader><div className="flex flex-col gap-2"><Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>Use Piece Ability</Button><Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>Use Magic Item (Scroll)</Button></div><AlertDialogFooter><AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel></AlertDialogFooter></AlertDialogContent></AlertDialog>
-      <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle className="font-pixel text-primary uppercase">Reset Game?</AlertDialogTitle> <AlertDialogDescription> This will clear the board and reset all streaks. Any unsaved online progress may be lost. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel className="font-pixel text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="bg-destructive font-pixel text-[10px] uppercase" onClick={() => { setIsResetConfirmOpen(false); fullGameReset(); }}>Confirm Reset</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
-    </div>
-  );
-
   function fullGameReset() {
     const unlocks = userData?.unlockedPieces || [];
     const userElo = userData?.eloRating || 1200;
@@ -1894,4 +1865,23 @@ export default function EvolvingChessPage() {
     addLog("Game Reset.");
     aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
+
+  return (
+    <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative", showLossScreen && "after:animate-fade-to-black")}>
+      {showWinScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-primary font-sans text-center">YOU WON</p></div>)}
+      {showLossScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center">YOU LOST</p></div>)}
+      <div className="lg:hidden h-full">{mobileLayout}</div>
+      <div className="hidden lg:block h-full">{desktopLayout}</div>
+      <div className="fixed bottom-4 left-4 z-50 pointer-events-none">
+        <PixelAnvil className="h-12 w-12 text-muted-foreground opacity-10" />
+      </div>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { addLog("Portal Logic: skip floors in Dungeon Mode!"); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
+      <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
+      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
+      <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
+      <GameSummaryDialog isOpen={showSummary} onClose={() => setShowSummary(false)} winner={gameInfo.winner} winnerName={getPlayerDisplayName(gameInfo.winner as PlayerColor)} loserName={getPlayerDisplayName(gameInfo.winner === 'white' ? 'black' : 'white')} eloInfo={eloResult} moveCount={gameMoveCounter} onReset={() => fullGameReset()} />
+      <AlertDialog open={abilityChoiceDialog?.isOpen}><AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Select Action</AlertDialogTitle><AlertDialogDescription>This piece has multiple special actions available. Choose one to perform.</AlertDialogDescription></AlertDialogHeader><div className="flex flex-col gap-2"><Button onClick={() => abilityChoiceDialog?.onChoice('ability')}>Use Piece Ability</Button><Button variant="secondary" onClick={() => abilityChoiceDialog?.onChoice('spell')}>Use Magic Item (Scroll)</Button></div><AlertDialogFooter><AlertDialogCancel onClick={() => setAbilityChoiceDialog(null)}>Cancel</AlertDialogCancel></AlertDialogFooter></AlertDialogContent></AlertDialog>
+      <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> <AlertDialogContent> <AlertDialogHeader> <AlertDialogTitle className="font-pixel text-primary uppercase">Reset Game?</AlertDialogTitle> <AlertDialogDescription> This will clear the board and reset all streaks. Any unsaved online progress may be lost. </AlertDialogDescription> </AlertDialogHeader> <AlertDialogFooter> <AlertDialogCancel className="font-pixel text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="bg-destructive font-pixel text-[10px] uppercase" onClick={() => { setIsResetConfirmOpen(false); fullGameReset(); }}>Confirm Reset</AlertDialogAction> </AlertDialogFooter> </AlertDialogContent> </AlertDialog>
+    </div>
+  );
 }
