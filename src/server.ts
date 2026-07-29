@@ -72,8 +72,11 @@ const broadcastToRoom = (roomId: string, message: any) => {
 };
 
 const broadcastPresence = () => {
-    const onlineUserIds = Object.keys(userConnections);
-    const msg = JSON.stringify({ type: 'presence-update', userIds: onlineUserIds });
+    const presenceData = Object.values(userConnections).map(conn => ({
+        userId: conn.userId,
+        username: conn.username
+    }));
+    const msg = JSON.stringify({ type: 'presence-update', users: presenceData });
     wss.clients.forEach(client => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(msg);

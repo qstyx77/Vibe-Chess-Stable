@@ -19,6 +19,7 @@ interface SocialContextType {
   onlineStatus: 'disconnected' | 'connecting' | 'connected';
   ws: WebSocket | null;
   onlineUserIds: Set<string>;
+  onlineUsers: { userId: string, username: string }[];
   // Messenger UI state
   isMessengerOpen: boolean;
   setIsMessengerOpen: (open: boolean) => void;
@@ -40,6 +41,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
+  const [onlineUsers, setOnlineUsers] = useState<{ userId: string, username: string }[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
 
   // UI State
@@ -87,6 +89,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (wsRef.current) wsRef.current.close();
         setMessages([]);
         setOnlineUserIds(new Set());
+        setOnlineUsers([]);
         return;
     }
 
@@ -116,12 +119,14 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                     setHasUnread(prev => ({ ...prev, [cat]: true }));
                 }
             } else if (data.type === 'presence-update') {
-                setOnlineUserIds(new Set(data.userIds));
+                setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
+                setOnlineUsers(data.users);
             }
         };
         socket.onclose = () => {
             setOnlineStatus('disconnected');
             setOnlineUserIds(new Set());
+            setOnlineUsers([]);
             setTimeout(initWs, 3000);
         };
         wsRef.current = socket;
@@ -147,7 +152,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (cmd === '/help') {
             addLog("COMMAND LIST:");
             addLog("/help - Show this list");
-            addLog("@name <text> - Private whisper to a hero");
+            addLog("@name <text> - Private whisper to a hero (works with spaces)");
             addLog("/friends <text> - Message all online friends");
             addLog("/clear - Wipe session history");
             return;
@@ -177,25 +182,36 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    // Whisper Parser (@name format)
+    // Greedy Whisper Parser (@name format for spaces)
     if (text.startsWith('@')) {
-        const parts = text.split(' ');
-        const name = parts[0].substring(1); // Remove the @
-        const msgBody = parts.slice(1).join(' ');
-        
-        if (name && msgBody) {
-            wsRef.current.send(JSON.stringify({
-                type: 'chat-message',
-                category: 'social',
-                text: msgBody,
-                targetName: name,
-                sender: userData?.username || user?.displayName || 'Player',
-                senderId: user?.uid
-            }));
-            return;
-        } else if (name && !msgBody) {
-            addLog(`Usage: @${name} <message>`);
-            return;
+        // Find longest matching online username that starts after @
+        const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
+        let foundUser = null;
+        for (const u of sortedOnlineUsers) {
+            const prefix = `@${u.username.toLowerCase()} `;
+            if (text.toLowerCase().startsWith(prefix)) {
+                foundUser = u;
+                break;
+            }
+        }
+
+        if (foundUser) {
+            const prefixLen = foundUser.username.length + 2; // @ + name + space
+            const msgBody = text.substring(prefixLen).trim();
+            if (msgBody) {
+                wsRef.current.send(JSON.stringify({
+                    type: 'chat-message',
+                    category: 'social',
+                    text: msgBody,
+                    targetName: foundUser.username,
+                    sender: userData?.username || user?.displayName || 'Player',
+                    senderId: user?.uid
+                }));
+                return;
+            } else {
+                addLog(`Usage: @${foundUser.username} <message>`);
+                return;
+            }
         }
     }
 
@@ -208,7 +224,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         senderId: user?.uid
     };
     wsRef.current.send(JSON.stringify(payload));
-  }, [user, userData, addLog]);
+  }, [user, userData, addLog, onlineUsers]);
 
   const startDm = useCallback((username: string) => {
       setIsMessengerOpen(true);
@@ -263,6 +279,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     onlineStatus,
     ws,
     onlineUserIds,
+    onlineUsers,
     isMessengerOpen,
     setIsMessengerOpen,
     hasUnread,
