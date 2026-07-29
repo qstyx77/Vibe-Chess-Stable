@@ -141,9 +141,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         if (cmd === '/help') {
             addLog("COMMAND LIST:");
             addLog("/help - Show this list");
-            addLog("/msg <name> <text> - Private message");
-            addLog("/friends <text> - Message all friends");
-            addLog("/clear - Clear chat session");
+            addLog("@name <text> - Private whisper to a hero");
+            addLog("/friends <text> - Message all online friends");
+            addLog("/clear - Wipe session history");
             return;
         }
 
@@ -153,23 +153,42 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        if (cmd === '/msg') {
-            const name = parts[1];
-            const msgBody = parts.slice(2).join(' ');
-            if (!name || !msgBody) {
-                addLog("Usage: /msg <username> <message>");
+        if (cmd === '/friends') {
+            const msgBody = parts.slice(1).join(' ');
+            if (!msgBody) {
+                addLog("Usage: /friends <message>");
                 return;
             }
-            // Logic for finding ID by name would go here in a full implementation
-            // For now, we use the @mention convention
             wsRef.current.send(JSON.stringify({
                 type: 'chat-message',
                 category: 'social',
-                text: `(Private to ${name}): ${msgBody}`,
-                targetName: name, // Server logic needed to route by name
+                text: `(To All Friends): ${msgBody}`,
+                sender: userData?.username || user?.displayName || 'Player',
+                senderId: user?.uid,
+                broadcast: 'friends'
+            }));
+            return;
+        }
+    }
+
+    // Whisper Parser (@name format)
+    if (text.startsWith('@')) {
+        const parts = text.split(' ');
+        const name = parts[0].substring(1); // Remove the @
+        const msgBody = parts.slice(1).join(' ');
+        
+        if (name && msgBody) {
+            wsRef.current.send(JSON.stringify({
+                type: 'chat-message',
+                category: 'social',
+                text: `(Whisper to ${name}): ${msgBody}`,
+                targetName: name,
                 sender: userData?.username || user?.displayName || 'Player',
                 senderId: user?.uid
             }));
+            return;
+        } else if (name && !msgBody) {
+            addLog(`Usage: @${name} <message>`);
             return;
         }
     }
