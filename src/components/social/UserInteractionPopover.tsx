@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -31,9 +30,10 @@ export function UserInteractionPopover({ userId, username, children, className }
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button className={cn("hover:text-primary transition-colors cursor-pointer outline-none", className)}>
+        {/* Changed from <button> to <span> to avoid nested button hydration errors */}
+        <span role="button" className={cn("hover:text-primary transition-colors cursor-pointer outline-none inline-block", className)}>
           {children}
-        </button>
+        </span>
       </PopoverTrigger>
       <PopoverContent className="w-56 p-3 bg-card border-2 border-primary/40 font-pixel">
         <div className="space-y-3">
