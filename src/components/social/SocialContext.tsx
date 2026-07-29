@@ -18,6 +18,7 @@ interface SocialContextType {
   blockUser: (userId: string) => void;
   onlineStatus: 'disconnected' | 'connecting' | 'connected';
   ws: WebSocket | null;
+  onlineUserIds: Set<string>;
   // Messenger UI state
   isMessengerOpen: boolean;
   setIsMessengerOpen: (open: boolean) => void;
@@ -38,6 +39,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const wsRef = useRef<WebSocket | null>(null);
 
   // UI State
@@ -84,6 +86,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
         if (wsRef.current) wsRef.current.close();
         setMessages([]);
+        setOnlineUserIds(new Set());
         return;
     }
 
@@ -112,10 +115,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                 if (!isMessengerOpen || !visibleCategories.has(cat)) {
                     setHasUnread(prev => ({ ...prev, [cat]: true }));
                 }
+            } else if (data.type === 'presence-update') {
+                setOnlineUserIds(new Set(data.userIds));
             }
         };
         socket.onclose = () => {
             setOnlineStatus('disconnected');
+            setOnlineUserIds(new Set());
             setTimeout(initWs, 3000);
         };
         wsRef.current = socket;
@@ -256,6 +262,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     blockUser,
     onlineStatus,
     ws,
+    onlineUserIds,
     isMessengerOpen,
     setIsMessengerOpen,
     hasUnread,

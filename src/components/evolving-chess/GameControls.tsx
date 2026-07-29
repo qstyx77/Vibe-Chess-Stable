@@ -52,7 +52,8 @@ export function GameControls({
     visibleCategories,
     setVisibleCategories,
     chatInput,
-    setChatInput
+    setChatInput,
+    onlineUserIds
   } = useSocial();
   
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -114,6 +115,9 @@ export function GameControls({
   };
 
   const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log;
+
+  const onlineFriends = useMemo(() => friends.filter(f => onlineUserIds.has(f.id)), [friends, onlineUserIds]);
+  const offlineFriends = useMemo(() => friends.filter(f => !onlineUserIds.has(f.id)), [friends, onlineUserIds]);
 
   return (
     <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative">
@@ -216,18 +220,35 @@ export function GameControls({
                 </Button>
           </form>
 
-          <div className="border-t pt-2 mt-1">
-              <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1">Online Friends</h4>
-              <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-                  {friends.map(f => (
-                      <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
-                         <div className="flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/20 hover:border-primary/50 transition-colors">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[8px] text-foreground uppercase">{f.username}</span>
-                         </div>
-                      </UserInteractionPopover>
-                  ))}
-                  {friends.length === 0 && <p className="text-[7px] text-muted-foreground italic">Click any name to add friends!</p>}
+          <div className="border-t pt-2 mt-1 space-y-2">
+              <div>
+                  <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1">Online Friends ({onlineFriends.length})</h4>
+                  <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+                      {onlineFriends.map(f => (
+                          <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
+                             <div className="flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/20 hover:border-primary/50 transition-colors">
+                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                <span className="text-[8px] text-foreground uppercase">{f.username}</span>
+                             </div>
+                          </UserInteractionPopover>
+                      ))}
+                      {onlineFriends.length === 0 && <p className="text-[7px] text-muted-foreground italic">No friends online.</p>}
+                  </div>
+              </div>
+              
+              <div>
+                  <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1 opacity-60">Away ({offlineFriends.length})</h4>
+                  <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
+                      {offlineFriends.map(f => (
+                          <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
+                             <div className="flex items-center gap-1 bg-muted/10 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/10 hover:border-muted-foreground transition-colors opacity-50 grayscale">
+                                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
+                                <span className="text-[8px] text-foreground uppercase">{f.username}</span>
+                             </div>
+                          </UserInteractionPopover>
+                      ))}
+                      {friends.length === 0 && <p className="text-[7px] text-muted-foreground italic">Click any name to add friends!</p>}
+                  </div>
               </div>
           </div>
         </CardContent>

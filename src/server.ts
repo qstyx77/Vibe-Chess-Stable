@@ -71,6 +71,16 @@ const broadcastToRoom = (roomId: string, message: any) => {
     }
 };
 
+const broadcastPresence = () => {
+    const onlineUserIds = Object.keys(userConnections);
+    const msg = JSON.stringify({ type: 'presence-update', userIds: onlineUserIds });
+    wss.clients.forEach(client => {
+        if (client.readyState === WebSocket.OPEN) {
+            client.send(msg);
+        }
+    });
+};
+
 const applyEquipment = (b: any, equip: Record<string, string> | undefined, targetColor: PlayerColor) => {
   if(!equip) return b;
   return b.map((row: any) => row.map((sq: any) => {
@@ -419,6 +429,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     ws.userId = data.userId;
                     ws.username = data.username;
                     userConnections[data.userId] = ws;
+                    broadcastPresence();
                     break;
                 case 'challenge-friend':
                     const friendWs = userConnections[data.friendId];
@@ -929,7 +940,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
     ws.on('close', () => {
         const qIdx = rankedQueue.findIndex(p => p.ws === ws);
         if (qIdx > -1) rankedQueue.splice(qIdx, 1);
-        if (ws.userId) delete userConnections[ws.userId];
+        if (ws.userId) {
+            if (userConnections[ws.userId] === ws) {
+                delete userConnections[ws.userId];
+                broadcastPresence();
+            }
+        }
         if (ws.roomId) {
             const room = rooms[ws.roomId];
             if (room && !room.gameState.gameInfo.gameOver) {
