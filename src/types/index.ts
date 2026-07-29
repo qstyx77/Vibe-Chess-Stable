@@ -40,7 +40,7 @@ export type InventoryItemType =
   | 'leach_blade'
   | 'kings_decree'
   | 'gravity_stone'
-  | 'lead_boots'
+  | 'offset_shield'
   | 'blast_shield'
   | 'monks_robe'
   | 'training_weights'
@@ -67,7 +67,8 @@ export type InventoryItemType =
   | 'demonic_possession'
   | 'mushroom_magnet'
   | 'mimic_blade'
-  | 'thieves_gloves';
+  | 'thieves_gloves'
+  | 'lead_boots';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -143,6 +144,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'mushroom_magnet': { name: 'Shroom Magnet', description: 'Accessory. On move/capture, pulls all Shrooms within 2 spaces 1 square closer.', isConsumable: false },
   'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the held item of the last piece that moved.', isConsumable: false },
   'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false },
+  'offset_shield': { name: 'Offset Shield', description: 'Shield. 50% chance to avoid damage from status effects.', isConsumable: false },
 };
 
 export interface Piece {
@@ -250,6 +252,7 @@ export interface ApplyMoveResult {
   resurrectionScrollEvent?: { piece: Piece, square: AlgebraicSquare };
   itemReturned?: InventoryItemType | null;
   multiPromotions?: { square: AlgebraicSquare, targetLevel: number }[];
+  ralliedSquares?: AlgebraicSquare[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

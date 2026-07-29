@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -823,6 +824,17 @@ export default function EvolvingChessPage() {
         if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("AI Hero Ascended!"); }
         if (applyResult.phoenixResurrection) { audioManager.playResurrect(); addLog("AI Phoenix Rebirth!"); }
         if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); addLog("AI Conversion triggered!"); }
+        
+        if (applyResult.rallyCryTriggered) {
+          addEffectCallback('shockwave', applyResult.rallyCryTriggered.square, applyResult.rallyCryTriggered.color);
+          audioManager.playRally();
+          addLog("AI Rallying Cry!");
+        }
+        if (applyResult.ralliedSquares) {
+          applyResult.ralliedSquares.forEach(sq => {
+            addEffectCallback('level-change', sq, currentPlayer, 1);
+          });
+        }
 
         const isObliteration = applyResult.promotedToInfiltrator || (piece.type === 'infiltrator' && applyResult.capturedPiece);
         if (isObliteration) { 
@@ -1455,6 +1467,17 @@ export default function EvolvingChessPage() {
                 if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("HERO ASCENDED!"); }
                 if (applyResult.phoenixResurrection) { audioManager.playResurrect(); addLog("REBIRTH! Phoenix Down activated."); }
                 if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); applyResult.conversionEvents.forEach(e => addLog(`Unit converted to ${e.convertedPiece.color}!`)); }
+
+                if (applyResult.rallyCryTriggered) {
+                  addEffectCallback('shockwave', applyResult.rallyCryTriggered.square, applyResult.rallyCryTriggered.color);
+                  audioManager.playRally();
+                  addLog("Rallying Cry!");
+                }
+                if (applyResult.ralliedSquares) {
+                  applyResult.ralliedSquares.forEach(sq => {
+                    addEffectCallback('level-change', sq, currentPlayer, 1);
+                  });
+                }
 
                 const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
                 const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
