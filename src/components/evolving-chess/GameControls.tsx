@@ -26,11 +26,6 @@ interface GameControlsProps {
   onlineStatus: 'disconnected' | 'connecting' | 'connected' | 'waiting';
   turnTimer: number | null;
   activeTimerPlayer: PlayerColor | null;
-  chatMessages: any[]; // Deprecated - using context
-  onSendMessage: (text: string) => void; // Deprecated
-  isMessengerOpen: boolean;
-  onToggleMessenger: () => void;
-  hasUnreadMessages: boolean;
 }
 
 export function GameControls({
@@ -44,26 +39,31 @@ export function GameControls({
   onlineStatus,
   turnTimer,
   activeTimerPlayer,
-  isMessengerOpen,
-  onToggleMessenger,
-  hasUnreadMessages,
 }: GameControlsProps) {
-  const { messages, friends, sendMessage, acceptChallenge } = useSocial();
-  const [chatInput, setChatInput] = useState('');
+  const { 
+    messages, 
+    friends, 
+    sendMessage, 
+    acceptChallenge, 
+    isMessengerOpen, 
+    setIsMessengerOpen, 
+    hasUnread, 
+    clearUnread,
+    visibleCategories,
+    setVisibleCategories,
+    chatInput,
+    setChatInput
+  } = useSocial();
   
-  // Multi-select state for filtering visibility
-  const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log']));
-
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const toggleCategory = (cat: MessageCategory) => {
     const next = new Set(visibleCategories);
     if (next.has(cat)) {
-        // Prevent hiding EVERYTHING if you want, or just allow it. 
-        // We'll allow it for full user control.
         next.delete(cat);
     } else {
         next.add(cat);
+        clearUnread(cat);
     }
     setVisibleCategories(next);
   };
@@ -83,8 +83,6 @@ export function GameControls({
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (chatInput.trim()) {
-      // Logic: if battle is visible, we send a battle message. 
-      // If only social is visible, we might want to default to that, but normally we just send battle for the room.
       sendMessage(chatInput.trim(), 'battle');
       setChatInput('');
     }
@@ -108,20 +106,28 @@ export function GameControls({
   };
 
   const getMessageColor = (msg: ChatMessage) => {
-      if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; // Cyan
-      if (msg.category === 'social') return 'text-accent'; // Magenta
-      if (msg.color === 'white') return 'text-foreground'; // White
-      if (msg.color === 'black') return 'text-secondary'; // Blue
+      if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; 
+      if (msg.category === 'social') return 'text-accent'; 
+      if (msg.color === 'white') return 'text-foreground'; 
+      if (msg.color === 'black') return 'text-secondary'; 
       return 'text-muted-foreground';
   };
+
+  const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log;
 
   return (
     <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative">
       <button
-        onClick={onToggleMessenger}
+        onClick={() => {
+            setIsMessengerOpen(!isMessengerOpen);
+            if (!isMessengerOpen) {
+                // Clear all currently visible unreads when opening
+                visibleCategories.forEach(cat => clearUnread(cat));
+            }
+        }}
         className={cn(
           "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors",
-          !isMessengerOpen && hasUnreadMessages && "animate-chat-notify"
+          !isMessengerOpen && hasAnyUnread && "animate-chat-notify"
         )}
         aria-label={isMessengerOpen ? "Switch to Game Info" : "Switch to Messenger"}
       >
@@ -134,7 +140,7 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
                 size="sm" 
-                className="h-6 text-[8px] uppercase font-pixel px-2"
+                className={cn("h-6 text-[8px] uppercase font-pixel px-2 relative", hasUnread.battle && "ring-1 ring-primary")}
                 onClick={() => toggleCategory('battle')}
               >
                 <Sword className={cn("h-3 w-3 mr-1", !visibleCategories.has('battle') && "opacity-50")} /> Battle
@@ -142,7 +148,7 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('social') ? 'default' : 'outline'} 
                 size="sm" 
-                className="h-6 text-[8px] uppercase font-pixel px-2"
+                className={cn("h-6 text-[8px] uppercase font-pixel px-2 relative", hasUnread.social && "ring-1 ring-accent")}
                 onClick={() => toggleCategory('social')}
               >
                 <Users className={cn("h-3 w-3 mr-1", !visibleCategories.has('social') && "opacity-50")} /> Social
@@ -150,7 +156,7 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('log') ? 'default' : 'outline'} 
                 size="sm" 
-                className="h-6 text-[8px] uppercase font-pixel px-2"
+                className={cn("h-6 text-[8px] uppercase font-pixel px-2 relative", hasUnread.log && "ring-1 ring-primary")}
                 onClick={() => toggleCategory('log')}
               >
                 <ScrollText className={cn("h-3 w-3 mr-1", !visibleCategories.has('log') && "opacity-50")} /> Log
@@ -201,7 +207,7 @@ export function GameControls({
                 <Input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Message battle room..."
+                placeholder="Type message or /help..."
                 className="h-7 text-xs font-sans bg-background"
                 maxLength={200}
                 />
@@ -280,4 +286,3 @@ export function GameControls({
     </Card>
   );
 }
-

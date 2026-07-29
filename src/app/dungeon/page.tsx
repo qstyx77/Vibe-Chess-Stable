@@ -718,7 +718,7 @@ export default function DungeonPage() {
                 addLog(`Resurrection! ${choice.type} has returned.`);
                 if (!isAI && (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(res.type)) && rr === oppBackRank) {
                     setPromotionTargetLevel(1); setPromotionSquare(sq.algebraic); setIsPromotingPawn(true);
-                    setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'resurrection'], actingPlayer, currentGraveyard: updatedG, currentKs }); return;
+                    setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'resurrection'], actingPlayer, currentGraveyard: updatedG, currentKs: currentKs }); return;
                 }
                 if (isAI && (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(res.type)) && rr === oppBackRank) nextBoard[rr][rc].piece!.type = 'queen';
                 triggerSpecialsChain(nextBoard, updatedG, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'resurrection']); return;

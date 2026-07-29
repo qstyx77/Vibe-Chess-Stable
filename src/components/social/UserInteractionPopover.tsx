@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useSocial } from './SocialContext';
 import { useUser, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { Shield, UserPlus, UserMinus, Sword, Ban, User as UserIcon } from 'lucide-react';
+import { Shield, UserPlus, UserMinus, Sword, Ban, User as UserIcon, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 
@@ -23,14 +24,13 @@ interface UserInteractionPopoverProps {
 
 export function UserInteractionPopover({ userId, username, children, className }: UserInteractionPopoverProps) {
   const { user } = useUser();
-  const { friends, addFriend, removeFriend, blockUser, sendChallenge } = useSocial();
+  const { friends, addFriend, removeFriend, blockUser, sendChallenge, startDm } = useSocial();
   const isMe = user?.uid === userId;
   const isFriend = friends.some(f => f.id === userId);
 
   return (
     <Popover>
       <PopoverTrigger asChild>
-        {/* Changed from <button> to <span> to avoid nested button hydration errors */}
         <span role="button" className={cn("hover:text-primary transition-colors cursor-pointer outline-none inline-block", className)}>
           {children}
         </span>
@@ -49,6 +49,14 @@ export function UserInteractionPopover({ userId, username, children, className }
           <div className="flex flex-col gap-1.5">
             {!isMe && (
               <>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-[8px] uppercase justify-start gap-2"
+                    onClick={() => startDm(username)}
+                >
+                    <MessageSquare className="h-3 w-3 text-primary" /> Message
+                </Button>
                 {isFriend ? (
                   <>
                     <Button 

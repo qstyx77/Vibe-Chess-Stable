@@ -18,6 +18,16 @@ interface SocialContextType {
   blockUser: (userId: string) => void;
   onlineStatus: 'disconnected' | 'connecting' | 'connected';
   ws: WebSocket | null;
+  // Messenger UI state
+  isMessengerOpen: boolean;
+  setIsMessengerOpen: (open: boolean) => void;
+  hasUnread: { battle: boolean; social: boolean; log: boolean };
+  clearUnread: (category: MessageCategory) => void;
+  visibleCategories: Set<MessageCategory>;
+  setVisibleCategories: (cats: Set<MessageCategory>) => void;
+  chatInput: string;
+  setChatInput: (val: string) => void;
+  startDm: (username: string) => void;
 }
 
 const SocialContext = createContext<SocialContextType | undefined>(undefined);
@@ -29,6 +39,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const wsRef = useRef<WebSocket | null>(null);
+
+  // UI State
+  const [isMessengerOpen, setIsMessengerOpen] = useState(false);
+  const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log']));
+  const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false });
+  const [chatInput, setChatInput] = useState('');
 
   // Presence tracking
   useEffect(() => {
@@ -48,6 +64,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     return collection(firestore, 'users', user.uid, 'friends');
   }, [user, firestore]);
   const { data: friendsData } = useCollection<Friend>(friendsQuery);
+
+  const addLog = useCallback((text: string) => {
+    const log: ChatMessage = {
+        id: `log_${Date.now()}_${Math.random()}`,
+        sender: 'SYSTEM',
+        text,
+        timestamp: Date.now(),
+        category: 'log'
+    };
+    setMessages(prev => [...prev, log]);
+    if (!isMessengerOpen || !visibleCategories.has('log')) {
+        setHasUnread(prev => ({ ...prev, log: true }));
+    }
+  }, [isMessengerOpen, visibleCategories]);
 
   // Connection Management
   useEffect(() => {
@@ -78,6 +108,10 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             const data = JSON.parse(event.data);
             if (data.type === 'chat-message') {
                 setMessages(prev => [...prev, data.message]);
+                const cat = data.message.category as MessageCategory;
+                if (!isMessengerOpen || !visibleCategories.has(cat)) {
+                    setHasUnread(prev => ({ ...prev, [cat]: true }));
+                }
             }
         };
         socket.onclose = () => {
@@ -90,21 +124,56 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     initWs();
     return () => { if (wsRef.current) wsRef.current.close(); };
-  }, [user, userData]);
+  }, [user, userData, isMessengerOpen, visibleCategories]);
 
-  const addLog = useCallback((text: string) => {
-    const log: ChatMessage = {
-        id: `log_${Date.now()}_${Math.random()}`,
-        sender: 'SYSTEM',
-        text,
-        timestamp: Date.now(),
-        category: 'log'
-    };
-    setMessages(prev => [...prev, log]);
+  const clearUnread = useCallback((category: MessageCategory) => {
+      setHasUnread(prev => ({ ...prev, [category]: false }));
   }, []);
 
   const sendMessage = useCallback((text: string, category: MessageCategory, targetId?: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
+
+    // Command Parser
+    if (text.startsWith('/')) {
+        const parts = text.split(' ');
+        const cmd = parts[0].toLowerCase();
+        
+        if (cmd === '/help') {
+            addLog("COMMAND LIST:");
+            addLog("/help - Show this list");
+            addLog("/msg <name> <text> - Private message");
+            addLog("/friends <text> - Message all friends");
+            addLog("/clear - Clear chat session");
+            return;
+        }
+
+        if (cmd === '/clear') {
+            setMessages([]);
+            addLog("Session history cleared.");
+            return;
+        }
+
+        if (cmd === '/msg') {
+            const name = parts[1];
+            const msgBody = parts.slice(2).join(' ');
+            if (!name || !msgBody) {
+                addLog("Usage: /msg <username> <message>");
+                return;
+            }
+            // Logic for finding ID by name would go here in a full implementation
+            // For now, we use the @mention convention
+            wsRef.current.send(JSON.stringify({
+                type: 'chat-message',
+                category: 'social',
+                text: `(Private to ${name}): ${msgBody}`,
+                targetName: name, // Server logic needed to route by name
+                sender: userData?.username || user?.displayName || 'Player',
+                senderId: user?.uid
+            }));
+            return;
+        }
+    }
+
     const payload = {
         type: 'chat-message',
         category,
@@ -114,12 +183,19 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         senderId: user?.uid
     };
     wsRef.current.send(JSON.stringify(payload));
-  }, [user, userData]);
+  }, [user, userData, addLog]);
+
+  const startDm = useCallback((username: string) => {
+      setIsMessengerOpen(true);
+      const nextVisible = new Set(visibleCategories);
+      nextVisible.add('social');
+      setVisibleCategories(nextVisible);
+      setChatInput(`@${username} `);
+  }, [visibleCategories]);
 
   const sendChallenge = useCallback((friendId: string) => {
     const roomId = `duel_${Math.random().toString(36).substring(2, 9)}`;
     sendMessage(`I challenge you to a duel!`, 'social', friendId);
-    // Send specific challenge type so server can flag it
     wsRef.current?.send(JSON.stringify({
         type: 'challenge-friend',
         friendId,
@@ -129,7 +205,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, [user, userData, sendMessage]);
 
   const acceptChallenge = useCallback((roomId: string) => {
-      // In a real app, this would route the user to the lobby with this roomId
       window.location.href = `/?roomId=${roomId}`;
   }, []);
 
@@ -147,7 +222,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, [user, firestore]);
 
   const blockUser = useCallback((targetId: string) => {
-      // Stub for blocking logic
       addLog(`User blocked.`);
   }, [addLog]);
 
@@ -162,7 +236,16 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     removeFriend,
     blockUser,
     onlineStatus,
-    ws
+    ws,
+    isMessengerOpen,
+    setIsMessengerOpen,
+    hasUnread,
+    clearUnread,
+    visibleCategories,
+    setVisibleCategories,
+    chatInput,
+    setChatInput,
+    startDm
   };
 
   return <SocialContext.Provider value={value}>{children}</SocialContext.Provider>;
