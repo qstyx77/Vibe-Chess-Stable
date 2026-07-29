@@ -1106,6 +1106,7 @@ export default function DungeonPage() {
         if (sq?.item?.type === 'shroom') {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            setHasMovedOnCurrentFloor(true);
             const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
             setBoard(applyResult.newBoard); audioManager.playMove();
             addLog("Teleportation complete!");
@@ -1117,6 +1118,7 @@ export default function DungeonPage() {
         if (sq?.item?.type === 'shroom') {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'spore-bomb' };
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            setHasMovedOnCurrentFloor(true);
             const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
             setBoard(applyResult.newBoard); audioManager.playExplosion();
             addLog("Mushroomancy: Spore Bomb detontated!");
@@ -1564,11 +1566,10 @@ export default function DungeonPage() {
         activeTimerPlayer={null}
       />
 
-      <div className="grid grid-cols-3 gap-1 mt-2">
-          <Button variant="outline" size="sm" onClick={() => setIsInventoryOpen(true)} className="h-8 text-[9px] uppercase font-pixel"><Package className="mr-1 h-3 w-3" /> Loot Bag</Button>
+      <div className="grid grid-cols-2 gap-1 mt-2">
+          <Button variant="outline" size="sm" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="h-8 text-[9px] uppercase font-pixel"><Package className="mr-1 h-3 w-3" /> Loot Bag</Button>
           <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
           <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-8 text-[9px] uppercase font-pixel"><BookOpen className="mr-1 h-3 w-3" /> Rules</Button>
-          <Button variant="outline" size="sm" onClick={() => audioManager.playStart()} className="h-8 text-[9px] uppercase font-pixel"><RotateCcw className="mr-1 h-3 w-3" /> Undo</Button>
       </div>
     </div>
   );
@@ -1664,7 +1665,7 @@ export default function DungeonPage() {
       </div>
 
       <div className="w-1/4 flex flex-col gap-4">
-        <Button variant="outline" onClick={() => setIsInventoryOpen(true)} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group">
+        <Button variant="outline" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group">
             <Package className="mr-3 h-6 w-6 text-primary group-hover:scale-110 transition-transform" />
             <span className="font-pixel text-xs uppercase text-primary">Open Loot Bag</span>
         </Button>
