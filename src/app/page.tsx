@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -1842,7 +1841,8 @@ export default function EvolvingChessPage() {
               wins: userData?.wins || 0,
               losses: userData?.losses || 0,
               equipment,
-              unlockedPieces: userData?.unlockedPieces || []
+              unlockedPieces: userData?.unlockedPieces || [],
+              timestamp: Date.now()
           }));
         });
     }
@@ -1936,7 +1936,40 @@ export default function EvolvingChessPage() {
     const unlocks = userData?.unlockedPieces || [];
     const userElo = userData?.eloRating || 1200;
     let initial = initializeBoard(userElo, userElo, unlocks, unlocks);
-    setBoard(initial); setCurrentPlayer('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceHeldItem(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
+    
+    // RESTORE EQUIPMENT ON RESET
+    if (userData?.equipment) {
+      initial = initial.map(row => row.map(sq => {
+        if (sq.piece && userData.equipment![sq.piece.id]) {
+          return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } };
+        }
+        return sq;
+      }));
+    }
+    
+    setBoard(initial); 
+    if (userData?.inventory) setInventory(userData.inventory);
+
+    setCurrentPlayer('white'); 
+    setGameInfo({ ...initialGameStatus }); 
+    setCapturedPieces({ white: [], black: [] }); 
+    setKillStreaks({ white: 0, black: 0 }); 
+    setHistoryStack([]); 
+    setPositionHistory([]); 
+    setSelectedSquare(null); 
+    setPossibleMoves([]); 
+    setLastMoveFrom(null); 
+    setLastMoveTo(null); 
+    setLastMovedPieceType(null); 
+    setLastMovedPieceHeldItem(null); 
+    setGameMoveCounter(0); 
+    setEnPassantTargetSquare(null); 
+    setShroomSpawnCounter(0); 
+    setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); 
+    setShowLossScreen(false); 
+    setShowWinScreen(false); 
+    setShowSummary(false); 
+    audioManager.playStart();
     
     setIsAwaitingDanceTarget(false);
     setDancerToDance(null);
