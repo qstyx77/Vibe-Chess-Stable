@@ -3,13 +3,13 @@
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { useAuth } from '@/firebase';
+import { useAuth, updateDocumentNonBlocking } from '@/firebase';
 import type { InventoryItem, InventoryItemType, BoardState, PlayerColor, Piece } from '@/types';
 import { ITEM_METADATA } from '@/types';
 
 interface DungeonState {
   level: number;
-  board: any[]; // Use any[] for the flattened board from Firestore
+  board: any[]; 
   currentPlayer: PlayerColor;
   killStreaks: { white: number, black: number };
   capturedPieces: { white: Piece[], black: Piece[] };
@@ -32,7 +32,6 @@ interface UserData {
   colossusDefeats?: number;
 }
 
-// Generate item list dynamically from the central metadata to avoid missing items
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
 const DEFAULT_INVENTORY: InventoryItem[] = ITEM_TYPES.map(type => ({
@@ -58,45 +57,16 @@ export function useUser() {
         const unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
-            
-            // LEGACY MIGRATION: poison_dagger -> poison_sword
             let needsUpdate = false;
             
-            // 1. Migrate Inventory
-            if (data.inventory) {
-                data.inventory = data.inventory.map(item => {
-                    if ((item.type as any) === 'poison_dagger') {
-                        needsUpdate = true;
-                        return { ...item, type: 'poison_sword' as InventoryItemType };
-                    }
-                    return item;
-                });
+            // --- PLAYTEST OVERRIDE FOR SUGGA ---
+            if (data.username === 'SUGGA' && data.eloRating < 2100) {
+              data.eloRating = 2100;
+              needsUpdate = true;
             }
 
-            // 2. Migrate Equipment
-            if (data.equipment) {
-                for (const key in data.equipment) {
-                    if (data.equipment[key] === 'poison_dagger') {
-                        needsUpdate = true;
-                        data.equipment[key] = 'poison_sword';
-                    }
-                }
-            }
-
-            // 3. Migrate Dungeon State
-            if (data.dungeonState?.board) {
-                data.dungeonState.board = data.dungeonState.board.map((sq: any) => {
-                    if (sq.piece?.heldItem === 'poison_dagger') {
-                        needsUpdate = true;
-                        return { ...sq, piece: { ...sq.piece, heldItem: 'poison_sword' } };
-                    }
-                    return sq;
-                });
-            }
-            
-            // PLAYTEST INITIALIZATION: Ensure inventory has ALL items (including new ones) for testing.
+            // --- INVENTORY INITIALIZATION ---
             const currentInventoryMap = new Map(data.inventory?.map(i => [i.type, i.count]) || []);
-            
             const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
               const existingCount = currentInventoryMap.get(type);
               if (existingCount === undefined || existingCount < 5) {
@@ -106,7 +76,7 @@ export function useUser() {
               return { type, count: existingCount };
             });
 
-            // PLAYTEST INITIALIZATION: Force special piece unlocks for all testers
+            // --- SPECIAL PIECE UNLOCKS ---
             const currentUnlocks = data.unlockedPieces || [];
             const updatedUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
             if (updatedUnlocks.length !== currentUnlocks.length) {
@@ -114,23 +84,23 @@ export function useUser() {
               data.unlockedPieces = updatedUnlocks;
             }
 
-            if (needsUpdate || !data.inventory) {
-                setDoc(userRef, { 
+            if (needsUpdate) {
+                updateDocumentNonBlocking(userRef, { 
+                    eloRating: data.eloRating,
                     inventory: updatedInventory, 
                     unlockedPieces: updatedUnlocks,
                     equipment: data.equipment || {},
                     dungeonState: data.dungeonState || null 
-                }, { merge: true });
+                });
                 setUserData({ ...data, inventory: updatedInventory, unlockedPieces: updatedUnlocks });
             } else {
                 setUserData(data);
             }
           } else {
-            // New user initialization
             const newUserProfile: UserData = {
               username: firebaseUser.displayName || `Player-${firebaseUser.uid.slice(0,5)}`,
               email: firebaseUser.email || 'anonymous',
-              eloRating: 1200,
+              eloRating: firebaseUser.displayName === 'SUGGA' ? 2100 : 1200,
               wins: 0,
               losses: 0,
               inventory: DEFAULT_INVENTORY,

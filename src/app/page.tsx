@@ -143,6 +143,7 @@ export default function EvolvingChessPage() {
   const firestore = getFirestore();
   const { toast } = useToast();
 
+  // 1. ALL USESTATE HOOKS FIRST
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
@@ -238,6 +239,7 @@ export default function EvolvingChessPage() {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
 
+  // 2. DERIVED CONSTANTS AFTER STATE INITIALIZATION
   const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
   const aiInstanceRef = useRef<VibeChessAI | null>(null);
@@ -290,7 +292,7 @@ export default function EvolvingChessPage() {
   const saveLoadoutToFirestore = useCallback((b: BoardState, inv: InventoryItem[]) => {
       if (!user || !firestore) return;
       const equipment: Record<string, string> = {};
-      b.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.id; });
+      b.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
       updateDocumentNonBlocking(doc(firestore, 'users', user.uid), { inventory: inv, equipment });
   }, [user, firestore]);
 
@@ -644,8 +646,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -1774,6 +1776,22 @@ export default function EvolvingChessPage() {
           });
           addLog(`GAME OVER: ${overMsg}`);
           gameOverRef.current = true;
+          
+          if (data.eloChanges && user) {
+            const myUpdate = data.eloChanges[user.uid];
+            if (myUpdate) {
+                const isWin = data.winner === localPlayerColor;
+                const isLoss = data.winner !== 'draw' && data.winner !== localPlayerColor;
+                const wins = (userData?.wins || 0) + (isWin ? 1 : 0);
+                const losses = (userData?.losses || 0) + (isLoss ? 1 : 0);
+                updateDocumentNonBlocking(doc(firestore, 'users', user.uid), { 
+                    eloRating: myUpdate.newElo,
+                    wins: wins,
+                    losses: losses
+                });
+            }
+          }
+
           if (data.winner !== 'draw' && data.winner === localPlayerColor) {
               setShowWinScreen(true);
               audioManager.playVictory();
@@ -1800,7 +1818,7 @@ export default function EvolvingChessPage() {
     };
 
     wsRef.current = ws;
-  }, [addLog, localPlayerColor, capturedPieces, addEffectCallback]);
+  }, [addLog, localPlayerColor, capturedPieces, addEffectCallback, user, userData, firestore]);
 
   const handleRankedPlay = useCallback(() => {
     if (!user || (onlineStatus !== 'disconnected' && rankedQueueStatus !== 'searching')) return;
@@ -1815,7 +1833,7 @@ export default function EvolvingChessPage() {
         addLog("Searching for ranked match...");
         initWebSocket(() => {
           const equipment: Record<string, string> = {};
-          board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.id; });
+          board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
           wsRef.current?.send(JSON.stringify({
               type: 'join-ranked-queue',
               userId: user.uid,
@@ -1836,7 +1854,7 @@ export default function EvolvingChessPage() {
     else addLog(`Joining room: ${inputRoomId}`);
     initWebSocket(() => {
         const equipment: Record<string, string> = {};
-        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.id; });
+        board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
         if (action === 'create') {
             wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } }));
         } else {
