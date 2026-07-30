@@ -228,7 +228,6 @@ export default function DungeonPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  // 1. ALL USESTATE HOOKS FIRST
   const [level, setLevel] = useState(1);
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [playerArmy, setPlayerArmy] = useState<Piece[]>([]);
@@ -292,7 +291,6 @@ export default function DungeonPage() {
   const [colossusAwakened, setColossusAwakened] = useState(false);
   const [gameMoveCounter, setGameMoveCounter] = useState(0);
 
-  // 2. DERIVED CONSTANTS AFTER STATE
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
   const uniqueIdCounterRef = useRef(30000);
@@ -970,7 +968,6 @@ export default function DungeonPage() {
     } else {
       let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
       
-      // APPLY EQUIPMENT DURING RESET/START
       if (userData.equipment) { 
           initial = initial.map(row => row.map(sq => { 
               if (sq.piece && userData.equipment![sq.piece.id]) return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } }; 
@@ -1576,6 +1573,60 @@ export default function DungeonPage() {
 
   const handleResetRun = () => { setIsResetConfirmOpen(false); startRun(true); addLog("Run Reset. Back to Floor 1."); };
 
+  const handleUseItem = (type: InventoryItemType) => {
+    if (type.startsWith('portal_scroll_')) {
+      const floorStr = type.split('_')[2];
+      const targetFloor = parseInt(floorStr);
+      if (isNaN(targetFloor)) return;
+      
+      const nextInv = [...inventory];
+      const itemIdx = nextInv.findIndex(i => i.type === type);
+      if (itemIdx === -1) return;
+      
+      nextInv[itemIdx].count--;
+      if (nextInv[itemIdx].count <= 0) nextInv.splice(itemIdx, 1);
+      setInventory(nextInv);
+      
+      const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+      const nextBoard = generateDungeonFloor(targetFloor, survivors);
+      
+      setLevel(targetFloor);
+      setBoard(nextBoard);
+      setShroomSpawnCounter(0);
+      setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+      setColossusAwakened(false);
+      setHasMovedOnCurrentFloor(false);
+      setGameMoveCounter(0);
+      setLastMoveFrom(null);
+      setLastMoveTo(null);
+      setAnimatedSquareTo(null);
+      setSelectedSquare(null);
+      setPossibleMoves([]);
+      setAiStalemateStrikes(0);
+      setNecroResurrectionCounter(0);
+      setEnPassantTargetSquare(null);
+      
+      const updatedGraveyard = { ...capturedPieces, black: [] };
+      setCapturedPieces(updatedGraveyard);
+      setKillStreaks({ white: 0, black: 0 });
+      
+      const isBoss = targetFloor % 10 === 0;
+      setGameInfo({ 
+        message: isBoss ? `WARPED TO BOSS: Floor ${targetFloor}` : `Warped to Floor ${targetFloor}`, 
+        isCheck: false, 
+        playerWithKingInCheck: null, 
+        isCheckmate: false, 
+        isStalemate: false, 
+        gameOver: false 
+      });
+      
+      audioManager.playLevelUp();
+      addLog(`Warped to Floor ${targetFloor}!`);
+      
+      saveDungeonState(targetFloor, nextBoard, 'white', { white: 0, black: 0 }, updatedGraveyard, 0, 5, null, 0, nextInv);
+    }
+  };
+
   const mobileLayout = (
     <div className="relative z-10 flex flex-col flex-grow w-full max-w-lg mx-auto p-2">
       <div className="flex justify-between items-center mb-2">
@@ -1758,7 +1809,7 @@ export default function DungeonPage() {
         <div className="hidden lg:flex flex-grow">{desktopLayout}</div>
       </div>
 
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { addLog("Portal Logic: skip floors in Dungeon Mode!"); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUseItem} usedSlots={usedSlots} attunementSlots={attunementSlots} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       
