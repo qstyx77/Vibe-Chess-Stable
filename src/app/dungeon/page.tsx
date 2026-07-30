@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -283,6 +284,7 @@ export default function DungeonPage() {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
@@ -552,6 +554,18 @@ export default function DungeonPage() {
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
     let nextGraveyard = { ...currentGraveyard };
+
+    if (newStreak >= 8 && !completedMilestones.includes('conquest')) {
+        const actingKing = boardToChain.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === actingPlayer)?.piece;
+        if (actingKing?.heldItem === 'kings_conquest') {
+            const msg = `CONQUEST VICTORY! Dungeon reigns supreme!`;
+            setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: actingPlayer });
+            addLog(msg);
+            gameOverRef.current = true;
+            audioManager.playDefeat();
+            return;
+        }
+    }
 
     if (newStreak >= 1 && oldStreak < 1 && !completedMilestones.includes('dance')) {
         const hasDancers = boardToChain.flat().some(sq => sq.piece?.type === 'dancer' && sq.piece.color === actingPlayer);
@@ -1355,7 +1369,7 @@ export default function DungeonPage() {
     if (selectedSquare) {
       const { row: fromR, col: fromC } = algebraicToCoords(selectedSquare); const movingPiece = board[fromR][fromC].piece;
       
-      const isExecutionAllowed = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && currentPlayer === 'white';
+      const isExecutionAllowed = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && currentPlayer === 'white' && !isAnySpecialModeActive;
 
       if (isExecutionAllowed && movingPiece && movingPiece.color === currentPlayer) {
         const effectiveLevel = getEffectiveLevel(board, fromR, fromC);

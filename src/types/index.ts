@@ -20,7 +20,6 @@ export type InventoryItemType =
   | 'wind_scroll'
   | 'life_leach'
   | 'summon_anvil'
-  | 'shared_shield' 
   | 'shield_scroll'
   | 'rally_scroll'
   | 'poison_sword'
@@ -96,7 +95,6 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units.', isConsumable: true },
   'life_leach': { name: 'Life Leach', description: 'Consumable. Global: reduces all enemy levels by 1.', isConsumable: true },
   'summon_anvil': { name: 'Anvil Scroll', description: 'Consumable. Target an empty square to drop a solid Anvil.', isConsumable: true },
-  'shared_shield': { name: 'Shared Shield', description: 'Obsolete entry.', isConsumable: false },
   'wind_cloak': { name: 'Wind Cloak', description: 'Aero mantle. L4+ pieces gain Push-Back ability.', isConsumable: false },
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture.', isConsumable: false },
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true },
@@ -112,7 +110,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'soul_link': { name: 'Soul Link', description: 'Cursed amulet. Bound pieces share levels and shared destruction.', isConsumable: false },
   'logas': { name: 'Logas', description: 'Holy book. Grants adjacent allies +1 level on their captures.', isConsumable: false },
   'berserkers_mask': { name: 'Berserker\'s Mask', description: 'Fierce mask. +3 levels on capture, but must capture if able.', isConsumable: false },
-  'ice_scroll': { name: 'Ice Scroll', description: 'Consumable (L2+). Freezes adjacent enemies for 2 turns (invulnerable).', isConsumable: true },
+  'ice_scroll': { name: 'Ice Scroll', description: 'Consumable (L2+). Freezes adjacent enemies for 2 turns.', isConsumable: true },
   'resurrection_scroll': { name: 'Resurrection Scroll', description: 'Consumable (L4+). Resurrects highest value ally to random adjacent square at L1.', isConsumable: true },
   'faith_scroll': { name: 'Faith Scroll', description: 'Consumable (L5+). 50% chance to convert adjacent enemy non-king pieces.', isConsumable: true },
   'tortoise_hammer': { name: 'Tortoise Hammer', description: 'Limits move/capture to 1 square forward. Captures enemies cardinally adjacent to target.', isConsumable: false },

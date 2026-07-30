@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -471,7 +472,7 @@ export default function EvolvingChessPage() {
     let nextGraveyard = { ...currentGraveyard };
 
     if (newStreak >= 8 && !completedMilestones.includes('conquest')) {
-        const actingKing = boardToChain.flat().find(sq => sq.piece?.type === ' king' && sq.piece.color === actingPlayer)?.piece;
+        const actingKing = boardToChain.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === actingPlayer)?.piece;
         if (actingKing?.heldItem === 'kings_conquest') {
             const msg = `CONQUEST VICTORY! ${getPlayerDisplayName(actingPlayer)} reigns supreme!`;
             setGameInfo({
@@ -643,8 +644,8 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id));
-                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
+                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id));
+                    const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                     nextBoard[arRow][arCol].piece!.level += gain;
                 }
                 nextBoard[row][col].piece = null;
@@ -1337,6 +1338,7 @@ export default function EvolvingChessPage() {
                 clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'swap-scroll' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
                 setBoard(applyResult.newBoard); audioManager.playMove();
+                setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]);
                 addLog("Swap Scroll triggered!");
                 setTimeout(() => {
                     setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingSwapScrollTarget(false);
@@ -1371,7 +1373,7 @@ export default function EvolvingChessPage() {
       const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
       const moving = board[fR][fC].piece; 
       const silenced = isSilenced(board, fR, fC, currentPlayer);
-      const canCommitMove = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && (onlineStatus !== 'connected' || localPlayerColor === currentPlayer);
+      const canCommitMove = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && (onlineStatus !== 'connected' || localPlayerColor === currentPlayer) && !isAnySpecialModeActive;
       
       if (canCommitMove && moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
           if (!silenced && moving.type === 'myco_mage' && selectedSquare === algebraic) {
@@ -1510,7 +1512,7 @@ export default function EvolvingChessPage() {
                   setInventory(prev => {
                     const next = [...prev];
                     const existing = next.find(i => i.type === applyResult.itemReturned);
-                    if (existing) existing.count++; else next.push({ type: itemReturned!, count: 1 });
+                    if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 });
                     return next;
                   });
                   addLog(`Item Returned: ${ITEM_METADATA[applyResult.itemReturned].name}`);
@@ -1616,7 +1618,7 @@ export default function EvolvingChessPage() {
     }
     if (piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem)); }
     else { setSelectedSquare(null); setPossibleMoves([]); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive]);
 
   const initWebSocket = useCallback((onOpenCallback?: () => void) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -1883,7 +1885,7 @@ export default function EvolvingChessPage() {
     if (onlineStatus === 'disconnected' && ((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
       const timer = setTimeout(performAiMove, 500); return () => typeof window !== 'undefined' && clearTimeout(timer);
     }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, performAiMove, isAiThinking, gameMoveCounter, onlineStatus]);
+  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isMoveProcessing, performAiMove, isAiThinking, gameMoveCounter, onlineStatus, isAnySpecialModeActive]);
 
   useEffect(() => {
     if (onlineStatus !== 'connected' || gameInfo.gameOver || !roomId) {
