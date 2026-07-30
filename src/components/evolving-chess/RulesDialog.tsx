@@ -100,7 +100,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <RuleText>The first player to capture an enemy unit in a match triggers First Blood. This grants the immediate opportunity to promote a Level 1 Pawn into a Commander.</RuleText>
                   </SubRule>
                   <SubRule title="Commander">
-                    <RuleText>An elite front-line unit born from First Blood. They gain 'Rallying Cry' on capture (leveling up adjacent allies) and promoted into a Hero upon reaching the back rank. They are specialized 'Queen Hunters'.</RuleText>
+                    <RuleText>An elite front-line unit born from First Blood. They gain 'Rallying Cry' on capture (leveling up other pawns) and promoted into a Hero upon reaching the back rank. They are specialized 'Queen Hunters'.</RuleText>
                   </SubRule>
                   <SubRule title="Hero">
                     <RuleText>The pinnacle of the Commander's path. They trigger a global 'Heroic Rally' on capture, leveling up all allied units on the board.</RuleText>
@@ -135,7 +135,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>L5: Faith: 50% chance to convert adjacent enemies to your side after moving.</RuleText>
                 </SubRule>
                 <SubRule title="The Fortress (Rook, Palace)">
-                  <RuleText>L4: Resurrection Call: Capturing a unit triggers a random resurrection of your strongest fallen ally at L1.</RuleText>
+                  <RuleText>L4: Resurrection Call: Capturing a unit triggers a resurrection of your strongest fallen ally at L1 to a random, adjacent space.</RuleText>
                 </SubRule>
               </AccordionContent>
             </AccordionItem>
@@ -223,7 +223,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* X. DUNGEON MECHANICS */}
+            {/* X. DUNGEON SURVIVAL */}
             <AccordionItem value="dungeon">
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">X. Dungeon Survival</AccordionTrigger>
               <AccordionContent>
