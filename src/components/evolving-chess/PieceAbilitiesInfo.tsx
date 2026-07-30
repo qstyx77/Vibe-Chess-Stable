@@ -89,6 +89,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'mushroom_magnet') abilities.push(" magnetic: Pulls Shrooms within 2 squares 1 space closer on move.");
   if (heldItem === 'mimic_blade') abilities.push(" item mimic: Replicates the held item of the last moved piece.");
   if (heldItem === 'thieves_gloves') abilities.push(" plunder: 50% chance to steal equipment from captured units.");
+  if (heldItem === 'heavy_rain') abilities.push(" spell (L3+): drop 3 anvils on random empty squares.");
+  if (heldItem === 'kings_conquest') abilities.push(" conquest: reaching KS 8 wins the game immediately.");
   if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for frontline units."); else abilities.push(" swift: inactive (only for frontline units)."); }
 
   switch (type) {
@@ -104,7 +106,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (l >= 4) abilities.push("Push-Back adjacent entities.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
       if (type === 'commander') { abilities.push("Rallying Cry on capture (levels up other pawns)."); abilities.push("Promotes to Hero."); abilities.push("Queen Hunter."); }
-      if (type === 'dancer') { abilities.push("Dance: KS 1 allows an immediate 1-square cardinal move or an adjacent swap with an ally."); }
+      if (type === 'dancer') { abilities.push("Dance: KS 1 allows an immediate 1-square cardinal move or an adjacent swap with an allied or enemy piece."); }
       if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move, using the Mimic's current Level."); }
       if (type === 'grappler') { abilities.push("Toss: Can pick up an adjacent piece (except Kings) and throw it to an empty space cardinally or diagonally (Range = Level)."); }
       if (type === 'myco_mage') { abilities.push(`Mushroomancy: Spend Shroom Pool (${shroomMana || 0}) for global fungal spells.`); }

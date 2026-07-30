@@ -229,6 +229,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'soul_harvest':
       case 'earthquake_scroll':
       case 'demonic_possession':
+      case 'heavy_rain':
         const scrollColors: Record<string, string> = {
           wind_scroll: '#BAE6FD',
           life_leach: '#C084FC',
@@ -243,7 +244,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           ice_blast: '#BAE6FD',
           soul_harvest: '#4C1D95',
           earthquake_scroll: '#78350F',
-          demonic_possession: '#000'
+          demonic_possession: '#000',
+          heavy_rain: '#3B82F6'
         };
         const iconColors: Record<string, string> = {
           wind_scroll: '#0284C7',
@@ -259,7 +261,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
           ice_blast: '#2563EB',
           soul_harvest: '#000',
           earthquake_scroll: '#FDE68A',
-          demonic_possession: '#DC2626'
+          demonic_possession: '#DC2626',
+          heavy_rain: '#FFF'
         };
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -272,6 +275,25 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             {type === 'soul_harvest' && <rect x="4" y="4" width="2" height="4" fill="#8B5CF6" />}
             {type === 'earthquake_scroll' && <rect x="3" y="4" width="4" height="4" fill="#FFF" opacity="0.8" />}
             {type === 'demonic_possession' && <rect x="4" y="5" width="2" height="2" fill="#FFF" />}
+            {type === 'heavy_rain' && (
+                <g>
+                   <rect x="4" y="4" width="1" height="1" fill="#FFF" />
+                   <rect x="6" y="5" width="1" height="1" fill="#FFF" />
+                   <rect x="3" y="7" width="1" height="1" fill="#FFF" />
+                </g>
+            )}
+          </svg>
+        );
+      case 'kings_conquest':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="5" width="8" height="4" fill="#EAB308" />
+            <rect x="2" y="3" width="1" height="2" fill="#EAB308" />
+            <rect x="4" y="2" width="2" height="3" fill="#EAB308" />
+            <rect x="7" y="3" width="1" height="2" fill="#EAB308" />
+            <rect x="3" y="6" width="1" height="1" fill="#EF4444" />
+            <rect x="6" y="6" width="1" height="1" fill="#3B82F6" />
+            <rect x="1" y="8" width="8" height="1" fill="#B45309" />
           </svg>
         );
       case 'wind_cloak':

@@ -118,6 +118,7 @@ const onGameOver = (roomId: string, winner: PlayerColor | 'draw', reason: string
     else if (reason === 'timeout') message = `Timeout. ${winner === 'draw' ? 'Draw' : (room.gameState.players[winner as PlayerColor]?.username || winner)} wins!`;
     else if (reason === 'self-check-timeout') message = `${room.gameState.players[details.timedOutPlayer]?.username || details.timedOutPlayer} ran out of time in check. ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
     else if (reason === 'resign') message = `${room.gameState.players[details.resigningPlayer]?.username || details.resigningPlayer} resigned. ${room.gameState.players[winner as PlayerColor]?.username || winner} wins!`;
+    else if (reason === 'conquest') message = `CONQUEST! ${room.gameState.players[winner as PlayerColor]?.username || winner} reigns supreme!`;
     
     room.gameState.gameInfo.message = message;
 
@@ -751,11 +752,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             const isCardinal = fr === tr || fc === tc;
                             const isDiagonal = Math.abs(fr - tr) === Math.abs(fc - tc);
                             if (dist <= effLevel && (isCardinal || isDiagonal) && dist > 0) isLegal = true;
-                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession'].includes(moveType)) {
+                        } else if (moveType === 'self-destruct' || ['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'demonic-possession', 'heavy-rain'].includes(moveType)) {
                             const effLevel = getEffectiveLevel(room.gameState.board, fromCoords.row, fromCoords.col);
                             const hItem = movingPieceStart.heldItem;
                             if (from === to || ['tele-portobello', 'spore-bomb'].includes(moveType)) {
                                 if (moveType === 'self-destruct' && effLevel >= 5 && ['knight', 'hero', 'archer'].includes(movingPieceStart.type)) isLegal = true;
+                                if (moveType === 'heavy-rain' && hItem === 'heavy_rain' && effLevel >= 3) isLegal = true;
                                 if (moveType === 'resurrection-scroll' && hItem === 'resurrection_scroll' && effLevel >= 4) isLegal = true;
                                 if (moveType === 'faith-scroll' && hItem === 'faith_scroll' && effLevel >= 5) isLegal = true;
                                 if (moveType === 'ice-scroll' && hItem === 'ice_scroll' && effLevel >= 2) isLegal = true;
@@ -809,6 +811,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         
                         let finalizedBoard = newBoard;
                         const caps = (capturedPiece ? 1 : 0) + (selfDestructCaptures?.length || 0) + (rest.pieceCapturedByAnvil ? 1 : 0);
+
+                        if (rest.winByKingsConquest) {
+                            onGameOver(ws.roomId!, actingColor, 'conquest');
+                            return;
+                        }
                         
                         if (itemReturned) {
                           ws.send(JSON.stringify({ type: 'equipment-returned', item: itemReturned }));
@@ -863,11 +870,19 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const oldStreak = room.gameState.killStreaks[movingPlayer];
                         if (caps > 0) room.gameState.killStreaks[movingPlayer] += caps;
                         else {
-                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(moveType)) {
+                            if (moveType !== 'swap' && !['resurrection-scroll', 'faith-scroll', 'ice-scroll', 'antidote', 'rally-scroll', 'shield-scroll', 'summon-anvil', 'wind-scroll', 'life-leach', 'swap-scroll', 'ice-blast', 'soul-harvest', 'earthquake-scroll', 'kings-decree', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen', 'heavy-rain'].includes(moveType)) {
                                 room.gameState.killStreaks[movingPlayer] = 0;
                             }
                         }
                         const newStreak = room.gameState.killStreaks[movingPlayer];
+
+                        if (newStreak >= 8) {
+                            const king = finalizedBoard.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === movingPlayer)?.piece;
+                            if (king?.heldItem === 'kings_conquest') {
+                                onGameOver(ws.roomId!, actingColor, 'conquest');
+                                return;
+                            }
+                        }
 
                         if (newStreak >= 4 && oldStreak < 4) {
                             const myPile = movingPlayer;

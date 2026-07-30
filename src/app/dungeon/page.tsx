@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -266,34 +265,26 @@ export default function DungeonPage() {
   const [isExtraTurnFromQueenMove, setIsExtraTurnFromQueenMove] = useState<boolean>(false);
   const [boardForPostSacrifice, setBoardForPostSacrifice] = useState<BoardState | null>(null);
   const [specialActionContext, setSpecialActionContext] = useState<{ extra: boolean, nextEp: AlgebraicSquare | null, oldStreak: number, newStreak: number, completedMilestones: string[], actingPlayer: PlayerColor, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number } } | null>(null);
-
   const [isAwaitingDanceTarget, setIsAwaitingDanceTarget] = useState(false);
   const [dancerToDance, setDancerToDance] = useState<AlgebraicSquare | null>(null);
-
   const [isAwaitingGrappleThrow, setIsAwaitingGrappleThrow] = useState(false);
   const [grappledPieceSubject, setGrappledPieceSubject] = useState<{ piece: Piece, from: AlgebraicSquare } | null>(null);
-
   const [isAwaitingWindScrollTarget, setIsAwaitingWindScrollTarget] = useState(false);
   const [isAwaitingAnvilScrollTarget, setIsAwaitingAnvilScrollTarget] = useState(false);
   const [isAwaitingShieldScrollTarget, setIsAwaitingShieldScrollTarget] = useState(false);
   const [isAwaitingSwapScrollTarget, setIsAwaitingSwapScrollTarget] = useState(false);
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
-
   const [isSelectingMycoSpell, setIsSelectingMycoSpell] = useState(false);
   const [isSelectingTeleportAlly, setIsSelectingTeleportAlly] = useState(false);
   const [isSelectingTeleportShroom, setIsSelectingTeleportShroom] = useState(false);
   const [teleportAllyPieceId, setTeleportAllyPieceId] = useState<string | null>(null);
   const [isSelectingSporeBombShroom, setIsSelectingSporeBombShroom] = useState(false);
-
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isRulesDialogOpen, setIsRulesDialogOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
-
   const [isInventoryOpen, setIsInventoryOpen] = useState(false);
-  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [selectedInventoryItemType, setSelectedInventoryItemType] = useState<InventoryItemType | null>(null);
-
   const [aiStalemateStrikes, setAiStalemateStrikes] = useState(0);
   const [hasMovedOnCurrentFloor, setHasMovedOnCurrentFloor] = useState(false);
   const [colossusAwakened, setColossusAwakened] = useState(false);
@@ -332,6 +323,11 @@ export default function DungeonPage() {
     const userDocRef = doc(firestore, 'users', user.uid);
     updateDocumentNonBlocking(userDocRef, { dungeonState: { level: currentLevel, board: currentBoard.flat(), currentPlayer: currentP, killStreaks: ks, capturedPieces: caps, shroomSpawnCounter: shroomC, nextShroomSpawnTurn: nextShroom, enPassantTargetSquare: ep, necroResurrectionCounter: nrc } });
   }, [user, firestore]);
+
+  function findPieceCoords(b: BoardState, id: string): AlgebraicSquare | null {
+    for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(b[r][c].piece?.id === id) return b[r][c].algebraic;
+    return null;
+  }
 
   const advanceLevel = useCallback((survivorsFromLastBoard: Piece[], currentGraveyard: { white: Piece[], black: Piece[] }) => {
     const nextLevel = level + 1;
@@ -552,11 +548,6 @@ export default function DungeonPage() {
     setGameInfo({ message: gameMsg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, gameMoveCounter]);
-
-  function findPieceCoords(b: BoardState, id: string): AlgebraicSquare | null {
-    for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(b[r][c].piece?.id === id) return b[r][c].algebraic;
-    return null;
-  }
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
     const isAI = actingPlayer === 'black';
@@ -1404,7 +1395,7 @@ export default function DungeonPage() {
         }
 
         const hasSelfSelectionAbility = ((movingPiece.type === 'knight' || movingPiece.type === 'hero' || movingPiece.type === 'archer') && effectiveLevel >= 5);
-        const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll'].includes(movingPiece.heldItem);
+        const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll', 'demonic_possession', 'heavy_rain'].includes(movingPiece.heldItem);
         if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
           if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) { addLog("Piece is too exhausted to use skills."); return; }
           const executeLifeLeach = () => { setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); setSelectedSquare(null); setPossibleMoves([]); addLog("Life Leach triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };

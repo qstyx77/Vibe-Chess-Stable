@@ -20,7 +20,7 @@ export type InventoryItemType =
   | 'wind_scroll'
   | 'life_leach'
   | 'summon_anvil'
-  | 'shared_shield' // Renamed from shield_scroll contextually if needed, but keeping keys same for now
+  | 'shared_shield' 
   | 'shield_scroll'
   | 'rally_scroll'
   | 'poison_sword'
@@ -68,7 +68,9 @@ export type InventoryItemType =
   | 'mushroom_magnet'
   | 'mimic_blade'
   | 'thieves_gloves'
-  | 'lead_boots';
+  | 'lead_boots'
+  | 'heavy_rain'
+  | 'kings_conquest';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -146,6 +148,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the held item of the last piece that moved.', isConsumable: false },
   'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false },
   'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects.', isConsumable: false },
+  'heavy_rain': { name: 'Heavy Rain Scroll', description: 'Consumable (L3+). Randomly drops 3 Anvils on the board.', isConsumable: true },
+  'kings_conquest': { name: 'Kings Conquest', description: 'Jeweled crown. Kings only. Reaching KS 8 results in an immediate win.', isConsumable: false },
 };
 
 export interface Piece {
@@ -180,7 +184,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
   teleportPieceId?: string;
@@ -254,6 +258,7 @@ export interface ApplyMoveResult {
   itemReturned?: InventoryItemType | null;
   multiPromotions?: { square: AlgebraicSquare, targetLevel: number }[];
   ralliedSquares?: AlgebraicSquare[];
+  winByKingsConquest?: boolean;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';
@@ -339,7 +344,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain';
   promoteTo?: PieceType;
 }
 

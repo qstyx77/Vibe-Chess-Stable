@@ -186,6 +186,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>KS 4: Resurrection (Resurrects a random captured ally to a random open space on the board at L1).</RuleText>
                   <RuleText>KS 5: Archer Snipe (Global targeting for Archers).</RuleText>
                   <RuleText>KS 6: Extra Turn (Take a second move immediately).</RuleText>
+                  <RuleText>KS 8: Conquest Victory (Requires King's Conquest item - Immediate game win).</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
