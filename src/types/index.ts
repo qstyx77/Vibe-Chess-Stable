@@ -84,7 +84,7 @@ export interface ItemMetadata {
 export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'passive_armor': { name: 'Blue Plate', description: 'Heavy chestplate. Push-Back immunity.', isConsumable: false },
   'mirror_shield': { name: 'Mirror Shield', description: 'Non-Royal only. Reflects one capture attempt from a non-royal unit, then breaks.', isConsumable: false },
-  'swift_cloak': { name: 'Swift Cloak', description: 'Red cloak. Double move range for small units.', isConsumable: false },
+  'swift_cloak': { name: 'Swift Cloak', description: 'Red cloak. Double move range for frontline units.', isConsumable: false },
   'cardinal_greaves': { name: 'Cardinal Greaves', description: 'Green boots. Move (no capture) 1 space cardinally forward.', isConsumable: false },
   'drift_boots': { name: 'Drift Boots', description: 'Blue boots. Move (no capture) 1 space diagonally forward.', isConsumable: false },
   'queens_peace': { name: 'Queen\'s Peace', description: 'Serene ring. Queen only. Invulnerable but cannot capture.', isConsumable: false },
@@ -100,7 +100,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true },
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true },
   'poison_sword': { name: 'Poison Sword', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false },
-  'antidote': { name: 'Antidote', description: 'Consumable vial. Cures all allied units of poison.', isConsumable: true },
+  'antidote': { name: 'Antidote', description: 'Consumable vial. Cures all allied units of poison and exhaustion.', isConsumable: true },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false },
   'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true },
@@ -121,8 +121,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'blast_shield': { name: 'Blast Shield', description: 'Shield. Non-Royal only. Immune to self-destructs and explosions.', isConsumable: false },
   'monks_robe': { name: 'Monk\'s Robe', description: 'Robe. Bishops/Archbishops only. Increases conversion chance by 20%.', isConsumable: false },
   'training_weights': { name: 'Training Weights', description: 'Weights. Non-Royal only. Increases level by 1 every 3 turns.', isConsumable: false },
-  'ice_tunic': { name: 'Ice Tunic', description: 'Frosty vest. Freezes any piece that captures the wearer for 1 turn.', isConsumable: false },
-  'ice_sword': { name: 'Ice Sword', description: 'Crystalline blade. Capturing freezes cardinally adjacent enemies for 1 turn.', isConsumable: false },
+  'ice_tunic': { name: 'Ice Tunic', description: 'Frosty vest. Freezes any piece that captures the wearer for 2 turns.', isConsumable: false },
+  'ice_sword': { name: 'Ice Sword', description: 'Crystalline blade. Capturing freezes cardinally adjacent enemies for 2 turns.', isConsumable: false },
   'ice_blast': { name: 'Ice Blast Scroll', description: 'Consumable. Freeze all adjacent enemy pieces for 2 turns.', isConsumable: true },
   'soul_harvest': { name: 'Soul Harvest Scroll', description: 'Consumable. Non-Royal. Reduces adjacent levels to 1; user gains all lost levels.', isConsumable: true },
   'aura_silence': { name: 'Silence Amulet', description: 'Passive. Adjacent enemy units cannot trigger active skills or use scrolls.', isConsumable: false },
@@ -145,6 +145,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'mushroom_magnet': { name: 'Shroom Magnet', description: 'Accessory. On move/capture, pulls all Shrooms within 2 spaces 1 square closer.', isConsumable: false },
   'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the held item of the last piece that moved.', isConsumable: false },
   'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false },
+  'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects.', isConsumable: false },
 };
 
 export interface Piece {

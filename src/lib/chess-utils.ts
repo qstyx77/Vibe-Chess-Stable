@@ -342,9 +342,8 @@ export function getPossibleMovesInternal(
     dirs.forEach(([dr, dc]) => {
       for (let i = 1; i <= 3; i++) {
         const nr = fromRow + i * dr; const nc = fromCol + i * dc;
-        if (!isValidSquare(nr, nc)) break;
+        if (!isValidSquare(nr, nc) || board[nr][nc].item?.type === 'anvil') break;
         const sq = board[nr][nc];
-        if (sq.item?.type === 'anvil') break;
         if (sq.piece) {
           if (sq.piece.color === pieceColor) possible.push(coordsToAlgebraic(nr, nc));
           break;
@@ -1044,7 +1043,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         for (const [dr, dc] of dirs) {
             if (spawned >= 2) break;
             const nr = r + dr; const nc = c + dc;
-            if (isValidSquare(nr, nc) && !targetBoard[nr][nc].piece && !targetBoard[nr][nc].item) {
+            if (isValidSquare(nr, nc) && !targetBoard[nr][nr].piece && !targetBoard[nr][nc].item) {
                 targetBoard[nr][nc].piece = { id: `hydra-head-${Date.now()}-${spawned}-${victim.id}`, type: 'knight', color: 'black', level: 2, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
                 spawned++;
             }
@@ -1320,6 +1319,28 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
   newBoard[toRow][toCol].piece = pieceToLand;
   newBoard[fromRow][fromCol].piece = null;
+
+  // --- TORTOISE HAMMER SPLASH ---
+  if (effectiveHeldItem === 'tortoise_hammer') {
+    const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
+    const cardinalDirs = [[0, 1], [0, -1], [1, 0], [-1, 0]];
+    cardinalDirs.forEach(([dr, dc]) => {
+      const nr = toRow + dr;
+      const nc = toCol + dc;
+      if (isValidSquare(nr, nc)) {
+        const victimSq = newBoard[nr][nc];
+        const victim = victimSq.piece;
+        if (victim && victim.color === oppColor && victim.type !== 'king') {
+          const vL = getEffectiveLevel(newBoard, nr, nc);
+          const aL = getEffectiveLevel(newBoard, toRow, toCol);
+          if (!isPieceInvulnerableToAttack(victim, pieceToLand, vL, aL, newBoard)) {
+            selfDestructCaptures.push({ ...victim, id: `${victim.id}_hammer_${Date.now()}` });
+            newBoard[nr][nc].piece = null;
+          }
+        }
+      }
+    });
+  }
 
   if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'infiltrator', 'myco_mage'].includes(pieceToLand.type) && Math.abs(fromRow - toRow) === 2) enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
   

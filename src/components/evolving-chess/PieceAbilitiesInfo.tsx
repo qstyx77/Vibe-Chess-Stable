@@ -52,7 +52,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to an allied unit.");
   if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): reset to L1 to trigger a global allied level-up.");
   if (heldItem === 'poison_sword') abilities.push(" toxic: splash poison to adjacent enemies on capture.");
-  if (heldItem === 'antidote') abilities.push(" cleanse: remove poison from all allied units.");
+  if (heldItem === 'antidote') abilities.push(" cleanse: remove poison and exhaustion from all allied units.");
   if (heldItem === 'crossbow') abilities.push(" double shot: KS 3 triggers Archer Snipe in addition to Anvil.");
   if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons any piece that captures the wearer.");
   if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit to cause a massive explosion.");
@@ -73,8 +73,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'blast_shield') abilities.push(" blast guard: immune to self-destructs and explosions.");
   if (heldItem === 'monks_robe') abilities.push(" devotions: conversion success chance increased by 20%.");
   if (heldItem === 'training_weights') abilities.push(" conditioning: gain +1 level every 3 turns.");
-  if (heldItem === 'ice_tunic') abilities.push(" cryo skin: freezes any piece that captures the wearer for 1 turn.");
-  if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 1 turn.");
+  if (heldItem === 'ice_tunic') abilities.push(" cryo skin: freezes any piece that captures the wearer for 2 turns.");
+  if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 2 turns.");
   if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies for 2 turns.");
   if (heldItem === 'soul_harvest') abilities.push(" spell: reduce adjacent pieces to L1 to absorb their power.");
   if (heldItem === 'aura_silence') abilities.push(" silent aura: adjacent enemies cannot trigger active skills.");
@@ -89,7 +89,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'mushroom_magnet') abilities.push(" magnetic: Pulls Shrooms within 2 squares 1 space closer on move.");
   if (heldItem === 'mimic_blade') abilities.push(" item mimic: Replicates the held item of the last moved piece.");
   if (heldItem === 'thieves_gloves') abilities.push(" plunder: 50% chance to steal equipment from captured units.");
-  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for small units."); else abilities.push(" swift: inactive (only for small units)."); }
+  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for frontline units."); else abilities.push(" swift: inactive (only for frontline units)."); }
 
   switch (type) {
     case 'pawn':
