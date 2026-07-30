@@ -20,6 +20,7 @@ export type InventoryItemType =
   | 'wind_scroll'
   | 'life_leach'
   | 'summon_anvil'
+  | 'shared_shield' // Renamed from shield_scroll contextually if needed, but keeping keys same for now
   | 'shield_scroll'
   | 'rally_scroll'
   | 'poison_sword'
@@ -40,7 +41,6 @@ export type InventoryItemType =
   | 'leach_blade'
   | 'kings_decree'
   | 'gravity_stone'
-  | 'offset_shield'
   | 'blast_shield'
   | 'monks_robe'
   | 'training_weights'
@@ -94,6 +94,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units.', isConsumable: true },
   'life_leach': { name: 'Life Leach', description: 'Consumable. Global: reduces all enemy levels by 1.', isConsumable: true },
   'summon_anvil': { name: 'Anvil Scroll', description: 'Consumable. Target an empty square to drop a solid Anvil.', isConsumable: true },
+  'shared_shield': { name: 'Shared Shield', description: 'Obsolete entry.', isConsumable: false },
   'wind_cloak': { name: 'Wind Cloak', description: 'Aero mantle. L4+ pieces gain Push-Back ability.', isConsumable: false },
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture.', isConsumable: false },
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true },
@@ -129,7 +130,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'battering_ram': { name: 'Battering Ram', description: 'Passive. Rook/Palace only. Move into an adjacent Anvil to push it up to 3 squares, crushing enemies.', isConsumable: false },
   'knights_boots': { name: 'Knight\'s Boots', description: 'Passive. Replaces this piece\'s movement with the standard Knight L-shape pattern.', isConsumable: false },
   'golden_chalice': { name: 'Golden Chalice', description: 'Passive. Increases the Experience Value of all captures by this unit by +1 Level.', isConsumable: false },
-  'earthquake_scroll': { name: 'Earthquake Scroll', description: 'Consumable (L3+). Target a square to push all units in a 3x3 area 1 square away from the center.', isConsumable: true },
+  'earthquake_scroll': { name: 'Earthquake Scroll', description: 'Consumable (L3+). Enemy units in 3x3 area lose 2 levels and are pushed back.', isConsumable: true },
   'portal_scroll_10': { name: 'F10 Portal', description: 'Warp to Floor 10 (Boss).', isConsumable: true },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20 (Boss).', isConsumable: true },
   'portal_scroll_30': { name: 'F30 Portal', description: 'Warp to Floor 30 (Boss).', isConsumable: true },
@@ -144,7 +145,6 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'mushroom_magnet': { name: 'Shroom Magnet', description: 'Accessory. On move/capture, pulls all Shrooms within 2 spaces 1 square closer.', isConsumable: false },
   'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the held item of the last piece that moved.', isConsumable: false },
   'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false },
-  'offset_shield': { name: 'Offset Shield', description: 'Shield. 50% chance to avoid damage from status effects.', isConsumable: false },
 };
 
 export interface Piece {

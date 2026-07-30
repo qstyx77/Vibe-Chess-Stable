@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Piece } from '@/types';
@@ -81,7 +82,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'battering_ram') abilities.push(" battering ram: push adjacent anvils to crush enemies.");
   if (heldItem === 'knights_boots') abilities.push(" knight's boots: movement replaced by Knight pattern.");
   if (heldItem === 'golden_chalice') abilities.push(" experience: +1 extra level gain on every capture.");
-  if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): target a square to push units in a 3x3 area away.");
+  if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): target a square to push units away and drain 2 levels from enemies.");
   if (heldItem === 'war_drum') abilities.push(" tempo: allies swapped with gain +1 Level; enemies become Exhausted.");
   if (heldItem === 'cyanide_pill') abilities.push(" spite: capturing unit gains 0 levels from this piece.");
   if (heldItem === 'demonic_possession') abilities.push(" demonic: Gain +5 Levels, but piece is obliterated after 3 turns.");

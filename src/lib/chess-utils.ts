@@ -432,7 +432,7 @@ export function getPossibleMovesInternal(
   }
 
   if (piece.heldItem === 'tortoise_hammer') {
-    const dir = pieceColor === 'white' ? -1 : 1;
+    const dir = piece.color === 'white' ? -1 : 1;
     const nr = fromRow + dir;
     if (isValidSquare(nr, fromCol)) {
         const targetSq = board[nr][fromCol];
@@ -1196,6 +1196,18 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'earthquake-scroll') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              const nr = toRow + dr; const nc = toCol + dc;
+              if (isValidSquare(nr, nc)) {
+                  const p = newBoard[nr][nc].piece;
+                  if (p && p.color === oppColor) {
+                      p.level = Math.max(1, (p.level || 1) - 2);
+                  }
+              }
+          }
+      }
       const crush = triggerPushBack(newBoard, toRow, toCol, movingPiece.color);
       if (crush) pieceCapturedByAnvil = crush;
       newBoard[fromRow][fromCol].piece!.heldItem = null; 

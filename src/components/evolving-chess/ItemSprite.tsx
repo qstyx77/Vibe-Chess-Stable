@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -32,7 +33,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="1" y="2" width="8" height="8" fill={portalColor} />
             <rect x="0" y="1" width="10" height="2" fill="#1e1b4b" />
             <rect x="0" y="9" width="10" height="2" fill="#1e1b4b" />
-            <circle cx="5" cy="6" r="3" fill="#FFF" fillOpacity="0.4" />
+            <rect x="4" y="5" width="2" height="2" fill="#FFF" fillOpacity="0.4" />
             <rect x="3" y="4" width="4" height="4" fill="#000" fillOpacity="0.3" />
           </svg>
         );
@@ -139,9 +140,9 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'gravity_stone':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="3" width="6" height="6" fill="#7C3AED" rx="3" />
-            <rect x="3" y="4" width="4" height="4" fill="#A78BFA" opacity="0.6" rx="2" />
-            <rect x="4.5" y="5.5" width="1" height="1" fill="#FFF" />
+            <rect x="2" y="3" width="6" height="6" fill="#7C3AED" />
+            <rect x="3" y="4" width="4" height="4" fill="#A78BFA" opacity="0.6" />
+            <rect x="4" y="5" width="2" height="2" fill="#FFF" />
           </svg>
         );
       case 'lead_boots':
@@ -269,8 +270,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             {type === 'resurrection_scroll' && <rect x="4" y="5" width="2" height="2" fill="#FFF" />}
             {type === 'faith_scroll' && <rect x="4" y="4" width="2" height="4" fill="#FFF" />}
             {type === 'soul_harvest' && <rect x="4" y="4" width="2" height="4" fill="#8B5CF6" />}
-            {type === 'earthquake_scroll' && <path d="M3 6L5 4L7 6L5 8L3 6Z" fill="#FFF" opacity="0.8" />}
-            {type === 'demonic_possession' && <circle cx="5" cy="6" r="1" fill="#FFF" />}
+            {type === 'earthquake_scroll' && <rect x="3" y="4" width="4" height="4" fill="#FFF" opacity="0.8" />}
+            {type === 'demonic_possession' && <rect x="4" y="5" width="2" height="2" fill="#FFF" />}
           </svg>
         );
       case 'wind_cloak':
@@ -318,11 +319,15 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'shortbow':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <path d="M6 1 C3 1 3 6 3 6 C3 6 3 11 6 11" stroke="#92400E" strokeWidth="1.5" fill="none" />
-            <rect x="6" y="1" width="0.5" height="10" fill="#CBD5E1" opacity="0.6" />
-            <rect x="3" y="5" width="1.5" height="2" fill="#78350F" />
-            <rect x="3" y="5.75" width="5" height="0.5" fill="#475569" /> 
-            <rect x="7.5" y="5.25" width="1" height="1.5" fill="#94A3B8" />
+            <rect x="4" y="1" width="2" height="1" fill="#92400E" />
+            <rect x="3" y="2" width="1" height="2" fill="#92400E" />
+            <rect x="6" y="2" width="1" height="2" fill="#92400E" />
+            <rect x="2" y="4" width="1" height="4" fill="#92400E" />
+            <rect x="7" y="4" width="1" height="4" fill="#92400E" />
+            <rect x="3" y="8" width="1" height="2" fill="#92400E" />
+            <rect x="6" y="8" width="1" height="2" fill="#92400E" />
+            <rect x="4" y="10" width="2" height="1" fill="#92400E" />
+            <rect x="3" y="5.5" width="5" height="1" fill="#475569" />
           </svg>
         );
       case 'poison_tunic':
@@ -362,8 +367,11 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="4" y="1" width="2" height="2" fill="#94A3B8" />
-            <circle cx="5" cy="5" r="3" stroke="#94A3B8" strokeWidth="1" />
-            <rect x="3" y="8" width="4" height="2" fill="#EF4444" opacity="0.6" />
+            <rect x="3" y="3" width="4" height="1" fill="#94A3B8" />
+            <rect x="2" y="4" width="1" height="3" fill="#94A3B8" />
+            <rect x="7" y="4" width="1" height="3" fill="#94A3B8" />
+            <rect x="3" y="7" width="4" height="1" fill="#94A3B8" />
+            <rect x="4" y="5" width="2" height="2" fill="#EF4444" opacity="0.6" />
           </svg>
         );
       case 'logas':
@@ -417,10 +425,10 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'aura_silence':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <circle cx="5" cy="6" r="4" fill="#1e1b4b" />
-            <circle cx="5" cy="6" r="2.5" fill="#312e81" stroke="#4f46e5" strokeWidth="1" />
-            <rect x="4" y="5" width="2" height="2" fill="#a5b4fc" opacity="0.5" />
-            <rect x="2" y="6" width="6" height="0.5" fill="#FFF" opacity="0.2" />
+            <rect x="2" y="2" width="6" height="8" fill="#1e1b4b" />
+            <rect x="3" y="3" width="4" height="6" fill="#312e81" />
+            <rect x="4" y="4" width="2" height="4" fill="#a5b4fc" opacity="0.5" />
+            <rect x="1" y="5" width="8" height="2" fill="#FFF" opacity="0.1" />
           </svg>
         );
       case 'grappling_hook':
@@ -429,7 +437,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="1" width="2" height="8" fill="#475569" />
             <rect x="2" y="0" width="1" height="3" fill="#64748b" />
             <rect x="7" y="0" width="1" height="3" fill="#64748b" />
-            <path d="M2 3 Q5 6 8 3" stroke="#94a3b8" strokeWidth="1.5" />
+            <rect x="2" y="3" width="6" height="1" fill="#94a3b8" />
             <rect x="3" y="9" width="4" height="2" fill="#1e293b" />
           </svg>
         );
@@ -461,25 +469,25 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="3" width="4" height="5" fill="#EAB308" />
             <rect x="4" y="8" width="2" height="2" fill="#EAB308" />
             <rect x="2" y="10" width="6" height="1" fill="#EAB308" />
-            <circle cx="5" cy="4" r="1.5" fill="#FFF" opacity="0.5" />
+            <rect x="4" y="4" width="2" height="2" fill="#FFF" opacity="0.5" />
           </svg>
         );
       case 'sclerotia':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="1" y="4" width="8" height="4" fill="#78350F" />
-            <circle cx="5" cy="6" r="3" fill="#10B981" />
-            <rect x="4" y="3" width="2" height="1" fill="#FFF" opacity="0.5" />
-            <rect x="4" y="9" width="2" height="1" fill="#FFF" opacity="0.5" />
+            <rect x="3" y="3" width="4" height="6" fill="#10B981" />
+            <rect x="4" y="4" width="1" height="1" fill="#FFF" opacity="0.5" />
+            <rect x="5" y="7" width="1" height="1" fill="#FFF" opacity="0.5" />
           </svg>
         );
       case 'smoke_bomb':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <circle cx="5" cy="7" r="4" fill="#525252" />
+            <rect x="2" y="3" width="6" height="7" fill="#525252" />
+            <rect x="3" y="2" width="4" height="9" fill="#525252" />
             <rect x="4" y="1" width="2" height="3" fill="#EAB308" />
-            <path d="M2 3 Q0 5 2 7" stroke="#FFF" strokeWidth="0.5" opacity="0.3" />
-            <path d="M8 3 Q10 5 8 7" stroke="#FFF" strokeWidth="0.5" opacity="0.3" />
+            <rect x="3" y="4" width="1" height="1" fill="#FFF" opacity="0.2" />
           </svg>
         );
       case 'war_drum':
@@ -502,11 +510,11 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
       case 'mushroom_magnet':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <path d="M2 2 V8 Q2 10 5 10 Q8 10 8 8 V2" stroke="#EF4444" strokeWidth="2" fill="none" />
-            <rect x="1" y="1" width="2" height="3" fill="#EF4444" />
-            <rect x="7" y="1" width="2" height="3" fill="#3B82F6" />
-            <rect x="1" y="4" width="2" height="4" fill="#EF4444" />
-            <rect x="7" y="4" width="2" height="4" fill="#3B82F6" />
+            <rect x="2" y="2" width="2" height="6" fill="#EF4444" />
+            <rect x="6" y="2" width="2" height="6" fill="#3B82F6" />
+            <rect x="2" y="8" width="6" height="2" fill="#94A3B8" />
+            <rect x="2" y="1" width="2" height="1" fill="#7F1D1D" />
+            <rect x="6" y="1" width="2" height="1" fill="#1D4ED8" />
           </svg>
         );
       case 'mimic_blade':

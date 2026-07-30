@@ -22,7 +22,8 @@ import {
     getCastlingRightsString,
     getEffectiveLevel,
     syncSoulLink,
-    isItemValidForPiece
+    isItemValidForPiece,
+    triggerPushBack
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage } from './types';
 
@@ -787,6 +788,23 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const originalLevel = movingPieceStart.level || 1;
                         const originalType = movingPieceStart.type;
                         const originalHeldItem = movingPieceStart.heldItem;
+
+                        if (moveType === 'earthquake-scroll') {
+                            const oppColor = actingColor === 'white' ? 'black' : 'white';
+                            const { row: tr, col: tc } = algebraicToCoords(to);
+                            for (let dr = -1; dr <= 1; dr++) {
+                                for (let dc = -1; dc <= 1; dc++) {
+                                    const nr = tr + dr; const nc = tc + dc;
+                                    if (isValidSquare(nr, nc)) {
+                                        const p = room.gameState.board[nr][nc].piece;
+                                        if (p && p.color === oppColor) {
+                                            p.level = Math.max(1, (p.level || 1) - 2);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
                         const { newBoard, capturedPiece, selfDestructCaptures, resurrectionScrollEvent, promotedToInfiltrator, itemReturned, multiPromotions, ...rest } = applyMove(room.gameState.board, data.payload, room.gameState.enPassantTargetSquare, room.gameState.capturedPieces, room.gameState.lastMovedPieceType, room.gameState.lastMovedPieceHeldItem);
                         
                         let finalizedBoard = newBoard;
