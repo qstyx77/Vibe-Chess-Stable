@@ -1,4 +1,3 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
@@ -34,11 +33,6 @@ interface UserData {
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
-const DEFAULT_INVENTORY: InventoryItem[] = ITEM_TYPES.map(type => ({
-  type,
-  count: 5
-}));
-
 const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler', 'myco_mage'];
 
 export function useUser() {
@@ -70,8 +64,8 @@ export function useUser() {
             let inventoryChanged = false;
             const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
               const existingCount = currentInventoryMap.get(type);
-              // Initialize with 5 if missing or below playtest threshold
-              if (existingCount === undefined || existingCount < 5) {
+              // Initialize with 5 if missing
+              if (existingCount === undefined) {
                 inventoryChanged = true;
                 return { type, count: 5 };
               }
@@ -95,14 +89,10 @@ export function useUser() {
                 updateDocumentNonBlocking(userRef, { 
                     eloRating: data.eloRating,
                     inventory: data.inventory, 
-                    unlockedPieces: data.unlockedPieces,
-                    equipment: data.equipment || {},
-                    dungeonState: data.dungeonState || null 
+                    unlockedPieces: data.unlockedPieces
                 });
-                setUserData({ ...data });
-            } else {
-                setUserData(data);
             }
+            setUserData(data);
           } else {
             const newUserProfile: UserData = {
               username: firebaseUser.displayName || `Player-${firebaseUser.uid.slice(0,5)}`,
@@ -110,7 +100,7 @@ export function useUser() {
               eloRating: firebaseUser.displayName === 'SUGGA' ? 2100 : 1200,
               wins: 0,
               losses: 0,
-              inventory: DEFAULT_INVENTORY,
+              inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
               equipment: {},
               unlockedPieces: PLAYTEST_UNLOCKS,
               colossusDefeats: 0

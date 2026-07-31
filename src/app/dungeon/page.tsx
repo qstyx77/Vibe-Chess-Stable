@@ -337,8 +337,8 @@ export default function DungeonPage() {
   }
 
   const advanceLevel = useCallback((survivorsFromLastBoard: Piece[], currentGraveyard: { white: Piece[], black: Piece[] }) => {
-    const nextLevel = level + 1;
-    if (nextLevel > 50) { 
+    const nextLevelNum = level + 1;
+    if (nextLevelNum > 50) { 
         const msg = "DUNGEON CONQUERED! You are the champion!";
         setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); 
         gameOverRef.current = true;
@@ -347,8 +347,8 @@ export default function DungeonPage() {
         return; 
     }
     setIsMoveProcessing(false); clickGuard.current = false; setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]);
-    setLevel(nextLevel); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivorsFromLastBoard);
-    const newBoard = generateDungeonFloor(nextLevel, survivorsFromLastBoard); setBoard(newBoard);
+    setLevel(nextLevelNum); setAiStalemateStrikes(0); setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setPlayerArmy(survivorsFromLastBoard);
+    const newBoard = generateDungeonFloor(nextLevelNum, survivorsFromLastBoard); setBoard(newBoard);
     
     const updatedGraveyard = { white: currentGraveyard.white, black: [] }; 
     setCapturedPieces(updatedGraveyard);
@@ -386,13 +386,13 @@ export default function DungeonPage() {
     setIsAiThinking(false);
     setPromotionQueue([]);
 
-    saveDungeonState(nextLevel, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0, inventory);
-    const isBoss = nextLevel % 10 === 0;
-    let welcomeMsg = isBoss ? `BOSS BATTLE: Floor ${nextLevel}` : `Level ${nextLevel} - Wipe them out!`;
+    saveDungeonState(nextLevelNum, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0, inventory);
+    const isBoss = nextLevelNum % 10 === 0;
+    let welcomeMsg = isBoss ? `BOSS BATTLE: Floor ${nextLevelNum}` : `Level ${nextLevelNum} - Wipe them out!`;
     setGameInfo({ message: welcomeMsg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
     gameOverRef.current = false;
     audioManager.playLevelUp();
-    addLog(`Descending to Floor ${nextLevel}...`);
+    addLog(`Descending to Floor ${nextLevelNum}...`);
   }, [level, addLog, saveDungeonState, inventory]);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
@@ -551,7 +551,7 @@ export default function DungeonPage() {
         addLog("Check!");
     }
     const isBoss = level % 10 === 0;
-    let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${nextLevel} - Wipe them out!`);
+    let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${level} - Wipe them out!`);
     setGameInfo({ message: gameMsg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, gameMoveCounter, inventory]);

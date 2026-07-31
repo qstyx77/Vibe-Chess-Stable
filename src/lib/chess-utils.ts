@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -656,7 +655,7 @@ export function isSquareAttacked(
                     if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                         if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
                             const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type !== 'anvil')) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
+                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type === 'anvil')) if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                         } else if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board)) return true;
                     }
                     if (effectiveLevel >= 5 && !simplifyKingCheck) {
@@ -1177,7 +1176,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, originalPieceType: originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSquare: null, extraTurn, specialCaptureSquare };
   }
 
-  const isAttackerRoyal = attackingPiece => attackingPiece.type === 'king' || attackingPiece.type === 'queen';
+  const isAttackerRoyal = (attackingPiece: Piece) => attackingPiece.type === 'king' || attackingPiece.type === 'queen';
   if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield' && !isAttackerRoyal(movingPiece)) {
       const reflectedAttacker = { ...movingPiece };
       newBoard[fromRow][fromCol].piece = null; 
