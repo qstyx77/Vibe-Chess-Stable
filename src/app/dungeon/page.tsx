@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1695,6 +1694,9 @@ export default function DungeonPage() {
         isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
         isAwaitingDecreeTarget={isAwaitingDecreeTarget}
         enemySelectedSquare={null}
+        isInventoryOpen={isInventoryOpen}
+        selectedInventoryItemType={selectedInventoryItemType}
+        localPlayerColor="white"
       />
 
       <GameControls 
@@ -1791,6 +1793,9 @@ export default function DungeonPage() {
             isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget}
             isAwaitingDecreeTarget={isAwaitingDecreeTarget}
             enemySelectedSquare={null}
+            isInventoryOpen={isInventoryOpen}
+            selectedInventoryItemType={selectedInventoryItemType}
+            localPlayerColor="white"
           />
         </div>
       </div>
