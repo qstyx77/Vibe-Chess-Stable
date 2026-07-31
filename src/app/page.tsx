@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -900,13 +901,13 @@ export default function EvolvingChessPage() {
                 addEffectCallback('poof', toAlg);
             });
             if (applyResult.selfDestructCaptures.length > 0) {
-                addLog(`Explosion destroyed ${applyResult.selfDestructCaptures.length} unit(s)!`);
+                addLog(`Collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`);
             }
         }
 
         setBoard(nextB);
         setCapturedPieces(updatedG);
-        const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
+        const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
         if (gain > 0) {
           addEffectCallback('level-change', toAlg, currentPlayer, gain);
         }
@@ -1043,7 +1044,7 @@ export default function EvolvingChessPage() {
     }
 
     if (isSelectingTeleportAlly) {
-        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== boardState[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece?.id) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece?.id) {
             setTeleportAllyPieceId(piece.id);
             setIsSelectingTeleportAlly(false);
             setIsSelectingTeleportShroom(true);
@@ -1551,7 +1552,7 @@ export default function EvolvingChessPage() {
                 });
               }
 
-              const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0);
+              const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
               const oldS = killStreaks[currentPlayer]; const newS = gain > 0 ? oldS + gain : 0;
               const currentKs = { ...killStreaks, [currentPlayer]: newS };
               const isObliteration = applyResult.promotedToInfiltrator || (moving.type === 'infiltrator' && applyResult.capturedPiece);
@@ -1583,7 +1584,7 @@ export default function EvolvingChessPage() {
                       addEffectCallback('poof', algebraic);
                   });
                   if (applyResult.selfDestructCaptures.length > 0) {
-                      addLog(`Explosion destroyed ${applyResult.selfDestructCaptures.length} unit(s)!`);
+                      addLog(`Collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`);
                   }
               }
 

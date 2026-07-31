@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -551,7 +552,7 @@ export default function DungeonPage() {
         addLog("Check!");
     }
     const isBoss = level % 10 === 0;
-    let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${level} - Wipe them out!`);
+    let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${nextLevel} - Wipe them out!`);
     setGameInfo({ message: gameMsg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     setCurrentPlayer(nextP);
   }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, gameMoveCounter, inventory]);
@@ -825,7 +826,9 @@ export default function DungeonPage() {
                 updatedCapturedPieces[targetPile].push({ ...p, id: p.id });
                 addEffect('poof', toAlg);
             });
-            addLog(`Dungeon explosion destroyed ${selfDestructCaptures.length} unit(s)!`);
+            if (selfDestructCaptures.length > 0) {
+                addLog(`Dungeon collateral damage: ${selfDestructCaptures.length} unit(s) destroyed!`);
+            }
         }
         
         setCapturedPieces(updatedCapturedPieces);
@@ -1509,7 +1512,7 @@ export default function DungeonPage() {
               const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalL, updatedGraveyard, uniqueIdCounterRef.current);
               if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Resurrected a ${resResult.resurrectedPieceData?.type}!`); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
           }
-          const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0);
+          const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
           const oldStreak = killStreaks['white'] || 0; const newStreak = streakGain > 0 ? oldStreak + streakGain : 0;
           const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs);
           
@@ -1534,6 +1537,16 @@ export default function DungeonPage() {
               if (capturedPiece && !isObliteration) {
                   const targetPile = capturedPiece.color;
                   updatedGraveyard[targetPile].push({ ...capturedPiece!, id: capturedPiece!.id });
+              }
+              if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) {
+                  result.selfDestructCaptures.forEach(p => {
+                      const targetPile = p.color;
+                      updatedGraveyard[targetPile].push({ ...p, id: p.id });
+                      addEffect('poof', algebraic);
+                  });
+                  if (result.selfDestructCaptures.length > 0) {
+                      addLog(`Collateral damage: ${result.selfDestructCaptures.length} unit(s) destroyed!`);
+                  }
               }
               setCapturedPieces({ ...updatedGraveyard }); 
           }

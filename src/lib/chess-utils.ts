@@ -237,7 +237,7 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 }
 
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
-  if (item === 'swift_cloak') return (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type));
+  if (item === 'swift_cloak' || item === 'great_sword') return (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type));
   if (item === 'queens_peace') return (type === 'queen');
   if (item === 'kings_conquest') return (type === 'king');
   if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves'].includes(item)) {
@@ -1387,6 +1387,23 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     
     let gain = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
+    // --- GREAT SWORD CLEAVE ---
+    if (effectiveHeldItem === 'great_sword') {
+        const dr = toRow - fromRow;
+        const dc = toCol - fromCol;
+        const cleaveR = toRow + dr;
+        const cleaveC = toCol + dc;
+        if (isValidSquare(cleaveR, cleaveC)) {
+            const cleaveTarget = newBoard[cleaveR][cleaveC].piece;
+            if (cleaveTarget && cleaveTarget.color !== movingPiece.color && cleaveTarget.type !== 'king') {
+                const cleaveGain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[cleaveTarget.type] || 0;
+                gain += cleaveGain;
+                selfDestructCaptures.push({ ...cleaveTarget, id: `${cleaveTarget.id}_cleave_${Date.now()}` });
+                newBoard[cleaveR][cleaveC].piece = null;
+            }
+        }
+    }
+
     if (captured.heldItem === 'cyanide_pill') {
         gain = 0;
     }

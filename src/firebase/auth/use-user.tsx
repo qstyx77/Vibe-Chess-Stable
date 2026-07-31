@@ -65,16 +65,23 @@ export function useUser() {
               needsUpdate = true;
             }
 
-            // --- INVENTORY INITIALIZATION ---
+            // --- INVENTORY INITIALIZATION (DEEP CHECK) ---
             const currentInventoryMap = new Map(data.inventory?.map(i => [i.type, i.count]) || []);
+            let inventoryChanged = false;
             const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
               const existingCount = currentInventoryMap.get(type);
+              // Initialize with 5 if missing or below playtest threshold
               if (existingCount === undefined || existingCount < 5) {
-                needsUpdate = true;
+                inventoryChanged = true;
                 return { type, count: 5 };
               }
               return { type, count: existingCount };
             });
+
+            if (inventoryChanged) {
+              data.inventory = updatedInventory;
+              needsUpdate = true;
+            }
 
             // --- SPECIAL PIECE UNLOCKS ---
             const currentUnlocks = data.unlockedPieces || [];
@@ -87,12 +94,12 @@ export function useUser() {
             if (needsUpdate) {
                 updateDocumentNonBlocking(userRef, { 
                     eloRating: data.eloRating,
-                    inventory: updatedInventory, 
-                    unlockedPieces: updatedUnlocks,
+                    inventory: data.inventory, 
+                    unlockedPieces: data.unlockedPieces,
                     equipment: data.equipment || {},
                     dungeonState: data.dungeonState || null 
                 });
-                setUserData({ ...data, inventory: updatedInventory, unlockedPieces: updatedUnlocks });
+                setUserData({ ...data });
             } else {
                 setUserData(data);
             }
