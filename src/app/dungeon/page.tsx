@@ -290,7 +290,10 @@ export default function DungeonPage() {
     const hasCommander = survivorsFromLastBoard.some(p => ['commander', 'hero'].includes(p.type)); setFirstBloodAchieved(hasCommander); setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
     setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsPromotingPawn(false); setPromotionSquare(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAiThinking(false); setPromotionQueue([]);
     saveDungeonState(nextLevelNum, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0, inventory);
-    const isBoss = nextLevelNum % 10 === 0; let welcomeMsg = isBoss ? `BOSS BATTLE: Floor ${nextLevelNum}` : `Level ${nextLevelNum} - Wipe them out!`; setGameInfo({ message: welcomeMsg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false }); gameOverRef.current = false; audioManager.playLevelUp(); addLog(`Descending to Floor ${nextLevelNum}...`);
+    const isBoss = nextLevelNum % 10 === 0; 
+    let welcomeMsg = isBoss ? `BOSS BATTLE` : `Wipe them out!`; 
+    setGameInfo({ message: welcomeMsg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false }); 
+    gameOverRef.current = false; audioManager.playLevelUp(); addLog(`Descending to Floor ${nextLevelNum}...`);
   }, [level, addLog, saveDungeonState, inventory]);
 
   const processMoveEnd = useCallback((boardAfter: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null) => {
@@ -371,7 +374,9 @@ export default function DungeonPage() {
       const msg = "DEFEAT! Your King has fallen."; setGameInfo({ message: "YOUR KING HAS FALLEN", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' }); gameOverRef.current = true; audioManager.playDefeat(); addLog(msg); return;
     }
     if (inCheck) { audioManager.playCheck(); addLog("Check!"); }
-    const isBoss = level % 10 === 0; let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE: Floor ${level}` : `Level ${level} - Wipe them out!`); setGameInfo({ message: gameMsg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false }); setCurrentPlayer(nextP);
+    const isBoss = level % 10 === 0; 
+    let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE` : `Wipe them out!`); 
+    setGameInfo({ message: gameMsg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false }); setCurrentPlayer(nextP);
   }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, gameMoveCounter, inventory]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = []) => {
@@ -586,7 +591,7 @@ export default function DungeonPage() {
       setCurrentPlayer(saved.currentPlayer); setKillStreaks(saved.killStreaks); setCapturedPieces(saved.capturedPieces); setShroomSpawnCounter(saved.shroomSpawnCounter); setNextShroomSpawnTurn(saved.nextShroomSpawnTurn); setNecroResurrectionCounter(saved.necroResurrectionCounter || 0); setEnPassantTargetSquare(saved.enPassantTargetSquare);
       const currentBoard = loadedBoard.length === 8 ? loadedBoard : board; const survivors = currentBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
       setPlayerArmy(survivors); setFirstBloodAchieved(survivors.some(p => ['commander', 'hero'].includes(p.type)));
-      setGameInfo({ message: `Floor ${saved.level} - Resume`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+      setGameInfo({ message: `RESUME BATTLE`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
       addLog(`Resuming Floor ${saved.level}.`);
     } else {
       let army: Piece[] = []; const elo = userData.eloRating || 1200; let initial = initializeBoard(elo, 1200, userData.unlockedPieces || []);
@@ -964,7 +969,7 @@ export default function DungeonPage() {
       setInventory(nextInv); const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
       const nextBoard = generateDungeonFloor(targetFloor, survivors); setLevel(targetFloor); setBoard(nextBoard); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setColossusAwakened(false); setHasMovedOnCurrentFloor(false); setGameMoveCounter(0); setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]); setAiStalemateStrikes(0); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null);
       const updatedGraveyard = { ...capturedPieces, black: [] }; setCapturedPieces(updatedGraveyard); setKillStreaks({ white: 0, black: 0 });
-      const isBoss = targetFloor % 10 === 0; setGameInfo({ message: isBoss ? `WARPED TO BOSS: Floor ${targetFloor}` : `Warped to Floor ${targetFloor}`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+      const isBoss = targetFloor % 10 === 0; setGameInfo({ message: isBoss ? `BOSS BATTLE` : `Warped to Floor ${targetFloor}`, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
       audioManager.playLevelUp(); addLog(`Warped to Floor ${targetFloor}!`); saveDungeonState(targetFloor, nextBoard, 'white', { white: 0, black: 0 }, updatedGraveyard, 0, 5, null, 0, nextInv);
     }
   };
