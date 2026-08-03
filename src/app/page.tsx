@@ -35,6 +35,7 @@ import {
   isItemValidForPiece,
   isSilenced,
   syncSoulLink,
+  FRONTLINE_TYPES,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, QueenLevelReducedEvent, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -548,7 +549,7 @@ export default function EvolvingChessPage() {
         else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
         else { audioManager.playMove(); addLog(`AI ${piece.type} to ${toAlg}`); }
         if (applyResult.capturedPiece && !isObliteration) { const targetPile = applyResult.capturedPiece.color; updatedG[targetPile].push({ ...applyResult.capturedPiece!, id: applyResult.capturedPiece!.id }); }
-        if (applyResult.selfDestructCaptures && applyResult.selfDestapsures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', toAlg); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`Collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
+        if (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', toAlg); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`Collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
         setBoard(nextB); setCapturedPieces(updatedG);
         const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
         if (gain > 0) addEffectCallback('level-change', toAlg, currentPlayer, gain);
@@ -559,7 +560,7 @@ export default function EvolvingChessPage() {
           if (gameOverRef.current) return;
           let isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6); const toRow = aiMove.to[0]; const landedPiece = nextB[toRow][aiMove.to[1]].piece;
           const oppBackRank = currentPlayer === 'white' ? 0 : 7;
-          if (landedPiece && ['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(landedPiece.type) && toRow === oppBackRank) {
+          if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && toRow === oppBackRank) {
               const promoType = aiMove.promoteTo || 'queen'; const targetLevel = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
               landedPiece.type = promoType; landedPiece.level = targetLevel; if (promoType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
               if (landedPiece.heldItem && !isItemValidForPiece(landedPiece.heldItem, landedPiece.type)) landedPiece.heldItem = null;
@@ -691,7 +692,7 @@ export default function EvolvingChessPage() {
         return;
     }
   if (isAwaitingPawnSacrifice) {
-    if (piece && ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(piece.type) && piece.color === currentPlayer) {
+    if (piece && FRONTLINE_TYPES.includes(piece.type) && piece.color === currentPlayer) {
       if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'pawn-sacrifice', payload: { square: algebraic } })); setIsAwaitingPawnSacrifice(false); }
       else {
           pushHistory(); let nextB = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
@@ -724,7 +725,7 @@ export default function EvolvingChessPage() {
           if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic })); setIsAwaitingHolyShield(false); }
           else {
               pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); nextB[row][col].piece!.isShielded = true;
-              setBoard(nextBoard); audioManager.playShield(); setIsAwaitingHolyShield(false); addLog("Kill Streak reward: Holy Shield applied!"); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'shield']);
+              setBoard(nextB); audioManager.playShield(); setIsAwaitingHolyShield(false); addLog("Kill Streak reward: Holy Shield applied!"); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'shield']);
           }
       }
       return;
@@ -881,7 +882,7 @@ export default function EvolvingChessPage() {
                   setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return;
                   const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6); const oppBackRank = currentPlayer === 'white' ? 0 : 7;
                   const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
-                  if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander'].includes(nextB[toRow][toCol].piece?.type || '') && toRow === oppBackRank) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null) }); }
+                  if (FRONTLINE_TYPES.includes(nextB[toRow][toCol].piece?.type || '') && toRow === oppBackRank) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null) }); }
                   if (queue.length > 0) { setPromotionQueue(queue); const first = queue[0]; setPlayerToPromote(currentPlayer); setPromotionTargetLevel(first.targetLevel); setIsPromotingPawn(true); setPromotionSquare(first.square); setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldS, newS, currentGraveyard: updatedG, currentKs } as any); }
                   else { processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: selectedSquare, to: algebraic, type: moveType}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS); }
               }, 800);
@@ -933,6 +934,7 @@ export default function EvolvingChessPage() {
           }
           if (data.winner !== 'draw' && data.winner === localPlayerColor) { setShowWinScreen(true); audioManager.playVictory(); } 
           else if (data.winner !== 'draw' && localPlayerColor && data.winner !== localPlayerColor) { setShowLossScreen(true); audioManager.playDefeat(); }
+          if (data.winner === 'draw') { setShowLossScreen(true); }
           if (data.eloChanges) { setEloResult(data.eloChanges); setShowSummary(true); } break;
         case 'error': addLog(`Error: ${data.message}`); break;
       }

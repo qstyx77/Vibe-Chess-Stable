@@ -21,7 +21,7 @@ export const VAL_MAP: Record<string, number> = {
   archer: 3
 };
 
-const FRONTLINE_TYPES: PieceType[] = ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage', 'infiltrator'];
+export const FRONTLINE_TYPES: PieceType[] = ['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage', 'infiltrator'];
 
 /**
  * Creates a blank 8x8 board without any pieces or items.
@@ -274,11 +274,9 @@ export function isSilenced(board: BoardState, r: number, c: number, color: Playe
 export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, targetLevel: number, attackingLevel: number, board?: BoardState): boolean {
     if (!targetPiece || !attackingPiece) return false;
 
-    if (targetPiece.id.startsWith('boss-colossus')) {
-        if (board) {
-            const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
-            if (otherMinions) return true; 
-        }
+    if (targetPiece.id.startsWith('boss-colossus') && board) {
+        const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+        if (otherMinions) return true; 
     }
 
     if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) return true;
@@ -308,7 +306,6 @@ export function getPossibleMovesInternal(
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
-  // MIMIC RECURSION GUARD
   if (piece.type === 'mimic') {
     const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
     const virtualPiece = { ...piece, type: patternType };
@@ -1566,10 +1563,10 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
         const {row: rr, col: rc} = algebraicToCoords(target);
         const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         const oppBackRank = player === 'white' ? 0 : 7;
-        if (res.type === 'commander' && rr === oppBackRank) { res.type = 'hero'; res.id = `${res.id}_hero_res_${Date.now()}`; }
+        if (res.type === 'commander' && rr === opponentBackRank) { res.type = 'hero'; res.id = `${res.id}_hero_res_${Date.now()}`; }
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [myPile]: graveyard[myPile].filter(p => p.id !== choice.id) };
-        return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank };
+        return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: FRONTLINE_TYPES.includes(res.type) && rr === opponentBackRank };
       }
     }
   }
