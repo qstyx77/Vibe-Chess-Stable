@@ -92,7 +92,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'cardinal_greaves': { name: 'Cardinal Greaves', description: 'Green boots. Move (no capture) 1 space cardinally forward.', isConsumable: false, rarity: 'common' },
   'drift_boots': { name: 'Drift Boots', description: 'Blue boots. Move (no capture) 1 space diagonally forward.', isConsumable: false, rarity: 'common' },
   'queens_peace': { name: 'Queen\'s Peace', description: 'Serene ring. Queen only. Invulnerable but cannot capture.', isConsumable: false, rarity: 'rare' },
-  'wind_sword': { name: 'Wind Sword', description: 'Aero blade. Push-Back ability triggered on attack.', isConsumable: false, rarity: 'uncommon' },
+  'wind_sword': { name: 'Wind Sword', description: 'Aero blade. Push-Back ability triggered on attack.', isConsumable: false, rarity: 'rare' },
   'middle_way': { name: 'The Middle Way', description: 'Balanced amulet. Locks piece level at 3 permanently.', isConsumable: false, rarity: 'rare' },
   'phoenix_down': { name: 'Phoenix Down', description: 'Magic feather. Auto-resurrection at L1 (Consumable).', isConsumable: true, rarity: 'rare' },
   'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units.', isConsumable: true, rarity: 'common' },

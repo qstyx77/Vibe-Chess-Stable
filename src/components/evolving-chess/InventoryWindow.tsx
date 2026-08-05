@@ -113,8 +113,8 @@ export function InventoryWindow({
                   
                   const rarityBorderClasses = {
                       common: "border-slate-600 hover:border-slate-400",
-                      uncommon: "border-green-600/50 hover:border-green-400 shadow-[0_0_5px_rgba(34,197,94,0.2)]",
-                      rare: "border-purple-600 hover:border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.3)] animate-pulse"
+                      uncommon: "border-green-400 hover:border-green-200 shadow-[0_0_8px_rgba(74,222,128,0.4)]",
+                      rare: "border-purple-600 hover:border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]"
                   }[meta.rarity];
 
                   return (
