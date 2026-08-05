@@ -14,13 +14,11 @@ const getPieceAbilities = (piece: Piece): string[] => {
   const { type, level, heldItem, id, shroomMana } = piece;
   const abilities: string[] = [];
   const l = level || 1;
+  const isNecro = id === 'boss-necro';
 
   if (id.startsWith('boss-hydra')) {
     abilities.push(" Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
-  } else if (id === 'boss-necro') {
-    abilities.push(" Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators.");
-    abilities.push(" Ethereal Phasing: Can move through friendly units.");
-    abilities.push(" Dark Conversion: 50% chance to convert adjacent enemy units after moving.");
+  } else if (isNecro) {
     abilities.push(" Necromancy: Automatically resurrects the strongest fallen ally every 5 turns.");
   } else if (id.startsWith('boss-colossus')) {
     abilities.push(" Massive Entity: Occupies a 2x2 area. Vulnerable to Check on any part.");
@@ -91,6 +89,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'thieves_gloves') abilities.push(" plunder: 50% chance to steal equipment from captured units.");
   if (heldItem === 'heavy_rain') abilities.push(" spell (L3+): drop 3 anvils on random empty squares.");
   if (heldItem === 'kings_conquest') abilities.push(" conquest: reaching KS 8 wins the game immediately.");
+  if (heldItem === 'great_sword') abilities.push(" cleave: capture enemies directly behind your primary target.");
   if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for frontline units."); else abilities.push(" swift: inactive (only for frontline units)."); }
 
   switch (type) {
@@ -126,10 +125,10 @@ const getPieceAbilities = (piece: Piece): string[] => {
     case 'bishop':
     case 'archbishop':
       if (l >= 1) abilities.push("Standard diagonal move.");
-      if (l >= 2) abilities.push("Phase through friendly pieces.");
-      if (l >= 3) abilities.push("Pawn Immunity: Cannot be captured by Pawns, Commanders, or Infiltrators.");
+      if (l >= 2) abilities.push(isNecro ? "Ethereal Phasing: Can move through friendly units." : "Phase through friendly pieces.");
+      if (l >= 3) abilities.push("Immunity: Cannot be captured by Frontline Units.");
       if (l >= 4) abilities.push("Swap with friendly Knight/Hero/Archer.");
-      if (l >= 5) abilities.push("50% chance to Convert adjacent enemies.");
+      if (l >= 5) abilities.push(isNecro ? "Dark Conversion: 50% chance to convert adjacent enemies." : "50% chance to Convert adjacent enemies.");
       if (type === 'archbishop') abilities.push("Holy Shield: KS 2 grants protection to an ally.");
       break;
     case 'rook':
