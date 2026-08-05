@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -178,7 +177,7 @@ export function InventoryWindow({
                 </p>
               ) : (
                 <p className="text-[8px] font-pixel text-primary mt-1 animate-pulse uppercase">
-                  {ITEM_METADATA[selectedItemType].rarity === 'rare' ? 'Unique: Only 1 active allowed' : 'Select a piece to equip'}
+                  {ITEM_METADATA[selectedItemType].rarity === 'rare' ? 'Only 1 active allowed' : 'Select a piece to equip'}
                 </p>
               )}
             </div>
