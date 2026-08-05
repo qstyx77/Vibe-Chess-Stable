@@ -246,12 +246,17 @@ export const PixelMirage = ({ className }: IconProps) => (
 );
 
 export const PixelVoidEntity = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="8" y="8" width="8" height="8" />
-    <rect x="6" y="6" width="12" height="12" opacity="0.6" />
-    <rect x="4" y="4" width="16" height="16" opacity="0.3" />
-    <rect x="2" y="2" width="20" height="20" opacity="0.1" />
-    <rect x="11" y="11" width="2" height="2" fill="#EAB308" />
+  <svg viewBox="0 0 24 24" className={className}>
+    {/* Outer Ripple */}
+    <rect x="2" y="2" width="20" height="20" className="animate-void-ripple" style={{ animationDelay: '0.6s' }} />
+    {/* Mid-Outer Ripple */}
+    <rect x="4" y="4" width="16" height="16" className="animate-void-ripple" style={{ animationDelay: '0.4s' }} />
+    {/* Mid-Inner Ripple */}
+    <rect x="6" y="6" width="12" height="12" className="animate-void-ripple" style={{ animationDelay: '0.2s' }} />
+    {/* Innermost Ripple */}
+    <rect x="8" y="8" width="8" height="8" className="animate-void-ripple" style={{ animationDelay: '0s' }} />
+    {/* Glowing Center */}
+    <rect x="11" y="11" width="2" height="2" fill="#EAB308" className="animate-pulse" />
   </svg>
 );
 

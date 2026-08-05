@@ -144,6 +144,7 @@ export function ChessPieceDisplay({
           powerGlowClass,
           piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]",
           isExhausted && "grayscale opacity-60 contrast-50",
+          piece.id === 'boss-entity' && "animate-void-vibe",
           "origin-center"
         )}
         style={bossStyle}

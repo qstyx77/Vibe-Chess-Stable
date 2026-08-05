@@ -216,3 +216,31 @@ body {
 .animate-pixel-title-flash {
   animation: pixel-title-flash 2s ease-in-out infinite;
 }
+
+/* --- VOID ENTITY BOSS ANIMATIONS --- */
+@keyframes void-vibe {
+  0%, 100% { 
+    transform: scale(0.85) rotate(0deg); 
+    filter: drop-shadow(0 0 10px #4C1D95);
+  }
+  50% { 
+    transform: scale(1.15) rotate(180deg); 
+    filter: drop-shadow(0 0 30px #8B5CF6);
+  }
+}
+
+@keyframes void-ripple {
+  0%, 100% { opacity: 0.15; fill: #1E1B4B; }
+  25% { opacity: 0.4; fill: #312E81; }
+  50% { opacity: 0.95; fill: #4338CA; }
+  75% { opacity: 0.6; fill: #3730A3; }
+}
+
+.animate-void-vibe {
+  animation: void-vibe 6s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.animate-void-ripple {
+  animation: void-ripple 2s ease-in-out infinite;
+}
