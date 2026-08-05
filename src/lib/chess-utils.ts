@@ -239,7 +239,7 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 }
 
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
-  if (item === 'great_sword' || item === 'swift_cloak' || item === 'great_sword') return FRONTLINE_TYPES.includes(type);
+  if (item === 'great_sword' || item === 'swift_cloak') return FRONTLINE_TYPES.includes(type);
   if (item === 'queens_peace') return (type === 'queen');
   if (item === 'kings_conquest') return (type === 'king');
   if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves'].includes(item)) {
@@ -376,7 +376,7 @@ export function getPossibleMovesInternal(
       const nr = fromRow + dr; const nc = fromCol + dc;
       if (isValidSquare(nr, nc)) {
         const targetSq = board[nr][nc];
-        if (targetSq.item?.type === 'anvil') return;
+        if (targetSq.item?.type === 'anvil') return; 
         const targetP = targetSq.piece;
         if (!targetP || targetP.color !== pieceColor) {
           if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board)) {
@@ -875,7 +875,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let winByKingsConquest = false;
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
-  if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare };
+  if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare };
 
   let effectiveHeldItem = movingPiece.heldItem;
   if (movingPiece.type === 'mimic' && movingPiece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem) {
@@ -1248,7 +1248,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       pieceToLand.heldItem = null; 
   }
   newBoard[toRow][toCol].piece = pieceToLand;
-  newBoard[fromRow][fromCol].piece = null;
+  
+  // FIX: Only clear the source if it's different from the target
+  if (fromRow !== toRow || fromCol !== toCol) {
+    newBoard[fromRow][fromCol].piece = null;
+  }
 
   if (FRONTLINE_TYPES.includes(pieceToLand.type) && Math.abs(fromRow - toRow) === 2) enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
   
