@@ -248,6 +248,38 @@ export default function DungeonPage() {
 
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
+  const statusMessage = useMemo(() => {
+    if (isInventoryOpen) return "SELECT ITEM TO EQUIP!";
+    if (isAiThinking) return "DUNGEON IS THINKING...";
+    if (isAwaitingPawnSacrifice) return "ROYAL SACRIFICE REQUIRED!";
+    if (isPromotingPawn) return "PROMOTE YOUR PAWN!";
+    if (isAwaitingCommanderPromotion) return "SELECT PAWN TO BE PROMOTED TO COMMANDER!";
+    if (isAwaitingAnvilDrop) return "PLACE AN ANVIL!";
+    if (isAwaitingHolyShield) return "SELECT ALLY TO SHIELD!";
+    if (isAwaitingArcherSnipe) return "SELECT TARGET TO SNIPE!";
+    if (isAwaitingDanceTarget) return dancerToDance ? "PERFORM YOUR DANCE!" : "SELECT A DANCER!";
+    if (isAwaitingGrappleThrow) return "THROW TO AN EMPTY SPACE!";
+    if (isSelectingMycoSpell) return "CHOOSE MUSHROOMANCY SPELL";
+    if (isSelectingTeleportAlly) return "SELECT ALLY TO TELEPORT";
+    if (isSelectingTeleportShroom) return "SELECT DESTINATION SHROOM";
+    if (isSelectingSporeBombShroom) return "SELECT SHROOM TO DETONATE";
+    if (isAwaitingWindScrollTarget) return "SELECT WIND PUSH TARGET";
+    if (isAwaitingAnvilScrollTarget) return "SELECT ANVIL DROP TARGET";
+    if (isAwaitingShieldScrollTarget) return "SELECT ALLY TO SHIELD";
+    if (isAwaitingSwapScrollTarget) return "SELECT ALLY TO SWAP";
+    if (isAwaitingDecreeTarget) return "SELECT PAWN TO PROMOTE";
+    if (isAwaitingEarthquakeScrollTarget) return "SELECT EARTHQUAKE TARGET";
+    return gameInfo.message;
+  }, [
+    isInventoryOpen, isAiThinking, isAwaitingPawnSacrifice, isPromotingPawn,
+    isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield,
+    isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow,
+    isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom,
+    isSelectingSporeBombShroom, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget,
+    isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget,
+    isAwaitingEarthquakeScrollTarget, gameInfo.message
+  ]);
+
   const uniqueIdCounterRef = useRef(30000);
   const gameOverRef = useRef(false);
   const isInitialized = useRef(false);
@@ -983,7 +1015,7 @@ export default function DungeonPage() {
           <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-8 px-2 text-[10px] uppercase font-pixel"><RefreshCw className="mr-1 h-3 w-3" /> Reset</Button>
       </div>
       <div className="text-center text-[10px] font-pixel text-primary mb-2 min-h-[1.5em] uppercase">
-         {isInventoryOpen ? "Select Item to Equip" : isAwaitingPawnSacrifice ? "Royal Sacrifice Required" : isPromotingPawn ? "Promote Your Pawn" : isAiThinking ? "Dungeon is thinking..." : gameInfo.message}
+         {statusMessage}
       </div>
       <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={currentPlayer === 'white' ? 'white' : null} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} enemySelectedSquare={null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" />
       <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} getPlayerDisplayName={(p) => p.charAt(0).toUpperCase() + p.slice(1)} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} />
@@ -1003,13 +1035,13 @@ export default function DungeonPage() {
       </div>
       <div className="w-1/2 flex flex-col items-center gap-4">
         <div className="flex items-center gap-4"> <Skull className="h-8 w-8 text-destructive animate-pulse" /> <h1 className="text-3xl font-pixel text-primary uppercase tracking-tighter shadow-sm">Dungeon Floor {level}</h1> <Skull className="h-8 w-8 text-destructive animate-pulse" /> </div>
-        <div className="text-center font-pixel text-sm text-foreground/80 min-h-[1.5em] uppercase"> {isInventoryOpen ? "SELECT AN ITEM TO EQUIP!" : isAwaitingPawnSacrifice ? "ROYAL SACRIFICE REQUIRED!" : isPromotingPawn ? "PROMOTE YOUR PAWN!" : isAiThinking ? "DUNGEON IS THINKING..." : gameInfo.message} </div>
+        <div className="text-center font-pixel text-sm text-foreground/80 min-h-[1.5em] uppercase"> {statusMessage} </div>
         <div className="w-full max-w-xl">
            <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={currentPlayer === 'white' ? 'white' : null} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} enemySelectedSquare={null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" />
         </div>
       </div>
       <div className="w-1/4 flex flex-col gap-4">
-        <Button variant="outline" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group"><Package className="mr-3 h-6 w-6 text-primary group-hover:scale-110 transition-transform" /> <span className="font-pixel text-xs uppercase text-primary">LOOT BAG</span></Button>
+        <Button variant="outline" size="lg" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group"><Package className="mr-3 h-6 w-6 text-primary group-hover:scale-110 transition-transform" /> <span className="font-pixel text-xs uppercase text-primary">LOOT BAG</span></Button>
         <div className="mt-auto space-y-2">
             <Button variant="outline" onClick={() => setIsResetConfirmOpen(true)} className="w-full h-9 text-[10px] uppercase font-pixel border-destructive/30 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-2 h-4 w-4" /> Restart Run</Button>
             <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
