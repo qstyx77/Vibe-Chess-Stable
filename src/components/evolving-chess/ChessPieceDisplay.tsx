@@ -102,7 +102,7 @@ export function ChessPieceDisplay({
     pieceColorClass = ""; bossStyle = { color: '#38BDF8' }; // Sky
   } else if (piece.id === 'boss-entity') {
     IconComponent = PixelVoidEntity;
-    pieceColorClass = ""; bossStyle = { color: '#1E1B4B' }; // Deep Indigo
+    pieceColorClass = ""; bossStyle = { color: '#4338CA' }; // Vibrant Indigo for better hue-rotation visibility
   }
   
   let animationClass = '';
@@ -149,6 +149,16 @@ export function ChessPieceDisplay({
         )}
         style={bossStyle}
       >
+        {/* Subtle Void Particles */}
+        {piece.id === 'boss-entity' && !isMini && (
+          <div className="absolute inset-0 z-0 pointer-events-none">
+            <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-primary rounded-full animate-void-particle" style={{ '--x': '30px', '--y': '-35px' } as React.CSSProperties} />
+            <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-accent rounded-full animate-void-particle" style={{ '--x': '-35px', '--y': '25px', animationDelay: '0.8s' } as React.CSSProperties} />
+            <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-secondary rounded-full animate-void-particle" style={{ '--x': '25px', '--y': '30px', animationDelay: '1.6s' } as React.CSSProperties} />
+            <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-void-particle" style={{ '--x': '-28px', '--y': '-28px', animationDelay: '0.4s' } as React.CSSProperties} />
+          </div>
+        )}
+
         {piece.isShielded && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[10]">
             <div className="w-[115%] h-[115%] border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_white]" />
@@ -156,7 +166,8 @@ export function ChessPieceDisplay({
         )}
 
         <div className={cn(
-          "w-[95%] h-[95%] relative z-[1] flex items-center justify-center",
+          "w-[95%] h-[95%] relative z-[1] flex items-center justify-center origin-center",
+          piece.id === 'boss-entity' && "animate-void-spin animate-void-color-cycle",
           isMini 
             ? ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-[180%]" : "scale-[200%]")
             : ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-90" : "scale-100")

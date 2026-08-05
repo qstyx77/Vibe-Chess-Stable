@@ -220,13 +220,29 @@ body {
 /* --- VOID ENTITY BOSS ANIMATIONS --- */
 @keyframes void-vibe {
   0%, 100% { 
-    transform: scale(0.85) rotate(0deg); 
+    transform: scale(0.85); 
     filter: drop-shadow(0 0 10px #4C1D95);
   }
   50% { 
-    transform: scale(1.15) rotate(180deg); 
+    transform: scale(1.15); 
     filter: drop-shadow(0 0 30px #8B5CF6);
   }
+}
+
+@keyframes void-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes void-color-cycle {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
+@keyframes void-particle {
+  0% { transform: translate(-50%, -50%) translate(0, 0) scale(0); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) translate(var(--x), var(--y)) scale(1.8); opacity: 0; }
 }
 
 @keyframes void-ripple {
@@ -237,8 +253,19 @@ body {
 }
 
 .animate-void-vibe {
-  animation: void-vibe 6s ease-in-out infinite;
-  transform-origin: center;
+  animation: void-vibe 3s ease-in-out infinite;
+}
+
+.animate-void-spin {
+  animation: void-spin 12s linear infinite;
+}
+
+.animate-void-color-cycle {
+  animation: void-color-cycle 15s linear infinite;
+}
+
+.animate-void-particle {
+  animation: void-particle 2.5s ease-out infinite;
 }
 
 .animate-void-ripple {
