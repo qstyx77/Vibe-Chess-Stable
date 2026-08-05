@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -188,7 +189,7 @@ export default function DungeonPage() {
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
   const [selectedSquare, setSelectedSquare] = useState<AlgebraicSquare | null>(null);
   const [possibleMoves, setPossibleMoves] = useState<AlgebraicSquare[]>([]);
-  const [gameInfo, setGameInfo] = useState<GameStatus>({ message: "Welcome to the Dungeon", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+  const [gameInfo, setGameInfo] = useState<GameStatus>({ message: " ", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
   const [capturedPieces, setCapturedPieces] = useState<{ white: Piece[], black: Piece[] }>({ white: [], black: [] });
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
@@ -467,14 +468,14 @@ export default function DungeonPage() {
             const choice = sorted[0]; const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random() * empty.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
-                const res = { ...choice, level: 1, id: choice.id, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; const oppBackRank = actingPlayer === 'white' ? 0 : 7;
-                if (res.type === 'commander' && rr === oppBackRank) res.type = 'hero';
+                const res = { ...choice, level: 1, id: choice.id, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; const oppBackRankIdx = actingPlayer === 'white' ? 0 : 7;
+                if (res.type === 'commander' && rr === oppBackRankIdx) res.type = 'hero';
                 nextBoard[rr][rc].piece = res; const updatedG = { ...nextGraveyard }; updatedG[myPile] = updatedG[myPile].filter(p => p.id !== choice.id);
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`Resurrection! ${choice.type} has returned.`);
-                if (!isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank) {
+                if (!isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRankIdx) {
                     setPromotionTargetLevel(1); setPromotionSquare(sq.algebraic); setIsPromotingPawn(true); setSpecialActionContext({ extra: isExtra, nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'resurrection'], actingPlayer, currentGraveyard: updatedG, currentKs: currentKs }); return;
                 }
-                if (isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank) nextBoard[rr][rc].piece!.type = 'queen';
+                if (isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRankIdx) nextBoard[rr][rc].piece!.type = 'queen';
                 triggerSpecialsChain(nextBoard, updatedG, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'resurrection']); return;
             }
         }
@@ -553,8 +554,8 @@ export default function DungeonPage() {
         setTimeout(() => {
             setIsAiThinking(false); setIsMoveProcessing(false); if (gameOverRef.current) return;
             let isExtra = result.extraTurn || (oldStreakLocal < 6 && newStreakLocal >= 6); const landedPiece = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
-            const oppBackRank = 7;
-            if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && (aiMove.to[0] === oppBackRank)) { 
+            const oppBackRankIdx = 7;
+            if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && (aiMove.to[0] === oppBackRankIdx)) { 
               const promoTo = aiMove.promoteTo || 'queen'; landedPiece!.type = promoTo; landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); addLog(`Dungeon promoted to ${promoTo}!`); if (landedPiece!.level >= 5) isExtra = true;
             }
             if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row: pr, col: pc } = algebraicToCoords(promo.square); if (newBoard[pr][pc].piece) { newBoard[pr][pc].piece!.type = 'queen'; newBoard[pr][pc].piece!.level = promo.targetLevel; if (newBoard[pr][pc].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
@@ -598,7 +599,7 @@ export default function DungeonPage() {
       if (userData.equipment) { initial = initial.map(row => row.map(sq => { if (sq.piece && userData.equipment![sq.piece.id]) return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } }; return sq; })); }
       initial.flat().forEach(sq => { if (sq.piece && sq.piece.color === 'white') army.push(sq.piece); });
       setPlayerArmy(army); setLevel(1); const newBoard = generateDungeonFloor(1, army); setBoard(newBoard);
-      setGameInfo({ message: "Welcome to the Dungeon", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
+      setGameInfo({ message: " ", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: false });
       setCapturedPieces({ white: [], black: [] }); setCurrentPlayer('white'); setKillStreaks({ white: 0, black: 0 }); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null);
       const hasCommander = army.some(p => ['commander', 'hero'].includes(p.type)); setFirstBloodAchieved(hasCommander); setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
       saveDungeonState(1, newBoard, 'white', { white: 0, black: 0 }, { white: [], black: [] }, 0, 5, null, 0, userData.inventory || []);
@@ -914,7 +915,7 @@ export default function DungeonPage() {
           let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
           const updatedGraveyard = { ...capturedPieces };
           if (result.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === result.itemReturned); if (existing) existing.count++; else next.push({ type: result.itemReturned!, count: 1 }); return next; }); addLog(`Dungeon Item Dropped: ${ITEM_METADATA[result.itemReturned].name}`); }
-          if (reflectionOccurred) { const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedGraveyard[targetPile].push(victim); updatedGraveyard.black = updatedGraveyard.black.filter(p => p.id !== victim.id); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); addEffect('poof', algebraic); const newKs = { white: 0, black: 0 }; setKillStreaks(newKs); setBoard(newBoard); setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, 'white', false, null); }, 800); return; }
+          if (reflectionOccurred) { const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedGraveyard[targetPile].push(victim); updatedGraveyard.black = updatedGraveyard.black.filter(p => p.id !== victim.id); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); addEffect('poof', algebraic); const newKs = { white: 0, black: 0 }; setBoard(newBoard); setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, 'white', false, null); }, 800); return; }
           if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); addLog("Rebirth! Phoenix Down triggered."); }
           if (result.infiltrationWin) { setBoard(newBoard); addLog("INFILTRATION WIN! Floor Vanquished."); advanceLevel(newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), capturedPieces); return; }
           if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); addLog(`${newBoard[row][col].piece?.type} consumed a Shroom 🍄!`); addEffect('level-change', algebraic, 'white', 1); }
@@ -922,7 +923,7 @@ export default function DungeonPage() {
           if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1)); }
           if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); audioManager.playConversion(); }
           if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); addLog("HERO ASCENDED! Your Commander has reached the back rank."); }
-          let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null; const landedPiece = newBoard[row][col].piece; const oppBackRank = movingPiece.color === 'white' ? 0 : 7;
+          let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null; const landedPiece = newBoard[row][col].piece; const oppBackRankIdx = movingPiece.color === 'white' ? 0 : 7;
           if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
               const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalL, updatedGraveyard, uniqueIdCounterRef.current);
               if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Resurrected a ${resResult.resurrectedPieceData?.type}!`); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
@@ -943,7 +944,7 @@ export default function DungeonPage() {
             setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return;
             const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); const queue: {square: AlgebraicSquare, targetLevel: number}[] = result.multiPromotions || [];
             if (resPromoRequired) queue.push({ square: resResult_promo_square!, targetLevel: resResult_promo_level });
-            if (FRONTLINE_TYPES.includes(newBoard[row][col].piece?.type || '') && row === oppBackRank) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null) }); }
+            if (FRONTLINE_TYPES.includes(newBoard[row][col].piece?.type || '') && row === oppBackRankIdx) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null) }); }
             if (queue.length > 0) { setPromotionQueue(queue); setPromotionTargetLevel(queue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(queue[0].square); setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, actingPlayer: 'white', completedMilestones: [], currentGraveyard: updatedGraveyard, currentKs }); addLog("Pawn Promotion ready!"); } 
             else {
                 let sacrificeNeeded = false;

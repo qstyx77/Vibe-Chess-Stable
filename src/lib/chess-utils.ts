@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -238,7 +239,7 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 }
 
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
-  if (item === 'swift_cloak' || item === 'great_sword') return FRONTLINE_TYPES.includes(type);
+  if (item === 'great_sword' || item === 'swift_cloak' || item === 'great_sword') return FRONTLINE_TYPES.includes(type);
   if (item === 'queens_peace') return (type === 'queen');
   if (item === 'kings_conquest') return (type === 'king');
   if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves'].includes(item)) {
@@ -1232,12 +1233,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   } else if (targetPiece && targetPiece.color !== movingPiece.color) { captured = { ...targetPiece }; }
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
-  const opponentBackRank = pieceToLand.color === 'white' ? 0 : 7;
-  if (pieceToLand.type === 'commander' && toRow === opponentBackRank && move.type !== 'self-destruct') {
+  const oppBackRank = pieceToLand.color === 'white' ? 0 : 7;
+  if (pieceToLand.type === 'commander' && toRow === oppBackRank && move.type !== 'self-destruct') {
     pieceToLand.type = 'hero'; pieceToLand.id = `${pieceToLand.id}_hero_auto_${Date.now()}`;
     if (originalEffectiveLevelBeforeMove >= 5) extraTurn = true;
     promotedToHero = true;
-  } else if (FRONTLINE_TYPES.includes(pieceToLand.type) && toRow === opponentBackRank && move.type !== 'self-destruct' && !promotedToInfiltrator) {
+  } else if (FRONTLINE_TYPES.includes(pieceToLand.type) && toRow === oppBackRank && move.type !== 'self-destruct' && !promotedToInfiltrator) {
     if (originalEffectiveLevelBeforeMove >= 5) extraTurn = true;
   }
 
@@ -1276,18 +1277,20 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceToLand.type) && captured.type === 'commander') pieceToLand.type = 'commander';
     let gain = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
     
+    // --- GREAT SWORD CLEAVE LOGIC ---
     if (effectiveHeldItem === 'great_sword') {
-        const dr = Math.sign(toRow - fromRow);
-        const dc = Math.sign(toCol - fromCol);
+        const dr = toRow - fromRow;
+        const dc = toCol - fromCol;
         if (dr === 0 || dc === 0) {
-            const cleaveR = toRow + dr; const cleaveC = toCol + dc;
-            if (isValidSquare(cleaveR, cleaveC)) {
-                const cleaveTarget = newBoard[cleaveR][cleaveC].piece;
-                if (cleaveTarget && cleaveTarget.color !== movingPiece.color && cleaveTarget.type !== 'king') {
-                    const cleaveGain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[cleaveTarget.type] || 0;
+            const behindR = toRow + Math.sign(dr);
+            const behindC = toCol + Math.sign(dc);
+            if (isValidSquare(behindR, behindC)) {
+                const behindSq = newBoard[behindR][behindC];
+                if (behindSq.piece && behindSq.piece.color !== movingPiece.color && behindSq.piece.type !== 'king') {
+                    const cleaveGain = ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[behindSq.piece.type] || 0);
                     gain += cleaveGain;
-                    selfDestructCaptures.push({ ...cleaveTarget, id: `${cleaveTarget.id}_cleave_${Date.now()}` });
-                    newBoard[cleaveR][cleaveC].piece = null;
+                    selfDestructCaptures.push({ ...behindSq.piece, id: `${behindSq.piece.id}_cleave_${Date.now()}` });
+                    newBoard[behindR][behindC].piece = null;
                 }
             }
         }
@@ -1563,10 +1566,10 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
         const {row: rr, col: rc} = algebraicToCoords(target);
         const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         const oppBackRank = player === 'white' ? 0 : 7;
-        if (res.type === 'commander' && rr === opponentBackRank) { res.type = 'hero'; res.id = `${res.id}_hero_res_${Date.now()}`; }
+        if (res.type === 'commander' && rr === oppBackRank) { res.type = 'hero'; res.id = `${res.id}_hero_res_${Date.now()}`; }
         board[rr][rc].piece = res;
         const newG = { ...graveyard, [myPile]: graveyard[myPile].filter(p => p.id !== choice.id) };
-        return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: FRONTLINE_TYPES.includes(res.type) && rr === opponentBackRank };
+        return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank };
       }
     }
   }
