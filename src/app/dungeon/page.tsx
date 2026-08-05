@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -119,7 +120,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
       case 2: 
         board[0][2].piece = { id: 'boss-necro', type: 'archbishop', color: 'black', level: 8, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         for(let i=0; i<4; i++) board[1][i+2].piece = { id: `skeleton-${i}`, type: 'pawn', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
-        // Adding 2 level 3 enemy knights
         board[0][1].piece = { id: 'necro-knight-1', type: 'knight', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         board[0][6].piece = { id: 'necro-knight-2', type: 'knight', color: 'black', level: 3, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0, heldItem: null };
         break;
@@ -251,6 +251,10 @@ export default function DungeonPage() {
 
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
+  const usedSlots = useMemo(() => {
+    return board.flat().filter(sq => sq.piece?.heldItem).length;
+  }, [board]);
+
   const statusMessage = useMemo(() => {
     if (isInventoryOpen) return "SELECT ITEM TO EQUIP!";
     if (isAiThinking) return "DUNGEON IS THINKING...";
@@ -294,8 +298,6 @@ export default function DungeonPage() {
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; if (elo <= 1200) return 2; return 2 + Math.floor((elo - 1200) / 400);
   }, [userData]);
-
-  const usedSlots = useMemo(() => { return board.flat().filter(sq => sq.piece?.heldItem).length; }, [board]);
 
   const addEffect = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
     const id = `eff-${Date.now()}-${Math.random()}`; setEffects(prev => [...prev, { id, type, square, color, value }]);
@@ -549,7 +551,6 @@ export default function DungeonPage() {
       const aiResult = aiInstance.current?.getBestMove(gameStateForAi, 'black'); 
       let aiMove = aiResult?.move;
 
-      // Safety fallback
       const freshlyCalculated = aiMove ? getPossibleMoves(board, coordsToAlgebraic(aiMove.from[0], aiMove.from[1]), enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem) : [];
       if (!aiMove || !freshlyCalculated.includes(coordsToAlgebraic(aiMove.to[0], aiMove.to[1]))) {
           const nextPanic = aiPanicCount + 1;
@@ -714,6 +715,14 @@ export default function DungeonPage() {
     if (isInventoryOpen) {
       if (selectedInventoryItemType) {
         if (selectedInventoryItemType.startsWith('portal_scroll_')) return;
+        const itemMeta = ITEM_METADATA[selectedInventoryItemType];
+        if (itemMeta.rarity === 'rare') {
+            const alreadyEquipped = board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType);
+            if (alreadyEquipped) {
+                addLog(`LIMIT REACHED: You can only have one ${itemMeta.name} active!`);
+                return;
+            }
+        }
         if (piece && !piece.heldItem && piece.color === 'white') {
           if (usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
           if (selectedInventoryItemType === 'soul_harvest' && (piece.type === 'king' || piece.type === 'queen')) { addLog("Kings/Queens cannot harvest souls."); return; }
@@ -1082,4 +1091,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-

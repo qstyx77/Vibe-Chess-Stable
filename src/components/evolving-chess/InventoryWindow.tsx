@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -105,20 +106,25 @@ export function InventoryWindow({
               ) : (
                 inventory.map((item, idx) => {
                   const meta = ITEM_METADATA[item.type];
-                  // Safety Guard: Skip items without metadata (legacy/deleted items)
                   if (!meta) return null;
                   
                   const isSelected = selectedItemType === item.type;
                   const isUsable = item.type.startsWith('portal_scroll_');
                   
+                  const rarityBorderClasses = {
+                      common: "border-slate-600 hover:border-slate-400",
+                      uncommon: "border-green-600/50 hover:border-green-400 shadow-[0_0_5px_rgba(34,197,94,0.2)]",
+                      rare: "border-purple-600 hover:border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.3)] animate-pulse"
+                  }[meta.rarity];
+
                   return (
                     <button
                       key={`${item.type}-${idx}`}
                       className={cn(
                         "aspect-[10/12] flex flex-col items-center justify-center border-2 transition-all relative overflow-hidden rounded-none h-14",
                         isSelected 
-                          ? "border-accent bg-accent/20 scale-95" 
-                          : "border-border hover:border-primary/50"
+                          ? "border-accent bg-accent/20 scale-95 z-10" 
+                          : rarityBorderClasses
                       )}
                       style={{ background: 'black' }}
                       onClick={() => {
@@ -128,13 +134,16 @@ export function InventoryWindow({
                             onSelectItem(isSelected ? null : item.type);
                         }
                       }}
-                      title={meta.name}
+                      title={`${meta.name} (${meta.rarity.toUpperCase()})`}
                     >
                       <ItemSprite type={item.type} size={40} />
                       {item.count > 1 && (
                         <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-10">
                           x{item.count}
                         </span>
+                      )}
+                      {meta.rarity === 'rare' && (
+                          <div className="absolute inset-0 pointer-events-none shadow-[inset_0_0_10px_rgba(168,85,247,0.4)]" />
                       )}
                     </button>
                   );
@@ -145,9 +154,21 @@ export function InventoryWindow({
           
           {selectedItemType && ITEM_METADATA[selectedItemType] && (
             <div className="mt-2 p-2 bg-[#111] border border-accent/30 rounded-none animate-in fade-in slide-in-from-bottom-1">
-              <p className="text-[10px] font-bold text-accent uppercase leading-none mb-1">
-                {ITEM_METADATA[selectedItemType].name}
-              </p>
+              <div className="flex justify-between items-start mb-1">
+                  <p className="text-[10px] font-bold text-accent uppercase leading-none">
+                    {ITEM_METADATA[selectedItemType].name}
+                  </p>
+                  <span className={cn(
+                      "text-[7px] px-1 py-0.5 rounded-sm uppercase font-bold",
+                      {
+                          common: "bg-slate-700 text-slate-300",
+                          uncommon: "bg-green-900 text-green-400",
+                          rare: "bg-purple-900 text-purple-300"
+                      }[ITEM_METADATA[selectedItemType].rarity]
+                  )}>
+                      {ITEM_METADATA[selectedItemType].rarity}
+                  </span>
+              </div>
               <p className="text-[9px] text-muted-foreground italic leading-tight">
                 {ITEM_METADATA[selectedItemType].description}
               </p>
@@ -157,7 +178,7 @@ export function InventoryWindow({
                 </p>
               ) : (
                 <p className="text-[8px] font-pixel text-primary mt-1 animate-pulse uppercase">
-                  Select a piece to equip
+                  {ITEM_METADATA[selectedItemType].rarity === 'rare' ? 'Unique: Only 1 active allowed' : 'Select a piece to equip'}
                 </p>
               )}
             </div>
