@@ -9,7 +9,25 @@ html {
   -ms-interpolation-mode: nearest-neighbor; /* IE */
   -webkit-text-size-adjust: 100%; /* Prevent font scaling in Safari */
   text-size-adjust: 100%; /* Prevent font scaling in other browsers */
-  font-size: 90%; /* Reduce base font size for a more compact UI */
+  font-size: 90%; /* Base for mobile */
+}
+
+@media (min-width: 1024px) {
+  html {
+    font-size: 150%; /* Scaled up for desktop */
+  }
+}
+
+@media (min-width: 1440px) {
+  html {
+    font-size: 180%; /* Even larger for higher resolutions */
+  }
+}
+
+@media (min-width: 1920px) {
+  html {
+    font-size: 210%; /* Max scale for 1080p/4K */
+  }
 }
 
 body {

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -13,6 +12,9 @@ interface ItemSpriteProps {
 
 export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
   if (!type) return null;
+
+  // Convert pixel size to rem based on 16px root
+  const remSize = `${size / 16}rem`;
 
   const renderIcon = () => {
     switch (type) {
@@ -581,8 +583,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
     <div 
       className={cn("relative inline-block shrink-0", className)}
       style={{
-        width: `${size}px`,
-        height: `${size * 1.2}px`,
+        width: remSize,
+        height: `calc(${remSize} * 1.2)`,
       }}
     >
       {renderIcon()}

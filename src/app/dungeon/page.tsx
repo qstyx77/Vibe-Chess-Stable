@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -1052,7 +1051,7 @@ export default function DungeonPage() {
   );
 
   const desktopLayout = (
-    <div className="relative z-10 flex flex-row items-start justify-center gap-6 w-full h-full p-6 max-w-7xl mx-auto">
+    <div className="relative z-10 flex flex-row items-start justify-center gap-6 w-full h-full p-6">
       <div className="w-1/4 flex flex-col gap-4">
         <Link href="/"><Button variant="outline" className="w-full h-9 text-[10px] uppercase font-pixel"><ArrowLeft className="mr-2 h-4 w-4" /> LOBBY</Button></Link>
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} getPlayerDisplayName={(p) => p.charAt(0).toUpperCase() + p.slice(1)} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} />
@@ -1060,7 +1059,7 @@ export default function DungeonPage() {
       <div className="w-1/2 flex flex-col items-center gap-4">
         <div className="flex items-center gap-4"> <Skull className="h-8 w-8 text-destructive animate-pulse" /> <h1 className="text-3xl font-pixel text-primary uppercase tracking-tighter shadow-sm">Dungeon Floor {level}</h1> <Skull className="h-8 w-8 text-destructive animate-pulse" /> </div>
         <div className="text-center font-pixel text-sm text-foreground/80 min-h-[1.5em] uppercase"> {statusMessage} </div>
-        <div className="w-full max-w-xl">
+        <div className="w-full">
            <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={currentPlayer === 'white' ? 'white' : null} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} enemySelectedSquare={null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" />
         </div>
       </div>

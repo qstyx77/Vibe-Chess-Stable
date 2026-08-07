@@ -64,7 +64,7 @@ const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardSt
     <div className="absolute pointer-events-none z-[40]" style={{ top, left, width: '25%', height: '25%', color: '#64748B' }} >
        <PixelColossus className="w-full h-full drop-shadow-xl" />
        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-pixel z-[60] text-[22px]" style={{ textShadow: '3px 3px 0 #000', color: 'hsl(var(--destructive))', marginTop: '8%' }} > {colossusAnchor.piece.level} </span>
+          <span className="font-pixel z-[60] text-[1.5rem]" style={{ textShadow: '3px 3px 0 #000', color: 'hsl(var(--destructive))', marginTop: '8%' }} > {colossusAnchor.piece.level} </span>
        </div>
     </div>
   );
@@ -145,7 +145,7 @@ export function ChessBoard({
   const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
 
   return (
-    <div className={cn( "grid grid-cols-8 w-full max-w-lg aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d" )} onMouseLeave={() => onPieceHover(null)} >
+    <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh] lg:max-w-[75vh]" )} onMouseLeave={() => onPieceHover(null)} >
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
           const actualRowIndex = visuallyFlipBoardForLogic ? 7 - displayedRowIndex : displayedRowIndex;
@@ -237,7 +237,7 @@ export function ChessBoard({
               isPromoting={promotingSquare === currentSquareData.algebraic}
               isConverting={isConvertingSquare}
               isShieldTarget={isShieldTarget || isShieldScrollTargetSelection}
-              isSnipeTarget={isSnipeTarget}
+              is攻擊Target={isSnipeTarget}
               isAnvilDropTarget={isAnvilDropTarget}
               isInvTarget={isInvTarget}
               isSwapTarget={isSwapTargetSelection}

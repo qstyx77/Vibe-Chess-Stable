@@ -102,7 +102,7 @@ export function ChessPieceDisplay({
     pieceColorClass = ""; bossStyle = { color: '#38BDF8' }; // Sky
   } else if (piece.id === 'boss-entity') {
     IconComponent = PixelVoidEntity;
-    pieceColorClass = ""; bossStyle = { color: '#4338CA' }; // Vibrant Indigo for better hue-rotation visibility
+    pieceColorClass = ""; bossStyle = { color: '#4338CA' }; // Vibrant Indigo
   }
   
   let animationClass = '';
@@ -182,7 +182,7 @@ export function ChessPieceDisplay({
           )}>
              <ItemSprite 
                type={piece.heldItem} 
-               size={isMini ? 10 : 13} 
+               size={isMini ? 15 : 20} 
              />
           </div>
         )}
@@ -190,7 +190,7 @@ export function ChessPieceDisplay({
         {piece.type === 'myco_mage' && !isMini && (
             <div className="absolute bottom-0 left-0 z-[20] flex items-center gap-0.5 bg-black/60 px-1 rounded-tr-md">
                 <ShroomIcon className="w-2 h-2 text-white" />
-                <span className="text-[8px] font-pixel text-white">{piece.shroomMana || 0}</span>
+                <span className="text-[0.5rem] font-pixel text-white">{piece.shroomMana || 0}</span>
             </div>
         )}
 
@@ -198,21 +198,21 @@ export function ChessPieceDisplay({
           <span
             className={cn(
               "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
-              isMini ? "text-[6.5px]" : "text-[11px] md:text-[13px]"
+              isMini ? "text-[0.4rem]" : "text-[0.7rem] md:text-[0.8rem]"
             )}
             style={{ 
               textShadow: `
-                1.5px 1.5px 0 #000, 
-                -1.5px 1.5px 0 #000, 
-                1.5px -1.5px 0 #000, 
-                -1.5px -1.5px 0 #000,
-                0 1.5px 0 #000,
-                0 -1.5px 0 #000,
-                1.5px 0 0 #000,
-                -1.5px 0 0 #000
+                1.5rem 1.5rem 0 #000, 
+                -1.5rem 1.5rem 0 #000, 
+                1.5rem -1.5rem 0 #000, 
+                -1.5rem -1.5rem 0 #000,
+                0 1.5rem 0 #000,
+                0 -1.5rem 0 #000,
+                1.5rem 0 0 #000,
+                -1.5rem 0 0 #000
               `,
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
-              marginTop: isMini ? '1px' : '5px'
+              marginTop: isMini ? '0.05rem' : '0.2rem'
             }}
             aria-label={`Level ${displayLevelValue}`}
           >
