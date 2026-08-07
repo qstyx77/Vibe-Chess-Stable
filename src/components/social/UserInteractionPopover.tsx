@@ -38,9 +38,9 @@ export function UserInteractionPopover({ userId, username, children, className }
       <PopoverContent className="w-56 p-3 bg-card border-2 border-primary/40 font-pixel">
         <div className="space-y-3">
           <div className="text-center pb-2 border-b border-border/50">
-            <p className="text-[10px] text-primary uppercase mb-1">{username}</p>
+            <p className="text-[0.6rem] text-primary uppercase mb-1">{username}</p>
             {!isMe && (
-               <p className="text-[8px] text-muted-foreground uppercase">
+               <p className="text-[0.5rem] text-muted-foreground uppercase">
                  {isFriend ? "Friendly Hero" : "Mysterious Traveler"}
                </p>
             )}
@@ -52,7 +52,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                 <Button 
                     variant="outline" 
                     size="sm" 
-                    className="h-8 text-[8px] uppercase justify-start gap-2"
+                    className="h-8 text-[0.5rem] uppercase justify-start gap-2"
                     onClick={() => startDm(username)}
                 >
                     <MessageSquare className="h-3 w-3 text-primary" /> Message
@@ -62,7 +62,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="h-8 text-[8px] uppercase justify-start gap-2"
+                      className="h-8 text-[0.5rem] uppercase justify-start gap-2"
                       onClick={() => sendChallenge(userId)}
                     >
                       <Sword className="h-3 w-3 text-destructive" /> Challenge
@@ -70,7 +70,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      className="h-8 text-[8px] uppercase justify-start gap-2 text-destructive hover:text-destructive"
+                      className="h-8 text-[0.5rem] uppercase justify-start gap-2 text-destructive hover:text-destructive"
                       onClick={() => removeFriend(userId)}
                     >
                       <UserMinus className="h-3 w-3" /> Remove Friend
@@ -80,7 +80,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="h-8 text-[8px] uppercase justify-start gap-2"
+                    className="h-8 text-[0.5rem] uppercase justify-start gap-2"
                     onClick={() => addFriend(userId, username)}
                   >
                     <UserPlus className="h-3 w-3 text-primary" /> Add Friend
@@ -89,7 +89,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="h-8 text-[8px] uppercase justify-start gap-2 text-muted-foreground"
+                  className="h-8 text-[0.5rem] uppercase justify-start gap-2 text-muted-foreground"
                   onClick={() => blockUser(userId)}
                 >
                   <Ban className="h-3 w-3" /> Block
@@ -98,7 +98,7 @@ export function UserInteractionPopover({ userId, username, children, className }
             )}
             
             <Link href={isMe ? "/profile" : `/profile?userId=${userId}`} className="w-full">
-              <Button variant="outline" size="sm" className="h-8 text-[8px] uppercase justify-start gap-2 w-full">
+              <Button variant="outline" size="sm" className="h-8 text-[0.5rem] uppercase justify-start gap-2 w-full">
                 <UserIcon className="h-3 w-3" /> View Profile
               </Button>
             </Link>

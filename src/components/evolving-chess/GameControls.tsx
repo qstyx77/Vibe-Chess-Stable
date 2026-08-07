@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { PlayerColor, Piece, ChatMessage, MessageCategory } from '@/types';
@@ -93,10 +94,10 @@ export function GameControls({
     const label = color === 'white' ? 'Captured White' : 'Captured Black';
     return (
       <div className="w-full">
-        <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0 leading-none">{label}</h3>
+        <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">{label}</h3>
         <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
           {pieces.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : pieces.map(p => (
-            <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
+            <div key={p.id} className="w-5 h-5 relative">
               <ChessPieceDisplay piece={p} isMini />
             </div>
           ))}
@@ -114,7 +115,6 @@ export function GameControls({
   };
 
   const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log;
-
   const onlineFriends = useMemo(() => friends.filter(f => onlineUserIds.has(f.id)), [friends, onlineUserIds]);
   const offlineFriends = useMemo(() => friends.filter(f => !onlineUserIds.has(f.id)), [friends, onlineUserIds]);
 
@@ -124,7 +124,6 @@ export function GameControls({
         onClick={() => {
             setIsMessengerOpen(!isMessengerOpen);
             if (!isMessengerOpen) {
-                // Clear all currently visible unreads when opening
                 visibleCategories.forEach(cat => clearUnread(cat));
             }
         }}
@@ -132,7 +131,6 @@ export function GameControls({
           "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors",
           !isMessengerOpen && hasAnyUnread && "animate-chat-notify"
         )}
-        aria-label={isMessengerOpen ? "Switch to Game Info" : "Switch to Messenger"}
       >
         <MessageSquare className="h-5 w-5" />
       </button>
@@ -170,7 +168,7 @@ export function GameControls({
             <div className="space-y-2">
               {filteredMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full opacity-30 mt-10">
-                    <p className="text-[0.65rem] text-muted-foreground text-center italic">Select categories to view logs.</p>
+                    <p className="text-[0.6rem] text-muted-foreground text-center italic">Select categories to view logs.</p>
                 </div>
               ) : (
                 filteredMessages.map((msg) => (
@@ -186,7 +184,7 @@ export function GameControls({
                         <span className="text-[0.6rem] font-bold uppercase text-primary">[SYS]:</span>
                       )}
                       <div className="flex flex-col gap-1 flex-1">
-                        <span className={cn("text-[0.65rem] break-words font-pixel leading-tight tracking-tight", getMessageColor(msg))}>
+                        <span className={cn("text-[0.6rem] break-words font-pixel leading-tight tracking-tight", getMessageColor(msg))}>
                             {msg.text}
                         </span>
                         {msg.isChallenge && (
@@ -210,8 +208,8 @@ export function GameControls({
                 <Input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Type message or /help..."
-                className="h-7 text-xs font-sans bg-background"
+                placeholder="Message..."
+                className="h-7 text-[0.6rem] font-sans bg-background"
                 maxLength={200}
                 />
                 <Button type="submit" size="sm" variant="secondary" className="h-7 px-2">
@@ -255,10 +253,10 @@ export function GameControls({
         <CardContent className="space-y-0.5 flex-grow flex flex-col p-1.5">
           <div className="flex justify-around items-center text-center">
             <div>
-              <p className="text-[0.6rem] font-medium text-muted-foreground">Current Player</p>
+              <p className="text-[0.6rem] font-medium text-muted-foreground uppercase">Player</p>
               <UserInteractionPopover userId="" username={getPlayerDisplayName(currentPlayer)}>
                 <p className={cn(
-                    "text-sm font-semibold font-sans leading-none uppercase",
+                    "text-[0.7rem] font-bold font-pixel leading-none uppercase",
                     currentPlayer === 'white' ? 'text-foreground' : 'text-secondary',
                     isGameOver && "opacity-50"
                     )}
@@ -270,34 +268,34 @@ export function GameControls({
 
             {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
               <div>
-                <p className="text-[0.6rem] font-medium text-muted-foreground">Time</p>
-                <p className="text-sm font-semibold font-mono text-primary animate-pulse leading-none">
+                <p className="text-[0.6rem] font-medium text-muted-foreground uppercase">Time</p>
+                <p className="text-[0.75rem] font-bold font-mono text-primary animate-pulse leading-none">
                   {timerDisplay}
                 </p>
               </div>
             )}
 
-            <div className="space-y-0">
-              <p className="text-[0.6rem] font-medium text-destructive leading-none">
-                <span className="text-foreground">W</span>-Streak: {killStreaks.white}
+            <div className="space-y-0.5">
+              <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">
+                <span className="text-foreground">W</span>-STREAK: {killStreaks.white}
               </p>
-              <p className="text-[0.6rem] font-medium text-destructive leading-none">
-                <span className="text-secondary">B</span>-Streak: {killStreaks.black}
+              <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">
+                <span className="text-secondary">B</span>-STREAK: {killStreaks.black}
               </p>
             </div>
           </div>
-          <Separator className="my-0.5"/>
-          <div className="flex flex-col gap-0.5">
+          <Separator className="my-1"/>
+          <div className="flex flex-col gap-1">
               {renderCapturedPieces('black')}
               {renderCapturedPieces('white')}
           </div>
-          <Separator className="my-0.5" />
-          <div className="flex-grow flex flex-col justify-center min-h-[2.5rem]">
+          <Separator className="my-1" />
+          <div className="flex-grow flex flex-col justify-center min-h-[3rem]">
             {pieceForInfoDisplay ? (
               <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
             ) : (
-               <div className="text-center text-[0.6rem] text-muted-foreground leading-tight">
-                  Hover over a piece to see its abilities.
+               <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
+                  Hover for Info
                </div>
             )}
           </div>

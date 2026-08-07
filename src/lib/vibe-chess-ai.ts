@@ -170,7 +170,6 @@ export class VibeChessAI {
             if (move.type === 'enpassant') { 
                 next.board[fR][tC].piece = null; 
                 captureCount = 1; 
-                landedPiece.type = 'infiltrator';
             } else if (targetPiece && targetPiece.color !== player) { 
                 captureCount = 1; 
                 landedPiece.level += (this.captureLevelBonuses[targetPiece.type] || 1); 
@@ -188,8 +187,6 @@ export class VibeChessAI {
             }
 
             next.board[tR][tC].piece = landedPiece; 
-            
-            // FIX: Only clear the source if it's different from the target
             if (fR !== tR || fC !== tC) {
                 next.board[fR][fC].piece = null;
             }
@@ -272,7 +269,7 @@ export class VibeChessAI {
         return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color));
     }
 
-    generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece): AIMove[] {
+    generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece, simplified: boolean = false): AIMove[] {
         const moves: AIMove[] = [];
         const effLevel = getEffectiveLevel(gs.board as any, r, c);
         const silenced = isSilencedInternal(gs.board, r, c, p.color);
@@ -280,8 +277,8 @@ export class VibeChessAI {
         if (p.type === 'mimic') {
             const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
             const virtualPiece = { ...p, type: patternType };
-            const tempGs = { ...gs, lastMovedPieceType: null as any };
-            return this.generatePieceMoves(tempGs, r, c, virtualPiece);
+            // Use simplified move generation for the mimic's inner virtual piece to prevent recursion if copying a King
+            return this.generatePieceMoves(gs, r, c, virtualPiece, true);
         }
         
         if (p.id.startsWith('boss-colossus')) {
@@ -298,8 +295,6 @@ export class VibeChessAI {
         }
 
         const dir = p.color === 'white' ? -1 : 1;
-        
-        // FIX: Active Skill Self-Select (Wait/Menu/Scrolls)
         const hasMagicScroll = p.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll', 'demonic_possession', 'heavy_rain'].includes(p.heldItem);
         const hasSelfAbility = ((p.type === 'knight' || p.type === 'hero' || p.type === 'archer') && effLevel >= 5);
         if (!silenced && (hasMagicScroll || hasSelfAbility || p.type === 'myco_mage')) {
@@ -466,18 +461,16 @@ export class VibeChessAI {
                         }
                     });
                 }
-                // FIX: AI Castling logic
-                if (!p.hasMoved && !this.isInCheck(gs, p.color)) {
+                // FIX: AI Castling logic - CRITICAL: skip recursion if simplified is set
+                if (!simplified && !p.hasMoved && !this.isInCheck(gs, p.color)) {
                     const kingRow = p.color === 'white' ? 7 : 0;
                     if (r === kingRow && c === 4) {
-                        // Kingside
                         const rkSq = gs.board[kingRow][7];
                         if (rkSq.piece && (rkSq.piece.type === 'rook' || rkSq.piece.type === 'palace') && !rkSq.piece.hasMoved) {
                             if (!gs.board[kingRow][5].piece && !gs.board[kingRow][6].piece && !gs.board[kingRow][5].item && !gs.board[kingRow][6].item) {
                                 moves.push({ from: [r, c], to: [kingRow, 6], type: 'castle' });
                             }
                         }
-                        // Queenside
                         const rqSq = gs.board[kingRow][0];
                         if (rqSq.piece && (rqSq.piece.type === 'rook' || rqSq.piece.type === 'palace') && !rqSq.piece.hasMoved) {
                             if (!gs.board[kingRow][1].piece && !gs.board[kingRow][2].piece && !gs.board[kingRow][3].piece && !gs.board[kingRow][1].item && !gs.board[kingRow][2].item && !gs.board[kingRow][3].item) {
@@ -511,7 +504,6 @@ export class VibeChessAI {
                 });
         }
 
-        // Equipment: Boots & Greaves
         if (p.heldItem === 'cardinal_greaves' && p.heldItem !== 'tortoise_hammer') {
             if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece) moves.push({from:[r,c], to:[r+dir,c], type:'move'});
         }
@@ -528,7 +520,6 @@ export class VibeChessAI {
             if (parts.length > 0) {
                 const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
                 if (otherMinions) return false;
-                
                 return parts.some(pt => {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
                     if (coords.row === -1) return false;
@@ -561,8 +552,6 @@ export class VibeChessAI {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
                     const effLevel = getEffectiveLevel(gs.board as any, r, c);
-                    
-                    // --- Handle Equipment: Knight's Boots ---
                     if (p.heldItem === 'knights_boots') {
                         if (this.knightMoves.some(([dr, dc]) => r + dr === tr && c + dc === tc)) {
                             if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
@@ -570,7 +559,6 @@ export class VibeChessAI {
                         continue;
                     }
 
-                    // --- Standard Attack Patterns ---
                     if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator' || p.type === 'grappler' || p.type === 'dancer' || p.type === 'myco_mage') {
                         const direction = p.color === 'white' ? -1 : 1;
                         if (r + direction === tr && Math.abs(c - tc) === 1) {
@@ -584,7 +572,8 @@ export class VibeChessAI {
                         }
                     } else if (p.type === 'mimic') {
                         const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
-                        const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType });
+                        // IMPORTANT: Use simplified=true to prevent infinite recursion loop
+                        const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType }, true);
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
                         if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) {

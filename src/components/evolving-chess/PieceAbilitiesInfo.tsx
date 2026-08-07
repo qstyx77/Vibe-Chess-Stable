@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Piece } from '@/types';
@@ -10,86 +11,82 @@ interface PieceAbilitiesInfoProps {
 }
 
 const getPieceAbilities = (piece: Piece): string[] => {
-  const { type, level, heldItem, id, shroomMana } = piece;
+  const { type, level, heldItem, id } = piece;
   const abilities: string[] = [];
   const l = level || 1;
-  const isNecro = id === 'boss-necro';
 
-  if (id.startsWith('boss-hydra')) {
-    abilities.push(" Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
-  } else if (isNecro) {
-    abilities.push(" Necromancy: Automatically resurrects the strongest fallen ally every 5 turns.");
-  } else if (id.startsWith('boss-colossus')) {
-    abilities.push(" Massive Entity: Occupies a 2x2 area. Vulnerable to Check on any part.");
-    abilities.push(" Heavyweight: Immune to Push-Back and Gravity effects.");
-    abilities.push(" Iron Guard: Invulnerable until all minions are cleared.");
-    abilities.push(" Crushing Stride: Moves 2 squares at a time. Captures all enemy units in its 2x2 area of arrival.");
+  if (id.startsWith('boss-hydra')) abilities.push(" Hydra Split: Regrows into 2 Knights on capture.");
+  else if (id === 'boss-necro') abilities.push(" Necromancy: Resurrects a fallen ally every 5 turns.");
+  else if (id.startsWith('boss-colossus')) {
+    abilities.push(" Massive: Occupies 2x2 area. Vulnerable to Check.");
+    abilities.push(" Iron Guard: Invulnerable until minions are cleared.");
+    abilities.push(" Crushing: Moves 2 squares. Captures entire 2x2 landing area.");
   } else if (id === 'boss-mirage') {
     abilities.push(" Phantom Mirror: Summons a phalanx of Phantom Bishops.");
     abilities.push(" Illusionist: Can jump over any unit while moving.");
   } else if (id === 'boss-entity') {
     abilities.push(" Void Shield: Starts with a permanent Holy Shield.");
-    abilities.push(" Void Command: Surrounds itself with elite Hero and Infiltrator Aspects.");
-    abilities.push(" The End: Wins immediately if it reaches your back rank.");
+    abilities.push(" Void Command: Surrounded by Hero/Infiltrator Aspects.");
+    abilities.push(" The End: Wins immediately if back rank is reached.");
   }
 
   if (heldItem === 'cardinal_greaves') abilities.push(" cardinal: move (no capture) 1 space forward.");
   if (heldItem === 'drift_boots') abilities.push(" drift: move (no capture) 1 space diagonally forward.");
-  if (heldItem === 'queens_peace') abilities.push(" invulnerable: cannot be captured or capture others.");
-  if (heldItem === 'wind_sword') abilities.push(" wind edge: push-back ability triggered on attack.");
+  if (heldItem === 'queens_peace') abilities.push(" invulnerable: cannot capture or be captured.");
+  if (heldItem === 'wind_sword') abilities.push(" wind edge: push-back triggered on attack.");
   if (heldItem === 'middle_way') abilities.push(" equilibrium: level locked at 3.");
   if (heldItem === 'phoenix_down') abilities.push(" rebirth: auto-resurrect once on capture.");
   if (heldItem === 'passive_armor') abilities.push(" steady: immune to push-back.");
-  if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects one capture attempt from a non-royal unit.");
-  if (heldItem === 'wind_scroll') abilities.push(" spell: push-back units from targeted empty space.");
+  if (heldItem === 'mirror_shield') abilities.push(" reflection: reflects one capture from non-royal.");
+  if (heldItem === 'wind_scroll') abilities.push(" spell: push-back adjacent units.");
   if (heldItem === 'life_leach') abilities.push(" spell: reduces all enemy levels by 1.");
   if (heldItem === 'summon_anvil') abilities.push(" spell: drop a solid anvil block.");
-  if (heldItem === 'wind_cloak') abilities.push(" aero mantle: push-back ability triggered on move.");
-  if (heldItem === 'gnosis') abilities.push(" insight: +1 extra level gain on every capture.");
-  if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to an allied unit.");
-  if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): reset to L1 to trigger a global allied level-up.");
-  if (heldItem === 'poison_sword') abilities.push(" toxic: splash poison to adjacent enemies on capture.");
-  if (heldItem === 'antidote') abilities.push(" cleanse: remove poison and exhaustion from all allied units.");
-  if (heldItem === 'crossbow') abilities.push(" double shot: KS 3 triggers Archer Snipe in addition to Anvil.");
-  if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons any piece that captures the wearer.");
-  if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit to cause a massive explosion.");
-  if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units while moving.");
-  if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with any allied piece.");
-  if (heldItem === 'grimoir') abilities.push(" dark wisdom: adjacent allies gain +2 effective levels.");
-  if (heldItem === 'soul_link') abilities.push(" bound: shares level-ups and destruction with other linked allies.");
-  if (heldItem === 'logas') abilities.push(" sacred capturing: adjacent allies gain +1 level on capture.");
-  if (heldItem === 'berserkers_mask') abilities.push(" frenzy: +3 levels on capture, but must capture if possible.");
-  if (heldItem === 'ice_scroll') abilities.push(" spell (L2+): freeze adjacent enemies for 2 turns.");
-  if (heldItem === 'resurrection_scroll') abilities.push(" spell (L4+): resurrect highest value ally adjacent to you.");
-  if (heldItem === 'faith_scroll') abilities.push(" spell (L5+): 50% chance to convert adjacent enemies.");
-  if (heldItem === 'tortoise_hammer') abilities.push(" heavy: limits move to 1 square forward. Captures enemies cardinally adjacent to target.");
-  if (heldItem === 'leach_blade') abilities.push(" leach: capturing an enemy reduces adjacent enemies by 1 level.");
-  if (heldItem === 'kings_decree') abilities.push(" spell: promote an allied Level 1 Pawn to a Commander.");
-  if (heldItem === 'gravity_stone') abilities.push(" gravity: capturing pulls enemies 2 squares away 1 square closer.");
-  if (heldItem === 'lead_boots') abilities.push(" anchored: immune to push-back and gravity pull effects.");
-  if (heldItem === 'blast_shield') abilities.push(" blast guard: immune to self-destructs and explosions.");
-  if (heldItem === 'monks_robe') abilities.push(" devotions: conversion success chance increased by 20%.");
-  if (heldItem === 'training_weights') abilities.push(" conditioning: gain +1 level every 3 turns.");
-  if (heldItem === 'ice_tunic') abilities.push(" cryo skin: freezes any piece that captures the wearer for 2 turns.");
-  if (heldItem === 'ice_sword') abilities.push(" cryo blade: capturing freezes cardinally adjacent enemies for 2 turns.");
-  if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies for 2 turns.");
-  if (heldItem === 'soul_harvest') abilities.push(" spell: reduce adjacent pieces to L1 to absorb their power.");
-  if (heldItem === 'aura_silence') abilities.push(" silent aura: adjacent enemies cannot trigger active skills.");
-  if (heldItem === 'grappling_hook') abilities.push(" grappling hook: swap positions with distant allies.");
-  if (heldItem === 'battering_ram') abilities.push(" battering ram: push adjacent anvils to crush enemies.");
-  if (heldItem === 'knights_boots') abilities.push(" knight's boots: movement replaced by Knight pattern.");
-  if (heldItem === 'golden_chalice') abilities.push(" experience: +1 extra level gain on every capture.");
-  if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): target a square to push units away and drain 2 levels from enemies.");
-  if (heldItem === 'war_drum') abilities.push(" tempo: allies swapped with gain +1 Level; enemies become Exhausted.");
-  if (heldItem === 'cyanide_pill') abilities.push(" spite: capturing unit gains 0 levels from this piece.");
-  if (heldItem === 'demonic_possession') abilities.push(" demonic: Gain +5 Levels, but piece is obliterated after 3 turns.");
-  if (heldItem === 'mushroom_magnet') abilities.push(" magnetic: Pulls Shrooms within 2 squares 1 space closer on move.");
-  if (heldItem === 'mimic_blade') abilities.push(" item mimic: Replicates the held item of the last moved piece.");
-  if (heldItem === 'thieves_gloves') abilities.push(" plunder: 50% chance to steal equipment from captured units.");
-  if (heldItem === 'heavy_rain') abilities.push(" spell (L3+): drop 3 anvils on random empty squares.");
-  if (heldItem === 'kings_conquest') abilities.push(" conquest: reaching KS 8 wins the game immediately.");
-  if (heldItem === 'great_sword') abilities.push(" cleave: capture enemies directly behind your primary target.");
-  if (heldItem === 'swift_cloak') { if (['pawn', 'dancer', 'mimic', 'grappler', 'commander', 'myco_mage'].includes(type)) abilities.push(" swift: double move range for frontline units."); else abilities.push(" swift: inactive (only for frontline units)."); }
+  if (heldItem === 'great_sword') abilities.push(" cleave: capture enemies behind primary target.");
+  if (heldItem === 'wind_cloak') abilities.push(" aero mantle: push-back triggered on move.");
+  if (heldItem === 'gnosis') abilities.push(" insight: +1 extra level gain on capture.");
+  if (heldItem === 'shield_scroll') abilities.push(" spell (L2+): apply holy shield to ally.");
+  if (heldItem === 'rally_scroll') abilities.push(" spell (L3+): trigger global allied level-up.");
+  if (heldItem === 'poison_sword') abilities.push(" toxic: splash poison on capture.");
+  if (heldItem === 'antidote') abilities.push(" cleanse: remove poison and exhaustion.");
+  if (heldItem === 'crossbow') abilities.push(" double shot: KS 3 triggers Archer Snipe.");
+  if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons anyone who captures wearer.");
+  if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit for explosion.");
+  if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units.");
+  if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with ally.");
+  if (heldItem === 'grimoir') abilities.push(" dark wisdom: adjacent allies gain +2 levels.");
+  if (heldItem === 'soul_link') abilities.push(" bound: pieces share levels and destruction.");
+  if (heldItem === 'logas') abilities.push(" sacred: adjacent allies gain +1 level on capture.");
+  if (heldItem === 'berserkers_mask') abilities.push(" frenzy: +3 levels on capture, but must capture.");
+  if (heldItem === 'ice_scroll') abilities.push(" spell (L2+): freeze adjacent enemies.");
+  if (heldItem === 'resurrection_scroll') abilities.push(" spell (L4+): resurrect strongest adjacent ally.");
+  if (heldItem === 'faith_scroll') abilities.push(" spell (L5+): chance to convert adjacent enemies.");
+  if (heldItem === 'tortoise_hammer') abilities.push(" heavy: 1 sq forward. Splash capture.");
+  if (heldItem === 'leach_blade') abilities.push(" leach: drain 1 level from adjacent enemies on capture.");
+  if (heldItem === 'kings_decree') abilities.push(" spell: promote L1 Pawn to Commander.");
+  if (heldItem === 'gravity_stone') abilities.push(" gravity: capture pulls distant enemies closer.");
+  if (heldItem === 'lead_boots') abilities.push(" anchored: immune to push/pull.");
+  if (heldItem === 'blast_shield') abilities.push(" blast guard: immune to explosions.");
+  if (heldItem === 'monks_robe') abilities.push(" devotions: +20% conversion chance.");
+  if (heldItem === 'training_weights') abilities.push(" conditioning: +1 level every 3 turns.");
+  if (heldItem === 'ice_tunic') abilities.push(" cryo skin: freezes capturer for 2 turns.");
+  if (heldItem === 'ice_sword') abilities.push(" cryo blade: freezes adjacent enemies on capture.");
+  if (heldItem === 'ice_blast') abilities.push(" spell: freeze all adjacent enemies.");
+  if (heldItem === 'soul_harvest') abilities.push(" spell: absorb adjacent pieces' power.");
+  if (heldItem === 'aura_silence') abilities.push(" silence: enemies nearby cannot use skills.");
+  if (heldItem === 'grappling_hook') abilities.push(" grappling hook: swap with distant allies.");
+  if (heldItem === 'battering_ram') abilities.push(" ram: push adjacent anvils to crush enemies.");
+  if (heldItem === 'knights_boots') abilities.push(" boots: use Knight movement pattern.");
+  if (heldItem === 'golden_chalice') abilities.push(" experience: +1 extra level gain on capture.");
+  if (heldItem === 'earthquake_scroll') abilities.push(" spell (L3+): area push and level drain.");
+  if (heldItem === 'war_drum') abilities.push(" tempo: swapped allies level up; enemies exhausted.");
+  if (heldItem === 'cyanide_pill') abilities.push(" spite: capturer gains 0 levels.");
+  if (heldItem === 'demonic_possession') abilities.push(" demonic: +5 levels, but unit dies in 3 turns.");
+  if (heldItem === 'mushroom_magnet') abilities.push(" magnetic: pulls shrooms closer on move.");
+  if (heldItem === 'mimic_blade') abilities.push(" mimic: replicates last moved piece's item.");
+  if (heldItem === 'thieves_gloves') abilities.push(" plunder: 50% chance to steal equipment.");
+  if (heldItem === 'heavy_rain') abilities.push(" spell (L3+): drop 3 random anvils.");
+  if (heldItem === 'kings_conquest') abilities.push(" conquest: reaching KS 8 wins game.");
+  if (heldItem === 'swift_cloak') { if (FRONTLINE_TYPES.includes(type)) abilities.push(" swift: double movement range."); else abilities.push(" swift: inactive (frontline only)."); }
 
   switch (type) {
     case 'pawn':
@@ -98,53 +95,53 @@ const getPieceAbilities = (piece: Piece): string[] => {
     case 'grappler':
     case 'commander':
     case 'myco_mage':
-      if (l >= 1) abilities.push("Standard pawn move/capture.");
+      if (l >= 1) abilities.push("Standard move/capture.");
       if (l >= 2) abilities.push("Can move 1 square backward.");
       if (l >= 3) abilities.push("Can move 1 square sideways.");
       if (l >= 4) abilities.push("Push-Back adjacent entities.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
-      if (type === 'commander') { abilities.push("Rallying Cry on capture (levels up other pawns)."); abilities.push("Promotes to Hero."); abilities.push("Queen Hunter."); }
-      if (type === 'dancer') { abilities.push("Dance: KS 1 allows an immediate 1-square cardinal move or an adjacent swap with an allied or enemy piece."); }
-      if (type === 'mimic') { abilities.push("Shape-shift: Replicates the move/capture pattern of the last piece to move, using the Mimic's current Level."); }
-      if (type === 'grappler') { abilities.push("Toss: Can pick up an adjacent piece (except Kings) and throw it to an empty space cardinally or diagonally (Range = Level)."); }
-      if (type === 'myco_mage') { abilities.push(`Mushroomancy: Spend Shroom Pool (${shroomMana || 0}) for global fungal spells.`); }
+      if (type === 'commander') abilities.push("Rallying Cry on capture.");
+      if (type === 'dancer') abilities.push("Dance: KS 1 free cardinal move/swap.");
+      if (type === 'mimic') abilities.push("Shape-shift: Copies last moved piece.");
+      if (type === 'grappler') abilities.push("Toss: Throw adjacent unit (Range = L).");
+      if (type === 'myco_mage') abilities.push(`Mushroomancy: Use Shroom Pool (${piece.shroomMana || 0}).`);
       break;
-    case 'infiltrator': abilities.push("Moves/captures 1 square forward or diagonally forward."); abilities.push("Obliterates captured pieces."); abilities.push("Wins game on back rank."); abilities.push("Queen Hunter."); break;
+    case 'infiltrator': abilities.push("Fast forward/diagonal move."); abilities.push("Obliterates targets."); abilities.push("Win at back rank."); break;
     case 'knight':
     case 'hero':
     case 'archer':
       if (l >= 1) abilities.push("Standard L-shape move.");
-      if (l >= 2) abilities.push("Can move 1 square cardinally.");
-      if (l >= 3) abilities.push("Can jump 3 squares cardinally.");
-      if (l >= 4) abilities.push("Swap with friendly Bishop.");
+      if (l >= 2) abilities.push("Move 1 square cardinally.");
+      if (l >= 3) abilities.push("Jump 3 squares cardinally.");
+      if (l >= 4) abilities.push("Swap with allied Clergy.");
       if (l >= 5) abilities.push("Self-Destruct ability.");
-      if (type === 'hero') { abilities.push("Hero's Rallying Cry on capture (levels up all other pieces)."); abilities.push("Queen Hunter."); }
-      if (type === 'archer') { abilities.push("Archer Snipe: KS 5 grants global targeting (Non-Royals only)."); }
+      if (type === 'hero') abilities.push("Hero's Rally on capture.");
+      if (type === 'archer') abilities.push("Archer Snipe: KS 5 global shot.");
       break;
     case 'bishop':
     case 'archbishop':
       if (l >= 1) abilities.push("Standard diagonal move.");
-      if (l >= 2) abilities.push(isNecro ? "Ethereal Phasing: Can move through friendly units." : "Phase through friendly pieces.");
-      if (l >= 3) abilities.push("Immunity: Cannot be captured by Frontline Units.");
-      if (l >= 4) abilities.push("Swap with friendly Knight/Hero/Archer.");
-      if (l >= 5) abilities.push(isNecro ? "Dark Conversion: 50% chance to convert adjacent enemies." : "50% chance to Convert adjacent enemies.");
-      if (type === 'archbishop') abilities.push("Holy Shield: KS 2 grants protection to an ally.");
+      if (l >= 2) abilities.push("Phase through friendly pieces.");
+      if (l >= 3) abilities.push("Immunity to Frontline capture.");
+      if (l >= 4) abilities.push("Swap with allied Cavalry.");
+      if (l >= 5) abilities.push("Faith: Conversion chance on move.");
+      if (type === 'archbishop') abilities.push("Holy Shield: KS 2 protection.");
       break;
     case 'rook':
     case 'palace':
       abilities.push("Standard horizontal/vertical move.");
-      if (l >= 4) abilities.push("Resurrection Call: Triggers if the Rook levels up to 4 or higher by capturing an enemy piece.");
-      if (type === 'palace') { abilities.push("Master Resurrector: Allies return at their original level."); abilities.push("Royal Sanctuary: Castling levels up the King."); }
+      if (l >= 4) abilities.push("Resurrection Call on capture.");
+      if (type === 'palace') abilities.push("Master Resurrector. Royal Sanctuary.");
       break;
     case 'queen':
       abilities.push("Standard Queen movement.");
-      if (l >= 7 && heldItem !== 'queens_peace') abilities.push("Invulnerable to lower-level attackers (except special units). Requires Pawn/Commander sacrifice.");
+      if (l >= 7) abilities.push("Royal Invulnerability. Needs Sacrifice.");
       break;
     case 'king':
-      if (l >= 1) abilities.push("Standard king move/capture.");
-      if (l >= 2) abilities.push("Can move/capture up to 2 squares.");
-      if (l >= 5) abilities.push("Gains Knight's L-shape move.");
-      abilities.push("Reduces enemy Queen levels on King level up.");
+      if (l >= 1) abilities.push("Standard king move.");
+      if (l >= 2) abilities.push("Move range up to 2 squares.");
+      if (l >= 5) abilities.push("Gains L-shape movement.");
+      abilities.push("Dominion: Drain enemy Queens on level up.");
       break;
   }
   return abilities;
@@ -160,25 +157,34 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   else if (piece.id === 'boss-mirage') pieceName = "The Mirage";
   else if (piece.id === 'boss-entity') pieceName = "The Void Entity";
   else if (piece.type === 'myco_mage') pieceName = "Myco Mage";
+  
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
+
   return (
-    <div className="text-center text-[0.65rem]">
-      <h3 className={cn("font-bold text-base leading-none", isBoss ? "text-destructive" : "text-primary")}> {pieceName} - Level {piece.level || 1} </h3>
-      <div className="flex flex-col gap-0.5 mt-0.5 mb-0.5">
-        {piece.isPoisoned && <p className="text-[#22C55E] font-bold text-[0.55rem] animate-pulse uppercase leading-none"> STATUS: POISONED </p>}
-        {isFrozen && <p className="text-sky-400 font-bold text-[0.55rem] animate-pulse uppercase leading-none"> STATUS: FROZEN </p>}
-        {!isFrozen && isExhausted && <p className="text-destructive font-bold text-[0.55rem] animate-pulse uppercase leading-none"> STATUS: EXHAUSTED </p>}
-        {piece.obliterationTurnsRemaining !== undefined && piece.obliterationTurnsRemaining > 0 && (
-            <p className="text-destructive font-bold text-[0.55rem] animate-pulse uppercase leading-none">
-                POSSESSED: OBLITERATION IN {piece.obliterationTurnsRemaining} TURNS
-            </p>
-        )}
-        {piece.heldItem === 'training_weights' && <p className="text-muted-foreground font-bold text-[0.55rem] uppercase leading-none"> CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS </p>}
+    <div className="text-center text-[0.55rem] font-pixel">
+      <h3 className={cn("font-bold text-[0.7rem] uppercase leading-tight mb-1", isBoss ? "text-destructive" : "text-primary")}>
+        {pieceName} - L{piece.level || 1}
+      </h3>
+      <div className="flex flex-col gap-0.5 mb-1">
+        {piece.isPoisoned && <p className="text-[#22C55E] text-[0.45rem] animate-pulse uppercase">STATUS: POISONED</p>}
+        {isFrozen && <p className="text-sky-400 text-[0.45rem] animate-pulse uppercase">STATUS: FROZEN</p>}
+        {!isFrozen && isExhausted && <p className="text-destructive text-[0.45rem] animate-pulse uppercase">STATUS: EXHAUSTED</p>}
       </div>
-      {item && ( <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-sm"> <div className="flex items-center justify-center gap-1 mb-0.5"> <ItemSprite type={piece.heldItem!} size={10} /> <p className="text-[0.55rem] font-bold text-accent uppercase leading-none">{item.name}</p> <ItemSprite type={piece.heldItem!} size={10} /> </div> <p className="text-[0.55rem] text-muted-foreground italic leading-none">{item.description}</p> </div> )}
-      <ul className="list-none p-0 m-0 text-[0.65rem] space-y-0"> {abilities.map((ability, index) => ( <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>{ability}</li> ))} </ul>
+      {item && (
+        <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-none">
+          <p className="text-[0.45rem] font-bold text-accent uppercase leading-none mb-0.5">{item.name}</p>
+          <p className="text-[0.4rem] text-muted-foreground italic leading-none">{item.description}</p>
+        </div>
+      )}
+      <ul className="list-none p-0 m-0 space-y-0.5">
+        {abilities.map((ability, index) => (
+          <li key={index} className={cn("leading-tight uppercase text-[0.45rem]", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>
+            • {ability}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

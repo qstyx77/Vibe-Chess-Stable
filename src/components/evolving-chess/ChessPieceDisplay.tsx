@@ -1,3 +1,4 @@
+
 import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
@@ -78,7 +79,6 @@ export function ChessPieceDisplay({
 }: ChessPieceDisplayProps) {
   
   if (piece.id.startsWith('boss-colossus') && isOnBoard) {
-      // The board uses LargeEntityOverlay to render the Colossus to prevent clipping
       return null;
   }
 
@@ -87,22 +87,21 @@ export function ChessPieceDisplay({
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   let bossStyle: React.CSSProperties = {};
 
-  // --- CUSTOM BOSS VISUALS ---
   if (piece.id.startsWith('boss-hydra')) {
     IconComponent = PixelHydra;
-    pieceColorClass = ""; bossStyle = { color: '#10B981' }; // Emerald
+    pieceColorClass = ""; bossStyle = { color: '#10B981' };
   } else if (piece.id === 'boss-necro') {
     IconComponent = PixelNecromancer;
-    pieceColorClass = ""; bossStyle = { color: '#8B5CF6' }; // Violet
+    pieceColorClass = ""; bossStyle = { color: '#8B5CF6' };
   } else if (piece.id.startsWith('boss-colossus')) {
     IconComponent = PixelColossus;
     pieceColorClass = ""; bossStyle = { color: '#64748B' };
   } else if (piece.id === 'boss-mirage') {
     IconComponent = PixelMirage;
-    pieceColorClass = ""; bossStyle = { color: '#38BDF8' }; // Sky
+    pieceColorClass = ""; bossStyle = { color: '#38BDF8' };
   } else if (piece.id === 'boss-entity') {
     IconComponent = PixelVoidEntity;
-    pieceColorClass = ""; bossStyle = { color: '#4338CA' }; // Vibrant Indigo
+    pieceColorClass = ""; bossStyle = { color: '#4338CA' };
   }
   
   let animationClass = '';
@@ -128,12 +127,7 @@ export function ChessPieceDisplay({
   const displayLevelValue = effectiveLevel ?? level;
 
   return (
-    <div
-      className={cn(
-        "w-full h-full",
-        shouldRotateBlackPieceForTabletop && "rotate-180"
-      )}
-    >
+    <div className={cn("w-full h-full", shouldRotateBlackPieceForTabletop && "rotate-180")}>
       <div
         className={cn(
           "relative flex items-center justify-center w-full h-full",
@@ -149,7 +143,6 @@ export function ChessPieceDisplay({
         )}
         style={bossStyle}
       >
-        {/* Subtle Void Particles */}
         {piece.id === 'boss-entity' && !isMini && (
           <div className="absolute inset-0 z-0 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-primary rounded-full animate-void-particle" style={{ '--x': '30px', '--y': '-35px' } as React.CSSProperties} />
@@ -180,17 +173,14 @@ export function ChessPieceDisplay({
             "absolute bottom-0 right-0 z-[5] bg-black/40 rounded-sm p-0.5 origin-bottom-right",
             isMini ? "scale-50" : "scale-100"
           )}>
-             <ItemSprite 
-               type={piece.heldItem} 
-               size={isMini ? 15 : 20} 
-             />
+             <ItemSprite type={piece.heldItem} size={isMini ? 12 : 20} />
           </div>
         )}
 
         {piece.type === 'myco_mage' && !isMini && (
             <div className="absolute bottom-0 left-0 z-[20] flex items-center gap-0.5 bg-black/60 px-1 rounded-tr-md">
                 <ShroomIcon className="w-2 h-2 text-white" />
-                <span className="text-[0.5rem] font-pixel text-white">{piece.shroomMana || 0}</span>
+                <span className="text-[0.45rem] font-pixel text-white">{piece.shroomMana || 0}</span>
             </div>
         )}
 
@@ -198,7 +188,7 @@ export function ChessPieceDisplay({
           <span
             className={cn(
               "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
-              isMini ? "text-[0.4rem]" : "text-[0.7rem] md:text-[0.8rem]"
+              isMini ? "text-[0.35rem]" : "text-[0.65rem] md:text-[0.75rem]"
             )}
             style={{ 
               textShadow: `
@@ -212,9 +202,8 @@ export function ChessPieceDisplay({
                 -1px 0 0 #000
               `,
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
-              marginTop: isMini ? '0.05rem' : '0.2rem'
+              marginTop: isMini ? '0.05rem' : '0.15rem'
             }}
-            aria-label={`Level ${displayLevelValue}`}
           >
             {displayLevelValue}
           </span>
