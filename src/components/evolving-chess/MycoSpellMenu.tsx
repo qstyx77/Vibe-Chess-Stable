@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -125,14 +124,14 @@ const spells: { id: MycoSpell, name: string, cost: number, description: string, 
 export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: MycoSpellMenuProps) {
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); } }}>
-      <DialogContent className="sm:max-w-[450px] bg-card border-2 border-primary/50 font-pixel p-4">
+      <DialogContent className="sm:max-w-[32rem] bg-card border-2 border-primary/50 font-pixel p-4">
         <DialogHeader className="space-y-1">
           <div className="flex items-center justify-center gap-2">
               <ShroomIcon className="w-5 h-5 text-primary" />
               <DialogTitle className="text-primary text-center font-pixel uppercase text-base">Mushroomancy</DialogTitle>
               <ShroomIcon className="w-5 h-5 text-primary" />
           </div>
-          <DialogDescription className="text-center text-muted-foreground font-pixel uppercase text-[12px]">
+          <DialogDescription className="text-center text-muted-foreground font-pixel uppercase text-[0.75rem]">
             Shroom Pool: {mana}
           </DialogDescription>
         </DialogHeader>
@@ -153,7 +152,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: Myc
                 {/* Cost Overlay in Top Right */}
                 <div className="absolute top-2 right-2 flex items-center justify-center">
                     <BigShroom className="w-12 h-12 text-primary opacity-30" />
-                    <span className="absolute font-pixel text-[10px] text-white" style={{ textShadow: '1px 1px 0px black' }}>
+                    <span className="absolute font-pixel text-[0.65rem] text-white" style={{ textShadow: '1px 1px 0px black' }}>
                         {spell.cost}
                     </span>
                 </div>
@@ -163,15 +162,15 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: Myc
                 </div>
                 
                 <div className="space-y-1">
-                    <h3 className="font-pixel text-[10px] uppercase text-primary leading-tight">{spell.name}</h3>
-                    <p className="text-[8px] text-muted-foreground leading-tight italic px-1">{spell.description}</p>
+                    <h3 className="font-pixel text-[0.65rem] uppercase text-primary leading-tight">{spell.name}</h3>
+                    <p className="text-[0.55rem] text-muted-foreground leading-tight italic px-1">{spell.description}</p>
                 </div>
               </Button>
             );
           })}
         </div>
         <div className="text-center pt-2">
-            <Button variant="ghost" className="font-pixel text-[10px] uppercase h-8" onClick={() => { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); }}>Cancel Casting</Button>
+            <Button variant="ghost" className="font-pixel text-[0.65rem] uppercase h-8" onClick={() => { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); }}>Cancel Casting</Button>
         </div>
       </DialogContent>
     </Dialog>
