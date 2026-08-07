@@ -169,8 +169,8 @@ export function ChessPieceDisplay({
 
         {piece.heldItem && (
           <div className={cn(
-            "absolute bottom-0 right-0 z-[5] origin-bottom-right",
-            isMini ? "scale-50" : "scale-100"
+            "absolute bottom-0 right-0 z-[5] origin-bottom-right transition-transform",
+            isMini ? "scale-50" : "scale-100 md:scale-[1.3]"
           )}>
              <ItemSprite type={piece.heldItem} size={isMini ? 12 : 20} />
           </div>
@@ -187,12 +187,12 @@ export function ChessPieceDisplay({
           <span
             className={cn(
               "absolute inset-0 flex items-center justify-center font-pixel pointer-events-none z-[20]",
-              isMini ? "text-[0.35rem]" : "text-[0.65rem] md:text-[0.75rem]"
+              isMini ? "text-[0.35rem]" : "text-[0.65rem] md:text-[0.975rem]"
             )}
             style={{ 
               textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000',
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
-              marginTop: isMini ? '0.05rem' : '0.15rem'
+              marginTop: isMini ? '0.05rem' : (isOnBoard ? '0.195rem' : '0.15rem')
             }}
           >
             {displayLevelValue}
