@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { PlayerColor, Piece, ChatMessage, MessageCategory } from '@/types';
@@ -94,9 +93,9 @@ export function GameControls({
     const label = color === 'white' ? 'Captured White' : 'Captured Black';
     return (
       <div className="w-full">
-        <h3 className="text-[9px] font-bold text-muted-foreground uppercase mb-0 leading-none">{label}</h3>
-        <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[24px] p-0.5 border border-border/20">
-          {pieces.length === 0 ? <span className="text-[7px] text-muted-foreground">None</span> : pieces.map(p => (
+        <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0 leading-none">{label}</h3>
+        <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
+          {pieces.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : pieces.map(p => (
             <div key={p.id} className="w-5 h-5 relative" title={`${p.type} L${p.level}`}>
               <ChessPieceDisplay piece={p} isMini />
             </div>
@@ -144,7 +143,7 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
                 size="sm" 
-                className={cn("h-6 text-[8px] uppercase font-pixel px-2 relative", hasUnread.battle && "ring-1 ring-primary")}
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-2 relative", hasUnread.battle && "ring-1 ring-primary")}
                 onClick={() => toggleCategory('battle')}
               >
                 <Sword className={cn("h-3 w-3 mr-1", !visibleCategories.has('battle') && "opacity-50")} /> Battle
@@ -152,7 +151,7 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('social') ? 'default' : 'outline'} 
                 size="sm" 
-                className={cn("h-6 text-[8px] uppercase font-pixel px-2 relative", hasUnread.social && "ring-1 ring-accent")}
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-2 relative", hasUnread.social && "ring-1 ring-accent")}
                 onClick={() => toggleCategory('social')}
               >
                 <Users className={cn("h-3 w-3 mr-1", !visibleCategories.has('social') && "opacity-50")} /> Social
@@ -160,14 +159,14 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('log') ? 'default' : 'outline'} 
                 size="sm" 
-                className={cn("h-6 text-[8px] uppercase font-pixel px-2 relative", hasUnread.log && "ring-1 ring-primary")}
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-2 relative", hasUnread.log && "ring-1 ring-primary")}
                 onClick={() => toggleCategory('log')}
               >
                 <ScrollText className={cn("h-3 w-3 mr-1", !visibleCategories.has('log') && "opacity-50")} /> Log
               </Button>
           </div>
 
-          <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[150px]" ref={scrollRef}>
+          <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[10rem]" ref={scrollRef}>
             <div className="space-y-2">
               {filteredMessages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full opacity-30 mt-10">
@@ -193,7 +192,7 @@ export function GameControls({
                         {msg.isChallenge && (
                             <Button 
                                 size="sm" 
-                                className="h-6 text-[8px] uppercase font-pixel w-20 mt-1 border-2 border-primary bg-primary/20 hover:bg-primary text-foreground"
+                                className="h-6 text-[0.5rem] uppercase font-pixel w-20 mt-1 border-2 border-primary bg-primary/20 hover:bg-primary text-foreground"
                                 onClick={() => acceptChallenge(msg.challengeRoomId!)}
                             >
                                 Accept
@@ -222,32 +221,32 @@ export function GameControls({
 
           <div className="border-t pt-2 mt-1 space-y-2">
               <div>
-                  <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1">Online Friends ({onlineFriends.length})</h4>
+                  <h4 className="text-[0.5rem] text-muted-foreground uppercase font-pixel mb-1">Online Friends ({onlineFriends.length})</h4>
                   <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
                       {onlineFriends.map(f => (
                           <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
                              <div className="flex items-center gap-1 bg-muted/30 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/20 hover:border-primary/50 transition-colors">
                                 <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                <span className="text-[8px] text-foreground uppercase">{f.username}</span>
+                                <span className="text-[0.5rem] text-foreground uppercase">{f.username}</span>
                              </div>
                           </UserInteractionPopover>
                       ))}
-                      {onlineFriends.length === 0 && <p className="text-[7px] text-muted-foreground italic">No friends online.</p>}
+                      {onlineFriends.length === 0 && <p className="text-[0.45rem] text-muted-foreground italic">No friends online.</p>}
                   </div>
               </div>
               
               <div>
-                  <h4 className="text-[8px] text-muted-foreground uppercase font-pixel mb-1 opacity-60">Away ({offlineFriends.length})</h4>
+                  <h4 className="text-[0.5rem] text-muted-foreground uppercase font-pixel mb-1 opacity-60">Away ({offlineFriends.length})</h4>
                   <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
                       {offlineFriends.map(f => (
                           <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
                              <div className="flex items-center gap-1 bg-muted/10 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/10 hover:border-muted-foreground transition-colors opacity-50 grayscale">
                                 <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
-                                <span className="text-[8px] text-foreground uppercase">{f.username}</span>
+                                <span className="text-[0.5rem] text-foreground uppercase">{f.username}</span>
                              </div>
                           </UserInteractionPopover>
                       ))}
-                      {friends.length === 0 && <p className="text-[7px] text-muted-foreground italic">Click any name to add friends!</p>}
+                      {friends.length === 0 && <p className="text-[0.45rem] text-muted-foreground italic">Click any name to add friends!</p>}
                   </div>
               </div>
           </div>
@@ -256,7 +255,7 @@ export function GameControls({
         <CardContent className="space-y-0.5 flex-grow flex flex-col p-1.5">
           <div className="flex justify-around items-center text-center">
             <div>
-              <p className="text-[10px] font-medium text-muted-foreground">Current Player</p>
+              <p className="text-[0.6rem] font-medium text-muted-foreground">Current Player</p>
               <UserInteractionPopover userId="" username={getPlayerDisplayName(currentPlayer)}>
                 <p className={cn(
                     "text-sm font-semibold font-sans leading-none uppercase",
@@ -271,7 +270,7 @@ export function GameControls({
 
             {onlineStatus === 'connected' && !isGameOver && activeTimerPlayer && (
               <div>
-                <p className="text-[10px] font-medium text-muted-foreground">Time</p>
+                <p className="text-[0.6rem] font-medium text-muted-foreground">Time</p>
                 <p className="text-sm font-semibold font-mono text-primary animate-pulse leading-none">
                   {timerDisplay}
                 </p>
@@ -279,10 +278,10 @@ export function GameControls({
             )}
 
             <div className="space-y-0">
-              <p className="text-[10px] font-medium text-destructive leading-none">
+              <p className="text-[0.6rem] font-medium text-destructive leading-none">
                 <span className="text-foreground">W</span>-Streak: {killStreaks.white}
               </p>
-              <p className="text-[10px] font-medium text-destructive leading-none">
+              <p className="text-[0.6rem] font-medium text-destructive leading-none">
                 <span className="text-secondary">B</span>-Streak: {killStreaks.black}
               </p>
             </div>
@@ -293,11 +292,11 @@ export function GameControls({
               {renderCapturedPieces('white')}
           </div>
           <Separator className="my-0.5" />
-          <div className="flex-grow flex flex-col justify-center min-h-[40px]">
+          <div className="flex-grow flex flex-col justify-center min-h-[2.5rem]">
             {pieceForInfoDisplay ? (
               <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
             ) : (
-               <div className="text-center text-[10px] text-muted-foreground leading-tight">
+               <div className="text-center text-[0.6rem] text-muted-foreground leading-tight">
                   Hover over a piece to see its abilities.
                </div>
             )}

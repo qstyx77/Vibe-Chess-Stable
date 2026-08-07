@@ -202,14 +202,14 @@ export function ChessPieceDisplay({
             )}
             style={{ 
               textShadow: `
-                1.5rem 1.5rem 0 #000, 
-                -1.5rem 1.5rem 0 #000, 
-                1.5rem -1.5rem 0 #000, 
-                -1.5rem -1.5rem 0 #000,
-                0 1.5rem 0 #000,
-                0 -1.5rem 0 #000,
-                1.5rem 0 0 #000,
-                -1.5rem 0 0 #000
+                1px 1px 0 #000, 
+                -1px 1px 0 #000, 
+                1px -1px 0 #000, 
+                -1px -1px 0 #000,
+                0 1px 0 #000,
+                0 -1px 0 #000,
+                1px 0 0 #000,
+                -1px 0 0 #000
               `,
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
               marginTop: isMini ? '0.05rem' : '0.2rem'

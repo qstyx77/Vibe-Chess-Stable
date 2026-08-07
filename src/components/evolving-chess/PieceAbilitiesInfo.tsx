@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { Piece } from '@/types';
@@ -165,18 +164,18 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
   return (
-    <div className="text-center text-[10px]">
-      <h3 className={cn("font-bold text-xs leading-none", isBoss ? "text-destructive" : "text-primary")}> {pieceName} - Level {piece.level || 1} </h3>
+    <div className="text-center text-[0.65rem]">
+      <h3 className={cn("font-bold text-base leading-none", isBoss ? "text-destructive" : "text-primary")}> {pieceName} - Level {piece.level || 1} </h3>
       <div className="flex flex-col gap-0.5 mt-0.5 mb-0.5">
-        {piece.isPoisoned && <p className="text-[#22C55E] font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: POISONED </p>}
-        {isFrozen && <p className="text-sky-400 font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: FROZEN </p>}
-        {!isFrozen && isExhausted && <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none"> STATUS: EXHAUSTED </p>}
+        {piece.isPoisoned && <p className="text-[#22C55E] font-bold text-[0.55rem] animate-pulse uppercase leading-none"> STATUS: POISONED </p>}
+        {isFrozen && <p className="text-sky-400 font-bold text-[0.55rem] animate-pulse uppercase leading-none"> STATUS: FROZEN </p>}
+        {!isFrozen && isExhausted && <p className="text-destructive font-bold text-[0.55rem] animate-pulse uppercase leading-none"> STATUS: EXHAUSTED </p>}
         {piece.obliterationTurnsRemaining !== undefined && piece.obliterationTurnsRemaining > 0 && (
-            <p className="text-destructive font-bold text-[8px] animate-pulse uppercase leading-none">
+            <p className="text-destructive font-bold text-[0.55rem] animate-pulse uppercase leading-none">
                 POSSESSED: OBLITERATION IN {piece.obliterationTurnsRemaining} TURNS
             </p>
         )}
-        {piece.heldItem === 'training_weights' && <p className="text-muted-foreground font-bold text-[8px] uppercase leading-none"> CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS </p>}
+        {piece.heldItem === 'training_weights' && <p className="text-muted-foreground font-bold text-[0.55rem] uppercase leading-none"> CONDITIONING: {(piece.itemTurnCount || 0)}/3 TURNS </p>}
       </div>
       {item && ( <div className="mb-1 p-0.5 border border-accent/30 bg-accent/5 rounded-sm"> <div className="flex items-center justify-center gap-1 mb-0.5"> <ItemSprite type={piece.heldItem!} size={10} /> <p className="text-[0.55rem] font-bold text-accent uppercase leading-none">{item.name}</p> <ItemSprite type={piece.heldItem!} size={10} /> </div> <p className="text-[0.55rem] text-muted-foreground italic leading-none">{item.description}</p> </div> )}
       <ul className="list-none p-0 m-0 text-[0.65rem] space-y-0"> {abilities.map((ability, index) => ( <li key={index} className={cn("leading-tight", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>{ability}</li> ))} </ul>
