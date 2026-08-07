@@ -28,7 +28,8 @@ export function InventoryWindow({
   selectedItemType,
   onSelectItem,
   onUseItem,
-  usedSlots
+  usedSlots,
+  attunementSlots
 }: InventoryWindowProps) {
   const [position, setPosition] = useState({ x: 20, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
@@ -151,7 +152,7 @@ export function InventoryWindow({
             </div>
           </ScrollArea>
           
-          {selectedItemType && ITEM_METADATA[selectedInventoryItemType || selectedItemType] && (
+          {selectedItemType && ITEM_METADATA[selectedItemType] && (
             <div className="mt-2 p-2 bg-[#111] border border-accent/30 rounded-none animate-in fade-in slide-in-from-bottom-1">
               <div className="flex justify-between items-start mb-1">
                   <p className="text-[0.65rem] font-bold text-accent uppercase leading-none">

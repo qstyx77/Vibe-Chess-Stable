@@ -14,19 +14,19 @@ html {
 
 @media (min-width: 1024px) {
   html {
-    font-size: 150%; /* Scaled up for desktop */
+    font-size: 155%; /* High-scale desktop baseline */
   }
 }
 
 @media (min-width: 1440px) {
   html {
-    font-size: 180%; /* Even larger for higher resolutions */
+    font-size: 185%; /* Proportional scaling for 1440p */
   }
 }
 
 @media (min-width: 1920px) {
   html {
-    font-size: 210%; /* Max scale for 1080p/4K */
+    font-size: 215%; /* Max scale for 1080p/4K to match 300% zoom feel */
   }
 }
 
