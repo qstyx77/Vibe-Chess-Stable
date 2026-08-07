@@ -1,4 +1,3 @@
-
 import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
@@ -11,13 +10,13 @@ import {
   PixelInfiltrator,
   PixelKnight, 
   PixelHero,
+  PixelArcher,
   PixelBishop, 
+  PixelArchbishop, 
   PixelRook, 
+  PixelPalace, 
   PixelQueen, 
   PixelKing, 
-  PixelArchbishop, 
-  PixelPalace, 
-  PixelArcher,
   PixelHydra,
   PixelNecromancer,
   PixelColossus,
@@ -170,7 +169,7 @@ export function ChessPieceDisplay({
 
         {piece.heldItem && (
           <div className={cn(
-            "absolute bottom-0 right-0 z-[5] bg-black/40 rounded-sm p-0.5 origin-bottom-right",
+            "absolute bottom-0 right-0 z-[5] origin-bottom-right",
             isMini ? "scale-50" : "scale-100"
           )}>
              <ItemSprite type={piece.heldItem} size={isMini ? 12 : 20} />
@@ -191,16 +190,7 @@ export function ChessPieceDisplay({
               isMini ? "text-[0.35rem]" : "text-[0.65rem] md:text-[0.75rem]"
             )}
             style={{ 
-              textShadow: `
-                1px 1px 0 #000, 
-                -1px 1px 0 #000, 
-                1px -1px 0 #000, 
-                -1px -1px 0 #000,
-                0 1px 0 #000,
-                0 -1px 0 #000,
-                1px 0 0 #000,
-                -1px 0 0 #000
-              `,
+              textShadow: '1px 1px 0 #000, -1px 1px 0 #000, 1px -1px 0 #000, -1px -1px 0 #000, 0 1px 0 #000, 0 -1px 0 #000, 1px 0 0 #000, -1px 0 0 #000',
               color: isGrimoirBoosted ? '#C084FC' : 'hsl(var(--destructive))',
               marginTop: isMini ? '0.05rem' : '0.15rem'
             }}
