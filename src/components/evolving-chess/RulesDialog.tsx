@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -24,21 +25,21 @@ interface RulesDialogProps {
 
 const RuleSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="mb-4">
-    <h4 className="font-pixel text-[10px] text-primary uppercase mb-2 tracking-tighter">{title}</h4>
+    <h4 className="font-pixel text-[0.65rem] text-primary uppercase mb-2 tracking-tighter">{title}</h4>
     <div className="space-y-2">{children}</div>
   </div>
 );
 
 const RuleText = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-sm font-medium text-foreground/90 leading-relaxed pl-2 border-l-2 border-border/50">
+  <p className="text-[0.8rem] font-medium text-foreground/90 leading-relaxed pl-2 border-l-2 border-border/50">
     {children}
   </p>
 );
 
 const SubRule = ({ title, children }: { title: string, children: React.ReactNode }) => (
   <div className="ml-2 mb-2">
-    <p className="text-xs font-bold text-accent uppercase mb-1">{title}</p>
-    <div className="text-sm text-foreground/80 pl-2">{children}</div>
+    <p className="text-[0.75rem] font-bold text-accent uppercase mb-1">{title}</p>
+    <div className="text-[0.8rem] text-foreground/80 pl-2">{children}</div>
   </div>
 );
 
@@ -60,7 +61,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             
             {/* I. OVERVIEW & MODES */}
             <AccordionItem value="overview">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">I. Overview & Game Modes</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">I. Overview & Game Modes</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="The Game">
                   <RuleText>Vibe Chess is a high-stakes, 8-bit tactical strategy game where every unit levels up through combat, unlocking powerful skills and global effects.</RuleText>
@@ -76,7 +77,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* II. LEVELING & EXPERIENCE */}
             <AccordionItem value="leveling">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">II. Leveling & Experience</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">II. Leveling & Experience</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Experience Values">
                   <RuleText>Units gain levels immediately upon capturing an opponent:</RuleText>
@@ -93,7 +94,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* III. SPECIALIZED UNITS */}
             <AccordionItem value="specialized">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">III. Specialized Units</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">III. Specialized Units</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Combat Specialists">
                   <SubRule title="First Blood">
@@ -114,7 +115,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* IV. PIECE INDEX & SKILL TREE */}
             <AccordionItem value="pieces">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IV. Piece Index & Skill Tree</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IV. Piece Index & Skill Tree</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage)">
                   <RuleText>L2: Can move 1 square backward.</RuleText>
@@ -142,10 +143,10 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* V. ELITE & UNIQUE UNITS */}
             <AccordionItem value="unique">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">V. Elite & Unique Units</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">V. Elite & Unique Units</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Ranked Unlocks">
-                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally. (Cannot target a unit that captured this turn).</RuleText>
+                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally. (Cannot target the piece that captured this turn).</RuleText>
                   <RuleText>• Palace (1800 Elo): Elite Fortress. Resurrects units at their original level. Castling levels up the King.</RuleText>
                   <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
@@ -160,7 +161,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* VI. THE ROYAL GUARD */}
             <AccordionItem value="royalty">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VI. The Royal Guard</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VI. The Royal Guard</AccordionTrigger>
               <AccordionContent>
                 <SubRule title="The Queen (Max Level 7)">
                   <RuleText>Invulnerability: At L7, the Queen cannot be captured by units below Level 8, unless they are Hero, Commander, or Infiltrator classes.</RuleText>
@@ -176,7 +177,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* VII. THE WAR PATH (KILL STREAKS) */}
             <AccordionItem value="killstreaks">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VII. The War Path (Kill Streaks)</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VII. The War Path (Kill Streaks)</AccordionTrigger>
               <AccordionContent>
                 <RuleText>Streaks are earned by capturing units in consecutive turns. Streaks reset if a turn ends without a capture.</RuleText>
                 <RuleSection title="Milestones">
@@ -193,7 +194,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* VIII. BOARD OBJECTS */}
             <AccordionItem value="objects">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">VIII. Board Objects</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VIII. Board Objects</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Entities">
                   <SubRule title="Anvils">
@@ -208,7 +209,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* IX. STATUS EFFECTS */}
             <AccordionItem value="status">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">IX. Status Effects</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IX. Status Effects</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Active Afflictions">
                   <SubRule title="Poisoned">
@@ -226,7 +227,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* X. DUNGEON SURVIVAL */}
             <AccordionItem value="dungeon">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">X. Dungeon Survival</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">X. Dungeon Survival</AccordionTrigger>
               <AccordionContent>
                 <RuleText>• Persistence: Damage, levels, and items carry over between floors.</RuleText>
                 <RuleText>• Shrooms 🍄: Spawn every 5-10 turns. Consume for +1 Level and +1 Mana for Myco Mages.</RuleText>
@@ -237,7 +238,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
 
             {/* XI. THE STACK (ORDER OF OPERATIONS) */}
             <AccordionItem value="stack">
-              <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">XI. The Stack</AccordionTrigger>
+              <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">XI. The Stack</AccordionTrigger>
               <AccordionContent>
                 <RuleText>Game events resolve in the following strict order:</RuleText>
                 <RuleText>1. Movement & Capture (Impact)</RuleText>
@@ -255,7 +256,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
         
         <div className="p-4 bg-muted/20 border-t shrink-0">
           <DialogClose asChild>
-            <Button type="button" variant="secondary" className="w-full text-xs font-pixel uppercase h-10">
+            <Button type="button" variant="secondary" className="w-full text-[0.65rem] font-pixel uppercase h-10">
               Return to Battle
             </Button>
           </DialogClose>
@@ -264,4 +265,3 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
-

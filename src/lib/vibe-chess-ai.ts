@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -277,7 +276,6 @@ export class VibeChessAI {
         if (p.type === 'mimic') {
             const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
             const virtualPiece = { ...p, type: patternType };
-            // Use simplified move generation for the mimic's inner virtual piece to prevent recursion if copying a King
             return this.generatePieceMoves(gs, r, c, virtualPiece, true);
         }
         
@@ -461,7 +459,6 @@ export class VibeChessAI {
                         }
                     });
                 }
-                // FIX: AI Castling logic - CRITICAL: skip recursion if simplified is set
                 if (!simplified && !p.hasMoved && !this.isInCheck(gs, p.color)) {
                     const kingRow = p.color === 'white' ? 7 : 0;
                     if (r === kingRow && c === 4) {
@@ -482,9 +479,10 @@ export class VibeChessAI {
                 break;
             default:
                 const pDirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (p.type === 'bishop' || p.type === 'archbishop' ? this.directions.bishop : this.directions.queen);
-                pDirs.forEach(([dr,dc]) => {
-                    for(let i=1; i<8; i++) {
-                        const nr=r+i*dr, nc=c+i*dc; if(!isValidSquareUtil(nr,nc)) break;
+                pDirs.forEach(([dr, dc]) => {
+                    for (let i = 1; i < 8; i++) {
+                        const nr = r + i * dr, nc = c + i * dc;
+                        if (!isValidSquareUtil(nr, nc)) break;
                         const targetSq = gs.board[nr][nc];
                         if (targetSq.item?.type === 'anvil') break; 
 
@@ -572,7 +570,6 @@ export class VibeChessAI {
                         }
                     } else if (p.type === 'mimic') {
                         const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
-                        // IMPORTANT: Use simplified=true to prevent infinite recursion loop
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType }, true);
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {

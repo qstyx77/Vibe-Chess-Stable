@@ -101,7 +101,7 @@ export function InventoryWindow({
               {inventory.length === 0 ? (
                 <div className="col-span-4 flex flex-col items-center justify-center py-8 opacity-50">
                   <Sparkles className="h-8 w-8 mb-2" />
-                  <p className="text-[0.5rem] font-pixel text-center uppercase">Bag is empty</p>
+                  <p className="text-[0.65rem] font-pixel text-center uppercase">Bag is empty</p>
                 </div>
               ) : (
                 inventory.map((item, idx) => {
@@ -138,7 +138,7 @@ export function InventoryWindow({
                     >
                       <ItemSprite type={item.type} size={40} />
                       {item.count > 1 && (
-                        <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[0.5rem] px-1 font-bold z-10">
+                        <span className="absolute bottom-0 right-0 bg-primary text-primary-foreground text-[0.65rem] px-1 font-bold z-10">
                           x{item.count}
                         </span>
                       )}
@@ -169,22 +169,22 @@ export function InventoryWindow({
                       {ITEM_METADATA[selectedItemType].rarity}
                   </span>
               </div>
-              <p className="text-[0.6rem] text-muted-foreground italic leading-tight">
+              <p className="text-[0.65rem] text-muted-foreground italic leading-tight">
                 {ITEM_METADATA[selectedItemType].description}
               </p>
               {selectedItemType.startsWith('portal_scroll_') ? (
-                <p className="text-[0.55rem] font-pixel text-secondary mt-1 animate-pulse uppercase">
+                <p className="text-[0.6rem] font-pixel text-secondary mt-1 animate-pulse uppercase">
                   Select again to warp
                 </p>
               ) : (
-                <p className="text-[0.55rem] font-pixel text-primary mt-1 animate-pulse uppercase">
+                <p className="text-[0.6rem] font-pixel text-primary mt-1 animate-pulse uppercase">
                   {ITEM_METADATA[selectedItemType].rarity === 'rare' ? 'Only 1 active allowed' : 'Select a piece to equip'}
                 </p>
               )}
             </div>
           )}
           {!selectedItemType && usedSlots > 0 && (
-             <p className="text-[0.55rem] text-muted-foreground mt-2 text-center italic uppercase font-pixel">
+             <p className="text-[0.6rem] text-muted-foreground mt-2 text-center italic uppercase font-pixel">
                 Select an equipped piece to unequip it.
              </p>
           )}

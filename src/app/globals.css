@@ -14,13 +14,13 @@ html {
 
 @media (min-width: 1024px) {
   html {
-    font-size: 155%; /* High-scale desktop baseline */
+    font-size: 160%; /* Aggressive desktop scaling */
   }
 }
 
 @media (min-width: 1440px) {
   html {
-    font-size: 185%; /* Proportional scaling for 1440p */
+    font-size: 190%; /* Proportional scaling for 1440p */
   }
 }
 

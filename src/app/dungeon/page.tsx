@@ -604,8 +604,10 @@ export default function DungeonPage() {
       setCapturedPieces(updatedCapturedPieces);
       if (result.infiltrationWin) { setBoard(newBoard); setGameInfo({ message: "INFILTRATION! DUNGEON OVERRUN", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: 'black' }); gameOverRef.current = true; audioManager.playDefeat(); setIsAiThinking(false); setIsMoveProcessing(false); addLog("INFILTRATION! The dungeon has overrun your position."); return; }
       if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); audioManager.playConversion(); addLog(`Dungeon converted ${e.originalPiece.type} to its side!`); }); }
+      
       const aiLandedPieceOnToSquare = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
       const capturerId = aiLandedPieceOnToSquare?.id || null;
+      
       if (aiLandedPieceOnToSquare && (['rook', 'palace'].includes(aiLandedPieceOnToSquare.type)) && (capturedPiece || result.pieceCapturedByAnvil)) {
           const resResult = processRookResurrectionCheck(newBoard, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, toAlg, originalL, updatedCapturedPieces, uniqueIdCounterRef.current);
           if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection); updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white; updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black; addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Dungeon resurrected a ${resResult.resurrectedPieceData?.type}!`); if (resResult.promotionRequiredForResurrectedPawn) { const {row: pr, col: pc} = algebraicToCoords(resResult.resurrectedSquareAlg!); newBoard[pr][pc].piece!.type = 'queen'; } }
@@ -622,7 +624,7 @@ export default function DungeonPage() {
           if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && (aiMove.to[0] === oppBackRankIdx)) { 
             const promoTo = aiMove.promoteTo || 'queen'; landedPiece!.type = promoTo; landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); addLog(`Dungeon promoted to ${promoTo}!`); if (landedPiece!.level >= 5) isExtra = true;
           }
-          if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row: pr, col: pc } = algebraicToCoords(promo.square); if (newBoard[pr][pc].piece) { newBoard[pr][pc].piece!.type = 'queen'; newBoard[pr][pc].piece!.level = promo.targetLevel; if (newBoard[pr][pc].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
+          if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row: pr, col: pc } = algebraicToCoords(promo.square); if (nextB[pr][pc].piece) { nextB[pr][pc].piece!.type = 'queen'; nextB[pr][pc].piece!.level = promo.targetLevel; if (nextB[pr][pc].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
           processPawnSacrificeCheck(newBoard, updatedCapturedPieces, currentKs, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, originalL, originalT, isExtra, nextEp, oldStreakLocal, newStreakLocal, capturerId);
       }, 800);
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
@@ -752,7 +754,7 @@ export default function DungeonPage() {
       return;
     }
     if (isSelectingTeleportAlly) {
-        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece?.id) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) {
             setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog(`Teleporting ${piece.type}! Select a destination shroom.`);
         }
         return;
@@ -979,8 +981,12 @@ export default function DungeonPage() {
           if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1)); }
           if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); audioManager.playConversion(); }
           if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); addLog("HERO ASCENDED! Your Commander has reached the back rank."); }
-          let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null; const landedPiece = newBoard[row][col].piece; const oppBackRankIdx = movingPiece.color === 'white' ? 0 : 7;
-          if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && capturedPiece) {
+          let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null; 
+          
+          const landedPieceAtTo = newBoard[row][col].piece; 
+          const oppBackRankIdx = movingPiece.color === 'white' ? 0 : 7;
+          
+          if (landedPieceAtTo && (landedPieceAtTo.type === 'rook' || landedPieceAtTo.type === 'palace') && capturedPiece) {
               const resResult = processRookResurrectionCheck(newBoard, 'white', {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalL, updatedGraveyard, uniqueIdCounterRef.current);
               if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Resurrected a ${resResult.resurrectedPieceData?.type}!`); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
           }
@@ -996,7 +1002,7 @@ export default function DungeonPage() {
               setCapturedPieces({ ...updatedGraveyard }); 
           }
           setBoard(newBoard);
-          const capturerId = (streakGain > 0) ? landedPiece?.id : null;
+          const capturerId = (streakGain > 0) ? landedPieceAtTo?.id || null : null;
           setTimeout(() => {
             setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return;
             const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); const queue: {square: AlgebraicSquare, targetLevel: number}[] = result.multiPromotions || [];
@@ -1005,7 +1011,7 @@ export default function DungeonPage() {
             if (queue.length > 0) { setPromotionQueue(queue); setPromotionTargetLevel(queue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(queue[0].square); setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, actingPlayer: 'white', completedMilestones: [], currentGraveyard: updatedGraveyard, currentKs, capturingPieceId }); addLog("Pawn Promotion ready!"); } 
             else {
                 let sacrificeNeeded = false;
-                if (landedPiece?.type === 'queen') sacrificeNeeded = processPawnSacrificeCheck(newBoard, updatedGraveyard, currentKs, 'white', { from: selectedSquare, to: algebraic, type: moveType }, originalL, originalT, isExtra, nextEp, oldStreak, newStreak, capturerId);
+                if (landedPieceAtTo?.type === 'queen') sacrificeNeeded = processPawnSacrificeCheck(newBoard, updatedGraveyard, currentKs, 'white', { from: selectedSquare, to: algebraic, type: moveType }, originalL, originalT, isExtra, nextEp, oldStreak, newStreak, capturerId);
                 if (sacrificeNeeded) return;
                 triggerSpecialsChain(newBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, 'white', [], capturerId);
             }
@@ -1035,19 +1041,19 @@ export default function DungeonPage() {
   const mobileLayout = (
     <div className="relative z-10 flex flex-col flex-grow w-full max-w-lg mx-auto p-2">
       <div className="flex justify-between items-center mb-2">
-          <Link href="/"><Button variant="ghost" size="sm" className="h-8 px-2 text-[10px] uppercase font-pixel"><ArrowLeft className="mr-1 h-3 w-3" /> Lobby</Button></Link>
-          <div className="flex items-center gap-2"> <Skull className="h-4 w-4 text-destructive" /> <span className="font-pixel text-[12px] uppercase">Floor {level}</span> </div>
-          <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-8 px-2 text-[10px] uppercase font-pixel"><RefreshCw className="mr-1 h-3 w-3" /> Reset</Button>
+          <Link href="/"><Button variant="ghost" size="sm" className="h-8 px-2 text-[0.6rem] uppercase font-pixel"><ArrowLeft className="mr-1 h-3 w-3" /> Lobby</Button></Link>
+          <div className="flex items-center gap-2"> <Skull className="h-4 w-4 text-destructive" /> <span className="font-pixel text-[0.7rem] uppercase">Floor {level}</span> </div>
+          <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-8 px-2 text-[0.6rem] uppercase font-pixel"><RefreshCw className="mr-1 h-3 w-3" /> Reset</Button>
       </div>
-      <div className="text-center text-[10px] font-pixel text-primary mb-2 min-h-[1.5em] uppercase">
+      <div className="text-center text-[0.6rem] font-pixel text-primary mb-2 min-h-[1.5em] uppercase">
          {statusMessage}
       </div>
       <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={currentPlayer === 'white' ? 'white' : null} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} enemySelectedSquare={null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" />
       <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} getPlayerDisplayName={(p) => p.charAt(0).toUpperCase() + p.slice(1)} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} />
       <div className="grid grid-cols-2 gap-1 mt-2">
-          <Button variant="outline" size="sm" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="h-8 text-[9px] uppercase font-pixel"><Package className="mr-1 h-3 w-3" /> Loot Bag</Button>
+          <Button variant="outline" size="sm" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="h-8 text-[0.6rem] uppercase font-pixel"><Package className="mr-1 h-3 w-3" /> Loot Bag</Button>
           <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
-          <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-8 text-[9px] uppercase font-pixel"><BookOpen className="mr-1 h-3 w-3" /> Rules</Button>
+          <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-8 text-[0.6rem] uppercase font-pixel"><BookOpen className="mr-1 h-3 w-3" /> Rules</Button>
       </div>
     </div>
   );
@@ -1055,22 +1061,22 @@ export default function DungeonPage() {
   const desktopLayout = (
     <div className="relative z-10 flex flex-row items-start justify-center gap-6 w-full h-full p-6">
       <div className="w-1/4 flex flex-col gap-4">
-        <Link href="/"><Button variant="outline" className="w-full h-9 text-[10px] uppercase font-pixel"><ArrowLeft className="mr-2 h-4 w-4" /> LOBBY</Button></Link>
+        <Link href="/"><Button variant="outline" className="w-full h-9 text-[0.6rem] uppercase font-pixel"><ArrowLeft className="mr-2 h-4 w-4" /> LOBBY</Button></Link>
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} getPlayerDisplayName={(p) => p.charAt(0).toUpperCase() + p.slice(1)} onlineStatus="disconnected" turnTimer={null} activeTimerPlayer={null} />
       </div>
       <div className="w-1/2 flex flex-col items-center gap-4">
         <div className="flex items-center gap-4"> <Skull className="h-8 w-8 text-destructive animate-pulse" /> <h1 className="text-3xl font-pixel text-primary uppercase tracking-tighter shadow-sm">Dungeon Floor {level}</h1> <Skull className="h-8 w-8 text-destructive animate-pulse" /> </div>
-        <div className="text-center font-pixel text-sm text-foreground/80 min-h-[1.5em] uppercase"> {statusMessage} </div>
+        <div className="text-center font-pixel text-[0.8rem] text-foreground/80 min-h-[1.5em] uppercase"> {statusMessage} </div>
         <div className="w-full">
            <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={currentPlayer === 'white' ? 'white' : null} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={currentPlayer === 'white' ? 'white' : null} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} enemySelectedSquare={null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" />
         </div>
       </div>
       <div className="w-1/4 flex flex-col gap-4">
-        <Button variant="outline" size="lg" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group"><Package className="mr-3 h-6 w-6 text-primary group-hover:scale-110 transition-transform" /> <span className="font-pixel text-xs uppercase text-primary">LOOT BAG</span></Button>
+        <Button variant="outline" size="lg" onClick={() => setIsInventoryOpen(true)} disabled={hasMovedOnCurrentFloor} className="w-full h-14 border-2 border-primary/40 bg-card hover:bg-primary/10 group"><Package className="mr-3 h-6 w-6 text-primary group-hover:scale-110 transition-transform" /> <span className="font-pixel text-[0.8rem] uppercase text-primary">LOOT BAG</span></Button>
         <div className="mt-auto space-y-2">
-            <Button variant="outline" onClick={() => setIsResetConfirmOpen(true)} className="w-full h-9 text-[10px] uppercase font-pixel border-destructive/30 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-2 h-4 w-4" /> Restart Run</Button>
+            <Button variant="outline" onClick={() => setIsResetConfirmOpen(true)} className="w-full h-9 text-[0.6rem] uppercase font-pixel border-destructive/30 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-2 h-4 w-4" /> Restart Run</Button>
             <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
-            <Button variant="outline" onClick={async () => { setIsRulesDialogOpen(true); }} className="w-full h-9 text-[10px] uppercase font-pixel"><BookOpen className="mr-2 h-4 w-4" /> RULEBOOK</Button>
+            <Button variant="outline" onClick={async () => { setIsRulesDialogOpen(true); }} className="w-full h-9 text-[0.6rem] uppercase font-pixel"><BookOpen className="mr-2 h-4 w-4" /> RULEBOOK</Button>
         </div>
       </div>
     </div>
@@ -1085,11 +1091,10 @@ export default function DungeonPage() {
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
         <AlertDialogContent className="font-pixel border-2 border-destructive/50">
-          <AlertDialogHeader> <AlertDialogTitle className="uppercase text-destructive">Abandon Current Run?</AlertDialogTitle> <AlertDialogDescription className="text-[10px] uppercase text-muted-foreground">This will wipe your progress and equipment, sending you back to Floor 1.</AlertDialogDescription> </AlertDialogHeader>
-          <AlertDialogFooter> <AlertDialogCancel className="text-[10px] uppercase h-9">Cancel</AlertDialogCancel> <AlertDialogAction onClick={handleResetRun} className="bg-destructive text-[10px] uppercase h-9">Abandon Run</AlertDialogAction> </AlertDialogFooter>
+          <AlertDialogHeader> <AlertDialogTitle className="uppercase text-destructive">Abandon Current Run?</AlertDialogTitle> <AlertDialogDescription className="text-[0.6rem] uppercase text-muted-foreground">This will wipe your progress and equipment, sending you back to Floor 1.</AlertDialogDescription> </AlertDialogHeader>
+          <AlertDialogFooter> <AlertDialogCancel className="text-[0.6rem] uppercase h-9">Cancel</AlertDialogCancel> <AlertDialogAction onClick={handleResetRun} className="bg-destructive text-[0.6rem] uppercase h-9">Abandon Run</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
 }
-

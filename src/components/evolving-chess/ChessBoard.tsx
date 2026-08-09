@@ -83,7 +83,7 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
     case 'light-beam': return ( <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 50 }}> <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/4 h-[400%] bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" /> </div> );
     case 'level-change':
       const val = effect.value || 0;
-      return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]" style={{ top, left }} > <span className="text-destructive font-bold text-xl md:text-2xl animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}> {val >= 0 ? `+${val}` : val} </span> </div> );
+      return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]" style={{ top, left }} > <span className="text-destructive font-bold text-[1.25rem] md:text-[1.5rem] animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}> {val >= 0 ? `+${val}` : val} </span> </div> );
     case 'conversion': return ( <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 55 }}> <div className="absolute inset-0 bg-primary/30 animate-pulse" /> </div> );
     default: return null;
   }
@@ -145,7 +145,7 @@ export function ChessBoard({
   const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
 
   return (
-    <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh] lg:max-w-[75vh]" )} onMouseLeave={() => onPieceHover(null)} >
+    <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh]" )} onMouseLeave={() => onPieceHover(null)} >
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
           const actualRowIndex = visuallyFlipBoardForLogic ? 7 - displayedRowIndex : displayedRowIndex;
@@ -161,18 +161,20 @@ export function ChessBoard({
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
           const isSacrificeTarget = isLocalActionTurn && isAwaitingPawnSacrifice && currentSquareData.piece && ['pawn', 'dancer', 'commander', 'mimic', 'grappler', 'myco_mage'].includes(currentSquareData.piece.type) && currentSquareData.piece.color === playerToSacrificePawn;
           const isCommanderPromoTarget = isLocalActionTurn && isAwaitingCommanderPromotion && currentSquareData.piece?.type === 'pawn' && currentSquareData.piece?.level === 1 && currentSquareData.piece?.color === playerToPromoteCommander;
+          
           let isShieldTarget = false;
           if (isLocalActionTurn && isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor) {
               const capturingPieceId = lastMoveTo ? boardState[algebraicToCoords(lastMoveTo).row][algebraicToCoords(lastMoveTo).col].piece?.id : null;
               if (currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== capturingPieceId && !currentSquareData.piece.isShielded) isShieldTarget = true;
           }
+
           const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level <= maxArcherLevel && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
           const isAnvilDropTarget = isLocalActionTurn && (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget) && !currentSquareData.piece && !currentSquareData.item;
           const isShieldScrollTargetSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && !currentSquareData.piece.isShielded;
           const isSwapTargetSelection = isLocalActionTurn && isAwaitingSwapScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.algebraic !== selectedSquare;
           const isDecreeTarget = isLocalActionTurn && isAwaitingDecreeTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type === 'pawn' && currentSquareData.piece.level === 1;
           
-          const isTeleportAllyTarget = isLocalActionTurn && isSelectingTeleportAlly && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== boardState[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece?.id;
+          const isTeleportAllyTarget = isLocalActionTurn && isSelectingTeleportAlly && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null);
           const isTeleportShroomTarget = isLocalActionTurn && isSelectingTeleportShroom && currentSquareData.item?.type === 'shroom';
           const isSporeBombTarget = isLocalActionTurn && isSelectingSporeBombShroom && currentSquareData.item?.type === 'shroom';
 
@@ -237,7 +239,7 @@ export function ChessBoard({
               isPromoting={promotingSquare === currentSquareData.algebraic}
               isConverting={isConvertingSquare}
               isShieldTarget={isShieldTarget || isShieldScrollTargetSelection}
-              is攻擊Target={isSnipeTarget}
+              isSnipeTarget={isSnipeTarget}
               isAnvilDropTarget={isAnvilDropTarget}
               isInvTarget={isInvTarget}
               isSwapTarget={isSwapTargetSelection}

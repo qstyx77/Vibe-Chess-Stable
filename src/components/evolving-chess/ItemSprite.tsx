@@ -13,7 +13,6 @@ interface ItemSpriteProps {
 export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
   if (!type) return null;
 
-  // Convert pixel size to rem based on 16px root
   const remSize = `${size / 16}rem`;
 
   const renderIcon = () => {
@@ -66,7 +65,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="1" width="4" height="4" fill="#EF4444" />
             <rect x="2" y="2" width="6" height="3" fill="#EF4444" />
             <rect x="1" y="5" width="8" height="6" fill="#EF4444" />
-            <rect x="0" y="6" width="10" height="5" fill="#EF4444" />
+            <rect x="0" y="10" width="10" height="5" fill="#EF4444" />
             <rect x="4" y="5" width="2" height="1" fill="#FDE047" />
             <rect x="4" y="2" width="2" height="2" fill="#7F1D1D" />
           </svg>
