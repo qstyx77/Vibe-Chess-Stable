@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -146,7 +145,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionTrigger className="text-sm font-bold uppercase hover:text-accent">V. Elite & Unique Units</AccordionTrigger>
               <AccordionContent>
                 <RuleSection title="Ranked Unlocks">
-                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally.</RuleText>
+                  <RuleText>• Archbishop (1500 Elo): Elite Clergy. Achieving KS 2 grants a Holy Shield to an ally. (Cannot target a unit that captured this turn).</RuleText>
                   <RuleText>• Palace (1800 Elo): Elite Fortress. Resurrects units at their original level. Castling levels up the King.</RuleText>
                   <RuleText>• Archer (2100 Elo): Elite Cavalry. KS 5 triggers Snipe: Instantly destroy any non-royal unit Level ≤ Archer.</RuleText>
                 </RuleSection>
@@ -182,7 +181,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 <RuleText>Streaks are earned by capturing units in consecutive turns. Streaks reset if a turn ends without a capture.</RuleText>
                 <RuleSection title="Milestones">
                   <RuleText>KS 1: Dance (Dancers only - Allows a free move forward or swap with an allied or enemy piece).</RuleText>
-                  <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move).</RuleText>
+                  <RuleText>KS 2: Holy Shield (Archbishop - target ally becomes invulnerable until they move. Cannot target the piece that captured this turn).</RuleText>
                   <RuleText>KS 3: Anvil Drop (Drop an impassable obstacle on any empty square).</RuleText>
                   <RuleText>KS 4: Resurrection (Resurrects a random captured ally to a random open space on the board at L1).</RuleText>
                   <RuleText>KS 5: Archer Snipe (Global targeting for Archers).</RuleText>
@@ -265,3 +264,4 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
     </Dialog>
   );
 }
+
