@@ -624,7 +624,7 @@ export default function DungeonPage() {
           if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && (aiMove.to[0] === oppBackRankIdx)) { 
             const promoTo = aiMove.promoteTo || 'queen'; landedPiece!.type = promoTo; landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); addLog(`Dungeon promoted to ${promoTo}!`); if (landedPiece!.level >= 5) isExtra = true;
           }
-          if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row: pr, col: pc } = algebraicToCoords(promo.square); if (nextB[pr][pc].piece) { nextB[pr][pc].piece!.type = 'queen'; nextB[pr][pc].piece!.level = promo.targetLevel; if (nextB[pr][pc].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
+          if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row: pr, col: pc } = algebraicToCoords(promo.square); if (newBoard[pr][pc].piece) { newBoard[pr][pc].piece!.type = 'queen'; newBoard[pr][pc].piece!.level = promo.targetLevel; if (newBoard[pr][pc].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
           processPawnSacrificeCheck(newBoard, updatedCapturedPieces, currentKs, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, originalL, originalT, isExtra, nextEp, oldStreakLocal, newStreakLocal, capturerId);
       }, 800);
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
@@ -656,7 +656,7 @@ export default function DungeonPage() {
       addLog("New Dungeon Run Started!");
     }
     if (userData.inventory) setInventory(userData.inventory); aiInstance.current = new VibeChessAI(4); audioManager.playStart();
-  }, [userData, isUserLoading, user, saveDungeonState, board, capturedPieces.white, addLog]);
+  }, [userData, isUserLoading, user, saveDungeonState, board, addLog]);
 
   useEffect(() => { if (!isInitialized.current && !isUserLoading && userData && user) { isInitialized.current = true; startRun(); } }, [startRun, isUserLoading, userData, user]);
 
@@ -801,14 +801,31 @@ export default function DungeonPage() {
     if (isAwaitingDanceTarget) {
         if (!dancerToDance) { if (piece && piece.color === 'white' && piece.type === 'dancer') { setDancerToDance(algebraic); } return; }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); setSelectedSquare(null); setPossibleMoves([]); triggerSpecialsChain(board, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, 'white', specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId); return; }
-        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(fr - row) <= 1 && Math.abs(fc - col) <= 1 && (fr !== row || fc !== col); const isOneForward = row === fr - 1 && col === fc; 
-        if (isOneForward || isAdjacent) {
+        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
+        const isCardinal = Math.abs(fr - row) + Math.abs(fc - col) === 1;
+        if (isCardinal) {
             let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const dancerPiece = nextBoard[fr][fc].piece!; const nextG = { ...specialActionContext!.currentGraveyard };
-            if (isOneForward && !nextBoard[row][col].piece && !nextBoard[row][col].item) { nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = null; addLog("Dancer Skill: Quick Step!"); } 
-            else if (isAdjacent && nextBoard[row][col].piece) { const targetP = nextBoard[row][col].piece; nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = targetP; addLog(`Dancer Skill: Swapped with ${targetP!.type}!`); } 
-            else if (isOneForward && nextBoard[row][col].piece && nextBoard[row][col].piece!.color === 'black') { const captured = nextBoard[row][col].piece!; nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; nextBoard[fr][fc].piece = null; const targetPile = captured.color; nextG[targetPile].push({ ...captured, id: captured.id }); addLog(`Dancer Skill: Captured ${captured.type}!`); addEffect('poof', algebraic); } 
-            else { return; }
+            const targetP = nextBoard[row][col].piece;
+            if (!targetP && !nextBoard[row][col].item) { 
+                nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; 
+                nextBoard[fr][fc].piece = null; 
+                addLog("Dancer Skill: Quick Step!"); 
+            } else if (targetP) {
+                if (targetP.color === 'black' && targetP.type !== 'king' && !targetP.isShielded) {
+                  // Cardinal Capture
+                  const victim = { ...targetP };
+                  nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true };
+                  nextBoard[fr][fc].piece = null;
+                  const targetPile = victim.color; nextG[targetPile].push({ ...victim, id: victim.id });
+                  addLog(`Dancer Skill: Captured ${victim.type}!`); addEffect('poof', algebraic);
+                } else {
+                  // Cardinal Swap
+                  nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true }; 
+                  nextBoard[fr][fc].piece = { ...targetP, hasMoved: true }; 
+                  addLog(`Dancer Skill: Swapped with ${targetP!.type}!`); 
+                }
+            } else { return; }
             setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, 'white', specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId);
         }
         return;

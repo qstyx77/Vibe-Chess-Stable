@@ -265,7 +265,7 @@ export class VibeChessAI {
                 }
             }
         }
-        return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color));
+        return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color, true));
     }
 
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece, simplified: boolean = false): AIMove[] {
@@ -459,7 +459,7 @@ export class VibeChessAI {
                         }
                     });
                 }
-                if (!simplified && !p.hasMoved && !this.isInCheck(gs, p.color)) {
+                if (!simplified && !p.hasMoved && !this.isInCheck(gs, p.color, true)) {
                     const kingRow = p.color === 'white' ? 7 : 0;
                     if (r === kingRow && c === 4) {
                         const rkSq = gs.board[kingRow][7];
@@ -512,7 +512,7 @@ export class VibeChessAI {
         return moves;
     }
 
-    isInCheck(gs: AIGameState, color: PlayerColor): boolean {
+    isInCheck(gs: AIGameState, color: PlayerColor, simplified: boolean = false): boolean {
         if (color === 'black') {
             const parts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
             if (parts.length > 0) {
@@ -521,13 +521,13 @@ export class VibeChessAI {
                 return parts.some(pt => {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
                     if (coords.row === -1) return false;
-                    return this.isSquareAttacked(gs, coords.row, coords.col, 'white');
+                    return this.isSquareAttacked(gs, coords.row, coords.col, 'white', simplified);
                 });
             }
         }
         const king = this.findKingCoords(gs, color);
         if (!king) return false;
-        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white');
+        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white', simplified);
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
@@ -540,7 +540,7 @@ export class VibeChessAI {
         return { row: -1, col: -1 };
     }
 
-    isSquareAttacked(gs: AIGameState, tr: number, tc: number, attackerColor: PlayerColor): boolean {
+    isSquareAttacked(gs: AIGameState, tr: number, tc: number, attackerColor: PlayerColor, simplified: boolean = false): boolean {
         if (tr === -1) return false;
         const pieceOnTarget = gs.board[tr][tc].piece;
         const targetLevel = getEffectiveLevel(gs.board as any, tr, tc);

@@ -64,7 +64,7 @@ const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardSt
     <div className="absolute pointer-events-none z-[40]" style={{ top, left, width: '25%', height: '25%', color: '#64748B' }} >
        <PixelColossus className="w-full h-full drop-shadow-xl" />
        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <span className="font-pixel z-[60] text-[1.5rem] md:text-[1.95rem]" style={{ textShadow: '3px 3px 0 #000', color: 'hsl(var(--destructive))', marginTop: '8%' }} > {colossusAnchor.piece.level} </span>
+          <span className="font-pixel z-[60] text-[1.5rem] md:text-[1.95rem]" style={{ textShadow: '1px 1px 0 #000', color: 'hsl(var(--destructive))', marginTop: '8%' }} > {colossusAnchor.piece.level} </span>
        </div>
     </div>
   );
@@ -159,7 +159,7 @@ export function ChessBoard({
           const isThisKingInCheck = currentSquareData.piece?.type === 'king' && currentSquareData.piece?.color === playerInCheck;
           const isThisLastMoveFrom = currentSquareData.algebraic === lastMoveFrom;
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
-          const isSacrificeTarget = isLocalActionTurn && isAwaitingPawnSacrifice && currentSquareData.piece && ['pawn', 'dancer', 'commander', 'mimic', 'grappler', 'myco_mage'].includes(currentSquareData.piece.type) && currentSquareData.piece.color === playerToSacrificePawn;
+          const isSacrificeTarget = isLocalActionTurn && isAwaitingPawnSacrifice && currentSquareData.piece && FRONTLINE_TYPES.includes(currentSquareData.piece.type) && currentSquareData.piece.color === playerToSacrificePawn;
           const isCommanderPromoTarget = isLocalActionTurn && isAwaitingCommanderPromotion && currentSquareData.piece?.type === 'pawn' && currentSquareData.piece?.level === 1 && currentSquareData.piece?.color === playerToPromoteCommander;
           
           let isShieldTarget = false;
@@ -184,11 +184,8 @@ export function ChessBoard({
                 if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
             } else {
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
-                const isDancerSelf = actualRowIndex === fr && actualColIndex === fc;
-                const dir = currentPlayerColor === 'white' ? -1 : 1;
-                const isOneForward = actualRowIndex === fr + dir && actualColIndex === fc;
-                const isAdjacentWithPiece = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && currentSquareData.piece !== null && !isDancerSelf;
-                if (isDancerSelf || isOneForward || isAdjacentWithPiece) isDanceTarget = true;
+                // Cardinal check for highlight or the dancer itself
+                if (currentSquareData.algebraic === dancerToDance || Math.abs(actualRowIndex - fr) + Math.abs(actualColIndex - fc) === 1) isDanceTarget = true;
             }
           }
           
