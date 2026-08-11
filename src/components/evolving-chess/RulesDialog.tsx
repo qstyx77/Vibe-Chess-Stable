@@ -59,7 +59,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
         <ScrollArea className="flex-1 overflow-y-auto px-6">
           <Accordion type="single" collapsible className="w-full pb-6">
             
-            {/* I. OVERVIEW & MODES */}
             <AccordionItem value="overview">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">I. Overview & Game Modes</AccordionTrigger>
               <AccordionContent>
@@ -75,7 +74,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* II. LEVELING & EXPERIENCE */}
             <AccordionItem value="leveling">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">II. Leveling & Experience</AccordionTrigger>
               <AccordionContent>
@@ -92,7 +90,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* III. SPECIALIZED UNITS */}
             <AccordionItem value="specialized">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">III. Specialized Units</AccordionTrigger>
               <AccordionContent>
@@ -113,7 +110,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* IV. PIECE INDEX & SKILL TREE */}
             <AccordionItem value="pieces">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IV. Piece Index & Skill Tree</AccordionTrigger>
               <AccordionContent>
@@ -141,7 +137,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* V. ELITE & UNIQUE UNITS */}
             <AccordionItem value="unique">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">V. Elite & Unique Units</AccordionTrigger>
               <AccordionContent>
@@ -159,7 +154,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* VI. THE ROYAL GUARD */}
             <AccordionItem value="royalty">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VI. The Royal Guard</AccordionTrigger>
               <AccordionContent>
@@ -175,7 +169,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* VII. THE WAR PATH (KILL STREAKS) */}
             <AccordionItem value="killstreaks">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VII. The War Path (Kill Streaks)</AccordionTrigger>
               <AccordionContent>
@@ -192,7 +185,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* VIII. BOARD OBJECTS */}
             <AccordionItem value="objects">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">VIII. Board Objects</AccordionTrigger>
               <AccordionContent>
@@ -207,7 +199,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* IX. STATUS EFFECTS */}
             <AccordionItem value="status">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IX. Status Effects</AccordionTrigger>
               <AccordionContent>
@@ -225,7 +216,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* X. DUNGEON SURVIVAL */}
             <AccordionItem value="dungeon">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">X. Dungeon Survival</AccordionTrigger>
               <AccordionContent>
@@ -236,7 +226,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               </AccordionContent>
             </AccordionItem>
 
-            {/* XI. THE STACK (ORDER OF OPERATIONS) */}
             <AccordionItem value="stack">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">XI. The Stack</AccordionTrigger>
               <AccordionContent>

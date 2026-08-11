@@ -1,9 +1,11 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useUser, useFirestore, updateDocumentNonBlocking, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, deleteDoc, getDoc, query, onSnapshot } from 'firebase/firestore';
-import type { ChatMessage, MessageCategory, Friend, PlayerColor } from '@/types';
+import { collection, doc, setDoc, deleteDoc, getDoc, query, onSnapshot, runTransaction } from 'firebase/firestore';
+import type { ChatMessage, MessageCategory, Friend, PlayerColor, InventoryItemType } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 interface SocialContextType {
   messages: ChatMessage[];
@@ -13,22 +15,24 @@ interface SocialContextType {
   sendChallenge: (friendId: string) => void;
   acceptChallenge: (roomId: string) => void;
   addFriend: (userId: string, username: string) => void;
-  removeFriend: (userId: string) => void;
+  removeFriend: (userId: string, username: string) => void;
   blockUser: (userId: string) => void;
   onlineStatus: 'disconnected' | 'connecting' | 'connected';
   ws: WebSocket | null;
   onlineUserIds: Set<string>;
   onlineUsers: { userId: string, username: string }[];
-  // Messenger UI state
   isMessengerOpen: boolean;
   setIsMessengerOpen: (open: boolean) => void;
-  hasUnread: { battle: boolean; social: boolean; log: boolean };
+  hasUnread: { battle: boolean; social: boolean; log: boolean; market: boolean };
   clearUnread: (category: MessageCategory) => void;
   visibleCategories: Set<MessageCategory>;
   setVisibleCategories: (cats: Set<MessageCategory>) => void;
   chatInput: string;
   setChatInput: (val: string) => void;
   startDm: (username: string) => void;
+  buyItemFromMarket: (sellerId: string, slot: number) => Promise<void>;
+  joinTournamentQueue: () => void;
+  tournamentQueueCount: number;
 }
 
 const SocialContext = createContext<SocialContextType | undefined>(undefined);
@@ -36,20 +40,20 @@ const SocialContext = createContext<SocialContextType | undefined>(undefined);
 export function SocialProvider({ children }: { children: React.ReactNode }) {
   const { user, userData } = useUser();
   const firestore = useFirestore();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [ws, setWs] = useState<WebSocket | null>(null);
   const [onlineStatus, setOnlineStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [onlineUsers, setOnlineUsers] = useState<{ userId: string, username: string }[]>([]);
+  const [tournamentQueueCount, setTournamentQueueCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // UI State
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
-  const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log']));
-  const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false });
+  const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log', 'market']));
+  const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false, market: false });
   const [chatInput, setChatInput] = useState('');
 
-  // Presence tracking
   useEffect(() => {
     if (!user || !firestore) return;
     const updatePresence = () => {
@@ -61,7 +65,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(interval);
   }, [user, firestore]);
 
-  // Friends collection
   const friendsQuery = useMemoFirebase(() => {
     if (!user || !firestore) return null;
     return collection(firestore, 'users', user.uid, 'friends');
@@ -83,7 +86,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isMessengerOpen, visibleCategories]);
 
-  // Connection Management
   useEffect(() => {
     if (!user) {
         if (wsRef.current) wsRef.current.close();
@@ -114,7 +116,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             const data = JSON.parse(event.data);
             if (data.type === 'chat-message') {
                 setMessages(prev => {
-                    // Prevent local duplicate rendering if WebSocket sends back our own message with same ID
                     if (prev.some(m => m.id === data.message.id)) return prev;
                     return [...prev, data.message];
                 });
@@ -125,6 +126,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             } else if (data.type === 'presence-update') {
                 setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
                 setOnlineUsers(data.users);
+            } else if (data.type === 'tournament-queue-update') {
+                setTournamentQueueCount(data.count);
+            } else if (data.type === 'tournament-match-ready') {
+                toast({ title: 'Arena Ready!', description: 'Your tournament match is starting!', duration: 10000 });
+                window.location.href = `/?roomId=${data.roomId}`;
             }
         };
         socket.onclose = () => {
@@ -139,7 +145,7 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
     initWs();
     return () => { if (wsRef.current) wsRef.current.close(); };
-  }, [user, userData, isMessengerOpen, visibleCategories]);
+  }, [user, userData, isMessengerOpen, visibleCategories, toast]);
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -148,47 +154,25 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const sendMessage = useCallback((text: string, category: MessageCategory, targetId?: string) => {
     if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) return;
 
-    // Command Parser
     if (text.startsWith('/')) {
         const parts = text.split(' ');
         const cmd = parts[0].toLowerCase();
-        
         if (cmd === '/help') {
             addLog("COMMAND LIST:");
             addLog("/help - Show this list");
-            addLog("@name <text> - Private whisper to a hero (works with spaces)");
+            addLog("@name <text> - Private whisper to a hero");
             addLog("/friends <text> - Message all online friends");
             addLog("/clear - Wipe session history");
             return;
         }
-
         if (cmd === '/clear') {
             setMessages([]);
             addLog("Session history cleared.");
             return;
         }
-
-        if (cmd === '/friends') {
-            const msgBody = parts.slice(1).join(' ');
-            if (!msgBody) {
-                addLog("Usage: /friends <message>");
-                return;
-            }
-            wsRef.current.send(JSON.stringify({
-                type: 'chat-message',
-                category: 'social',
-                text: msgBody,
-                sender: userData?.username || user?.displayName || 'Player',
-                senderId: user?.uid,
-                broadcast: 'friends'
-            }));
-            return;
-        }
     }
 
-    // Greedy Whisper Parser (@name format for spaces)
     if (text.startsWith('@')) {
-        // Find longest matching online username that starts after @
         const sortedOnlineUsers = [...onlineUsers].sort((a, b) => b.username.length - a.username.length);
         let foundUser = null;
         for (const u of sortedOnlineUsers) {
@@ -198,60 +182,70 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                 break;
             }
         }
-
         if (foundUser) {
-            const prefixLen = foundUser.username.length + 2; // @ + name + space
+            const prefixLen = foundUser.username.length + 2;
             const msgBody = text.substring(prefixLen).trim();
             if (msgBody) {
-                wsRef.current.send(JSON.stringify({
-                    type: 'chat-message',
-                    category: 'social',
-                    text: msgBody,
-                    targetName: foundUser.username,
-                    sender: userData?.username || user?.displayName || 'Player',
-                    senderId: user?.uid
-                }));
-                return;
-            } else {
-                addLog(`Usage: @${foundUser.username} <message>`);
+                wsRef.current.send(JSON.stringify({ type: 'chat-message', category: 'social', text: msgBody, targetName: foundUser.username, sender: userData?.username || user?.displayName || 'Player', senderId: user?.uid }));
                 return;
             }
         }
     }
 
-    const payload = {
-        type: 'chat-message',
-        category,
-        text,
-        targetId,
-        sender: userData?.username || user?.displayName || 'Player',
-        senderId: user?.uid
-    };
-    wsRef.current.send(JSON.stringify(payload));
+    wsRef.current.send(JSON.stringify({ type: 'chat-message', category, text, targetId, sender: userData?.username || user?.displayName || 'Player', senderId: user?.uid }));
   }, [user, userData, addLog, onlineUsers]);
 
-  const startDm = useCallback((username: string) => {
-      setIsMessengerOpen(true);
-      const nextVisible = new Set(visibleCategories);
-      nextVisible.add('social');
-      setVisibleCategories(nextVisible);
-      setChatInput(`@${username} `);
-  }, [visibleCategories]);
+  const buyItemFromMarket = useCallback(async (sellerId: string, slot: number) => {
+    if (!user || !firestore) return;
+    const buyerRef = doc(firestore, 'users', user.uid);
+    const sellerRef = doc(firestore, 'users', sellerId);
+    
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const buyerSnap = await transaction.get(buyerRef);
+            const sellerSnap = await transaction.get(sellerRef);
+            if (!buyerSnap.exists() || !sellerSnap.exists()) throw new Error("User data error.");
+
+            const buyerData = buyerSnap.data();
+            const sellerData = sellerSnap.data();
+            const listing = sellerData.marketSlots.find((s: any) => s.slot === slot);
+            
+            if (!listing) throw new Error("Listing gone.");
+            if (buyerData.goldBalance < listing.price) throw new Error("Insufficient Gold.");
+
+            const newBuyerGold = buyerData.goldBalance - listing.price;
+            const newSellerGold = (sellerData.goldBalance || 0) + listing.price;
+
+            const newBuyerInventory = [...(buyerData.inventory || [])];
+            const itemIdx = newBuyerInventory.findIndex(i => i.type === listing.itemId);
+            if (itemIdx > -1) newBuyerInventory[itemIdx].count++;
+            else newBuyerInventory.push({ type: listing.itemId, count: 1 });
+
+            const newSellerMarket = sellerData.marketSlots.filter((s: any) => s.slot !== slot);
+
+            transaction.update(buyerRef, { goldBalance: newBuyerGold, inventory: newBuyerInventory });
+            transaction.update(sellerRef, { goldBalance: newSellerGold, marketSlots: newSellerMarket });
+        });
+        toast({ title: "Purchase Success!", description: "Check your loot bag." });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: "Purchase Failed", description: e.message });
+    }
+  }, [user, firestore, toast]);
+
+  const joinTournamentQueue = useCallback(() => {
+    if (!wsRef.current || !userData) return;
+    if (userData.goldBalance < 100) { toast({ variant: 'destructive', title: "Broke!", description: "100 Gold required for entry." }); return; }
+    wsRef.current.send(JSON.stringify({ type: 'join-tournament-queue', userId: user?.uid }));
+    addLog("Joined Arena Queue. 100 Gold entry paid.");
+  }, [user, userData, toast, addLog]);
 
   const sendChallenge = useCallback((friendId: string) => {
     const roomId = `duel_${Math.random().toString(36).substring(2, 9)}`;
     sendMessage(`I challenge you to a duel!`, 'social', friendId);
-    wsRef.current?.send(JSON.stringify({
-        type: 'challenge-friend',
-        friendId,
-        roomId,
-        senderName: userData?.username || user?.displayName || 'Player'
-    }));
-  }, [user, userData, sendMessage]);
+    wsRef.current?.send(JSON.stringify({ type: 'challenge-friend', friendId, roomId, senderName: userData?.username || user?.displayName || 'Player' }));
+  }, [userData, user, sendMessage]);
 
-  const acceptChallenge = useCallback((roomId: string) => {
-      window.location.href = `/?roomId=${roomId}`;
-  }, []);
+  const acceptChallenge = useCallback((roomId: string) => { window.location.href = `/?roomId=${roomId}`; }, []);
 
   const addFriend = useCallback((friendId: string, friendName: string) => {
     if (!user || !firestore) return;
@@ -260,42 +254,26 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     addLog(`Added ${friendName} to friends.`);
   }, [user, firestore, addLog]);
 
-  const removeFriend = useCallback((friendId: string) => {
+  const removeFriend = useCallback((friendId: string, friendName: string) => {
     if (!user || !firestore) return;
     const ref = doc(firestore, 'users', user.uid, 'friends', friendId);
     deleteDoc(ref);
-  }, [user, firestore]);
+    addLog(`Removed ${friendName} from friends.`);
+  }, [user, firestore, addLog]);
 
-  const blockUser = useCallback((targetId: string) => {
-      addLog(`User blocked.`);
-  }, [addLog]);
-
-  const value = {
-    messages,
-    friends: (friendsData || []).map(f => ({ ...f })),
-    addLog,
-    sendMessage,
-    sendChallenge,
-    acceptChallenge,
-    addFriend,
-    removeFriend,
-    blockUser,
-    onlineStatus,
-    ws,
-    onlineUserIds,
-    onlineUsers,
-    isMessengerOpen,
-    setIsMessengerOpen,
-    hasUnread,
-    clearUnread,
-    visibleCategories,
-    setVisibleCategories,
-    chatInput,
-    setChatInput,
-    startDm
+  const startDm = (username: string) => {
+      setIsMessengerOpen(true);
+      const next = new Set(visibleCategories); next.add('social');
+      setVisibleCategories(next); setChatInput(`@${username} `);
   };
 
-  return <SocialContext.Provider value={value}>{children}</SocialContext.Provider>;
+  const blockUser = (id: string) => { addLog("User blocked."); };
+
+  return (
+    <SocialContext.Provider value={{
+      messages, friends: (friendsData || []).map(f => ({ ...f })), addLog, sendMessage, sendChallenge, acceptChallenge, addFriend, removeFriend, blockUser, onlineStatus, ws, onlineUserIds, onlineUsers, isMessengerOpen, setIsMessengerOpen, hasUnread, clearUnread, visibleCategories, setVisibleCategories, chatInput, setChatInput, startDm, buyItemFromMarket, joinTournamentQueue, tournamentQueueCount
+    }}>{children}</SocialContext.Provider>
+  );
 }
 
 export function useSocial() {

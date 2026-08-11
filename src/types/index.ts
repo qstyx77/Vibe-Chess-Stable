@@ -370,7 +370,7 @@ export interface AIGameState {
   lastMovedPieceHeldItem?: InventoryItemType | null;
 }
 
-export type MessageCategory = 'battle' | 'social' | 'log';
+export type MessageCategory = 'battle' | 'social' | 'log' | 'market';
 
 export interface ChatMessage {
   id: string;
@@ -389,4 +389,10 @@ export interface Friend {
   username: string;
   status: 'accepted' | 'pending' | 'blocked';
   lastActive?: number;
+}
+
+export interface MarketListing {
+  itemId: InventoryItemType;
+  price: number;
+  slot: number;
 }

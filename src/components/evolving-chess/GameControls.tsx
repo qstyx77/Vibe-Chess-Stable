@@ -8,7 +8,7 @@ import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { PieceAbilitiesInfo } from './PieceAbilitiesInfo';
 import { cn } from '@/lib/utils';
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { MessageSquare, Send, ScrollText, Users, Sword } from 'lucide-react';
+import { MessageSquare, Send, ScrollText, Users, Sword, ShoppingBag } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -109,12 +109,13 @@ export function GameControls({
   const getMessageColor = (msg: ChatMessage) => {
       if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; 
       if (msg.category === 'social') return 'text-accent'; 
+      if (msg.category === 'market') return 'text-yellow-500';
       if (msg.color === 'white') return 'text-foreground'; 
       if (msg.color === 'black') return 'text-secondary'; 
       return 'text-muted-foreground';
   };
 
-  const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log;
+  const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
   const onlineFriends = useMemo(() => friends.filter(f => onlineUserIds.has(f.id)), [friends, onlineUserIds]);
   const offlineFriends = useMemo(() => friends.filter(f => !onlineUserIds.has(f.id)), [friends, onlineUserIds]);
 
@@ -141,26 +142,34 @@ export function GameControls({
               <Button 
                 variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
                 size="sm" 
-                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-2 relative", hasUnread.battle && "ring-1 ring-primary")}
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.battle && "ring-1 ring-primary")}
                 onClick={() => toggleCategory('battle')}
               >
-                <Sword className={cn("h-3 w-3 mr-1", !visibleCategories.has('battle') && "opacity-50")} /> Battle
+                <Sword className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('battle') && "opacity-50")} /> Battle
               </Button>
               <Button 
                 variant={visibleCategories.has('social') ? 'default' : 'outline'} 
                 size="sm" 
-                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-2 relative", hasUnread.social && "ring-1 ring-accent")}
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.social && "ring-1 ring-accent")}
                 onClick={() => toggleCategory('social')}
               >
-                <Users className={cn("h-3 w-3 mr-1", !visibleCategories.has('social') && "opacity-50")} /> Social
+                <Users className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('social') && "opacity-50")} /> Social
+              </Button>
+              <Button 
+                variant={visibleCategories.has('market') ? 'default' : 'outline'} 
+                size="sm" 
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.market && "ring-1 ring-yellow-500")}
+                onClick={() => toggleCategory('market')}
+              >
+                <ShoppingBag className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('market') && "opacity-50")} /> Trade
               </Button>
               <Button 
                 variant={visibleCategories.has('log') ? 'default' : 'outline'} 
                 size="sm" 
-                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-2 relative", hasUnread.log && "ring-1 ring-primary")}
+                className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.log && "ring-1 ring-primary")}
                 onClick={() => toggleCategory('log')}
               >
-                <ScrollText className={cn("h-3 w-3 mr-1", !visibleCategories.has('log') && "opacity-50")} /> Log
+                <ScrollText className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('log') && "opacity-50")} /> Log
               </Button>
           </div>
 
@@ -230,21 +239,6 @@ export function GameControls({
                           </UserInteractionPopover>
                       ))}
                       {onlineFriends.length === 0 && <p className="text-[0.45rem] text-muted-foreground italic">No friends online.</p>}
-                  </div>
-              </div>
-              
-              <div>
-                  <h4 className="text-[0.5rem] text-muted-foreground uppercase font-pixel mb-1 opacity-60">Away ({offlineFriends.length})</h4>
-                  <div className="flex gap-1 overflow-x-auto pb-1 scrollbar-hide">
-                      {offlineFriends.map(f => (
-                          <UserInteractionPopover key={f.id} userId={f.id} username={f.username}>
-                             <div className="flex items-center gap-1 bg-muted/10 px-1.5 py-0.5 rounded-sm shrink-0 border border-border/10 hover:border-muted-foreground transition-colors opacity-50 grayscale">
-                                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground" />
-                                <span className="text-[0.5rem] text-foreground uppercase">{f.username}</span>
-                             </div>
-                          </UserInteractionPopover>
-                      ))}
-                      {friends.length === 0 && <p className="text-[0.45rem] text-muted-foreground italic">Click any name to add friends!</p>}
                   </div>
               </div>
           </div>

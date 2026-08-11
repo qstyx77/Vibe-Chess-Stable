@@ -1,7 +1,7 @@
 
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Popover,
   PopoverContent,
@@ -10,10 +10,11 @@ import {
 import { Button } from '@/components/ui/button';
 import { useSocial } from './SocialContext';
 import { useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import { Shield, UserPlus, UserMinus, Sword, Ban, User as UserIcon, MessageSquare } from 'lucide-react';
+import { doc, getFirestore } from 'firebase/firestore';
+import { Shield, UserPlus, UserMinus, Sword, Ban, User as UserIcon, MessageSquare, ShoppingCart } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
+import { BioMarketDialog } from '../evolving-chess/BioMarketDialog';
 
 interface UserInteractionPopoverProps {
   userId: string;
@@ -25,10 +26,13 @@ interface UserInteractionPopoverProps {
 export function UserInteractionPopover({ userId, username, children, className }: UserInteractionPopoverProps) {
   const { user } = useUser();
   const { friends, addFriend, removeFriend, blockUser, sendChallenge, startDm } = useSocial();
+  const [marketOpen, setMarketOpen] = useState(false);
+  
   const isMe = user?.uid === userId;
   const isFriend = friends.some(f => f.id === userId);
 
   return (
+    <>
     <Popover>
       <PopoverTrigger asChild>
         <span role="button" className={cn("hover:text-primary transition-colors cursor-pointer outline-none inline-block", className)}>
@@ -53,6 +57,14 @@ export function UserInteractionPopover({ userId, username, children, className }
                     variant="outline" 
                     size="sm" 
                     className="h-8 text-[0.5rem] uppercase justify-start gap-2"
+                    onClick={() => setMarketOpen(true)}
+                >
+                    <ShoppingCart className="h-3 w-3 text-yellow-500" /> View Market
+                </Button>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-[0.5rem] uppercase justify-start gap-2"
                     onClick={() => startDm(username)}
                 >
                     <MessageSquare className="h-3 w-3 text-primary" /> Message
@@ -71,7 +83,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                       variant="outline" 
                       size="sm" 
                       className="h-8 text-[0.5rem] uppercase justify-start gap-2 text-destructive hover:text-destructive"
-                      onClick={() => removeFriend(userId)}
+                      onClick={() => removeFriend(userId, username)}
                     >
                       <UserMinus className="h-3 w-3" /> Remove Friend
                     </Button>
@@ -106,5 +118,9 @@ export function UserInteractionPopover({ userId, username, children, className }
         </div>
       </PopoverContent>
     </Popover>
+    {userId && (
+        <BioMarketDialog isOpen={marketOpen} onOpenChange={setMarketOpen} sellerId={userId} username={username} />
+    )}
+    </>
   );
 }

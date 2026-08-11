@@ -4,7 +4,7 @@ import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth, updateDocumentNonBlocking } from '@/firebase';
-import type { InventoryItem, InventoryItemType, BoardState, PlayerColor, Piece } from '@/types';
+import type { InventoryItem, InventoryItemType, PlayerColor, Piece, MarketListing } from '@/types';
 import { ITEM_METADATA } from '@/types';
 
 interface DungeonState {
@@ -20,6 +20,7 @@ interface DungeonState {
 }
 
 interface UserData {
+  id: string;
   username: string;
   email: string;
   eloRating: number;
@@ -30,6 +31,8 @@ interface UserData {
   dungeonState?: DungeonState;
   unlockedPieces?: string[];
   colossusDefeats?: number;
+  goldBalance: number;
+  marketSlots?: MarketListing[];
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -54,18 +57,15 @@ export function useUser() {
             const data = docSnap.data() as UserData;
             let needsUpdate = false;
             
-            // --- PLAYTEST OVERRIDE FOR SUGGA ---
             if (data.username === 'SUGGA' && data.eloRating < 2100) {
               data.eloRating = 2100;
               needsUpdate = true;
             }
 
-            // --- INVENTORY INITIALIZATION (DEEP CHECK) ---
             const currentInventoryMap = new Map(data.inventory?.map(i => [i.type, i.count]) || []);
             let inventoryChanged = false;
             const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
               const existingCount = currentInventoryMap.get(type);
-              // Initialize with 5 if missing
               if (existingCount === undefined) {
                 inventoryChanged = true;
                 return { type, count: 5 };
@@ -78,7 +78,16 @@ export function useUser() {
               needsUpdate = true;
             }
 
-            // --- SPECIAL PIECE UNLOCKS ---
+            if (data.goldBalance === undefined) {
+                data.goldBalance = 500; // Starting gold
+                needsUpdate = true;
+            }
+
+            if (data.marketSlots === undefined) {
+                data.marketSlots = [];
+                needsUpdate = true;
+            }
+
             const currentUnlocks = data.unlockedPieces || [];
             const updatedUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
             if (updatedUnlocks.length !== currentUnlocks.length) {
@@ -88,14 +97,16 @@ export function useUser() {
 
             if (needsUpdate) {
                 updateDocumentNonBlocking(userRef, { 
-                    eloRating: data.eloRating,
+                    goldBalance: data.goldBalance,
+                    marketSlots: data.marketSlots || [],
                     inventory: data.inventory, 
                     unlockedPieces: data.unlockedPieces
                 });
             }
-            setUserData(data);
+            setUserData({ ...data, id: firebaseUser.uid });
           } else {
             const newUserProfile: UserData = {
+              id: firebaseUser.uid,
               username: firebaseUser.displayName || `Player-${firebaseUser.uid.slice(0,5)}`,
               email: firebaseUser.email || 'anonymous',
               eloRating: firebaseUser.displayName === 'SUGGA' ? 2100 : 1200,
@@ -104,7 +115,9 @@ export function useUser() {
               inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
               equipment: {},
               unlockedPieces: PLAYTEST_UNLOCKS,
-              colossusDefeats: 0
+              colossusDefeats: 0,
+              goldBalance: 500,
+              marketSlots: []
             };
             setDoc(userRef, newUserProfile, { merge: true }).catch(error => {
                 console.error("Error creating user profile:", error);
