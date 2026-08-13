@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -267,9 +268,9 @@ export default function EvolvingChessPage() {
     return 2 + Math.floor((elo - 1200) / 400);
   }, [userData]);
 
-  const addEffectCallback = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number) => {
+  const addEffectCallback = useCallback((type: Effect['type'], square: AlgebraicSquare, color?: PlayerColor, value?: number, itemType?: InventoryItemType) => {
     const id = `eff-${Date.now()}-${Math.random()}`;
-    setEffects(prev => [...prev, { id, type, square, color, value }]);
+    setEffects(prev => [...prev, { id, type, square, color, value, itemType }]);
     setTimeout(() => { setEffects(current => current.filter(e => e.id !== id)); }, 1500);
   }, []);
 
@@ -762,9 +763,9 @@ export default function EvolvingChessPage() {
         if (!dancerToDance) { if (piece && piece.color === currentPlayer && piece.type === 'dancer') { setDancerToDance(algebraic); } return; }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, isExtraTurnFromQueenMove, specialActionContext.newEnPassantTarget, currentPlayer, [...(specialActionContext.completedMilestones || []), 'dance'], specialActionContext.capturingPieceId); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
-        const isCardinal = Math.abs(fr - row) + Math.abs(fc - col) === 1;
-        const dir = currentPlayer === 'white' ? -1 : 1;
-        const isForward = (row === fr + dir) && (col === fc);
+        const isCardinal = Math.abs(actualRowIndex - fr) + Math.abs(actualColIndex - fc) === 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
+        const isForward = (actualRowIndex === fr + dir) && (actualColIndex === fc);
         
         if (isCardinal) {
             let moveValid = false;
@@ -930,15 +931,22 @@ export default function EvolvingChessPage() {
         }
         if (!silenced && selectedSquare === algebraic) {
           const hItem = moving.heldItem;
-          if (hItem === 'demonic_possession') { if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'demonic-possession' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'demonic-possession' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog("Possession: Massive power gained, but unit is doomed!"); addEffectCallback('level-change', algebraic, currentPlayer, 5); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
-          if (hItem === 'heavy_rain') { if (getEffectiveLevel(board, fR, fC) < 3) { addLog("Level 3 required for Heavy Rain!"); return; } if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'heavy-rain' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'heavy-rain' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playAnvil(); addLog("Heavy Rain Scroll used! Anvils have fallen."); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
-          if (hItem === 'summon_anvil') { setIsAwaitingAnvilScrollTarget(true); return; }
-          if (hItem === 'wind_scroll') { setIsAwaitingWindScrollTarget(true); return; }
-          if (hItem === 'shield_scroll' && getEffectiveLevel(board, fR, fC) >= 2) { setIsAwaitingShieldScrollTarget(true); return; }
-          if (hItem === 'swap_scroll' && getEffectiveLevel(board, fR, fC) >= 3) { setIsAwaitingSwapScrollTarget(true); return; }
-          if (hItem === 'earthquake_scroll' && getEffectiveLevel(board, fR, fC) >= 3) { setIsAwaitingEarthquakeScrollTarget(true); return; }
-          if (hItem === 'kings_decree' && moving.type === 'king') { setIsAwaitingDecreeTarget(true); return; }
-          if (hItem === 'ice_blast' || hItem === 'soul_harvest') { if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog(`${ITEM_METADATA[hItem].name} triggered!`); if (hItem === 'soul_harvest') { const gained = (applyResult.originalPieceLevel || 0) - (moving.level || 1); addEffectCallback('level-change', algebraic, currentPlayer, gained); } setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
+          if (hItem === 'demonic_possession') { 
+            addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem);
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'demonic-possession' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'demonic-possession' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog("Possession: Massive power gained, but unit is doomed!"); addEffectCallback('level-change', algebraic, currentPlayer, 5); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
+          if (hItem === 'heavy_rain') { 
+            if (getEffectiveLevel(board, fR, fC) < 3) { addLog("Level 3 required for Heavy Rain!"); return; } 
+            addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem);
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'heavy-rain' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'heavy-rain' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playAnvil(); addLog("Heavy Rain Scroll used! Anvils have fallen."); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
+          if (hItem === 'summon_anvil') { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingAnvilScrollTarget(true); return; }
+          if (hItem === 'wind_scroll') { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingWindScrollTarget(true); return; }
+          if (hItem === 'shield_scroll' && getEffectiveLevel(board, fR, fC) >= 2) { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingShieldScrollTarget(true); return; }
+          if (hItem === 'swap_scroll' && getEffectiveLevel(board, fR, fC) >= 3) { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingSwapScrollTarget(true); return; }
+          if (hItem === 'earthquake_scroll' && getEffectiveLevel(board, fR, fC) >= 3) { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingEarthquakeScrollTarget(true); return; }
+          if (hItem === 'kings_decree' && moving.type === 'king') { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingDecreeTarget(true); return; }
+          if (hItem === 'ice_blast' || hItem === 'soul_harvest') { 
+            addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem);
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog(`${ITEM_METADATA[hItem].name} triggered!`); if (hItem === 'soul_harvest') { const gained = (applyResult.originalPieceLevel || 0) - (moving.level || 1); addEffectCallback('level-change', algebraic, currentPlayer, gained); } setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
         }
         const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem);
         if (freshlyCalculated.includes(algebraic)) {

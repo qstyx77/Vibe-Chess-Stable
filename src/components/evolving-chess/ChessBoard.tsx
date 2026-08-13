@@ -53,6 +53,26 @@ interface ChessBoardProps {
   isSelectingSporeBombShroom?: boolean;
 }
 
+const MAGIC_BURST_COLORS: Record<string, string> = {
+  wind_scroll: '#BAE6FD',
+  life_leach: '#C084FC',
+  summon_anvil: '#94A3B8',
+  shield_scroll: '#FDE68A',
+  rally_scroll: '#FDE68A',
+  detonation_scroll: '#FCA5A5',
+  swap_scroll: '#D946EF',
+  ice_scroll: '#93C5FD',
+  resurrection_scroll: '#FEF08A',
+  faith_scroll: '#F8FAFC',
+  ice_blast: '#BAE6FD',
+  soul_harvest: '#4C1D95',
+  earthquake_scroll: '#78350F',
+  demonic_possession: '#000000',
+  heavy_rain: '#3B82F6',
+  antidote: '#10B981',
+  kings_decree: '#FDE68A'
+};
+
 const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardState: BoardState, visuallyFlipBoardForLogic: boolean }) => {
   const colossusAnchor = boardState.flat().find(sq => sq.piece?.id === 'boss-colossus-tl');
   if (!colossusAnchor || !colossusAnchor.piece) return null;
@@ -67,6 +87,33 @@ const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardSt
        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="font-pixel z-[60] text-[1.5rem] md:text-[1.95rem]" style={{ textShadow: '1px 1px 0 #000', color: 'hsl(var(--destructive))', marginTop: '8%' }} > {colossusAnchor.piece.level} </span>
        </div>
+    </div>
+  );
+};
+
+const MagicBurstOverlay = ({ itemType }: { itemType?: InventoryItemType }) => {
+  const color = (itemType && MAGIC_BURST_COLORS[itemType]) || '#FFF';
+  const particles = Array.from({ length: 12 });
+  return (
+    <div className="absolute inset-0 z-[80] pointer-events-none overflow-visible">
+      {particles.map((_, i) => {
+        const angle = (i / 12) * Math.PI * 2;
+        const dist = 40 + Math.random() * 40;
+        const dx = Math.cos(angle) * dist + 'px';
+        const dy = Math.sin(angle) * dist + 'px';
+        return (
+          <div
+            key={i}
+            className="absolute top-1/2 left-1/2 w-1.5 h-1.5 animate-magic-particle"
+            style={{
+              backgroundColor: color,
+              '--dx': dx,
+              '--dy': dy,
+              animationDelay: `${Math.random() * 0.1}s`
+            } as React.CSSProperties}
+          />
+        );
+      })}
     </div>
   );
 };
@@ -86,6 +133,7 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
       const val = effect.value || 0;
       return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]" style={{ top, left }} > <span className="text-destructive font-bold text-[1.25rem] md:text-[1.5rem] animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}> {val >= 0 ? `+${val}` : val} </span> </div> );
     case 'conversion': return ( <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 55 }}> <div className="absolute inset-0 bg-primary/30 animate-pulse" /> </div> );
+    case 'magic-burst': return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none z-[80]" style={{ top, left }} > <MagicBurstOverlay itemType={effect.itemType} /> </div> );
     default: return null;
   }
 };

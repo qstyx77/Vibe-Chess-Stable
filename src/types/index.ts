@@ -206,12 +206,13 @@ export interface GameStatus {
 
 export interface Effect {
   id: string | number;
-  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam' | 'level-change' | 'tremble';
+  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam' | 'level-change' | 'tremble' | 'magic-burst';
   square: AlgebraicSquare;
   color?: PlayerColor;
   value?: number;
   fromColor?: PlayerColor;
   toColor?: PlayerColor;
+  itemType?: InventoryItemType;
 }
 
 export interface ConversionEvent {

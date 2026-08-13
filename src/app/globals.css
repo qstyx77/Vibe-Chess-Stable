@@ -219,6 +219,15 @@ body {
   100% { transform: translateY(-60px); opacity: 0; }
 }
 
+@keyframes magic-particle {
+  0% { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; }
+}
+
+.animate-magic-particle {
+  animation: magic-particle 0.6s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+}
+
 /* --- POWER GLOWS --- */
 @keyframes power-glow-pulse {
   0%, 100% { filter: drop-shadow(0 0 1px hsl(var(--primary))); }
