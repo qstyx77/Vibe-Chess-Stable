@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -186,8 +185,8 @@ export function boardToPositionHash(board: BoardState, currentPlayer: PlayerColo
       const item = square?.item;
       if (piece) pieceHash += `${getPieceChar(piece)}L${Number(piece.level || 1)}${piece.isShielded ? 'S' : ''}${piece.isPoisoned ? 'Z' : ''}${piece.cooldownTurnsRemaining ? 'C' : ''}${piece.frozenTurnsRemaining ? 'F' : ''}${piece.heldItem || '-'}${piece.shroomMana || 0}`;
       else pieceHash += '--';
+      
       if (item?.type === 'anvil') itemHash += 'A';
-      else if (item?.type === 'shroom') itemHash += 'S';
       else itemHash += '-';
     }
   }
@@ -470,8 +469,8 @@ export function getPossibleMovesInternal(
         if (fromRow === kingRow && fromCol === 4) {
             const krSquare = board[kingRow][7];
             if ((krSquare?.piece?.type === 'rook' || krSquare?.piece?.type === 'palace') && !krSquare.piece.hasMoved) {
-                if (!board[kingRow][5].piece && (!board[kingRow][5].item || board[kingRow][5].item?.type !== 'anvil') &&
-                    !board[kingRow][6].piece && (!board[kingRow][6].item || board[kingRow][6].item?.type !== 'anvil')) {
+                if (!board[kingRow][5].piece && (!board[kingRow][5].item || board[kingRow][5].item?.type === 'anvil') &&
+                    !board[kingRow][6].piece && (!board[kingRow][6].item || board[kingRow][6].item?.type === 'anvil')) {
                     if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
                         !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, false, null, enPassantTargetSquare) &&
                         !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, false, null, enPassantTargetSquare)) {
@@ -481,9 +480,9 @@ export function getPossibleMovesInternal(
             }
             const qrSquare = board[kingRow][0];
             if ((qrSquare?.piece?.type === 'rook' || qrSquare?.piece?.type === 'palace') && !qrSquare.piece.hasMoved) {
-                if (!board[kingRow][1].piece && (!board[kingRow][1].item || board[kingRow][1].item?.type !== 'anvil') &&
-                    !board[kingRow][2].piece && (!board[kingRow][2].item || board[kingRow][2].item?.type !== 'anvil') &&
-                    !board[kingRow][3].piece && (!board[kingRow][3].item || board[kingRow][3].item?.type !== 'anvil')) {
+                if (!board[kingRow][1].piece && (!board[kingRow][1].item || board[kingRow][1].item?.type === 'anvil') &&
+                    !board[kingRow][2].piece && (!board[kingRow][2].item || board[kingRow][2].item?.type === 'anvil') &&
+                    !board[kingRow][3].piece && (!board[kingRow][3].item || board[kingRow][3].item?.type === 'anvil')) {
                     if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
                         !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, false, null, enPassantTargetSquare) &&
                         !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, false, null, enPassantTargetSquare)) {
@@ -1145,7 +1144,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const p2 = newBoard[toRow][toCol].piece;
       newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
       newBoard[toRow][toCol].piece = p1 ? { ...p1, hasMoved: true, isShielded: false } : null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, originalPieceType: originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: 0, originalPieceType: originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
   }
 
   if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.heldItem === 'mirror_shield' && movingPiece.type !== 'king' && movingPiece.type !== 'queen') {
