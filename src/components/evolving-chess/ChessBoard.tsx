@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
@@ -138,6 +139,7 @@ export function ChessBoard({
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
   const displayBoard = visuallyFlipBoardForLogic ? [...boardState].reverse().map(row => [...row].reverse()) : boardState;
   const isLocalActionTurn = !localPlayerColor || localPlayerColor === currentPlayerColor;
+  const hasTremble = effects.some(e => e.type === 'tremble');
 
   const myArchers = boardState.flat()
     .filter(sq => sq.piece && sq.piece.color === currentPlayerColor && sq.piece.type === 'archer')
@@ -145,7 +147,7 @@ export function ChessBoard({
   const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
 
   return (
-    <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh]" )} onMouseLeave={() => onPieceHover(null)} >
+    <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh]", hasTremble && "animate-tremble" )} onMouseLeave={() => onPieceHover(null)} >
       {displayBoard.map((row, displayedRowIndex) =>
         row.map((squareDataFromDisplay, displayedColIndex) => {
           const actualRowIndex = visuallyFlipBoardForLogic ? 7 - displayedRowIndex : displayedRowIndex;

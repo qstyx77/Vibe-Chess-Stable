@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -680,7 +681,8 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color && piece.type !== 'grappler') return false;
 
   // Safety guard: Kings cannot be captured in standard moves
-  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && targetPieceOnSquare.type === 'king') return false;
+  // Exception: Colossus boss is allowed to capture the King via crushing
+  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && targetPieceOnSquare.type === 'king' && !piece.id.startsWith('boss-colossus')) return false;
   
   const targetLevel = getEffectiveLevel(board, toRow, toCol);
   if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && piece.type !== 'grappler') if (isPieceInvulnerableToAttack(targetPieceOnSquare, piece, targetLevel, effectiveLevel, board)) return false;
@@ -1001,6 +1003,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (movingPiece.id.startsWith('boss-colossus')) {
       const parts = [{ id: 'boss-colossus-tl', dr: 0, dc: 0 },{ id: 'boss-colossus-tr', dr: 0, dc: 1 },{ id: 'boss-colossus-bl', dr: 1, dc: 0 },{ id: 'boss-colossus-br', dr: 1, dc: 1 }];
+      const opponentColor = movingPiece.color === 'white' ? 'black' : 'white';
       let curTL_R = -1, curTL_C = -1;
       for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(newBoard[r][c].piece?.id === 'boss-colossus-tl') { curTL_R = r; curTL_C = c; break; }
       parts.forEach(p => { if (isValidSquare(curTL_R + p.dr, curTL_C + p.dc)) newBoard[curTL_R + p.dr][curTL_C + p.dc].piece = null; });
@@ -1008,7 +1011,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           const nr = toRow + p.dr; const nc = toCol + p.dc;
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc].piece;
-              if (victim && victim.color === (movingPiece.color === 'white' ? 'black' : 'white')) {
+              if (victim && victim.color === opponentColor) {
                   selfDestructCaptures.push({ ...victim, id: `${victim.id}_colossus_crush_${Date.now()}` });
                   newBoard[nr][nc].piece = null;
               }
@@ -1245,7 +1248,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         specialCaptureSquare = coordsToAlgebraic(cpR, cpC);
     } else { captured = null; }
   } else if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') { 
-      // Safety guard: Kings cannot be captured in standard standard blocks
+      // Safety guard: Kings cannot be captured in standard blocks
       captured = { ...targetPiece }; 
   }
 
@@ -1582,8 +1585,7 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     const filteredPseudo = pseudo.filter(to => {
         const {row: tr, col: tc} = algebraicToCoords(to);
         const target = board[tr][tc].piece;
-        // Exception: Colossus id starts with 'boss-colossus' logic is handled in applyMove 
-        // but its moves still pass through here. We allow Colossus to land on King square (Crush)
+        // Exception: Colossus is the only enemy piece allowed to capture/crush the King
         if (piece.id.startsWith('boss-colossus')) return true;
         return target?.type !== 'king';
     });

@@ -58,7 +58,7 @@ export type InventoryItemType =
   | 'portal_scroll_10'
   | 'portal_scroll_20' 
   | 'portal_scroll_30' 
-  | 'portal_scroll_40'
+  | 'portal_scroll_40' 
   | 'portal_scroll_50'
   | 'sclerotia'
   | 'shortbow'
@@ -206,7 +206,7 @@ export interface GameStatus {
 
 export interface Effect {
   id: string | number;
-  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam' | 'level-change';
+  type: 'poof' | 'explosion' | 'shockwave' | 'conversion' | 'light-beam' | 'level-change' | 'tremble';
   square: AlgebraicSquare;
   color?: PlayerColor;
   value?: number;
@@ -261,6 +261,7 @@ export interface ApplyMoveResult {
   multiPromotions?: { square: AlgebraicSquare, targetLevel: number }[];
   ralliedSquares?: AlgebraicSquare[];
   winByKingsConquest?: boolean;
+  kingCapturedByColossus?: boolean;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -206,9 +207,15 @@ export class VibeChessAI {
         const opponentColor = aiColor === 'white' ? 'black' : 'white';
         const opponentStreak = gs.killStreaks[opponentColor] || 0;
 
+        const playerKing = this.findKingCoords(gs, aiColor);
+        const opponentKing = this.findKingCoords(gs, opponentColor);
+        
+        if (!playerKing) return -1000000;
+        if (!opponentKing) return 1000000;
+
         // Rewards logic incentive
-        score += (currentStreak * 15); // Small bonus for having a streak
-        score -= (opponentStreak * 15); // Dislike opponent having a streak
+        score += (currentStreak * 15);
+        score -= (opponentStreak * 15);
 
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
@@ -326,7 +333,7 @@ export class VibeChessAI {
                         const targetSq = gs.board[r+dir][c+dc];
                         const target = targetSq.piece;
                         if (target && target.color !== p.color) {
-                            if (target.type !== 'king' || simplified) {
+                            if (target.type !== 'king' || simplified || p.id.startsWith('boss-colossus')) {
                                 const targetLevel = getEffectiveLevel(gs.board as any, r+dir, c+dc);
                                 if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
                                     moves.push({from:[r,c], to:[r+dir,c+dc], type:'capture'});
@@ -509,22 +516,14 @@ export class VibeChessAI {
                     for (let i = 1; i < 8; i++) {
                         const nr = r + i * dr, nc = c + i * dc;
                         if (!isValidSquareUtil(nr, nc)) break;
-                        const targetSq = gs.board[nr][nc];
-                        if (targetSq.item?.type === 'anvil') break; 
-
-                        const target = targetSq.piece;
-                        if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
-                        else { 
-                            if(target.color !== p.color) {
-                                if (target.type !== 'king' || simplified) {
-                                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                                        moves.push({from:[r,c], to:[nr,nc], type:'capture'});
-                                    }
-                                }
-                                break;
-                            } 
-                            break; 
+                        if (nr === tr && nc === tc) {
+                            if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                            break;
+                        }
+                        if (gs.board[nr][nc].piece || gs.board[nr][nc].item?.type === 'anvil') {
+                            if (p.type === 'bishop' || p.type === 'archbishop') {
+                                if (effLevel < 2 || gs.board[nr][nc].piece?.color !== p.color) break;
+                            } else break;
                         }
                     }
                 });
@@ -559,7 +558,12 @@ export class VibeChessAI {
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
-        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (gs.board[r][c].piece?.type === 'king' && gs.board[r][c].piece?.color === color) return { r, c, row: r, col: c };
+        if (color === 'black') {
+            for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) 
+                if (gs.board[r][c].piece?.id === 'boss-colossus-tl') return { row: r, col: c };
+        }
+        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) 
+            if (gs.board[r][c].piece?.type === 'king' && gs.board[r][c].piece?.color === color) return { row: r, col: c };
         return null;
     }
     
