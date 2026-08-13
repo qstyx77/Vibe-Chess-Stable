@@ -248,7 +248,7 @@ export default function EvolvingChessPage() {
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
   const [aiStrikeCount, setAiStrikeCount] = useState(0);
 
-  const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+  const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
@@ -359,10 +359,36 @@ export default function EvolvingChessPage() {
         if (hasDancers) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const aiDancer = nextBoard.flat().find(sq => sq.piece?.type === 'dancer' && sq.piece.color === actingPlayer);
-                if (aiDancer) {
-                    const {row, col} = algebraicToCoords(aiDancer.algebraic); const dir = actingPlayer === 'white' ? -1 : 1;
-                    if (isValidSquare(row+dir, col) && !nextBoard[row+dir][col].piece && !nextBoard[row+dir][col].item) { nextBoard[row+dir][col].piece = { ...nextBoard[row][col].piece!, hasMoved: true }; nextBoard[row][col].piece = null; addLog("AI Dancer performed a free move!"); }
+                const aiDancerSq = nextBoard.flat().find(sq => sq.piece?.type === 'dancer' && sq.piece.color === actingPlayer);
+                if (aiDancerSq) {
+                    const {rowIndex: r, colIndex: c} = aiDancerSq;
+                    const dancerPiece = aiDancerSq.piece!;
+                    const candidates: {r: number, c: number, priority: number}[] = [];
+                    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+                        const nr = r+dr, nc = c+dc;
+                        if (isValidSquare(nr, nc)) {
+                            const targetSq = nextBoard[nr][nc];
+                            if (!targetSq.piece && !targetSq.item) candidates.push({r: nr, c: nc, priority: 1});
+                            else if (targetSq.piece && targetSq.piece.color !== actingPlayer && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) candidates.push({r: nr, c: nc, priority: 2});
+                        }
+                    });
+                    candidates.sort((a,b) => b.priority - a.priority);
+                    if (candidates.length > 0) {
+                        const best = candidates[0];
+                        const targetPiece = nextBoard[best.r][best.c].piece;
+                        if (best.priority === 2 && targetPiece) {
+                            const victim = { ...targetPiece };
+                            const targetPile = victim.color;
+                            nextGraveyard[targetPile].push({ ...victim, id: victim.id });
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                            nextBoard[r][c].piece = null;
+                            addLog(`${getPlayerDisplayName(actingPlayer)} Dancer captured ${victim.type} with a free move!`); addEffectCallback('poof', coordsToAlgebraic(best.r, best.c));
+                        } else {
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                            nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true } : null;
+                            addLog(`${getPlayerDisplayName(actingPlayer)} Dancer performed a free ${targetPiece ? 'swap' : 'move'}!`);
+                        }
+                    }
                 }
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'dance'], capturingPieceId); return;
             } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
@@ -376,7 +402,7 @@ export default function EvolvingChessPage() {
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const pawnSq = nextBoard.flat().find(sq => sq.piece?.type === 'pawn' && sq.piece.color === actingPlayer && sq.piece.level === 1);
-            if (pawnSq) { const {row, col} = algebraicToCoords(pawnSq.algebraic); nextBoard[row][col].piece!.type = 'commander'; addLog("AI promoted a Commander via First Blood!"); }
+            if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actingPlayer)} promoted a Commander via First Blood!`); }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
             const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === actingPlayer && sq.piece.level === 1);
@@ -391,8 +417,10 @@ export default function EvolvingChessPage() {
         if (hasArchbishop) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const targets = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId);
-                if (targets.length > 0) { targets[0].piece!.isShielded = true; addLog("AI Archbishop applied a Holy Shield!"); }
+                const targets = nextBoard.flat()
+                    .filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId)
+                    .sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
+                if (targets.length > 0) { targets[0].piece!.isShielded = true; addLog(`${getPlayerDisplayName(actingPlayer)} Archbishop applied a Holy Shield!`); }
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'shield'], capturingPieceId); return;
             } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
                 const hasUnshieldedTargets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId);
@@ -405,9 +433,17 @@ export default function EvolvingChessPage() {
     }
     if (!silenced && newStreak >= 3 && oldStreak < 3 && !completedMilestones.includes('anvil')) {
         if (isAI) {
-            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            const myKingSq = nextBoard.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === actingPlayer);
+            const kR = myKingSq ? myKingSq.rowIndex : (actingPlayer === 'white' ? 7 : 0);
+            const kC = myKingSq ? myKingSq.colIndex : 4;
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
-            if (empty.length > 0) { empty[0].item = { type: 'anvil' }; addLog("AI dropped an Anvil!"); }
+            if (empty.length > 0) {
+                empty.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
+                const bestSq = empty[0];
+                nextBoard[bestSq.rowIndex][bestSq.colIndex].item = { type: 'anvil' };
+                addLog(`${getPlayerDisplayName(actingPlayer)} dropped a defensive Anvil!`);
+            }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
             setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'anvil'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId });
@@ -452,14 +488,17 @@ export default function EvolvingChessPage() {
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const v = victims[Math.floor(Math.random() * victims.length)]; const {row, col} = algebraicToCoords(v.algebraic);
+                const victimsSorted = victims.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
+                const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
+                const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id };
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
-                    const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0;
-                    const arRow = nextBoard.findIndex(r => r.some(s => s.piece?.id === responsibleAIArcher.id)); const arCol = nextBoard[arRow].findIndex(s => s.piece?.id === responsibleAIArcher.id);
-                    nextBoard[arRow][arCol].piece!.level += gain;
+                    const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
+                    const arSq = nextBoard.flat().find(s => s.piece?.id === responsibleAIArcher.id);
+                    if (arSq && arSq.piece) arSq.piece.level += gain;
                 }
-                nextBoard[row][col].piece = null; audioManager.playSnipe(); addLog("AI Sniper took a shot!");
+                nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper obliterated a Level ${snipedPiece.level} ${snipedPiece.type}!`);
+                const targetPile = snipedPiece.color; nextGraveyard[targetPile].push(snipedPiece);
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId); return;
             } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
                 setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtra, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId });

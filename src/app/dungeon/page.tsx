@@ -248,7 +248,7 @@ export default function DungeonPage() {
   const [gameMoveCounter, setGameMoveCounter] = useState(0);
   const [aiPanicCount, setAiPanicCount] = useState(0);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDecreeTarget || isAwaitingDanceTarget || dancerToDance || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
@@ -429,10 +429,36 @@ export default function DungeonPage() {
         if (hasDancers) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const aiDancer = nextBoard.flat().find(sq => sq.piece?.type === 'dancer' && sq.piece.color === 'black');
-                if (aiDancer) {
-                    const {row, col} = algebraicToCoords(aiDancer.algebraic);
-                    if (isValidSquare(row+1, col) && !nextBoard[row+1][col].piece && !nextBoard[row+1][col].item) { nextBoard[row+1][col].piece = { ...nextBoard[row][col].piece!, hasMoved: true }; nextBoard[row][col].piece = null; addLog("Dungeon piece performed a Dance move!"); }
+                const aiDancerSq = nextBoard.flat().find(sq => sq.piece?.type === 'dancer' && sq.piece.color === actingPlayer);
+                if (aiDancerSq) {
+                    const {rowIndex: r, colIndex: c} = aiDancerSq;
+                    const dancerPiece = aiDancerSq.piece!;
+                    const candidates: {r: number, c: number, priority: number}[] = [];
+                    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+                        const nr = r+dr, nc = c+dc;
+                        if (isValidSquare(nr, nc)) {
+                            const targetSq = nextBoard[nr][nc];
+                            if (!targetSq.piece && !targetSq.item) candidates.push({r: nr, c: nc, priority: 1});
+                            else if (targetSq.piece && targetSq.piece.color !== actingPlayer && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) candidates.push({r: nr, c: nc, priority: 2});
+                        }
+                    });
+                    candidates.sort((a,b) => b.priority - a.priority);
+                    if (candidates.length > 0) {
+                        const best = candidates[0];
+                        const targetPiece = nextBoard[best.r][best.c].piece;
+                        if (best.priority === 2 && targetPiece) {
+                            const victim = { ...targetPiece };
+                            const targetPile = victim.color;
+                            nextGraveyard[targetPile].push({ ...victim, id: victim.id });
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                            nextBoard[r][c].piece = null;
+                            addLog(`Dungeon Dancer captured your ${victim.type} with a free move!`); addEffect('poof', coordsToAlgebraic(best.r, best.c));
+                        } else {
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                            nextBoard[r][c].piece = null;
+                            addLog(`Dungeon Dancer performed a free move!`);
+                        }
+                    }
                 }
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'dance'], capturingPieceId); return;
             } else { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'dance'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingDanceTarget(true); addLog("Dancer Skill: The Dance is ready!"); return; }
@@ -443,7 +469,7 @@ export default function DungeonPage() {
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
             const pawnSq = nextBoard.flat().find(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'black' && sq.piece.level === 1);
-            if (pawnSq) { const {row, col} = algebraicToCoords(pawnSq.algebraic); nextBoard[row][col].piece!.type = 'commander'; nextBoard[row][col].piece!.id = nextBoard[row][col].piece!.id; }
+            if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[row][col].piece!.type = 'commander'; nextBoard[row][col].piece!.id = nextBoard[row][col].piece!.id; }
             addLog("First Blood! Dungeon has promoted a Commander."); triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId); return;
         } else {
             const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
@@ -455,9 +481,11 @@ export default function DungeonPage() {
         if (hasArchbishop) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const targets = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId);
-                if (targets.length > 0) targets[Math.floor(Math.random() * targets.length)].piece!.isShielded = true;
-                addLog("Archbishop Skill: Dungeon shielded an ally!"); triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'shield'], capturingPieceId); return;
+                const targets = nextBoard.flat()
+                    .filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId)
+                    .sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
+                if (targets.length > 0) { targets[0].piece!.isShielded = true; addLog("Archbishop Skill: Dungeon shielded its highest level unit!"); }
+                triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'shield'], capturingPieceId); return;
             } else { 
                 const hasEligibleTargets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId);
                 if (hasEligibleTargets) { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'shield'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingHolyShield(true); addLog("Holy Shield ready!"); return; } 
@@ -476,24 +504,33 @@ export default function DungeonPage() {
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-                const v = victims[Math.floor(Math.random() * victims.length)]; const {row, col} = algebraicToCoords(v.algebraic);
-                const sniped = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id };
+                const victimsSorted = victims.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
+                const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
+                const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id };
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) { 
-                    const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[v.piece!.type] || 0; 
-                    responsibleAIArcher.level += gain; addEffect('level-change', findPieceCoords(nextBoard, responsibleAIArcher.id) || v.algebraic, 'black', gain); 
+                    const gain = {pawn: 1, dancer: 1, mimic: 1, grappler: 1, myco_mage: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0; 
+                    const arSq = nextBoard.flat().find(s => s.piece?.id === responsibleAIArcher.id);
+                    if (arSq && arSq.piece) { arSq.piece.level += gain; addEffect('level-change', coordsToAlgebraic(arSq.rowIndex, arSq.colIndex), 'black', gain); }
                 }
-                const targetPile = sniped.color; nextGraveyard[targetPile].push(sniped); addEffect('poof', v.algebraic); addLog(`Dungeon Sniper destroyed your ${sniped.type}!`);
+                const targetPile = snipedPiece.color; nextGraveyard[targetPile].push(snipedPiece); addEffect('poof', coordsToAlgebraic(row, col)); addLog(`Dungeon Sniper destroyed your Level ${snipedPiece.level} ${snipedPiece.type}!`);
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId); return;
             } else { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingArcherSnipe(true); addLog("Sniper Skill: Select a target!"); return; }
         }
     }
     if (newStreak >= 3 && oldStreak < 3 && !completedMilestones.includes('anvil')) {
         if (isAI) {
-            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            const myKingSq = nextBoard.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === actingPlayer);
+            const kR = myKingSq ? myKingSq.rowIndex : 0;
+            const kC = myKingSq ? myKingSq.colIndex : 4;
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
-            if (empty.length > 0) empty[Math.floor(Math.random() * empty.length)].item = { type: 'anvil' };
-            addLog("Dungeon dropped an Anvil!"); triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId); return;
+            if (empty.length > 0) {
+                empty.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
+                empty[0].item = { type: 'anvil' };
+                addLog("Dungeon dropped a defensive Anvil!");
+            }
+            triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId); return;
         } else { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'anvil'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return; }
     }
     if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {

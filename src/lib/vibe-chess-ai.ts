@@ -170,7 +170,6 @@ export class VibeChessAI {
                 next.board[fR][tC].piece = null; 
                 captureCount = 1; 
             } else if (targetPiece && targetPiece.color !== player && targetPiece.type !== 'king') { 
-                // Safety guard: Kings cannot be captured in AI simulation
                 captureCount = 1; 
                 landedPiece.level += (this.captureLevelBonuses[targetPiece.type] || 1); 
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
@@ -203,6 +202,14 @@ export class VibeChessAI {
 
     evaluatePosition = (gs: AIGameState, aiColor: PlayerColor): number => {
         let score = 0;
+        const currentStreak = gs.killStreaks[aiColor] || 0;
+        const opponentColor = aiColor === 'white' ? 'black' : 'white';
+        const opponentStreak = gs.killStreaks[opponentColor] || 0;
+
+        // Rewards logic incentive
+        score += (currentStreak * 15); // Small bonus for having a streak
+        score -= (opponentStreak * 15); // Dislike opponent having a streak
+
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const piece = gs.board[r][c].piece;
@@ -457,7 +464,6 @@ export class VibeChessAI {
                         const target = targetSq.piece;
                         if(!target || target.color !== p.color) {
                             if(!target || !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any)) {
-                                // Safety: Filter moves targeting kings during standard AI move generation
                                 if (!target || target.type !== 'king' || simplified) {
                                     moves.push({from:[r,c], to:[nr,nc], type:'move'});
                                 }
