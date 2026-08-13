@@ -184,8 +184,19 @@ export function ChessBoard({
                 if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
             } else {
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
-                // Cardinal check for highlight or the dancer itself
-                if (currentSquareData.algebraic === dancerToDance || Math.abs(actualRowIndex - fr) + Math.abs(actualColIndex - fc) === 1) isDanceTarget = true;
+                const isCardinal = Math.abs(actualRowIndex - fr) + Math.abs(actualColIndex - fc) === 1;
+                const targetP = currentSquareData.piece;
+                const targetItem = currentSquareData.item;
+                const dir = currentPlayerColor === 'white' ? -1 : 1;
+                const isForward = (actualRowIndex === fr + dir) && (actualColIndex === fc);
+                
+                if (currentSquareData.algebraic === dancerToDance) isDanceTarget = true;
+                else if (isCardinal) {
+                    // Pieces can swap cardinaly (ally or enemy)
+                    if (targetP) isDanceTarget = true;
+                    // Empty spaces only allowed if Forward
+                    else if (!targetItem && isForward) isDanceTarget = true;
+                }
             }
           }
           

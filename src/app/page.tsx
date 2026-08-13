@@ -363,31 +363,28 @@ export default function EvolvingChessPage() {
                 if (aiDancerSq) {
                     const {rowIndex: r, colIndex: c} = aiDancerSq;
                     const dancerPiece = aiDancerSq.piece!;
+                    const dancerDir = actingPlayer === 'white' ? -1 : 1;
                     const candidates: {r: number, c: number, priority: number}[] = [];
                     [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
                         const nr = r+dr, nc = c+dc;
                         if (isValidSquare(nr, nc)) {
                             const targetSq = nextBoard[nr][nc];
-                            if (!targetSq.piece && !targetSq.item) candidates.push({r: nr, c: nc, priority: 1});
-                            else if (targetSq.piece && targetSq.piece.color !== actingPlayer && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) candidates.push({r: nr, c: nc, priority: 2});
+                            if (!targetSq.piece && !targetSq.item) {
+                                if (dr === dancerDir) candidates.push({r: nr, c: nc, priority: 1}); // Forward move
+                            } else if (targetSq.piece) {
+                                if (targetSq.piece.color !== actingPlayer && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) candidates.push({r: nr, c: nc, priority: 2}); // Enemy swap
+                                else if (targetSq.piece.color === actingPlayer) candidates.push({r: nr, c: nc, priority: 0}); // Ally swap
+                            }
                         }
                     });
                     candidates.sort((a,b) => b.priority - a.priority);
                     if (candidates.length > 0) {
                         const best = candidates[0];
                         const targetPiece = nextBoard[best.r][best.c].piece;
-                        if (best.priority === 2 && targetPiece) {
-                            const victim = { ...targetPiece };
-                            const targetPile = victim.color;
-                            nextGraveyard[targetPile].push({ ...victim, id: victim.id });
-                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
-                            nextBoard[r][c].piece = null;
-                            addLog(`${getPlayerDisplayName(actingPlayer)} Dancer captured ${victim.type} with a free move!`); addEffectCallback('poof', coordsToAlgebraic(best.r, best.c));
-                        } else {
-                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
-                            nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true } : null;
-                            addLog(`${getPlayerDisplayName(actingPlayer)} Dancer performed a free ${targetPiece ? 'swap' : 'move'}!`);
-                        }
+                        // SWAP
+                        nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                        nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true } : null;
+                        addLog(`${getPlayerDisplayName(actingPlayer)} Dancer performed a free ${targetPiece ? 'swap' : 'move'}!`);
                     }
                 }
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'dance'], capturingPieceId); return;
@@ -766,28 +763,27 @@ export default function EvolvingChessPage() {
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, isExtraTurnFromQueenMove, specialActionContext.newEnPassantTarget, currentPlayer, [...(specialActionContext.completedMilestones || []), 'dance'], specialActionContext.capturingPieceId); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
         const isCardinal = Math.abs(fr - row) + Math.abs(fc - col) === 1;
+        const dir = currentPlayer === 'white' ? -1 : 1;
+        const isForward = (row === fr + dir) && (col === fc);
+        
         if (isCardinal) {
-            pushHistory(); let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const dancerPiece = nextBoard[fr][fc].piece!; let nextG = { ...specialActionContext!.currentGraveyard };
-            const targetP = nextBoard[row][col].piece;
-            if (!targetP && !nextBoard[row][col].item) {
+            let moveValid = false;
+            if (piece) moveValid = true; // Swap with any adjacent piece
+            else if (!sq.item && isForward) moveValid = true; // Move forward if empty
+            
+            if (moveValid) {
+                pushHistory(); let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+                const dancerPiece = nextBoard[fr][fc].piece!; let nextG = { ...specialActionContext!.currentGraveyard };
+                const targetP = nextBoard[row][col].piece;
+                
+                // EXECUTE SWAP
                 nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true };
-                nextBoard[fr][fc].piece = null;
-                addLog("Dancer Move!");
-            } else if (targetP) {
-                if (targetP.color !== currentPlayer && targetP.type !== 'king' && !targetP.isShielded) {
-                  const victim = { ...targetP };
-                  nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true };
-                  nextBoard[fr][fc].piece = null;
-                  const targetPile = victim.color; nextG[targetPile].push({ ...victim, id: victim.id });
-                  addLog(`Dancer Captured ${victim.type}!`); addEffectCallback('poof', algebraic);
-                } else {
-                  nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true };
-                  nextBoard[fr][fc].piece = { ...targetP, hasMoved: true };
-                  addLog(`Dancer Swapped with ${targetP!.type}!`);
-                }
-            } else { return; }
-            setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, isExtraTurnFromQueenMove, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'dance'], specialActionContext!.capturingPieceId);
+                nextBoard[fr][fc].piece = targetP ? { ...targetP, hasMoved: true } : null;
+                
+                addLog(`Dancer ${targetP ? 'Swapped' : 'Moved'}!`);
+                setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
+                triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, isExtraTurnFromQueenMove, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext.completedMilestones || []), 'dance'], specialActionContext.capturingPieceId);
+            }
         }
         return;
     }
