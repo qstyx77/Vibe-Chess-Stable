@@ -57,6 +57,7 @@ export function GameControls({
   } = useSocial();
   
   const scrollRef = useRef<HTMLDivElement>(null);
+  const isAtBottomRef = useRef(true);
 
   const toggleCategory = (cat: MessageCategory) => {
     const next = new Set(visibleCategories);
@@ -76,8 +77,28 @@ export function GameControls({
   const timerDisplay = onlineStatus === 'connected' ? (turnTimer !== null ? turnTimer.toString().padStart(2, '0') : '45') : '00';
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+
+    const viewport = scrollContainer.querySelector('[data-radix-scroll-area-viewport]');
+    if (!viewport) return;
+
+    const handleScroll = () => {
+      // Check if user is near bottom (within 50px threshold)
+      const isAtBottom = viewport.scrollHeight - viewport.scrollTop <= viewport.clientHeight + 50;
+      isAtBottomRef.current = isAtBottom;
+    };
+
+    viewport.addEventListener('scroll', handleScroll);
+    return () => viewport.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    if (scrollRef.current && isAtBottomRef.current) {
+      const viewport = scrollRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
     }
   }, [filteredMessages, isMessengerOpen]);
 
