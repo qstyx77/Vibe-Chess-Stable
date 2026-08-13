@@ -678,6 +678,9 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
   if (piece.heldItem === 'grappling_hook' && targetPieceOnSquare && targetPieceOnSquare.color === piece.color) return true;
 
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color && piece.type !== 'grappler') return false;
+
+  // Safety guard: Kings cannot be captured in standard moves
+  if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && targetPieceOnSquare.type === 'king') return false;
   
   const targetLevel = getEffectiveLevel(board, toRow, toCol);
   if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && piece.type !== 'grappler') if (isPieceInvulnerableToAttack(targetPieceOnSquare, piece, targetLevel, effectiveLevel, board)) return false;
@@ -1241,7 +1244,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         newBoard[cpR][cpC].piece = null;
         specialCaptureSquare = coordsToAlgebraic(cpR, cpC);
     } else { captured = null; }
-  } else if (targetPiece && targetPiece.color !== movingPiece.color) { captured = { ...targetPiece }; }
+  } else if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') { 
+      // Safety guard: Kings cannot be captured in standard standard blocks
+      captured = { ...targetPiece }; 
+  }
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
   const oppBackRankIdx = pieceToLand.color === 'white' ? 0 : 7;
@@ -1567,8 +1573,22 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     const { row, col } = algebraicToCoords(from);
     const piece = board[row][col].piece;
     if (!piece || (piece.cooldownTurnsRemaining || 0) > 0 || (piece.frozenTurnsRemaining || 0) > 0) return [];
+    
+    // Get pseudo moves from the internal generator
     const pseudo = getPossibleMovesInternal(board, from, piece, true, ep, lastMovedPieceType, lastMovedPieceHeldItem);
-    const legalMoves = filterLegalMoves(board, from, pseudo, piece.color, ep, lastMovedPieceType, lastMovedPieceHeldItem);
+    
+    // Safety guard: Standard pieces cannot "land" on a King square to capture it.
+    // This maintains tactical integrity where the King is checkmated, never captured.
+    const filteredPseudo = pseudo.filter(to => {
+        const {row: tr, col: tc} = algebraicToCoords(to);
+        const target = board[tr][tc].piece;
+        // Exception: Colossus id starts with 'boss-colossus' logic is handled in applyMove 
+        // but its moves still pass through here. We allow Colossus to land on King square (Crush)
+        if (piece.id.startsWith('boss-colossus')) return true;
+        return target?.type !== 'king';
+    });
+
+    const legalMoves = filterLegalMoves(board, from, filteredPseudo, piece.color, ep, lastMovedPieceType, lastMovedPieceHeldItem);
     if (piece.heldItem === 'berserkers_mask') {
       const captures = legalMoves.filter(to => {
         const {row, col} = algebraicToCoords(to);
