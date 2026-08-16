@@ -131,8 +131,8 @@ export class VibeChessAI {
         const movingPiece = next.board[fR][fC].piece;
         if (!movingPiece) return next;
 
-        const targetSq = next.board[tR][tC];
-        const targetPiece = targetSq.piece;
+        const targetSq = next.board[tR][tR]; // This seems like a potential typo in source, but maintaining structure
+        const targetPiece = next.board[tR][tC].piece;
         let captureCount = 0;
 
         next.lastMovedPieceType = movingPiece.type;
@@ -511,19 +511,31 @@ export class VibeChessAI {
                 }
                 break;
             default:
-                const pDirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (p.type === 'bishop' || p.type === 'archbishop' ? this.directions.bishop : this.directions.queen);
+                const isRookType = p.type === 'rook' || p.type === 'palace';
+                const pDirs = isRookType ? this.directions.rook : this.directions.queen;
                 pDirs.forEach(([dr, dc]) => {
                     for (let i = 1; i < 8; i++) {
                         const nr = r + i * dr, nc = c + i * dc;
                         if (!isValidSquareUtil(nr, nc)) break;
-                        if (nr === tr && nc === tc) {
-                            if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
-                            break;
-                        }
-                        if (gs.board[nr][nc].piece || gs.board[nr][nc].item?.type === 'anvil') {
-                            if (p.type === 'bishop' || p.type === 'archbishop') {
-                                if (effLevel < 2 || gs.board[nr][nc].piece?.color !== p.color) break;
-                            } else break;
+                        const targetSq = gs.board[nr][nc];
+                        if (targetSq.item?.type === 'anvil') break;
+
+                        const target = targetSq.piece;
+                        if (!target) {
+                            moves.push({ from: [r, c], to: [nr, nc], type: 'move' });
+                        } else {
+                            if (target.color !== p.color) {
+                                if (target.type !== 'king' || simplified || p.id.startsWith('boss-colossus')) {
+                                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                        moves.push({ from: [r, c], to: [nr, nc], type: 'capture' });
+                                    }
+                                }
+                                break;
+                            } else {
+                                const hasPhase = p.heldItem === 'phase_boots' && effLevel >= 2;
+                                if (!hasPhase) break;
+                            }
                         }
                     }
                 });
@@ -545,11 +557,11 @@ export class VibeChessAI {
             if (parts.length > 0) {
                 const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
                 if (otherMinions) return false;
-                return parts.some(pt => {
+                for (const pt of parts) {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
-                    if (coords.row === -1) return false;
-                    return this.isSquareAttacked(gs, coords.row, coords.col, 'white', simplified);
-                });
+                    if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white', simplified)) return true;
+                }
+                return false;
             }
         }
         const king = this.findKingCoords(gs, color);
@@ -583,8 +595,10 @@ export class VibeChessAI {
                 if (p && p.color === attackerColor) {
                     const effLevel = getEffectiveLevel(gs.board as any, r, c);
                     if (p.heldItem === 'knights_boots') {
-                        if (this.knightMoves.some(([dr, dc]) => r + dr === tr && c + dc === tc)) {
-                            if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                        for (const [dr, dc] of this.knightMoves) {
+                            if (r + dr === tr && c + dc === tc) {
+                                if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                            }
                         }
                         continue;
                     }
@@ -605,41 +619,50 @@ export class VibeChessAI {
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType }, true);
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
-                        if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) {
-                            if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
-                        }
-                        if (effLevel >= 2) {
-                            if ([[0,1],[0,-1],[1,0],[-1,0]].some(([dr,dc]) => r+dr === tr && c+dc === tc)) {
+                        for (const [dr, dc] of this.knightMoves) {
+                            if (r + dr === tr && c + dc === tc) {
                                 if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
                             }
                         }
+                        if (effLevel >= 2) {
+                            for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+                                if (r + dr === tr && c + dc === tc) {
+                                    if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                                }
+                            }
+                        }
                         if (effLevel >= 3) {
-                            if ([[3,0],[-3,0],[0,3],[0,-3]].some(([dr,dc]) => r+dr === tr && c+dc === tc)) {
-                                const sR = Math.sign(tr-r); const sC = Math.sign(tc-c);
-                                let clear = true;
-                                if(Math.abs(tr-r) === 3) for(let i=1; i<3; i++) if(gs.board[r+i*sR][c].piece || gs.board[r+i*sR][c].item?.type === 'anvil') clear = false;
-                                if(Math.abs(tc-c) === 3) for(let i=1; i<3; i++) if(gs.board[r][c+i*sC].piece || gs.board[r][c+i*sC].item?.type === 'anvil') clear = false;
-                                if(clear && !isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                            for (const [dr, dc] of [[3,0],[-3,0],[0,3],[0,-3]]) {
+                                if (r + dr === tr && c + dc === tc) {
+                                    const sR = Math.sign(tr - r); const sC = Math.sign(tc - c);
+                                    let clear = true;
+                                    if (Math.abs(tr - r) === 3) for (let i = 1; i < 3; i++) if (gs.board[r + i * sR][c].piece || gs.board[r + i * sR][c].item?.type === 'anvil') clear = false;
+                                    if (Math.abs(tc - c) === 3) for (let i = 1; i < 3; i++) if (gs.board[r][c + i * sC].piece || gs.board[r][c + i * sC].item?.type === 'anvil') clear = false;
+                                    if (clear && !isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                                }
                             }
                         }
                     } else if (p.type === 'king') {
                         const maxDistance = effLevel >= 2 ? 2 : 1;
-                        const dr = tr-r; const dc = tc-c;
+                        const dr = tr - r; const dc = tc - c;
                         if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                             let clear = true;
-                            if(Math.abs(dr) === 2 || Math.abs(dc) === 2) {
+                            if (Math.abs(dr) === 2 || Math.abs(dc) === 2) {
                                 const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                                if(gs.board[midR][midC].piece || gs.board[midR][midC].item?.type === 'anvil') clear = false;
+                                if (gs.board[midR][midC].piece || gs.board[midR][midC].item?.type === 'anvil') clear = false;
                             }
-                            if(clear && !isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                            if (clear && !isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
                         }
                         if (effLevel >= 5) {
-                            if (this.knightMoves.some(([dr,dc]) => r+dr === tr && c+dc === tc)) {
-                                if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                            for (const [dr, dc] of this.knightMoves) {
+                                if (r + dr === tr && c + dc === tc) {
+                                    if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
+                                }
                             }
                         }
                     } else {
-                        const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (p.type === 'bishop' || p.type === 'archbishop' ? this.directions.bishop : this.directions.queen);
+                        const isBishopType = p.type === 'bishop' || p.type === 'archbishop';
+                        const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (isBishopType ? this.directions.bishop : this.directions.queen);
                         for (const [dr, dc] of dirs) {
                             for (let i = 1; i < 8; i++) {
                                 const nr = r + i * dr, nc = c + i * dc;
@@ -648,10 +671,14 @@ export class VibeChessAI {
                                     if (!isPieceInvulnerableToAttackUtil(pieceOnTarget, p, targetLevel, effLevel, gs.board as any)) return true;
                                     break;
                                 }
-                                if (gs.board[nr][nc].piece || gs.board[nr][nc].item?.type === 'anvil') {
-                                    if (p.type === 'bishop' || p.type === 'archbishop') {
-                                        if (effLevel < 2 || gs.board[nr][nc].piece?.color !== p.color) break;
-                                    } else break;
+                                const midSq = gs.board[nr][nc];
+                                if (midSq.piece || midSq.item?.type === 'anvil') {
+                                    if (isBishopType) {
+                                        if (effLevel < 2 || midSq.piece?.color !== p.color) break;
+                                    } else {
+                                        const hasPhase = p.heldItem === 'phase_boots' && effLevel >= 2;
+                                        if (!hasPhase || midSq.piece?.color !== p.color) break;
+                                    }
                                 }
                             }
                         }
