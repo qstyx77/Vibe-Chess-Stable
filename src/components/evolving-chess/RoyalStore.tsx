@@ -111,26 +111,25 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
 
   const handleDailyDeal = async () => {
     const activeSeed = dailySeed;
-    if (!user || (userData?.goldBalance || 0) < 200) {
-        toast({ variant: 'destructive', title: "Insufficient Gold", description: "Daily Deal costs 200 Gold ($2.00)." });
-        return;
-    }
+    if (!user) return;
+    
     setLoading('daily');
     try {
         const userRef = doc(firestore, 'users', user.uid);
         await runTransaction(firestore, async (tx) => {
             const snap = await tx.get(userRef);
             const data = snap.data();
-            if (!data || data.goldBalance < 200) throw new Error("Insufficient Gold.");
+            if (!data) throw new Error("User data not found.");
+            
             const inv = [...(data?.inventory || [])];
             const verifiedItems = getDailyItems(activeSeed);
             verifiedItems.forEach(type => {
                 const idx = inv.findIndex(i => i.type === type);
                 if (idx > -1) inv[idx].count++; else inv.push({ type, count: 1 });
             });
-            tx.update(userRef, { goldBalance: data.goldBalance - 200, inventory: inv });
+            tx.update(userRef, { inventory: inv });
         });
-        toast({ title: "Deal Claimed!", description: "Daily items delivered to your loot bag." });
+        toast({ title: "Purchase Success!", description: "Daily items delivered to your loot bag." });
     } catch (e: any) { 
         toast({ variant: 'destructive', title: "Purchase Failed", description: e.message }); 
     }
@@ -255,7 +254,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                             onClick={handleDailyDeal} 
                             disabled={!!loading}
                         >
-                            <span className="text-[0.8rem] text-accent">200G</span>
+                            <span className="text-[0.8rem] text-accent">$2.00</span>
                         </Button>
                         <p className="text-[0.4rem] text-muted-foreground uppercase">Hire Today</p>
                     </div>

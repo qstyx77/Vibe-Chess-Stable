@@ -116,7 +116,7 @@ export default function ProfilePage() {
     <div className="container mx-auto p-4 max-w-4xl font-pixel space-y-6">
       <Card className="border-2 border-primary/30">
         <CardHeader className="text-center border-b border-border/50">
-          <CardTitle className="uppercase tracking-tighter">{userProfile.username}&apos;S HALL OF RECORDS</CardTitle>
+          <CardTitle className="uppercase tracking-tighter">{userProfile.username}&apos;S PROFILE</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div className="flex flex-col items-center space-y-4">
