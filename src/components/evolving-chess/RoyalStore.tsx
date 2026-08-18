@@ -156,7 +156,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                  <Crown className="h-8 w-8 text-yellow-500 animate-pulse" />
-                 <DialogTitle className="text-xl text-primary uppercase tracking-tighter">The Royal Store</DialogTitle>
+                 <DialogTitle className="text-xl text-primary uppercase tracking-tighter">Store</DialogTitle>
               </div>
               <div className="flex items-center gap-2 bg-muted/20 px-3 py-1.5 border border-primary/30">
                  <Coins className="h-4 w-4 text-yellow-500" />
@@ -192,10 +192,9 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         </div>
                         <div className="flex-grow space-y-4">
                             <div>
-                                <p className="text-[0.75rem] text-white uppercase">Mercenary Selection</p>
                                 <p className="text-[0.45rem] text-muted-foreground uppercase mt-1">Deterministically refreshed at midnight EST</p>
                             </div>
-                            <TooltipProvider>
+                            <TooltipProvider delayDuration={0}>
                                 <div className="grid grid-cols-6 gap-2">
                                     {dailyItems.map((type, idx) => {
                                         const meta = ITEM_METADATA[type];
@@ -246,6 +245,12 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                 <div className="space-y-3">
                     {pieceList.map(p => {
                         const isOwned = userData?.unlockedPieces?.includes(p.type);
+                        const elo = userData?.eloRating || 1200;
+                        const isUnlockedByElo = 
+                            (p.type === 'archbishop' && elo >= 1500) ||
+                            (p.type === 'palace' && elo >= 1800) ||
+                            (p.type === 'archer' && elo >= 2100);
+
                         return (
                             <Card key={p.type} className="border-2 border-border/50 bg-black/40 overflow-hidden w-full">
                                 <CardContent className="p-3 flex items-center justify-between gap-4">
@@ -263,8 +268,8 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                         <p className="text-[0.45rem] text-primary/80 uppercase mt-1">Unlock: {p.req}</p>
                                     </div>
                                     <div className="shrink-0">
-                                        {isOwned ? (
-                                            <span className="text-[0.55rem] text-green-500 uppercase font-bold">RECRUITED</span>
+                                        {isOwned || isUnlockedByElo ? (
+                                            <span className="text-[0.55rem] text-green-500 uppercase font-bold">UNLOCKED</span>
                                         ) : p.isElo ? (
                                             <span className="text-[0.45rem] text-muted-foreground uppercase border border-border px-2 py-1">LOCKED</span>
                                         ) : (
