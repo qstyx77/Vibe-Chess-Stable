@@ -67,6 +67,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const { toast } = useToast();
   const firestore = getFirestore();
   const [loading, setLoading] = useState<string | null>(null);
+  const [exchangeAmount, setExchangeAmount] = useState(2000);
 
   const dailySeed = useMemo(() => getESTDateSeed(), [isOpen]);
   const dailyItems = useMemo(() => getDailyItems(dailySeed), [dailySeed]);
@@ -136,13 +137,37 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
     setLoading(null);
   };
 
-  const requestCashOut = () => {
-    if (!userData || userData.goldBalance < 2000) {
+  const requestCashOut = async () => {
+    if (!userData || !user) return;
+    
+    if (exchangeAmount < 2000) {
         toast({ variant: 'destructive', title: "Minimum Not Met", description: "You need at least 2000 Gold ($20) to exchange." });
         return;
     }
-    const val = (userData.goldBalance * 0.01 * 0.67).toFixed(2);
-    toast({ title: "Exchange Request Sent", description: `Processing $${val} via Square Payouts.` });
+    
+    if (exchangeAmount > userData.goldBalance) {
+        toast({ variant: 'destructive', title: "Error", description: "You cannot exchange more gold than you own." });
+        return;
+    }
+
+    setLoading('exchange');
+    try {
+        const userRef = doc(firestore, 'users', user.uid);
+        await runTransaction(firestore, async (tx) => {
+            const snap = await tx.get(userRef);
+            const data = snap.data();
+            if (!data || data.goldBalance < exchangeAmount) throw new Error("Insufficient Gold.");
+            
+            tx.update(userRef, { goldBalance: data.goldBalance - exchangeAmount });
+        });
+        
+        const val = (exchangeAmount * 0.01 * 0.67).toFixed(2);
+        toast({ title: "Exchange Request Sent", description: `Processing $${val} via Square Payouts.` });
+        setExchangeAmount(Math.min(2000, userData.goldBalance - exchangeAmount));
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: "Exchange Failed", description: e.message });
+    }
+    setLoading(null);
   };
 
   const pieceList: { type: PieceType; name: string; desc: string; req: string; isElo?: boolean }[] = [
@@ -192,13 +217,34 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             <section>
                <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Landmark className="h-3 w-3" /> Exchange</h2>
                <Card className="border-2 border-primary/40 bg-primary/5">
-                  <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                     <div className="text-center sm:text-left">
-                        <p className="text-[0.65rem] uppercase text-muted-foreground">Exchange Value</p>
-                        <p className="text-lg font-bold text-white mt-1">${( (userData?.goldBalance || 0) * 0.01 * 0.67).toFixed(2)}</p>
-                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase italic">Includes 33% Sovereign Tax</p>
+                  <CardContent className="p-4 space-y-4">
+                     <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="w-full sm:w-1/2">
+                            <p className="text-[0.65rem] uppercase text-muted-foreground mb-1">Gold to Exchange</p>
+                            <div className="flex items-center gap-2 bg-black/40 border border-primary/20 p-2">
+                                <input 
+                                    type="number" 
+                                    value={exchangeAmount} 
+                                    onChange={(e) => setExchangeAmount(Math.min(Number(e.target.value), userData?.goldBalance || 0))}
+                                    className="bg-transparent border-none w-full text-white font-pixel text-sm focus:outline-none"
+                                    min="0"
+                                    max={userData?.goldBalance || 0}
+                                />
+                                <span className="text-[0.5rem] text-primary">GOLD</span>
+                            </div>
+                        </div>
+                        <div className="text-center sm:text-right flex-grow">
+                            <p className="text-[0.65rem] uppercase text-muted-foreground">Exchange Value</p>
+                            <p className="text-lg font-bold text-white mt-1">${(exchangeAmount * 0.01 * 0.67).toFixed(2)}</p>
+                            <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase italic">Includes 33% Tax</p>
+                        </div>
                      </div>
-                     <Button className="w-full sm:w-auto h-10 text-[0.55rem] uppercase px-6" onClick={requestCashOut} variant="outline">
+                     <Button 
+                        className="w-full h-10 text-[0.55rem] uppercase px-6" 
+                        onClick={requestCashOut} 
+                        variant="outline"
+                        disabled={exchangeAmount <= 0 || exchangeAmount > (userData?.goldBalance || 0) || !!loading}
+                     >
                         <CreditCard className="h-3 w-3 mr-2" /> Withdraw
                      </Button>
                   </CardContent>
@@ -256,7 +302,6 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         >
                             <span className="text-[0.8rem] text-accent">$2.00</span>
                         </Button>
-                        <p className="text-[0.4rem] text-muted-foreground uppercase">Hire Today</p>
                     </div>
                 </div>
                 <p className="text-[0.45rem] text-muted-foreground uppercase mt-2 text-right">Refreshed at midnight EST</p>
