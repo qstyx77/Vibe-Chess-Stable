@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -6,9 +7,10 @@ import { ITEM_METADATA } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { X, Package, Sparkles } from 'lucide-react';
+import { X, Package, Sparkles, Coins } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ItemSprite } from './ItemSprite';
+import { useUser } from '@/firebase';
 
 interface InventoryWindowProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ export function InventoryWindow({
   usedSlots,
   attunementSlots
 }: InventoryWindowProps) {
+  const { userData } = useUser();
   const [position, setPosition] = useState({ x: 20, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -89,6 +92,10 @@ export function InventoryWindow({
             <div className="flex items-center gap-1 text-primary">
               <Package className="h-4 w-4" />
               <CardTitle className="text-[0.75rem] font-pixel uppercase">Loot Bag</CardTitle>
+            </div>
+            <div className="flex items-center gap-1 bg-yellow-500/10 px-2 py-0.5 border border-yellow-500/30 rounded-sm">
+                <Coins className="h-3 w-3 text-yellow-500" />
+                <span className="text-[0.6rem] font-pixel text-yellow-500">{userData?.goldBalance || 0}G</span>
             </div>
             <Button variant="ghost" size="icon" className="h-5 w-5" onClick={onClose}>
               <X className="h-3 w-3" />

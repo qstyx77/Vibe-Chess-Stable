@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -16,7 +17,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Coins, Crown, Sparkles, Sword, Package, Zap, Info } from 'lucide-react';
+import { Coins, Crown, Sparkles, Sword, Package, Zap, Landmark, CreditCard } from 'lucide-react';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore, runTransaction } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -29,8 +30,6 @@ interface RoyalStoreProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
 }
-
-/** DETERMINISTIC DAILY DEAL LOGIC **/
 
 function seededRandom(seed: string) {
   let h = 0;
@@ -69,13 +68,11 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const firestore = getFirestore();
   const [loading, setLoading] = useState<string | null>(null);
 
-  // Seed is memoized based on isOpen, so it stays stable while the dialog is open
   const dailySeed = useMemo(() => getESTDateSeed(), [isOpen]);
   const dailyItems = useMemo(() => getDailyItems(dailySeed), [dailySeed]);
 
   const buyGold = async (amount: number, gold: number) => {
     setLoading(`gold-${gold}`);
-    // Simulated Square SDK integration
     setTimeout(() => {
         if (!user) return;
         const userRef = doc(firestore, 'users', user.uid);
@@ -113,9 +110,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   };
 
   const handleDailyDeal = async () => {
-    // Lock the seed to the one active in the UI
     const activeSeed = dailySeed;
-
     if (!user || (userData?.goldBalance || 0) < 200) {
         toast({ variant: 'destructive', title: "Insufficient Gold", description: "Daily Deal costs 200 Gold ($2.00)." });
         return;
@@ -127,12 +122,8 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             const snap = await tx.get(userRef);
             const data = snap.data();
             if (!data || data.goldBalance < 200) throw new Error("Insufficient Gold.");
-            
             const inv = [...(data?.inventory || [])];
-            
-            // Re-calculate using the snapped seed to ensure receipt matches display exactly
             const verifiedItems = getDailyItems(activeSeed);
-            
             verifiedItems.forEach(type => {
                 const idx = inv.findIndex(i => i.type === type);
                 if (idx > -1) inv[idx].count++; else inv.push({ type, count: 1 });
@@ -144,6 +135,15 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
         toast({ variant: 'destructive', title: "Purchase Failed", description: e.message }); 
     }
     setLoading(null);
+  };
+
+  const requestCashOut = () => {
+    if (!userData || userData.goldBalance < 2000) {
+        toast({ variant: 'destructive', title: "Minimum Not Met", description: "You need at least 2000 Gold ($20) to exchange." });
+        return;
+    }
+    const val = (userData.goldBalance * 0.01 * 0.67).toFixed(2);
+    toast({ title: "Exchange Request Sent", description: `Processing $${val} via Square Payouts.` });
   };
 
   const pieceList: { type: PieceType; name: string; desc: string; req: string; isElo?: boolean }[] = [
@@ -187,6 +187,23 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         <span className="text-[0.5rem] text-muted-foreground mt-1">$5.00 USD (BONUS!)</span>
                     </Button>
                 </div>
+            </section>
+
+            {/* EXCHANGE */}
+            <section>
+               <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Landmark className="h-3 w-3" /> Exchange</h2>
+               <Card className="border-2 border-primary/40 bg-primary/5">
+                  <CardContent className="p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                     <div className="text-center sm:text-left">
+                        <p className="text-[0.65rem] uppercase text-muted-foreground">Exchange Value</p>
+                        <p className="text-lg font-bold text-white mt-1">${( (userData?.goldBalance || 0) * 0.01 * 0.67).toFixed(2)}</p>
+                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase italic">Includes 33% Sovereign Tax</p>
+                     </div>
+                     <Button className="w-full sm:w-auto h-10 text-[0.55rem] uppercase px-6" onClick={requestCashOut} variant="outline">
+                        <CreditCard className="h-3 w-3 mr-2" /> Withdraw
+                     </Button>
+                  </CardContent>
+               </Card>
             </section>
 
             {/* DAILY DEAL */}
@@ -243,7 +260,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         <p className="text-[0.4rem] text-muted-foreground uppercase">Hire Today</p>
                     </div>
                 </div>
-                <p className="text-[0.45rem] text-muted-foreground uppercase mt-2 text-right">Deterministically refreshed at midnight EST</p>
+                <p className="text-[0.45rem] text-muted-foreground uppercase mt-2 text-right">Refreshed at midnight EST</p>
             </section>
 
             {/* UNIT SHOWCASE */}

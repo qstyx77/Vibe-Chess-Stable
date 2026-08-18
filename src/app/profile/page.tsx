@@ -11,12 +11,12 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
-import { Coins, Package, Store, ArrowRight, CreditCard, Landmark, ShoppingCart, Trash2, UserPlus } from 'lucide-react';
+import { Package, Store, Trash2, UserPlus } from 'lucide-react';
 import { ITEM_METADATA, type InventoryItemType, type MarketListing } from '@/types';
 import { ItemSprite } from '@/components/evolving-chess/ItemSprite';
-import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useSocial } from '@/components/social/SocialContext';
+import { Coins } from 'lucide-react';
 
 export default function ProfilePage() {
   const { user, userData, isUserLoading, userError } = useUser();
@@ -65,7 +65,6 @@ export default function ProfilePage() {
     const userRef = doc(firestore, 'users', user.uid);
     updateDocumentNonBlocking(userRef, { marketSlots: newMarket, inventory: newInv });
     
-    // Notify Server to Ticker
     if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'market-listing-broadcast', item: type, price: listingPrice }));
     }
@@ -90,15 +89,6 @@ export default function ProfilePage() {
     toast({ title: "Listing Removed", description: "Item returned to loot bag." });
   };
 
-  const requestCashOut = () => {
-    if (!userData || userData.goldBalance < 2000) {
-        toast({ variant: 'destructive', title: "Minimum Not Met", description: "You need at least 2000 Gold ($20) to cash out." });
-        return;
-    }
-    const val = (userData.goldBalance * 0.01 * 0.67).toFixed(2);
-    toast({ title: "Cash Out Request Sent", description: `Processing $${val} via Square Payouts.` });
-  };
-
   if (isUserLoading || isProfileLoading) {
     return <div className="flex justify-center items-center h-screen font-pixel uppercase text-xs"><p>Loading profile...</p></div>;
   }
@@ -119,6 +109,8 @@ export default function ProfilePage() {
   }
 
   const isMe = user?.uid === targetId;
+  const totalMatches = (userProfile.wins || 0) + (userProfile.losses || 0);
+  const winRate = totalMatches > 0 ? Math.round((userProfile.wins / totalMatches) * 100) : 0;
 
   return (
     <div className="container mx-auto p-4 max-w-4xl font-pixel space-y-6">
@@ -151,37 +143,10 @@ export default function ProfilePage() {
                 <p className="text-2xl font-bold text-green-500">{userProfile.wins || 0}</p>
             </div>
             <div className="p-4 bg-muted/30 border border-border rounded-none">
-                <p className="text-[9px] font-medium text-muted-foreground uppercase mb-1">ARENA DEFEATS</p>
-                <p className="text-2xl font-bold text-destructive">{userProfile.losses || 0}</p>
+                <p className="text-[9px] font-medium text-muted-foreground uppercase mb-1">WIN RATE</p>
+                <p className="text-2xl font-bold text-accent">{winRate}%</p>
             </div>
           </div>
-
-          {/* BANKING SECTION */}
-          {isMe && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8">
-               <Card className="border-2 border-yellow-600 bg-yellow-500/5">
-                  <CardContent className="p-4 flex flex-col items-center text-center">
-                     <Coins className="h-8 w-8 text-yellow-500 mb-2" />
-                     <p className="text-[0.65rem] uppercase text-muted-foreground">Gold Reserve</p>
-                     <p className="text-2xl font-bold text-yellow-400 mt-1">{userData?.goldBalance || 0}G</p>
-                     <p className="text-[0.45rem] text-muted-foreground mt-1">Sovereign Value: ${( (userData?.goldBalance || 0) * 0.01).toFixed(2)}</p>
-                  </CardContent>
-               </Card>
-               <Card className="border-2 border-primary/40 bg-primary/5">
-                  <CardContent className="p-4 flex flex-col items-center text-center justify-between h-full">
-                     <Landmark className="h-8 w-8 text-primary mb-2" />
-                     <div>
-                        <p className="text-[0.65rem] uppercase text-muted-foreground">Redemption Vault</p>
-                        <p className="text-lg font-bold text-white mt-1">${( (userData?.goldBalance || 0) * 0.01 * 0.67).toFixed(2)}</p>
-                        <p className="text-[0.4rem] text-muted-foreground mt-1 uppercase italic">Includes 33% Sovereign Tax</p>
-                     </div>
-                     <Button className="mt-3 w-full h-8 text-[0.55rem] uppercase" onClick={requestCashOut} variant="outline">
-                        <CreditCard className="h-3 w-3 mr-2" /> Withdraw
-                     </Button>
-                  </CardContent>
-               </Card>
-            </div>
-          )}
 
           {/* MARKET STALL */}
           <div className="mt-8">
@@ -204,7 +169,7 @@ export default function ProfilePage() {
                            ) : isMe ? (
                                <button className="w-full h-full flex flex-col items-center justify-center hover:bg-primary/5 transition-colors" onClick={() => listItemsForMarket(slot)}>
                                   <UserPlus className="h-6 w-6 text-muted-foreground/40" />
-                                  <span className="text-[0.4rem] text-muted-foreground uppercase mt-2">Rent Slot</span>
+                                  <span className="text-[0.4rem] text-muted-foreground uppercase mt-2">Add Item</span>
                                </button>
                            ) : (
                                <div className="opacity-20 flex flex-col items-center">
@@ -251,7 +216,7 @@ export default function ProfilePage() {
                       <ScrollArea className="h-64 pr-2">
                          <div className="grid grid-cols-4 gap-2">
                             {userData?.inventory?.map((item, idx) => (
-                                <button key={idx} className="aspect-[10/12] border-2 border-border flex items-center justify-center hover:border-primary transition-colors bg-black" onClick={() => handleListing(item.type)}>
+                                <button key={idx} className="aspect-[10/12] border-2 border-border flex items-center justify-center hover:border-primary transition-colors bg-black relative" onClick={() => handleListing(item.type)}>
                                     <ItemSprite type={item.type} size={40} />
                                     <span className="absolute bottom-0 right-0 bg-primary text-[0.45rem] px-0.5 font-bold">x{item.count}</span>
                                 </button>
