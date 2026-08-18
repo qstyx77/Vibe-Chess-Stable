@@ -12,11 +12,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { Coins, Crown, Sparkles, Sword, Package, Zap, Info } from 'lucide-react';
 import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore, runTransaction } from 'firebase/firestore';
@@ -70,6 +69,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const firestore = getFirestore();
   const [loading, setLoading] = useState<string | null>(null);
 
+  // Seed is memoized based on isOpen, so it stays stable while the dialog is open
   const dailySeed = useMemo(() => getESTDateSeed(), [isOpen]);
   const dailyItems = useMemo(() => getDailyItems(dailySeed), [dailySeed]);
 
@@ -113,6 +113,9 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   };
 
   const handleDailyDeal = async () => {
+    // Lock the seed to the one active in the UI
+    const activeSeed = dailySeed;
+
     if (!user || (userData?.goldBalance || 0) < 200) {
         toast({ variant: 'destructive', title: "Insufficient Gold", description: "Daily Deal costs 200 Gold ($2.00)." });
         return;
@@ -126,7 +129,11 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             if (!data || data.goldBalance < 200) throw new Error("Insufficient Gold.");
             
             const inv = [...(data?.inventory || [])];
-            dailyItems.forEach(type => {
+            
+            // Re-calculate using the snapped seed to ensure receipt matches display exactly
+            const verifiedItems = getDailyItems(activeSeed);
+            
+            verifiedItems.forEach(type => {
                 const idx = inv.findIndex(i => i.type === type);
                 if (idx > -1) inv[idx].count++; else inv.push({ type, count: 1 });
             });
@@ -191,38 +198,37 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                             <Package className="h-8 w-8 text-accent" />
                         </div>
                         <div className="flex-grow space-y-4">
-                            <div>
-                                <p className="text-[0.45rem] text-muted-foreground uppercase mt-1">Deterministically refreshed at midnight EST</p>
+                            <div className="grid grid-cols-6 gap-2">
+                                {dailyItems.map((type, idx) => {
+                                    const meta = ITEM_METADATA[type];
+                                    return (
+                                        <Popover key={`${type}-${idx}`}>
+                                            <PopoverTrigger asChild>
+                                                <button className={cn(
+                                                    "aspect-square border flex items-center justify-center bg-black cursor-help p-1 outline-none focus:ring-1 focus:ring-accent",
+                                                    meta.rarity === 'rare' ? "border-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.4)]" :
+                                                    meta.rarity === 'uncommon' ? "border-green-500" : "border-slate-700"
+                                                )}>
+                                                    <ItemSprite type={type} size={32} />
+                                                </button>
+                                            </PopoverTrigger>
+                                            <PopoverContent 
+                                                className="bg-black border-2 border-accent font-pixel p-3 max-w-[200px] z-[150]"
+                                                side="top"
+                                                align="center"
+                                            >
+                                                <p className="text-[0.6rem] text-accent uppercase font-bold">{meta.name}</p>
+                                                <p className="text-[0.5rem] text-white mt-1 leading-tight">{meta.description}</p>
+                                                <p className={cn(
+                                                    "text-[0.45rem] uppercase mt-2 font-bold",
+                                                    meta.rarity === 'rare' ? "text-purple-400" : 
+                                                    meta.rarity === 'uncommon' ? "text-green-400" : "text-slate-400"
+                                                )}>{meta.rarity}</p>
+                                            </PopoverContent>
+                                        </Popover>
+                                    );
+                                })}
                             </div>
-                            <TooltipProvider delayDuration={0}>
-                                <div className="grid grid-cols-6 gap-2">
-                                    {dailyItems.map((type, idx) => {
-                                        const meta = ITEM_METADATA[type];
-                                        return (
-                                            <Tooltip key={`${type}-${idx}`}>
-                                                <TooltipTrigger asChild>
-                                                    <div className={cn(
-                                                        "aspect-square border flex items-center justify-center bg-black cursor-help p-1",
-                                                        meta.rarity === 'rare' ? "border-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.4)]" :
-                                                        meta.rarity === 'uncommon' ? "border-green-500" : "border-slate-700"
-                                                    )}>
-                                                        <ItemSprite type={type} size={32} />
-                                                    </div>
-                                                </TooltipTrigger>
-                                                <TooltipContent className="bg-black border-2 border-accent font-pixel p-3 max-w-[200px]">
-                                                    <p className="text-[0.6rem] text-accent uppercase font-bold">{meta.name}</p>
-                                                    <p className="text-[0.5rem] text-white mt-1 leading-tight">{meta.description}</p>
-                                                    <p className={cn(
-                                                        "text-[0.45rem] uppercase mt-2 font-bold",
-                                                        meta.rarity === 'rare' ? "text-purple-400" : 
-                                                        meta.rarity === 'uncommon' ? "text-green-400" : "text-slate-400"
-                                                    )}>{meta.rarity}</p>
-                                                </TooltipContent>
-                                            </Tooltip>
-                                        );
-                                    })}
-                                </div>
-                            </TooltipProvider>
                         </div>
                     </div>
                     <div className="shrink-0 flex flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
@@ -237,6 +243,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         <p className="text-[0.4rem] text-muted-foreground uppercase">Hire Today</p>
                     </div>
                 </div>
+                <p className="text-[0.45rem] text-muted-foreground uppercase mt-2 text-right">Deterministically refreshed at midnight EST</p>
             </section>
 
             {/* UNIT SHOWCASE */}
