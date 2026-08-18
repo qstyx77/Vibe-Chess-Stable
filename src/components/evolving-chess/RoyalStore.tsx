@@ -176,7 +176,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
           <div className="space-y-8 pb-10 px-1">
             {/* GOLD PACKS */}
             <section>
-                <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Zap className="h-3 w-3" /> Gold Exchange</h2>
+                <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Zap className="h-3 w-3" /> Gold Mint</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Button variant="outline" className="h-20 flex flex-col border-2 border-slate-700 hover:border-primary bg-black/40" onClick={() => buyGold(1, 100)} disabled={!!loading}>
                         <span className="text-[0.8rem] text-white">100 GOLD</span>
