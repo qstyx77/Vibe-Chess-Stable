@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,12 +11,19 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Coins, Crown, Sparkles, Sword, UserPlus, Package, Zap } from 'lucide-react';
-import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Coins, Crown, Sparkles, Sword, Package, Zap, Info } from 'lucide-react';
+import { useUser, updateDocumentNonBlocking } from '@/firebase';
 import { doc, getFirestore, runTransaction } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { ITEM_METADATA, type InventoryItemType, type PieceType } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
+import { ItemSprite } from './ItemSprite';
 import { cn } from '@/lib/utils';
 
 interface RoyalStoreProps {
@@ -24,11 +31,47 @@ interface RoyalStoreProps {
   onOpenChange: (open: boolean) => void;
 }
 
+/** DETERMINISTIC DAILY DEAL LOGIC **/
+
+function seededRandom(seed: string) {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (Math.imul(31, h) + seed.charCodeAt(i)) | 0;
+  const rand = () => {
+    h = (Math.imul(h, 48271) % 2147483647) | 0;
+    return (h & 2147483647) / 2147483648;
+  };
+  return rand;
+}
+
+const getESTDateSeed = () => {
+  const options = { timeZone: "America/New_York", year: 'numeric', month: '2-digit', day: '2-digit' } as const;
+  return new Intl.DateTimeFormat("en-US", options).format(new Date());
+};
+
+const getDailyItems = (seed: string): InventoryItemType[] => {
+  const rand = seededRandom(seed);
+  const items = Object.keys(ITEM_METADATA) as InventoryItemType[];
+  const rares = items.filter(i => ITEM_METADATA[i].rarity === 'rare');
+  const uncommons = items.filter(i => ITEM_METADATA[i].rarity === 'uncommon');
+  const commons = items.filter(i => ITEM_METADATA[i].rarity === 'common');
+  
+  const pick = (list: any[]) => list[Math.floor(rand() * list.length)];
+
+  return [
+    pick(rares),
+    pick(uncommons), pick(uncommons),
+    pick(commons), pick(commons), pick(commons)
+  ];
+};
+
 export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const { userData, user } = useUser();
   const { toast } = useToast();
   const firestore = getFirestore();
   const [loading, setLoading] = useState<string | null>(null);
+
+  const dailySeed = useMemo(() => getESTDateSeed(), [isOpen]);
+  const dailyItems = useMemo(() => getDailyItems(dailySeed), [dailySeed]);
 
   const buyGold = async (amount: number, gold: number) => {
     setLoading(`gold-${gold}`);
@@ -69,38 +112,30 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
     setLoading(null);
   };
 
-  const dailyDeal = async () => {
+  const handleDailyDeal = async () => {
     if (!user || (userData?.goldBalance || 0) < 200) {
-        toast({ variant: 'destructive', title: "Insufficient Gold", description: "Mercenary Bundle costs 200 Gold ($2.00)." });
+        toast({ variant: 'destructive', title: "Insufficient Gold", description: "Daily Deal costs 200 Gold ($2.00)." });
         return;
     }
     setLoading('daily');
-    const items = Object.keys(ITEM_METADATA) as InventoryItemType[];
-    const rares = items.filter(i => ITEM_METADATA[i].rarity === 'rare');
-    const uncommons = items.filter(i => ITEM_METADATA[i].rarity === 'uncommon');
-    const commons = items.filter(i => ITEM_METADATA[i].rarity === 'common');
-    
-    const roll = [
-        rares[Math.floor(Math.random()*rares.length)],
-        ...Array.from({length:2}, () => uncommons[Math.floor(Math.random()*uncommons.length)]),
-        ...Array.from({length:3}, () => commons[Math.floor(Math.random()*commons.length)])
-    ];
-
     try {
         const userRef = doc(firestore, 'users', user.uid);
         await runTransaction(firestore, async (tx) => {
             const snap = await tx.get(userRef);
             const data = snap.data();
             if (!data || data.goldBalance < 200) throw new Error("Insufficient Gold.");
+            
             const inv = [...(data?.inventory || [])];
-            roll.forEach(type => {
+            dailyItems.forEach(type => {
                 const idx = inv.findIndex(i => i.type === type);
                 if (idx > -1) inv[idx].count++; else inv.push({ type, count: 1 });
             });
             tx.update(userRef, { goldBalance: data.goldBalance - 200, inventory: inv });
         });
-        toast({ title: "Bundle Claimed!", description: "6 random items delivered to your loot bag." });
-    } catch (e: any) { toast({ variant: 'destructive', title: "Purchase Failed", description: e.message }); }
+        toast({ title: "Deal Claimed!", description: "Daily items delivered to your loot bag." });
+    } catch (e: any) { 
+        toast({ variant: 'destructive', title: "Purchase Failed", description: e.message }); 
+    }
     setLoading(null);
   };
 
@@ -116,7 +151,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl bg-black border-2 border-primary font-pixel max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      <DialogContent className="sm:max-w-3xl md:max-w-4xl bg-black border-2 border-primary font-pixel max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 border-b border-border/50">
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -131,11 +166,11 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
         </DialogHeader>
 
         <ScrollArea className="flex-1 p-6 overflow-y-auto">
-          <div className="space-y-8 pb-10">
+          <div className="space-y-8 pb-10 px-1">
             {/* GOLD PACKS */}
             <section>
                 <h2 className="text-[0.7rem] text-primary uppercase mb-3 flex items-center gap-2"><Zap className="h-3 w-3" /> Gold Exchange</h2>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <Button variant="outline" className="h-20 flex flex-col border-2 border-slate-700 hover:border-primary bg-black/40" onClick={() => buyGold(1, 100)} disabled={!!loading}>
                         <span className="text-[0.8rem] text-white">100 GOLD</span>
                         <span className="text-[0.5rem] text-muted-foreground mt-1">$1.00 USD</span>
@@ -150,21 +185,59 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
             {/* DAILY DEAL */}
             <section>
                 <h2 className="text-[0.7rem] text-accent uppercase mb-3 flex items-center gap-2"><Sparkles className="h-3 w-3" /> Daily Deal</h2>
-                <Button variant="outline" className="w-full h-24 border-2 border-accent bg-accent/5 hover:bg-accent/10 flex items-center justify-between px-6" onClick={dailyDeal} disabled={!!loading}>
-                    <div className="flex items-center gap-4">
-                        <div className="bg-black p-3 border border-accent">
+                <div className="w-full border-2 border-accent bg-accent/5 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4 w-full">
+                        <div className="bg-black p-3 border border-accent shrink-0">
                             <Package className="h-8 w-8 text-accent" />
                         </div>
-                        <div className="text-left">
-                            <p className="text-[0.75rem] text-white uppercase">Mercenary Bundle</p>
-                            <p className="text-[0.5rem] text-muted-foreground uppercase mt-1">1 Rare • 2 Uncommon • 3 Common</p>
+                        <div className="flex-grow space-y-4">
+                            <div>
+                                <p className="text-[0.75rem] text-white uppercase">Mercenary Selection</p>
+                                <p className="text-[0.45rem] text-muted-foreground uppercase mt-1">Deterministically refreshed at midnight EST</p>
+                            </div>
+                            <TooltipProvider>
+                                <div className="grid grid-cols-6 gap-2">
+                                    {dailyItems.map((type, idx) => {
+                                        const meta = ITEM_METADATA[type];
+                                        return (
+                                            <Tooltip key={`${type}-${idx}`}>
+                                                <TooltipTrigger asChild>
+                                                    <div className={cn(
+                                                        "aspect-square border flex items-center justify-center bg-black cursor-help p-1",
+                                                        meta.rarity === 'rare' ? "border-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.4)]" :
+                                                        meta.rarity === 'uncommon' ? "border-green-500" : "border-slate-700"
+                                                    )}>
+                                                        <ItemSprite type={type} size={32} />
+                                                    </div>
+                                                </TooltipTrigger>
+                                                <TooltipContent className="bg-black border-2 border-accent font-pixel p-3 max-w-[200px]">
+                                                    <p className="text-[0.6rem] text-accent uppercase font-bold">{meta.name}</p>
+                                                    <p className="text-[0.5rem] text-white mt-1 leading-tight">{meta.description}</p>
+                                                    <p className={cn(
+                                                        "text-[0.45rem] uppercase mt-2 font-bold",
+                                                        meta.rarity === 'rare' ? "text-purple-400" : 
+                                                        meta.rarity === 'uncommon' ? "text-green-400" : "text-slate-400"
+                                                    )}>{meta.rarity}</p>
+                                                </TooltipContent>
+                                            </Tooltip>
+                                        );
+                                    })}
+                                </div>
+                            </TooltipProvider>
                         </div>
                     </div>
-                    <div className="text-right">
-                        <p className="text-[0.85rem] text-accent">200g</p>
-                        <p className="text-[0.4rem] text-muted-foreground uppercase mt-1">Refreshes Daily</p>
+                    <div className="shrink-0 flex flex-col items-center sm:items-end gap-2 w-full sm:w-auto">
+                        <Button 
+                            variant="outline" 
+                            className="w-full sm:w-32 h-12 border-2 border-accent hover:bg-accent/10" 
+                            onClick={handleDailyDeal} 
+                            disabled={!!loading}
+                        >
+                            <span className="text-[0.8rem] text-accent">200G</span>
+                        </Button>
+                        <p className="text-[0.4rem] text-muted-foreground uppercase">Hire Today</p>
                     </div>
-                </Button>
+                </div>
             </section>
 
             {/* UNIT SHOWCASE */}
@@ -174,19 +247,19 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                     {pieceList.map(p => {
                         const isOwned = userData?.unlockedPieces?.includes(p.type);
                         return (
-                            <Card key={p.type} className="border-2 border-border/50 bg-black/40 overflow-hidden">
+                            <Card key={p.type} className="border-2 border-border/50 bg-black/40 overflow-hidden w-full">
                                 <CardContent className="p-3 flex items-center justify-between gap-4">
-                                    <div className="w-14 h-14 bg-muted/10 shrink-0 flex items-center justify-center border border-border/30">
-                                        <div className="scale-[2.5]">
+                                    <div className="w-12 h-12 bg-muted/10 shrink-0 flex items-center justify-center border border-border/30">
+                                        <div className="scale-[1.25]">
                                             <ChessPieceDisplay piece={{ id: 'preview', type: p.type, color: 'white', level: 1, hasMoved: false }} />
                                         </div>
                                     </div>
-                                    <div className="flex-grow">
-                                        <div className="flex items-center gap-2">
-                                            <h3 className="text-[0.7rem] text-white uppercase">{p.name}</h3>
-                                            <span className="text-[0.45rem] px-1 bg-muted text-muted-foreground uppercase">{p.isElo ? 'RANKED' : 'FRONTLINE'}</span>
+                                    <div className="flex-grow min-w-0">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h3 className="text-[0.7rem] text-white uppercase truncate">{p.name}</h3>
+                                            <span className="text-[0.45rem] px-1 bg-muted text-muted-foreground uppercase shrink-0">{p.isElo ? 'RANKED' : 'FRONTLINE'}</span>
                                         </div>
-                                        <p className="text-[0.5rem] text-muted-foreground italic leading-tight mt-1">{p.desc}</p>
+                                        <p className="text-[0.5rem] text-muted-foreground italic leading-tight mt-1 line-clamp-2">{p.desc}</p>
                                         <p className="text-[0.45rem] text-primary/80 uppercase mt-1">Unlock: {p.req}</p>
                                     </div>
                                     <div className="shrink-0">
@@ -195,7 +268,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                         ) : p.isElo ? (
                                             <span className="text-[0.45rem] text-muted-foreground uppercase border border-border px-2 py-1">LOCKED</span>
                                         ) : (
-                                            <Button variant="secondary" size="sm" className="h-8 text-[0.5rem] uppercase" onClick={() => buyPiece(p.type)} disabled={!!loading}>
+                                            <Button variant="secondary" size="sm" className="h-8 text-[0.5rem] uppercase px-2" onClick={() => buyPiece(p.type)} disabled={!!loading}>
                                                 {loading === p.type ? '...' : 'Hire ($1.00)'}
                                             </Button>
                                         )}
