@@ -98,12 +98,13 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
       "Purchase Gold?",
       `Are you sure you want to spend $${amount}.00 for ${gold} Gold? This will redirect you to a secure Square payment page.`,
       async () => {
+        if (!user) return;
         setLoading(`gold-${gold}`);
-        const url = await createSquarePayment(amount * 100, `${gold} Gold Pack`);
+        const url = await createSquarePayment(amount * 100, `${gold} Gold Pack`, user.uid, `gold_${gold}`);
         if (url) {
           window.location.href = url;
         } else {
-          toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square Sandbox." });
+          toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square." });
           setLoading(null);
         }
       }
@@ -115,12 +116,13 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
       "Purchase Daily Deal?",
       "Are you sure you want to spend $2.00 for today's item bundle? This will redirect you to a secure Square payment page.",
       async () => {
+        if (!user) return;
         setLoading('daily');
-        const url = await createSquarePayment(200, "Daily Mercenary Bundle");
+        const url = await createSquarePayment(200, "Daily Mercenary Bundle", user.uid, 'daily_deal');
         if (url) {
           window.location.href = url;
         } else {
-          toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square Sandbox." });
+          toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square." });
           setLoading(null);
         }
       }
@@ -132,13 +134,14 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
       "Recruit Unit?",
       `Recruiting the ${piece.toUpperCase()} costs $1.00 USD. Are you sure? This will redirect you to a secure Square payment page.`,
       async () => {
+        if (!user) return;
         setLoading(piece);
         try {
-            const url = await createSquarePayment(100, `Recruit ${piece.toUpperCase()}`);
+            const url = await createSquarePayment(100, `Recruit ${piece.toUpperCase()}`, user.uid, piece);
             if (url) {
                 window.location.href = url;
             } else {
-                toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square Sandbox." });
+                toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square." });
                 setLoading(null);
             }
         } catch (e: any) {

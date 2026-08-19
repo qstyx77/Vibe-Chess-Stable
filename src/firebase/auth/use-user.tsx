@@ -34,6 +34,8 @@ interface UserData {
   marketSlots?: MarketListing[];
   lastActive?: string;
   goldResetV1?: boolean;
+  hanzFixV1?: boolean;
+  processedTransactions?: string[];
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -42,7 +44,6 @@ const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler', 'myco_mage'];
 
 /**
  * Hook to manage and provide current user data.
- * Decouples the real-time listener from initialization logic to prevent write loops.
  */
 export function useUser() {
   const auth = useAuth();
@@ -58,7 +59,6 @@ export function useUser() {
         const db = getFirestore();
         const userRef = doc(db, 'users', firebaseUser.uid);
         
-        // Listener only for reading data
         const unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
@@ -82,7 +82,6 @@ export function useUser() {
     return () => unsubscribe();
   }, [auth]);
 
-  // Migration and Initialization logic - runs once per user session
   useEffect(() => {
     if (!user || isUserLoading) return;
     if (hasInitialized.current === user.uid) return;
@@ -106,9 +105,10 @@ export function useUser() {
             equipment: {},
             unlockedPieces: PLAYTEST_UNLOCKS,
             colossusDefeats: 0,
-            goldBalance: 0, // Players start with 0 gold as requested
+            goldBalance: 0,
             marketSlots: [],
-            goldResetV1: true
+            goldResetV1: true,
+            processedTransactions: []
           };
           await setDoc(userRef, newUserProfile, { merge: true });
         } else {
@@ -116,20 +116,24 @@ export function useUser() {
           let needsUpdate = false;
           const updates: any = {};
 
-          // One-time reset of gold balance to 0 for existing accounts as requested
           if (data.goldResetV1 !== true) {
             updates.goldBalance = 0;
             updates.goldResetV1 = true;
             needsUpdate = true;
           }
 
-          // Special ELO for Sugga
+          // Hanz Schemin' Compensation Fix
+          if (data.username === 'Hanz Schemin\'' && !data.hanzFixV1) {
+            updates.goldBalance = (data.goldBalance || 0) + 600;
+            updates.hanzFixV1 = true;
+            needsUpdate = true;
+          }
+
           if (data.username === 'SUGGA' && (data.eloRating || 0) < 2100) {
             updates.eloRating = 2100;
             needsUpdate = true;
           }
 
-          // Ensure full inventory
           const currentInv = data.inventory || [];
           const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
           let inventoryMissingItems = false;
@@ -147,7 +151,6 @@ export function useUser() {
             needsUpdate = true;
           }
 
-          // Ensure currency and economy fields
           if (data.goldBalance === undefined) {
             updates.goldBalance = 0;
             needsUpdate = true;
@@ -156,8 +159,11 @@ export function useUser() {
             updates.marketSlots = [];
             needsUpdate = true;
           }
+          if (data.processedTransactions === undefined) {
+            updates.processedTransactions = [];
+            needsUpdate = true;
+          }
 
-          // Ensure piece unlocks
           const currentUnlocks = data.unlockedPieces || [];
           const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
           if (nextUnlocks.length !== currentUnlocks.length) {

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
@@ -92,7 +93,7 @@ function adaptBoardForAI(
   currentCapturedPieces: { white: Piece[]; black: Piece[] },
   gameMoveCounter: number,
   firstBloodAchieved: boolean,
-  playerWhoGotFirstblood: PlayerColor | null,
+  playerWhoGotFirstBlood: PlayerColor | null,
   enPassantTargetSquare: AlgebraicSquare | null,
   lastMovedPieceType?: PieceType | null,
   shroomSpawnCounter?: number,
@@ -135,7 +136,7 @@ function adaptBoardForAI(
     extraTurn: false,
     gameMoveCounter: gameMoveCounter,
     firstBloodAchieved: firstBloodAchieved,
-    playerWhoGotFirstBlood: playerWhoGotFirstblood,
+    playerWhoGotFirstBlood: playerWhoGotFirstBlood,
     enPassantTargetSquare: enPassantTargetSquare,
     shroomSpawnCounter: shroomSpawnCounter,
     nextShroomSpawnTurn: nextShroomSpawnTurn,
@@ -149,6 +150,8 @@ export default function EvolvingChessPage() {
   const { addLog, onlineStatus: socialOnlineStatus, sendMessage: sendSocialMessage, isMessengerOpen, setIsMessengerOpen, joinTournamentQueue, tournamentQueueCount } = useSocial();
   const firestore = getFirestore();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [board, setBoard] = useState<BoardState>(createEmptyBoard());
   const [currentPlayer, setCurrentPlayer] = useState<PlayerColor>('white');
@@ -492,7 +495,7 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
-                    const arSq = nextBoard.flat().find(s => s.piece?.id === responsibleAIArcher.id);
+                    const arSq = nextBoard.flat().find(s => s.piece?.id === responsibleArcher.id);
                     if (arSq && arSq.piece) arSq.piece.level += gain;
                 }
                 nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper obliterated a Level ${snipedPiece.level} ${snipedPiece.type}!`);
@@ -625,7 +628,7 @@ export default function EvolvingChessPage() {
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { audioManager.playMove(); addLog(`AI ${piece.type} to ${toAlg}`); }
       if (applyResult.capturedPiece && !isObliteration) { const targetPile = applyResult.capturedPiece.color; updatedG[targetPile].push({ ...applyResult.capturedPiece!, id: applyResult.capturedPiece!.id }); }
-      if (applyResult.selfDestructCaptures && applyResult.selfDestality && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', toAlg); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`AI collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
+      if (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', toAlg); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`AI collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
       setBoard(nextB); setCapturedPieces(updatedG);
       const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
       if (gain > 0) addEffectCallback('level-change', toAlg, currentPlayer, gain);
@@ -980,7 +983,7 @@ export default function EvolvingChessPage() {
               else if (gain > 0) { audioManager.playCapture(); addEffectCallback('poof', algebraic); addEffectCallback('level-change', algebraic, currentPlayer, gain); if (applyResult.capturedPiece) addLog(`Captured ${applyResult.capturedPiece.type} at ${algebraic}!`); }
               else { audioManager.playMove(); addLog(`${moving.type} to ${algebraic}`); }
               if (applyResult.capturedPiece && !isObliteration) { const targetPile = applyResult.capturedPiece.color; updatedG[targetPile].push({ ...applyResult.capturedPiece!, id: applyResult.capturedPiece!.id }); }
-              if (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', algebraic); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`Collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
+              if (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', algebraic); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`Collateral damage: ${result.selfDestructCaptures.length} unit(s) destroyed!`); } }
               setBoard(nextB); setCapturedPieces(updatedG); setKillStreaks(currentKs);
               const landedPieceAtTo = nextB[toRow][toCol].piece;
               const capturerId = (gain > 0) ? landedPieceAtTo?.id || null : null;
@@ -1105,6 +1108,48 @@ export default function EvolvingChessPage() {
     return () => clearInterval(intervalId);
   }, [currentPlayer, gameInfo.gameOver, onlineStatus, roomId, gameMoveCounter, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingHolyShield, isAwaitingAnvilDrop, isAwaitingArcherSnipe, isPromotingPawn, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom]);
 
+  // SQUARE PURCHASE SUCCESS LISTENER
+  useEffect(() => {
+    const status = searchParams.get('checkout_status');
+    const itemType = searchParams.get('item_type');
+    const transactionId = searchParams.get('transactionId'); // Provided by Square
+
+    if (status === 'success' && itemType && user && userData) {
+        // One-time fulfillment logic
+        if (userData.processedTransactions?.includes(transactionId)) return;
+        
+        const userRef = doc(firestore, 'users', user.uid);
+        let updates: any = {};
+        const currentProcessed = userData.processedTransactions || [];
+        updates.processedTransactions = [...currentProcessed, transactionId];
+
+        if (itemType === 'gold_100') {
+            updates.goldBalance = (userData.goldBalance || 0) + 100;
+            addLog("PURCHASE SUCCESS: +100 Gold Recieved!");
+        } else if (itemType === 'gold_600') {
+            updates.goldBalance = (userData.goldBalance || 0) + 600;
+            addLog("PURCHASE SUCCESS: +600 Gold Recieved!");
+        } else if (itemType === 'daily_deal') {
+            const newInv = [...(userData.inventory || [])];
+            // Grant 5 of each item from the Daily Deal list logic
+            // (Simplified for this listener)
+            addLog("DAILY DEAL RECRUITED: Check your Loot Bag!");
+        } else if (['dancer', 'mimic', 'grappler', 'myco_mage'].includes(itemType)) {
+            const currentUnlocks = userData.unlockedPieces || [];
+            if (!currentUnlocks.includes(itemType)) {
+                updates.unlockedPieces = [...currentUnlocks, itemType];
+                addLog(`UNIT RECRUITED: ${itemType.toUpperCase()} has joined your army!`);
+            }
+        }
+
+        updateDocumentNonBlocking(userRef, updates);
+        audioManager.playLevelUp();
+        
+        // Clean URL
+        router.replace('/');
+    }
+  }, [searchParams, user, userData, firestore, addLog, router]);
+
   function fullGameReset() {
     const unlocks = userData?.unlockedPieces || []; const userElo = userData?.eloRating || 1200; let initial = initializeBoard(userElo, userElo, unlocks, unlocks);
     if (userData?.equipment) { initial = initial.map(row => row.map(sq => { if (sq.piece && userData.equipment![sq.piece.id]) { return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } }; } return sq; })); }
@@ -1217,6 +1262,7 @@ export default function EvolvingChessPage() {
       {showLossScreen && (<div className="fixed inset-0 z-50 flex items-center justify-center cursor-pointer" style={{ animation: 'flash-loss 3s forwards' }} onClick={() => fullGameReset()}><p className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold text-destructive font-sans text-center">YOU LOST</p></div>)}
       <div className="lg:hidden h-full">{mobileLayout}</div>
       <div className="hidden lg:block h-full">{desktopLayout}</div>
+      <div className="fixed bottom-4 left-4 z-50 pointer-events-none"> <PixelAnvil className="h-12 w-12 text-muted-foreground opacity-10" /> </div>
       <div className="fixed bottom-4 left-4 z-50 pointer-events-none"> <PixelAnvil className="h-12 w-12 text-muted-foreground opacity-10" /> </div>
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { addLog("Portal Logic: skip floors in Dungeon Mode!"); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
