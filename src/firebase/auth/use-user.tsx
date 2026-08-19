@@ -53,13 +53,21 @@ export function useUser() {
   const hasInitialized = useRef<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    let unsubProfile: (() => void) | undefined;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
+      // Clean up existing profile listener if switching users
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = undefined;
+      }
+
       if (firebaseUser) {
         setUser(firebaseUser);
         const db = getFirestore();
         const userRef = doc(db, 'users', firebaseUser.uid);
         
-        const unsubProfile = onSnapshot(userRef, (docSnap) => {
+        unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
             setUserData({ ...data, id: firebaseUser.uid });
@@ -67,9 +75,11 @@ export function useUser() {
             setUserData(null);
           }
           setIsUserLoading(false);
+        }, (error) => {
+          // Gracefully handle watch errors (permissions/network)
+          console.warn("User profile listener error:", error);
+          setIsUserLoading(false);
         });
-
-        return () => unsubProfile();
 
       } else {
         setUser(null);
@@ -79,7 +89,10 @@ export function useUser() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubProfile) unsubProfile();
+    };
   }, [auth]);
 
   useEffect(() => {
@@ -120,22 +133,22 @@ export function useUser() {
         let needsUpdate = false;
         const updates: any = {};
 
-        // Robust Username Check for Hanz Schemin'
-        const normalizedUsername = (currentData.username || "").trim().toLowerCase();
+        // Normalizing apostrophes for Hanz Schemin' (handles ' and ’)
+        const rawUsername = (currentData.username || "").trim();
+        const normalizedUsername = rawUsername.toLowerCase().replace(/[\u2018\u2019]/g, "'");
         const isHanz = normalizedUsername === "hanz schemin'";
 
-        // Economy Management Logic
         let currentGold = currentData.goldBalance ?? 0;
 
-        // Global Reset to 0 (V1) - For users who had gold before the reset
+        // Global Reset Logic (V1)
         if (currentData.goldResetV1 !== true) {
           currentGold = 0;
           updates.goldResetV1 = true;
           needsUpdate = true;
         }
 
-        // Hanz Schemin' Compensation Fix
-        // We check hanzFixV1 to ensure it only happens once.
+        // Hanz Schemin' Compensation Logic
+        // Applied after reset to ensure the final balance is correct
         if (isHanz && !currentData.hanzFixV1) {
           currentGold += 600;
           updates.hanzFixV1 = true;
@@ -171,7 +184,7 @@ export function useUser() {
           needsUpdate = true;
         }
 
-        // Default values for missing fields
+        // Default missing collections
         if (currentData.marketSlots === undefined) {
           updates.marketSlots = [];
           needsUpdate = true;
@@ -197,7 +210,7 @@ export function useUser() {
         
         hasInitialized.current = user.uid;
       } catch (e) {
-        console.error("User initialization failed:", e);
+        console.warn("User initialization cycle error:", e);
       }
     };
 
