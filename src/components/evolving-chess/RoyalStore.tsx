@@ -8,6 +8,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -24,6 +34,7 @@ import { ITEM_METADATA, type InventoryItemType, type PieceType } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { ItemSprite } from './ItemSprite';
 import { cn } from '@/lib/utils';
+import { createSquarePayment, initiateSquarePayout } from '@/app/actions/square';
 
 interface RoyalStoreProps {
   isOpen: boolean;
@@ -68,118 +79,133 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [exchangeAmount, setExchangeAmount] = useState(0);
 
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    action: () => void;
+  }>({ isOpen: false, title: '', description: '', action: () => {} });
+
   const dailySeed = useMemo(() => getESTDateSeed(), [isOpen]);
   const dailyItems = useMemo(() => getDailyItems(dailySeed), [dailySeed]);
 
-  const buyGold = async (amount: number, gold: number) => {
-    setLoading(`gold-${gold}`);
-    setTimeout(() => {
-        if (!user) return;
-        const userRef = doc(firestore, 'users', user.uid);
-        updateDocumentNonBlocking(userRef, { goldBalance: (userData?.goldBalance || 0) + gold });
-        toast({ title: "Purchase Success!", description: `${gold} Gold added to your coffers.` });
-        setLoading(null);
-    }, 1000);
+  const triggerConfirmation = (title: string, description: string, action: () => void) => {
+    setConfirmDialog({ isOpen: true, title, description, action });
   };
 
-  const buyPiece = async (piece: PieceType) => {
-    if (!user || (userData?.goldBalance || 0) < 100) {
-        toast({ variant: 'destructive', title: "Insufficient Gold", description: "Purchase Gold or earn it in the Arena!" });
-        return;
-    }
-    setLoading(piece);
-    try {
-        const userRef = doc(firestore, 'users', user.uid);
-        await runTransaction(firestore, async (transaction) => {
-            const snap = await transaction.get(userRef);
-            const data = snap.data();
-            if (!data || data.goldBalance < 100) throw new Error("Insufficient Gold.");
-            const currentUnlocks = data.unlockedPieces || [];
-            if (currentUnlocks.includes(piece)) throw new Error("Unit already recruited.");
-            
-            transaction.update(userRef, { 
-                goldBalance: data.goldBalance - 100,
-                unlockedPieces: [...currentUnlocks, piece]
-            });
-        });
-        toast({ title: "Unit Recruited!", description: `${piece.toUpperCase()} is now available in your army.` });
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: "Recruitment Failed", description: e.message });
-    }
-    setLoading(null);
+  const buyGold = async (amount: number, gold: number) => {
+    triggerConfirmation(
+      "Purchase Gold?",
+      `Are you sure you want to spend $${amount}.00 for ${gold} Gold? This will redirect you to a secure Square payment page.`,
+      async () => {
+        setLoading(`gold-${gold}`);
+        const url = await createSquarePayment(amount * 100, `${gold} Gold Pack`);
+        if (url) {
+          window.location.href = url;
+        } else {
+          toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square Sandbox." });
+          setLoading(null);
+        }
+      }
+    );
   };
 
   const handleDailyDeal = async () => {
-    const activeSeed = dailySeed;
-    if (!user) return;
-    
-    setLoading('daily');
-    try {
-        const userRef = doc(firestore, 'users', user.uid);
-        await runTransaction(firestore, async (tx) => {
-            const snap = await tx.get(userRef);
-            const data = snap.data();
-            if (!data) throw new Error("User data not found.");
-            
-            const inv = [...(data?.inventory || [])];
-            const verifiedItems = getDailyItems(activeSeed);
-            verifiedItems.forEach(type => {
-                const idx = inv.findIndex(i => i.type === type);
-                if (idx > -1) inv[idx].count++; else inv.push({ type, count: 1 });
+    triggerConfirmation(
+      "Purchase Daily Deal?",
+      "Are you sure you want to spend $2.00 for today's item bundle? This will redirect you to a secure Square payment page.",
+      async () => {
+        setLoading('daily');
+        const url = await createSquarePayment(200, "Daily Mercenary Bundle");
+        if (url) {
+          window.location.href = url;
+        } else {
+          toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square Sandbox." });
+          setLoading(null);
+        }
+      }
+    );
+  };
+
+  const buyPiece = async (piece: PieceType) => {
+    triggerConfirmation(
+      "Recruit Unit?",
+      `Recruiting the ${piece.toUpperCase()} costs 100 Gold. Are you sure?`,
+      async () => {
+        if (!user || (userData?.goldBalance || 0) < 100) {
+            toast({ variant: 'destructive', title: "Insufficient Gold", description: "Mint more gold to recruit elite units!" });
+            return;
+        }
+        setLoading(piece);
+        try {
+            const userRef = doc(firestore, 'users', user.uid);
+            await runTransaction(firestore, async (transaction) => {
+                const snap = await transaction.get(userRef);
+                const data = snap.data();
+                if (!data || data.goldBalance < 100) throw new Error("Insufficient Gold.");
+                const currentUnlocks = data.unlockedPieces || [];
+                if (currentUnlocks.includes(piece)) throw new Error("Unit already recruited.");
+                
+                transaction.update(userRef, { 
+                    goldBalance: data.goldBalance - 100,
+                    unlockedPieces: [...currentUnlocks, piece]
+                });
             });
-            tx.update(userRef, { inventory: inv });
-        });
-        toast({ title: "Purchase Success!", description: "Daily items delivered to your loot bag." });
-    } catch (e: any) { 
-        toast({ variant: 'destructive', title: "Purchase Failed", description: e.message }); 
-    }
-    setLoading(null);
+            toast({ title: "Unit Recruited!", description: `${piece.toUpperCase()} is now available in your army.` });
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: "Recruitment Failed", description: e.message });
+        }
+        setLoading(null);
+      }
+    );
   };
 
   const requestCashOut = async () => {
-    if (!userData || !user) return;
-    
-    if (exchangeAmount < 2000) {
-        toast({ variant: 'destructive', title: "Minimum Not Met", description: "You need at least 2000 Gold ($20) to exchange." });
-        return;
-    }
-    
-    if (exchangeAmount > userData.goldBalance) {
-        toast({ variant: 'destructive', title: "Error", description: "You cannot exchange more gold than you own." });
-        return;
-    }
-
-    setLoading('exchange');
-    try {
-        const userRef = doc(firestore, 'users', user.uid);
-        await runTransaction(firestore, async (tx) => {
-            const snap = await tx.get(userRef);
-            const data = snap.data();
-            if (!data || data.goldBalance < exchangeAmount) throw new Error("Insufficient Gold.");
-            
-            tx.update(userRef, { goldBalance: data.goldBalance - exchangeAmount });
-        });
+    triggerConfirmation(
+      "Exchange Gold?",
+      `Are you sure you want to exchange ${exchangeAmount} Gold for $${(exchangeAmount * 0.01 * 0.67).toFixed(2)}? Your balance will be deducted immediately.`,
+      async () => {
+        if (!userData || !user) return;
         
-        const val = (exchangeAmount * 0.01 * 0.67).toFixed(2);
-        toast({ title: "Exchange Request Sent", description: `Processing $${val} via Square Payouts.` });
-        setExchangeAmount(0);
-    } catch (e: any) {
-        toast({ variant: 'destructive', title: "Exchange Failed", description: e.message });
-    }
-    setLoading(null);
+        if (exchangeAmount < 2000) {
+            toast({ variant: 'destructive', title: "Minimum Not Met", description: "You need at least 2000 Gold ($20) to exchange." });
+            return;
+        }
+        
+        setLoading('exchange');
+        try {
+            const userRef = doc(firestore, 'users', user.uid);
+            await runTransaction(firestore, async (tx) => {
+                const snap = await tx.get(userRef);
+                const data = snap.data();
+                if (!data || data.goldBalance < exchangeAmount) throw new Error("Insufficient Gold.");
+                
+                tx.update(userRef, { goldBalance: data.goldBalance - exchangeAmount });
+            });
+            
+            await initiateSquarePayout(exchangeAmount, user.uid);
+            toast({ title: "Exchange Request Sent", description: `Withdrawal of $${(exchangeAmount * 0.01 * 0.67).toFixed(2)} initiated via Square.` });
+            setExchangeAmount(0);
+        } catch (e: any) {
+            toast({ variant: 'destructive', title: "Exchange Failed", description: e.message });
+        }
+        setLoading(null);
+      }
+    );
   };
 
   const pieceList: { type: PieceType; name: string; desc: string; req: string; isElo?: boolean }[] = [
     { type: 'archbishop', name: 'Archbishop', desc: 'Elite Clergy. Grants Holy Shield at KS 2.', req: '1500 Elo', isElo: true },
     { type: 'palace', name: 'The Palace', desc: 'Living Fortress. High-level resurrections.', req: '1800 Elo', isElo: true },
     { type: 'archer', name: 'Archer', desc: 'Long-range Cavalry. Global Snipe at KS 5.', req: '2100 Elo', isElo: true },
-    { type: 'dancer', name: 'The Dancer', desc: 'Mobile specialist. Free move/swap at KS 1.', req: 'Dungeon Floor 50 or $1' },
-    { type: 'mimic', name: 'The Mimic', desc: 'Utility unit. Copies the last moved piece.', req: 'Dungeon Floor 50 or $1' },
-    { type: 'grappler', name: 'The Grappler', desc: 'Area control. Throws adjacent units.', req: 'Dungeon Floor 50 or $1' },
-    { type: 'myco_mage', name: 'Myco Mage', desc: 'Mushroomancer. Uses global fungal spells.', req: 'Dungeon Floor 50 or $1' },
+    { type: 'dancer', name: 'The Dancer', desc: 'Mobile specialist. Free move/swap at KS 1.', req: 'Dungeon Floor 50 or 100g' },
+    { type: 'mimic', name: 'The Mimic', desc: 'Utility unit. Copies the last moved piece.', req: 'Dungeon Floor 50 or 100g' },
+    { type: 'grappler', name: 'The Grappler', desc: 'Area control. Throws adjacent units.', req: 'Dungeon Floor 50 or 100g' },
+    { type: 'myco_mage', name: 'Myco Mage', desc: 'Mushroomancer. Uses global fungal spells.', req: 'Dungeon Floor 50 or 100g' },
   ];
 
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl md:max-w-4xl bg-black border-2 border-primary font-pixel max-h-[90vh] flex flex-col p-0 overflow-hidden">
         <DialogHeader className="p-6 pb-2 border-b border-border/50">
@@ -341,7 +367,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                             <span className="text-[0.45rem] text-muted-foreground uppercase border border-border px-2 py-1">LOCKED</span>
                                         ) : (
                                             <Button variant="secondary" size="sm" className="h-8 text-[0.5rem] uppercase px-2" onClick={() => buyPiece(p.type)} disabled={!!loading}>
-                                                {loading === p.type ? '...' : 'Hire ($1.00)'}
+                                                {loading === p.type ? '...' : 'Hire (100g)'}
                                             </Button>
                                         )}
                                     </div>
@@ -355,5 +381,29 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
         </ScrollArea>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmDialog.isOpen} onOpenChange={(open) => setConfirmDialog(prev => ({ ...prev, isOpen: open }))}>
+        <AlertDialogContent className="font-pixel border-2 border-primary bg-black">
+            <AlertDialogHeader>
+                <AlertDialogTitle className="text-primary uppercase text-sm">{confirmDialog.title}</AlertDialogTitle>
+                <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed">
+                    {confirmDialog.description}
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-4 gap-2">
+                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                    className="h-9 text-[0.6rem] uppercase bg-primary text-primary-foreground"
+                    onClick={() => {
+                        confirmDialog.action();
+                        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+                    }}
+                >
+                    Confirm Transaction
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

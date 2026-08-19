@@ -1,7 +1,6 @@
-
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -9,6 +8,16 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ShoppingCart, Coins, Package } from 'lucide-react';
@@ -31,6 +40,8 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
   const { userData: buyerData } = useUser();
   const { buyItemFromMarket } = useSocial();
   
+  const [confirmBuy, setConfirmBuy] = useState<{ isOpen: boolean, slot: number, price: number, itemName: string } | null>(null);
+
   const sellerRef = useMemoFirebase(() => {
     if (!sellerId) return null;
     return doc(firestore, `users/${sellerId}`);
@@ -40,7 +51,19 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
 
   const marketSlots = sellerData?.marketSlots || [];
 
+  const handleBuyClick = (slot: number, price: number, itemName: string) => {
+    setConfirmBuy({ isOpen: true, slot, price, itemName });
+  };
+
+  const confirmPurchase = () => {
+    if (confirmBuy) {
+        buyItemFromMarket(sellerId, confirmBuy.slot);
+        setConfirmBuy(null);
+    }
+  };
+
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md bg-black border-2 border-yellow-500 font-pixel">
         <DialogHeader>
@@ -84,7 +107,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
                                     size="sm" 
                                     variant={canAfford ? "default" : "outline"} 
                                     className="h-8 text-[0.5rem] uppercase"
-                                    onClick={() => buyItemFromMarket(sellerId, slot.slot)}
+                                    onClick={() => handleBuyClick(slot.slot, slot.price, meta.name)}
                                     disabled={!canAfford}
                                 >
                                     Buy
@@ -106,5 +129,26 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!confirmBuy} onOpenChange={(open) => !open && setConfirmBuy(null)}>
+        <AlertDialogContent className="font-pixel border-2 border-yellow-500 bg-black">
+            <AlertDialogHeader>
+                <AlertDialogTitle className="text-yellow-500 uppercase text-sm">Confirm Purchase?</AlertDialogTitle>
+                <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed">
+                    Are you sure you want to spend <span className="text-yellow-400">{confirmBuy?.price} Gold</span> to buy <span className="text-primary">{confirmBuy?.itemName}</span> from {username}?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-4 gap-2">
+                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                    className="h-9 text-[0.6rem] uppercase bg-yellow-500 text-black"
+                    onClick={confirmPurchase}
+                >
+                    Confirm Purchase
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

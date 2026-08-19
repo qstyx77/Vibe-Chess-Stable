@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState } from 'react';
@@ -7,6 +6,16 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from '@/components/ui/button';
 import { useSocial } from './SocialContext';
 import { useUser, useDoc, useMemoFirebase } from '@/firebase';
@@ -27,6 +36,7 @@ export function UserInteractionPopover({ userId, username, children, className }
   const { user } = useUser();
   const { friends, addFriend, removeFriend, blockUser, sendChallenge, startDm } = useSocial();
   const [marketOpen, setMarketOpen] = useState(false);
+  const [confirmBlockOpen, setConfirmBlockOpen] = useState(false);
   
   const isMe = user?.uid === userId;
   const isFriend = friends.some(f => f.id === userId);
@@ -102,7 +112,7 @@ export function UserInteractionPopover({ userId, username, children, className }
                   variant="outline" 
                   size="sm" 
                   className="h-8 text-[0.5rem] uppercase justify-start gap-2 text-muted-foreground"
-                  onClick={() => blockUser(userId)}
+                  onClick={() => setConfirmBlockOpen(true)}
                 >
                   <Ban className="h-3 w-3" /> Block
                 </Button>
@@ -121,6 +131,28 @@ export function UserInteractionPopover({ userId, username, children, className }
     {userId && (
         <BioMarketDialog isOpen={marketOpen} onOpenChange={setMarketOpen} sellerId={userId} username={username} />
     )}
+    <AlertDialog open={confirmBlockOpen} onOpenChange={setConfirmBlockOpen}>
+        <AlertDialogContent className="font-pixel border-2 border-destructive bg-black">
+            <AlertDialogHeader>
+                <AlertDialogTitle className="text-destructive uppercase text-sm">Block User?</AlertDialogTitle>
+                <AlertDialogDescription className="text-white text-[0.65rem] uppercase">
+                    Are you sure you want to block {username}? You will no longer see their messages.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="mt-4 gap-2">
+                <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                    className="h-9 text-[0.6rem] uppercase bg-destructive text-white"
+                    onClick={() => {
+                        blockUser(userId);
+                        setConfirmBlockOpen(false);
+                    }}
+                >
+                    Confirm Block
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }

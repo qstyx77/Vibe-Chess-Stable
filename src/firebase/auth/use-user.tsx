@@ -1,4 +1,3 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
@@ -34,6 +33,7 @@ interface UserData {
   goldBalance: number;
   marketSlots?: MarketListing[];
   lastActive?: string;
+  goldResetV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -106,14 +106,22 @@ export function useUser() {
             equipment: {},
             unlockedPieces: PLAYTEST_UNLOCKS,
             colossusDefeats: 0,
-            goldBalance: 500,
-            marketSlots: []
+            goldBalance: 0, // Players start with 0 gold as requested
+            marketSlots: [],
+            goldResetV1: true
           };
           await setDoc(userRef, newUserProfile, { merge: true });
         } else {
           const data = snap.data() as UserData;
           let needsUpdate = false;
           const updates: any = {};
+
+          // One-time reset of gold balance to 0 for existing accounts as requested
+          if (data.goldResetV1 !== true) {
+            updates.goldBalance = 0;
+            updates.goldResetV1 = true;
+            needsUpdate = true;
+          }
 
           // Special ELO for Sugga
           if (data.username === 'SUGGA' && (data.eloRating || 0) < 2100) {
@@ -141,7 +149,7 @@ export function useUser() {
 
           // Ensure currency and economy fields
           if (data.goldBalance === undefined) {
-            updates.goldBalance = 500;
+            updates.goldBalance = 0;
             needsUpdate = true;
           }
           if (data.marketSlots === undefined) {
