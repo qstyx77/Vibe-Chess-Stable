@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useMemo } from 'react';
@@ -67,7 +66,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const { toast } = useToast();
   const firestore = getFirestore();
   const [loading, setLoading] = useState<string | null>(null);
-  const [exchangeAmount, setExchangeAmount] = useState(2000);
+  const [exchangeAmount, setExchangeAmount] = useState(0);
 
   const dailySeed = useMemo(() => getESTDateSeed(), [isOpen]);
   const dailyItems = useMemo(() => getDailyItems(dailySeed), [dailySeed]);
@@ -163,7 +162,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
         
         const val = (exchangeAmount * 0.01 * 0.67).toFixed(2);
         toast({ title: "Exchange Request Sent", description: `Processing $${val} via Square Payouts.` });
-        setExchangeAmount(Math.min(2000, userData.goldBalance - exchangeAmount));
+        setExchangeAmount(0);
     } catch (e: any) {
         toast({ variant: 'destructive', title: "Exchange Failed", description: e.message });
     }
