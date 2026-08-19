@@ -116,24 +116,37 @@ export function useUser() {
           let needsUpdate = false;
           const updates: any = {};
 
+          // Economy Management Logic
+          let currentGold = data.goldBalance ?? 0;
+          let goldModified = false;
+
+          // Global Reset to 0 (V1)
           if (data.goldResetV1 !== true) {
-            updates.goldBalance = 0;
+            currentGold = 0;
             updates.goldResetV1 = true;
+            goldModified = true;
             needsUpdate = true;
           }
 
-          // Hanz Schemin' Compensation Fix
-          if (data.username === 'Hanz Schemin\'' && !data.hanzFixV1) {
-            updates.goldBalance = (data.goldBalance || 0) + 600;
+          // Hanz Schemin' Compensation Fix (Exact name match with single quote)
+          if (data.username === "Hanz Schemin'" && !data.hanzFixV1) {
+            currentGold += 600;
             updates.hanzFixV1 = true;
+            goldModified = true;
             needsUpdate = true;
           }
 
+          if (goldModified) {
+            updates.goldBalance = currentGold;
+          }
+
+          // Special ELO cases
           if (data.username === 'SUGGA' && (data.eloRating || 0) < 2100) {
             updates.eloRating = 2100;
             needsUpdate = true;
           }
 
+          // Inventory Integrity Check
           const currentInv = data.inventory || [];
           const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
           let inventoryMissingItems = false;
@@ -151,10 +164,7 @@ export function useUser() {
             needsUpdate = true;
           }
 
-          if (data.goldBalance === undefined) {
-            updates.goldBalance = 0;
-            needsUpdate = true;
-          }
+          // Default values for missing fields
           if (data.marketSlots === undefined) {
             updates.marketSlots = [];
             needsUpdate = true;
@@ -164,6 +174,7 @@ export function useUser() {
             needsUpdate = true;
           }
 
+          // Ensure basic pieces are unlocked
           const currentUnlocks = data.unlockedPieces || [];
           const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
           if (nextUnlocks.length !== currentUnlocks.length) {
