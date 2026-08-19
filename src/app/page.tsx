@@ -495,7 +495,7 @@ export default function EvolvingChessPage() {
                 const responsibleAIArcher = snipers.find(a => a.level >= (v.piece?.level || 1));
                 if (responsibleAIArcher) {
                     const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0;
-                    const arSq = nextBoard.flat().find(s => s.piece?.id === responsibleArcher.id);
+                    const arSq = nextBoard.flat().find(s => s.piece?.id === responsibleAIArcher.id);
                     if (arSq && arSq.piece) arSq.piece.level += gain;
                 }
                 nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper obliterated a Level ${snipedPiece.level} ${snipedPiece.type}!`);
@@ -839,7 +839,7 @@ export default function EvolvingChessPage() {
               if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic })); setIsAwaitingArcherSnipe(false); }
               else {
                   pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
-                  const snipedPiece = { ...nextB[row][col].piece!, id: nextB[row][col].piece!.id }; nextB[row][col].piece = null; const nextG = { ...specialActionContext!.currentGraveyard }; const targetPile = snipedPiece.color; nextG[targetPile].push(snipedPiece);
+                  const snipedPiece = { ...nextB[row][col].piece!, id: nextB[row][col].piece!.id }; nextB[tr][tc].piece = null; const nextG = { ...specialActionContext!.currentGraveyard }; const targetPile = snipedPiece.color; nextG[targetPile].push(snipedPiece);
                   const arRow = nextB.findIndex(r => r.some(s => s.piece?.id === responsibleArcher.id)); const arCol = nextB[arRow].findIndex(s => s.piece?.id === responsibleArcher.id);
                   const gain = {pawn: 1, commander: 1, infiltrator: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[snipedPiece.type] || 0; nextB[arRow][arCol].piece!.level += gain;
                   setBoard(nextB); setCapturedPieces(nextG); audioManager.playSnipe(); setIsAwaitingArcherSnipe(false); addLog(`Archer Snipe: Destroyed ${snipedPiece.type}!`); addEffectCallback('poof', algebraic); addEffectCallback('level-change', coordsToAlgebraic(arRow, arCol), currentPlayer, gain); triggerNextSpecialAction_Lobby(specialActionContext!, currentPlayer);
