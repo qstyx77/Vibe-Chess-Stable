@@ -92,9 +92,12 @@ export function useUser() {
     const ensureInitialized = async () => {
       try {
         const snap = await getDoc(userRef);
-        
+        let currentData: UserData;
+        let isNewUser = false;
+
         if (!snap.exists()) {
-          const newUserProfile: UserData = {
+          isNewUser = true;
+          currentData = {
             id: user.uid,
             username: user.displayName || `Player-${user.uid.slice(0,5)}`,
             email: user.email || 'anonymous',
@@ -110,82 +113,88 @@ export function useUser() {
             goldResetV1: true,
             processedTransactions: []
           };
-          await setDoc(userRef, newUserProfile, { merge: true });
         } else {
-          const data = snap.data() as UserData;
-          let needsUpdate = false;
-          const updates: any = {};
-
-          // Economy Management Logic
-          let currentGold = data.goldBalance ?? 0;
-          let goldModified = false;
-
-          // Global Reset to 0 (V1)
-          if (data.goldResetV1 !== true) {
-            currentGold = 0;
-            updates.goldResetV1 = true;
-            goldModified = true;
-            needsUpdate = true;
-          }
-
-          // Hanz Schemin' Compensation Fix (Exact name match with single quote)
-          if (data.username === "Hanz Schemin'" && !data.hanzFixV1) {
-            currentGold += 600;
-            updates.hanzFixV1 = true;
-            goldModified = true;
-            needsUpdate = true;
-          }
-
-          if (goldModified) {
-            updates.goldBalance = currentGold;
-          }
-
-          // Special ELO cases
-          if (data.username === 'SUGGA' && (data.eloRating || 0) < 2100) {
-            updates.eloRating = 2100;
-            needsUpdate = true;
-          }
-
-          // Inventory Integrity Check
-          const currentInv = data.inventory || [];
-          const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
-          let inventoryMissingItems = false;
-          const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
-            const count = currentInvMap.get(type);
-            if (count === undefined) {
-              inventoryMissingItems = true;
-              return { type, count: 5 };
-            }
-            return { type, count };
-          });
-
-          if (inventoryMissingItems) {
-            updates.inventory = updatedInventory;
-            needsUpdate = true;
-          }
-
-          // Default values for missing fields
-          if (data.marketSlots === undefined) {
-            updates.marketSlots = [];
-            needsUpdate = true;
-          }
-          if (data.processedTransactions === undefined) {
-            updates.processedTransactions = [];
-            needsUpdate = true;
-          }
-
-          // Ensure basic pieces are unlocked
-          const currentUnlocks = data.unlockedPieces || [];
-          const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
-          if (nextUnlocks.length !== currentUnlocks.length) {
-            updates.unlockedPieces = nextUnlocks;
-            needsUpdate = true;
-          }
-
-          if (needsUpdate) {
-            updateDocumentNonBlocking(userRef, updates);
-          }
+          currentData = snap.data() as UserData;
         }
+
+        let needsUpdate = false;
+        const updates: any = {};
+
+        // Robust Username Check for Hanz Schemin'
+        const normalizedUsername = (currentData.username || "").trim().toLowerCase();
+        const isHanz = normalizedUsername === "hanz schemin'";
+
+        // Economy Management Logic
+        let currentGold = currentData.goldBalance ?? 0;
+
+        // Global Reset to 0 (V1) - For users who had gold before the reset
+        if (currentData.goldResetV1 !== true) {
+          currentGold = 0;
+          updates.goldResetV1 = true;
+          needsUpdate = true;
+        }
+
+        // Hanz Schemin' Compensation Fix
+        // We check hanzFixV1 to ensure it only happens once.
+        if (isHanz && !currentData.hanzFixV1) {
+          currentGold += 600;
+          updates.hanzFixV1 = true;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate || currentGold !== currentData.goldBalance) {
+          updates.goldBalance = currentGold;
+          needsUpdate = true;
+        }
+
+        // Special ELO cases
+        if (currentData.username === 'SUGGA' && (currentData.eloRating || 0) < 2100) {
+          updates.eloRating = 2100;
+          needsUpdate = true;
+        }
+
+        // Inventory Integrity Check
+        const currentInv = currentData.inventory || [];
+        const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
+        let inventoryMissingItems = false;
+        const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
+          const count = currentInvMap.get(type);
+          if (count === undefined) {
+            inventoryMissingItems = true;
+            return { type, count: 5 };
+          }
+          return { type, count };
+        });
+
+        if (inventoryMissingItems) {
+          updates.inventory = updatedInventory;
+          needsUpdate = true;
+        }
+
+        // Default values for missing fields
+        if (currentData.marketSlots === undefined) {
+          updates.marketSlots = [];
+          needsUpdate = true;
+        }
+        if (currentData.processedTransactions === undefined) {
+          updates.processedTransactions = [];
+          needsUpdate = true;
+        }
+
+        // Ensure basic pieces are unlocked
+        const currentUnlocks = currentData.unlockedPieces || [];
+        const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
+        if (nextUnlocks.length !== currentUnlocks.length) {
+          updates.unlockedPieces = nextUnlocks;
+          needsUpdate = true;
+        }
+
+        if (isNewUser) {
+          await setDoc(userRef, { ...currentData, ...updates }, { merge: true });
+        } else if (needsUpdate) {
+          updateDocumentNonBlocking(userRef, updates);
+        }
+        
         hasInitialized.current = user.uid;
       } catch (e) {
         console.error("User initialization failed:", e);
