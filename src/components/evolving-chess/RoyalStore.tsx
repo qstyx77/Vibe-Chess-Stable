@@ -130,32 +130,21 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
   const buyPiece = async (piece: PieceType) => {
     triggerConfirmation(
       "Recruit Unit?",
-      `Recruiting the ${piece.toUpperCase()} costs 100 Gold. Are you sure?`,
+      `Recruiting the ${piece.toUpperCase()} costs $1.00 USD. Are you sure? This will redirect you to a secure Square payment page.`,
       async () => {
-        if (!user || (userData?.goldBalance || 0) < 100) {
-            toast({ variant: 'destructive', title: "Insufficient Gold", description: "Mint more gold to recruit elite units!" });
-            return;
-        }
         setLoading(piece);
         try {
-            const userRef = doc(firestore, 'users', user.uid);
-            await runTransaction(firestore, async (transaction) => {
-                const snap = await transaction.get(userRef);
-                const data = snap.data();
-                if (!data || data.goldBalance < 100) throw new Error("Insufficient Gold.");
-                const currentUnlocks = data.unlockedPieces || [];
-                if (currentUnlocks.includes(piece)) throw new Error("Unit already recruited.");
-                
-                transaction.update(userRef, { 
-                    goldBalance: data.goldBalance - 100,
-                    unlockedPieces: [...currentUnlocks, piece]
-                });
-            });
-            toast({ title: "Unit Recruited!", description: `${piece.toUpperCase()} is now available in your army.` });
+            const url = await createSquarePayment(100, `Recruit ${piece.toUpperCase()}`);
+            if (url) {
+                window.location.href = url;
+            } else {
+                toast({ variant: 'destructive', title: "Purchase Error", description: "Could not connect to Square Sandbox." });
+                setLoading(null);
+            }
         } catch (e: any) {
             toast({ variant: 'destructive', title: "Recruitment Failed", description: e.message });
+            setLoading(null);
         }
-        setLoading(null);
       }
     );
   };
@@ -198,10 +187,10 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
     { type: 'archbishop', name: 'Archbishop', desc: 'Elite Clergy. Grants Holy Shield at KS 2.', req: '1500 Elo', isElo: true },
     { type: 'palace', name: 'The Palace', desc: 'Living Fortress. High-level resurrections.', req: '1800 Elo', isElo: true },
     { type: 'archer', name: 'Archer', desc: 'Long-range Cavalry. Global Snipe at KS 5.', req: '2100 Elo', isElo: true },
-    { type: 'dancer', name: 'The Dancer', desc: 'Mobile specialist. Free move/swap at KS 1.', req: 'Dungeon Floor 50 or 100g' },
-    { type: 'mimic', name: 'The Mimic', desc: 'Utility unit. Copies the last moved piece.', req: 'Dungeon Floor 50 or 100g' },
-    { type: 'grappler', name: 'The Grappler', desc: 'Area control. Throws adjacent units.', req: 'Dungeon Floor 50 or 100g' },
-    { type: 'myco_mage', name: 'Myco Mage', desc: 'Mushroomancer. Uses global fungal spells.', req: 'Dungeon Floor 50 or 100g' },
+    { type: 'dancer', name: 'The Dancer', desc: 'Mobile specialist. Free move/swap at KS 1.', req: 'Dungeon Floor 50 or $1.00' },
+    { type: 'mimic', name: 'The Mimic', desc: 'Utility unit. Copies the last moved piece.', req: 'Dungeon Floor 50 or $1.00' },
+    { type: 'grappler', name: 'The Grappler', desc: 'Area control. Throws adjacent units.', req: 'Dungeon Floor 50 or $1.00' },
+    { type: 'myco_mage', name: 'Myco Mage', desc: 'Mushroomancer. Uses global fungal spells.', req: 'Dungeon Floor 50 or $1.00' },
   ];
 
   return (
@@ -367,7 +356,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                             <span className="text-[0.45rem] text-muted-foreground uppercase border border-border px-2 py-1">LOCKED</span>
                                         ) : (
                                             <Button variant="secondary" size="sm" className="h-8 text-[0.5rem] uppercase px-2" onClick={() => buyPiece(p.type)} disabled={!!loading}>
-                                                {loading === p.type ? '...' : 'Hire (100g)'}
+                                                {loading === p.type ? '...' : 'Hire ($1.00)'}
                                             </Button>
                                         )}
                                     </div>
