@@ -1,7 +1,7 @@
 
 'use client';
-import { doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
-import { useEffect, useState } from 'react';
+import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
+import { useEffect, useState, useRef } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { useAuth, updateDocumentNonBlocking } from '@/firebase';
 import type { InventoryItem, InventoryItemType, PlayerColor, Piece, MarketListing } from '@/types';
@@ -33,96 +33,38 @@ interface UserData {
   colossusDefeats?: number;
   goldBalance: number;
   marketSlots?: MarketListing[];
+  lastActive?: string;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
 const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler', 'myco_mage'];
 
+/**
+ * Hook to manage and provide current user data.
+ * Decouples the real-time listener from initialization logic to prevent write loops.
+ */
 export function useUser() {
   const auth = useAuth();
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
+  const hasInitialized = useRef<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         const db = getFirestore();
         const userRef = doc(db, 'users', firebaseUser.uid);
         
+        // Listener only for reading data
         const unsubProfile = onSnapshot(userRef, (docSnap) => {
           if (docSnap.exists()) {
             const data = docSnap.data() as UserData;
-            let needsUpdate = false;
-            
-            if (data.username === 'SUGGA' && data.eloRating < 2100) {
-              data.eloRating = 2100;
-              needsUpdate = true;
-            }
-
-            const currentInventoryMap = new Map(data.inventory?.map(i => [i.type, i.count]) || []);
-            let inventoryChanged = false;
-            const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
-              const existingCount = currentInventoryMap.get(type);
-              if (existingCount === undefined) {
-                inventoryChanged = true;
-                return { type, count: 5 };
-              }
-              return { type, count: existingCount };
-            });
-
-            if (inventoryChanged) {
-              data.inventory = updatedInventory;
-              needsUpdate = true;
-            }
-
-            if (data.goldBalance === undefined) {
-                data.goldBalance = 500; // Starting gold
-                needsUpdate = true;
-            }
-
-            if (data.marketSlots === undefined) {
-                data.marketSlots = [];
-                needsUpdate = true;
-            }
-
-            const currentUnlocks = data.unlockedPieces || [];
-            const updatedUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
-            if (updatedUnlocks.length !== currentUnlocks.length) {
-              needsUpdate = true;
-              data.unlockedPieces = updatedUnlocks;
-            }
-
-            if (needsUpdate) {
-                updateDocumentNonBlocking(userRef, { 
-                    goldBalance: data.goldBalance,
-                    marketSlots: data.marketSlots || [],
-                    inventory: data.inventory, 
-                    unlockedPieces: data.unlockedPieces
-                });
-            }
             setUserData({ ...data, id: firebaseUser.uid });
           } else {
-            const newUserProfile: UserData = {
-              id: firebaseUser.uid,
-              username: firebaseUser.displayName || `Player-${firebaseUser.uid.slice(0,5)}`,
-              email: firebaseUser.email || 'anonymous',
-              eloRating: firebaseUser.displayName === 'SUGGA' ? 2100 : 1200,
-              wins: 0,
-              losses: 0,
-              inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
-              equipment: {},
-              unlockedPieces: PLAYTEST_UNLOCKS,
-              colossusDefeats: 0,
-              goldBalance: 500,
-              marketSlots: []
-            };
-            setDoc(userRef, newUserProfile, { merge: true }).catch(error => {
-                console.error("Error creating user profile:", error);
-            });
-            setUserData(newUserProfile);
+            setUserData(null);
           }
           setIsUserLoading(false);
         });
@@ -133,11 +75,100 @@ export function useUser() {
         setUser(null);
         setUserData(null);
         setIsUserLoading(false);
+        hasInitialized.current = null;
       }
     });
 
     return () => unsubscribe();
   }, [auth]);
+
+  // Migration and Initialization logic - runs once per user session
+  useEffect(() => {
+    if (!user || isUserLoading) return;
+    if (hasInitialized.current === user.uid) return;
+
+    const db = getFirestore();
+    const userRef = doc(db, 'users', user.uid);
+
+    const ensureInitialized = async () => {
+      try {
+        const snap = await getDoc(userRef);
+        
+        if (!snap.exists()) {
+          const newUserProfile: UserData = {
+            id: user.uid,
+            username: user.displayName || `Player-${user.uid.slice(0,5)}`,
+            email: user.email || 'anonymous',
+            eloRating: user.displayName === 'SUGGA' ? 2100 : 1200,
+            wins: 0,
+            losses: 0,
+            inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
+            equipment: {},
+            unlockedPieces: PLAYTEST_UNLOCKS,
+            colossusDefeats: 0,
+            goldBalance: 500,
+            marketSlots: []
+          };
+          await setDoc(userRef, newUserProfile, { merge: true });
+        } else {
+          const data = snap.data() as UserData;
+          let needsUpdate = false;
+          const updates: any = {};
+
+          // Special ELO for Sugga
+          if (data.username === 'SUGGA' && (data.eloRating || 0) < 2100) {
+            updates.eloRating = 2100;
+            needsUpdate = true;
+          }
+
+          // Ensure full inventory
+          const currentInv = data.inventory || [];
+          const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
+          let inventoryMissingItems = false;
+          const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
+            const count = currentInvMap.get(type);
+            if (count === undefined) {
+              inventoryMissingItems = true;
+              return { type, count: 5 };
+            }
+            return { type, count };
+          });
+
+          if (inventoryMissingItems) {
+            updates.inventory = updatedInventory;
+            needsUpdate = true;
+          }
+
+          // Ensure currency and economy fields
+          if (data.goldBalance === undefined) {
+            updates.goldBalance = 500;
+            needsUpdate = true;
+          }
+          if (data.marketSlots === undefined) {
+            updates.marketSlots = [];
+            needsUpdate = true;
+          }
+
+          // Ensure piece unlocks
+          const currentUnlocks = data.unlockedPieces || [];
+          const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
+          if (nextUnlocks.length !== currentUnlocks.length) {
+            updates.unlockedPieces = nextUnlocks;
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            updateDocumentNonBlocking(userRef, updates);
+          }
+        }
+        hasInitialized.current = user.uid;
+      } catch (e) {
+        console.error("User initialization failed:", e);
+      }
+    };
+
+    ensureInitialized();
+  }, [user, isUserLoading]);
 
   return { user, userData, isUserLoading };
 }
