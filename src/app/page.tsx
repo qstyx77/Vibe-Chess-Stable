@@ -402,7 +402,7 @@ export default function EvolvingChessPage() {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(actingPlayer);
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const pawnSq = nextBoard.flat().find(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+            const pawnSq = nextBoard.flat().find(sq => sq.piece?.type === 'pawn' && sq.piece.color === actingPlayer && sq.piece.level === 1);
             if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actingPlayer)} promoted a Commander via First Blood!`); }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
@@ -764,7 +764,7 @@ export default function EvolvingChessPage() {
     }
     if (isAwaitingDanceTarget) {
         if (!dancerToDance) { if (piece && piece.color === currentPlayer && piece.type === 'dancer') { setDancerToDance(algebraic); } return; }
-        if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, isExtraTurnFromQueenMove, specialActionContext.newEnPassantTarget, currentPlayer, [...(specialActionContext.completedMilestones || []), 'dance'], specialActionContext.capturingPieceId); return; }
+        if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.boardForNextStep, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
         const isCardinal = Math.abs(row - fr) + Math.abs(col - fc) === 1;
         const dir = currentPlayer === 'white' ? -1 : 1;
@@ -786,7 +786,7 @@ export default function EvolvingChessPage() {
                 
                 addLog(`Dancer ${targetP ? 'Swapped' : 'Moved'}!`);
                 setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
-                triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, isExtraTurnFromQueenMove, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext.completedMilestones || []), 'dance'], specialActionContext.capturingPieceId);
+                triggerSpecialsChain(nextBoard, nextG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext.capturingPieceId);
             }
         }
         return;
@@ -1328,3 +1328,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
