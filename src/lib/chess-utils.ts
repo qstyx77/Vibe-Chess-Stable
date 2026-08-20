@@ -1602,16 +1602,69 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     return legalMoves;
 }
 
-function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: AlgebraicSquare[], player: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): AlgebraicSquare[] {
-  const p = board[algebraicToCoords(from).row][algebraicToCoords(from).col].piece;
+export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseudo: AlgebraicSquare[], player: PlayerColor, ep: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null): AlgebraicSquare[] {
+  const fromCoords = algebraicToCoords(from);
+  const p = board[fromCoords.row][fromCoords.col].piece;
   if (!p) return [];
+
+  const silenced = isSilenced(board, fromCoords.row, fromCoords.col, p.color);
+  const direction = p.color === 'white' ? -1 : 1;
+
   return pseudo.filter(to => {
-    const fromCoords = algebraicToCoords(from); const toCoords = algebraicToCoords(to);
+    const toCoords = algebraicToCoords(to);
+    const targetPiece = board[toCoords.row][toCoords.col].piece;
+
+    // --- Special Multi-Step Validation for Grappler Pickup ---
+    // A Grappler pickup is legal if there's at least one valid throw destination that resolves check.
+    if (p.type === 'grappler' && !silenced && targetPiece && Math.abs(fromCoords.row - toCoords.row) <= 1 && Math.abs(fromCoords.col - toCoords.col) <= 1) {
+        const isDiagForward = (toCoords.row === fromCoords.row + direction) && Math.abs(toCoords.col - fromCoords.col) === 1;
+        const isEnemy = targetPiece.color !== p.color;
+        
+        // If not a standard diagonal-forward capture, it's a multi-step pickup
+        if (!(isEnemy && isDiagForward)) {
+            if (targetPiece.type === 'king') return false; // Safety: cannot pick up kings
+
+            // Simulate the intermediate state where the piece is picked up (removed from board)
+            const boardWithPickup = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+            const pickedPieceData = { ...boardWithPickup[toCoords.row][toCoords.col].piece! };
+            boardWithPickup[toCoords.row][toCoords.col].piece = null;
+            
+            // Grappler range is based on its effective level
+            const range = getEffectiveLevel(board, fromCoords.row, fromCoords.col);
+            
+            // Scan board for any valid throw destination that resolves check
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    // Throw target must be empty (no piece, no anvil)
+                    if (boardWithPickup[r][c].piece || (boardWithPickup[r][c].item && boardWithPickup[r][c].item?.type === 'anvil')) continue;
+                    
+                    const dr = Math.abs(r - fromCoords.row);
+                    const dc = Math.abs(c - fromCoords.col);
+                    const isCardinal = r === fromCoords.row || c === fromCoords.col;
+                    const isDiagonal = dr === dc;
+                    const dist = Math.max(dr, dc);
+                    
+                    // Throw must be within range and on a line (cardinal or diagonal)
+                    if (dist > 0 && dist <= range && (isCardinal || isDiagonal)) {
+                        // Simulate landing the piece
+                        boardWithPickup[r][c].piece = { ...pickedPieceData, hasMoved: true };
+                        // Check if King is safe in this hypothetical outcome
+                        const isSafe = !isKingInCheck(boardWithPickup, player, ep, lastMovedPieceType, lastMovedPieceHeldItem);
+                        boardWithPickup[r][c].piece = null; // Revert simulation
+                        if (isSafe) return true;
+                    }
+                }
+            }
+            return false; // No throw destination saves the king from check
+        }
+    }
+    // --- End Grappler Special Handling ---
+
     let type: Move['type'] = 'move';
     if (p.heldItem === 'grappling_hook' && board[toCoords.row][toCoords.col].piece?.color === p.color) type = 'grapple-hook-swap';
     else if (p.heldItem === 'battering_ram' && (p.type === 'rook' || p.type === 'palace')) {
       const dr = Math.sign(toCoords.row - fromCoords.row); const dc = Math.sign(toCoords.col - fromCoords.col);
-      if (board[fromCoords.row+dr][fromCoords.col+dc].item?.type === 'anvil') type = 'ram-push';
+      if (isValidSquare(fromCoords.row+dr, fromCoords.col+dc) && board[fromCoords.row+dr][fromCoords.col+dc].item?.type === 'anvil') type = 'ram-push';
     }
     if (type === 'move') {
       const isStandardStartingSquare = (p.color === 'white' && from === 'e1') || (p.color === 'black' && from === 'e8');
