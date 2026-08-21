@@ -140,15 +140,7 @@ export function useUser() {
 
         let currentGold = currentData.goldBalance ?? 0;
 
-        // Global Reset Logic (V1)
-        if (currentData.goldResetV1 !== true) {
-          currentGold = 0;
-          updates.goldResetV1 = true;
-          needsUpdate = true;
-        }
-
         // Hanz Schemin' Compensation Logic
-        // Applied after reset to ensure the final balance is correct
         if (isHanz && !currentData.hanzFixV1) {
           currentGold += 600;
           updates.hanzFixV1 = true;
