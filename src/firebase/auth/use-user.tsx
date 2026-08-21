@@ -124,7 +124,6 @@ export function useUser() {
             colossusDefeats: 0,
             goldBalance: 0,
             marketSlots: [],
-            goldResetV1: true,
             processedTransactions: []
           };
         } else {

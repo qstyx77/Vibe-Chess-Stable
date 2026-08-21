@@ -436,18 +436,19 @@ export default function DungeonPage() {
                     const dancerPiece = aiDancerSq.piece!;
                     const dancerDir = actingPlayer === 'white' ? -1 : 1;
                     const candidates: {r: number, c: number, priority: number}[] = [];
-                    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+                    for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                        if(dr===0 && dc===0) continue;
                         const nr = r+dr, nc = c+dc;
                         if (isValidSquare(nr, nc)) {
                             const targetSq = nextBoard[nr][nc];
                             if (!targetSq.piece && !targetSq.item) {
-                                if (dr === dancerDir) candidates.push({r: nr, c: nc, priority: 1}); // Forward move
+                                if (dr === dancerDir && dc === 0) candidates.push({r: nr, c: nc, priority: 1}); // Forward move
                             } else if (targetSq.piece) {
                                 if (targetSq.piece.color !== actingPlayer && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) candidates.push({r: nr, c: nc, priority: 2}); // Enemy swap
                                 else if (targetSq.piece.color === actingPlayer) candidates.push({r: nr, c: nc, priority: 0}); // Ally swap
                             }
                         }
-                    });
+                    }
                     candidates.sort((a,b) => b.priority - a.priority);
                     if (candidates.length > 0) {
                         const best = candidates[0];
@@ -571,7 +572,7 @@ export default function DungeonPage() {
             }
             return true;
         }
-        setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(player); setBoardForPostSacrifice(boardAfter); setPlayerWhoMadeQueenMove(player); setIsExtraTurnFromQueenMove(extra); setSpecialActionContext({ extra, nextEp: ep, oldStreak: oldS, newStreak: newS, completedMilestones: [], actingPlayer: player, currentGraveyard: graveyard, currentKs, capturingPieceId }); addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
+        setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(player); setBoardForPostSacrifice(boardAfter); setPlayerWhoMadeQueenMove(player); setIsExtraTurnFromQueenMove(extra); setSpecialActionContext({ extra, nextEp: ep, oldStreak: oldS, newStreak: newS, completedMilestones: [], actingPlayer: player, currentGraveyard: graveyard, currentKs, capturingPieceId: capturingPieceId }); addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
       }
     }
     triggerSpecialsChain(boardAfter, graveyard, currentKs, oldS, newS, extra, ep, player, [], capturingPieceId); return false;
@@ -741,7 +742,7 @@ export default function DungeonPage() {
           const move: Move = { from: selectedSquare!, to: selectedSquare!, type: 'raise-mycelimen' };
           clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
           const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
-          const nextB = applyResult.newBoard; const updatedG = { ...capturedPieces }; setBoard(nextB); audioManager.playLevelUp(); addLog("Mushroomancy: Raise Myceli-Men!");
+          const nextB = applyResult.newBoard; const updatedG = { ...capturedPieces }; courage setBoard(nextB); audioManager.playLevelUp(); addLog("Mushroomancy: Raise Myceli-Men!");
           setTimeout(() => { 
             setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
             if (queue.length > 0) { setPromotionQueue(queue); setPromotionTargetLevel(queue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(queue[0].square); setSpecialActionContext({ extra: false, nextEp: null, oldStreak: killStreaks.white, newStreak: killStreaks.white, completedMilestones: [], actingPlayer: 'white', currentGraveyard: updatedG, currentKs: killStreaks, capturingPieceId: null }); } 
@@ -750,7 +751,7 @@ export default function DungeonPage() {
       }
   }, [selectedSquare, board, enPassantTargetSquare, capturedPieces, killStreaks, currentPlayer, processMoveEnd, addLog, lastMovedPieceType, lastMovedPieceHeldItem]);
 
-  const handleSquareClick = (algebraic: AlgebraicSquare) => {
+  const handleSquareClick = useCallback((algebraic: AlgebraicSquare) => {
     if (clickGuard.current) return;
     const { row, col } = algebraicToCoords(algebraic); const sq = board[row][col]; let piece = sq.piece;
     if (piece?.id.startsWith('boss-colossus-')) { const tl = board.flat().find(s => s.piece?.id === 'boss-colossus-tl'); if (tl && tl.algebraic) { piece = tl.piece; algebraic = tl.algebraic; } }
@@ -843,13 +844,13 @@ export default function DungeonPage() {
         if (!dancerToDance) { if (piece && piece.color === 'white' && piece.type === 'dancer') { setDancerToDance(algebraic); } return; }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); setSelectedSquare(null); setPossibleMoves([]); triggerSpecialsChain(board, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, 'white', specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
-        const isCardinal = Math.abs(fr - row) + Math.abs(fc - col) === 1;
+        const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const dir = currentPlayer === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         
-        if (isCardinal) {
+        if (isAdjacent) {
             let moveValid = false;
-            if (piece) moveValid = true; // Swap with any adjacent piece
+            if (piece) moveValid = true; // Swap with any adjacent piece (8-way)
             else if (!sq.item && isForward) moveValid = true; // Move forward if empty
             
             if (moveValid) {
@@ -1076,7 +1077,7 @@ export default function DungeonPage() {
     }
     if (sq.piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem)); } 
     else { setSelectedSquare(null); setPossibleMoves([]); }
-  };
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffect, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingPawnSacrifice, playerToSacrificePawn, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, isAnySpecialModeActive, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, level]);
 
   const handleResetRun = () => { setIsResetConfirmOpen(false); startRun(true); addLog("Run Reset. Back to Floor 1."); };
 

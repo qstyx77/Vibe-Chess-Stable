@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -136,7 +137,7 @@ function adaptBoardForAI(
     extraTurn: false,
     gameMoveCounter: gameMoveCounter,
     firstBloodAchieved: firstBloodAchieved,
-    playerWhoGotFirstBlood: playerWhoGotFirstBlood,
+    playerWhoWhoGotFirstBlood: playerWhoGotFirstBlood,
     enPassantTargetSquare: enPassantTargetSquare,
     shroomSpawnCounter: shroomSpawnCounter,
     nextShroomSpawnTurn: nextShroomSpawnTurn,
@@ -369,18 +370,19 @@ export default function EvolvingChessPage() {
                     const dancerPiece = aiDancerSq.piece!;
                     const dancerDir = actingPlayer === 'white' ? -1 : 1;
                     const candidates: {r: number, c: number, priority: number}[] = [];
-                    [[1,0],[-1,0],[0,1],[0,-1]].forEach(([dr, dc]) => {
+                    for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                        if(dr===0 && dc===0) continue;
                         const nr = r+dr, nc = c+dc;
                         if (isValidSquare(nr, nc)) {
                             const targetSq = nextBoard[nr][nc];
                             if (!targetSq.piece && !targetSq.item) {
-                                if (dr === dancerDir) candidates.push({r: nr, c: nc, priority: 1}); // Forward move
+                                if (dr === dancerDir && dc === 0) candidates.push({r: nr, c: nc, priority: 1}); // Forward move
                             } else if (targetSq.piece) {
                                 if (targetSq.piece.color !== actingPlayer && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) candidates.push({r: nr, c: nc, priority: 2}); // Enemy swap
                                 else if (targetSq.piece.color === actingPlayer) candidates.push({r: nr, c: nc, priority: 0}); // Ally swap
                             }
                         }
-                    });
+                    }
                     candidates.sort((a,b) => b.priority - a.priority);
                     if (candidates.length > 0) {
                         const best = candidates[0];
@@ -766,13 +768,13 @@ export default function EvolvingChessPage() {
         if (!dancerToDance) { if (piece && piece.color === currentPlayer && piece.type === 'dancer') { setDancerToDance(algebraic); } return; }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.boardForNextStep, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
-        const isCardinal = Math.abs(row - fr) + Math.abs(col - fc) === 1;
+        const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const dir = currentPlayer === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         
-        if (isCardinal) {
+        if (isAdjacent) {
             let moveValid = false;
-            if (piece) moveValid = true; // Swap with any adjacent piece
+            if (piece) moveValid = true; // Swap with any adjacent piece (8-way)
             else if (!sq?.item && isForward) moveValid = true; // Move forward if empty
             
             if (moveValid) {
@@ -995,7 +997,7 @@ export default function EvolvingChessPage() {
                   if (queue.length > 0) { setPromotionQueue(queue); const first = queue[0]; setPlayerToPromote(currentPlayer); setPromotionTargetLevel(first.targetLevel); setIsPromotingPawn(true); setPromotionSquare(first.square); setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyResult.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs, capturingPieceId: capturerId } as any); }
                   else {
                       let sacrificeNeeded = false;
-                      if (landedPieceAtTo?.type === 'queen') sacrificeNeeded = processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, { from: selectedSquare, to: algebraic, type: moveType }, originalL, originalT, isExtra, applyResult.enPassantTargetSet, oldS, newS, capturerId);
+                      if (landedPieceAtTo?.type === 'queen') sacrificeNeeded = processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, { from: selectedSquare, to: algebraic, type: moveType }, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS, capturerId);
                       if (sacrificeNeeded) return;
                       triggerSpecialsChain(nextB, updatedG, currentKs, oldS, newS, isExtra, applyResult.enPassantTargetSet, currentPlayer, [], capturerId);
                   }
@@ -1006,7 +1008,7 @@ export default function EvolvingChessPage() {
     }
   }
   if (piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem)); } else { setSelectedSquare(null); setPossibleMoves([]); }
-}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, aiStrikeCount]);
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingPawnSacrifice, playerToSacrificePawn, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, aiStrikeCount]);
 
   const triggerNextSpecialAction_Lobby = (context: any, player: PlayerColor) => {
      triggerSpecialsChain(board, context.currentGraveyard, context.currentKs, context.oldStreak, context.newStreak, context.isExtraTurn, context.newEnPassantTarget, player, context.completedMilestones || [], context.capturingPieceId);
