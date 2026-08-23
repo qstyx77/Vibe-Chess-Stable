@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -137,7 +136,7 @@ function adaptBoardForAI(
     extraTurn: false,
     gameMoveCounter: gameMoveCounter,
     firstBloodAchieved: firstBloodAchieved,
-    playerWhoWhoGotFirstBlood: playerWhoGotFirstBlood,
+    playerWhoGotFirstBlood: playerWhoGotFirstBlood,
     enPassantTargetSquare: enPassantTargetSquare,
     shroomSpawnCounter: shroomSpawnCounter,
     nextShroomSpawnTurn: nextShroomSpawnTurn,
@@ -565,6 +564,7 @@ export default function EvolvingChessPage() {
 
   const performAiMove = useCallback(async () => {
     if (!aiInstanceRef.current || gameInfo.gameOver || gameOverRef.current || isMoveProcessing || isAnySpecialModeActive || isAiThinking) return;
+    setSelectedSquare(null); setPossibleMoves([]);
     setIsAiThinking(true);
     try {
       const gameStateForAI = adaptBoardForAI(board, currentPlayer, killStreaks, capturedPieces, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem);
@@ -639,9 +639,9 @@ export default function EvolvingChessPage() {
       setTimeout(() => {
         setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false);
         if (gameOverRef.current) return;
-        let isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6); const toRow = aiMove.to[0]; const landedPiece = nextB[toRow][aiMove.to[1]].piece;
+        let isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6); const landedPiece = nextB[aiMove.to[0]][aiMove.to[1]].piece;
         const oppBackRank = currentPlayer === 'white' ? 0 : 7;
-        if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && toRow === oppBackRank) {
+        if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && aiMove.to[0] === oppBackRank) {
             const promoType = aiMove.promoteTo || 'queen'; const targetLevel = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null);
             landedPiece.type = promoType; landedPiece.level = targetLevel; if (promoType === 'queen') landedPiece.level = Math.min(landedPiece.level, 7);
             if (landedPiece.heldItem && !isItemValidForPiece(landedPiece.heldItem, landedPiece.type)) landedPiece.heldItem = null;
@@ -726,12 +726,13 @@ export default function EvolvingChessPage() {
     if (isSelectingTeleportShroom) {
         if (sq?.item?.type === 'shroom') {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
-            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); }
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
             else {
                 pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
                 setBoard(applyResult.newBoard); audioManager.playMove();
-                setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsSelectingTeleportShroom(false); setTeleportAllyPieceId(null); setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+                setSelectedSquare(null); setPossibleMoves([]);
+                setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsSelectingTeleportShroom(false); setTeleportAllyPieceId(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
             }
         }
         return;
@@ -739,14 +740,15 @@ export default function EvolvingChessPage() {
     if (isSelectingSporeBombShroom) {
         if (sq?.item?.type === 'shroom') {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'spore-bomb' };
-            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); }
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
             else {
                 pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
                 setBoard(applyResult.newBoard); audioManager.playExplosion();
+                setSelectedSquare(null); setPossibleMoves([]);
                 const { row: sR, col: sC } = algebraicToCoords(algebraic);
                 for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) { if (isValidSquare(sR + dr, sC + dc)) addEffectCallback('explosion', coordsToAlgebraic(sR + dr, sC + dc)); }
-                setTimeout(() => { clickGuardRef.current = false; setIsMoveProcessing(false); setIsSelectingSporeBombShroom(false); setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+                setTimeout(() => { clickGuardRef.current = false; setIsMoveProcessing(false); setIsSelectingSporeBombShroom(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
             }
         }
         return;
@@ -759,7 +761,8 @@ export default function EvolvingChessPage() {
                 pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'grapple-throw', thrownPiece: grappledPieceSubject!.piece }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
                 setBoard(applyResult.newBoard); audioManager.playMove(); addLog(`Threw unit to ${algebraic}!`);
-                setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+                setSelectedSquare(null); setPossibleMoves([]);
+                setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
             }
         }
         return;
@@ -851,71 +854,76 @@ export default function EvolvingChessPage() {
       return;
   }
   if (isAwaitingEarthquakeScrollTarget) {
-      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'earthquake-scroll' } })); setIsAwaitingEarthquakeScrollTarget(false); }
+      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'earthquake-scroll' } })); setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
       else {
           pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
           const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'earthquake-scroll' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
           setBoard(applyResult.newBoard); audioManager.playExplosion(); addLog("Earthquake Scroll triggered!");
-          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingEarthquakeScrollTarget(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
       }
       return;
   }
   if (isAwaitingWindScrollTarget) {
     if (!sq?.piece && !sq?.item) {
-      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'wind-scroll' } })); setIsAwaitingWindScrollTarget(false); }
+      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'wind-scroll' } })); setIsAwaitingWindScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
       else {
           pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
           const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'wind-scroll' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
           setBoard(applyResult.newBoard); audioManager.playAnvil(); addLog("Wind Scroll triggered!");
-          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingWindScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingWindScrollTarget(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
       }
     }
     return;
   }
   if (isAwaitingAnvilScrollTarget) {
     if (!sq?.piece && !sq?.item) {
-      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'summon-anvil' } })); setIsAwaitingAnvilScrollTarget(false); }
+      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'summon-anvil' } })); setIsAwaitingAnvilScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
       else {
           pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
           const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'summon-anvil' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
           setBoard(applyResult.newBoard); audioManager.playAnvil(); addLog("Anvil Scroll triggered!");
-          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingAnvilScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingAnvilScrollTarget(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
     }
     }
     return;
   }
   if (isAwaitingShieldScrollTarget) {
     if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded) {
-      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'shield-scroll' } })); setIsAwaitingShieldScrollTarget(false); }
+      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'shield-scroll' } })); setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
       else {
           pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
           const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'shield-scroll' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
           setBoard(applyResult.newBoard); audioManager.playShield(); addLog(`Shielded ${piece.type}!`);
-          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+          setSelectedSquare(null); setPossibleMoves([]);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingShieldScrollTarget(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
       }
     }
     return;
   }
   if (isAwaitingSwapScrollTarget) {
       if (piece && piece.color === currentPlayer && algebraic !== selectedSquare) {
-          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'swap-scroll' } })); setIsAwaitingSwapScrollTarget(false); }
+          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'swap-scroll' } })); setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
           else {
               pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
               const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'swap-scroll' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
               setBoard(applyResult.newBoard); audioManager.playMove(); setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog("Swap Scroll triggered!");
-              setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+              setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingSwapScrollTarget(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
           }
       }
       return;
   }
   if (isAwaitingDecreeTarget) {
       if (piece && piece.color === currentPlayer && piece.type === 'pawn' && piece.level === 1) {
-          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'kings-decree' } })); setIsAwaitingDecreeTarget(false); }
+          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'kings-decree' } })); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
           else {
               pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
               const applyResult = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'kings-decree' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
               setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog("King's Decree: Pawn promoted!");
-              setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+              setSelectedSquare(null); setPossibleMoves([]);
+              setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingDecreeTarget(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
           }
       }
       return;
@@ -938,11 +946,11 @@ export default function EvolvingChessPage() {
           const hItem = moving.heldItem;
           if (hItem === 'demonic_possession') { 
             addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem);
-            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'demonic-possession' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'demonic-possession' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog("Possession: Massive power gained, but unit is doomed!"); addEffectCallback('level-change', algebraic, currentPlayer, 5); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'demonic-possession' } })); setSelectedSquare(null); setPossibleMoves([]); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setSelectedSquare(null); setPossibleMoves([]); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'demonic-possession' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog("Possession: Massive power gained, but unit is doomed!"); addEffectCallback('level-change', algebraic, currentPlayer, 5); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
           if (hItem === 'heavy_rain') { 
             if (getEffectiveLevel(board, fR, fC) < 3) { addLog("Level 3 required for Heavy Rain!"); return; } 
             addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem);
-            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'heavy-rain' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'heavy-rain' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playAnvil(); addLog("Heavy Rain Scroll used! Anvils have fallen."); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'heavy-rain' } })); setSelectedSquare(null); setPossibleMoves([]); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setSelectedSquare(null); setPossibleMoves([]); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'heavy-rain' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playAnvil(); addLog("Heavy Rain Scroll used! Anvils have fallen."); setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
           if (hItem === 'summon_anvil') { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingAnvilScrollTarget(true); return; }
           if (hItem === 'wind_scroll') { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingWindScrollTarget(true); return; }
           if (hItem === 'shield_scroll' && getEffectiveLevel(board, fR, fC) >= 2) { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingShieldScrollTarget(true); return; }
@@ -951,7 +959,7 @@ export default function EvolvingChessPage() {
           if (hItem === 'kings_decree' && moving.type === 'king') { addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem); setIsAwaitingDecreeTarget(true); return; }
           if (hItem === 'ice_blast' || hItem === 'soul_harvest') { 
             addEffectCallback('magic-burst', selectedSquare, currentPlayer, 0, hItem);
-            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' } })); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog(`${ITEM_METADATA[hItem].name} triggered!`); if (hItem === 'soul_harvest') { const gained = (applyResult.originalPieceLevel || 0) - (moving.level || 1); addEffectCallback('level-change', algebraic, currentPlayer, gained); } setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' } })); setSelectedSquare(null); setPossibleMoves([]); } else { pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setSelectedSquare(null); setPossibleMoves([]); const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: hItem === 'ice_blast' ? 'ice-blast' : 'soul-harvest' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog(`${ITEM_METADATA[hItem].name} triggered!`); if (hItem === 'soul_harvest') { const gained = (applyResult.originalPieceLevel || 0) - (moving.level || 1); addEffectCallback('level-change', algebraic, currentPlayer, gained); } setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800); } return; }
         }
         const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem);
         if (freshlyCalculated.includes(algebraic)) {
@@ -963,9 +971,10 @@ export default function EvolvingChessPage() {
             else if (FRONTLINE_TYPES.includes(moving?.type) && algebraic === enPassantTargetSquare) { moveType = 'enpassant'; }
             else if (board[toRow][toCol].piece) { if (board[toRow][toCol].piece!.color !== moving?.color) moveType = 'capture'; else moveType = 'swap'; }
           }
-          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: moveType } })); }
+          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: moveType } })); setSelectedSquare(null); setPossibleMoves([]); }
           else {
               pushHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+              setSelectedSquare(null); setPossibleMoves([]);
               const oldL = moving.level; const oldT = moving.type; const oldH = moving.heldItem; setLastMovedPieceType(oldT); setLastMovedPieceHeldItem(oldH || null);
               const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
               let nextB = applyResult.newBoard; const updatedG = { ...capturedPieces };
@@ -1007,8 +1016,8 @@ export default function EvolvingChessPage() {
         }
     }
   }
-  if (piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem)); } else { setSelectedSquare(null); setPossibleMoves([]); }
-}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingPawnSacrifice, playerToSacrificePawn, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, aiStrikeCount]);
+  if (piece && piece.color === currentPlayer && (!localPlayerColor || piece.color === localPlayerColor)) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem)); } else { setSelectedSquare(null); setPossibleMoves([]); }
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, aiStrikeCount]);
 
   const triggerNextSpecialAction_Lobby = (context: any, player: PlayerColor) => {
      triggerSpecialsChain(board, context.currentGraveyard, context.currentKs, context.oldStreak, context.newStreak, context.isExtraTurn, context.newEnPassantTarget, player, context.completedMilestones || [], context.capturingPieceId);
@@ -1029,6 +1038,7 @@ export default function EvolvingChessPage() {
         case 'ranked-match-found': setRoomId(data.roomId); setLocalPlayerColor(data.color); setBoard(data.gameState.board); setOnlineStatus('connected'); setRankedQueueStatus('idle'); setGamePlayers(data.gameState.players); addLog(`Match Found! Playing as ${data.color}`); break;
         case 'player-joined': setGamePlayers(data.gameState.players); setOnlineStatus('connected'); setBoard(data.gameState.board); addLog('Opponent Joined. Game starting!'); break;
         case 'game-move':
+          setSelectedSquare(null); setPossibleMoves([]);
           const prevCapsCount = (capturedPieces.white?.length || 0) + (capturedPieces.black?.length || 0);
           const nextCapsCount = (data.gameState.capturedPieces.white?.length || 0) + (data.gameState.capturedPieces.black?.length || 0);
           const isCap = nextCapsCount > prevCapsCount; const isObl = data.gameState.lastMovedPieceType === 'infiltrator' && isCap;

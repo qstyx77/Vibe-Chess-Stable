@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -733,18 +732,20 @@ export default function DungeonPage() {
       if (spell === 'propagate') {
         const move: Move = { from: selectedSquare!, to: selectedSquare!, type: 'myco-propagate' };
         clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
+        setSelectedSquare(null); setPossibleMoves([]);
         const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
         setBoard(applyResult.newBoard); audioManager.playLevelUp(); addLog("Mushroomancy: Propagate!");
-        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
       } else if (spell === 'teleport') { setIsSelectingTeleportAlly(true); addLog("Mushroomancy: Teleport! Select an allied piece.");
       } else if (spell === 'spore-bomb') { setIsSelectingSporeBombShroom(true); addLog("Mushroomancy: Spore Bomb! Select a shroom to detonate.");
       } else if (spell === 'raise-mycelimen') {
           const move: Move = { from: selectedSquare!, to: selectedSquare!, type: 'raise-mycelimen' };
           clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
+          setSelectedSquare(null); setPossibleMoves([]);
           const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
           const nextB = applyResult.newBoard; const updatedG = { ...capturedPieces }; courage setBoard(nextB); audioManager.playLevelUp(); addLog("Mushroomancy: Raise Myceli-Men!");
           setTimeout(() => { 
-            setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
+            setIsMoveProcessing(false); clickGuard.current = false; const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
             if (queue.length > 0) { setPromotionQueue(queue); setPromotionTargetLevel(queue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(queue[0].square); setSpecialActionContext({ extra: false, nextEp: null, oldStreak: killStreaks.white, newStreak: killStreaks.white, completedMilestones: [], actingPlayer: 'white', currentGraveyard: updatedG, currentKs: killStreaks, capturingPieceId: null }); } 
             else { processMoveEnd(nextB, updatedG, killStreaks, currentPlayer, false, null); }
           }, 800);
@@ -805,9 +806,10 @@ export default function DungeonPage() {
         if (sq?.item?.type === 'shroom') {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setHasMovedOnCurrentFloor(true);
+            setSelectedSquare(null); setPossibleMoves([]);
             const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
             setBoard(applyResult.newBoard); audioManager.playMove(); addLog("Teleportation complete!");
-            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsSelectingTeleportShroom(false); setTeleportAllyPieceId(null); setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsSelectingTeleportShroom(false); setTeleportAllyPieceId(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
         }
         return;
     }
@@ -815,6 +817,7 @@ export default function DungeonPage() {
         if (sq?.item?.type === 'shroom') {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'spore-bomb' };
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setHasMovedOnCurrentFloor(true);
+            setSelectedSquare(null); setPossibleMoves([]);
             const applyResult = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
             setBoard(applyResult.newBoard); audioManager.playExplosion();
             const { row: sR, col: sC } = algebraicToCoords(algebraic);
@@ -822,7 +825,7 @@ export default function DungeonPage() {
                 if (isValidSquare(sR + dr, sC + dc)) addEffect('explosion', coordsToAlgebraic(sR + dr, sC + dc)); 
             }
             addLog("Mushroomancy: Spore Bomb detontated!");
-            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsSelectingSporeBombShroom(false); setSelectedSquare(null); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsSelectingSporeBombShroom(false); processMoveEnd(applyResult.newBoard, capturedPieces, killStreaks, currentPlayer, false, null); }, 800);
         }
         return;
     }
@@ -832,9 +835,10 @@ export default function DungeonPage() {
             const isCardinal = fr === row || fc === col; const isDiagonal = Math.abs(fr - row) === Math.abs(fc - col); const dist = Math.max(Math.abs(fr-row), Math.abs(fc-col));
             if ((isCardinal || isDiagonal) && dist <= range && dist > 0) {
                 setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+                setSelectedSquare(null); setPossibleMoves([]);
                 const move: Move = { from: selectedSquare!, to: algebraic, type: 'grapple-throw', thrownPiece: grappledPieceSubject!.piece };
                 const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem);
-                setBoard(result.newBoard); audioManager.playMove(); addLog(`Threw unit to ${algebraic}!`); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setSelectedSquare(null); setPossibleMoves([]);
+                setBoard(result.newBoard); audioManager.playMove(); addLog(`Threw unit to ${algebraic}!`); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null);
                 setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
             }
         }
@@ -872,9 +876,10 @@ export default function DungeonPage() {
     if (isAwaitingDecreeTarget) {
         if (piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) {
             setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+            setSelectedSquare(null); setPossibleMoves([]);
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'kings-decree' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp();
-            setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog("King's Decree: Pawn promoted!");
+            setIsAwaitingDecreeTarget(false); addLog("King's Decree: Pawn promoted!");
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
         }
         return;
@@ -882,27 +887,30 @@ export default function DungeonPage() {
     if (isAwaitingWindScrollTarget) {
       if (!sq.piece && !sq.item) {
         setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        setSelectedSquare(null); setPossibleMoves([]);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'wind-scroll' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); const finalizedGraveyard = { ...capturedPieces }; setBoard(result.newBoard); audioManager.playAnvil();
-        setIsAwaitingWindScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog("Wind Scroll triggered!");
-        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, finalizedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
+        setIsAwaitingWindScrollTarget(false); addLog("Wind Scroll triggered!");
+        setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(result.newBoard, finalizedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
       }
       return;
     }
     if (isAwaitingEarthquakeScrollTarget) {
         setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        setSelectedSquare(null); setPossibleMoves([]);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'earthquake-scroll' };
         const result = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'earthquake-scroll' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); const finalizedGraveyard = { ...capturedPieces }; setBoard(result.newBoard); audioManager.playExplosion();
-        setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog("Earthquake Scroll triggered!");
+        setIsAwaitingEarthquakeScrollTarget(false); addLog("Earthquake Scroll triggered!");
         setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, finalizedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
         return;
     }
     if (isAwaitingAnvilScrollTarget) {
       if (!sq.piece && !sq.item) {
         setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        setSelectedSquare(null); setPossibleMoves([]);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'summon-anvil' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playAnvil();
-        setIsAwaitingAnvilScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog("Anvil Scroll triggered!");
+        setIsAwaitingAnvilScrollTarget(false); addLog("Anvil Scroll triggered!");
         setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
       }
       return;
@@ -910,9 +918,10 @@ export default function DungeonPage() {
     if (isAwaitingShieldScrollTarget) {
       if (piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded) {
         setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+        setSelectedSquare(null); setPossibleMoves([]);
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
         const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playShield();
-        setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog(`Shielded ${piece.type}!`);
+        setIsAwaitingShieldScrollTarget(false); addLog(`Shielded ${piece.type}!`);
         setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
       }
       return;
@@ -920,10 +929,11 @@ export default function DungeonPage() {
     if (isAwaitingSwapScrollTarget) {
         if (piece && piece.color === 'white' && algebraic !== selectedSquare) {
             setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic);
+            setSelectedSquare(null); setPossibleMoves([]);
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playMove();
-            setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); addLog("Swap Scroll triggered!");
-            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
+            setIsAwaitingSwapScrollTarget(false); addLog("Swap Scroll triggered!");
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingSwapScrollTarget(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800);
         }
         return;
     }
@@ -999,20 +1009,20 @@ export default function DungeonPage() {
         const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll', 'demonic_possession', 'heavy_rain'].includes(movingPiece.heldItem);
         if (selectedSquare === algebraic && (hasSelfSelectionAbility || hasMagicScroll)) {
           if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) { addLog("Piece is too exhausted to use skills."); return; }
-          const executeLifeLeach = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'life_leach'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); setSelectedSquare(null); setPossibleMoves([]); addLog("Life Leach triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeLifeLeach = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'life_leach'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Life Leach triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeWindScrollMode = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'wind_scroll'); setIsAwaitingWindScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Wind push!"); };
           const executeEarthquakeScrollMode = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'earthquake_scroll'); setIsAwaitingEarthquakeScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Earthquake!"); };
           const executeSummonAnvilMode = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'summon_anvil'); setIsAwaitingAnvilScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Anvil Drop!"); };
           const executeShieldScrollMode = () => { if(effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'shield_scroll'); setIsAwaitingHolyShield(true); setPossibleMoves([]); addLog("Select an ally for Holy Shield!"); };
-          const executeRallyScroll = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'rally_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playRally(); if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1)); } setSelectedSquare(null); setPossibleMoves([]); addLog("Global Rally triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeAntidote = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'antidote'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playShield(); setSelectedSquare(null); setPossibleMoves([]); addLog("Antidote used: All allies cured of Poison."); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeRallyScroll = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'rally_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playRally(); if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1)); } addLog("Global Rally triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeAntidote = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'antidote'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playShield(); addLog("Antidote used: All allies cured of Poison."); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
           const executeSwapScrollMode = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'swap_scroll'); setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); addLog("Select an ally for Swap Scroll!"); };
-          const executeIceScroll = () => { if (effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playShield(); setSelectedSquare(null); setPossibleMoves([]); addLog("Ice Scroll triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeIceBlast = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_blast'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-blast' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); setSelectedSquare(null); setPossibleMoves([]); addLog("Ice Blast: Adjacent enemies frozen!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeSoulHarvest = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'soul_harvest'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'soul-harvest' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); setSelectedSquare(null); setPossibleMoves([]); addLog("Soul Harvest: Absorbed adjacent power!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeResurrectionScroll = () => { if (effectiveLevel < 4) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'resurrection_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); const updatedGraveyard = { ...capturedPieces }; if (result.resurrectionScrollEvent) { const p = result.resurrectionScrollEvent.piece; const targetPile = p.color; updatedGraveyard[targetPile] = updatedGraveyard[targetPile].filter(pi => pi.id !== p.id); setCapturedPieces(updatedGraveyard); addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); addLog(`Resurrected ${p.type}!`); } setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, updatedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeFaithScroll = () => { if (effectiveLevel < 5) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'faith_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); } setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
-          const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setSelectedSquare(null); setPossibleMoves([]); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare, 'white', [], null); }, 800); };
+          const executeIceScroll = () => { if (effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playShield(); addLog("Ice Scroll triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeIceBlast = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_blast'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-blast' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Ice Blast: Adjacent enemies frozen!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeSoulHarvest = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'soul_harvest'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'soul-harvest' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Soul Harvest: Absorbed adjacent power!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeResurrectionScroll = () => { if (effectiveLevel < 4) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'resurrection_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); const updatedGraveyard = { ...capturedPieces }; if (result.resurrectionScrollEvent) { const p = result.resurrectionScrollEvent.piece; const targetPile = p.color; updatedGraveyard[targetPile] = updatedGraveyard[targetPile].filter(pi => pi.id !== p.id); setCapturedPieces(updatedGraveyard); addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); addLog(`Resurrected ${p.type}!`); } setBoard(result.newBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, updatedGraveyard, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeFaithScroll = () => { if (effectiveLevel < 5) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'faith_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); } setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', false, enPassantTargetSquare); }, 800); };
+          const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); setSelectedSquare(null); setPossibleMoves([]); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare, 'white', [], null); }, 800); };
           const choice = window.confirm("Use piece ability (OK) or magic scroll (Cancel)?"); if (choice) executeSelfDestruct();
           else { if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else addLog("Level Too Low!"); } else if (movingPiece.heldItem === 'kings_decree') { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'kings_decree'); setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode(); } return;
         }
@@ -1020,6 +1030,7 @@ export default function DungeonPage() {
         const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
         if (isMoveInFreshList) {
           setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); 
+          setSelectedSquare(null); setPossibleMoves([]);
           const originalL = movingPiece.level || 1; const originalT = movingPiece.type; setLastMovedPieceType(originalT); setLastMovedPieceHeldItem(movingPiece.heldItem || null);
           let moveType: Move['type'] = 'move';
           if (movingPiece?.type === 'king' && !movingPiece.hasMoved && ((movingPiece.color === 'white' && selectedSquare === 'e1' && (algebraic === 'c1' || algebraic === 'g1')) || (movingPiece.color === 'black' && selectedSquare === 'e8' && (algebraic === 'c8' || algebraic === 'g8'))) && fromR === row && !sq.piece) { moveType = 'castle'; }
@@ -1029,7 +1040,7 @@ export default function DungeonPage() {
           let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
           const updatedGraveyard = { ...capturedPieces };
           if (result.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === result.itemReturned); if (existing) existing.count++; else next.push({ type: result.itemReturned!, count: 1 }); return next; }); addLog(`Dungeon Item Dropped: ${ITEM_METADATA[result.itemReturned].name}`); }
-          if (reflectionOccurred) { const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedGraveyard[targetPile].push(victim); updatedGraveyard.black = updatedGraveyard.black.filter(p => p.id !== victim.id); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); addEffect('poof', algebraic); const newKs = { white: 0, black: 0 }; setBoard(newBoard); setTimeout(() => { setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, 'white', false, null); }, 800); return; }
+          if (reflectionOccurred) { const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedGraveyard[targetPile].push(victim); updatedGraveyard.black = updatedGraveyard.black.filter(p => p.id !== victim.id); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); addEffect('poof', algebraic); const newKs = { white: 0, black: 0 }; setBoard(newBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, 'black', false, null); }, 800); return; }
           if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); addLog("Rebirth! Phoenix Down triggered."); }
           if (result.infiltrationWin) { setBoard(newBoard); addLog("INFILTRATION WIN! Floor Vanquished."); advanceLevel(newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), capturedPieces); return; }
           if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); addLog(`${newBoard[row][col].piece?.type} consumed a Shroom 🍄!`); addEffect('level-change', algebraic, 'white', 1); }
@@ -1060,7 +1071,7 @@ export default function DungeonPage() {
           setBoard(newBoard);
           const capturerId = (streakGain > 0) ? landedPieceAtTo?.id || null : null;
           setTimeout(() => {
-            setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return;
+            setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return;
             const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); const queue: {square: AlgebraicSquare, targetLevel: number}[] = result.multiPromotions || [];
             if (resPromoRequired) queue.push({ square: resResult_promo_square!, targetLevel: resResult_promo_level });
             if (FRONTLINE_TYPES.includes(newBoard[row][col].piece?.type || '') && row === oppBackRankIdx) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null) }); }
