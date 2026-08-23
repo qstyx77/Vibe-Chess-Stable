@@ -134,6 +134,7 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
       return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]" style={{ top, left }} > <span className="text-destructive font-bold text-[1.25rem] md:text-[1.5rem] animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}> {val >= 0 ? `+${val}` : val} </span> </div> );
     case 'conversion': return ( <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 55 }}> <div className="absolute inset-0 bg-primary/30 animate-pulse" /> </div> );
     case 'magic-burst': return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none z-[80]" style={{ top, left }} > <MagicBurstOverlay itemType={effect.itemType} /> </div> );
+    case 'tremble': return null; // Logic handled in parent container animation
     default: return null;
   }
 };
@@ -234,18 +235,16 @@ export function ChessBoard({
                 if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
             } else {
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
-                const isCardinal = Math.abs(actualRowIndex - fr) + Math.abs(actualColIndex - fc) === 1;
+                const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
                 const targetP = currentSquareData.piece;
                 const targetItem = currentSquareData.item;
                 const dir = currentPlayerColor === 'white' ? -1 : 1;
                 const isForward = (actualRowIndex === fr + dir) && (actualColIndex === fc);
                 
                 if (currentSquareData.algebraic === dancerToDance) isDanceTarget = true;
-                else if (isCardinal) {
-                    // Pieces can swap cardinaly (ally or enemy)
-                    if (targetP) isDanceTarget = true;
-                    // Empty spaces only allowed if Forward
-                    else if (!targetItem && isForward) isDanceTarget = true;
+                else if (isAdjacent) {
+                    if (targetP) isDanceTarget = true; // Swap with any adjacent piece (8-way)
+                    else if (!targetItem && isForward) isDanceTarget = true; // Move forward if empty
                 }
             }
           }
