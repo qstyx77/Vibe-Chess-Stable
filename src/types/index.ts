@@ -74,7 +74,10 @@ export type InventoryItemType =
   | 'kings_conquest'
   | 'power_glove'
   | 'trap_net'
-  | 'spore_pouch';
+  | 'spore_pouch'
+  | 'kings_ransom'
+  | 'dancers_ribbon'
+  | 'mirror_mask';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -158,6 +161,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'power_glove': { name: 'Power Glove', description: 'Rare gauntlet. Grapplers only. Can pick up and throw Anvils. Thrown anvils crush units.', isConsumable: false, rarity: 'rare' },
   'trap_net': { name: 'Trap Net', description: 'Uncommon net. On capture or use, adjacent enemies become Exhausted for 1 turn.', isConsumable: false, rarity: 'uncommon' },
   'spore_pouch': { name: 'Spore Pouch', description: 'Common bag. Frontline only. 25% chance to spawn a Shroom on vacated square when moving.', isConsumable: false, rarity: 'common' },
+  'kings_ransom': { name: 'King\'s Ransom', description: 'Rare amulet. King only. Saves King from Checkmate once by exiling him to back rank at L1.', isConsumable: true, rarity: 'rare' },
+  'dancers_ribbon': { name: 'Dancer\'s Ribbon', description: 'Uncommon ribbon. Dancer only. The Dance (KS 1) can now swap places with Anvils.', isConsumable: false, rarity: 'uncommon' },
+  'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Level and Item.', isConsumable: false, rarity: 'rare' },
 };
 
 export interface Piece {
@@ -297,6 +303,7 @@ export interface GameSnapshot {
   gameMoveCounter: number;
   enPassantTargetSquare: AlgebraicSquare | null;
   lastMovedPieceHeldItem?: InventoryItemType | null;
+  lastMovedPieceLevel?: number | null;
 
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
@@ -377,6 +384,7 @@ export interface AIGameState {
   necroResurrectionCounter?: number;
   lastMovedPieceType?: PieceType | null;
   lastMovedPieceHeldItem?: InventoryItemType | null;
+  lastMovedPieceLevel?: number | null;
 }
 
 export type MessageCategory = 'battle' | 'social' | 'log' | 'market';

@@ -90,6 +90,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'power_glove') abilities.push(" glove: can pick up and throw Anvils.");
   if (heldItem === 'trap_net') abilities.push(" trap: capture/use exhausts adjacent enemies.");
   if (heldItem === 'spore_pouch') abilities.push(" spores: 25% chance to drop Shroom on vacated square.");
+  if (heldItem === 'kings_ransom') abilities.push(" ransom: auto-save from checkmate (one-time).");
+  if (heldItem === 'dancers_ribbon') abilities.push(" ribbon: Dance skill can target Anvils.");
+  if (heldItem === 'mirror_mask') abilities.push(" mask: Mimic copies mimicked unit's level/item.");
 
   switch (type) {
     case 'pawn':

@@ -51,6 +51,37 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="8" width="1" height="1" fill="#FFF" />
           </svg>
         );
+      case 'kings_ransom':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="4" width="8" height="6" fill="#EAB308" />
+            <rect x="2" y="3" width="6" height="1" fill="#EAB308" />
+            <rect x="4" y="1" width="2" height="2" fill="#EAB308" />
+            <rect x="4" y="5" width="2" height="4" fill="#EF4444" />
+            <rect x="3" y="6" width="4" height="2" fill="#EF4444" />
+            <rect x="1" y="10" width="8" height="1" fill="#B45309" />
+          </svg>
+        );
+      case 'dancers_ribbon':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="2" fill="#D946EF" />
+            <rect x="1" y="3" width="2" height="8" fill="#D946EF" />
+            <rect x="7" y="3" width="2" height="8" fill="#D946EF" />
+            <rect x="3" y="5" width="4" height="1" fill="#F0ABFC" />
+            <rect x="3" y="8" width="4" height="1" fill="#F0ABFC" />
+          </svg>
+        );
+      case 'mirror_mask':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#94A3B8" />
+            <rect x="2" y="3" width="6" height="6" fill="#CBD5E1" />
+            <rect x="3" y="4" width="1" height="2" fill="#000" />
+            <rect x="6" y="4" width="1" height="2" fill="#000" />
+            <rect x="3" y="8" width="4" height="1" fill="#000" />
+          </svg>
+        );
       case 'portal_scroll_10':
       case 'portal_scroll_20':
       case 'portal_scroll_30':

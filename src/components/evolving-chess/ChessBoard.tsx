@@ -48,6 +48,7 @@ interface ChessBoardProps {
   dancerToDance?: AlgebraicSquare | null;
   isAwaitingGrappleThrow?: boolean;
   grappledPieceSubject?: { piece: Piece, from: AlgebraicSquare } | null;
+  grappledItemSubject?: { type: any, from: AlgebraicSquare } | null;
   isSelectingTeleportAlly?: boolean;
   isSelectingTeleportShroom?: boolean;
   isSelectingSporeBombShroom?: boolean;
@@ -180,6 +181,7 @@ export function ChessBoard({
   dancerToDance,
   isAwaitingGrappleThrow,
   grappledPieceSubject,
+  grappledItemSubject,
   isSelectingTeleportAlly,
   isSelectingTeleportShroom,
   isSelectingSporeBombShroom
@@ -231,6 +233,7 @@ export function ChessBoard({
 
           let isDanceTarget = false;
           if (isLocalActionTurn && isAwaitingDanceTarget) {
+            const dancerPiece = dancerToDance ? boardState[algebraicToCoords(dancerToDance).row][algebraicToCoords(dancerToDance).col].piece : null;
             if (!dancerToDance) {
                 if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
             } else {
@@ -244,6 +247,7 @@ export function ChessBoard({
                 if (currentSquareData.algebraic === dancerToDance) isDanceTarget = true;
                 else if (isAdjacent) {
                     if (targetP) isDanceTarget = true; // Swap with any adjacent piece (8-way)
+                    else if (targetItem?.type === 'anvil' && dancerPiece?.heldItem === 'dancers_ribbon') isDanceTarget = true; // Swap with Anvil if ribbon
                     else if (!targetItem && isForward) isDanceTarget = true; // Move forward if empty
                 }
             }
