@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -567,6 +568,39 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="1" width="1.5" height="4" fill="#404040" />
             <rect x="5.5" y="1" width="1.5" height="4" fill="#404040" />
             <rect x="3" y="5" width="4" height="2" fill="#171717" />
+          </svg>
+        );
+      case 'power_glove':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="3" width="6" height="8" fill="#78350F" />
+            <rect x="1" y="5" width="8" height="4" fill="#78350F" />
+            <rect x="3" y="4" width="4" height="1" fill="#EAB308" />
+            <rect x="2" y="9" width="6" height="1" fill="#B45309" />
+            <rect x="4" y="1" width="2" height="2" fill="#78350F" />
+          </svg>
+        );
+      case 'trap_net':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="1" width="8" height="10" fill="#94A3B8" fillOpacity="0.4" />
+            <rect x="1" y="1" width="8" height="1" fill="#475569" />
+            <rect x="1" y="10" width="8" height="1" fill="#475569" />
+            <rect x="1" y="1" width="1" height="10" fill="#475569" />
+            <rect x="8" y="1" width="1" height="10" fill="#475569" />
+            <rect x="4" y="1" width="1" height="10" fill="#475569" />
+            <rect x="1" y="5" width="8" height="1" fill="#475569" />
+          </svg>
+        );
+      case 'spore_pouch':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="3" width="6" height="8" fill="#166534" />
+            <rect x="1" y="4" width="8" height="6" fill="#166534" />
+            <rect x="3" y="2" width="4" height="1" fill="#78350F" />
+            <rect x="3" y="5" width="1" height="1" fill="#FFF" />
+            <rect x="6" y="6" width="1" height="1" fill="#FFF" />
+            <rect x="4" y="8" width="1" height="1" fill="#FFF" />
           </svg>
         );
       default:

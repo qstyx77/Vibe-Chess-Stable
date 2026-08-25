@@ -71,7 +71,10 @@ export type InventoryItemType =
   | 'thieves_gloves'
   | 'lead_boots'
   | 'heavy_rain'
-  | 'kings_conquest';
+  | 'kings_conquest'
+  | 'power_glove'
+  | 'trap_net'
+  | 'spore_pouch';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -152,6 +155,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects.', isConsumable: false, rarity: 'common' },
   'heavy_rain': { name: 'Heavy Rain Scroll', description: 'Consumable (L3+). Randomly drops 3 Anvils on the board.', isConsumable: true, rarity: 'uncommon' },
   'kings_conquest': { name: 'Kings Conquest', description: 'Jeweled crown. Kings only. Reaching KS 8 results in an immediate win.', isConsumable: false, rarity: 'rare' },
+  'power_glove': { name: 'Power Glove', description: 'Rare gauntlet. Grapplers only. Can pick up and throw Anvils. Thrown anvils crush units.', isConsumable: false, rarity: 'rare' },
+  'trap_net': { name: 'Trap Net', description: 'Uncommon net. On capture or use, adjacent enemies become Exhausted for 1 turn.', isConsumable: false, rarity: 'uncommon' },
+  'spore_pouch': { name: 'Spore Pouch', description: 'Common bag. Frontline only. 25% chance to spawn a Shroom on vacated square when moving.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {
@@ -186,9 +192,10 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
+  thrownItem?: ItemType;
   teleportPieceId?: string;
 }
 
@@ -348,7 +355,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net';
   promoteTo?: PieceType;
 }
 

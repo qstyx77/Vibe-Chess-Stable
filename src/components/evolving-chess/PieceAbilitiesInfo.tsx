@@ -54,7 +54,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units.");
   if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with ally.");
   if (heldItem === 'grimoir') abilities.push(" dark wisdom: adjacent allies gain +2 levels.");
-  if (heldItem === 'soul_link') abilities.push(" bound: pieces share levels and destruction.");
+  if (heldItem === 'soul_link') abilities.push(" bound: pieces share levels and shared destruction.");
   if (heldItem === 'logas') abilities.push(" sacred: adjacent allies gain +1 level on capture.");
   if (heldItem === 'berserkers_mask') abilities.push(" frenzy: +3 levels on capture, but must capture.");
   if (heldItem === 'ice_scroll') abilities.push(" spell (L2+): freeze adjacent enemies.");
@@ -87,6 +87,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'heavy_rain') abilities.push(" spell (L3+): drop 3 random anvils.");
   if (heldItem === 'kings_conquest') abilities.push(" conquest: reaching KS 8 wins game.");
   if (heldItem === 'swift_cloak') { if (FRONTLINE_TYPES.includes(type)) abilities.push(" swift: double movement range."); else abilities.push(" swift: inactive (frontline only)."); }
+  if (heldItem === 'power_glove') abilities.push(" glove: can pick up and throw Anvils.");
+  if (heldItem === 'trap_net') abilities.push(" trap: capture/use exhausts adjacent enemies.");
+  if (heldItem === 'spore_pouch') abilities.push(" spores: 25% chance to drop Shroom on vacated square.");
 
   switch (type) {
     case 'pawn':
