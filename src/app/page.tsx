@@ -254,7 +254,7 @@ export default function EvolvingChessPage() {
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
   const [aiStrikeCount, setAiStrikeCount] = useState(0);
 
-  const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
+  const isAnySpecialModeActive = isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || isAwaitingHolyShield || isAwaitingAnvilDrop || isAwaitingArcherSnipe || isPromotingPawn || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingDanceTarget || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom;
 
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
@@ -388,7 +388,6 @@ export default function EvolvingChessPage() {
                     if (candidates.length > 0) {
                         const best = candidates[0];
                         const targetPiece = nextBoard[best.r][best.c].piece;
-                        // SWAP
                         nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
                         nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true } : null;
                         addLog(`${getPlayerDisplayName(actingPlayer)} Dancer performed a free ${targetPiece ? 'swap' : 'move'}!`);
@@ -632,7 +631,7 @@ export default function EvolvingChessPage() {
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { audioManager.playMove(); addLog(`AI ${piece.type} to ${toAlg}`); }
       if (applyResult.capturedPiece && !isObliteration) { const targetPile = applyResult.capturedPiece.color; updatedG[targetPile].push({ ...applyResult.capturedPiece!, id: applyResult.capturedPiece!.id }); }
-      if (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', toAlg); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`AI collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
+      if (applyResult.selfDestructCaptures && applyResult.selfDestures && applyResult.selfDestructCaptures.length > 0) { applyResult.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedG[targetPile].push({ ...p, id: p.id }); addEffectCallback('poof', toAlg); }); if (applyResult.selfDestructCaptures.length > 0) { addLog(`AI collateral damage: ${applyResult.selfDestructCaptures.length} unit(s) destroyed!`); } }
       setBoard(nextB); setCapturedPieces(updatedG);
       const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
       if (gain > 0) addEffectCallback('level-change', toAlg, currentPlayer, gain);
@@ -786,15 +785,14 @@ export default function EvolvingChessPage() {
         
         if (isAdjacent) {
             let moveValid = false;
-            if (piece) moveValid = true; // Swap with any adjacent piece (8-way)
-            else if (!sq?.item && isForward) moveValid = true; // Move forward if empty
+            if (piece) moveValid = true;
+            else if (!sq?.item && isForward) moveValid = true;
             
             if (moveValid) {
                 pushHistory(); let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
                 const dancerPiece = nextBoard[fr][fc].piece!; let nextG = { ...specialActionContext!.currentGraveyard };
                 const targetP = nextBoard[row][col].piece;
                 
-                // EXECUTE SWAP
                 nextBoard[row][col].piece = { ...dancerPiece, hasMoved: true };
                 nextBoard[fr][fc].piece = targetP ? { ...targetP, hasMoved: true } : null;
                 
@@ -1103,7 +1101,7 @@ export default function EvolvingChessPage() {
     if (action === 'create') addLog("Creating game room..."); else addLog(`Joining room: ${inputRoomId}`);
     initWebSocket(() => {
         const equipment: Record<string, string> = {}; board.flat().forEach(sq => { if (sq.piece?.heldItem) equipment[sq.piece.id] = sq.piece.heldItem; });
-        if (action === 'create') { wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } })); } 
+        if (action === 'create') { wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.unlockedPieces || [], equipment, unlockedPieces: userData?.unlockedPieces || [] } })); } 
         else { wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment, unlockedPieces: userData?.unlockedPieces || [] } })); }
     });
   }, [user, userData, inputRoomId, board, initWebSocket, addLog]);

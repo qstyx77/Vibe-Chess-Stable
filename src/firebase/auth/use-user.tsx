@@ -77,7 +77,6 @@ export function useUser() {
           }
           setIsUserLoading(false);
         }, (error) => {
-          // Gracefully handle watch errors (permissions/network)
           console.warn("User profile listener error:", error);
           setIsUserLoading(false);
         });
@@ -99,6 +98,9 @@ export function useUser() {
   useEffect(() => {
     if (!user || isUserLoading) return;
     if (hasInitialized.current === user.uid) return;
+
+    // Prevent multiple parallel initialization runs
+    hasInitialized.current = user.uid;
 
     const db = getFirestore();
     const userRef = doc(db, 'users', user.uid);
@@ -133,22 +135,12 @@ export function useUser() {
         let needsUpdate = false;
         const updates: any = {};
 
-        // Normalizing apostrophes for Hanz Schemin' (handles ' and ’)
+        // Hanz Schemin' Compensation
         const rawUsername = (currentData.username || "").trim();
         const normalizedUsername = rawUsername.toLowerCase().replace(/[\u2018\u2019]/g, "'");
-        const isHanz = normalizedUsername === "hanz schemin'";
-
-        let currentGold = currentData.goldBalance ?? 0;
-
-        // Hanz Schemin' Compensation Logic
-        if (isHanz && !currentData.hanzFixV1) {
-          currentGold += 600;
+        if (normalizedUsername === "hanz schemin'" && !currentData.hanzFixV1) {
+          updates.goldBalance = (currentData.goldBalance || 0) + 600;
           updates.hanzFixV1 = true;
-          needsUpdate = true;
-        }
-
-        if (needsUpdate || currentGold !== currentData.goldBalance) {
-          updates.goldBalance = currentGold;
           needsUpdate = true;
         }
 
@@ -161,22 +153,21 @@ export function useUser() {
         // Inventory Integrity Check
         const currentInv = currentData.inventory || [];
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
-        let inventoryMissingItems = false;
+        let inventoryNeedsSync = false;
         const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
           const count = currentInvMap.get(type);
           if (count === undefined) {
-            inventoryMissingItems = true;
+            inventoryNeedsSync = true;
             return { type, count: 5 };
           }
           return { type, count };
         });
 
-        if (inventoryMissingItems) {
+        if (inventoryNeedsSync) {
           updates.inventory = updatedInventory;
           needsUpdate = true;
         }
 
-        // Default missing collections
         if (currentData.marketSlots === undefined) {
           updates.marketSlots = [];
           needsUpdate = true;
@@ -186,7 +177,6 @@ export function useUser() {
           needsUpdate = true;
         }
 
-        // Ensure basic pieces are unlocked
         const currentUnlocks = currentData.unlockedPieces || [];
         const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
         if (nextUnlocks.length !== currentUnlocks.length) {
@@ -196,13 +186,12 @@ export function useUser() {
 
         if (isNewUser) {
           await setDoc(userRef, { ...currentData, ...updates }, { merge: true });
-        } else if (needsUpdate) {
+        } else if (needsUpdate && Object.keys(updates).length > 0) {
           updateDocumentNonBlocking(userRef, updates);
         }
-        
-        hasInitialized.current = user.uid;
       } catch (e) {
         console.warn("User initialization cycle error:", e);
+        hasInitialized.current = null; // Allow retry on failure
       }
     };
 

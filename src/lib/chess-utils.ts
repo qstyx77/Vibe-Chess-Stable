@@ -1,5 +1,5 @@
 
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType, ItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
 
@@ -245,6 +245,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'kings_decree') return (type === 'king');
   if (item === 'monks_robe') return (type === 'bishop' || type === 'archbishop');
   if (item === 'mimic_blade') return type === 'mimic';
+  if (item === 'trap_net') return true;
   return true;
 }
 
@@ -684,8 +685,6 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
 
   if (targetPieceOnSquare && targetPieceOnSquare.color === piece.color && piece.type !== 'grappler') return false;
 
-  // Safety guard: Kings cannot be captured in standard moves
-  // Exception: Colossus boss is allowed to capture the King via crushing
   if (targetPieceOnSquare && targetPieceOnSquare.color !== piece.color && targetPieceOnSquare.type === 'king' && !piece.id.startsWith('boss-colossus')) return false;
   
   const targetLevel = getEffectiveLevel(board, toRow, toCol);
@@ -932,7 +931,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'heavy-rain') {
       const empty = [];
       for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (!newBoard[r][c].piece && !newBoard[r][c].item) empty.push({r,c});
-      const shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 3);
+      shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 3);
       shuffled.forEach(pos => { newBoard[pos.r][pos.c].item = { type: 'anvil' }; });
       newBoard[fromRow][fromCol].piece!.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
@@ -941,7 +940,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'myco-propagate') {
       const empty = [];
       for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (!newBoard[r][c].piece && !newBoard[r][c].item) empty.push({r,c});
-      const shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 5);
+      shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 5);
       shuffled.forEach(pos => { newBoard[pos.r][pos.c].item = { type: 'shroom' }; });
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === movingPiece.color && sq.piece.type === 'myco_mage') sq.piece.shroomMana = Math.max(0, (sq.piece.shroomMana || 0) - 1); }));
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
@@ -1284,7 +1283,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         specialCaptureSquare = coordsToAlgebraic(cpR, cpC);
     } else { captured = null; }
   } else if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') { 
-      // Safety guard: Kings cannot be captured in standard blocks
       captured = { ...targetPiece }; 
   }
 
@@ -1320,7 +1318,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.type === 'myco_mage') sq.piece.shroomMana = (sq.piece.shroomMana || 0) + 1; }));
   }
 
-  if (pieceToLand.heldItem === 'spore_pouch' && fromRow !== toRow && fromCol !== toCol) {
+  if (pieceToLand.heldItem === 'spore_pouch' && (fromRow !== toRow || fromCol !== toCol)) {
       if (Math.random() < 0.25 && !newBoard[fromRow][fromCol].piece && !newBoard[fromRow][fromCol].item) {
           newBoard[fromRow][fromCol].item = { type: 'shroom' };
       }
@@ -1620,17 +1618,12 @@ export function getPossibleMoves(board: BoardState, from: AlgebraicSquare, ep: A
     const piece = board[row][col].piece;
     if (!piece || (piece.cooldownTurnsRemaining || 0) > 0 || (piece.frozenTurnsRemaining || 0) > 0) return [];
     
-    // Get pseudo moves from the internal generator
     const pseudo = getPossibleMovesInternal(board, from, piece, true, ep, lastMovedPieceType, lastMovedPieceHeldItem);
     
-    // Safety guard: Standard pieces cannot "land" on a King square to capture it.
     const filteredPseudo = pseudo.filter(to => {
         const {row: tr, col: tc} = algebraicToCoords(to);
         const target = board[tr][tc].piece;
-        // Exception: Colossus is the only enemy piece allowed to capture/crush the King
         if (piece.id.startsWith('boss-colossus')) return true;
-        // Exception: Power Glove thrown anvil can target a King? 
-        // Prompt says "thrown onto a unit". I will allow targeting units (including kings) if it's an anvil throw.
         if (grappledItem === 'anvil') return true; 
         return target?.type !== 'king';
     });
@@ -1675,17 +1668,12 @@ export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseud
             const range = getEffectiveLevel(board, fromCoords.row, fromCoords.col);
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
-                    if (isAnvil) {
-                        // Anvils can be thrown on pieces to crush them
-                    } else {
-                        if (boardWithPickup[r][c].piece || (boardWithPickup[r][c].item && boardWithPickup[r][c].item?.type === 'anvil')) continue;
-                    }
+                    if (!isAnvil && (boardWithPickup[r][c].piece || (boardWithPickup[r][c].item && boardWithPickup[r][c].item?.type === 'anvil'))) continue;
                     
                     const dr = Math.abs(r - fromCoords.row); const dc = Math.abs(c - fromCoords.col);
                     const dist = Math.max(dr, dc);
                     if (dist > 0 && dist <= range && (r === fromCoords.row || c === fromCoords.col || dr === dc)) {
                         if (isAnvil) {
-                           const targetAtThrow = boardWithPickup[r][c].piece;
                            const oldPiece = boardWithPickup[r][c].piece;
                            boardWithPickup[r][c].piece = null; 
                            boardWithPickup[r][c].item = { type: 'anvil' };
