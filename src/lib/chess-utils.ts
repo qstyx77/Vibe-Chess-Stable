@@ -1290,6 +1290,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
+  
+  // Mirror Mask: Perfect Mimicry
+  if (pieceToLand.type === 'mimic' && pieceToLand.heldItem === 'mirror_mask' && lastMovedPieceLevel) {
+      pieceToLand.level = lastMovedPieceLevel;
+      if (lastMovedPieceHeldItem) pieceToLand.heldItem = lastMovedPieceHeldItem;
+  }
+
   const backRankIdx = pieceToLand.color === 'white' ? 0 : 7;
   if (pieceToLand.type === 'commander' && toRow === backRankIdx && move.type !== 'self-destruct') {
     pieceToLand.type = 'hero'; pieceToLand.id = `${pieceToLand.id}_hero_auto_${Date.now()}`;

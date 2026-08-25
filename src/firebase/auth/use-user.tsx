@@ -37,6 +37,7 @@ interface UserData {
   goldResetV1?: boolean;
   hanzFixV1?: boolean;
   processedTransactions?: string[];
+  lootSyncV2?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -126,7 +127,8 @@ export function useUser() {
             colossusDefeats: 0,
             goldBalance: 0,
             marketSlots: [],
-            processedTransactions: []
+            processedTransactions: [],
+            lootSyncV2: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -154,6 +156,13 @@ export function useUser() {
         const currentInv = currentData.inventory || [];
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
         let inventoryNeedsSync = false;
+        
+        // Force sync for new playtest items if flag is missing
+        if (!currentData.lootSyncV2) {
+            inventoryNeedsSync = true;
+            updates.lootSyncV2 = true;
+        }
+
         const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
           const count = currentInvMap.get(type);
           if (count === undefined) {
