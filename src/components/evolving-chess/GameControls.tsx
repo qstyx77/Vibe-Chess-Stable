@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { PlayerColor, Piece, ChatMessage, MessageCategory } from '@/types';
@@ -111,7 +110,7 @@ export function GameControls({
   };
 
   const renderCapturedPieces = (color: PlayerColor) => {
-    const pieces = capturedPieces[color];
+    const pieces = capturedPieces?.[color] || [];
     const label = color === 'white' ? 'Captured White' : 'Captured Black';
     return (
       <div className="w-full">

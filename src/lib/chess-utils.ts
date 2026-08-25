@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, SquareState, Move, ConversionEvent, ApplyMoveResult, Item, QueenLevelReducedEvent, RallyCryEvent, InventoryItemType, ItemType } from '@/types';
 
 const pieceOrder: PieceType[] = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
@@ -825,24 +824,6 @@ export function syncSoulLink(board: BoardState | any[][], color: PlayerColor) {
     }
 }
 
-export function triggerMushroomMagnet(board: BoardState, r: number, c: number) {
-    for (let dr = -2; dr <= 2; dr++) {
-        for (let dc = -2; dc <= 2; dc++) {
-            if (dr === 0 && dc === 0) continue;
-            const mr = r + dr; const mc = c + dc;
-            if (isValidSquare(mr, mc) && board[mr][mc].item?.type === 'shroom') {
-                const moveR = Math.sign(r - mr);
-                const moveC = Math.sign(c - mc);
-                const nr = mr + moveR; const nc = mc + moveC;
-                if (isValidSquare(nr, nc) && !board[nr][nc].item && !board[nr][nc].piece) {
-                    board[nr][nc].item = { type: 'shroom' };
-                    board[mr][mc].item = null;
-                }
-            }
-        }
-    }
-}
-
 export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[] } {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null })));
   const poisonedCaptures: Piece[] = [];
@@ -931,7 +912,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'heavy-rain') {
       const empty = [];
       for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (!newBoard[r][c].piece && !newBoard[r][c].item) empty.push({r,c});
-      shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 3);
+      const shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 3);
       shuffled.forEach(pos => { newBoard[pos.r][pos.c].item = { type: 'anvil' }; });
       newBoard[fromRow][fromCol].piece!.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
@@ -940,7 +921,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'myco-propagate') {
       const empty = [];
       for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (!newBoard[r][c].piece && !newBoard[r][c].item) empty.push({r,c});
-      shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 5);
+      const shuffled = empty.sort(() => Math.random() - 0.5).slice(0, 5);
       shuffled.forEach(pos => { newBoard[pos.r][pos.c].item = { type: 'shroom' }; });
       newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === movingPiece.color && sq.piece.type === 'myco_mage') sq.piece.shroomMana = Math.max(0, (sq.piece.shroomMana || 0) - 1); }));
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
