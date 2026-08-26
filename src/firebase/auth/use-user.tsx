@@ -39,6 +39,7 @@ interface UserData {
   processedTransactions?: string[];
   lootSyncV2?: boolean;
   oilSyncV1?: boolean;
+  gamblerSyncV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -130,7 +131,8 @@ export function useUser() {
             marketSlots: [],
             processedTransactions: [],
             lootSyncV2: true,
-            oilSyncV1: true
+            oilSyncV1: true,
+            gamblerSyncV1: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -160,9 +162,9 @@ export function useUser() {
         let inventoryNeedsSync = false;
         
         // Force sync for new playtest items if flag is missing
-        if (!currentData.oilSyncV1) {
+        if (!currentData.gamblerSyncV1) {
             inventoryNeedsSync = true;
-            updates.oilSyncV1 = true;
+            updates.gamblerSyncV1 = true;
         }
 
         const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {

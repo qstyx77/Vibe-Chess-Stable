@@ -235,7 +235,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'queens_peace' || item === 'kings_ransom') return (type === 'queen' || type === 'king');
   if (item === 'kings_conquest') return (type === 'king');
   if (item === 'power_glove') return type === 'grappler';
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum' || item === 'dancers_ribbon') return type === 'dancer';
@@ -575,7 +575,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                      if (!isPieceInvulnerableToAttack(targetPiece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
                       const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
@@ -715,7 +715,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       
       const isHomeRank = (piece.color === 'white' && (fromRow === 6 || fromRow === 7)) || (piece.color === 'black' && (fromRow === 0 || fromRow === 1));
-      const canJumpStart = (!piece.hasMoved && isHomeRank) || piece.heldItem === 'swift_cloak';
+      const canJumpStart = (!piece.hasMoved && fromRow === startRank) || piece.heldItem === 'swift_cloak';
       if (fromCol === toCol && !targetPieceOnSquare && canJumpStart && ((piece.color === 'white' && toRow === fromRow - 2) || (piece.color === 'black' && toRow === fromRow + 2))) {
           const midR = fromRow + direction;
           if (!board[midR][fromCol].piece || (hasPhase && board[midR][fromCol].piece?.color === piece.color)) return true;
@@ -1343,7 +1343,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
-          const nr = fromRow + dr; const nc = fromCol + dc;
+          const nr = fromRow + dr; const nc = fRow + dc;
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc];
               if (victim.item?.type === 'anvil') { victim.item = null; destroyedAnvils++; }
@@ -1460,6 +1460,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (captured.heldItem === 'cyanide_pill') gain = 0;
     if (effectiveHeldItem === 'gnosis') gain += 1;
     if (effectiveHeldItem === 'golden_chalice') gain += 1;
+
+    // Gambler's Coin logic
+    if (effectiveHeldItem === 'gamblers_coin') {
+        if (Math.random() < 0.5) gain *= 2;
+        else gain = 0;
+    }
+
     const oldL = pieceToLand.level || 1;
     if (pieceToLand.type === 'queen') { if (oldL < 7) { pieceToLand.level = Math.min(7, oldL + gain); didLevelUp = true; levelGain = pieceToLand.level - oldL; } }
     else { pieceToLand.level = oldL + gain; didLevelUp = true; levelGain = gain; }

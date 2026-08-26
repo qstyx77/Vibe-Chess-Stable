@@ -78,7 +78,8 @@ export type InventoryItemType =
   | 'kings_ransom'
   | 'dancers_ribbon'
   | 'mirror_mask'
-  | 'oil_slick';
+  | 'oil_slick'
+  | 'gamblers_coin';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -166,6 +167,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'dancers_ribbon': { name: 'Dancer\'s Ribbon', description: 'Uncommon ribbon. Dancer only. The Dance (KS 1) can now swap places with Anvils.', isConsumable: false, rarity: 'uncommon' },
   'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Level and Item.', isConsumable: false, rarity: 'rare' },
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides in its current direction for 3 turns.', isConsumable: true, rarity: 'uncommon' },
+  'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
 };
 
 export interface Piece {
