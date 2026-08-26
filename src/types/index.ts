@@ -77,7 +77,8 @@ export type InventoryItemType =
   | 'spore_pouch'
   | 'kings_ransom'
   | 'dancers_ribbon'
-  | 'mirror_mask';
+  | 'mirror_mask'
+  | 'oil_slick';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -164,6 +165,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'kings_ransom': { name: 'King\'s Ransom', description: 'Rare amulet. King only. Saves King from Checkmate once by exiling him to back rank at L1.', isConsumable: true, rarity: 'rare' },
   'dancers_ribbon': { name: 'Dancer\'s Ribbon', description: 'Uncommon ribbon. Dancer only. The Dance (KS 1) can now swap places with Anvils.', isConsumable: false, rarity: 'uncommon' },
   'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Level and Item.', isConsumable: false, rarity: 'rare' },
+  'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides in its current direction for 3 turns.', isConsumable: true, rarity: 'uncommon' },
 };
 
 export interface Piece {
@@ -191,6 +193,7 @@ export interface SquareState {
   algebraic: AlgebraicSquare;
   rowIndex: number;
   colIndex: number;
+  oilSlickTurnsRemaining: number;
 }
 
 export type BoardState = SquareState[][];
@@ -198,7 +201,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
   thrownItem?: ItemType;
@@ -362,7 +365,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick';
   promoteTo?: PieceType;
 }
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect, InventoryItemType } from '@/types';
@@ -42,6 +43,7 @@ interface ChessSquareProps {
   isAnvilDropTarget?: boolean;
   effectiveLevel?: number;
   isGrimoirBoosted?: boolean;
+  isAwaitingOilSlickTarget?: boolean;
 }
 
 export function ChessSquare({
@@ -80,6 +82,7 @@ export function ChessSquare({
   isAnvilDropTarget = false,
   effectiveLevel,
   isGrimoirBoosted = false,
+  isAwaitingOilSlickTarget = false,
 }: ChessSquareProps) {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -100,9 +103,12 @@ export function ChessSquare({
   let selectionRingClass = '';
   const specialSelectionBlue = 'ring-4 ring-inset ring-sky-400 animate-pulse';
   const mycoPurple = 'ring-4 ring-inset ring-purple-500 animate-pulse';
+  const oilSlickAmber = 'ring-4 ring-inset ring-amber-900 animate-pulse';
   
   if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget || isDanceTarget || isThrowTarget) {
     selectionRingClass = specialSelectionBlue;
+  } else if (isAwaitingOilSlickTarget) {
+    selectionRingClass = oilSlickAmber;
   } else if (isMycoTarget) {
     selectionRingClass = mycoPurple;
   } else if (isInvTarget) {
@@ -111,7 +117,7 @@ export function ChessSquare({
   } else if (isSelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-accent';
   else if (isEnemySelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-blue-600';
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget && !isThrowTarget && !isMycoTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget && !isThrowTarget && !isMycoTarget && !isAwaitingOilSlickTarget;
 
   return (
     <button
@@ -122,6 +128,9 @@ export function ChessSquare({
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
+      {squareData.oilSlickTurnsRemaining > 0 && (
+          <div className="absolute inset-0 z-0 bg-[#1e1b4b]/60 animate-pulse pointer-events-none" />
+      )}
       {item && item.type === 'anvil' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2", shouldRotateItemForTabletop && "rotate-180" )}> <PixelAnvil className="w-full h-full text-muted-foreground/90" /> </div> )}
       {item && item.type === 'shroom' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0", shouldRotateItemForTabletop && "rotate-180" )}> <div className="w-4/5 h-4/5 opacity-70 text-destructive"> <ShroomIcon /> </div> </div> )}
       {piece && ( <div className="relative z-10 w-full h-full"> <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} viewMode={viewMode} isJustMoved={isJustMoved} isSacrificeTarget={isSacrificeTarget} isCommanderPromoTarget={isCommanderPromoTarget} isPromoting={isPromoting} isConverting={isConverting} isSnipeTarget={isSnipeTarget} effectiveLevel={effectiveLevel} isGrimoirBoosted={isGrimoirBoosted} isOnBoard={true} /> </div> )}
