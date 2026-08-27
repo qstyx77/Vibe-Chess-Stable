@@ -1,4 +1,3 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
@@ -43,6 +42,7 @@ interface UserData {
   revengeSyncV1?: boolean;
   sweetRevengeFixV1?: boolean;
   chameleonSyncV1?: boolean;
+  chameleonSyncV2?: boolean; // New sync flag for forced update
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -138,7 +138,8 @@ export function useUser() {
             gamblerSyncV1: true,
             revengeSyncV1: true,
             sweetRevengeFixV1: true,
-            chameleonSyncV1: true
+            chameleonSyncV1: true,
+            chameleonSyncV2: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -167,11 +168,6 @@ export function useUser() {
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
         let inventoryNeedsSync = false;
         
-        if (!currentData.chameleonSyncV1) {
-            inventoryNeedsSync = true;
-            updates.chameleonSyncV1 = true;
-        }
-
         const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
           const count = currentInvMap.get(type);
           if (count === undefined) {
@@ -180,6 +176,25 @@ export function useUser() {
           }
           return { type, count };
         });
+
+        // Forced sync for Chameleon Cloak and newer items
+        if (!currentData.chameleonSyncV2) {
+            const forceAdd: InventoryItemType[] = ['chameleon_cloak', 'sweet_revenge', 'oil_slick', 'gamblers_coin'];
+            forceAdd.forEach(t => {
+                const item = updatedInventory.find(i => i.type === t);
+                if (item) {
+                    if (item.count < 5) {
+                        item.count = 5;
+                        inventoryNeedsSync = true;
+                    }
+                } else {
+                    updatedInventory.push({ type: t, count: 5 });
+                    inventoryNeedsSync = true;
+                }
+            });
+            updates.chameleonSyncV2 = true;
+            needsUpdate = true;
+        }
 
         if (inventoryNeedsSync) {
           updates.inventory = updatedInventory;
