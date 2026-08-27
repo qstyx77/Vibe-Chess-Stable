@@ -79,7 +79,8 @@ export type InventoryItemType =
   | 'dancers_ribbon'
   | 'mirror_mask'
   | 'oil_slick'
-  | 'gamblers_coin';
+  | 'gamblers_coin'
+  | 'sweet_revenge';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -168,6 +169,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Level and Item.', isConsumable: false, rarity: 'rare' },
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides in its current direction for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
+  'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {
@@ -356,6 +358,7 @@ export interface GameSnapshot {
   isAwaitingArcherSnipe?: boolean;
   archerSnipeContext?: { boardForNextStep: BoardState, playerWhoseTurnCompleted: PlayerColor, isExtraTurn: boolean, newEnPassantTarget: AlgebraicSquare | null } | null;
   inventory?: InventoryItem[];
+  didOpponentCaptureLastTurn?: boolean;
 }
 
 export interface AISquareState {
@@ -390,6 +393,7 @@ export interface AIGameState {
   lastMovedPieceType?: PieceType | null;
   lastMovedPieceHeldItem?: InventoryItemType | null;
   lastMovedPieceLevel?: number | null;
+  didOpponentCaptureLastTurn?: boolean;
 }
 
 export type MessageCategory = 'battle' | 'social' | 'log' | 'market';

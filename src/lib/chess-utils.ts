@@ -235,7 +235,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'queens_peace' || item === 'kings_ransom') return (type === 'queen' || type === 'king');
   if (item === 'kings_conquest') return (type === 'king');
   if (item === 'power_glove') return type === 'grappler';
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum' || item === 'dancers_ribbon') return type === 'dancer';
@@ -714,7 +714,7 @@ export function isMoveValid(board: BoardState, from: AlgebraicSquare, to: Algebr
       if (Math.abs(fromCol - toCol) === 1 && toRow === fromRow + direction && targetPieceOnSquare) return true;
       if (fromCol === toCol && toRow === fromRow + direction && !targetPieceOnSquare) return true;
       
-      const isHomeRank = (piece.color === 'white' && (fromRow === 6 || fromRow === 7)) || (piece.color === 'black' && (fromRow === 0 || fromRow === 1));
+      const startRank = piece.color === 'white' ? 6 : 1;
       const canJumpStart = (!piece.hasMoved && fromRow === startRank) || piece.heldItem === 'swift_cloak';
       if (fromCol === toCol && !targetPieceOnSquare && canJumpStart && ((piece.color === 'white' && toRow === fromRow - 2) || (piece.color === 'black' && toRow === fromRow + 2))) {
           const midR = fromRow + direction;
@@ -861,7 +861,6 @@ export function processOilSlickTimers(board: BoardState, player: PlayerColor): B
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             if (newBoard[r][c].oilSlickTurnsRemaining > 0) {
-                // Duration is 3 turns total. Decrement at end of cycle.
                 newBoard[r][c].oilSlickTurnsRemaining--;
             }
         }
@@ -933,7 +932,7 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
     }
 }
 
-export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null): ApplyMoveResult {
+export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null, didOpponentCaptureLastTurn?: boolean): ApplyMoveResult {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
   let enPassantTargetSet: AlgebraicSquare | null = null;
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
@@ -1167,7 +1166,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
   }
 
   if (move.type === 'soul-harvest') {
@@ -1343,7 +1342,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[fromRow][fromCol].piece = null;
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
           if (dr === 0 && dc === 0) continue;
-          const nr = fromRow + dr; const nc = fRow + dc;
+          const nr = fromRow + dr; const nc = fromCol + dc;
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc];
               if (victim.item?.type === 'anvil') { victim.item = null; destroyedAnvils++; }
@@ -1391,18 +1390,15 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       pieceToLand.heldItem = null; 
   }
   
-  // EXECUTE LANDING
   newBoard[toRow][toCol].piece = pieceToLand;
   if (fromRow !== toRow || fromCol !== toCol) {
     newBoard[fromRow][fromCol].piece = null;
   }
 
-  // TRIGGER OIL SLICK SLIDE FOR PIECE
   const dr_slide = Math.sign(toRow - fromRow);
   const dc_slide = Math.sign(toCol - fromCol);
   if ((dr_slide !== 0 || dc_slide !== 0) && newBoard[toRow][toCol].oilSlickTurnsRemaining > 0) {
       const slideRes = applyOilSlide(newBoard, toRow, toCol, dr_slide, dc_slide);
-      // Piece already moved above, applyOilSlide moves it further
   }
 
   if (FRONTLINE_TYPES.includes(pieceToLand.type) && Math.abs(fromRow - toRow) === 2) enPassantTargetSet = coordsToAlgebraic(fromRow + Math.sign(toRow - fromRow), fromCol);
@@ -1460,8 +1456,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (captured.heldItem === 'cyanide_pill') gain = 0;
     if (effectiveHeldItem === 'gnosis') gain += 1;
     if (effectiveHeldItem === 'golden_chalice') gain += 1;
+    if (effectiveHeldItem === 'sweet_revenge' && didOpponentCaptureLastTurn) gain += 1;
 
-    // Gambler's Coin logic
     if (effectiveHeldItem === 'gamblers_coin') {
         if (Math.random() < 0.5) gain *= 2;
         else gain = 0;
@@ -1831,7 +1827,7 @@ export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseud
       else if (FRONTLINE_TYPES.includes(p.type) && to === ep) type = 'enpassant';
       else if (board[toCoords.row][toCoords.col].piece) type = board[toCoords.row][toCoords.col].piece!.color === p.color ? 'swap' : 'capture';
     }
-    const applyResult = applyMove(board, { from, to, type }, ep, undefined, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const applyResult = applyMove(board, { from, to, type }, ep, undefined, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
     return !isKingInCheck(applyResult.newBoard, player, ep, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel);
   });
 }

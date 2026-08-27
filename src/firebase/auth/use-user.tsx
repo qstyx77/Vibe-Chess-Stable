@@ -40,6 +40,7 @@ interface UserData {
   lootSyncV2?: boolean;
   oilSyncV1?: boolean;
   gamblerSyncV1?: boolean;
+  revengeSyncV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -132,7 +133,8 @@ export function useUser() {
             processedTransactions: [],
             lootSyncV2: true,
             oilSyncV1: true,
-            gamblerSyncV1: true
+            gamblerSyncV1: true,
+            revengeSyncV1: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -161,10 +163,9 @@ export function useUser() {
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
         let inventoryNeedsSync = false;
         
-        // Force sync for new playtest items if flag is missing
-        if (!currentData.gamblerSyncV1) {
+        if (!currentData.revengeSyncV1) {
             inventoryNeedsSync = true;
-            updates.gamblerSyncV1 = true;
+            updates.revengeSyncV1 = true;
         }
 
         const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {

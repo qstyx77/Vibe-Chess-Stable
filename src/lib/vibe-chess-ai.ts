@@ -131,7 +131,6 @@ export class VibeChessAI {
         const movingPiece = next.board[fR][fC].piece;
         if (!movingPiece) return next;
 
-        const targetSq = next.board[tR][tR]; // This seems like a potential typo in source, but maintaining structure
         const targetPiece = next.board[tR][tC].piece;
         let captureCount = 0;
 
@@ -172,7 +171,9 @@ export class VibeChessAI {
                 captureCount = 1; 
             } else if (targetPiece && targetPiece.color !== player && targetPiece.type !== 'king') { 
                 captureCount = 1; 
-                landedPiece.level += (this.captureLevelBonuses[targetPiece.type] || 1); 
+                let gain = (this.captureLevelBonuses[targetPiece.type] || 1); 
+                if (landedPiece.heldItem === 'sweet_revenge' && gs.didOpponentCaptureLastTurn) gain += 1;
+                landedPiece.level += gain;
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
             }
 
@@ -192,7 +193,10 @@ export class VibeChessAI {
             }
         }
 
-        if (captureCount > 0) next.killStreaks[player] += captureCount; 
+        if (captureCount > 0) {
+            next.killStreaks[player] += captureCount; 
+            next.didOpponentCaptureLastTurn = false; // Player captured, so opponent's record resets for next cycle? No, this state is passed to AI.
+        }
         else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate'].includes(move.type || '')) next.killStreaks[player] = 0;
         
         if (next.killStreaks[player] >= 6) next.extraTurn = true;

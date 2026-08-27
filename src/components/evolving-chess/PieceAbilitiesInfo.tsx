@@ -5,6 +5,7 @@ import type { Piece } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { ItemSprite } from './ItemSprite';
 import { cn } from '@/lib/utils';
+import { FRONTLINE_TYPES } from '@/lib/chess-utils';
 
 interface PieceAbilitiesInfoProps {
   piece: Piece;
@@ -52,7 +53,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'poison_tunic') abilities.push(" toxic skin: poisons anyone who captures wearer.");
   if (heldItem === 'detonation_scroll') abilities.push(" spell (L5+): sacrifice unit for explosion.");
   if (heldItem === 'phase_boots') abilities.push(" phase (L2+): can jump over friendly units.");
-  if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with ally.");
+  if (heldItem === 'swap_scroll') abilities.push(" spell (L3+): trade places with allied piece.");
   if (heldItem === 'grimoir') abilities.push(" dark wisdom: adjacent allies gain +2 levels.");
   if (heldItem === 'soul_link') abilities.push(" bound: pieces share levels and shared destruction.");
   if (heldItem === 'logas') abilities.push(" sacred: adjacent allies gain +1 level on capture.");
@@ -93,6 +94,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'kings_ransom') abilities.push(" ransom: auto-save from checkmate (one-time).");
   if (heldItem === 'dancers_ribbon') abilities.push(" ribbon: Dance skill can target Anvils.");
   if (heldItem === 'mirror_mask') abilities.push(" mask: Mimic copies mimicked unit's level/item.");
+  if (heldItem === 'oil_slick') abilities.push(" spell: create sliding hazards for 3 turns.");
+  if (heldItem === 'gamblers_coin') abilities.push(" gambit: 50/50 chance for 2x or 0x level gain.");
+  if (heldItem === 'sweet_revenge') abilities.push(" revenge: +1 level gain if opponent captured last turn.");
 
   switch (type) {
     case 'pawn':

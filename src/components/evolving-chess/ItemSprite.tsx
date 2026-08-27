@@ -38,6 +38,17 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="6" y="9" width="1" height="1" fill="#FEF08A" />
           </svg>
         );
+      case 'sweet_revenge':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="0" width="2" height="7" fill="#94A3B8" />
+            <rect x="3" y="2" width="4" height="4" fill="#CBD5E1" />
+            <rect x="2" y="7" width="6" height="1" fill="#475569" />
+            <rect x="4" y="8" width="2" height="4" fill="#78350F" />
+            <rect x="3" y="9" width="4" height="1" fill="#B45309" />
+            <rect x="4" y="2" width="1" height="3" fill="#FFF" opacity="0.5" />
+          </svg>
+        );
       case 'power_glove':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
