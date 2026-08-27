@@ -1,4 +1,3 @@
-
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
@@ -41,6 +40,7 @@ interface UserData {
   oilSyncV1?: boolean;
   gamblerSyncV1?: boolean;
   revengeSyncV1?: boolean;
+  sweetRevengeFixV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -134,7 +134,8 @@ export function useUser() {
             lootSyncV2: true,
             oilSyncV1: true,
             gamblerSyncV1: true,
-            revengeSyncV1: true
+            revengeSyncV1: true,
+            sweetRevengeFixV1: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -163,9 +164,9 @@ export function useUser() {
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
         let inventoryNeedsSync = false;
         
-        if (!currentData.revengeSyncV1) {
+        if (!currentData.sweetRevengeFixV1) {
             inventoryNeedsSync = true;
-            updates.revengeSyncV1 = true;
+            updates.sweetRevengeFixV1 = true;
         }
 
         const updatedInventory: InventoryItem[] = ITEM_TYPES.map(type => {
