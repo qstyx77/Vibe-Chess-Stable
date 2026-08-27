@@ -18,6 +18,17 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   const renderIcon = () => {
     switch (type) {
+      case 'chameleon_cloak':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="1" width="4" height="4" fill="#22C55E" />
+            <rect x="2" y="2" width="6" height="3" fill="#22C55E" />
+            <rect x="1" y="5" width="8" height="6" fill="#10B981" />
+            <rect x="0" y="6" width="10" height="5" fill="#059669" />
+            <rect x="4" y="5" width="2" height="1" fill="#FFF" opacity="0.4" />
+            <rect x="3" y="8" width="4" height="1" fill="#FFF" opacity="0.2" />
+          </svg>
+        );
       case 'oil_slick':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">

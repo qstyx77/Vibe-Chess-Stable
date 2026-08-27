@@ -235,13 +235,14 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'queens_peace' || item === 'kings_ransom') return (type === 'queen' || type === 'king');
   if (item === 'kings_conquest') return (type === 'king');
   if (item === 'power_glove') return type === 'grappler';
+  if (item === 'chameleon_cloak') return type !== 'king';
   if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum' || item === 'dancers_ribbon') return type === 'dancer';
   if (item === 'battering_ram') return (type === 'rook' || type === 'palace');
-  if (item === 'crossbow') return (type === 'archer');
-  if (item === 'shortbow') return (type === 'knight');
+  if (item === 'crossbow') return type === 'archer';
+  if (item === 'shortbow') return type === 'knight';
   if (item === 'sclerotia') return type === 'myco_mage';
   if (item === 'detonation_scroll') return (type !== 'king');
   if (item === 'kings_decree') return (type === 'king');
@@ -933,7 +934,7 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
 }
 
 export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null, didOpponentCaptureLastTurn?: boolean): ApplyMoveResult {
-  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null })));
   let enPassantTargetSet: AlgebraicSquare | null = null;
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
   const { row: toRow, col: toCol } = algebraicToCoords(move.to);
@@ -1430,6 +1431,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (captured) {
+    if (effectiveHeldItem === 'chameleon_cloak' && pieceToLand.type !== 'king') {
+        pieceToLand.type = captured.type;
+        pieceToLand.id = `${pieceToLand.id}_morph_${Date.now()}`;
+    }
     if (captured.heldItem === 'ice_tunic') { pieceToLand.frozenTurnsRemaining = 2; pieceToLand.cooldownTurnsRemaining = 2; }
     if (captured.heldItem === 'trap_net') { triggerExhaustion(newBoard, toRow, toCol, pieceToLand.color); }
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceToLand.type) && captured.type === 'commander') pieceToLand.type = 'commander';
@@ -1572,7 +1577,7 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
         const nr=r+dr; const nc=c+dc; if(isValidSquare(nr,nc) && !board[nr][nc].piece && !board[nr][nc].item) adj.push(coordsToAlgebraic(nr,nc));
       }
       if (adj.length > 0) {
-        const target = adj[Math.floor(Math.random()*adj.length)];
+        const target = adj[Math.floor(Math.random()*adjacent.length)];
         const {row: rr, col: rc} = algebraicToCoords(target);
         const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
         const oppBackRank = player === 'white' ? 0 : 7;

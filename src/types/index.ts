@@ -80,7 +80,8 @@ export type InventoryItemType =
   | 'mirror_mask'
   | 'oil_slick'
   | 'gamblers_coin'
-  | 'sweet_revenge';
+  | 'sweet_revenge'
+  | 'chameleon_cloak';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -170,6 +171,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides in its current direction for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
   'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },
+  'chameleon_cloak': { name: 'Chameleon Cloak', description: 'Non-King only. Unit copies the type of the piece it captures while retaining its level.', isConsumable: false, rarity: 'rare' },
 };
 
 export interface Piece {
