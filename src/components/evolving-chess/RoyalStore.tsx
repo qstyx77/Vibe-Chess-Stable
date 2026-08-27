@@ -237,7 +237,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                   <CardContent className="p-4 space-y-4">
                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                         <div className="w-full sm:w-1/2">
-                            <p className="text-[0.65rem] uppercase text-muted-foreground mb-1">Gold to Exchange</p>
+                            <p className="text-[0.65rem] uppercase text-muted-foreground mb-1">Gold to Exchange <span className="text-destructive font-bold ml-1">(2000G MIN)</span></p>
                             <div className="flex items-center gap-2 bg-black/40 border border-primary/20 p-2">
                                 <input 
                                     type="number" 
@@ -260,7 +260,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                         className="w-full h-10 text-[0.55rem] uppercase px-6" 
                         onClick={requestCashOut} 
                         variant="outline"
-                        disabled={exchangeAmount <= 0 || exchangeAmount > (userData?.goldBalance || 0) || !!loading}
+                        disabled={exchangeAmount < 2000 || exchangeAmount > (userData?.goldBalance || 0) || !!loading}
                      >
                         <CreditCard className="h-3 w-3 mr-2" /> Withdraw
                      </Button>
