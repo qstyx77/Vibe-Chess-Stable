@@ -51,6 +51,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { audioManager } from '@/lib/audio-manager';
 import { useSocial } from '@/components/social/SocialContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -1178,9 +1179,13 @@ export default function DungeonPage() {
       <Card className="w-full bg-background border-none rounded-none shrink-0">
         <CardContent className="p-1 flex items-center justify-between">
           <div className="flex-1 flex justify-start">
-             {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive animate-pulse" /> : <Swords className="h-4 w-4 text-primary" />}
+             <Link href="/"><Button variant="ghost" size="icon" className="h-8 w-8 p-0 text-primary hover:bg-primary/10"><ArrowLeft className="h-4 w-4" /></Button></Link>
           </div>
-          <h1 className="text-[0.65rem] font-bold text-primary uppercase tracking-tighter">DUNGEON Floor {level}</h1>
+          <h1 className="text-[0.65rem] font-bold text-primary uppercase tracking-tighter flex items-center gap-1.5">
+            {level % 10 === 0 ? <Skull className="h-3.5 w-3.5 text-destructive animate-pulse" /> : <Swords className="h-3.5 w-3.5 text-primary" />}
+            DUNGEON Floor {level}
+            {level % 10 === 0 ? <Skull className="h-3.5 w-3.5 text-destructive animate-pulse" /> : <Swords className="h-3.5 w-3.5 text-primary" />}
+          </h1>
           <div className="flex-1 flex justify-end">
             <AuthWidget />
           </div>
@@ -1200,7 +1205,7 @@ export default function DungeonPage() {
            <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
            <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-8 px-2 text-[0.6rem] uppercase"><BookOpen className="mr-1 h-3 w-3" /> Rules</Button>
            <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isMoveProcessing || gameInfo.gameOver} className="h-8 px-2 text-[0.6rem] uppercase"><Package className="mr-1 h-3 w-3" /> Loot</Button>
-           <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-8 px-2 text-[0.6rem] uppercase border-destructive/50 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-1 h-3 w-3" /> Abandon</Button>
+           <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-8 px-2 text-[0.6rem] uppercase border-destructive/50 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-1 h-3 w-3" /> Reset</Button>
         </div>
       </div>
     </div>
@@ -1213,7 +1218,7 @@ export default function DungeonPage() {
       </div>
       <div className="w-1/2 flex flex-col items-center gap-4">
         <div className="w-full flex items-center justify-between px-4">
-           <Link href="/"><Button variant="ghost" size="sm" className="h-8 text-[0.6rem] uppercase"><ArrowLeft className="mr-1 h-4 w-4" /> Lobby</Button></Link>
+           <Link href="/"><Button variant="ghost" size="sm" className="h-8 text-[0.6rem] uppercase p-0 text-primary hover:bg-primary/10"><ArrowLeft className="mr-1 h-4 w-4" /> Lobby</Button></Link>
            <div className="flex items-center gap-3">
               {level % 10 === 0 ? <Skull className="h-6 w-6 text-destructive animate-pulse" /> : <Swords className="h-6 w-6 text-primary" />}
               <h1 className="text-xl font-bold text-primary uppercase tracking-tighter">DUNGEON Floor {level}</h1>
@@ -1234,7 +1239,7 @@ export default function DungeonPage() {
             <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
             <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="w-full text-[0.65rem] uppercase justify-start h-10"><BookOpen className="mr-2 h-4 w-4" /> Rules & Abilities</Button>
             <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} className="w-full text-[0.65rem] uppercase justify-start h-10"><Package className="mr-2 h-4 w-4" /> Loot Bag</Button>
-            <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="w-full text-[0.65rem] uppercase justify-start h-10 border-destructive/30 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-2 h-4 w-4" /> Abandon Run</Button>
+            <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="w-full text-[0.65rem] uppercase justify-start h-10 border-destructive/30 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-2 h-4 w-4" /> Reset Run</Button>
             <div className="mt-2 p-2 bg-black/40 rounded-sm border border-primary/10">
                <p className="text-[0.55rem] text-muted-foreground uppercase leading-relaxed">Persistent Run: Your pieces and items are saved between sessions.</p>
             </div>
@@ -1254,14 +1259,14 @@ export default function DungeonPage() {
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> 
         <AlertDialogContent className="font-pixel bg-black border-2 border-destructive"> 
           <AlertDialogHeader> 
-            <AlertDialogTitle className="text-destructive uppercase text-sm">Abandon Dungeon Run?</AlertDialogTitle>
+            <AlertDialogTitle className="text-destructive uppercase text-sm">Reset Dungeon Run?</AlertDialogTitle>
             <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> 
               Your current progress and equipment will be lost. You will start over from Floor 1.
             </AlertDialogDescription>
           </AlertDialogHeader> 
           <AlertDialogFooter className="mt-4 gap-2">
             <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel> 
-            <AlertDialogAction className="bg-destructive text-white h-9 text-[0.6rem] uppercase" onClick={() => { setIsResetConfirmOpen(false); startRun(true); }}>Abandon Run</AlertDialogAction> 
+            <AlertDialogAction className="bg-destructive text-white h-9 text-[0.6rem] uppercase" onClick={() => { setIsResetConfirmOpen(false); startRun(true); }}>Reset Run</AlertDialogAction> 
           </AlertDialogFooter> 
         </AlertDialogContent> 
       </AlertDialog>
