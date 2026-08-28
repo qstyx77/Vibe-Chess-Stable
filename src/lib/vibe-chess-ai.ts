@@ -195,7 +195,6 @@ export class VibeChessAI {
 
         if (captureCount > 0) {
             next.killStreaks[player] += captureCount; 
-            next.didOpponentCaptureLastTurn = false; // Player captured, so opponent's record resets for next cycle? No, this state is passed to AI.
         }
         else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate'].includes(move.type || '')) next.killStreaks[player] = 0;
         
