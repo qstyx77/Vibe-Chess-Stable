@@ -216,6 +216,7 @@ export default function DungeonPage() {
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(Math.floor(Math.random() * 6) + 5);
   const [necroResurrectionCounter, setNecroResurrectionCounter] = useState(0);
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
+  const [playerToDropAnvil, setPlayerToDropAnvil] = useState<PlayerColor | null>(null);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
   const [isAwaitingArcherSnipe, setIsAwaitingArcherSnipe] = useState(false);
   const [isAwaitingPawnSacrifice, setIsAwaitingPawnSacrifice] = useState(false);
@@ -330,7 +331,7 @@ export default function DungeonPage() {
     const ks = { white: 0, black: 0 }; setKillStreaks(ks);
     const sC = 0; const nS = Math.floor(Math.random() * 6) + 5; setShroomSpawnCounter(sC); setNextShroomSpawnTurn(nS); setNecroResurrectionCounter(0); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setGameMoveCounter(0);
     const hasCommander = survivorsFromLastBoard.some(p => ['commander', 'hero'].includes(p.type)); setFirstBloodAchieved(hasCommander); setPlayerWhoGotFirstBlood(hasCommander ? 'white' : null);
-    setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsPromotingPawn(false); setPromotionSquare(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false });
+    setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsPromotingPawn(false); setPromotionSquare(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false });
     saveDungeonState(nextLevelNum, newBoard, 'white', ks, updatedGraveyard, sC, nS, null, 0, inventory);
     const isBoss = nextLevelNum % 10 === 0; 
     let welcomeMsg = isBoss ? `BOSS BATTLE` : `Wipe them out!`; 
@@ -568,7 +569,13 @@ export default function DungeonPage() {
                 addLog("Dungeon dropped a defensive Anvil!");
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn); return;
-        } else { setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'anvil'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return; }
+        } else { 
+            setSpecialActionContext({ extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'anvil'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); 
+            setPlayerToDropAnvil(actingPlayer);
+            setIsAwaitingAnvilDrop(true); 
+            addLog("Anvil Drop ready!"); 
+            return; 
+        }
     }
     if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {
         const myPile = actingPlayer; 
@@ -714,7 +721,7 @@ export default function DungeonPage() {
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
     setIsMoveProcessing(false); clickGuard.current = false; setHasMovedOnCurrentFloor(false); setColossusAwakened(false); setLastMoveFrom(null); setLastMoveTo(null); setAnimatedSquareTo(null); setSelectedSquare(null); setPossibleMoves([]); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setGameMoveCounter(0); gameOverRef.current = false;
-    setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsPromotingPawn(false); setPromotionSquare(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false });
+    setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsPromotingPawn(false); setPromotionSquare(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false });
     const saved = userData.dungeonState;
     if (!reset && saved && saved.board && saved.board.length > 0) {
       setLevel(saved.level); const loadedBoard: BoardState = []; const savedBoard1D = saved.board as SquareState[];
@@ -1027,7 +1034,11 @@ export default function DungeonPage() {
     if (isAwaitingAnvilDrop) {
         if (!sq.piece && !sq.item) {
             const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); nextBoard[row][col].item = { type: 'anvil' };
-            setBoard(nextBoard); setIsAwaitingAnvilDrop(false); audioManager.playAnvil(); addLog("Kill Streak reward: Anvil Drop!");
+            setBoard(nextBoard); 
+            setIsAwaitingAnvilDrop(false); 
+            setPlayerToDropAnvil(null);
+            audioManager.playAnvil(); 
+            addLog("Kill Streak reward: Anvil Drop!");
             triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, currentPlayer, specialActionContext!.completedMilestones || [], specialActionContext!.capturingPieceId, false);
         }
         return;
@@ -1160,3 +1171,99 @@ export default function DungeonPage() {
     if (sq.piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
     else { setSelectedSquare(null); setPossibleMoves([]); }
   }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffect, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isAwaitingPawnSacrifice, playerToSacrificePawn, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, isAnySpecialModeActive, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, level, didCaptureLastTurn]);
+
+  const mobileLayout = (
+    <div className="relative z-20 flex flex-col flex-grow w-full max-h-screen p-0.5 overflow-hidden font-pixel">
+      <Card className="w-full bg-background border-none rounded-none shrink-0">
+        <CardContent className="p-1 flex items-center justify-between">
+          <div className="flex-1 flex justify-start">
+             {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive animate-pulse" /> : <Swords className="h-4 w-4 text-primary" />}
+          </div>
+          <h1 className="text-[0.65rem] font-bold text-primary uppercase tracking-tighter">DUNGEON Floor {level}</h1>
+          <div className="flex-1 flex justify-end">
+            <AuthWidget />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="flex flex-col items-center justify-start gap-1 p-1 flex-grow overflow-hidden">
+        <div className="w-full max-w-[100vw] aspect-square max-h-[55vh] flex-shrink-0">
+          <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor={'white'} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={'flipping'} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} grappledItemSubject={grappledItemSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} />
+        </div>
+
+        <div className="w-full flex-grow overflow-hidden flex flex-col min-h-0">
+          <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={'white'} getPlayerDisplayName={(p) => p === 'white' ? (userData?.username || 'Hero') : 'Dungeon'} onlineStatus={'disconnected'} turnTimer={null} activeTimerPlayer={null} />
+        </div>
+
+        <div className="w-full flex justify-center items-center gap-1 py-1 shrink-0">
+           <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
+           <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-8 px-2 text-[0.6rem] uppercase"><BookOpen className="mr-1 h-3 w-3" /> Rules</Button>
+           <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isMoveProcessing || gameInfo.gameOver} className="h-8 px-2 text-[0.6rem] uppercase"><Package className="mr-1 h-3 w-3" /> Loot</Button>
+           <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-8 px-2 text-[0.6rem] uppercase border-destructive/50 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-1 h-3 w-3" /> Abandon</Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  const desktopLayout = (
+    <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4 font-pixel">
+      <div className="w-1/4 h-full">
+         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={'white'} getPlayerDisplayName={(p) => p === 'white' ? (userData?.username || 'Hero') : 'Dungeon'} onlineStatus={'disconnected'} turnTimer={null} activeTimerPlayer={null} />
+      </div>
+      <div className="w-1/2 flex flex-col items-center gap-4">
+        <div className="w-full flex items-center justify-between px-4">
+           <Link href="/"><Button variant="ghost" size="sm" className="h-8 text-[0.6rem] uppercase"><ArrowLeft className="mr-1 h-4 w-4" /> Lobby</Button></Link>
+           <div className="flex items-center gap-3">
+              {level % 10 === 0 ? <Skull className="h-6 w-6 text-destructive animate-pulse" /> : <Swords className="h-6 w-6 text-primary" />}
+              <h1 className="text-xl font-bold text-primary uppercase tracking-tighter">DUNGEON Floor {level}</h1>
+              {level % 10 === 0 ? <Skull className="h-6 w-6 text-destructive animate-pulse" /> : <Swords className="h-6 w-6 text-primary" />}
+           </div>
+           <div className="w-20"></div>
+        </div>
+        <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5em] uppercase", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statusMessage} </div>
+        <div className="w-full max-w-2xl aspect-square shadow-2xl">
+          <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : null)) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor={'white'} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={'flipping'} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} grappledItemSubject={grappledItemSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} />
+        </div>
+      </div>
+      <div className="w-1/4 flex flex-col gap-4">
+        <AuthWidget />
+        <Card className="bg-card/50 border-border">
+          <CardContent className="p-4 flex flex-col gap-3">
+            <h2 className="text-[0.7rem] text-primary uppercase border-b border-primary/20 pb-1 mb-1">Dungeon Actions</h2>
+            <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
+            <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="w-full text-[0.65rem] uppercase justify-start h-10"><BookOpen className="mr-2 h-4 w-4" /> Rules & Abilities</Button>
+            <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} className="w-full text-[0.65rem] uppercase justify-start h-10"><Package className="mr-2 h-4 w-4" /> Loot Bag</Button>
+            <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="w-full text-[0.65rem] uppercase justify-start h-10 border-destructive/30 text-destructive hover:bg-destructive/10"><RotateCcw className="mr-2 h-4 w-4" /> Abandon Run</Button>
+            <div className="mt-2 p-2 bg-black/40 rounded-sm border border-primary/10">
+               <p className="text-[0.55rem] text-muted-foreground uppercase leading-relaxed">Persistent Run: Your pieces and items are saved between sessions.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-full h-full w-full bg-background flex flex-col relative overflow-hidden">
+      <div className="lg:hidden h-full flex flex-col">{mobileLayout}</div>
+      <div className="hidden lg:block h-full">{desktopLayout}</div>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={(type) => { if (type.startsWith('portal_scroll_')) { addLog("Portal Logic: skip floors in Dungeon Mode!"); } }} usedSlots={usedSlots} attunementSlots={attunementSlots} />
+      <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={'white'} />
+      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
+      <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> 
+        <AlertDialogContent className="font-pixel bg-black border-2 border-destructive"> 
+          <AlertDialogHeader> 
+            <AlertDialogTitle className="text-destructive uppercase text-sm">Abandon Dungeon Run?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> 
+              Your current progress and equipment will be lost. You will start over from Floor 1.
+            </AlertDialogDescription>
+          </AlertDialogHeader> 
+          <AlertDialogFooter className="mt-4 gap-2">
+            <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel> 
+            <AlertDialogAction className="bg-destructive text-white h-9 text-[0.6rem] uppercase" onClick={() => { setIsResetConfirmOpen(false); startRun(true); }}>Abandon Run</AlertDialogAction> 
+          </AlertDialogFooter> 
+        </AlertDialogContent> 
+      </AlertDialog>
+    </div>
+  );
+}
