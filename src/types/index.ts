@@ -435,3 +435,13 @@ export interface MarketListing {
   price: number;
   slot: number;
 }
+
+export interface RookResurrectionResult {
+  resurrectionPerformed: boolean;
+  boardWithResurrection: BoardState;
+  capturedPiecesAfterResurrection: { white: Piece[], black: Piece[] };
+  resurrectedSquareAlg?: AlgebraicSquare;
+  resurrectedPieceData?: Piece;
+  newResurrectionIdCounter?: number;
+  promotionRequiredForResurrectedPawn?: boolean;
+}

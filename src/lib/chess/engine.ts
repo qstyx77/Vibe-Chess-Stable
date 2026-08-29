@@ -1,5 +1,5 @@
 
-import type { BoardState, Piece, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, PieceType, ItemType, SquareState } from '@/types';
+import type { BoardState, Piece, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, PieceType, ItemType, SquareState, RookResurrectionResult } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece } from './utils';
 import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide } from './effects';
@@ -115,6 +115,90 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
     return { newBoard: board, spawnedAt: target };
   }
   return { newBoard: board, spawnedAt: null };
+}
+
+export function processRookResurrectionCheck(
+  board: BoardState,
+  player: PlayerColor,
+  move: Move,
+  toAlg: AlgebraicSquare,
+  originalLevel: number,
+  graveyard: { white: Piece[], black: Piece[] },
+  idCounter: number
+): RookResurrectionResult {
+  const { row, col } = algebraicToCoords(toAlg);
+  const piece = board[row][col].piece;
+  if (!piece || (piece.type !== 'rook' && piece.type !== 'palace')) {
+    return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
+  }
+
+  const myGraveyard = player === 'white' ? graveyard.white : graveyard.black;
+  if (myGraveyard.length === 0) {
+    return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
+  }
+
+  // Find strongest ally (highest VAL_MAP)
+  const sorted = [...myGraveyard].sort((a, b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
+  const best = sorted[0];
+
+  // Find random empty adjacent square
+  const adjacent: AlgebraicSquare[] = [];
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = row + dr;
+      const nc = col + dc;
+      if (isValidSquare(nr, nc)) {
+        const sq = board[nr][nc];
+        if (!sq.piece && (!sq.item || sq.item.type === 'shroom')) {
+          adjacent.push(coordsToAlgebraic(nr, nc));
+        }
+      }
+    }
+  }
+
+  if (adjacent.length === 0) {
+    return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
+  }
+
+  const targetAlg = adjacent[Math.floor(Math.random() * adjacent.length)];
+  const { row: tr, col: tc } = algebraicToCoords(targetAlg);
+
+  const newBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
+  
+  // Palace vs Rook logic
+  const resLevel = piece.type === 'palace' ? (best.level || 1) : 1;
+  const resPiece: Piece = {
+    ...best,
+    id: `res_${best.id}_${idCounter}`,
+    level: resLevel,
+    hasMoved: true,
+    isShielded: false,
+    isPoisoned: false,
+    cooldownTurnsRemaining: 0,
+    frozenTurnsRemaining: 0
+  };
+
+  newBoard[tr][tc].piece = resPiece;
+  newBoard[tr][tc].item = null; // Consume shroom if present
+
+  const newGraveyard = {
+    white: player === 'white' ? graveyard.white.filter(p => p.id !== best.id) : [...graveyard.white],
+    black: player === 'black' ? graveyard.black.filter(p => p.id !== best.id) : [...graveyard.black]
+  };
+
+  const oppBackRank = player === 'white' ? 0 : 7;
+  const promoRequired = (FRONTLINE_TYPES.includes(resPiece.type)) && tr === oppBackRank;
+
+  return {
+    resurrectionPerformed: true,
+    boardWithResurrection: newBoard,
+    capturedPiecesAfterResurrection: newGraveyard,
+    resurrectedSquareAlg: targetAlg,
+    resurrectedPieceData: resPiece,
+    newResurrectionIdCounter: idCounter + 1,
+    promotionRequiredForResurrectedPawn: promoRequired
+  };
 }
 
 export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null, didOpponentCaptureLastTurn?: boolean): ApplyMoveResult {
