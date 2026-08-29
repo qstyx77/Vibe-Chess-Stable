@@ -1,3 +1,4 @@
+
 import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
@@ -77,7 +78,7 @@ export function ChessPieceDisplay({
   isOnBoard = false,
 }: ChessPieceDisplayProps) {
   
-  if (piece.id.startsWith('boss-colossus') && isOnBoard) {
+  if (piece.id?.startsWith('boss-colossus') && isOnBoard) {
       return null;
   }
 
@@ -86,13 +87,13 @@ export function ChessPieceDisplay({
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   let bossStyle: React.CSSProperties = {};
 
-  if (piece.id.startsWith('boss-hydra')) {
+  if (piece.id?.startsWith('boss-hydra')) {
     IconComponent = PixelHydra;
     pieceColorClass = ""; bossStyle = { color: '#10B981' };
   } else if (piece.id === 'boss-necro') {
     IconComponent = PixelNecromancer;
     pieceColorClass = ""; bossStyle = { color: '#8B5CF6' };
-  } else if (piece.id.startsWith('boss-colossus')) {
+  } else if (piece.id?.startsWith('boss-colossus')) {
     IconComponent = PixelColossus;
     pieceColorClass = ""; bossStyle = { color: '#64748B' };
   } else if (piece.id === 'boss-mirage') {
