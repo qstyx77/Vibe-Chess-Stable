@@ -40,11 +40,10 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
             const oldLevel = sq.piece.level;
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, sq.piece.level + 1);
             if (sq.piece.level > oldLevel) {
-                // Gaining a level clears all status effects
+                // Gaining a level clears Poison and Exhaustion, but NOT Frozen (must wait duration)
                 sq.piece.isPoisoned = false;
                 sq.piece.isExhausted = false;
                 sq.piece.cooldownTurnsRemaining = 0;
-                sq.piece.frozenTurnsRemaining = 0;
                 rallied.push(sq.algebraic);
             }
         }
@@ -161,6 +160,11 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
         // 2. Cooldown Decay (Decrements at start of player's turn phase)
         if (p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) {
           p.cooldownTurnsRemaining--;
+        }
+
+        // 3. Frozen Decay (Decrements at start of player's turn phase)
+        if (p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0) {
+          p.frozenTurnsRemaining--;
         }
       }
     }

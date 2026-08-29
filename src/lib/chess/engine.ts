@@ -688,11 +688,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceToLand.id) {
         if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
-            // Levels gained via Soul Link also clear statuses
+            // Levels gained via Soul Link also clear statuses (but NOT Frozen)
             sq.piece.isPoisoned = false;
             sq.piece.isExhausted = false;
             sq.piece.cooldownTurnsRemaining = 0;
-            sq.piece.frozenTurnsRemaining = 0;
         }
       }
     }));
@@ -702,7 +701,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     pieceToLand.isPoisoned = false; 
     pieceToLand.isExhausted = false;
     pieceToLand.cooldownTurnsRemaining = 0; 
-    pieceToLand.frozenTurnsRemaining = 0; 
   }
 
   // Exhaustion cadence: If exhausted, moving triggers a cooldown for the following turn cycle.
@@ -744,8 +742,8 @@ export function processRookResurrectionCheck(board: BoardState, player: PlayerCo
   if (effectiveLevel >= 4 && effectiveLevel > oldL) {
     const myPile = player; 
     if (!graveyard[myPile] || graveyard[myPile].length === 0) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
-    const sorted = [...graveyard[myPile]].sort((a,b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0));
-    const choice = sorted[0];
+    const sorted = [...graveyard[myPile]].sort((a,b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0))[0];
+    const choice = sorted;
     if (choice) {
       const adj = [];
       for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) if(dr!==0 || dc!==0) {

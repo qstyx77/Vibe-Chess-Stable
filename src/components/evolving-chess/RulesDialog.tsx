@@ -208,10 +208,10 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <RuleText>Loses 1 level at end of turn. Level 1 units become Exhausted. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
                   </SubRule>
                   <SubRule title="Exhausted">
-                    <RuleText>The unit is too tired to move or act every turn. Moving, capturing, or using equipment triggers a 1-turn cooldown (the player cannot use the piece on their following turn). This state repeats until cured. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
+                    <RuleText>Any move, capture, or equipment use triggers a 1-turn cooldown (the piece skips its next turn). This cadence repeats until cured. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
                   </SubRule>
                   <SubRule title="Frozen">
-                    <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns or until a level is gained.</RuleText>
+                    <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns. This effect is NOT cured by level gains; you must wait out the duration.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>
