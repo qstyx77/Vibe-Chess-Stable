@@ -42,6 +42,7 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
             if (sq.piece.level > oldLevel) {
                 // Gaining a level clears all status effects
                 sq.piece.isPoisoned = false;
+                sq.piece.isExhausted = false;
                 sq.piece.cooldownTurnsRemaining = 0;
                 sq.piece.frozenTurnsRemaining = 0;
                 rallied.push(sq.algebraic);
@@ -146,15 +147,20 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const p = newBoard[r][c].piece;
-      if (p && p.color === currentPlayer && p.isPoisoned) {
-        const currentL = p.level || 1;
-        if (currentL > 1) {
-          p.level = currentL - 1;
-        } else {
-          // If a Level 1 unit is poisoned, it becomes Exhausted instead of dying.
-          // This matches the updated rules logic.
-          p.cooldownTurnsRemaining = 1; 
-          // Note: Poison persists until a level is gained.
+      if (p && p.color === currentPlayer) {
+        // 1. Poison Processing
+        if (p.isPoisoned) {
+          const currentL = p.level || 1;
+          if (currentL > 1) {
+            p.level = currentL - 1;
+          } else {
+            p.isExhausted = true; // Level 1 + Poison = permanent Exhaustion state
+          }
+        }
+        
+        // 2. Cooldown Decay (Decrements at start of player's turn phase)
+        if (p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) {
+          p.cooldownTurnsRemaining--;
         }
       }
     }
@@ -231,7 +237,7 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
             if (isValidSquare(nr, nc)) {
                 const victim = board[nr][nc].piece;
                 if (victim && victim.color === oppColor) {
-                    victim.cooldownTurnsRemaining = 1;
+                    victim.cooldownTurnsRemaining = 2; // Set to 2 to survive start-of-turn decay
                 }
             }
         }

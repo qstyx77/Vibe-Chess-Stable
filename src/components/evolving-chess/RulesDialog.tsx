@@ -194,7 +194,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <RuleText>Impassable blocks that occupy a square. They cannot be captured or jumped over (except with Phase Boots). They can be crushed/destroyed by self-destructs or pushed by level 4+ frontline units (or Battering Rams). Units (except Kings) crushed by a moving anvil are obliterated and removed from the game rather than entering the captured piece zone.</RuleText>
                   </SubRule>
                   <SubRule title="Shrooms 🍄">
-                    <RuleText>Mystical fungi that spawn periodically. Moving onto a shroom consumes it, granting the unit +1 Level. For Myco Mages, shrooms also fuel their global Mushroomancy pool.</RuleText>
+                    <RuleText>Fungi that spawn periodically. Consuming a shroom grants +1 Level. For Myco Mages, shrooms also fuel their global Mushroomancy pool.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>
@@ -205,10 +205,10 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <RuleSection title="Active Afflictions">
                   <SubRule title="Poisoned">
-                    <RuleText>A unit loses 1 Level at the end of its turn. If a Level 1 unit is poisoned, it becomes 'Exhausted'. Poison can only be cured by gaining a level (via capture, shrooms, or rally cries).</RuleText>
+                    <RuleText>Loses 1 level at end of turn. Level 1 units become Exhausted. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
                   </SubRule>
                   <SubRule title="Exhausted">
-                    <RuleText>The unit is too tired to move or act. This state is permanent until the unit is cured by gaining a level. Using a skill or piece ability also triggers a 1-turn cooldown.</RuleText>
+                    <RuleText>The unit is too tired to move or act every turn. Moving, capturing, or using equipment triggers a 1-turn cooldown (the player cannot use the piece on their following turn). This state repeats until cured. Cure: Gain a level (via capture, shrooms, or rally cries).</RuleText>
                   </SubRule>
                   <SubRule title="Frozen">
                     <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns or until a level is gained.</RuleText>

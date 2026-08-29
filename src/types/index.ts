@@ -183,6 +183,7 @@ export interface Piece {
   invulnerableTurnsRemaining?: number;
   isShielded?: boolean;
   isPoisoned?: boolean;
+  isExhausted?: boolean;
   heldItem?: InventoryItemType | null;
   cooldownTurnsRemaining?: number;
   frozenTurnsRemaining?: number;

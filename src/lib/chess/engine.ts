@@ -516,7 +516,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'antidote') {
-      newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === movingPiece.color) { sq.piece.isPoisoned = false; sq.piece.cooldownTurnsRemaining = 0; } }));
+      newBoard.forEach(row => row.forEach(sq => { if (sq.piece && sq.piece.color === movingPiece.color) { sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0; } }));
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
   }
@@ -686,12 +686,30 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (didLevelUp && effectiveHeldItem === 'soul_link') {
     newBoard.forEach(row => row.forEach(sq => {
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceToLand.id) {
-        if (sq.piece.type !== 'queen' || sq.piece.level < 7) sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
+        if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
+            sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
+            // Levels gained via Soul Link also clear statuses
+            sq.piece.isPoisoned = false;
+            sq.piece.isExhausted = false;
+            sq.piece.cooldownTurnsRemaining = 0;
+            sq.piece.frozenTurnsRemaining = 0;
+        }
       }
     }));
   }
-  if (didLevelUp) { pieceToLand.isPoisoned = false; pieceToLand.cooldownTurnsRemaining = 0; pieceToLand.frozenTurnsRemaining = 0; }
-  if (pieceToLand.isPoisoned && pieceToLand.level === 1) pieceToLand.cooldownTurnsRemaining = 2;
+
+  if (didLevelUp) { 
+    pieceToLand.isPoisoned = false; 
+    pieceToLand.isExhausted = false;
+    pieceToLand.cooldownTurnsRemaining = 0; 
+    pieceToLand.frozenTurnsRemaining = 0; 
+  }
+
+  // Exhaustion cadence: If exhausted, moving triggers a cooldown for the following turn cycle.
+  if (pieceToLand.isExhausted) {
+    pieceToLand.cooldownTurnsRemaining = 2; // Set to 2 so it is 1 at start of next turn (blocked)
+  }
+
   if (effectiveHeldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;
