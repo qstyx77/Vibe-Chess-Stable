@@ -82,7 +82,10 @@ export type InventoryItemType =
   | 'gamblers_coin'
   | 'sweet_revenge'
   | 'chameleon_cloak'
-  | 'phase_out';
+  | 'phase_out'
+  | 'ice_breaker'
+  | 'glacial_ray'
+  | 'burning_ray';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -174,6 +177,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },
   'chameleon_cloak': { name: 'Chameleon Cloak', description: 'Non-King only. Unit copies the type of the piece it captures while retaining its level.', isConsumable: false, rarity: 'rare' },
   'phase_out': { name: 'Phase Out Scroll', description: 'Uncommon scroll (L2+). Non-Royal. Unit and adjacent non-King units phase out for 3 turns. Collisions on re-entry obliterate units.', isConsumable: true, rarity: 'uncommon' },
+  'ice_breaker': { name: 'Ice Breaker', description: 'Passive. Allows unit to capture Frozen units. Frozen units captured by Ice Breaker shatter and are obliterated.', isConsumable: false, rarity: 'common' },
+  'glacial_ray': { name: 'Glacial Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units in line become Frozen.', isConsumable: true, rarity: 'rare' },
+  'burning_ray': { name: 'Burning Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units and objects in line are destroyed.', isConsumable: true, rarity: 'rare' },
 };
 
 export interface Piece {
@@ -212,7 +218,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
   thrownItem?: ItemType;
@@ -377,7 +383,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray';
   promoteTo?: PieceType;
 }
 

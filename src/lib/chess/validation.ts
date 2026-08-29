@@ -12,7 +12,10 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
         if (otherMinions) return true; 
     }
 
-    if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) return true;
+    if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) {
+        if (attackingPiece.heldItem === 'ice_breaker') return false;
+        return true;
+    }
     if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
     if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
     const hunters = ['commander', 'hero', 'infiltrator', 'dancer', 'mimic', 'grappler', 'self-destruct', 'myco_mage'];

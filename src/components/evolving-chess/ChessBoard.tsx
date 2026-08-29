@@ -54,6 +54,7 @@ interface ChessBoardProps {
   isSelectingTeleportShroom?: boolean;
   isSelectingSporeBombShroom?: boolean;
   isAwaitingOilSlickTarget?: boolean;
+  isAwaitingRayTarget?: 'glacial' | 'burning' | null;
 }
 
 const MAGIC_BURST_COLORS: Record<string, string> = {
@@ -74,7 +75,9 @@ const MAGIC_BURST_COLORS: Record<string, string> = {
   heavy_rain: '#3B82F6',
   antidote: '#10B981',
   kings_decree: '#FDE68A',
-  oil_slick: '#1e1b4b'
+  oil_slick: '#1e1b4b',
+  glacial_ray: '#BAE6FD',
+  burning_ray: '#FCA5A5'
 };
 
 const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardState: BoardState, visuallyFlipBoardForLogic: boolean }) => {
@@ -189,7 +192,8 @@ export function ChessBoard({
   isSelectingTeleportAlly,
   isSelectingTeleportShroom,
   isSelectingSporeBombShroom,
-  isAwaitingOilSlickTarget
+  isAwaitingOilSlickTarget,
+  isAwaitingRayTarget
 }: ChessBoardProps) {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -235,6 +239,12 @@ export function ChessBoard({
           const isTeleportAllyTarget = isLocalActionTurn && isSelectingTeleportAlly && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null);
           const isTeleportShroomTarget = isLocalActionTurn && isSelectingTeleportShroom && currentSquareData.item?.type === 'shroom';
           const isSporeBombTarget = isLocalActionTurn && isSelectingSporeBombShroom && currentSquareData.item?.type === 'shroom';
+
+          let isRayTarget = false;
+          if (isLocalActionTurn && isAwaitingRayTarget && selectedSquare) {
+              const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
+              if ((actualRowIndex === fR || actualColIndex === fC) && currentSquareData.algebraic !== selectedSquare) isRayTarget = true;
+          }
 
           let isDanceTarget = false;
           if (isLocalActionTurn && isAwaitingDanceTarget) {
@@ -306,7 +316,7 @@ export function ChessBoard({
               isConverting={isConvertingSquare}
               isShieldTarget={isShieldTarget || isShieldScrollTargetSelection}
               isSnipeTarget={isSnipeTarget}
-              isAnvilDropTarget={isAnvilDropTarget}
+              isAnvilDropTarget={isAnvilDropTarget || isRayTarget}
               isInvTarget={isInvTarget}
               isSwapTarget={isSwapTargetSelection}
               isDecreeTarget={isDecreeTarget}

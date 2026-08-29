@@ -29,6 +29,35 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             </rect>
           </svg>
         );
+      case 'ice_breaker':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="1" width="4" height="2" fill="#94A3B8" />
+            <rect x="4" y="3" width="2" height="8" fill="#78350F" />
+            <rect x="1" y="1" width="3" height="3" fill="#0EA5E9" />
+            <rect x="6" y="1" width="3" height="3" fill="#0EA5E9" />
+            <rect x="2" y="2" width="1" height="1" fill="#BAE6FD" />
+            <rect x="7" y="2" width="1" height="1" fill="#BAE6FD" />
+          </svg>
+        );
+      case 'glacial_ray':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#BAE6FD" />
+            <rect x="0" y="1" width="10" height="2" fill="#0369A1" />
+            <rect x="0" y="9" width="10" height="2" fill="#0369A1" />
+            <rect x="3" y="4" width="4" height="4" fill="#E0F2FE" />
+          </svg>
+        );
+      case 'burning_ray':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#FCA5A5" />
+            <rect x="0" y="1" width="10" height="2" fill="#B91C1C" />
+            <rect x="0" y="9" width="10" height="2" fill="#B91C1C" />
+            <rect x="3" y="4" width="4" height="4" fill="#FEE2E2" />
+          </svg>
+        );
       case 'chameleon_cloak':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">

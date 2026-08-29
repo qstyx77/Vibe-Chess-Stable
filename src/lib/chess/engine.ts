@@ -153,6 +153,28 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
+  if (move.type === 'glacial-ray' || move.type === 'burning-ray') {
+      const dr = Math.sign(toRow - fromRow);
+      const dc = Math.sign(toCol - fromCol);
+      for (let i = 1; i <= 4; i++) {
+          const nr = fromRow + i * dr;
+          const nc = fromCol + i * dc;
+          if (!isValidSquare(nr, nc)) break;
+          const targetSq = newBoard[nr][nc];
+          if (move.type === 'glacial-ray') {
+              if (targetSq.piece) targetSq.piece.frozenTurnsRemaining = 2;
+          } else {
+              if (targetSq.piece) {
+                  selfDestructCaptures.push({ ...targetSq.piece, id: `${targetSq.piece.id}_burn_${Date.now()}` });
+                  targetSq.piece = null;
+              }
+              if (targetSq.item?.type === 'anvil') targetSq.item = null;
+          }
+      }
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
+  }
+
   if (move.type === 'phase-out') {
       const { row: tr, col: tc } = algebraicToCoords(move.from);
       for (let dr = -1; dr <= 1; dr++) {
@@ -320,7 +342,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(newBoard[r][c].piece?.id === 'boss-colossus-tl') { curTL_R = r; curTL_C = c; break; }
       parts.forEach(p => { if (isValidSquare(curTL_R + p.dr, curTL_C + p.dc)) newBoard[curTL_R + p.dr][curTL_C + p.dc].piece = null; });
       parts.forEach(p => {
-          const nr = toRow + p.dr; const nc = toCol + p.dc;
+          const nr = toRow + p.dr; const nc = toCol + dc;
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc].piece;
               if (victim && victim.color === opponentColor) {
@@ -633,6 +655,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (captured) {
+    const isShatter = pieceToLand.heldItem === 'ice_breaker' && (captured.frozenTurnsRemaining || 0) > 0;
+
     if (effectiveHeldItem === 'chameleon_cloak' && pieceToLand.type !== 'king') {
         pieceToLand.type = captured.type;
         pieceToLand.id = `${pieceToLand.id}_morph_${Date.now()}`;
@@ -700,6 +724,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
     }
     if (effectiveHeldItem === 'gravity_stone') triggerPull(newBoard, toRow, toCol, pieceToLand.color);
+    
+    if (isShatter) {
+        promotedToInfiltrator = true; // Temporary flag to trigger obliteration visuals/logic
+        captured = { ...captured, id: `shattered_${captured.id}_${Date.now()}` };
+    }
   }
 
   if (didLevelUp && effectiveHeldItem === 'soul_link') {

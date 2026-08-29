@@ -45,6 +45,7 @@ interface UserData {
   chameleonSyncV1?: boolean;
   chameleonSyncV2?: boolean;
   phaseOutSyncV1?: boolean;
+  raySyncV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -142,7 +143,8 @@ export function useUser() {
             sweetRevengeFixV1: true,
             chameleonSyncV1: true,
             chameleonSyncV2: true,
-            phaseOutSyncV1: true
+            phaseOutSyncV1: true,
+            raySyncV1: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -150,21 +152,6 @@ export function useUser() {
 
         let needsUpdate = false;
         const updates: any = {};
-
-        // Hanz Schemin' Compensation
-        const rawUsername = (currentData.username || "").trim();
-        const normalizedUsername = rawUsername.toLowerCase().replace(/[\u2018\u2019]/g, "'");
-        if (normalizedUsername === "hanz schemin'" && !currentData.hanzFixV1) {
-          updates.goldBalance = (currentData.goldBalance || 0) + 600;
-          updates.hanzFixV1 = true;
-          needsUpdate = true;
-        }
-
-        // Special ELO cases
-        if (currentData.username === 'SUGGA' && (currentData.eloRating || 0) < 2100) {
-          updates.eloRating = 2100;
-          needsUpdate = true;
-        }
 
         // Inventory Integrity Check
         const currentInv = currentData.inventory || [];
@@ -180,9 +167,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Phase Out and newer items
-        if (!currentData.phaseOutSyncV1) {
-            const forceAdd: InventoryItemType[] = ['phase_out'];
+        // Forced sync for Rays and Ice Breaker
+        if (!currentData.raySyncV1) {
+            const forceAdd: InventoryItemType[] = ['ice_breaker', 'glacial_ray', 'burning_ray'];
             forceAdd.forEach(t => {
                 const item = updatedInventory.find(i => i.type === t);
                 if (item) {
@@ -195,28 +182,12 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.phaseOutSyncV1 = true;
+            updates.raySyncV1 = true;
             needsUpdate = true;
         }
 
         if (inventoryNeedsSync) {
           updates.inventory = updatedInventory;
-          needsUpdate = true;
-        }
-
-        if (currentData.marketSlots === undefined) {
-          updates.marketSlots = [];
-          needsUpdate = true;
-        }
-        if (currentData.processedTransactions === undefined) {
-          updates.processedTransactions = [];
-          needsUpdate = true;
-        }
-
-        const currentUnlocks = currentData.unlockedPieces || [];
-        const nextUnlocks = Array.from(new Set([...currentUnlocks, ...PLAYTEST_UNLOCKS]));
-        if (nextUnlocks.length !== currentUnlocks.length) {
-          updates.unlockedPieces = nextUnlocks;
           needsUpdate = true;
         }
 
