@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -204,13 +205,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <RuleSection title="Active Afflictions">
                   <SubRule title="Poisoned">
-                    <RuleText>A unit loses 1 Level at the end of their turn. If a Level 1 unit is poisoned, they become 'Exhausted'.</RuleText>
+                    <RuleText>A unit loses 1 Level at the end of its turn. If a Level 1 unit is poisoned, it becomes 'Exhausted'. Poison can only be cured by gaining a level (via capture, shrooms, or rally cries).</RuleText>
                   </SubRule>
                   <SubRule title="Exhausted">
-                    <RuleText>The unit is too tired to move or act. They must wait 2 turns for the effect to wear off.</RuleText>
+                    <RuleText>The unit is too tired to move or act. This state is permanent until the unit is cured by gaining a level. Using a skill or piece ability also triggers a 1-turn cooldown.</RuleText>
                   </SubRule>
                   <SubRule title="Frozen">
-                    <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns.</RuleText>
+                    <RuleText>The unit is encased in ice and cannot move, capture, or be captured. Typically lasts 2 turns or until a level is gained.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>

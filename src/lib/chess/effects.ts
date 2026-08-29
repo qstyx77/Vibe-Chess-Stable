@@ -1,6 +1,6 @@
 
 import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent } from '@/types';
-import { isValidSquare, coordsToAlgebraic, getEffectiveLevel } from './utils';
+import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords } from './utils';
 import { FRONTLINE_TYPES } from './constants';
 
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor): Piece | null {
@@ -39,7 +39,13 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
         if(sq.piece.type !== 'queen' || sq.piece.level < 7) {
             const oldLevel = sq.piece.level;
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, sq.piece.level + 1);
-            if (sq.piece.level > oldLevel) rallied.push(sq.algebraic);
+            if (sq.piece.level > oldLevel) {
+                // Gaining a level clears all status effects
+                sq.piece.isPoisoned = false;
+                sq.piece.cooldownTurnsRemaining = 0;
+                sq.piece.frozenTurnsRemaining = 0;
+                rallied.push(sq.algebraic);
+            }
         }
       }
     }
@@ -145,8 +151,10 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
         if (currentL > 1) {
           p.level = currentL - 1;
         } else {
-          poisonedCaptures.push({ ...p });
-          newBoard[r][c].piece = null;
+          // If a Level 1 unit is poisoned, it becomes Exhausted instead of dying.
+          // This matches the updated rules logic.
+          p.cooldownTurnsRemaining = 1; 
+          // Note: Poison persists until a level is gained.
         }
       }
     }
@@ -223,7 +231,7 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
             if (isValidSquare(nr, nc)) {
                 const victim = board[nr][nc].piece;
                 if (victim && victim.color === oppColor) {
-                    victim.cooldownTurnsRemaining = 2;
+                    victim.cooldownTurnsRemaining = 1;
                 }
             }
         }
