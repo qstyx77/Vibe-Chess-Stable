@@ -10,7 +10,7 @@ export function createEmptyBoard(): BoardState {
     const row: SquareState[] = [];
     for (let c = 0; c < 8; c++) {
       const algebraic = String.fromCharCode(97 + c) + (8 - r) as AlgebraicSquare;
-      row.push({ piece: null, item: null, algebraic, rowIndex: r, colIndex: c, oilSlickTurnsRemaining: 0 });
+      row.push({ piece: null, item: null, algebraic, rowIndex: r, colIndex: c, oilSlickTurnsRemaining: 0, phasedPiece: null, phasedTurnsRemaining: 0 });
     }
     board.push(row);
   }
@@ -118,7 +118,7 @@ export function spawnShroom(board: BoardState): { newBoard: BoardState; spawnedA
 }
 
 export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null, didOpponentCaptureLastTurn?: boolean): ApplyMoveResult {
-  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null })));
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
   let enPassantTargetSet: AlgebraicSquare | null = null;
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
   const { row: toRow, col: toCol } = algebraicToCoords(move.to);
@@ -151,6 +151,25 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (movingPiece.heldItem === 'mirror_mask' || (movingPiece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem)) {
       effectiveHeldItem = lastMovedPieceHeldItem || null;
     }
+  }
+
+  if (move.type === 'phase-out') {
+      const { row: tr, col: tc } = algebraicToCoords(move.from);
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              const nr = tr + dr; const nc = tc + dc;
+              if (isValidSquare(nr, nc)) {
+                  const sq = newBoard[nr][nc];
+                  if (sq.piece && sq.piece.type !== 'king') {
+                      sq.phasedPiece = { ...sq.piece };
+                      if (nr === tr && nc === tc) sq.phasedPiece.heldItem = null;
+                      sq.piece = null;
+                      sq.phasedTurnsRemaining = 4;
+                  }
+              }
+          }
+      }
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
   }
 
   if (move.type === 'oil-slick') {
@@ -732,34 +751,4 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
   return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions, ralliedSquares, winByKingsConquest };
-}
-
-export function processRookResurrectionCheck(board: BoardState, player: PlayerColor, move: Move, square: AlgebraicSquare, oldL: number, graveyard: { white: Piece[], black: Piece[] }, idCounter: number) {
-  const { row: r, col: c } = algebraicToCoords(square);
-  const piece = board[r][c].piece;
-  if (!piece || !['rook', 'palace'].includes(piece.type) || piece.color !== player) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
-  const effectiveLevel = getEffectiveLevel(board, r, c);
-  if (effectiveLevel >= 4 && effectiveLevel > oldL) {
-    const myPile = player; 
-    if (!graveyard[myPile] || graveyard[myPile].length === 0) return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
-    const sorted = [...graveyard[myPile]].sort((a,b) => (VAL_MAP[b.type] || 0) - (VAL_MAP[a.type] || 0))[0];
-    const choice = sorted;
-    if (choice) {
-      const adj = [];
-      for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) if(dr!==0 || dc!==0) {
-        const nr=r+dr; const nc=c+dc; if(isValidSquare(nr,nc) && !board[nr][nc].piece && !board[nr][nc].item) adj.push(coordsToAlgebraic(nr,nc));
-      }
-      if (adj.length > 0) {
-        const target = adj[Math.floor(Math.random()*adj.length)];
-        const {row: rr, col: rc} = algebraicToCoords(target);
-        const res = { ...choice, level: piece.type === 'palace' ? choice.level : 1, id: `${choice.id}_res_${idCounter}`, hasMoved: false, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-        const oppBackRank = player === 'white' ? 0 : 7;
-        if (res.type === 'commander' && rr === oppBackRank) { res.type = 'hero'; res.id = `${res.id}_hero_res_${Date.now()}`; }
-        board[rr][rc].piece = res;
-        const newG = { ...graveyard, [myPile]: graveyard[myPile].filter(p => p.id !== choice.id) };
-        return { boardWithResurrection: board, capturedPiecesAfterResurrection: newG, resurrectionPerformed: true, resurrectedPieceData: res, resurrectedSquareAlg: target, newResurrectionIdCounter: idCounter+1, promotionRequiredForResurrectedPawn: FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank };
-      }
-    }
-  }
-  return { boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard, resurrectionPerformed: false, newResurrectionIdCounter: idCounter };
 }

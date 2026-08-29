@@ -83,6 +83,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'kings_conquest') return (type === 'king');
   if (item === 'power_glove') return type === 'grappler';
   if (item === 'chameleon_cloak') return type !== 'king';
+  if (item === 'phase_out') return type !== 'king';
   if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }

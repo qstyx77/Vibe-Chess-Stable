@@ -140,12 +140,31 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): BoardState 
 }
 
 export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[] } {
-  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null })));
+  const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
   const poisonedCaptures: Piece[] = [];
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
-      const p = newBoard[r][c].piece;
+      const sq = newBoard[r][c];
+
+      // Phased Decay & Quantum Re-Entry
+      if (sq.phasedTurnsRemaining > 0) {
+        sq.phasedTurnsRemaining--;
+        if (sq.phasedTurnsRemaining === 0 && sq.phasedPiece) {
+           if (sq.piece) {
+             // Quantum Collision
+             poisonedCaptures.push({ ...sq.piece });
+             poisonedCaptures.push({ ...sq.phasedPiece });
+             sq.piece = null;
+             sq.phasedPiece = null;
+           } else {
+             sq.piece = sq.phasedPiece;
+             sq.phasedPiece = null;
+           }
+        }
+      }
+
+      const p = sq.piece;
       if (p && p.color === currentPlayer) {
         // 1. Poison Processing
         if (p.isPoisoned) {
@@ -173,7 +192,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 }
 
 export function processOilSlickTimers(board: BoardState, player: PlayerColor): BoardState {
-    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
+    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             if (newBoard[r][c].oilSlickTurnsRemaining > 0) {

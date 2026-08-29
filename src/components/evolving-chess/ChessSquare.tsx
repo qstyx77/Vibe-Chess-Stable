@@ -129,7 +129,12 @@ export function ChessSquare({
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
       {squareData.oilSlickTurnsRemaining > 0 && (
-          <div className="absolute inset-0 z-0 bg-[#1e1b4b]/60 animate-pulse pointer-events-none" />
+          <div className="absolute inset-0 z-0 bg-[#1e1b4b]/60 animate-pulse pointer-none" />
+      )}
+      {squareData.phasedPiece && (
+        <div className="absolute inset-0 z-0 opacity-40 pointer-events-none">
+          <ChessPieceDisplay piece={squareData.phasedPiece} isMini={false} isOnBoard={true} />
+        </div>
       )}
       {item && item.type === 'anvil' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2", shouldRotateItemForTabletop && "rotate-180" )}> <PixelAnvil className="w-full h-full text-muted-foreground/90" /> </div> )}
       {item && item.type === 'shroom' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0", shouldRotateItemForTabletop && "rotate-180" )}> <div className="w-4/5 h-4/5 opacity-70 text-destructive"> <ShroomIcon /> </div> </div> )}

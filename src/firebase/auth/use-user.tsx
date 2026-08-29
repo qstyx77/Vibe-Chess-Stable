@@ -1,3 +1,4 @@
+
 'use client';
 import { doc, getFirestore, onSnapshot, setDoc, getDoc } from 'firebase/firestore';
 import { useEffect, useState, useRef } from 'react';
@@ -42,7 +43,8 @@ interface UserData {
   revengeSyncV1?: boolean;
   sweetRevengeFixV1?: boolean;
   chameleonSyncV1?: boolean;
-  chameleonSyncV2?: boolean; // New sync flag for forced update
+  chameleonSyncV2?: boolean;
+  phaseOutSyncV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -139,7 +141,8 @@ export function useUser() {
             revengeSyncV1: true,
             sweetRevengeFixV1: true,
             chameleonSyncV1: true,
-            chameleonSyncV2: true
+            chameleonSyncV2: true,
+            phaseOutSyncV1: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -177,9 +180,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Chameleon Cloak and newer items
-        if (!currentData.chameleonSyncV2) {
-            const forceAdd: InventoryItemType[] = ['chameleon_cloak', 'sweet_revenge', 'oil_slick', 'gamblers_coin'];
+        // Forced sync for Phase Out and newer items
+        if (!currentData.phaseOutSyncV1) {
+            const forceAdd: InventoryItemType[] = ['phase_out'];
             forceAdd.forEach(t => {
                 const item = updatedInventory.find(i => i.type === t);
                 if (item) {
@@ -192,7 +195,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.chameleonSyncV2 = true;
+            updates.phaseOutSyncV1 = true;
             needsUpdate = true;
         }
 
