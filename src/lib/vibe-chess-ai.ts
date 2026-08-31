@@ -131,7 +131,9 @@ export class VibeChessAI {
         const movingPiece = next.board[fR][fC].piece;
         if (!movingPiece) return next;
 
-        const targetPiece = next.board[tR][tC].piece;
+        const targetSq = next.board[tR][tC];
+        const targetPiece = targetSq.piece;
+        const targetItem = targetSq.item;
         let captureCount = 0;
 
         next.lastMovedPieceType = movingPiece.type;
@@ -153,6 +155,14 @@ export class VibeChessAI {
         } else if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap') {
             const p1 = { ...movingPiece, hasMoved: true, isShielded: false };
             const p2 = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
+            
+            // Check for shroom consumption during dance-swap
+            if (move.type === 'dance-swap' && targetItem?.type === 'shroom') {
+                p1.level += 1;
+                if (p1.type === 'queen') p1.level = Math.min(7, p1.level);
+                next.board[tR][tC].item = null;
+            }
+            
             next.board[tR][tC].piece = p1;
             next.board[fR][fC].piece = p2;
         } else if (move.type === 'self-destruct') {
@@ -175,6 +185,12 @@ export class VibeChessAI {
                 if (landedPiece.heldItem === 'sweet_revenge' && gs.didOpponentCaptureLastTurn) gain += 1;
                 landedPiece.level += gain;
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
+            }
+            
+            if (targetItem?.type === 'shroom') {
+                landedPiece.level += 1;
+                if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
+                next.board[tR][tC].item = null;
             }
 
             const backRank = landedPiece.color === 'white' ? 0 : 7;
@@ -349,6 +365,23 @@ export class VibeChessAI {
                 if (effLevel >= 2 && isValidSquareUtil(r-dir, c) && !gs.board[r-dir][c].piece && (!gs.board[r-dir][c].item || gs.board[r-dir][c].item?.type === 'shroom')) moves.push({from:[r,c], to:[r-dir,c], type:'move'});
                 if (effLevel >= 3) {
                     [-1,1].forEach(dc => { if(isValidSquareUtil(r, c+dc) && !gs.board[r][c+dc].piece && (!gs.board[r][c+dc].item || gs.board[r][c+dc].item?.type === 'shroom')) moves.push({from:[r,c], to:[r,c+dc], type:'move'}); });
+                }
+                
+                // Dancer special skill 'The Dance' candidate generation (KS 1 reward)
+                if (p.type === 'dancer' && gs.killStreaks[p.color] >= 1) {
+                    for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                        if(dr===0 && dc===0) continue;
+                        const nr = r+dr, nc = c+dc;
+                        if (isValidSquareUtil(nr, nc)) {
+                            const tSq = gs.board[nr][nc];
+                            const isAdjacent = Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
+                            const isForward = (dr === dir && dc === 0);
+                            
+                            if (isAdjacent && tSq.piece) moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
+                            else if (isForward && (!tSq.item || tSq.item.type === 'shroom')) moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
+                            else if (isAdjacent && tSq.item?.type === 'anvil' && p.heldItem === 'dancers_ribbon') moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
+                        }
+                    }
                 }
                 break;
             case 'infiltrator':
@@ -556,11 +589,11 @@ export class VibeChessAI {
 
     isInCheck(gs: AIGameState, color: PlayerColor, simplified: boolean = false): boolean {
         if (color === 'black') {
-            const parts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
-            if (parts.length > 0) {
+            const colossusParts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
+            if (colossusParts.length > 0) {
                 const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
                 if (otherMinions) return false;
-                for (const pt of parts) {
+                for (const pt of colossusParts) {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
                     if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white', simplified)) return true;
                 }

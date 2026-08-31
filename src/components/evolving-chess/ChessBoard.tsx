@@ -263,7 +263,7 @@ export function ChessBoard({
                 else if (isAdjacent) {
                     if (targetP) isDanceTarget = true; 
                     else if (targetItem?.type === 'anvil' && dancerPiece?.heldItem === 'dancers_ribbon') isDanceTarget = true; 
-                    else if (!targetItem && isForward) isDanceTarget = true; 
+                    else if ((!targetItem || targetItem.type === 'shroom') && isForward) isDanceTarget = true; 
                 }
             }
           }
