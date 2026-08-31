@@ -1152,7 +1152,7 @@ export default function DungeonPage() {
           let moveType: Move['type'] = 'move';
           if (movingPiece?.type === 'king' && !movingPiece.hasMoved && ((movingPiece.color === 'white' && selectedSquare === 'e1' && (algebraic === 'c1' || algebraic === 'g1')) || (movingPiece.color === 'black' && selectedSquare === 'e8' && (algebraic === 'c8' || algebraic === 'g8'))) && fromR === row && !sq.piece) { moveType = 'castle'; }
           else if (FRONTLINE_TYPES.includes(movingPiece?.type) && algebraic === enPassantTargetSquare) { moveType = 'enpassant'; }
-          else if (sq.piece) { if (sq.piece.color !== movingPiece?.color) moveType = 'swap'; else moveType = 'capture'; }
+          else if (sq.piece) { if (sq.piece.color === movingPiece?.color) moveType = 'swap'; else moveType = 'capture'; }
           const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn);
           let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
           const updatedGraveyard = { ...capturedPieces };
