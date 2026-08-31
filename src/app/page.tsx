@@ -1,4 +1,3 @@
-
 'use client';
 
 import type { ReactNode } from 'react';
@@ -834,9 +833,9 @@ export default function EvolvingChessPage() {
         const canLand = (!sq?.piece && !sq?.item) || (grappledItemSubject?.type === 'anvil' && sq?.piece);
         if (canLand) {
             const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
-            const isCardinal = fr === actualRowIndex || fc === actualColIndex;
-            const isDiagonal = Math.abs(fr - actualRowIndex) === Math.abs(fc - actualColIndex);
-            const dist = Math.max(Math.abs(fr - actualRowIndex), Math.abs(fc - actualColIndex));
+            const isCardinal = fr === row || fc === col;
+            const isDiagonal = Math.abs(fr - row) === Math.abs(fc - col);
+            const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
             if ((isCardinal || isDiagonal) && dist <= range && dist > 0) {
                 pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const move: Move = { from: selectedSquare!, to: algebraic, type: 'grapple-throw' };
@@ -1216,13 +1215,7 @@ export default function EvolvingChessPage() {
     setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setAbilityChoiceDialog(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAwaitingRayTarget(null); setIsAiThinking(false); setIsWhiteAI(false); setIsBlackAI(false); gameOverRef.current = false; addLog("Game Reset."); aiInstanceRef.current = new VibeChessAI(aiDifficulty);
   }
 
-  useEffect(() => { if (!hasInitializedSession.current && !isUserLoading && userData && user) { hasInitializedSession.current = true; fullGameReset(); } }, [isUserLoading, userData, user, aiDifficulty]);
-
-  useEffect(() => {
-    if (((currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI)) && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking && onlineStatus === 'disconnected') {
-      const timer = setTimeout(performAiMove, 1000); return () => clearTimeout(timer);
-    }
-  }, [currentPlayer, isWhiteAI, isBlackAI, gameInfo.gameOver, isMoveProcessing, performAiMove, isAiThinking, gameMoveCounter, onlineStatus, isAnySpecialModeActive]);
+  useEffect(() => { if (!hasInitializedSession.current && !isUserLoading) { hasInitializedSession.current = true; fullGameReset(); } }, [isUserLoading, userData, user, aiDifficulty]);
 
   const mobileLayout = (
     <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 lg:hidden overflow-y-auto scrollbar-hide">
