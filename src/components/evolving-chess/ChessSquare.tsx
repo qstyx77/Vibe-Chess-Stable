@@ -1,6 +1,6 @@
-
 'use client';
 
+import React, { memo } from 'react';
 import type { SquareState, ViewMode, AlgebraicSquare, PlayerColor, Item, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { cn } from '@/lib/utils';
@@ -46,7 +46,7 @@ interface ChessSquareProps {
   isAwaitingOilSlickTarget?: boolean;
 }
 
-export function ChessSquare({
+export const ChessSquare = memo(({
   squareData,
   isLightSquare,
   isSelected,
@@ -83,7 +83,7 @@ export function ChessSquare({
   effectiveLevel,
   isGrimoirBoosted = false,
   isAwaitingOilSlickTarget = false,
-}: ChessSquareProps) {
+}: ChessSquareProps) => {
   const piece = squareData.piece;
   const item = squareData.item;
 
@@ -143,4 +143,5 @@ export function ChessSquare({
        <span className="absolute top-0.5 right-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20"> {squareData.algebraic} </span>
     </button>
   );
-}
+});
+ChessSquare.displayName = 'ChessSquare';

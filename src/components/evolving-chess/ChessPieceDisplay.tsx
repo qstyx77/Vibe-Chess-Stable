@@ -1,4 +1,4 @@
-
+import React, { memo } from 'react';
 import type { Piece, ViewMode } from '@/types';
 import { cn } from '@/lib/utils';
 import { 
@@ -62,7 +62,7 @@ const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
   king: PixelKing,
 };
 
-export function ChessPieceDisplay({
+export const ChessPieceDisplay = memo(({
   piece,
   isKingInCheck = false,
   viewMode,
@@ -76,7 +76,7 @@ export function ChessPieceDisplay({
   isGrimoirBoosted = false,
   isMini = false,
   isOnBoard = false,
-}: ChessPieceDisplayProps) {
+}: ChessPieceDisplayProps) => {
   
   if (piece.id?.startsWith('boss-colossus') && isOnBoard) {
       return null;
@@ -202,4 +202,5 @@ export function ChessPieceDisplay({
       </div>
     </div>
   );
-}
+});
+ChessPieceDisplay.displayName = 'ChessPieceDisplay';

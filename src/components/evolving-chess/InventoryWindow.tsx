@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import type { InventoryItem, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,7 +22,7 @@ interface InventoryWindowProps {
   usedSlots: number;
 }
 
-export function InventoryWindow({
+export const InventoryWindow = memo(({
   isOpen,
   onClose,
   inventory,
@@ -32,7 +31,7 @@ export function InventoryWindow({
   onUseItem,
   usedSlots,
   attunementSlots
-}: InventoryWindowProps) {
+}: InventoryWindowProps) => {
   const { userData } = useUser();
   const [position, setPosition] = useState({ x: 20, y: 80 });
   const [isDragging, setIsDragging] = useState(false);
@@ -199,4 +198,5 @@ export function InventoryWindow({
       </Card>
     </div>
   );
-}
+});
+InventoryWindow.displayName = 'InventoryWindow';

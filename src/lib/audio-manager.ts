@@ -9,6 +9,19 @@ class AudioManager {
   private isInitialized: boolean = false;
   private currentVolumePercent: number = 100; // 0 to 200
 
+  constructor() {
+    if (typeof window !== 'undefined') {
+      const unlock = () => {
+        this.init();
+        this.resume();
+        window.removeEventListener('mousedown', unlock);
+        window.removeEventListener('touchstart', unlock);
+      };
+      window.addEventListener('mousedown', unlock);
+      window.addEventListener('touchstart', unlock);
+    }
+  }
+
   private init() {
     if (this.isInitialized) return;
     try {

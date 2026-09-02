@@ -1,6 +1,6 @@
-
 'use client';
 
+import React, { memo } from 'react';
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
@@ -146,7 +146,7 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
   }
 };
 
-export function ChessBoard({
+export const ChessBoard = memo(({
   boardState,
   selectedSquare,
   possibleMoves = [],
@@ -194,7 +194,7 @@ export function ChessBoard({
   isSelectingSporeBombShroom,
   isAwaitingOilSlickTarget,
   isAwaitingRayTarget
-}: ChessBoardProps) {
+}: ChessBoardProps) => {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
   const displayBoard = visuallyFlipBoardForLogic ? [...boardState].reverse().map(row => [...row].reverse()) : boardState;
@@ -335,4 +335,5 @@ export function ChessBoard({
        {effects.map(effect => ( <EffectOverlay key={effect.id} effect={effect} visuallyFlipBoardForLogic={visuallyFlipBoardForLogic} /> ))}
     </div>
   );
-}
+});
+ChessBoard.displayName = 'ChessBoard';
