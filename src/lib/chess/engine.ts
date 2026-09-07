@@ -24,6 +24,7 @@ export function initializeBoard(
 ): BoardState {
   const board = createEmptyBoard();
 
+  // --- WHITE BACK RANK ---
   const whiteBishops: Piece[] = [
     { id: 'wB1', type: whiteElo >= 1500 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
@@ -50,6 +51,34 @@ export function initializeBoard(
   board[7][3].piece = { id: 'wQ', type: 'queen', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   board[7][4].piece = { id: 'wK', type: 'king', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
+  // --- BLACK BACK RANK ---
+  const blackBishops: Piece[] = [
+    { id: 'bB1', type: blackElo >= 1500 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const blackRooks: Piece[] = [
+    { id: 'bR1', type: blackElo >= 1800 ? 'palace' : 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bR2', type: 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+  const blackKnights: Piece[] = [
+    { id: 'bN1', type: blackElo >= 2100 ? 'archer' : 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
+    { id: 'bN2', type: 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
+  ];
+
+  const bBPos = [2, 5].sort(() => Math.random() - 0.5);
+  const bNPos = [1, 6].sort(() => Math.random() - 0.5);
+  const bRPos = [0, 7].sort(() => Math.random() - 0.5);
+
+  board[0][bBPos[0]].piece = blackBishops[0];
+  board[0][bBPos[1]].piece = blackBishops[1];
+  board[0][bNPos[0]].piece = blackKnights[0];
+  board[0][bNPos[1]].piece = blackKnights[1];
+  board[0][bRPos[0]].piece = blackRooks[0];
+  board[0][bRPos[1]].piece = blackRooks[1];
+  board[0][3].piece = { id: 'bQ', type: 'queen', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+  board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+
+  // --- FRONTLINE ---
   const assignFrontlineTypes = (color: PlayerColor, unlocks: string[]) => {
     const prefix = color === 'white' ? 'w' : 'b';
     const army: Piece[] = [];
