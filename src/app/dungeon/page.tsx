@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -41,7 +40,7 @@ import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { AuthWidget } from '@/components/auth/AuthWidget';
 import { doc } from 'firebase/firestore';
-import Link from 'next/navigation';
+import Link from 'next/link';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -276,7 +275,7 @@ export default function DungeonPage() {
   const aiInstance = useRef<VibeChessAI | null>(null);
   const clickGuard = useRef(false);
 
-  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDanceTarget || dancerToDance || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom || isAwaitingOilSlickTarget || isAwaitingRayTarget;
+  const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDanceTarget || !!dancerToDance || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom || isAwaitingOilSlickTarget || !!isAwaitingRayTarget;
 
   const usedSlots = useMemo(() => {
     return board.flat().filter(sq => sq.piece?.heldItem).length;
@@ -544,7 +543,7 @@ export default function DungeonPage() {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(actingPlayer);
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const pawnSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
+            const pawnSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
             if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog("First Blood! Dungeon has promoted a Commander."); }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId, wasCaptureThisTurn); return;
         } else {
@@ -912,7 +911,7 @@ export default function DungeonPage() {
         return;
     }
     if (isSelectingTeleportAlly) {
-        if (piece && piece.color === currentPlayer && piece.type !== ' king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) {
             setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog(`Teleporting ${piece.type}! Select a destination shroom.`);
         }
         return;
