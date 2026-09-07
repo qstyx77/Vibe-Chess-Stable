@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -269,6 +270,12 @@ export default function DungeonPage() {
   const [effects, setEffects] = useState<Effect[]>([]);
   const [animatedSquareTo, setAnimatedSquareTo] = useState<AlgebraicSquare | null>(null);
 
+  const uniqueIdCounterRef = useRef(30000);
+  const gameOverRef = useRef(false);
+  const isInitialized = useRef(false);
+  const aiInstance = useRef<VibeChessAI | null>(null);
+  const clickGuard = useRef(false);
+
   const isAnySpecialModeActive = isAwaitingCommanderPromotion || isAwaitingAnvilDrop || isPromotingPawn || isAwaitingPawnSacrifice || isInventoryOpen || isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || isAwaitingSwapScrollTarget || isAwaitingHolyShield || isAwaitingArcherSnipe || isAwaitingDanceTarget || dancerToDance || isAwaitingGrappleThrow || isAwaitingEarthquakeScrollTarget || isSelectingMycoSpell || isSelectingTeleportAlly || isSelectingTeleportShroom || isSelectingSporeBombShroom || isAwaitingOilSlickTarget || isAwaitingRayTarget;
 
   const usedSlots = useMemo(() => {
@@ -309,12 +316,6 @@ export default function DungeonPage() {
     isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget,
     gameInfo.message
   ]);
-
-  const uniqueIdCounterRef = useRef(30000);
-  const gameOverRef = useRef(false);
-  const isInitialized = useRef(false);
-  const aiInstance = useRef<VibeChessAI | null>(null);
-  const clickGuard = useRef(false);
 
   const handlePieceHover = useCallback((p: Piece | null) => { setPieceForInfoDisplay(p); }, []);
 
@@ -507,12 +508,17 @@ export default function DungeonPage() {
                     candidates.sort((a,b) => b.priority - a.priority);
                     if (candidates.length > 0) {
                         const best = candidates[0];
-                        const targetPiece = nextBoard[best.r][best.c].piece;
-                        const targetItem = nextBoard[best.r][best.c].item;
-                        nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                        const targetSq = nextBoard[best.r][best.c];
+                        const targetPiece = targetSq.piece;
+                        const targetItem = targetSq.item;
+                        if (targetItem?.type === 'shroom') {
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true, level: (dancerPiece.level || 1) + 1 };
+                        } else {
+                            nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true };
+                        }
                         nextBoard[best.r][best.c].item = null;
-                        nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true } : null;
-                        nextBoard[r][c].item = targetItem;
+                        nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
+                        nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
                         addLog(`Dungeon Dancer performed a free ${targetPiece ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
                     }
                 }
@@ -528,7 +534,7 @@ export default function DungeonPage() {
             if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; }
             addLog("First Blood! Dungeon has promoted a Commander."); triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId, wasCaptureThisTurn); return;
         } else {
-            const hasL1Targets = boardToChain.flat().some(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'white' && sq.piece.level === 1);
+            const hasL1Targets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
             if (hasL1Targets) { setSpecialActionContext({ boardForNextStep: boardToChain, extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'firstBlood'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a Pawn to promote."); return; }
         }
     }
@@ -598,7 +604,7 @@ export default function DungeonPage() {
     if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {
         const myPile = actingPlayer; 
         if (nextGraveyard[myPile].length > 0) {
-            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
+            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
             const sorted = [...nextGraveyard[myPile]].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0));
             const choice = sorted[0]; const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && empty.length > 0) {
@@ -688,50 +694,62 @@ export default function DungeonPage() {
       }
 
       const result = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn);
-      let { newBoard, capturedPiece, selfDestructCaptures, shroomConsumed, enPassantTargetSet: nextEp, reflectionOccurred } = result;
-      const updatedCapturedPieces = { white: [...capturedPieces.white], black: [...capturedPieces.black] };
+      let nextBoard = result.newBoard; const updatedCapturedPieces = { white: [...capturedPieces.white], black: [...capturedPieces.black] };
       
       if (result.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === result.itemReturned); if (existing) existing.count++; else next.push({ type: result.itemReturned!, count: 1 }); return next; }); addLog(`Dungeon Item Dropped: ${ITEM_METADATA[result.itemReturned].name}`); }
-      if (reflectionOccurred) {
-          const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedCapturedPieces[targetPile].push(victim); setCapturedPieces(updatedCapturedPieces);
-          audioManager.playCapture(); const newKs = { white: 0, black: 0 }; setKillStreaks(newKs); setBoard(newBoard); addLog("Dungeon reflected your attack!"); addEffect('poof', toAlg);
-          setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedCapturedPieces, newKs, 'black', false, null, false); }, 800); return;
+      if (result.reflectionOccurred) {
+          const victim = result.capturedPiece!; const targetPile = victim.color; updatedCapturedPieces[targetPile].push({ ...victim, id: victim.id }); setCapturedPieces(updatedCapturedPieces);
+          audioManager.playCapture(); const newKs = { white: 0, black: 0 }; setKillStreaks(newKs); setBoard(nextBoard); addLog("Dungeon reflected your attack!"); addEffect('poof', toAlg);
+          setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(nextBoard, updatedCapturedPieces, newKs, 'black', false, null, false); }, 800); return;
       }
-      if (shroomConsumed) { audioManager.playShroom(); addLog("Dungeon piece consumed a Shroom!"); addEffect('level-change', toAlg, 'black', 1); }
+      if (result.shroomConsumed) { audioManager.playShroom(); addLog("Dungeon piece consumed a Shroom!"); addEffect('level-change', toAlg, 'black', 1); }
       if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); addLog("Dungeon Rallying Cry!"); }
       if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => { addEffect('level-change', sq, 'black', 1); }); }
-      const isObliteration = result.promotedToInfiltrator || (movingPiece.type === 'infiltrator' && capturedPiece);
+      const isObliteration = result.promotedToInfiltrator || (movingPiece.type === 'infiltrator' && result.capturedPiece);
       if (isObliteration) { audioManager.playObliterate(); addLog("Dungeon Obliterated your piece!"); addEffect('poof', toAlg); }
-      else if (capturedPiece || (selfDestructCaptures && selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffect('poof', toAlg); if (capturedPiece) addLog(`Dungeon captured your ${capturedPiece.type}!`); }
+      else if (result.capturedPiece || (result.selfDestructCaptures && result.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffect('poof', toAlg); if (result.capturedPiece) addLog(`Dungeon captured your ${result.capturedPiece.type}!`); }
       else { audioManager.playMove(); addLog(`Dungeon ${movingPiece.type} to ${toAlg}`); }
-      if (capturedPiece && !isObliteration) { const targetPile = capturedPiece.color; updatedCapturedPieces[targetPile].push({ ...capturedPiece!, id: capturedPiece!.id }); }
-      if (selfDestructCaptures && selfDestructCaptures.length > 0) { selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedCapturedPieces[targetPile].push({ ...p, id: p.id }); addEffect('poof', toAlg); }); if (selfDestructCaptures.length > 0) { addLog(`Dungeon collateral damage: ${selfDestructCaptures.length} unit(s) destroyed!`); } }
+      if (result.capturedPiece && !isObliteration) { const targetPile = result.capturedPiece.color; updatedCapturedPieces[targetPile].push({ ...result.capturedPiece!, id: result.capturedPiece!.id }); }
+      if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedCapturedPieces[targetPile].push({ ...p, id: p.id }); addEffect('poof', toAlg); }); if (result.selfDestructCaptures.length > 0) { addLog(`Dungeon collateral damage: ${result.selfDestructCaptures.length} unit(s) destroyed!`); } }
       setCapturedPieces(updatedCapturedPieces);
-      if (result.infiltrationWin) { setBoard(newBoard); setGameInfo({ message: "INFILTRATION! DUNGEON OVERRUN", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: 'black' }); gameOverRef.current = true; audioManager.playDefeat(); setIsAiThinking(false); setIsMoveProcessing(false); addLog("INFILTRATION! The dungeon has overrun your position."); return; }
+      if (result.infiltrationWin) { setBoard(nextBoard); setGameInfo({ message: "INFILTRATION! DUNGEON OVERRUN", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, gameOver: true, winner: 'black' }); gameOverRef.current = true; audioManager.playDefeat(); setIsAiThinking(false); setIsMoveProcessing(false); addLog("INFILTRATION! The dungeon has overrun your position."); return; }
       if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); audioManager.playConversion(); addLog(`Dungeon converted ${e.originalPiece.type} to its side!`); }); }
       
-      const aiLandedPieceOnToSquare = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
-      const capturerId = aiLandedPieceOnToSquare?.id || null;
+      const aiLandedPiece = nextBoard[aiMove.to[0]][aiMove.to[1]].piece;
+      const capturerId = aiLandedPiece?.id || null;
       
-      if (aiLandedPieceOnToSquare && (['rook', 'palace'].includes(aiLandedPieceOnToSquare.type)) && (capturedPiece || result.pieceCapturedByAnvil)) {
-          const resResult = processRookResurrectionCheck(newBoard, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, toAlg, originalL, updatedCapturedPieces, uniqueIdCounterRef.current);
-          if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; setCapturedPieces(resResult.capturedPiecesAfterResurrection); updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white; updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black; addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Dungeon resurrected a ${resResult.resurrectedPieceData?.type}!`); if (resResult.promotionRequiredForResurrectedPawn) { const {row, col} = algebraicToCoords(resResult.resurrectedSquareAlg!); newBoard[row][col].piece!.type = 'queen'; } }
+      if (aiLandedPiece && (['rook', 'palace'].includes(aiLandedPiece.type)) && (result.capturedPiece || result.pieceCapturedByAnvil)) {
+          const resResult = processRookResurrectionCheck(nextBoard, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, toAlg, originalL, updatedCapturedPieces, uniqueIdCounterRef.current);
+          if (resResult.resurrectionPerformed) { 
+              uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; 
+              nextBoard = resResult.boardWithResurrection; 
+              updatedCapturedPieces.white = resResult.capturedPiecesAfterResurrection.white;
+              updatedCapturedPieces.black = resResult.capturedPiecesAfterResurrection.black;
+              setCapturedPieces({ ...updatedCapturedPieces });
+              addEffect('light-beam', resResult.resurrectedSquareAlg!); 
+              audioManager.playResurrect(); 
+              addLog(`Dungeon resurrected a ${resResult.resurrectedPieceData?.type}!`); 
+              if (resResult.promotionRequiredForResurrectedPawn) { 
+                  const {row, col} = algebraicToCoords(resResult.resurrectedSquareAlg!); 
+                  nextBoard[row][col].piece!.type = 'queen'; 
+              } 
+          }
       }
-      const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (selfDestructCaptures ? selfDestructCaptures.length : 0);
+      const streakGain = (result.capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures ? result.selfDestructCaptures.length : 0);
       const oldStreakLocal = killStreaks['black'] || 0; const newStreakLocal = streakGain > 0 ? oldStreakLocal + streakGain : 0;
       const currentKs = { ...killStreaks, black: newStreakLocal }; setKillStreaks(currentKs);
       if (streakGain > 0) addEffect('level-change', toAlg, 'black', streakGain);
-      setBoard(newBoard);
+      setBoard(nextBoard);
       const wasCap = streakGain > 0;
       setTimeout(() => {
           setIsAiThinking(false); setIsMoveProcessing(false); if (gameOverRef.current) return;
-          let isExtra = result.extraTurn || (oldStreakLocal < 6 && newStreakLocal >= 6); const landedPiece = newBoard[aiMove.to[0]][aiMove.to[1]].piece;
+          let isExtra = result.extraTurn || (oldStreakLocal < 6 && newStreakLocal >= 6); const landedPiece = nextBoard[aiMove.to[0]][aiMove.to[1]].piece;
           const oppBackRankIdx = 7;
           if (landedPiece && FRONTLINE_TYPES.includes(landedPiece.type) && (aiMove.to[0] === oppBackRankIdx)) { 
-            const promoTo = aiMove.promoteTo || 'queen'; landedPiece!.type = promoTo; landedPiece!.level = getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); addLog(`Dungeon promoted to ${promoTo}!`); if (landedPiece!.level >= 5) isExtra = true;
+            const promoTo = aiMove.promoteTo || 'queen'; landedPiece!.type = promoTo; landedPiece!.level = getPromotionLevel(result.capturedPiece?.type || result.pieceCapturedByAnvil?.type || null); if (landedPiece!.type === 'queen') landedPiece!.level = Math.min(landedPiece!.level, 7); audioManager.playLevelUp(); addLog(`Dungeon promoted to ${promoTo}!`); if (landedPiece!.level >= 5) isExtra = true;
           }
-          if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row, col } = algebraicToCoords(promo.square); if (newBoard[row][col].piece) { newBoard[row][col].piece!.type = 'queen'; newBoard[row][col].piece!.level = promo.targetLevel; if (newBoard[row][col].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
-          processPawnSacrificeCheck(newBoard, updatedCapturedPieces, currentKs, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, originalL, originalT, isExtra, nextEp, oldStreakLocal, newStreakLocal, capturerId, wasCap);
+          if (result.multiPromotions && result.multiPromotions.length > 0) { result.multiPromotions.forEach(promo => { const { row, col } = algebraicToCoords(promo.square); if (nextBoard[row][col].piece) { nextBoard[row][col].piece!.type = 'queen'; nextBoard[row][col].piece!.level = promo.targetLevel; if (nextBoard[row][col].piece!.level >= 5) isExtra = true; addLog("Dungeon multi-promotion!"); } }); }
+          processPawnSacrificeCheck(nextBoard, updatedCapturedPieces, currentKs, 'black', {from: fromAlg, to: toAlg, type: 'move'} as Move, originalL, originalT, isExtra, result.enPassantTargetSet, oldStreakLocal, newStreakLocal, capturerId, wasCap);
       }, 800);
     } catch (e) { console.error("AI Error:", e); setIsAiThinking(false); }
   }, [board, killStreaks, capturedPieces, enPassantTargetSquare, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, currentPlayer, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, addEffect, addLog, necroResurrectionCounter, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, processPawnSacrificeCheck, userData, gameMoveCounter, level, aiPanicCount, didCaptureLastTurn]);
@@ -952,11 +970,15 @@ export default function DungeonPage() {
                 const targetP = nextBoard[row][col].piece;
                 const targetI = nextBoard[row][col].item;
                 
-                // EXECUTE SWAP
-                nextBoard[row][col].piece = { ...dancerP, hasMoved: true };
+                if (targetI?.type === 'shroom') {
+                    nextBoard[row][col].piece = { ...dancerP, hasMoved: true, level: (dancerP.level || 1) + 1 };
+                    if (nextBoard[row][col].piece!.level > 7 && nextBoard[row][col].piece!.type === 'queen') nextBoard[row][col].piece!.level = 7;
+                } else {
+                    nextBoard[row][col].piece = { ...dancerP, hasMoved: true };
+                }
                 nextBoard[row][col].item = null;
                 nextBoard[fr][fc].piece = targetP ? { ...targetP, hasMoved: true } : null;
-                nextBoard[fr][fc].item = targetI;
+                nextBoard[fr][fc].item = targetI?.type === 'shroom' ? null : targetI;
                 
                 addLog(`Dancer ${targetP ? 'Swapped' : (targetI ? 'Anvil Swapped' : 'Moved')}!`);
                 setBoard(nextBoard); setCapturedPieces(nextG); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
@@ -1025,7 +1047,7 @@ export default function DungeonPage() {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
             const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false); setBoard(result.newBoard); audioManager.playMove();
             setIsAwaitingSwapScrollTarget(false); addLog("Swap Scroll triggered!");
-            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingSwapScrollTarget(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingSwapScrollTarget(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false); }, 800);
         }
         return;
     }
@@ -1098,130 +1120,130 @@ export default function DungeonPage() {
             triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.extra, enPassantTargetSquare, currentPlayer, specialActionContext!.completedMilestones || [], specialActionContext!.capturingPieceId, false);
         }
         return;
-    }
-    if (selectedSquare) {
-      const { row: fromR, col: fromC } = algebraicToCoords(selectedSquare); const movingPiece = board[fromR][fromC].piece;
-      const oppCapLastTurn = didCaptureLastTurn.black;
-      const isExecutionAllowed = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && currentPlayer === 'white' && !isAnySpecialModeActive;
-      if (isExecutionAllowed && movingPiece && movingPiece.color === currentPlayer) {
-        const effectiveLevel = getEffectiveLevel(board, fromR, fromC); const silenced = isSilenced(board, fromR, fromC, currentPlayer);
-        if (!silenced && movingPiece.type === 'myco_mage' && selectedSquare === algebraic) { setIsSelectingMycoSpell(true); addLog("Mushroomancy active! Choose a spell."); return; }
-        if (!silenced && movingPiece.type === 'grappler') {
-            if (piece && algebraic !== selectedSquare) {
-                const {row: pr, col: pc} = algebraicToCoords(algebraic); const isAdj = Math.abs(fromR-pr) <=1 && Math.abs(fromC-pc) <= 1;
-                if (isAdj) {
-                  const dir = movingPiece.color === 'white' ? -1 : 1; const isDiagForward = (pr === fromR + dir) && Math.abs(pc - fromC) === 1; const isEnemy = piece.color !== movingPiece.color;
-                  if (isEnemy && isDiagForward) { } else { if (piece.type === 'king') { addLog("Too Heavy! Cannot grapple Kings."); } else { setGrappledPieceSubject({ piece: { ...piece }, from: algebraic }); let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null}))); nextBoard[pr][pc].piece = null; setBoard(nextBoard); setIsAwaitingGrappleThrow(true); addLog(`Grappler picked up ${piece.type}!`); } return; }
-                }
-            } else if (sq?.item?.type === 'anvil' && movingPiece.heldItem === 'power_glove' && algebraic !== selectedSquare) {
-                const isAdj = Math.abs(fromR - row) <= 1 && Math.abs(fromC - col) <= 1;
-                if (isAdj) {
-                    setGrappledItemSubject({ type: 'anvil', from: algebraic });
-                    let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null})));
-                    nextBoard[row][col].item = null; setBoard(nextBoard); setIsAwaitingGrappleThrow(true); addLog("Grappler picked up an Anvil!"); return;
-                }
-            }
-        }
-        const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll', 'demonic_possession', 'heavy_rain', 'trap_net', 'oil_slick', 'phase_out', 'glacial_ray', 'burning_ray'].includes(movingPiece.heldItem);
-        if (selectedSquare === algebraic && (effectiveLevel >= 5 || hasMagicScroll)) {
-          if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) { addLog("Piece is too exhausted to use skills."); return; }
-          
-          const executeOilSlick = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'oil_slick'); setIsAwaitingOilSlickTarget(true); setPossibleMoves([]); addLog("Select 3x3 area for Oil Slick!"); };
-          const executeRayMode = (type: 'glacial' | 'burning') => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, type === 'glacial' ? 'glacial_ray' : 'burning_ray'); setIsAwaitingRayTarget(type); setPossibleMoves([]); addLog(`Select ${type.toUpperCase()} RAY direction!`); };
-          const executePhaseOut = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'phase_out'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'phase-out' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playAnvil(); addLog("Phasing active!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeTrapNet = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'trap_net'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'trap-net' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playMove(); addLog("Trap Net deployed!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeLifeLeach = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'life_leach'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Life Leach triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeWindScrollMode = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'wind_scroll'); setIsAwaitingWindScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Wind push!"); };
-          const executeEarthquakeScrollMode = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'earthquake_scroll'); setIsAwaitingEarthquakeScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Earthquake!"); };
-          const executeSummonAnvilMode = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'summon_anvil'); setIsAwaitingAnvilScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Anvil Drop!"); };
-          const executeShieldScrollMode = () => { if(effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'shield_scroll'); setIsAwaitingHolyShield(true); setPossibleMoves([]); addLog("Select an ally for Holy Shield!"); };
-          const executeRallyScroll = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'rally_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playRally(); if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, currentPlayer, 1)); } addLog("Global Rally triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeAntidote = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'antidote'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playShield(); addLog("Antidote used: All allies cured of Poison."); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeSwapScrollMode = () => { if(effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'swap_scroll'); setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); addLog("Select an ally for Swap Scroll!"); };
-          const executeIceScroll = () => { if (effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playShield(); addLog("Ice Scroll triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeIceBlast = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_blast'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-blast' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Ice Blast: Adjacent enemies frozen!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeSoulHarvest = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'soul_harvest'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'soul-harvest' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Soul Harvest: Absorbed adjacent power!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeResurrectionScroll = () => { if (effectiveLevel < 4) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'resurrection_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); const updatedGraveyard = { ...capturedPieces }; if (result.resurrectionScrollEvent) { const p = result.resurrectionScrollEvent.piece; const targetPile = p.color; updatedGraveyard[targetPile] = updatedGraveyard[targetPile].filter(pi => pi.id !== p.id); setCapturedPieces(updatedGraveyard); addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); addLog(`Resurrected ${p.type}!`); } setBoard(result.newBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, updatedGraveyard, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeFaithScroll = () => { if (effectiveLevel < 5) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'faith_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); } setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
-          const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); setSelectedSquare(null); setPossibleMoves([]); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare, currentPlayer, [], null, capturesThisTurn > 0); }, 800); };
-          
-          if (movingPiece.heldItem === 'oil_slick') executeOilSlick();
-          else if (movingPiece.heldItem === 'glacial_ray') executeRayMode('glacial');
-          else if (movingPiece.heldItem === 'burning_ray') executeRayMode('burning');
-          else if (movingPiece.heldItem === 'phase_out') executePhaseOut();
-          else if (movingPiece.heldItem === 'trap_net') executeTrapNet();
-          else if (effectiveLevel >= 5) {
-             const choice = window.confirm("Use piece ability (OK) or magic scroll (Cancel)?"); 
-             if (choice) executeSelfDestruct();
-             else { if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else addLog("Level Too Low!"); } else if (movingPiece.heldItem === 'kings_decree') { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'kings_decree'); setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode(); }
-          } else {
-             if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else addLog("Level Too Low!"); } else if (movingPiece.heldItem === 'kings_decree') { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'kings_decree'); setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode();
+  }
+  if (selectedSquare) {
+    const { row: fromR, col: fromC } = algebraicToCoords(selectedSquare); const movingPiece = board[fromR][fromC].piece;
+    const oppCapLastTurn = didCaptureLastTurn.black;
+    const isExecutionAllowed = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && currentPlayer === 'white' && !isAnySpecialModeActive;
+    if (isExecutionAllowed && movingPiece && movingPiece.color === currentPlayer) {
+      const effectiveLevel = getEffectiveLevel(board, fromR, fromC); const silenced = isSilenced(board, fromR, fromC, currentPlayer);
+      if (!silenced && movingPiece.type === 'myco_mage' && selectedSquare === algebraic) { setIsSelectingMycoSpell(true); addLog("Mushroomancy active! Choose a spell."); return; }
+      if (!silenced && movingPiece.type === 'grappler') {
+          if (piece && algebraic !== selectedSquare) {
+              const {row: pr, col: pc} = algebraicToCoords(algebraic); const isAdj = Math.abs(fromR-pr) <=1 && Math.abs(fromC-pc) <= 1;
+              if (isAdj) {
+                const dir = movingPiece.color === 'white' ? -1 : 1; const isDiagForward = (pr === fromR + dir) && Math.abs(pc - fromC) === 1; const isEnemy = piece.color !== movingPiece.color;
+                if (isEnemy && isDiagForward) { } else { if (piece.type === 'king') { addLog("Too Heavy! Cannot grapple Kings."); } else { setGrappledPieceSubject({ piece: { ...piece }, from: algebraic }); let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null}))); nextBoard[pr][pc].piece = null; setBoard(nextBoard); setIsAwaitingGrappleThrow(true); addLog(`Grappler picked up ${piece.type}!`); } return; }
+              }
+          } else if (sq?.item?.type === 'anvil' && movingPiece.heldItem === 'power_glove' && algebraic !== selectedSquare) {
+              const isAdj = Math.abs(fromR - row) <= 1 && Math.abs(fromC - col) <= 1;
+              if (isAdj) {
+                  setGrappledItemSubject({ type: 'anvil', from: algebraic });
+                  let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null})));
+                  nextBoard[row][col].item = null; setBoard(nextBoard); setIsAwaitingGrappleThrow(true); addLog("Grappler picked up an Anvil!"); return;
+              }
           }
-          return;
+      }
+      const hasMagicScroll = movingPiece.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll', 'demonic_possession', 'heavy_rain', 'trap_net', 'oil_slick', 'phase_out', 'glacial_ray', 'burning_ray'].includes(movingPiece.heldItem);
+      if (selectedSquare === algebraic && (effectiveLevel >= 5 || hasMagicScroll)) {
+        if ((movingPiece.cooldownTurnsRemaining && movingPiece.cooldownTurnsRemaining > 0) || (movingPiece.frozenTurnsRemaining && movingPiece.frozenTurnsRemaining > 0)) { addLog("Piece is too exhausted to use skills."); return; }
+        
+        const executeOilSlick = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'oil_slick'); setIsAwaitingOilSlickTarget(true); setPossibleMoves([]); addLog("Select 3x3 area for Oil Slick!"); };
+        const executeRayMode = (type: 'glacial' | 'burning') => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, type === 'glacial' ? 'glacial_ray' : 'burning_ray'); setIsAwaitingRayTarget(type); setPossibleMoves([]); addLog(`Select ${type.toUpperCase()} RAY direction!`); };
+        const executePhaseOut = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'phase_out'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'phase-out' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playAnvil(); addLog("Phasing active!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeTrapNet = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'trap_net'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'trap-net' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playMove(); addLog("Trap Net deployed!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeLifeLeach = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'life_leach'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'life-leach' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Life Leach triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeWindScrollMode = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'wind_scroll'); setIsAwaitingWindScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Wind push!"); };
+        const executeEarthquakeScrollMode = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'earthquake_scroll'); setIsAwaitingEarthquakeScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Earthquake!"); };
+        const executeSummonAnvilMode = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'summon_anvil'); setIsAwaitingAnvilScrollTarget(true); setPossibleMoves([]); addLog("Select a square for Anvil Drop!"); };
+        const executeShieldScrollMode = () => { if(effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'shield_scroll'); setIsAwaitingHolyShield(true); setPossibleMoves([]); addLog("Select an ally for Holy Shield!"); };
+        const executeRallyScroll = () => { if(effectiveLevel < 3) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'rally_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'rally-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playRally(); if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, currentPlayer, 1)); } addLog("Global Rally triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeAntidote = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'antidote'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'antidote' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playShield(); addLog("Antidote used: All allies cured of Poison."); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeSwapScrollMode = () => { if(effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'swap_scroll'); setIsAwaitingSwapScrollTarget(true); setPossibleMoves([]); addLog("Select an ally for Swap Scroll!"); };
+        const executeIceScroll = () => { if (effectiveLevel < 2) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playShield(); addLog("Ice Scroll triggered!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeIceBlast = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'ice_blast'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'ice-blast' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Ice Blast: Adjacent enemies frozen!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeSoulHarvest = () => { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'soul_harvest'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'soul-harvest' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); audioManager.playLevelUp(); addLog("Soul Harvest: Absorbed adjacent power!"); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeResurrectionScroll = () => { if (effectiveLevel < 4) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'resurrection_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'resurrection-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); const updatedGraveyard = { ...capturedPieces }; if (result.resurrectionScrollEvent) { const p = result.resurrectionScrollEvent.piece; const targetPile = p.color; updatedGraveyard[targetPile] = updatedGraveyard[targetPile].filter(pi => pi.id !== p.id); setCapturedPieces(updatedGraveyard); addEffect('light-beam', result.resurrectionScrollEvent.square); audioManager.playResurrect(); addLog(`Resurrected ${p.type}!`); } setBoard(result.newBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, updatedGraveyard, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeFaithScroll = () => { if (effectiveLevel < 5) return; addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'faith_scroll'); setHasMovedOnCurrentFloor(true); setIsMoveProcessing(true); clickGuard.current = true; setSelectedSquare(null); setPossibleMoves([]); const move: Move = { from: selectedSquare, to: selectedSquare, type: 'faith-scroll' }; const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); setBoard(result.newBoard); if (result.conversionEvents.length > 0) { audioManager.playConversion(); result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); } setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, enPassantTargetSquare, false); }, 800); };
+        const executeSelfDestruct = () => { setHasMovedOnCurrentFloor(true); setSelectedSquare(null); setPossibleMoves([]); const result = applyMove(board, { from: selectedSquare, to: algebraic, type: 'self-destruct' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn); audioManager.playExplosion(); addLog("BOOM! Self-destruct triggered."); const { row: cR, col: cC } = algebraicToCoords(selectedSquare); for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) if (isValidSquare(cR + dr, cC + dc)) addEffect('explosion', coordsToAlgebraic(cR + dr, cC + dc)); let nextBoard = result.newBoard; const oldStreak = killStreaks.white; let capturesThisTurn = result.selfDestructCaptures ? result.selfDestructCaptures.length : 0; const newStreak = (capturesThisTurn > 0 ? oldStreak + capturesThisTurn : 0); const currentKs = { ...killStreaks, white: newStreak }; setKillStreaks(currentKs); const updatedGraveyard = { ...capturedPieces }; if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); setCapturedPieces(updatedGraveyard); addLog(`Explosion destroyed ${result.selfDestructCaptures.length} unit(s)!`); } const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); setBoard(nextBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return; triggerSpecialsChain(nextBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, enPassantTargetSquare, currentPlayer, [], null, capturesThisTurn > 0); }, 800); };
+        
+        if (movingPiece.heldItem === 'oil_slick') executeOilSlick();
+        else if (movingPiece.heldItem === 'glacial_ray') executeRayMode('glacial');
+        else if (movingPiece.heldItem === 'burning_ray') executeRayMode('burning');
+        else if (movingPiece.heldItem === 'phase_out') executePhaseOut();
+        else if (movingPiece.heldItem === 'trap_net') executeTrapNet();
+        else if (effectiveLevel >= 5) {
+           const choice = window.confirm("Use piece ability (OK) or magic scroll (Cancel)?"); 
+           if (choice) executeSelfDestruct();
+           else { if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else addLog("Level Too Low!"); } else if (movingPiece.heldItem === 'kings_decree') { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'kings_decree'); setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode(); }
+        } else {
+           if (movingPiece.heldItem === 'life_leach') executeLifeLeach(); else if (movingPiece.heldItem === 'summon_anvil') executeSummonAnvilMode(); else if (movingPiece.heldItem === 'shield_scroll') executeShieldScrollMode(); else if (movingPiece.heldItem === 'rally_scroll') executeRallyScroll(); else if (movingPiece.heldItem === 'antidote') executeAntidote(); else if (movingPiece.heldItem === 'swap_scroll') executeSwapScrollMode(); else if (movingPiece.heldItem === 'ice_scroll') executeIceScroll(); else if (movingPiece.heldItem === 'ice_blast') executeIceBlast(); else if (movingPiece.heldItem === 'soul_harvest') executeSoulHarvest(); else if (movingPiece.heldItem === 'resurrection_scroll') executeResurrectionScroll(); else if (movingPiece.heldItem === 'faith_scroll') executeFaithScroll(); else if (movingPiece.heldItem === 'earthquake_scroll') executeEarthquakeScrollMode(); else if (movingPiece.heldItem === 'detonation_scroll') { if (effectiveLevel >= 5) executeSelfDestruct(); else addLog("Level Too Low!"); } else if (movingPiece.heldItem === 'kings_decree') { addEffect('magic-burst', selectedSquare, currentPlayer, 0, 'kings_decree'); setIsAwaitingDecreeTarget(true); setPossibleMoves([]); } else executeWindScrollMode();
         }
-        const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel);
-        const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
-        if (isMoveInFreshList) {
-          setHasMovedOnCurrentFloor(true); setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); 
-          const originalL = movingPiece.level || 1; const originalT = movingPiece.type; setLastMovedPieceType(originalT); setLastMovedPieceHeldItem(movingPiece.heldItem || null); setLastMovedPieceLevel(originalL);
-          let moveType: Move['type'] = 'move';
-          if (movingPiece?.type === 'king' && !movingPiece.hasMoved && ((movingPiece.color === 'white' && selectedSquare === 'e1' && (algebraic === 'c1' || algebraic === 'g1')) || (movingPiece.color === 'black' && selectedSquare === 'e8' && (algebraic === 'c8' || algebraic === 'g8'))) && fromR === row && !sq.piece) { moveType = 'castle'; }
-          else if (FRONTLINE_TYPES.includes(movingPiece?.type) && algebraic === enPassantTargetSquare) { moveType = 'enpassant'; }
-          else if (sq.piece) { if (sq.piece.color === movingPiece?.color) moveType = 'swap'; else moveType = 'capture'; }
-          const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn);
-          let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
-          const updatedGraveyard = { ...capturedPieces };
-          if (result.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === result.itemReturned); if (existing) existing.count++; else next.push({ type: result.itemReturned!, count: 1 }); return next; }); addLog(`Dungeon Item Dropped: ${ITEM_METADATA[result.itemReturned].name}`); }
-          if (reflectionOccurred) { const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedGraveyard[targetPile].push(victim); updatedGraveyard.black = updatedGraveyard.black.filter(p => p.id !== victim.id); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); addEffect('poof', algebraic); const newKs = { white: 0, black: 0 }; setBoard(newBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, currentPlayer, false, null, false); }, 800); return; }
-          if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); addLog("Rebirth! Phoenix Down triggered."); }
-          if (result.infiltrationWin) { setBoard(newBoard); addLog("INFILTRATION WIN! Floor Vanquished."); advanceLevel(newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), capturedPieces); return; }
-          if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); addLog(`${newBoard[row][col].piece?.type} consumed a Shroom 🍄!`); addEffect('level-change', algebraic, currentPlayer, 1); }
-          if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); addLog("Rallying Cry!"); }
-          if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, currentPlayer, 1)); }
-          if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); audioManager.playConversion(); }
-          if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); addLog("HERO ASCENDED! Your Commander has reached the back rank."); }
-          let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null; 
-          
-          const landedPieceAtTo = newBoard[row][col].piece; 
-          const oppBackRankIdx = movingPiece.color === 'white' ? 0 : 7;
-          
-          if (landedPieceAtTo && (landedPieceAtTo.type === 'rook' || landedPieceAtTo.type === 'palace') && capturedPiece) {
-              const resResult = processRookResurrectionCheck(newBoard, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalL, updatedGraveyard, uniqueIdCounterRef.current);
-              if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Resurrected a ${resResult.resurrectedPieceData?.type}!`); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
-          }
-          const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
-          const oldStreak = killStreaks[currentPlayer] || 0; const newStreak = streakGain > 0 ? oldStreak + streakGain : 0; const currentKs = { ...killStreaks, [currentPlayer]: newStreak }; setKillStreaks(currentKs);
-          const isObliteration = result.promotedToInfiltrator || (movingPiece?.type === 'infiltrator' && capturedPiece);
-          if (isObliteration) { audioManager.playObliterate(); addLog("OBLITERATED! Dungeon target removed from the game."); addEffect('poof', algebraic); }
-          else if (streakGain > 0) { audioManager.playCapture(); addEffect('poof', algebraic); addEffect('level-change', algebraic, currentPlayer, streakGain); if (capturedPiece) addLog(`Captured ${capturedPiece.type} at ${algebraic}!`); }
-          else { audioManager.playMove(); addLog(`${movingPiece.type} to ${algebraic}`); }
-          if (streakGain > 0) { 
-              if (capturedPiece && !isObliteration) { const targetPile = capturedPiece.color; updatedGraveyard[targetPile].push({ ...capturedPiece!, id: capturedPiece!.id }); }
-              if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); if (result.selfDestructCaptures.length > 0) addLog(`Collateral damage: ${result.selfDestructCaptures.length} unit(s) destroyed!`); }
-              setCapturedPieces({ ...updatedGraveyard }); 
-          }
-          setBoard(newBoard);
-          const wasCap = streakGain > 0;
-          const capturerId = (streakGain > 0) ? landedPieceAtTo?.id || null : null;
-          setTimeout(() => {
-            setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return;
-            const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); const queue: {square: AlgebraicSquare, targetLevel: number}[] = result.multiPromotions || [];
-            if (resPromoRequired) queue.push({ square: resResult_promo_square!, targetLevel: resResult_promo_level });
-            if (FRONTLINE_TYPES.includes(newBoard[row][col].piece?.type || '') && row === oppBackRankIdx) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null) }); }
-            if (queue.length > 0) { setPromotionQueue(queue); setPromotionTargetLevel(queue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(queue[0].square); setSpecialActionContext({ boardForNextStep: newBoard, extra: isExtra, nextEp, oldStreak, newStreak, actingPlayer: currentPlayer, completedMilestones: [], currentGraveyard: updatedGraveyard, currentKs, capturingPieceId, wasCaptureThisTurn: wasCap } as any); addLog("Pawn Promotion ready!"); } 
-            else {
-                let sacrificeNeeded = false;
-                if (landedPieceAtTo?.type === 'queen') sacrificeNeeded = processPawnSacrificeCheck(newBoard, updatedGraveyard, currentKs, currentPlayer, { from: selectedSquare, to: algebraic, type: moveType }, originalL, originalT, isExtra, nextEp, oldStreak, newStreak, capturerId, wasCap);
-                if (sacrificeNeeded) return;
-                triggerSpecialsChain(newBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, currentPlayer, [], capturerId, wasCap);
-            }
-          }, 800); return;
+        return;
+      }
+      const freshlyCalculatedMovesForThisPiece = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel);
+      const isMoveInFreshList = freshlyCalculatedMovesForThisPiece.includes(algebraic);
+      if (isMoveInFreshList) {
+        setHasMovedOnCurrentFloor(true); setSelectedSquare(null); setPossibleMoves([]); setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(algebraic); setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); 
+        const originalL = movingPiece.level || 1; const originalT = movingPiece.type; setLastMovedPieceType(originalT); setLastMovedPieceHeldItem(movingPiece.heldItem || null); setLastMovedPieceLevel(originalL);
+        let moveType: Move['type'] = 'move';
+        if (movingPiece?.type === 'king' && !movingPiece.hasMoved && ((movingPiece.color === 'white' && selectedSquare === 'e1' && (algebraic === 'c1' || algebraic === 'g1')) || (movingPiece.color === 'black' && selectedSquare === 'e8' && (algebraic === 'c8' || algebraic === 'g8'))) && fromR === row && !sq.piece) { moveType = 'castle'; }
+        else if (FRONTLINE_TYPES.includes(movingPiece?.type) && algebraic === enPassantTargetSquare) { moveType = 'enpassant'; }
+        else if (sq.piece) { if (sq.piece.color === movingPiece?.color) moveType = 'swap'; else moveType = 'capture'; }
+        const result = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, oppCapLastTurn);
+        let { newBoard, capturedPiece, shroomConsumed, enPassantTargetSet: nextEp, phoenixResurrection, reflectionOccurred, promotedToHero } = result;
+        const updatedGraveyard = { ...capturedPieces };
+        if (result.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === result.itemReturned); if (existing) existing.count++; else next.push({ type: result.itemReturned!, count: 1 }); return next; }); addLog(`Dungeon Item Dropped: ${ITEM_METADATA[result.itemReturned].name}`); }
+        if (reflectionOccurred) { const victim = { ...capturedPiece!, id: capturedPiece!.id }; const targetPile = victim.color; updatedGraveyard[targetPile].push(victim); updatedGraveyard.black = updatedGraveyard.black.filter(p => p.id !== victim.id); setCapturedPieces(updatedGraveyard); audioManager.playCapture(); addLog("REFLECTED! Dungeon target used Mirror Shield."); addEffect('poof', algebraic); const newKs = { white: 0, black: 0 }; setBoard(newBoard); setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(newBoard, updatedGraveyard, newKs, currentPlayer, false, null, false); }, 800); return; }
+        if (phoenixResurrection) { addEffect('light-beam', phoenixResurrection.square); audioManager.playResurrect(); addLog("Rebirth! Phoenix Down triggered."); }
+        if (result.infiltrationWin) { setBoard(newBoard); addLog("INFILTRATION WIN! Floor Vanquished."); advanceLevel(newBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), capturedPieces); return; }
+        if (shroomConsumed) { audioManager.playShroom(); audioManager.playLevelUp(); addLog(`${newBoard[row][col].piece?.type} consumed a Shroom 🍄!`); addEffect('level-change', algebraic, currentPlayer, 1); }
+        if (result.rallyCryTriggered) { addEffect('shockwave', result.rallyCryTriggered.square, result.rallyCryTriggered.color); audioManager.playRally(); addLog("Rallying Cry!"); }
+        if (result.ralliedSquares) { result.ralliedSquares.forEach(sq => addEffect('level-change', sq, currentPlayer, 1)); }
+        if (result.conversionEvents && result.conversionEvents.length > 0) { result.conversionEvents.forEach(e => { addEffect('conversion', e.at, e.byPiece.color); addLog(`${e.originalPiece.type} converted to your side!`); }); audioManager.playConversion(); }
+        if (promotedToHero) { audioManager.playLevelUp(); addEffect('light-beam', algebraic); addLog("HERO ASCENDED! Your Commander has reached the back rank."); }
+        
+        let resPromoRequired = false; let resResult_promo_level = 1; let resResult_promo_square = null; 
+        const landedPieceAtTo = newBoard[row][col].piece; 
+        const oppBackRankIdx = movingPiece.color === 'white' ? 0 : 7;
+        
+        if (landedPieceAtTo && (landedPieceAtTo.type === 'rook' || landedPieceAtTo.type === 'palace') && capturedPiece) {
+            const resResult = processRookResurrectionCheck(newBoard, currentPlayer, {from: selectedSquare, to: algebraic, type: 'move'} as Move, algebraic, originalL, updatedGraveyard, uniqueIdCounterRef.current);
+            if (resResult.resurrectionPerformed) { uniqueIdCounterRef.current = resResult.newResurrectionIdCounter!; newBoard = resResult.boardWithResurrection; updatedGraveyard.white = resResult.capturedPiecesAfterResurrection.white; updatedGraveyard.black = resResult.capturedPiecesAfterResurrection.black; setCapturedPieces({ ...updatedGraveyard }); addEffect('light-beam', resResult.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`Resurrection! A ${resResult.resurrectedPieceData?.type} has returned.`); if (resResult.promotionRequiredForResurrectedPawn) { resPromoRequired = true; resResult_promo_level = resResult.resurrectedPieceData?.level || 1; resResult_promo_square = resResult.resurrectedSquareAlg!; } }
         }
+        const streakGain = (capturedPiece ? 1 : 0) + (result.pieceCapturedByAnvil ? 1 : 0) + (result.selfDestructCaptures?.length || 0);
+        const oldStreak = killStreaks[currentPlayer] || 0; const newStreak = streakGain > 0 ? oldStreak + streakGain : 0; const currentKs = { ...killStreaks, [currentPlayer]: newStreak }; setKillStreaks(currentKs);
+        const isObliteration = result.promotedToInfiltrator || (movingPiece?.type === 'infiltrator' && capturedPiece);
+        if (isObliteration) { audioManager.playObliterate(); addLog("OBLITERATED! Dungeon target removed from the game."); addEffect('poof', algebraic); }
+        else if (streakGain > 0) { audioManager.playCapture(); addEffect('poof', algebraic); addEffect('level-change', algebraic, currentPlayer, streakGain); if (capturedPiece) addLog(`Captured ${capturedPiece.type} at ${algebraic}!`); }
+        else { audioManager.playMove(); addLog(`${movingPiece.type} to ${algebraic}`); }
+        if (streakGain > 0) { 
+            if (capturedPiece && !isObliteration) { const targetPile = capturedPiece.color; updatedGraveyard[targetPile].push({ ...capturedPiece!, id: capturedPiece!.id }); }
+            if (result.selfDestructCaptures && result.selfDestructCaptures.length > 0) { result.selfDestructCaptures.forEach(p => { const targetPile = p.color; updatedGraveyard[targetPile].push({ ...p, id: p.id }); addEffect('poof', algebraic); }); if (result.selfDestructCaptures.length > 0) addLog(`Collateral damage: ${result.selfDestructCaptures.length} unit(s) destroyed!`); }
+            setCapturedPieces({ ...updatedGraveyard }); 
+        }
+        setBoard(newBoard);
+        const wasCap = streakGain > 0;
+        const capturerId = (streakGain > 0) ? landedPieceAtTo?.id || null : null;
+        setTimeout(() => {
+          setIsMoveProcessing(false); clickGuard.current = false; if (gameOverRef.current) return;
+          const isExtra = result.extraTurn || (oldStreak < 6 && newStreak >= 6); const queue: {square: AlgebraicSquare, targetLevel: number}[] = result.multiPromotions || [];
+          if (resPromoRequired) queue.push({ square: resResult_promo_square!, targetLevel: resResult_promo_level });
+          if (FRONTLINE_TYPES.includes(newBoard[row][col].piece?.type || '') && row === oppBackRankIdx) { queue.push({ square: algebraic, targetLevel: getPromotionLevel(capturedPiece?.type || result.pieceCapturedByAnvil?.type || null) }); }
+          if (queue.length > 0) { setPromotionQueue(queue); setPromotionTargetLevel(queue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(queue[0].square); setSpecialActionContext({ boardForNextStep: newBoard, extra: isExtra, nextEp, oldStreak, newStreak, actingPlayer: currentPlayer, completedMilestones: [], currentGraveyard: updatedGraveyard, currentKs, capturingPieceId, wasCaptureThisTurn: wasCap } as any); addLog("Pawn Promotion ready!"); } 
+          else {
+              let sacrificeNeeded = false;
+              if (landedPieceAtTo?.type === 'queen') sacrificeNeeded = processPawnSacrificeCheck(newBoard, updatedGraveyard, currentKs, currentPlayer, { from: selectedSquare, to: algebraic, type: moveType }, originalL, originalT, isExtra, nextEp, oldStreak, newStreak, capturerId, wasCap);
+              if (sacrificeNeeded) return;
+              triggerSpecialsChain(newBoard, updatedGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, currentPlayer, [], capturerId, wasCap);
+          }
+        }, 800); return;
       }
     }
-    if (sq.piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
-    else { setSelectedSquare(null); setPossibleMoves([]); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffect, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isAwaitingPawnSacrifice, playerToSacrificePawn, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, level, didCaptureLastTurn, isAwaitingOilSlickTarget, isAwaitingRayTarget]);
+  }
+  if (sq.piece) { setSelectedSquare(algebraic); setPossibleMoves(getPossibleMoves(board, algebraic, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
+  else { setSelectedSquare(null); setPossibleMoves([]); }
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffect, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isAwaitingPawnSacrifice, playerToSacrificePawn, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingAnvilDrop, playerToDropAnvil, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, level, didCaptureLastTurn, isAwaitingOilSlickTarget, isAwaitingRayTarget]);
 
   const mobileLayout = useMemo(() => (
     <div className="relative z-20 flex flex-col flex-grow w-full max-h-screen p-0.5 overflow-hidden font-pixel">

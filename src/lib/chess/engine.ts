@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, PieceType, ItemType, SquareState, RookResurrectionResult } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece } from './utils';
@@ -50,32 +49,6 @@ export function initializeBoard(
   board[7][wRPos[1]].piece = whiteRooks[1];
   board[7][3].piece = { id: 'wQ', type: 'queen', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   board[7][4].piece = { id: 'wK', type: 'king', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
-
-  const blackBishops: Piece[] = [
-    { id: 'bB1', type: blackElo >= 1500 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
-    { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
-  ];
-  const blackRooks: Piece[] = [
-    { id: 'bR1', type: blackElo >= 1800 ? 'palace' : 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
-    { id: 'bR2', type: 'rook', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
-  ];
-  const blackKnights: Piece[] = [
-    { id: 'bN1', type: blackElo >= 2100 ? 'archer' : 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
-    { id: 'bN2', type: 'knight', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
-  ];
-
-  const bBPos = [2, 5].sort(() => Math.random() - 0.5);
-  const bNPos = [1, 6].sort(() => Math.random() - 0.5);
-  const bRPos = [0, 7].sort(() => Math.random() - 0.5);
-
-  board[0][bBPos[0]].piece = blackBishops[0];
-  board[0][bBPos[1]].piece = blackBishops[1];
-  board[0][bNPos[0]].piece = blackKnights[0];
-  board[0][bNPos[1]].piece = blackKnights[1];
-  board[0][bRPos[0]].piece = blackRooks[0];
-  board[0][bRPos[1]].piece = blackRooks[1];
-  board[0][3].piece = { id: 'bQ', type: 'queen', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
-  board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
   const assignFrontlineTypes = (color: PlayerColor, unlocks: string[]) => {
     const prefix = color === 'white' ? 'w' : 'b';
@@ -132,6 +105,12 @@ export function processRookResurrectionCheck(
     return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
   }
 
+  // RESURRECTION CALL REQUIREMENT: EFFECTIVE LEVEL 4+
+  const effectiveLevel = getEffectiveLevel(board, row, col);
+  if (effectiveLevel < 4) {
+    return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
+  }
+
   const myGraveyard = player === 'white' ? graveyard.white : graveyard.black;
   if (myGraveyard.length === 0) {
     return { resurrectionPerformed: false, boardWithResurrection: board, capturedPiecesAfterResurrection: graveyard };
@@ -166,7 +145,7 @@ export function processRookResurrectionCheck(
 
   const newBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
   
-  // Palace vs Rook logic
+  // Palace vs Rook logic: Palace resurrects at original level; Rook resurrects at L1.
   const resLevel = piece.type === 'palace' ? (best.level || 1) : 1;
   const resPiece: Piece = {
     ...best,
@@ -237,7 +216,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
-  if (move.type === 'glacial-ray' || move.type === 'burning-ray') {
+  if (move.type === 'burning-ray') {
+      let totalGain = 0;
       const dr = Math.sign(toRow - fromRow);
       const dc = Math.sign(toCol - fromCol);
       for (let i = 1; i <= 4; i++) {
@@ -245,18 +225,31 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           const nc = fromCol + i * dc;
           if (!isValidSquare(nr, nc)) break;
           const targetSq = newBoard[nr][nc];
-          if (move.type === 'glacial-ray') {
-              if (targetSq.piece) targetSq.piece.frozenTurnsRemaining = 2;
-          } else {
-              if (targetSq.piece) {
-                  selfDestructCaptures.push({ ...targetSq.piece, id: `${targetSq.piece.id}_burn_${Date.now()}` });
-                  targetSq.piece = null;
-              }
-              if (targetSq.item?.type === 'anvil') targetSq.item = null;
+          if (targetSq.piece) {
+              totalGain += (VAL_MAP[targetSq.piece.type] || 1);
+              selfDestructCaptures.push({ ...targetSq.piece, id: `${targetSq.piece.id}_burn_${Date.now()}` });
+              targetSq.piece = null;
           }
+          if (targetSq.item?.type === 'anvil') targetSq.item = null;
       }
-      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      movingPiece.level += totalGain;
+      if (movingPiece.type === 'queen') movingPiece.level = Math.min(7, movingPiece.level);
+      movingPiece.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
+  }
+
+  if (move.type === 'glacial-ray') {
+      const dr = Math.sign(toRow - fromRow);
+      const dc = Math.sign(toCol - fromCol);
+      for (let i = 1; i <= 4; i++) {
+          const nr = fromRow + i * dr;
+          const nc = fromCol + i * dc;
+          if (!isValidSquare(nr, nc)) break;
+          const targetSq = newBoard[nr][nc];
+          if (targetSq.piece) targetSq.piece.frozenTurnsRemaining = 2;
+      }
+      movingPiece.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
   }
 
   if (move.type === 'phase-out') {
@@ -559,7 +552,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
   }
 
   if (move.type === 'swap-scroll') {
@@ -810,7 +803,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (effectiveHeldItem === 'gravity_stone') triggerPull(newBoard, toRow, toCol, pieceToLand.color);
     
     if (isShatter) {
-        promotedToInfiltrator = true; // Temporary flag to trigger obliteration visuals/logic
+        promotedToInfiltrator = true; 
         captured = { ...captured, id: `shattered_${captured.id}_${Date.now()}` };
     }
   }
@@ -820,7 +813,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem === 'soul_link' && sq.piece.id !== pieceToLand.id) {
         if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, (sq.piece.level || 1) + levelGain);
-            // Levels gained via Soul Link also clear statuses (but NOT Frozen)
             sq.piece.isPoisoned = false;
             sq.piece.isExhausted = false;
             sq.piece.cooldownTurnsRemaining = 0;
@@ -835,9 +827,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     pieceToLand.cooldownTurnsRemaining = 0; 
   }
 
-  // Exhaustion cadence: If exhausted, moving triggers a cooldown for the following turn cycle.
   if (pieceToLand.isExhausted) {
-    pieceToLand.cooldownTurnsRemaining = 2; // Set to 2 so it is 1 at start of next turn (blocked)
+    pieceToLand.cooldownTurnsRemaining = 2; 
   }
 
   if (effectiveHeldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
