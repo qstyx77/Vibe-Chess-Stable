@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -473,6 +474,16 @@ export default function EvolvingChessPage() {
                         nextBoard[best.r][best.c].item = null;
                         nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
                         nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
+
+                        const oppBackRank = actingPlayer === 'white' ? 0 : 7;
+                        if (best.r === oppBackRank) {
+                           const landed = nextBoard[best.r][best.c].piece!;
+                           landed.type = 'queen';
+                           landed.level = getPromotionLevel(targetPiece?.type || null);
+                           if (landed.level >= 5) isExtraTurn = true;
+                           addLog(`${getPlayerDisplayName(actingPlayer)} Dancer promoted to Queen!`);
+                        }
+                        
                         addLog(`${getPlayerDisplayName(actingPlayer)} Dancer performed a free ${targetPiece ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
                     }
                 }
@@ -487,7 +498,7 @@ export default function EvolvingChessPage() {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(actingPlayer);
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const pawnSq = nextBoard.flat().find(sq => sq.piece?.type === 'pawn' && sq.piece.color === actingPlayer && sq.piece.level === 1);
+            const pawnSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
             if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actingPlayer)} promoted a Commander via First Blood!`); }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId, wasCaptureThisTurn); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
@@ -553,7 +564,10 @@ export default function EvolvingChessPage() {
                     setPromotionTargetLevel(1); setPromotionSquare(sq.algebraic); setIsPromotingPawn(true);
                     setSpecialActionContext({ boardForNextStep: nextBoard, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'resurrection'], currentGraveyard: updatedG, currentKs: currentKs, capturingPieceId: capturingPieceId }); return;
                 }
-                if (isAI && (FRONTLINE_TYPES.includes(resPiece.type)) && rr === oppBackRank) resPiece.type = 'queen';
+                if (isAI && (FRONTLINE_TYPES.includes(resPiece.type)) && rr === oppBackRank) {
+                    resPiece.type = 'queen';
+                    addLog(`${getPlayerDisplayName(actingPlayer)} resurrected unit auto-promoted!`);
+                }
                 triggerSpecialsChain(nextBoard, updatedG, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'resurrection'], capturingPieceId, wasCaptureThisTurn); return;
             }
         }
@@ -589,6 +603,87 @@ export default function EvolvingChessPage() {
     processMoveEnd(boardToChain, nextGraveyard, currentKs, actingPlayer, isExtraTurn, nextEp, wasCaptureThisTurn);
   }, [isWhiteAI, isBlackAI, firstBloodAchieved, addEffectCallback, processMoveEnd, localPlayerColor, addLog, getPlayerDisplayName]);
 
+  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
+    const targetSquare = promotionSquare;
+    const currentTargetLevel = promotionTargetLevel;
+    const currentContext = specialActionContext;
+    const currentQueue = [...promotionQueue];
+    
+    setIsPromotingPawn(false);
+    setPromotionSquare(null);
+    setSpecialActionContext(null);
+
+    if (!targetSquare) return;
+
+    let nextBoard = board.map(r => r.map(s => ({ 
+      ...s, 
+      piece: s.piece ? { ...s.piece } : null, 
+      item: s.item ? { ...s.item } : null, 
+      phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null 
+    })));
+
+    const { row, col } = algebraicToCoords(targetSquare);
+    const pieceBeingPromoted = nextBoard[row][col].piece;
+    if (!pieceBeingPromoted) return;
+
+    if (pieceBeingPromoted.heldItem && !isItemValidForPiece(pieceBeingPromoted.heldItem, pieceType)) {
+      const item = pieceBeingPromoted.heldItem;
+      setInventory(prev => {
+        const next = [...prev];
+        const existing = next.find(i => i.type === item);
+        if (existing) existing.count++;
+        else next.push({ type: item, count: 1 });
+        return next;
+      });
+      pieceBeingPromoted.heldItem = null;
+      addLog(`Equipment Returned: ${ITEM_METADATA[item].name}`);
+    }
+
+    nextBoard[row][col].piece = { 
+      ...pieceBeingPromoted, 
+      type: pieceType, 
+      id: pieceBeingPromoted.id, 
+      level: currentTargetLevel, 
+      hasMoved: true, 
+      isShielded: false, 
+      isPoisoned: false, 
+      cooldownTurnsRemaining: 0, 
+      frozenTurnsRemaining: 0 
+    };
+
+    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(currentTargetLevel, 7);
+    
+    audioManager.playLevelUp();
+    setBoard(nextBoard);
+    addLog(`${getPlayerDisplayName(pieceBeingPromoted.color)} Pawn Promoted to ${pieceType}!`);
+
+    let isExtra = (nextBoard[row][col].piece?.level >= 5) || currentContext?.isExtraTurn;
+    const remainingQueue = currentQueue.filter(p => p.square !== targetSquare);
+
+    if (remainingQueue.length > 0) {
+      setPromotionQueue(remainingQueue);
+      setPromotionTargetLevel(remainingQueue[0].targetLevel);
+      setIsPromotingPawn(true);
+      setPromotionSquare(remainingQueue[0].square);
+      setSpecialActionContext({ ...currentContext, isExtraTurn: isExtra } as any);
+    } else {
+      setPromotionQueue([]);
+      triggerSpecialsChain(
+        nextBoard, 
+        currentContext?.currentGraveyard || capturedPieces, 
+        currentContext?.currentKs || killStreaks, 
+        currentContext?.oldStreak || 0, 
+        currentContext?.newStreak || 0, 
+        isExtra || false, 
+        currentContext?.newEnPassantTarget || enPassantTargetSquare, 
+        currentPlayer, 
+        currentContext?.completedMilestones || [], 
+        currentContext?.capturingPieceId || null, 
+        false
+      );
+    }
+  }, [board, promotionSquare, promotionTargetLevel, specialActionContext, enPassantTargetSquare, triggerSpecialsChain, capturedPieces, killStreaks, addLog, promotionQueue, inventory, currentPlayer, getPlayerDisplayName]);
+
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, isExtraTurn: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number, capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false) => {
     if (!move) return false;
     const { row: rowIdx, col: colIdx } = algebraicToCoords(move.to); 
@@ -615,30 +710,6 @@ export default function EvolvingChessPage() {
     }
     triggerSpecialsChain(boardAfter, graveyard, currentKs, oldS, newS, isExtraTurn, ep, player, [], capturingPieceId, wasCaptureThisTurn); return false;
   }, [isWhiteAI, isBlackAI, triggerSpecialsChain, addLog]);
-
-  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    const targetSquare = promotionSquare; const currentTargetLevel = promotionTargetLevel; const currentContext = specialActionContext; const currentQueue = [...promotionQueue];
-    setIsPromotingPawn(false); setPromotionSquare(null);
-    if (!targetSquare || !currentContext) return;
-    let nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
-    const { row, col } = algebraicToCoords(targetSquare); const pieceBeingPromoted = nextBoard[row][col].piece;
-    if (!pieceBeingPromoted) return;
-    if (pieceBeingPromoted.heldItem && !isItemValidForPiece(pieceBeingPromoted.heldItem, pieceType)) {
-      const item = pieceBeingPromoted.heldItem; setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === item); if (existing) existing.count++; else next.push({ type: item, count: 1 }); return next; });
-      pieceBeingPromoted.heldItem = null; addLog(`Equipment Returned: ${ITEM_METADATA[item].name}`);
-    }
-    nextBoard[row][col].piece = { ...pieceBeingPromoted, type: pieceType, id: pieceBeingPromoted.id, level: currentTargetLevel, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(currentTargetLevel, 7);
-    audioManager.playLevelUp(); setBoard(nextBoard); addLog(`Pawn Promoted to ${pieceType}!`);
-    let isExtraTurn = (nextBoard[row][col].piece!.level >= 5) || currentContext.isExtraTurn;
-    const remainingQueue = currentQueue.filter(p => p.square !== targetSquare);
-    if (remainingQueue.length > 0) {
-        setPromotionQueue(remainingQueue); setPromotionTargetLevel(remainingQueue[0].targetLevel); setIsPromotingPawn(true); setPromotionSquare(remainingQueue[0].square);
-        setSpecialActionContext({ ...currentContext, isExtraTurn: isExtraTurn });
-    } else {
-        setPromotionQueue([]); triggerSpecialsChain(nextBoard, currentContext.currentGraveyard, currentContext.currentKs, currentContext.oldStreak, currentContext.newStreak, isExtraTurn, currentContext.newEnPassantTarget, currentContext.playerWhoseTurnCompleted, currentContext.completedMilestones || [], currentContext.capturingPieceId, false);
-    }
-  }, [board, promotionSquare, promotionTargetLevel, specialActionContext, triggerSpecialsChain, addLog, promotionQueue, inventory]);
 
   const performAiMove = useCallback(async () => {
     if (!aiInstanceRef.current || gameInfo.gameOver || gameOverRef.current || isMoveProcessing || isAnySpecialModeActive || isAiThinking) return;
@@ -749,7 +820,7 @@ export default function EvolvingChessPage() {
             if (landedPiece.level >= 5) isExtraTurn = true; addLog(`AI promoted to ${promoType}!`);
         }
         if (applyResult.multiPromotions && applyResult.multiPromotions.length > 0) { applyResult.multiPromotions.forEach(promo => { const { row: pr, col: pc } = algebraicToCoords(promo.square); if (nextB[pr][pc].piece) { nextB[pr][pc].piece!.type = 'queen'; nextB[pr][pc].piece!.level = promo.targetLevel; if (nextB[pr][pc].piece!.level >= 5) isExtraTurn = true; addLog("AI multi-promotion!"); } }); }
-        setBoard(nextB); processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as Move['type']}, oldL, oldT, isExtraTurn, applyResult.enPassantTargetSet, oldS, newS, (gain > 0) ? landedPiece?.id || null : null, wasCap);
+        setBoard(nextB); processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove.type as AIMoveType['type']}, oldL, oldT, isExtraTurn, applyResult.enPassantTargetSet, oldS, newS, (gain > 0) ? landedPiece?.id || null : null, wasCap);
       }, 800);
     } catch (e) { console.error(`[AI Error]`, e); setIsAiThinking(false); }
   }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, isWhiteAI, isBlackAI, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, processPawnSacrificeCheck, gameMoveCounter, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffectCallback, pushHistory, addLog, killStreaks, capturedPieces, aiStrikeCount, didCaptureLastTurn]);
@@ -811,7 +882,7 @@ export default function EvolvingChessPage() {
           setInventory(newInv); saveLoadoutToFirestore(nextBoard, newInv); setSelectedInventoryItemType(null); audioManager.playLevelUp(); addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
         }
       } else if (piece && piece.heldItem && piece.color === (localPlayerColor || 'white')) {
-          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.piece } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
           nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
           const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
           setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
@@ -901,7 +972,7 @@ export default function EvolvingChessPage() {
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.boardForNextStep, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); 
         const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
-        const dir = currentPlayerColor === 'white' ? -1 : 1;
+        const dir = currentPlayer === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         
         if (isAdjacent) {

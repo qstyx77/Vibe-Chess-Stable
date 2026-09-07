@@ -178,9 +178,9 @@ function adaptBoardForAI(currentBoardState: BoardState, playerForAITurn: PlayerC
     const boardRow = currentBoardState[r_idx]; const newAiRow: AISquareState[] = [];
     if (boardRow) { for (let c_idx = 0; c_idx < 8; c_idx++) { const squareState = boardRow[c_idx]; newAiRow.push({ piece: squareState?.piece ? { ...squareState.piece } : null, item: squareState?.item ? { ...squareState.item } : null }); } } 
     else { for (let c_idx = 0; c_idx < 8; c_idx++) newAiRow.push({ piece: null, item: null }); }
-    newAiBoard.push(newAiRow);
+    newAiBoard.push(newAiBoard);
   }
-  return { board: newAiBoard, currentPlayer: playerForAITurn, killStreaks: { white: currentKillStreaks?.white || 0, black: currentKillStreaks?.black || 0 }, capturedPieces: { white: currentCapturedPieces?.white ? currentCapturedPieces.white.map(p => ({ ...p })) : [], black: currentCapturedPieces?.black ? currentCapturedPieces.black.map(p => ({ ...p })) : [] }, gameOver: false, winner: undefined, extraTurn: false, gameMoveCounter: gameMoveCounter, firstBloodAchieved: firstBloodAchieved, playerWhoGotFirstBlood: playerWhoGotFirstBlood, enPassantTargetSquare: enPassantTargetSquare, shroomSpawnCounter: shroomSpawnCounter, nextShroomSpawnTurn: nextShroomSpawnTurn, necroResurrectionCounter: necroResurrectionCounter, lastMovedPieceType: lastMovedPieceType, lastMovedPieceHeldItem: lastMovedPieceHeldItem, lastMovedPieceLevel: lastMovedPieceLevel, didOpponentCaptureLastTurn };
+  return { board: newAiBoard, currentPlayer: playerForAITurn, killStreaks: { white: currentKillStreaks?.white || 0, black: currentKillStreaks?.black || 0 }, capturedPieces: { white: currentCapturedPieces?.white ? currentCapturedPieces.white.map(p => ({ ...p })) : [], black: currentCapturedPieces?.black ? currentCapturedPieces.black.map(p => ({ ...p })) : [] }, gameOver: false, winner: undefined, extraTurn: false, gameMoveCounter: gameMoveCounter, firstBloodAchieved: firstBloodAchieved, playerWhoGotFirstBlood: playerWhoWhoGotFirstBlood, enPassantTargetSquare: enPassantTargetSquare, shroomSpawnCounter: shroomSpawnCounter, nextShroomSpawnTurn: nextShroomSpawnTurn, necroResurrectionCounter: necroResurrectionCounter, lastMovedPieceType: lastMovedPieceType, lastMovedPieceHeldItem: lastMovedPieceHeldItem, lastMovedPieceLevel: lastMovedPieceLevel, didOpponentCaptureLastTurn };
 }
 
 export default function DungeonPage() {
@@ -388,7 +388,11 @@ export default function DungeonPage() {
                     if (choice && empty.length > 0) {
                         const sq = empty[Math.floor(Math.random() * empty.length)]; const {row, col} = algebraicToCoords(sq.algebraic);
                         const res = { ...choice, level: 1, id: choice.id, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
-                        if (FRONTLINE_TYPES.includes(res.type) && row === 7) res.type = 'queen';
+                        const oppBackRank = 7;
+                        if (FRONTLINE_TYPES.includes(res.type) && row === oppBackRank) {
+                           res.type = 'queen';
+                           addLog("Dungeon resurrected unit auto-promoted!");
+                        }
                         nextBoard[row][col].piece = res; nextGraveyard[myPile] = nextGraveyard[myPile].filter(p => p.id !== choice.id);
                         setCapturedPieces({ ...nextGraveyard }); addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog("Necromancy! A fallen soul has been brought back!"); finalNRC = 0;
                     }
@@ -519,6 +523,16 @@ export default function DungeonPage() {
                         nextBoard[best.r][best.c].item = null;
                         nextBoard[r][c].piece = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
                         nextBoard[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
+
+                        const oppBackRank = 7;
+                        if (best.r === oppBackRank) {
+                           const landed = nextBoard[best.r][best.c].piece!;
+                           landed.type = 'queen';
+                           landed.level = getPromotionLevel(targetPiece?.type || null);
+                           if (landed.level >= 5) isExtra = true;
+                           addLog("Dungeon Dancer promoted to Queen!");
+                        }
+                        
                         addLog(`Dungeon Dancer performed a free ${targetPiece ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
                     }
                 }
@@ -530,9 +544,9 @@ export default function DungeonPage() {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(actingPlayer);
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null})));
-            const pawnSq = nextBoard.flat().find(sq => sq.piece?.type === 'pawn' && sq.piece.color === 'black' && sq.piece.level === 1);
-            if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; }
-            addLog("First Blood! Dungeon has promoted a Commander."); triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId, wasCaptureThisTurn); return;
+            const pawnSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === 'black' && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
+            if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog("First Blood! Dungeon has promoted a Commander."); }
+            triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId, wasCaptureThisTurn); return;
         } else {
             const hasL1Targets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === 'white' && sq.piece.type === 'pawn' && sq.piece.level === 1);
             if (hasL1Targets) { setSpecialActionContext({ boardForNextStep: boardToChain, extra: isExtra, nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'firstBlood'], actingPlayer, currentGraveyard: nextGraveyard, currentKs, capturingPieceId }); setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a Pawn to promote."); return; }
@@ -616,7 +630,10 @@ export default function DungeonPage() {
                 if (!isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank) {
                     setPromotionTargetLevel(1); setPromotionSquare(sq.algebraic); setIsPromotingPawn(true); setSpecialActionContext({ boardForNextStep: nextBoard, extra: isExtra, nextEp, oldStreak: oldStreak, newStreak: newStreak, completedMilestones: [...completedMilestones, 'resurrection'], actingPlayer, currentGraveyard: updatedG, currentKs: currentKs, capturingPieceId: capturingPieceId }); return;
                 }
-                if (isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank) nextBoard[rr][rc].piece!.type = 'queen';
+                if (isAI && FRONTLINE_TYPES.includes(res.type) && rr === oppBackRank) {
+                   nextBoard[rr][rc].piece!.type = 'queen';
+                   addLog("Dungeon resurrected unit auto-promoted!");
+                }
                 triggerSpecialsChain(nextBoard, updatedG, currentKs, oldStreak, newStreak, isExtra, nextEp, actingPlayer, [...completedMilestones, 'resurrection'], capturingPieceId, wasCaptureThisTurn); return;
             }
         }
@@ -1319,7 +1336,7 @@ export default function DungeonPage() {
         </Card>
       </div>
     </div>
-  ), [currentPlayer, capturedPieces, gameInfo, killStreaks, pieceForInfoDisplay, userData?.username, level, statusMessage, board, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, handleSquareClick, isMoveProcessing, isAiThinking, animatedSquareTo, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, grappledItemSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isRulesDialogOpen, setIsResetConfirmOpen]);
+  ), [currentPlayer, capturedPieces, gameInfo, killStreaks, pieceForInfoDisplay, userData?.username, level, statusMessage, board, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, handleSquareClick, isMoveProcessing, isAiThinking, animatedSquareTo, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, grappledItemSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isRulesDialogOpen, user, setIsRoyalStoreOpen, setIsResetConfirmOpen]);
 
   return (
     <div className="min-h-full h-full w-full bg-background flex flex-col relative overflow-hidden">
