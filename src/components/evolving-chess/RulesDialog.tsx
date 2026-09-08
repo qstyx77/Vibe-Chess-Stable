@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -84,9 +83,6 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>• Capture Cavalry/Clergy (Knight, Bishop, etc.): +2 Levels</RuleText>
                   <RuleText>• Capture Queen: +3 Levels</RuleText>
                   <RuleText>• Consume Shroom 🍄: +1 Level</RuleText>
-                </RuleSection>
-                <RuleSection title="Master Promotion (L5+)">
-                  <RuleText>Reaching the opponent's back rank with a Front Line unit triggers a Master Promotion. If that unit is Level 5 or higher, you are granted an immediate Extra Turn.</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
