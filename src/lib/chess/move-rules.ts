@@ -1,4 +1,5 @@
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType } from '@/types';
+
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced } from './utils';
 import { isPieceInvulnerableToAttack, isSquareAttacked, isKingInCheck } from './validation';
@@ -146,6 +147,8 @@ export function getPossibleMovesInternal(
             if (!target && coordsToAlgebraic(nr, nc) === enPassantTargetSquare) possible.push(coordsToAlgebraic(nr, nc));
         }
     });
+    
+    // Rudimentary tactical throw landing squares for engine awareness (Checkmate detection)
     if (!silenced) {
       for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
@@ -154,12 +157,17 @@ export function getPossibleMovesInternal(
               if (isValidSquare(nr, nc)) {
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
-                  if (targetPiece && targetPiece.type !== 'king') {
-                    const isDiagForward = (nr === fromRow + dir) && Math.abs(nc - fromCol) === 1;
-                    const isEnemy = targetPiece.color !== pieceColor;
-                    if (!(isEnemy && isDiagForward)) possible.push(coordsToAlgebraic(nr, nc));
-                  } else if (targetAnvil) {
-                      possible.push(coordsToAlgebraic(nr, nc));
+                  if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
+                      // Tactical Search: consider all empty cardinal/diagonal squares within range
+                      const range = currentLevel;
+                      for(let rIdx=0; rIdx<8; rIdx++) for(let cIdx=0; cIdx<8; cIdx++) {
+                          const dist = Math.max(Math.abs(rIdx-fromRow), Math.abs(cIdx-fromCol));
+                          if (dist > 0 && dist <= range && (rIdx === fromRow || cIdx === fromCol || Math.abs(rIdx-fromRow) === Math.abs(cIdx-fromCol))) {
+                              if (!board[rIdx][cIdx].piece && !board[rIdx][cIdx].item) {
+                                  possible.push(coordsToAlgebraic(rIdx, cIdx));
+                              }
+                          }
+                      }
                   }
               }
           }
@@ -538,35 +546,24 @@ export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseud
         
         if (!(isEnemy && isDiagForward)) {
             if (targetPiece?.type === 'king' && !grappledItem) return false; 
-            const boardWithPickup = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null })));
-            const isAnvil = boardWithPickup[toCoords.row][toCoords.col].item?.type === 'anvil' && p.heldItem === 'power_glove';
-            const pickedPieceData = boardWithPickup[toCoords.row][toCoords.col].piece ? { ...boardWithPickup[toCoords.row][toCoords.col].piece! } : null;
-            
-            if (isAnvil) boardWithPickup[toCoords.row][toCoords.col].item = null;
-            else boardWithPickup[toCoords.row][toCoords.col].piece = null;
+            const pickedPieceData = targetPiece ? { ...targetPiece } : null;
+            const pickedAnvil = board[toCoords.row][toCoords.col].item?.type === 'anvil' && p.heldItem === 'power_glove';
             
             const range = getEffectiveLevel(board, fromCoords.row, fromCoords.col);
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
-                    if (!isAnvil && (boardWithPickup[r][c].piece || (boardWithPickup[r][c].item && boardWithPickup[r][c].item?.type === 'anvil'))) continue;
-                    
                     const dr = Math.abs(r - fromCoords.row); const dc = Math.abs(c - fromCoords.col);
                     const dist = Math.max(dr, dc);
                     if (dist > 0 && dist <= range && (r === fromCoords.row || c === fromCoords.col || dr === dc)) {
-                        if (isAnvil) {
-                           const oldPiece = boardWithPickup[r][c].piece;
-                           boardWithPickup[r][c].piece = null; 
-                           boardWithPickup[r][c].item = { type: 'anvil' };
-                           // Pass the simulated move context to the check detector
-                           const isSafe = !isKingInCheck(boardWithPickup, player, ep, p.type, p.heldItem, p.level);
-                           boardWithPickup[r][c].item = null; boardWithPickup[r][c].piece = oldPiece;
-                           if (isSafe) return true;
-                        } else if (pickedPieceData) {
-                           boardWithPickup[r][c].piece = { ...pickedPieceData, hasMoved: true };
-                           const isSafe = !isKingInCheck(boardWithPickup, player, ep, p.type, p.heldItem, p.level);
-                           boardWithPickup[r][c].piece = null;
-                           if (isSafe) return true;
-                        }
+                        const move: Move = { 
+                            from, 
+                            to: coordsToAlgebraic(r, c), 
+                            type: 'grapple-throw',
+                            thrownPiece: pickedPieceData || undefined,
+                            thrownItem: pickedAnvil ? 'anvil' : undefined
+                        };
+                        const applyResult = applyMove(board, move, ep, undefined, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+                        if (!isKingInCheck(applyResult.newBoard, player, ep, p.type, p.heldItem, p.level)) return true;
                     }
                 }
             }
@@ -588,7 +585,6 @@ export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseud
       else if (board[toCoords.row][toCoords.col].piece) type = board[toCoords.row][toCoords.col].piece!.color === p.color ? 'swap' : 'capture';
     }
     const applyResult = applyMove(board, { from, to, type }, ep, undefined, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
-    // CRITICAL: Pass the simulated move's context (the piece that just landed) into the check detector
     return !isKingInCheck(applyResult.newBoard, player, applyResult.enPassantTargetSet, applyResult.originalPieceType, applyResult.originalPieceHeldItem, applyResult.originalPieceLevel);
   });
 }

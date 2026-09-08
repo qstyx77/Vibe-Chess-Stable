@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -139,7 +140,16 @@ export class VibeChessAI {
         next.lastMovedPieceHeldItem = movingPiece.heldItem;
         next.lastMovedPieceLevel = movingPiece.level;
 
-        if (movingPiece.id.startsWith('boss-colossus')) {
+        if (move.type === 'grapple-throw') {
+            if (move.thrownItem === 'anvil') {
+                next.board[tR][tC].item = { type: 'anvil' };
+            } else if (move.thrownPiece) {
+                const p = { ...move.thrownPiece, hasMoved: true };
+                next.board[tR][tC].piece = p;
+                if (targetPiece?.color === opponent) captureCount++;
+            }
+            next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
+        } else if (movingPiece.id.startsWith('boss-colossus')) {
             const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
             let tlR=-1, tlC=-1;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(next.board[r][c].piece?.id === 'boss-colossus-tl') { tlR=r; tlC=c; break; }
@@ -305,6 +315,7 @@ export class VibeChessAI {
         const moves: AIMove[] = [];
         const effLevel = getEffectiveLevel(gs.board as any, r, c);
         const silenced = isSilencedInternal(gs.board, r, c, p.color);
+        const oppColor = p.color === 'white' ? 'black' : 'white';
 
         if (p.type === 'mimic') {
             const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
@@ -323,6 +334,72 @@ export class VibeChessAI {
                 }
             });
             return moves;
+        }
+
+        if (p.type === 'grappler' && !silenced) {
+            const range = effLevel;
+            const inCheck = this.isInCheck(gs, p.color);
+            
+            // Templates
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const pr = r + dr, pc = c + dc;
+                    if (!isValidSquareUtil(pr, pc)) continue;
+                    
+                    const targetSq = gs.board[pr][pc];
+                    const targetPiece = targetSq.piece;
+                    const targetAnvil = targetSq.item?.type === 'anvil' && p.heldItem === 'power_glove';
+                    
+                    if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
+                        // Heuristic Targets
+                        const possibleLandings: [number, number][] = [];
+                        
+                        // Check Template: Save the King
+                        if (inCheck) {
+                           // Find blocking squares between king and checker
+                           // Rudimentary: Try all cardinal/diagonal squares within range
+                           for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
+                               const dist = Math.max(Math.abs(tr-r), Math.abs(tc-c));
+                               if (dist > 0 && dist <= range && (tr === r || tc === c || Math.abs(tr-r) === Math.abs(tc-c))) {
+                                   if (!gs.board[tr][tc].piece && !gs.board[tr][tc].item) possibleLandings.push([tr, tc]);
+                               }
+                           }
+                        } else {
+                           // Aggressive Template: Back rank
+                           const backRank = p.color === 'white' ? 0 : 7;
+                           for(let tc=0; tc<8; tc++) {
+                               const dist = Math.max(Math.abs(backRank-r), Math.abs(tc-c));
+                               if (dist > 0 && dist <= range && (backRank === r || tc === c || Math.abs(backRank-r) === Math.abs(tc-c))) {
+                                   if (!gs.board[backRank][tc].piece && !gs.board[backRank][tc].item) possibleLandings.push([backRank, tc]);
+                               }
+                           }
+                           
+                           // Defensive Template: Safety
+                           if (targetPiece && targetPiece.color === p.color && this.isSquareAttacked(gs, pr, pc, oppColor)) {
+                               // Throw to safe corner
+                               const corners: [number, number][] = [[0,0],[0,7],[7,0],[7,7]];
+                               corners.forEach(([cr, cc]) => {
+                                   const dist = Math.max(Math.abs(cr-r), Math.abs(cc-c));
+                                   if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(cc-c))) {
+                                       if (!gs.board[cr][cc].piece && !gs.board[cr][cc].item && !this.isSquareAttacked(gs, cr, cc, oppColor)) possibleLandings.push([cr, cc]);
+                                   }
+                               });
+                           }
+                        }
+
+                        possibleLandings.forEach(l => {
+                            moves.push({ 
+                                from: [r, c], 
+                                to: l, 
+                                type: 'grapple-throw', 
+                                thrownPiece: targetPiece ? { ...targetPiece } : undefined,
+                                thrownItem: targetAnvil ? 'anvil' : undefined
+                            });
+                        });
+                    }
+                }
+            }
         }
 
         const dir = p.color === 'white' ? -1 : 1;
@@ -649,8 +726,6 @@ export class VibeChessAI {
                             }
                         }
                     } else if (p.type === 'king') {
-                        // CRITICAL: Knight-moves and distance-2 checks must be accounted for
-                        // even in "simplified" mode during simulation checks to prevent illegal moves.
                         const maxDistance = effLevel >= 2 ? 2 : 1;
                         const dr = tr - r; const dc = tc - c;
                         if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {

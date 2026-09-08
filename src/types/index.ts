@@ -279,6 +279,7 @@ export interface ApplyMoveResult {
   rallyCryTriggered: RallyCryEvent | null;
   originalPieceLevel?: number;
   originalPieceType?: PieceType;
+  originalPieceHeldItem?: InventoryItemType | null;
   selfCheckByPushBack: boolean;
   queenLevelReducedEvents?: QueenLevelReducedEvent[] | null;
   promotedToInfiltrator?: boolean;
@@ -385,6 +386,9 @@ export interface AIMove {
   to: [number, number];
   type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray';
   promoteTo?: PieceType;
+  thrownPiece?: Piece;
+  thrownItem?: ItemType;
+  teleportPieceId?: string;
 }
 
 export interface AIGameState {
