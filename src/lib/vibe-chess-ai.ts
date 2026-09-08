@@ -136,6 +136,8 @@ export class VibeChessAI {
         let captureCount = 0;
 
         next.lastMovedPieceType = movingPiece.type;
+        next.lastMovedPieceHeldItem = movingPiece.heldItem;
+        next.lastMovedPieceLevel = movingPiece.level;
 
         if (movingPiece.id.startsWith('boss-colossus')) {
             const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
@@ -296,7 +298,7 @@ export class VibeChessAI {
                 }
             }
         }
-        return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color, true));
+        return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color, false));
     }
 
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece, simplified: boolean = false): AIMove[] {
@@ -603,7 +605,6 @@ export class VibeChessAI {
                     if (p.heldItem === 'knights_boots') {
                         for (const [dr, dc] of this.knightMoves) {
                             if (r + dr === tr && c + dc === tc) {
-                                // Ignore defensive abilities like shields when calculating if a square is under attack for check/mate purposes
                                 if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                             }
                         }
@@ -648,7 +649,9 @@ export class VibeChessAI {
                             }
                         }
                     } else if (p.type === 'king') {
-                        const maxDistance = effLevel >= 2 && !simplified ? 2 : 1;
+                        // CRITICAL: Knight-moves and distance-2 checks must be accounted for
+                        // even in "simplified" mode during simulation checks to prevent illegal moves.
+                        const maxDistance = effLevel >= 2 ? 2 : 1;
                         const dr = tr - r; const dc = tc - c;
                         if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                             let clear = true;
@@ -658,9 +661,9 @@ export class VibeChessAI {
                             }
                             if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
-                        if (effLevel >= 5 && !simplified) {
-                            for (const [dr, dc] of this.knightMoves) {
-                                if (r + dr === tr && c + dc === tc) {
+                        if (effLevel >= 5) {
+                            for (const [dr_n, dc_n] of this.knightMoves) {
+                                if (r + dr_n === tr && c + dc_n === tc) {
                                     if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                                 }
                             }

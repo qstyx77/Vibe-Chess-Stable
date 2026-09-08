@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced } from './utils';
@@ -558,12 +557,13 @@ export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseud
                            const oldPiece = boardWithPickup[r][c].piece;
                            boardWithPickup[r][c].piece = null; 
                            boardWithPickup[r][c].item = { type: 'anvil' };
-                           const isSafe = !isKingInCheck(boardWithPickup, player, ep, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+                           // Pass the simulated move context to the check detector
+                           const isSafe = !isKingInCheck(boardWithPickup, player, ep, p.type, p.heldItem, p.level);
                            boardWithPickup[r][c].item = null; boardWithPickup[r][c].piece = oldPiece;
                            if (isSafe) return true;
                         } else if (pickedPieceData) {
                            boardWithPickup[r][c].piece = { ...pickedPieceData, hasMoved: true };
-                           const isSafe = !isKingInCheck(boardWithPickup, player, ep, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+                           const isSafe = !isKingInCheck(boardWithPickup, player, ep, p.type, p.heldItem, p.level);
                            boardWithPickup[r][c].piece = null;
                            if (isSafe) return true;
                         }
@@ -588,6 +588,7 @@ export function filterLegalMoves(board: BoardState, from: AlgebraicSquare, pseud
       else if (board[toCoords.row][toCoords.col].piece) type = board[toCoords.row][toCoords.col].piece!.color === p.color ? 'swap' : 'capture';
     }
     const applyResult = applyMove(board, { from, to, type }, ep, undefined, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
-    return !isKingInCheck(applyResult.newBoard, player, ep, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    // CRITICAL: Pass the simulated move's context (the piece that just landed) into the check detector
+    return !isKingInCheck(applyResult.newBoard, player, applyResult.enPassantTargetSet, applyResult.originalPieceType, applyResult.originalPieceHeldItem, applyResult.originalPieceLevel);
   });
 }

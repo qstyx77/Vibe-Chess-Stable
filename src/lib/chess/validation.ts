@@ -64,7 +64,9 @@ export function isSquareAttacked(
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
                     }
                 } else if (attackingPiece.type === 'king') {
-                    const maxDistance = effectiveLevel >= 2 && !simplifyKingCheck ? 2 : 1;
+                    // CRITICAL: Leveled-up King range (L2/L5) MUST be checked even during "simplified" check detection
+                    // to accurately identify control/mate.
+                    const maxDistance = effectiveLevel >= 2 ? 2 : 1;
                     const dr = targetR - r; const dc = targetC - c;
                     if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                         if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
@@ -76,7 +78,7 @@ export function isSquareAttacked(
                             if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
                         }
                     }
-                    if (effectiveLevel >= 5 && !simplifyKingCheck) {
+                    if (effectiveLevel >= 5) {
                         const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
                         for (const [dr_n, dc_n] of knightDeltas) {
                             if (r + dr_n === targetR && c + dc_n === targetC) {
