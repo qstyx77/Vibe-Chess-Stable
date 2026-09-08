@@ -336,11 +336,12 @@ export class VibeChessAI {
             return moves;
         }
 
-        if (p.type === 'grappler' && !silenced) {
+        // CRITICAL: Tactical templates involve recursive check-detection. 
+        // We MUST skip these if 'simplified' is true to prevent an infinite call stack.
+        if (!simplified && p.type === 'grappler' && !silenced) {
             const range = effLevel;
             const inCheck = this.isInCheck(gs, p.color);
             
-            // Templates
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
                     if (dr === 0 && dc === 0) continue;
@@ -352,13 +353,9 @@ export class VibeChessAI {
                     const targetAnvil = targetSq.item?.type === 'anvil' && p.heldItem === 'power_glove';
                     
                     if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
-                        // Heuristic Targets
                         const possibleLandings: [number, number][] = [];
                         
-                        // Check Template: Save the King
                         if (inCheck) {
-                           // Find blocking squares between king and checker
-                           // Rudimentary: Try all cardinal/diagonal squares within range
                            for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
                                const dist = Math.max(Math.abs(tr-r), Math.abs(tc-c));
                                if (dist > 0 && dist <= range && (tr === r || tc === c || Math.abs(tr-r) === Math.abs(tc-c))) {
@@ -366,7 +363,6 @@ export class VibeChessAI {
                                }
                            }
                         } else {
-                           // Aggressive Template: Back rank
                            const backRank = p.color === 'white' ? 0 : 7;
                            for(let tc=0; tc<8; tc++) {
                                const dist = Math.max(Math.abs(backRank-r), Math.abs(tc-c));
@@ -375,9 +371,7 @@ export class VibeChessAI {
                                }
                            }
                            
-                           // Defensive Template: Safety
                            if (targetPiece && targetPiece.color === p.color && this.isSquareAttacked(gs, pr, pc, oppColor)) {
-                               // Throw to safe corner
                                const corners: [number, number][] = [[0,0],[0,7],[7,0],[7,7]];
                                corners.forEach(([cr, cc]) => {
                                    const dist = Math.max(Math.abs(cr-r), Math.abs(cc-c));
@@ -440,7 +434,7 @@ export class VibeChessAI {
                 if (effLevel >= 3) {
                     [-1,1].forEach(dc => { if(isValidSquareUtil(r, c+dc) && !gs.board[r][c+dc].piece && (!gs.board[r][c+dc].item || gs.board[r][c+dc].item?.type === 'shroom')) moves.push({from:[r,c], to:[r,c+dc], type:'move'}); });
                 }
-                if (p.type === 'dancer' && gs.killStreaks[p.color] >= 1) {
+                if (!simplified && p.type === 'dancer' && gs.killStreaks[p.color] >= 1) {
                     for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                         if(dr===0 && dc===0) continue;
                         const nr = r+dr, nc = c+dc;
