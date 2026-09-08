@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -604,20 +603,21 @@ export class VibeChessAI {
                     if (p.heldItem === 'knights_boots') {
                         for (const [dr, dc] of this.knightMoves) {
                             if (r + dr === tr && c + dc === tc) {
-                                if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                                // Ignore defensive abilities like shields when calculating if a square is under attack for check/mate purposes
+                                if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                             }
                         }
                     }
                     if (p.type === 'pawn' || p.type === 'commander' || p.type === 'infiltrator' || p.type === 'grappler' || p.type === 'dancer' || p.type === 'myco_mage') {
                         const direction = p.color === 'white' ? -1 : 1;
                         if (r + direction === tr && Math.abs(c - tc) === 1) {
-                            if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                            if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
                         if (p.type === 'infiltrator' && r + direction === tr && c === tc) {
-                            if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                            if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
                         if (p.heldItem === 'drift_boots') {
-                            if (r + direction === tr && Math.abs(c - tc) === 1) if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                            if (r + direction === tr && Math.abs(c - tc) === 1) if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
                     } else if (p.type === 'mimic') {
                         const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
@@ -626,13 +626,13 @@ export class VibeChessAI {
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {
                         for (const [dr, dc] of this.knightMoves) {
                             if (r + dr === tr && c + dc === tc) {
-                                if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                                if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                             }
                         }
                         if (effLevel >= 2) {
                             for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
                                 if (r + dr === tr && c + dc === tc) {
-                                    if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                                    if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                                 }
                             }
                         }
@@ -643,7 +643,7 @@ export class VibeChessAI {
                                     let clear = true;
                                     if (Math.abs(tr - r) === 3) for (let i = 1; i < 3; i++) if (gs.board[r + i * sR][c].piece || gs.board[r + i * sR][c].item?.type === 'anvil') clear = false;
                                     if (Math.abs(tc - c) === 3) for (let i = 1; i < 3; i++) if (gs.board[r][c + i * sC].piece || gs.board[r][c + i * sC].item?.type === 'anvil') clear = false;
-                                    if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                                    if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                                 }
                             }
                         }
@@ -656,12 +656,12 @@ export class VibeChessAI {
                                 const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
                                 if (gs.board[midR][midC].piece || gs.board[midR][midC].item?.type === 'anvil') clear = false;
                             }
-                            if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                            if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
                         if (effLevel >= 5 && !simplified) {
                             for (const [dr, dc] of this.knightMoves) {
                                 if (r + dr === tr && c + dc === tc) {
-                                    if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                                    if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                                 }
                             }
                         }
@@ -673,7 +673,7 @@ export class VibeChessAI {
                                 const nr = r + i * dr, nc = c + i * dc;
                                 if (!isValidSquareUtil(nr, nc)) break;
                                 if (nr === tr && nc === tc) {
-                                    if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any)) return true;
+                                    if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                                     break;
                                 }
                                 const midSq = gs.board[nr][nc];
