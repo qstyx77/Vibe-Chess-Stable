@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
@@ -48,11 +47,17 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [onlineUsers, setOnlineUsers] = useState<{ userId: string, username: string }[]>([]);
   const [tournamentQueueCount, setTournamentQueueCount] = useState(0);
   const wsRef = useRef<WebSocket | null>(null);
+  const userDataRef = useRef(userData);
 
   const [isMessengerOpen, setIsMessengerOpen] = useState(false);
   const [visibleCategories, setVisibleCategories] = useState<Set<MessageCategory>>(new Set(['battle', 'social', 'log', 'market']));
   const [hasUnread, setHasUnread] = useState({ battle: false, social: false, log: false, market: false });
   const [chatInput, setChatInput] = useState('');
+
+  // Keep userDataRef in sync to avoid it being an effect dependency
+  useEffect(() => {
+    userDataRef.current = userData;
+  }, [userData]);
 
   useEffect(() => {
     if (!user || !firestore) return;
@@ -81,9 +86,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         category: 'log'
     };
     setMessages(prev => [...prev, log]);
-    if (!isMessengerOpen || !visibleCategories.has('log')) {
-        setHasUnread(prev => ({ ...prev, log: true }));
-    }
+    setHasUnread(prev => {
+        if (!isMessengerOpen || !visibleCategories.has('log')) {
+            return { ...prev, log: true };
+        }
+        return prev;
+    });
   }, [isMessengerOpen, visibleCategories]);
 
   useEffect(() => {
@@ -92,8 +100,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         setMessages([]);
         setOnlineUserIds(new Set());
         setOnlineUsers([]);
+        setOnlineStatus('disconnected');
         return;
     }
+
+    let reconnectTimeout: NodeJS.Timeout;
 
     const initWs = () => {
         setOnlineStatus('connecting');
@@ -110,7 +121,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         const socket = new WebSocket(wsUrl);
         socket.onopen = () => {
             setOnlineStatus('connected');
-            socket.send(JSON.stringify({ type: 'identify', userId: user.uid, username: userData?.username || user.displayName || 'Player' }));
+            socket.send(JSON.stringify({ 
+                type: 'identify', 
+                userId: user.uid, 
+                username: userDataRef.current?.username || user.displayName || 'Player' 
+            }));
         };
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -120,9 +135,12 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
                     return [...prev, data.message];
                 });
                 const cat = data.message.category as MessageCategory;
-                if (!isMessengerOpen || !visibleCategories.has(cat)) {
-                    setHasUnread(prev => ({ ...prev, [cat]: true }));
-                }
+                setHasUnread(prev => {
+                    if (!isMessengerOpen || !visibleCategories.has(cat)) {
+                        return { ...prev, [cat]: true };
+                    }
+                    return prev;
+                });
             } else if (data.type === 'presence-update') {
                 setOnlineUserIds(new Set(data.users.map((u: any) => u.userId)));
                 setOnlineUsers(data.users);
@@ -137,15 +155,18 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             setOnlineStatus('disconnected');
             setOnlineUserIds(new Set());
             setOnlineUsers([]);
-            setTimeout(initWs, 3000);
+            reconnectTimeout = setTimeout(initWs, 3000);
         };
         wsRef.current = socket;
         setWs(socket);
     };
 
     initWs();
-    return () => { if (wsRef.current) wsRef.current.close(); };
-  }, [user, userData, isMessengerOpen, visibleCategories, toast]);
+    return () => { 
+        if (wsRef.current) wsRef.current.close();
+        clearTimeout(reconnectTimeout);
+    };
+  }, [user?.uid]);
 
   const clearUnread = useCallback((category: MessageCategory) => {
       setHasUnread(prev => ({ ...prev, [category]: false }));
@@ -186,14 +207,28 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             const prefixLen = foundUser.username.length + 2;
             const msgBody = text.substring(prefixLen).trim();
             if (msgBody) {
-                wsRef.current.send(JSON.stringify({ type: 'chat-message', category: 'social', text: msgBody, targetName: foundUser.username, sender: userData?.username || user?.displayName || 'Player', senderId: user?.uid }));
+                wsRef.current.send(JSON.stringify({ 
+                    type: 'chat-message', 
+                    category: 'social', 
+                    text: msgBody, 
+                    targetName: foundUser.username, 
+                    sender: userDataRef.current?.username || user?.displayName || 'Player', 
+                    senderId: user?.uid 
+                }));
                 return;
             }
         }
     }
 
-    wsRef.current.send(JSON.stringify({ type: 'chat-message', category, text, targetId, sender: userData?.username || user?.displayName || 'Player', senderId: user?.uid }));
-  }, [user, userData, addLog, onlineUsers]);
+    wsRef.current.send(JSON.stringify({ 
+        type: 'chat-message', 
+        category, 
+        text, 
+        targetId, 
+        sender: userDataRef.current?.username || user?.displayName || 'Player', 
+        senderId: user?.uid 
+    }));
+  }, [user?.uid, addLog, onlineUsers]);
 
   const buyItemFromMarket = useCallback(async (sellerId: string, slot: number) => {
     if (!user || !firestore) return;
@@ -233,17 +268,25 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   }, [user, firestore, toast]);
 
   const joinTournamentQueue = useCallback(() => {
-    if (!wsRef.current || !userData) return;
-    if (userData.goldBalance < 100) { toast({ variant: 'destructive', title: "Broke!", description: "100 Gold required for entry." }); return; }
+    if (!wsRef.current || !userDataRef.current) return;
+    if (userDataRef.current.goldBalance < 100) { 
+        toast({ variant: 'destructive', title: "Broke!", description: "100 Gold required for entry." }); 
+        return; 
+    }
     wsRef.current.send(JSON.stringify({ type: 'join-tournament-queue', userId: user?.uid }));
     addLog("Joined Arena Queue. 100 Gold entry paid.");
-  }, [user, userData, toast, addLog]);
+  }, [user?.uid, toast, addLog]);
 
   const sendChallenge = useCallback((friendId: string) => {
     const roomId = `duel_${Math.random().toString(36).substring(2, 9)}`;
     sendMessage(`I challenge you to a duel!`, 'social', friendId);
-    wsRef.current?.send(JSON.stringify({ type: 'challenge-friend', friendId, roomId, senderName: userData?.username || user?.displayName || 'Player' }));
-  }, [userData, user, sendMessage]);
+    wsRef.current?.send(JSON.stringify({ 
+        type: 'challenge-friend', 
+        friendId, 
+        roomId, 
+        senderName: userDataRef.current?.username || user?.displayName || 'Player' 
+    }));
+  }, [user?.uid, sendMessage]);
 
   const acceptChallenge = useCallback((roomId: string) => { window.location.href = `/?roomId=${roomId}`; }, []);
 
@@ -271,7 +314,31 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <SocialContext.Provider value={{
-      messages, friends: (friendsData || []).map(f => ({ ...f })), addLog, sendMessage, sendChallenge, acceptChallenge, addFriend, removeFriend, blockUser, onlineStatus, ws, onlineUserIds, onlineUsers, isMessengerOpen, setIsMessengerOpen, hasUnread, clearUnread, visibleCategories, setVisibleCategories, chatInput, setChatInput, startDm, buyItemFromMarket, joinTournamentQueue, tournamentQueueCount
+      messages, 
+      friends: (friendsData || []).map(f => ({ ...f })), 
+      addLog, 
+      sendMessage, 
+      sendChallenge, 
+      acceptChallenge, 
+      addFriend, 
+      removeFriend, 
+      blockUser, 
+      onlineStatus, 
+      ws, 
+      onlineUserIds, 
+      onlineUsers, 
+      isMessengerOpen, 
+      setIsMessengerOpen, 
+      hasUnread, 
+      clearUnread, 
+      visibleCategories, 
+      setVisibleCategories, 
+      chatInput, 
+      setChatInput, 
+      startDm, 
+      buyItemFromMarket, 
+      joinTournamentQueue, 
+      tournamentQueueCount
     }}>{children}</SocialContext.Provider>
   );
 }
