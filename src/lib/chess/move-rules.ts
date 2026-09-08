@@ -1,9 +1,55 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced } from './utils';
 import { isPieceInvulnerableToAttack, isSquareAttacked, isKingInCheck } from './validation';
 import { applyMove } from './engine';
+
+export function getPossibleMoves(
+  board: BoardState,
+  fromSquare: AlgebraicSquare,
+  enPassantTargetSquare: AlgebraicSquare | null,
+  lastMovedPieceType?: PieceType | null,
+  lastMovedPieceHeldItem?: InventoryItemType | null,
+  lastPieceL?: number | null,
+  lastMovedPieceLevel?: number | null
+): AlgebraicSquare[] {
+  const { row, col } = algebraicToCoords(fromSquare);
+  const piece = board[row][col].piece;
+  if (!piece) return [];
+
+  const pseudoMoves = getPossibleMovesInternal(
+    board,
+    fromSquare,
+    piece,
+    true,
+    enPassantTargetSquare,
+    lastMovedPieceType,
+    lastMovedPieceHeldItem,
+    lastMovedPieceLevel
+  );
+
+  return pseudoMoves.filter(to => {
+    // Basic move legality check: Does this move leave my King in check?
+    const { newBoard, enPassantTargetSet } = applyMove(
+      board,
+      { from: fromSquare, to, type: 'move' },
+      enPassantTargetSquare,
+      undefined,
+      lastMovedPieceType,
+      lastMovedPieceHeldItem,
+      lastMovedPieceLevel
+    );
+    
+    return !isKingInCheck(
+      newBoard,
+      piece.color,
+      enPassantTargetSet,
+      piece.type,
+      piece.heldItem,
+      piece.level
+    );
+  });
+}
 
 export function getPossibleMovesInternal(
     board: BoardState,
@@ -357,4 +403,41 @@ export function getPossibleMovesInternal(
   }
 
   return possible;
+}
+
+function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, ep: AlgebraicSquare | null): boolean {
+  const { row: fR, col: fC } = algebraicToCoords(from);
+  const { row: tR, col: tC } = algebraicToCoords(to);
+  const dr = tR - fR;
+  const dc = tC - fC;
+  const color = piece.color;
+  const opp = color === 'white' ? 'black' : 'white';
+  const targetSq = board[tR][tC];
+  const targetP = targetSq.piece;
+
+  if (targetSq.item?.type === 'anvil') return false;
+
+  if (FRONTLINE_TYPES.includes(piece.type)) {
+    const forward = color === 'white' ? -1 : 1;
+    const effL = getEffectiveLevel(board, fR, fC);
+    if (dc === 0 && !targetP) {
+      if (dr === forward) return true;
+      if (dr === 2 * forward && !piece.hasMoved && !board[fR + forward][fC].piece && !board[fR + forward][fC].item) return true;
+      if (dr === -forward && effL >= 2) return true;
+    }
+    if (dr === 0 && Math.abs(dc) === 1 && effL >= 3 && !targetP) return true;
+    if (dr === forward && Math.abs(dc) === 1) {
+       if (targetP && targetP.color === opp) return true;
+       if (!targetP && to === ep) return true;
+    }
+    return false;
+  }
+
+  if (['knight', 'hero', 'archer'].includes(piece.type)) {
+    const isKnightMove = (Math.abs(dr) === 2 && Math.abs(dc) === 1) || (Math.abs(dr) === 1 && Math.abs(dc) === 2);
+    if (isKnightMove) return !targetP || targetP.color === opp;
+    return false;
+  }
+  
+  return false;
 }

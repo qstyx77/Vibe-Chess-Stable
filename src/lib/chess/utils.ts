@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
@@ -121,4 +120,35 @@ export function findKing(board: BoardState, color: PlayerColor): { row: number; 
     }
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (board[r][c].piece?.type === 'king' && board[r][c].piece?.color === color) return { row: r, col: c, piece: board[r][c].piece!, algebraic: board[r][c].algebraic };
     return null;
+}
+
+export function getCastlingRightsString(board: BoardState): string {
+    let rights = "";
+    const wK = board[7][4].piece;
+    if (wK?.type === 'king' && !wK.hasMoved) {
+        if (board[7][7].piece?.type === 'rook' && !board[7][7].piece.hasMoved) rights += "K";
+        if (board[7][0].piece?.type === 'rook' && !board[7][0].piece.hasMoved) rights += "Q";
+    }
+    const bK = board[0][4].piece;
+    if (bK?.type === 'king' && !bK.hasMoved) {
+        if (board[0][7].piece?.type === 'rook' && !board[0][7].piece.hasMoved) rights += "k";
+        if (board[0][0].piece?.type === 'rook' && !board[0][0].piece.hasMoved) rights += "q";
+    }
+    return rights || "-";
+}
+
+export function boardToPositionHash(board: BoardState, player: PlayerColor, ep: string | null): string {
+    let s = player + (ep || "-") + getCastlingRightsString(board);
+    board.forEach(row => row.forEach(sq => {
+        if (sq.piece) s += sq.piece.type[0] + sq.piece.color[0] + sq.piece.level;
+        if (sq.item) s += sq.item.type[0];
+    }));
+    return s;
+}
+
+export function isQueenSacrificeRequired(board: BoardState, player: PlayerColor, oldLevel: number, newLevel: number): boolean {
+    if (oldLevel < 7 && newLevel >= 7) {
+        return board.flat().some(sq => sq.piece && sq.piece.color === player && FRONTLINE_TYPES.includes(sq.piece.type));
+    }
+    return false;
 }
