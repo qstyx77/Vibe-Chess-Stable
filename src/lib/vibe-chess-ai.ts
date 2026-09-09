@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -149,7 +148,7 @@ export class VibeChessAI {
                 if (targetPiece?.color === opponent) captureCount++;
             }
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
-        } else if (movingPiece.id.startsWith('boss-colossus')) {
+        } else if (movingPiece.id?.startsWith('boss-colossus')) {
             const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
             let tlR=-1, tlC=-1;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(next.board[r][c].piece?.id === 'boss-colossus-tl') { tlR=r; tlC=c; break; }
@@ -297,9 +296,9 @@ export class VibeChessAI {
                 if (p && p.color === color) {
                     if ((p.cooldownTurnsRemaining || 0) > 0 || (p.frozenTurnsRemaining || 0) > 0) continue;
 
-                    if (p.id.startsWith('boss-colossus')) {
+                    if (p.id?.startsWith('boss-colossus')) {
                         if (p.id === 'boss-colossus-tl') {
-                            const minions = gs.board.flat().some(sq => sq.piece && sq.piece.color === p.color && !sq.piece.id.startsWith('boss-colossus'));
+                            const minions = gs.board.flat().some(sq => sq.piece && sq.piece.color === p.color && !sq.piece.id?.startsWith('boss-colossus'));
                             if (!minions) moves.push(...this.generatePieceMoves(gs, r, c, p));
                         }
                     } else {
@@ -323,7 +322,7 @@ export class VibeChessAI {
             return this.generatePieceMoves(gs, r, c, virtualPiece, true);
         }
         
-        if (p.id.startsWith('boss-colossus')) {
+        if (p.id?.startsWith('boss-colossus')) {
             const strides = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]];
             const leaps = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];
             
@@ -632,9 +631,9 @@ export class VibeChessAI {
 
     isInCheck(gs: AIGameState, color: PlayerColor, simplified: boolean = false): boolean {
         if (color === 'black') {
-            const colossusParts = gs.board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
+            const colossusParts = gs.board.flat().filter(sq => sq.piece?.id?.startsWith('boss-colossus'));
             if (colossusParts.length > 0) {
-                const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+                const otherMinions = gs.board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id?.startsWith('boss-colossus'));
                 if (otherMinions) return false;
                 for (const pt of colossusParts) {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
@@ -737,6 +736,13 @@ export class VibeChessAI {
                                 }
                             }
                         }
+                    } else if (p.id?.startsWith('boss-colossus')) {
+                         // Parts are treated like standard pieces for attack detection
+                         const maxDistance = effLevel >= 2 ? 2 : 1;
+                         const dr = tr - r; const dc = tc - c;
+                         if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
+                             if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
+                         }
                     } else {
                         const isBishopType = p.type === 'bishop' || p.type === 'archbishop';
                         const dirs = p.type === 'rook' || p.type === 'palace' ? this.directions.rook : (isBishopType ? this.directions.bishop : this.directions.queen);

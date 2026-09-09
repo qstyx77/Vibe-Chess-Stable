@@ -7,8 +7,8 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     if (!targetPiece || !attackingPiece) return false;
 
     // Boss Colossus logic (minions must be cleared first)
-    if (targetPiece.id.startsWith('boss-colossus') && board) {
-        const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+    if (targetPiece.id?.startsWith('boss-colossus') && board) {
+        const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id?.startsWith('boss-colossus'));
         if (otherMinions) return true; 
     }
 
@@ -71,7 +71,7 @@ export function isSquareAttacked(
                     if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
                         if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
                             const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                            if (!board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type === 'anvil')) {
+                            if (isValidSquare(midR, midC) && !board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type === 'anvil')) {
                                 if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
                             }
                         } else {
@@ -87,7 +87,7 @@ export function isSquareAttacked(
                         }
                     }
                 } else {
-                    const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+                    const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, true);
                     if (pseudoMoves.includes(squareToAttack)) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
                     }
@@ -100,9 +100,9 @@ export function isSquareAttacked(
 
 export function isKingInCheck(board: BoardState, kingColor: PlayerColor, enPassantTargetSquare: AlgebraicSquare | null, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null): boolean {
   if (kingColor === 'black') {
-      const colossusParts = board.flat().filter(sq => sq.piece?.id.startsWith('boss-colossus'));
+      const colossusParts = board.flat().filter(sq => sq.piece?.id?.startsWith('boss-colossus'));
       if (colossusParts.length > 0) {
-          const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id.startsWith('boss-colossus'));
+          const otherMinions = board.flat().some(sq => sq.piece && sq.piece.color === 'black' && !sq.piece.id?.startsWith('boss-colossus'));
           if (otherMinions) return false;
           return colossusParts.some(part => isSquareAttacked(board, part.algebraic, 'white', false, null, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, true));
       }
