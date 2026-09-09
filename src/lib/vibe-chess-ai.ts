@@ -319,7 +319,7 @@ export class VibeChessAI {
         if (p.type === 'mimic') {
             const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
             const virtualPiece = { ...p, type: patternType };
-            return this.generatePieceMoves(gs, r, c, virtualPiece, true);
+            return this.generatePieceMoves(gs, r, c, virtualPiece, true); 
         }
         
         if (p.id?.startsWith('boss-colossus')) {
@@ -335,11 +335,9 @@ export class VibeChessAI {
             return moves;
         }
 
-        // CRITICAL: Tactical templates involve recursive check-detection. 
-        // We MUST skip these if 'simplified' is true to prevent an infinite call stack.
         if (!simplified && p.type === 'grappler' && !silenced) {
             const range = effLevel;
-            const inCheck = this.isInCheck(gs, p.color);
+            const inCheck = this.isInCheck(gs, p.color, true);
             
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
@@ -370,12 +368,12 @@ export class VibeChessAI {
                                }
                            }
                            
-                           if (targetPiece && targetPiece.color === p.color && this.isSquareAttacked(gs, pr, pc, oppColor)) {
+                           if (targetPiece && targetPiece.color === p.color && this.isSquareAttacked(gs, pr, pc, oppColor, true)) {
                                const corners: [number, number][] = [[0,0],[0,7],[7,0],[7,7]];
                                corners.forEach(([cr, cc]) => {
                                    const dist = Math.max(Math.abs(cr-r), Math.abs(cc-c));
                                    if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(cc-c))) {
-                                       if (!gs.board[cr][cc].piece && !gs.board[cr][cc].item && !this.isSquareAttacked(gs, cr, cc, oppColor)) possibleLandings.push([cr, cc]);
+                                       if (!gs.board[cr][cc].piece && !gs.board[cr][cc].item && !this.isSquareAttacked(gs, cr, cc, oppColor, true)) possibleLandings.push([cr, cc]);
                                    }
                                });
                            }
@@ -396,12 +394,7 @@ export class VibeChessAI {
         }
 
         const dir = p.color === 'white' ? -1 : 1;
-        const hasMagicScroll = p.heldItem && ['wind_scroll', 'life_leach', 'summon_anvil', 'shield_scroll', 'rally_scroll', 'antidote', 'detonation_scroll', 'swap_scroll', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'kings_decree', 'ice_blast', 'soul_harvest', 'earthquake_scroll', 'demonic_possession', 'heavy_rain'].includes(p.heldItem);
-        const hasSelfAbility = ((p.type === 'knight' || p.type === 'hero' || p.type === 'archer') && effLevel >= 5);
-        if (!silenced && (hasMagicScroll || hasSelfAbility || p.type === 'myco_mage')) {
-            moves.push({ from: [r, c], to: [r, c], type: 'move' });
-        }
-
+        
         switch (p.type) {
             case 'pawn':
             case 'dancer':
@@ -512,7 +505,7 @@ export class VibeChessAI {
                                 let clear = true;
                                 for(let i=1; i<3; i++) {
                                     const ir = r + i*sR; const ic = c + i*sC;
-                                    if(gs.board[ir][ic].piece || gs.board[ir][ic].item?.type === 'anvil') clear = false;
+                                    if(isValidSquareUtil(ir,ic) && (gs.board[ir][ic].piece || gs.board[ir][ic].item?.type === 'anvil')) clear = false;
                                 }
                                 if(clear) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                             }
@@ -637,14 +630,14 @@ export class VibeChessAI {
                 if (otherMinions) return false;
                 for (const pt of colossusParts) {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
-                    if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white', simplified)) return true;
+                    if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white', true)) return true;
                 }
                 return false;
             }
         }
         const king = this.findKingCoords(gs, color);
         if (!king) return false;
-        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white', simplified);
+        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white', true);
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
@@ -687,9 +680,6 @@ export class VibeChessAI {
                         if (p.type === 'infiltrator' && r + direction === tr && c === tc) {
                             if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
-                        if (p.heldItem === 'drift_boots') {
-                            if (r + direction === tr && Math.abs(c - tc) === 1) if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
-                        }
                     } else if (p.type === 'mimic') {
                         const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType }, true);
@@ -712,8 +702,8 @@ export class VibeChessAI {
                                 if (r + dr === tr && c + dc === tc) {
                                     const sR = Math.sign(tr - r); const sC = Math.sign(tc - c);
                                     let clear = true;
-                                    if (Math.abs(tr - r) === 3) for (let i = 1; i < 3; i++) if (gs.board[r + i * sR][c].piece || gs.board[r + i * sR][c].item?.type === 'anvil') clear = false;
-                                    if (Math.abs(tc - c) === 3) for (let i = 1; i < 3; i++) if (gs.board[r][c + i * sC].piece || gs.board[r][c + i * sC].item?.type === 'anvil') clear = false;
+                                    if (Math.abs(tr - r) === 3) for (let i = 1; i < 3; i++) if (isValidSquareUtil(r + i * sR, c) && (gs.board[r + i * sR][c].piece || gs.board[r + i * sR][c].item?.type === 'anvil')) clear = false;
+                                    if (Math.abs(tc - c) === 3) for (let i = 1; i < 3; i++) if (isValidSquareUtil(r, c + i * sC) && (gs.board[r][c + i * sC].piece || gs.board[r][c + i * sC].item?.type === 'anvil')) clear = false;
                                     if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                                 }
                             }
@@ -725,7 +715,7 @@ export class VibeChessAI {
                             let clear = true;
                             if (Math.abs(dr) === 2 || Math.abs(dc) === 2) {
                                 const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                                if (gs.board[midR][midC].piece || gs.board[midR][midC].item?.type === 'anvil') clear = false;
+                                if (isValidSquareUtil(midR, midC) && (gs.board[midR][midC].piece || gs.board[midR][midC].item?.type === 'anvil')) clear = false;
                             }
                             if (clear && !isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
@@ -737,7 +727,6 @@ export class VibeChessAI {
                             }
                         }
                     } else if (p.id?.startsWith('boss-colossus')) {
-                         // Parts are treated like standard pieces for attack detection
                          const maxDistance = effLevel >= 2 ? 2 : 1;
                          const dr = tr - r; const dc = tc - c;
                          if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {

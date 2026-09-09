@@ -40,16 +40,19 @@ export function isSquareAttacked(
     lastMovedPieceType?: PieceType | null,
     lastMovedPieceHeldItem?: InventoryItemType | null,
     lastMovedPieceLevel?: number | null,
-    ignoreDefensiveAbilities: boolean = true // Default to true for check detection
+    ignoreDefensiveAbilities: boolean = true 
 ): boolean {
-    const { row: targetR, col: targetC } = algebraicToCoords(squareToAttack);
+    const coords = algebraicToCoords(squareToAttack);
+    const targetR = coords.row;
+    const targetC = coords.col;
+
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const attackingSquareAlgebraic = coordsToAlgebraic(r,c);
             if (ignoreAttackerAtSquare && attackingSquareAlgebraic === ignoreAttackerAtSquare) continue;
             const attackingPiece = board[r][c].piece;
             if (attackingPiece && attackingPiece.color === attackerColor) {
-                const pieceOnTargetSq = board[targetR][targetC].piece;
+                const pieceOnTargetSq = board[targetR][targetC]?.piece || null;
                 const targetLevel = getEffectiveLevel(board, targetR, targetC);
                 const effectiveLevel = getEffectiveLevel(board, r, c);
                 
@@ -64,8 +67,6 @@ export function isSquareAttacked(
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
                     }
                 } else if (attackingPiece.type === 'king') {
-                    // CRITICAL: Leveled-up King range (L2/L5) MUST be checked even during "simplified" check detection
-                    // to accurately identify control/mate.
                     const maxDistance = effectiveLevel >= 2 ? 2 : 1;
                     const dr = targetR - r; const dc = targetC - c;
                     if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
