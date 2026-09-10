@@ -137,17 +137,32 @@ export function getCastlingRightsString(board: BoardState): string {
     return rights || "-";
 }
 
+/**
+ * Generates a shroom-agnostic position hash for threefold repetition tracking.
+ * Ignores shrooms but includes anvils and piece levels/items.
+ */
 export function boardToPositionHash(board: BoardState, player: PlayerColor, ep: string | null): string {
-    let s = player + (ep || "-") + getCastlingRightsString(board);
-    board.forEach(row => row.forEach(sq => {
-        if (sq.piece) {
-            s += sq.piece.type[0] + sq.piece.color[0] + sq.piece.level;
+    if (!board) return "";
+    let s = (player || "w") + (ep || "-") + getCastlingRightsString(board);
+    for (let r = 0; r < 8; r++) {
+        const row = board[r];
+        if (!row) continue;
+        for (let c = 0; c < 8; c++) {
+            const sq = row[c];
+            if (!sq) continue;
+            if (sq.piece) {
+                // Safe access to type and color strings to avoid TypeError
+                const typeChar = sq.piece.type ? sq.piece.type[0] : 'p';
+                const colorChar = sq.piece.color ? sq.piece.color[0] : 'w';
+                s += typeChar + colorChar + (sq.piece.level || 1);
+                if (sq.piece.heldItem) s += sq.piece.heldItem[0];
+            }
+            // Include Anvils, ignore Shrooms for agnostic repetition tracking
+            if (sq.item && sq.item.type === 'anvil') {
+                s += 'A';
+            }
         }
-        // Include Anvils, ignore Shrooms
-        if (sq.item && sq.item.type === 'anvil') {
-            s += 'A';
-        }
-    }));
+    }
     return s;
 }
 

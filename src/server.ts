@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -23,9 +22,11 @@ import {
     getEffectiveLevel,
     syncSoulLink,
     isItemValidForPiece,
-    triggerPushBack
+    triggerPushBack,
+    processOilSlickTimers,
+    processPoisonDamage
 } from './lib/chess-utils';
-import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage } from './types';
+import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage, Move } from './types';
 
 
 const server = http.createServer((req, res) => {
@@ -45,10 +46,6 @@ const wss = new WebSocket.Server({ server });
 
 const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string, username?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
 const userConnections: Record<string, (WebSocket & { userId?: string, roomId?: string, username?: string })> = {};
-let globalServerUniqueIdCounter = 10000;
-
-const rankedQueue: { ws: WebSocket & { userId?: string, roomId?: string }; userId: string; elo: number; username: string; wins: number; losses: number; equipment?: Record<string, string>; unlockedPieces?: string[]; timestamp: number }[] = [];
-let arenaQueue: { ws: WebSocket; userId: string }[] = [];
 
 const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
@@ -78,8 +75,6 @@ const broadcastPresence = () => {
 const startArena = () => {
     if (arenaQueue.length < 8) return;
     const participants = arenaQueue.splice(0, 8);
-    // In a real implementation, we would generate a 3-round bracket here.
-    // For MVP, we pair them off into 4 private rooms for Round 1.
     for (let i = 0; i < 4; i++) {
         const p1 = participants[i*2];
         const p2 = participants[i*2+1];
@@ -89,6 +84,8 @@ const startArena = () => {
     }
     wss.clients.forEach(c => c.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length })));
 };
+
+let arenaQueue: { ws: WebSocket; userId: string }[] = [];
 
 wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, username?: string }) => {
     ws.on('message', async (message) => {
@@ -182,6 +179,45 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         roomToJoin.gameState.players.black = data.user;
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
                         broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
+                    }
+                    break;
+                }
+                case 'game-move': {
+                    const room = ws.roomId ? rooms[ws.roomId] : null;
+                    if (!room) break;
+                    const movePayload = data.payload as Move;
+                    const gs = room.gameState;
+                    
+                    // Authority check for current player
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    if (gs.currentPlayer !== playerColor) break;
+
+                    const fromSq = algebraicToCoords(movePayload.from);
+                    const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
+                    if (!movingPiece) break;
+
+                    const result = applyMove(gs.board, movePayload, gs.enPassantTargetSquare, gs.capturedPieces, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel, gs.didOpponentCaptureLastTurn);
+                    
+                    gs.board = result.newBoard;
+                    gs.enPassantTargetSquare = result.enPassantTargetSet;
+                    gs.lastMovedPieceType = movingPiece.type;
+                    
+                    // SHROOM AGNOSTIC THREEFOLD REPETITION
+                    const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);
+                    const isFrontlineMove = movingPiece.type && FRONTLINE_TYPES.includes(movingPiece.type);
+                    if (result.capturedPiece || isFrontlineMove) {
+                        room.positionHistory = [hash];
+                    } else {
+                        room.positionHistory.push(hash);
+                    }
+
+                    const repeats = room.positionHistory.filter(h => h === hash).length;
+                    if (repeats >= 3) {
+                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
+                        delete rooms[ws.roomId!];
+                    } else {
+                        gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs });
                     }
                     break;
                 }
