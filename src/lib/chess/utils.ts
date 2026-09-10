@@ -140,8 +140,13 @@ export function getCastlingRightsString(board: BoardState): string {
 export function boardToPositionHash(board: BoardState, player: PlayerColor, ep: string | null): string {
     let s = player + (ep || "-") + getCastlingRightsString(board);
     board.forEach(row => row.forEach(sq => {
-        if (sq.piece) s += sq.piece.type[0] + sq.piece.color[0] + sq.piece.level;
-        if (sq.item) s += sq.item.type[0];
+        if (sq.piece) {
+            s += sq.piece.type[0] + sq.piece.color[0] + sq.piece.level;
+        }
+        // Include Anvils, ignore Shrooms
+        if (sq.item && sq.item.type === 'anvil') {
+            s += 'A';
+        }
     }));
     return s;
 }
