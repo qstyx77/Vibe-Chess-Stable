@@ -152,14 +152,13 @@ export function boardToPositionHash(board: BoardState, player: PlayerColor, ep: 
             if (!sq) continue;
             if (sq.piece) {
                 // Safe access to type and color strings to avoid TypeError
-                const typeChar = sq.piece.type ? sq.piece.type[0] : 'p';
+                const typeStr = sq.piece.type || 'pawn';
                 const colorChar = sq.piece.color ? sq.piece.color[0] : 'w';
-                s += typeChar + colorChar + (sq.piece.level || 1);
-                if (sq.piece.heldItem) s += sq.piece.heldItem[0];
+                s += `${r}${c}${typeStr}${colorChar}${sq.piece.level || 1}${sq.piece.heldItem || ''}`;
             }
             // Include Anvils, ignore Shrooms for agnostic repetition tracking
             if (sq.item && sq.item.type === 'anvil') {
-                s += 'A';
+                s += `${r}${c}A`;
             }
         }
     }
