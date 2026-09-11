@@ -14,6 +14,7 @@ import {
   getPossibleMoves,
   isKingInCheck,
   isCheckmate,
+  isStalemate,
   coordsToAlgebraic,
   isValidSquare,
   processRookResurrectionCheck,
