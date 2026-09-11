@@ -160,6 +160,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             lastMoveFrom: null,
                             lastMoveTo: null,
                             lastMovedPieceType: null,
+                            lastMovedPieceLevel: null,
+                            lastMovedPieceHeldItem: null,
                             gameInfo: { message: " ", isCheck: false, gameOver: false },
                             shroomSpawnCounter: 0,
                             nextShroomSpawnTurn: 5,
@@ -200,7 +202,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
+                    
+                    // Capture info for the NEXT piece (Mimic support)
                     gs.lastMovedPieceType = movingPiece.type;
+                    gs.lastMovedPieceLevel = movingPiece.level;
+                    gs.lastMovedPieceHeldItem = movingPiece.heldItem;
                     
                     // SHROOM AGNOSTIC THREEFOLD REPETITION
                     const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);

@@ -301,7 +301,7 @@ export default function DungeonPage() {
     if (nextLevelNum > 50) { 
         setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; 
     }
-    setLevel(nextLevelNum); setBoard(generateDungeonFloor(nextLevelNum, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: graveyard.white, black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setLastMoveFrom(null); setLastMoveTo(null);
+    setLevel(nextLevelNum); setBoard(generateDungeonFloor(nextLevelNum, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: graveyard.white, black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setLastMovedPieceHeldItem(null); setLastMoveFrom(null); setLastMoveTo(null);
     saveDungeonState(nextLevelNum, generateDungeonFloor(nextLevelNum, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, inventory);
     audioManager.playLevelUp(); addLog(`Descending to Floor ${nextLevelNum}...`);
   }, [level, inventory, saveDungeonState, addLog]);
@@ -415,6 +415,12 @@ export default function DungeonPage() {
           const movingPiece = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
           setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
+
+          // Update last moved state for Mimic
+          setLastMovedPieceType(movingPiece?.type || null);
+          setLastMovedPieceLevel(movingPiece?.level || null);
+          setLastMovedPieceHeldItem(movingPiece?.heldItem || null);
+
           const result = applyMove(board, { from: selectedSquare, to: alg, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
           setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
           addLog(`Hero: ${movingPiece?.type} to ${alg}`);
@@ -461,6 +467,12 @@ export default function DungeonPage() {
         const movingPiece = board[move.from[0]][move.from[1]].piece;
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg);
         setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
+
+        // Update last moved state for Mimic
+        setLastMovedPieceType(movingPiece?.type || null);
+        setLastMovedPieceLevel(movingPiece?.level || null);
+        setLastMovedPieceHeldItem(movingPiece?.heldItem || null);
+
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
         setBoard(result.newBoard);
         addLog(`Dungeon: ${movingPiece?.type} to ${toAlg}`);
