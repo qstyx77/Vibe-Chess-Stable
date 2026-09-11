@@ -368,6 +368,7 @@ export default function DungeonPage() {
   }, [userData, isUserLoading, user, saveDungeonState]);
 
   useEffect(() => { if (!isInitialized.current && !isUserLoading) { isInitialized.current = true; startRun(); } }, [isUserLoading, startRun]);
+  useEffect(() => { if (userData?.inventory) setInventory(userData.inventory); }, [userData]);
 
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black') return;
@@ -396,7 +397,7 @@ export default function DungeonPage() {
   const statusMessage = useMemo(() => {
     if (isAiThinking) return "DUNGEON IS THINKING...";
     if (gameInfo.message !== " ") return gameInfo.message;
-    return level % 10 === 0 ? `BOSS BATTLE: FLOOR ${level}` : `DUNGEON DEPTHS: FLOOR ${level}`;
+    return level % 10 === 0 ? `WARPED TO BOSS: FLOOR ${level}` : `DUNGEON DEPTHS: FLOOR ${level}`;
   }, [isAiThinking, gameInfo.message, level]);
 
   return (
@@ -424,8 +425,8 @@ export default function DungeonPage() {
 
       {/* BOARD */}
       <div className="flex-grow flex items-center justify-center p-2 min-h-0">
-        <div className="w-full max-w-[min(90vw,65vh)] aspect-square">
-          <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isAnySpecialModeActive} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
+        <div className="w-full max-w-[min(95vw,70vh)] aspect-square relative">
+          <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isAnySpecialModeActive} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaiting攻擊區域目標={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
         </div>
       </div>
 
@@ -445,22 +446,21 @@ export default function DungeonPage() {
             </div>
          </div>
 
-         <div className="px-2 py-1 space-y-1">
-            <div>
-               <p className="text-[7px] text-muted-foreground font-bold uppercase mb-0.5">Captured Black</p>
-               <div className="flex flex-wrap gap-0.5 min-h-[1rem]">
-                  {capturedPieces.black.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-50">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-4 h-4"><ChessPieceDisplay piece={p} isMini /></div>)}
-               </div>
-            </div>
-            <div>
-               <p className="text-[7px] text-muted-foreground font-bold uppercase mb-0.5">Captured White</p>
-               <div className="flex flex-wrap gap-0.5 min-h-[1rem]">
-                  {capturedPieces.white.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-50">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-4 h-4"><ChessPieceDisplay piece={p} isMini /></div>)}
-               </div>
-            </div>
+         <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
+            <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured Black</span>
+         </div>
+         <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
+            {capturedPieces.black.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
          </div>
 
-         <div className="mt-auto p-2 bg-muted/10 border-t border-border/30 min-h-[4rem] flex flex-col items-center justify-center text-center">
+         <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
+            <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured White</span>
+         </div>
+         <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
+            {capturedPieces.white.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+         </div>
+
+         <div className="mt-auto p-2 bg-muted/10 border-t border-border/30 min-h-[4.5rem] flex flex-col items-center justify-center text-center">
             {pieceForInfoDisplay ? (
                <div className="space-y-0.5">
                   <p className="text-[9px] font-bold text-destructive uppercase">
@@ -471,7 +471,7 @@ export default function DungeonPage() {
                      pieceForInfoDisplay.id === 'boss-entity' ? 'The Void Entity' :
                      pieceForInfoDisplay.type} - Level {pieceForInfoDisplay.level}
                   </p>
-                  <div className="text-[7px] text-white leading-tight uppercase max-w-[280px]">
+                  <div className="text-[7px] text-white leading-tight uppercase max-w-[300px]">
                      {pieceForInfoDisplay.id.startsWith('boss-hydra') && "Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares. Standard horizontal/vertical move."}
                      {pieceForInfoDisplay.id === 'boss-necro' && "Necromancy: Resurrects a fallen ally every 5 turns. High-level cleric movement."}
                      {pieceForInfoDisplay.id.startsWith('boss-colossus') && "Crushing: Moves 2 squares. Captures entire 2x2 landing area. Invulnerable until minions are cleared."}
@@ -481,16 +481,16 @@ export default function DungeonPage() {
                   </div>
                </div>
             ) : (
-               <p className="text-[8px] text-muted-foreground uppercase opacity-60">Hover units for tactical data</p>
+               <p className="text-[8px] text-muted-foreground uppercase opacity-60">Select units for tactical data</p>
             )}
          </div>
       </div>
 
-      <div className="px-4 pb-4 flex gap-2 shrink-0">
-        <Button variant="outline" className="flex-1 h-10 text-[10px] uppercase gap-2" onClick={() => setIsInventoryOpen(true)}>
+      <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
+        <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2" onClick={() => setIsInventoryOpen(true)}>
           <Package className="h-4 w-4" /> LOOT BAG
         </Button>
-        <Button variant="outline" className="flex-1 h-10 text-[10px] uppercase gap-2" onClick={() => setIsRulesDialogOpen(true)}>
+        <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2" onClick={() => setIsRulesDialogOpen(true)}>
           <BookOpen className="h-4 w-4" /> RULES
         </Button>
       </div>
