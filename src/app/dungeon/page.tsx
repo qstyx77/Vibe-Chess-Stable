@@ -30,11 +30,13 @@ import {
   processOilSlickTimers,
   boardToPositionHash,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -54,6 +56,7 @@ import {
 import { audioManager } from '@/lib/audio-manager';
 import { useSocial } from '@/components/social/SocialContext';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
+import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
@@ -175,7 +178,19 @@ function adaptBoardForAI(currentBoardState: BoardState, playerForAITurn: PlayerC
 
 export default function DungeonPage() {
   const { userData, isUserLoading, user } = useUser();
-  const { addLog } = useSocial();
+  const { 
+    addLog, 
+    messages, 
+    sendMessage, 
+    isMessengerOpen, 
+    setIsMessengerOpen, 
+    hasUnread, 
+    clearUnread, 
+    visibleCategories, 
+    setVisibleCategories, 
+    chatInput, 
+    setChatInput 
+  } = useSocial();
   const firestore = useFirestore();
   const { toast } = useToast();
 
@@ -400,6 +415,36 @@ export default function DungeonPage() {
     return level % 10 === 0 ? `WARPED TO BOSS: FLOOR ${level}` : `DUNGEON DEPTHS: FLOOR ${level}`;
   }, [isAiThinking, gameInfo.message, level]);
 
+  const getMessageColor = (msg: ChatMessage) => {
+      if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; 
+      if (msg.category === 'social') return 'text-accent'; 
+      if (msg.category === 'market') return 'text-yellow-500';
+      if (msg.color === 'white') return 'text-foreground'; 
+      if (msg.color === 'black') return 'text-secondary'; 
+      return 'text-muted-foreground';
+  };
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (chatInput.trim()) {
+      sendMessage(chatInput.trim(), 'battle');
+      setChatInput('');
+    }
+  };
+
+  const toggleCategory = (cat: MessageCategory) => {
+    const next = new Set(visibleCategories);
+    if (next.has(cat)) {
+        next.delete(cat);
+    } else {
+        next.add(cat);
+        clearUnread(cat);
+    }
+    setVisibleCategories(next);
+  };
+
+  const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden">
       {/* HEADER */}
@@ -433,7 +478,20 @@ export default function DungeonPage() {
       {/* INTEGRATED PANEL */}
       <div className="mx-4 mb-4 border-2 border-border/50 bg-black/40 flex flex-col min-h-0 overflow-hidden shrink-0">
          <div className="p-2 flex items-center justify-between border-b border-border/30">
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <button 
+              onClick={() => {
+                  setIsMessengerOpen(!isMessengerOpen);
+                  if (!isMessengerOpen) {
+                      visibleCategories.forEach(cat => clearUnread(cat));
+                  }
+              }}
+              className={cn(
+                "p-1 hover:bg-muted transition-colors rounded-sm",
+                !isMessengerOpen && hasAnyUnread && "animate-chat-notify"
+              )}
+            >
+              <MessageSquare className={cn("h-4 w-4", hasAnyUnread ? "text-primary" : "text-muted-foreground")} />
+            </button>
             <div className="text-center">
                <p className="text-[8px] text-muted-foreground uppercase leading-none mb-1">Current Player</p>
                <p className={cn("text-xs font-bold uppercase", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
@@ -446,44 +504,106 @@ export default function DungeonPage() {
             </div>
          </div>
 
-         <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
-            <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured Black</span>
-         </div>
-         <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
-            {capturedPieces.black.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
-         </div>
+         {isMessengerOpen ? (
+            <div className="p-2 flex flex-col h-[15rem] space-y-2">
+                <div className="flex gap-1 justify-center">
+                    <Button 
+                        variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
+                        size="sm" 
+                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.battle && "ring-1 ring-primary")}
+                        onClick={() => toggleCategory('battle')}
+                    >
+                        <Sword className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('battle') && "opacity-50")} /> Battle
+                    </Button>
+                    <Button 
+                        variant={visibleCategories.has('social') ? 'default' : 'outline'} 
+                        size="sm" 
+                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.social && "ring-1 ring-accent")}
+                        onClick={() => toggleCategory('social')}
+                    >
+                        <Users className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('social') && "opacity-50")} /> Social
+                    </Button>
+                    <Button 
+                        variant={visibleCategories.has('market') ? 'default' : 'outline'} 
+                        size="sm" 
+                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.market && "ring-1 ring-yellow-500")}
+                        onClick={() => toggleCategory('market')}
+                    >
+                        <ShoppingBag className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('market') && "opacity-50")} /> Trade
+                    </Button>
+                    <Button 
+                        variant={visibleCategories.has('log') ? 'default' : 'outline'} 
+                        size="sm" 
+                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.log && "ring-1 ring-primary")}
+                        onClick={() => toggleCategory('log')}
+                    >
+                        <ScrollText className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('log') && "opacity-50")} /> Log
+                    </Button>
+                </div>
 
-         <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
-            <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured White</span>
-         </div>
-         <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
-            {capturedPieces.white.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
-         </div>
+                <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-1 h-[8rem]">
+                    <div className="space-y-1">
+                        {messages.filter(m => visibleCategories.has(m.category)).length === 0 ? (
+                            <div className="flex flex-col items-center justify-center h-full opacity-30 mt-5">
+                                <p className="text-[0.5rem] text-muted-foreground text-center italic uppercase">Select filters to view logs.</p>
+                            </div>
+                        ) : (
+                            messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
+                                <div key={msg.id} className="flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
+                                    <div className="flex items-start gap-1">
+                                        <span className={cn("text-[0.55rem] font-bold uppercase", getMessageColor(msg))}>
+                                            {msg.sender === 'SYSTEM' ? '[SYS]:' : `${msg.sender}:`}
+                                        </span>
+                                        <div className="flex flex-col gap-1 flex-1">
+                                            <span className={cn("text-[0.55rem] break-words font-pixel leading-tight", getMessageColor(msg))}>
+                                                {msg.text}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </ScrollArea>
+                
+                <form onSubmit={handleSend} className="flex gap-1">
+                    <Input
+                        value={chatInput}
+                        onChange={(e) => setChatInput(e.target.value)}
+                        placeholder="Msg..."
+                        className="h-6 text-[0.55rem] font-sans bg-background"
+                        maxLength={200}
+                    />
+                    <Button type="submit" size="sm" variant="secondary" className="h-6 px-1">
+                        <Send className="h-2 w-2" />
+                    </Button>
+                </form>
+            </div>
+         ) : (
+            <>
+                <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
+                    <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured Black</span>
+                </div>
+                <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
+                    {capturedPieces.black.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                </div>
 
-         <div className="mt-auto p-2 bg-muted/10 border-t border-border/30 min-h-[4.5rem] flex flex-col items-center justify-center text-center">
-            {pieceForInfoDisplay ? (
-               <div className="space-y-0.5">
-                  <p className="text-[9px] font-bold text-destructive uppercase">
-                    {pieceForInfoDisplay.id.startsWith('boss-hydra') ? 'The Hydra' : 
-                     pieceForInfoDisplay.id === 'boss-necro' ? 'The Necromancer' :
-                     pieceForInfoDisplay.id.startsWith('boss-colossus') ? 'The Colossus' :
-                     pieceForInfoDisplay.id === 'boss-mirage' ? 'The Mirage' :
-                     pieceForInfoDisplay.id === 'boss-entity' ? 'The Void Entity' :
-                     pieceForInfoDisplay.type} - Level {pieceForInfoDisplay.level}
-                  </p>
-                  <div className="text-[7px] text-white leading-tight uppercase max-w-[300px]">
-                     {pieceForInfoDisplay.id.startsWith('boss-hydra') && "Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares. Standard horizontal/vertical move."}
-                     {pieceForInfoDisplay.id === 'boss-necro' && "Necromancy: Resurrects a fallen ally every 5 turns. High-level cleric movement."}
-                     {pieceForInfoDisplay.id.startsWith('boss-colossus') && "Crushing: Moves 2 squares. Captures entire 2x2 landing area. Invulnerable until minions are cleared."}
-                     {pieceForInfoDisplay.id === 'boss-mirage' && "Phantom Mirror: Summons a phalanx of Phantom Bishops. Jumping movement."}
-                     {pieceForInfoDisplay.id === 'boss-entity' && "Void Shield: Permanent protection. Wins immediately if back rank is reached."}
-                     {!pieceForInfoDisplay.id.startsWith('boss-') && "Tactical unit scaling with combat experience."}
-                  </div>
-               </div>
-            ) : (
-               <p className="text-[8px] text-muted-foreground uppercase opacity-60">Select units for tactical data</p>
-            )}
-         </div>
+                <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
+                    <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured White</span>
+                </div>
+                <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
+                    {capturedPieces.white.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                </div>
+
+                <div className="mt-auto p-2 bg-muted/10 border-t border-border/30 min-h-[4.5rem] flex flex-col items-center justify-center text-center">
+                    {pieceForInfoDisplay ? (
+                        <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+                    ) : (
+                        <p className="text-[8px] text-muted-foreground uppercase opacity-60">Select units for tactical data</p>
+                    )}
+                </div>
+            </>
+         )}
       </div>
 
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
