@@ -306,8 +306,8 @@ export default function DungeonPage() {
     audioManager.playLevelUp(); addLog(`Descending to Floor ${nextLevelNum}...`);
   }, [level, inventory, saveDungeonState, addLog]);
 
-  const processMoveEnd = useCallback((boardAfter: BoardState, currentGraveyard: any, currentKs: any, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null, wasCapture: boolean = false, movedType?: PieceType | null) => {
-    let nextBoard = boardAfter; let nextGraveyard = { white: [...currentGraveyard.white], black: [...currentGraveyard.black] };
+  const processMoveEnd = useCallback((boardAfter: BoardState, nextGraveyard: any, currentKs: any, turnPlayer: PlayerColor, extra: boolean, nextEpSquare: AlgebraicSquare | null = null, wasCapture: boolean = false, movedType?: PieceType | null) => {
+    let nextBoard = boardAfter;
     setDidCaptureLastTurn(prev => ({ ...prev, [turnPlayer]: wasCapture }));
     nextBoard = processOilSlickTimers(nextBoard, turnPlayer);
     

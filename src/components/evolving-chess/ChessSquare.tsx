@@ -38,6 +38,7 @@ interface ChessSquareProps {
   isDecreeTarget?: boolean;
   isDanceTarget?: boolean;
   isThrowTarget?: boolean;
+  isGrapplePickupTarget?: boolean;
   isMycoTarget?: boolean;
   selectedInventoryItemType?: InventoryItemType | null;
   isAnvilDropTarget?: boolean;
@@ -77,6 +78,7 @@ export const ChessSquare = memo(({
   isDecreeTarget = false,
   isDanceTarget = false,
   isThrowTarget = false,
+  isGrapplePickupTarget = false,
   isMycoTarget = false,
   selectedInventoryItemType,
   isAnvilDropTarget = false,
@@ -92,7 +94,7 @@ export const ChessSquare = memo(({
 
   let currentBgClass = isLightSquare ? 'bg-card' : 'bg-muted';
   if (isLastMoveFrom || isLastMoveTo) currentBgClass = 'bg-sky-500/40';
-  if (isPossibleMove && !disabled) {
+  if (isPossibleMove && !disabled && !isGrapplePickupTarget) {
     if (piece && item?.type !== 'shroom') currentBgClass = 'bg-accent/60';
     else currentBgClass = 'bg-accent/40';
   }
@@ -105,7 +107,7 @@ export const ChessSquare = memo(({
   const mycoPurple = 'ring-4 ring-inset ring-purple-500 animate-pulse';
   const oilSlickAmber = 'ring-4 ring-inset ring-amber-900 animate-pulse';
   
-  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget || isDanceTarget || isThrowTarget) {
+  if (isCommanderPromoTarget || isSacrificeTarget || isShieldTarget || isSnipeTarget || isAnvilDropTarget || isSwapTarget || isDecreeTarget || isDanceTarget || isThrowTarget || isGrapplePickupTarget) {
     selectionRingClass = specialSelectionBlue;
   } else if (isAwaitingOilSlickTarget) {
     selectionRingClass = oilSlickAmber;
@@ -117,7 +119,7 @@ export const ChessSquare = memo(({
   } else if (isSelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-accent';
   else if (isEnemySelected && !disabled) selectionRingClass = 'ring-2 ring-inset ring-blue-600';
 
-  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget && !isThrowTarget && !isMycoTarget && !isAwaitingOilSlickTarget;
+  const effectiveDisabled = disabled && !isSacrificeTarget && !isCommanderPromoTarget && !isShieldTarget && !isSnipeTarget && !isInvTarget && !isAnvilDropTarget && !isSwapTarget && !isDecreeTarget && !isDanceTarget && !isThrowTarget && !isMycoTarget && !isAwaitingOilSlickTarget && !isGrapplePickupTarget;
 
   return (
     <button

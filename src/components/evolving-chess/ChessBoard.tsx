@@ -4,7 +4,7 @@ import React, { memo } from 'react';
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
-import { algebraicToCoords, getEffectiveLevel, isItemValidForPiece } from '@/lib/chess-utils';
+import { algebraicToCoords, getEffectiveLevel, isItemValidForPiece, isSilenced, coordsToAlgebraic } from '@/lib/chess-utils';
 import { ExplosionIcon, PixelColossus } from './IconLibrary';
 
 interface ChessBoardProps {
@@ -278,6 +278,20 @@ export const ChessBoard = memo(({
               if ((isCardinal || isDiagonal) && dist <= range && dist > 0) isThrowTarget = true;
           }
 
+          let isGrapplePickupTarget = false;
+          if (isLocalActionTurn && !isAwaitingGrappleThrow && selectedSquare) {
+            const {row: fr, col: fc} = algebraicToCoords(selectedSquare);
+            const moving = boardState[fr][fc].piece;
+            if (moving?.type === 'grappler' && !isSilenced(boardState, fr, fc, currentPlayerColor)) {
+                const isAdj = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && !(actualRowIndex === fr && actualColIndex === fc);
+                if (isAdj) {
+                    const tP = currentSquareData.piece;
+                    const tA = currentSquareData.item?.type === 'anvil' && moving.heldItem === 'power_glove';
+                    if ((tP && tP.type !== 'king') || tA) isGrapplePickupTarget = true;
+                }
+            }
+          }
+
           const invOwnerColor = localPlayerColor || 'white';
           let isInvTarget = isInventoryOpen && currentSquareData.piece && currentSquareData.piece.color === invOwnerColor;
           if (isInvTarget && selectedInventoryItemType) {
@@ -322,6 +336,7 @@ export const ChessBoard = memo(({
               isDecreeTarget={isDecreeTarget}
               isDanceTarget={isDanceTarget}
               isThrowTarget={isThrowTarget}
+              isGrapplePickupTarget={isGrapplePickupTarget}
               isMycoTarget={isTeleportAllyTarget || isTeleportShroomTarget || isSporeBombTarget}
               selectedInventoryItemType={selectedInventoryItemType}
               effectiveLevel={effectiveLevel}
