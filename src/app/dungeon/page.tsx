@@ -281,6 +281,11 @@ export default function DungeonPage() {
   // Memos and Utility Callbacks
   const handlePieceHover = useCallback((p: Piece | null) => { setPieceForInfoDisplay(p); }, []);
 
+  const getPlayerDisplayName = useCallback((player: PlayerColor) => {
+    if (player === 'white') return userData?.username || 'Hero';
+    return 'Dungeon';
+  }, [userData]);
+
   const attunementSlots = useMemo(() => {
     const elo = userData?.eloRating || 1200; if (elo <= 1200) return 2; return 2 + Math.floor((elo - 1200) / 400);
   }, [userData]);
@@ -524,7 +529,7 @@ export default function DungeonPage() {
     const isBoss = level % 10 === 0; 
     let gameMsg = inCheck ? "Check!" : (isBoss ? `BOSS BATTLE` : `Wipe them out!`); 
     setGameInfo({ message: gameMsg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, isThreefoldRepetitionDraw: false, gameOver: false }); setCurrentPlayer(nextP);
-  }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, gameMoveCounter, inventory, positionHistory]);
+  }, [advanceLevel, level, addLog, shroomSpawnCounter, nextShroomSpawnTurn, saveDungeonState, necroResurrectionCounter, addEffect, colossusAwakened, user, firestore, userData, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, gameMoveCounter, inventory, positionHistory, getPlayerDisplayName]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtra: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = [], capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null) => {
     const isAI = actingPlayer === 'black'; let nextGraveyard = { ...currentGraveyard };
@@ -1281,52 +1286,9 @@ export default function DungeonPage() {
     const unlocks = userData?.unlockedPieces || []; const userElo = userData?.eloRating || 1200; let initial = initializeBoard(userElo, userElo, unlocks, unlocks);
     if (userData?.equipment) { initial = initial.map(row => row.map(sq => { if (sq.piece && userData.equipment![sq.piece.id]) { return { ...sq, piece: { ...sq.piece, heldItem: userData.equipment![sq.piece.id] as InventoryItemType } }; } return sq; })); }
     setBoard(initial); if (userData?.inventory) setInventory(userData.inventory);
-    setCurrentPlayer('white'); setBoardOrientation('white'); setGameInfo({ ...initialGameStatus }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setHistoryStack([]); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceHeldItem(null); setLastMovedPieceLevel(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); setShowLossScreen(false); setShowWinScreen(false); setShowSummary(false); audioManager.playStart();
-    setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setAbilityChoiceDialog(null); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAwaitingRayTarget(null); setIsAiThinking(false); setIsWhiteAI(false); setIsBlackAI(false); gameOverRef.current = false; addLog("Game Reset."); aiInstanceRef.current = new VibeChessAI(aiDifficulty);
+    setCurrentPlayer('white'); setGameInfo({ ...gameInfo, message: " ", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, isThreefoldRepetitionDraw: false, gameOver: false }); setCapturedPieces({ white: [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setSelectedSquare(null); setPossibleMoves([]); setLastMoveFrom(null); setLastMoveTo(null); setLastMovedPieceType(null); setLastMovedPieceHeldItem(null); setLastMovedPieceLevel(null); setGameMoveCounter(0); setEnPassantTargetSquare(null); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); audioManager.playStart();
+    setIsAwaitingDanceTarget(false); setDancerToDance(null); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setPlayerToDropAnvil(null); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); setIsInventoryOpen(false); setSpecialActionContext(null); setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingShieldScrollTarget(false); setIsAwaitingSwapScrollTarget(false); setIsAwaitingDecreeTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsSelectingMycoSpell(false); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(false); setIsSelectingSporeBombShroom(false); setIsAwaitingRayTarget(null); setIsAiThinking(false); gameOverRef.current = false; addLog("Dungeon Run Reset.");
   };
-
-  const initWebSocket = useCallback((onOpenCallback?: () => void) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) { if (onOpenCallback) onOpenCallback(); return; }
-    setOnlineStatus('connecting'); const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    let wsUrl = ''; if (window.location.hostname.includes('cloudworkstations.dev')) { const pts = window.location.hostname.split('-'); pts[0] = '8080'; wsUrl = `${protocol}//${pts.join('-')}`; } else { wsUrl = `${protocol}//${window.location.hostname}:8080`; }
-    const ws = new WebSocket(wsUrl);
-    ws.onopen = () => { setOnlineStatus('connected'); if (onOpenCallback) onOpenCallback(); };
-    ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      switch (data.type) {
-        case 'room-created': setRoomId(data.roomId); setLocalPlayerColor(data.color); setBoard(data.gameState.board); setOnlineStatus('waiting'); break;
-        case 'game-move': setBoard(data.gameState.board); setCurrentPlayer(data.gameState.currentPlayer); break;
-        case 'game-over': setGameInfo({ gameOver: true, winner: data.winner, message: data.reason === 'repetition' ? 'Draw by Repetition' : 'Game Over', isCheck: false, isCheckmate: data.winner !== 'draw', isStalemate: data.winner === 'draw' && data.reason !== 'repetition', isThreefoldRepetitionDraw: data.reason === 'repetition', playerWithKingInCheck: null }); break;
-      }
-    };
-    ws.onclose = () => { setOnlineStatus('disconnected'); };
-    wsRef.current = ws;
-  }, [addLog]);
-
-  const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
-    if (!user) return;
-    initWebSocket(() => {
-        const eq: Record<string, string> = {}; board.flat().forEach(sq => { if (sq.piece?.heldItem) eq[sq.piece.id] = sq.piece.heldItem; });
-        if (action === 'create') { wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.unlockedPieces || [], equipment: eq, unlockedPieces: userData?.unlockedPieces || [] } })); } 
-        else { wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment: eq, unlockedPieces: userData?.unlockedPieces || [] } })); }
-    });
-  }, [user, userData, inputRoomId, board, addLog, initWebSocket]);
-
-  const handleRankedPlay = useCallback(() => {
-    if (!user) return;
-    initWebSocket(() => {
-        const eq: Record<string, string> = {}; board.flat().forEach(sq => { if (sq.piece?.heldItem) eq[sq.piece.id] = sq.piece.heldItem; });
-        wsRef.current?.send(JSON.stringify({ type: 'join-ranked-queue', userId: user.uid, username: userData?.username || 'Player', elo: userData?.eloRating || 1200, equipment: eq }));
-    });
-  }, [user, userData, board, initWebSocket]);
-
-  useEffect(() => { if (!isInitialized.current && !isUserLoading) { isInitialized.current = true; startRun(); } }, [isUserLoading, userData, user]);
-
-  useEffect(() => {
-    if (currentPlayer === 'black' && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
-      const timer = setTimeout(performAiMove, 1000); return () => clearTimeout(timer);
-    }
-  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, performAiMove, isAiThinking, gameMoveCounter, isAnySpecialModeActive]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -1354,7 +1316,15 @@ export default function DungeonPage() {
       addLog("New Dungeon Run Started!");
     }
     if (userData.inventory) setInventory(userData.inventory); aiInstance.current = new VibeChessAI(4); audioManager.playStart();
-  }, [userData, isUserLoading, user, saveDungeonState, board, addLog, inventory]);
+  }, [userData, isUserLoading, user, saveDungeonState, board, addLog, inventory, gameInfo]);
+
+  useEffect(() => { if (!isInitialized.current && !isUserLoading) { isInitialized.current = true; startRun(); } }, [isUserLoading, userData, user, startRun]);
+
+  useEffect(() => {
+    if (currentPlayer === 'black' && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
+      const timer = setTimeout(performAiMove, 1000); return () => clearTimeout(timer);
+    }
+  }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, performAiMove, isAiThinking, gameMoveCounter, isAnySpecialModeActive]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden">
@@ -1435,7 +1405,7 @@ export default function DungeonPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel>
-            <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction>
+            <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { fullGameReset(); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
