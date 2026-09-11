@@ -195,6 +195,7 @@ export function getPossibleMovesInternal(
         }
     });
     
+    // Pick-up targets (Adjacent)
     if (!simplified && !silenced) {
       for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
@@ -204,15 +205,8 @@ export function getPossibleMovesInternal(
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
                   if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
-                      const range = currentLevel;
-                      for(let rIdx=0; rIdx<8; rIdx++) for(let cIdx=0; cIdx<8; cIdx++) {
-                          const dist = Math.max(Math.abs(rIdx-fromRow), Math.abs(cIdx-fromCol));
-                          if (dist > 0 && dist <= range && (rIdx === fromRow || cIdx === fromCol || Math.abs(rIdx-fromRow) === Math.abs(cIdx-fromCol))) {
-                              if (!board[rIdx][cIdx].piece && !board[rIdx][cIdx].item) {
-                                  possible.push(coordsToAlgebraic(rIdx, cIdx));
-                              }
-                          }
-                      }
+                      // Return the square of the target for selection in UI
+                      possible.push(coordsToAlgebraic(nr, nc));
                   }
               }
           }

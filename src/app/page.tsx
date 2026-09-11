@@ -400,7 +400,6 @@ export default function EvolvingChessPage() {
 
     const inCheck = isKingInCheck(boardAfterPoison, nextPlayer, newEnPassantTarget, actualMovedType, lastMovedPieceHeldItem, lastMovedPieceLevel);
     
-    // SHROOM AGNOSTIC THREEFOLD REPETITION
     const currentHash = boardToPositionHash(boardAfterPoison, nextPlayer, newEnPassantTarget);
     let newHistory = [...positionHistory];
     const isFrontlineMove = actualMovedType && FRONTLINE_TYPES.includes(actualMovedType);
@@ -904,7 +903,35 @@ export default function EvolvingChessPage() {
   if (selectedSquare) {
     const { row: fR, col: fC } = algebraicToCoords(selectedSquare); const moving = board[fR][fC].piece; 
     const canCommit = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && (onlineStatus !== 'connected' || localPlayerColor === currentPlayer) && !isAnySpecialModeActive;
+    
     if (canCommit && moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
+        // Grappler Pick-up Logic
+        if (!isAnySpecialModeActive && moving.type === 'grappler' && !isSilenced(board, fR, fC, currentPlayer)) {
+            const targetSq = board[row][col];
+            const targetPiece = targetSq.piece;
+            const targetAnvil = targetSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
+            if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
+                if (possibleMoves.includes(algebraic)) {
+                    if (targetPiece) setGrappledPieceSubject({ piece: { ...targetPiece }, from: algebraic });
+                    else setGrappledItemSubject({ type: 'anvil', from: algebraic });
+                    
+                    setIsAwaitingGrappleThrow(true);
+                    // Generate throw targets for the UI validation
+                    const range = getEffectiveLevel(board, fR, fC);
+                    const throwTargets: AlgebraicSquare[] = [];
+                    for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
+                        const dist = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
+                        if (dist > 0 && dist <= range && (tr === fR || tc === fC || Math.abs(tr-fR) === Math.abs(tc-fC))) {
+                            if (!board[tr][tc].piece && !board[tr][tc].item) throwTargets.push(coordsToAlgebraic(tr, tc));
+                        }
+                    }
+                    setPossibleMoves(throwTargets);
+                    addLog("Grappler: Picked up! Now select destination.");
+                    return;
+                }
+            }
+        }
+
         if (selectedSquare === algebraic && moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
         const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel);
         if (freshlyCalculated.includes(algebraic)) {
