@@ -486,9 +486,9 @@ export default function DungeonPage() {
   const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden">
+    <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden p-0.5">
       {/* HEADER */}
-      <div className="px-4 py-2 flex items-center justify-between shrink-0">
+      <div className="px-4 py-1 flex items-center justify-between shrink-0">
         <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors">
           <ArrowLeft className="h-4 w-4" /> LOBBY
         </Link>
@@ -502,120 +502,122 @@ export default function DungeonPage() {
       </div>
 
       {/* STATUS LINE */}
-      <div className="text-center py-1 shrink-0 min-h-[1.25rem]">
+      <div className="text-center py-0 shrink-0 min-h-[0.75rem]">
         <p className="text-[10px] font-bold text-primary uppercase animate-pulse">
            {statusMessage}
         </p>
       </div>
 
       {/* BOARD */}
-      <div className="flex-grow flex items-center justify-center p-1 min-h-0">
+      <div className="w-full flex justify-center py-0.5 shrink-0">
         <div className="w-full max-w-[min(95vw,70vh)] aspect-square relative">
           <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isAnySpecialModeActive} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaiting攻擊區域目標={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
         </div>
       </div>
 
       {/* INTEGRATED PANEL */}
-      <Card className="mx-4 mb-4 border-2 border-border/50 bg-card flex flex-col min-h-0 overflow-hidden shrink-0 relative">
-         {isMessengerOpen ? (
-            <div className="p-2 flex flex-col h-[15rem] space-y-2">
-                <div className="flex items-center justify-between">
-                    <button 
-                        onClick={() => setIsMessengerOpen(false)}
-                        className="p-1 hover:bg-muted transition-colors rounded-sm"
-                    >
-                        <MessageSquare className="h-4 w-4 text-primary" />
-                    </button>
-                    <div className="flex gap-1">
-                        <Button variant={visibleCategories.has('battle') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('battle')}><Sword className="h-3 w-3 mr-0.5" /> Battle</Button>
-                        <Button variant={visibleCategories.has('social') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('social')}><Users className="h-3 w-3 mr-0.5" /> Social</Button>
-                        <Button variant={visibleCategories.has('market') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('market')}><ShoppingBag className="h-3 w-3 mr-0.5" /> Trade</Button>
-                        <Button variant={visibleCategories.has('log') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('log')}><ScrollText className="h-3 w-3 mr-0.5" /> Log</Button>
-                    </div>
-                </div>
+      <div className="flex-grow min-h-0 flex flex-col p-0.5">
+        <Card className="mx-1 mb-1 flex-grow border-2 border-border/50 bg-card flex flex-col overflow-hidden relative">
+          {isMessengerOpen ? (
+              <div className="p-2 flex flex-col h-full space-y-2">
+                  <div className="flex items-center justify-between">
+                      <button 
+                          onClick={() => setIsMessengerOpen(false)}
+                          className="p-1 hover:bg-muted transition-colors rounded-sm"
+                      >
+                          <MessageSquare className="h-4 w-4 text-primary" />
+                      </button>
+                      <div className="flex gap-1">
+                          <Button variant={visibleCategories.has('battle') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('battle')}><Sword className="h-3 w-3 mr-0.5" /> Battle</Button>
+                          <Button variant={visibleCategories.has('social') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('social')}><Users className="h-3 w-3 mr-0.5" /> Social</Button>
+                          <Button variant={visibleCategories.has('market') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('market')}><ShoppingBag className="h-3 w-3 mr-0.5" /> Trade</Button>
+                          <Button variant={visibleCategories.has('log') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('log')}><ScrollText className="h-3 w-3 mr-0.5" /> Log</Button>
+                      </div>
+                  </div>
 
-                <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2">
-                    <div className="space-y-2">
-                        {messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
-                            <div key={msg.id} className="flex flex-col">
-                                <div className="flex items-start gap-1">
-                                    <span className={cn("text-[0.6rem] font-bold uppercase", getMessageColor(msg))}>{msg.sender}:</span>
-                                    <span className={cn("text-[0.6rem] break-words flex-1", getMessageColor(msg))}>{msg.text}</span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </ScrollArea>
-                
-                <form onSubmit={handleSend} className="flex gap-1">
-                    <Input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..." className="h-7 text-[0.6rem] bg-background" />
-                    <Button type="submit" size="sm" variant="secondary" className="h-7 px-2"><Send className="h-3 w-3" /></Button>
-                </form>
-            </div>
-         ) : (
-            <div className="space-y-0 flex-grow flex flex-col p-2">
-                {/* Row 1: Messenger Icon, Current Player, Streaks */}
-                <div className="flex items-center justify-between mb-2">
-                    <button 
-                        onClick={() => setIsMessengerOpen(true)}
-                        className={cn("p-1 hover:bg-muted transition-colors rounded-sm", hasAnyUnread && "animate-chat-notify")}
-                    >
-                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                    </button>
-                    
-                    <div className="text-center">
-                        <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Current Player</p>
-                        <p className={cn("text-[0.75rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
-                            {getPlayerDisplayName(currentPlayer)}
-                        </p>
-                    </div>
+                  <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2">
+                      <div className="space-y-2">
+                          {messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
+                              <div key={msg.id} className="flex flex-col">
+                                  <div className="flex items-start gap-1">
+                                      <span className={cn("text-[0.6rem] font-bold uppercase", getMessageColor(msg))}>{msg.sender}:</span>
+                                      <span className={cn("text-[0.6rem] break-words flex-1", getMessageColor(msg))}>{msg.text}</span>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </ScrollArea>
+                  
+                  <form onSubmit={handleSend} className="flex gap-1">
+                      <Input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..." className="h-7 text-[0.6rem] bg-background" />
+                      <Button type="submit" size="sm" variant="secondary" className="h-7 px-2"><Send className="h-3 w-3" /></Button>
+                  </form>
+              </div>
+          ) : (
+              <div className="space-y-0 flex-grow flex flex-col p-2">
+                  {/* Row 1: Messenger Icon, Current Player, Streaks */}
+                  <div className="flex items-center justify-between mb-2">
+                      <button 
+                          onClick={() => setIsMessengerOpen(true)}
+                          className={cn("p-1 hover:bg-muted transition-colors rounded-sm", hasAnyUnread && "animate-chat-notify")}
+                      >
+                          <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                      </button>
+                      
+                      <div className="text-center">
+                          <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Current Player</p>
+                          <p className={cn("text-[0.75rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
+                              {getPlayerDisplayName(currentPlayer)}
+                          </p>
+                      </div>
 
-                    <div className="text-right flex flex-col gap-0.5">
-                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p>
-                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">B-Streak: {killStreaks.black}</p>
-                    </div>
-                </div>
-                
-                {/* Captured Pieces Rows */}
-                <div className="w-full mb-1">
-                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3>
-                    <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
-                        {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
-                    </div>
-                </div>
+                      <div className="text-right flex flex-col gap-0.5">
+                          <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p>
+                          <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">B-Streak: {killStreaks.black}</p>
+                      </div>
+                  </div>
+                  
+                  {/* Captured Pieces Rows */}
+                  <div className="w-full mb-1">
+                      <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3>
+                      <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
+                          {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                      </div>
+                  </div>
 
-                <div className="w-full mb-2">
-                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3>
-                    <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
-                        {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
-                    </div>
-                </div>
+                  <div className="w-full mb-2">
+                      <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3>
+                      <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
+                          {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                      </div>
+                  </div>
 
-                <Separator className="my-1 bg-border/30" />
+                  <Separator className="my-1 bg-border/30" />
 
-                {/* Info Area */}
-                <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1">
-                    {pieceForInfoDisplay ? (
-                        <div className="text-center">
-                            <h3 className={cn("font-bold text-[0.7rem] uppercase leading-tight mb-1", pieceForInfoDisplay.id.startsWith('boss-') ? "text-destructive" : "text-primary")}>
-                                {pieceForInfoDisplay.id.startsWith('boss-hydra') ? "The Hydra" : 
-                                 pieceForInfoDisplay.id === 'boss-necro' ? "The Necromancer" : 
-                                 pieceForInfoDisplay.id.startsWith('boss-colossus') ? "The Colossus" : 
-                                 pieceForInfoDisplay.id === 'boss-mirage' ? "The Mirage" : 
-                                 pieceForInfoDisplay.id === 'boss-entity' ? "The Void Entity" : 
-                                 pieceForInfoDisplay.type} - Level {pieceForInfoDisplay.level}
-                            </h3>
-                            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
-                        </div>
-                    ) : (
-                        <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
-                            Select a piece for info
-                        </div>
-                    )}
-                </div>
-            </div>
-         )}
-      </Card>
+                  {/* Info Area */}
+                  <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1">
+                      {pieceForInfoDisplay ? (
+                          <div className="text-center">
+                              <h3 className={cn("font-bold text-[0.7rem] uppercase leading-tight mb-1", pieceForInfoDisplay.id.startsWith('boss-') ? "text-destructive" : "text-primary")}>
+                                  {pieceForInfoDisplay.id.startsWith('boss-hydra') ? "The Hydra" : 
+                                  pieceForInfoDisplay.id === 'boss-necro' ? "The Necromancer" : 
+                                  pieceForInfoDisplay.id.startsWith('boss-colossus') ? "The Colossus" : 
+                                  pieceForInfoDisplay.id === 'boss-mirage' ? "The Mirage" : 
+                                  pieceForInfoDisplay.id === 'boss-entity' ? "The Void Entity" : 
+                                  pieceForInfoDisplay.type} - Level {pieceForInfoDisplay.level}
+                              </h3>
+                              <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+                          </div>
+                      ) : (
+                          <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
+                              Select a piece for info
+                          </div>
+                      )}
+                  </div>
+              </div>
+          )}
+        </Card>
+      </div>
 
       {/* BOTTOM BUTTONS */}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
