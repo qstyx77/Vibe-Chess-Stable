@@ -45,6 +45,10 @@ import { AuthWidget } from '@/components/auth/AuthWidget';
 import { doc } from 'firebase/firestore';
 import Link from 'next/link';
 import {
+  Card,
+  CardContent
+} from '@/components/ui/card';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -448,8 +452,8 @@ export default function DungeonPage() {
   const statusMessage = useMemo(() => {
     if (isAiThinking) return "DUNGEON IS THINKING...";
     if (gameInfo.message !== " ") return gameInfo.message;
-    return level % 10 === 0 ? `WARPED TO BOSS: FLOOR ${level}` : `DUNGEON DEPTHS: FLOOR ${level}`;
-  }, [isAiThinking, gameInfo.message, level]);
+    return "";
+  }, [isAiThinking, gameInfo.message]);
 
   const getMessageColor = (msg: ChatMessage) => {
       if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; 
@@ -484,12 +488,12 @@ export default function DungeonPage() {
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden">
       {/* HEADER */}
-      <div className="p-4 flex items-center justify-between border-b border-border/50 shrink-0">
+      <div className="px-4 py-2 flex items-center justify-between shrink-0">
         <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors">
           <ArrowLeft className="h-4 w-4" /> LOBBY
         </Link>
         <div className="flex items-center gap-2">
-          <Skull className="h-4 w-4 text-destructive" />
+          {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive" /> : <Sword className="h-4 w-4 text-primary" />}
           <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1>
         </div>
         <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase gap-1 border-2" onClick={() => setIsResetConfirmOpen(true)}>
@@ -498,7 +502,7 @@ export default function DungeonPage() {
       </div>
 
       {/* STATUS LINE */}
-      <div className="text-center py-2 shrink-0">
+      <div className="text-center py-1 shrink-0 min-h-[1.25rem]">
         <p className="text-[10px] font-bold text-primary uppercase animate-pulse">
            {statusMessage}
         </p>
@@ -512,7 +516,7 @@ export default function DungeonPage() {
       </div>
 
       {/* INTEGRATED PANEL */}
-      <div className="mx-4 mb-4 border-2 border-border/50 bg-black/40 flex flex-col min-h-0 overflow-hidden shrink-0 relative">
+      <Card className="mx-4 mb-4 border-2 border-border/50 bg-card flex flex-col min-h-0 overflow-hidden shrink-0 relative">
          {isMessengerOpen ? (
             <div className="p-2 flex flex-col h-[15rem] space-y-2">
                 <div className="flex items-center justify-between">
@@ -523,10 +527,10 @@ export default function DungeonPage() {
                         <MessageSquare className="h-4 w-4 text-primary" />
                     </button>
                     <div className="flex gap-1">
-                        <Button variant={visibleCategories.has('battle') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('battle')}>Battle</Button>
-                        <Button variant={visibleCategories.has('social') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('social')}>Social</Button>
-                        <Button variant={visibleCategories.has('market') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('market')}>Trade</Button>
-                        <Button variant={visibleCategories.has('log') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('log')}>Log</Button>
+                        <Button variant={visibleCategories.has('battle') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('battle')}><Sword className="h-3 w-3 mr-0.5" /> Battle</Button>
+                        <Button variant={visibleCategories.has('social') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('social')}><Users className="h-3 w-3 mr-0.5" /> Social</Button>
+                        <Button variant={visibleCategories.has('market') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('market')}><ShoppingBag className="h-3 w-3 mr-0.5" /> Trade</Button>
+                        <Button variant={visibleCategories.has('log') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('log')}><ScrollText className="h-3 w-3 mr-0.5" /> Log</Button>
                     </div>
                 </div>
 
@@ -574,16 +578,16 @@ export default function DungeonPage() {
                 
                 {/* Captured Pieces Rows */}
                 <div className="w-full mb-1">
-                    <div className="bg-black text-[0.6rem] font-bold text-muted-foreground uppercase py-0.5 px-2 mb-1">Captured Black</div>
-                    <div className="flex flex-wrap gap-0.5 min-h-[1.2rem] px-1">
-                        {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3>
+                    <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
+                        {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
                     </div>
                 </div>
 
                 <div className="w-full mb-2">
-                    <div className="bg-black text-[0.6rem] font-bold text-muted-foreground uppercase py-0.5 px-2 mb-1">Captured White</div>
-                    <div className="flex flex-wrap gap-0.5 min-h-[1.2rem] px-1">
-                        {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3>
+                    <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
+                        {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
                     </div>
                 </div>
 
@@ -611,15 +615,15 @@ export default function DungeonPage() {
                 </div>
             </div>
          )}
-      </div>
+      </Card>
 
       {/* BOTTOM BUTTONS */}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
         <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)}>
-          <Package className="h-4 w-4" /> LOOT BAG
+          <Package className="h-4 w-4 text-yellow-500" /> LOOT BAG
         </Button>
         <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsRulesDialogOpen(true)}>
-          <BookOpen className="h-4 w-4" /> RULES
+          <BookOpen className="h-4 w-4 text-yellow-500" /> RULES
         </Button>
       </div>
 
