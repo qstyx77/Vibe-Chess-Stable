@@ -310,7 +310,6 @@ export default function DungeonPage() {
     const actualType = movedType || lastMovedPieceType;
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
-    // Repetition check (shroom-agnostic)
     const currentHash = boardToPositionHash(nextBoard, nextP, nextEpSquare);
     let newHistory = [...positionHistory];
     const isFrontlineMove = actualType && FRONTLINE_TYPES.includes(actualType);
@@ -486,14 +485,14 @@ export default function DungeonPage() {
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden">
       {/* HEADER */}
       <div className="p-4 flex items-center justify-between border-b border-border/50 shrink-0">
-        <Link href="/" className="flex items-center gap-2 text-[10px] hover:text-primary transition-colors">
+        <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors">
           <ArrowLeft className="h-4 w-4" /> LOBBY
         </Link>
         <div className="flex items-center gap-2">
           <Skull className="h-4 w-4 text-destructive" />
           <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1>
         </div>
-        <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase gap-1" onClick={() => setIsResetConfirmOpen(true)}>
+        <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase gap-1 border-2" onClick={() => setIsResetConfirmOpen(true)}>
           <RotateCcw className="h-3 w-3" /> RESET
         </Button>
       </div>
@@ -506,143 +505,107 @@ export default function DungeonPage() {
       </div>
 
       {/* BOARD */}
-      <div className="flex-grow flex items-center justify-center p-2 min-h-0">
+      <div className="flex-grow flex items-center justify-center p-1 min-h-0">
         <div className="w-full max-w-[min(95vw,70vh)] aspect-square relative">
           <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || isAnySpecialModeActive} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaiting攻擊區域目標={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
         </div>
       </div>
 
-      {/* INTEGRATED PANEL - Matches GameControls Style */}
+      {/* INTEGRATED PANEL */}
       <div className="mx-4 mb-4 border-2 border-border/50 bg-black/40 flex flex-col min-h-0 overflow-hidden shrink-0 relative">
-         <button 
-           onClick={() => {
-               setIsMessengerOpen(!isMessengerOpen);
-               if (!isMessengerOpen) {
-                   visibleCategories.forEach(cat => clearUnread(cat));
-               }
-           }}
-           className={cn(
-             "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors rounded-sm",
-             !isMessengerOpen && hasAnyUnread && "animate-chat-notify"
-           )}
-         >
-           <MessageSquare className={cn("h-4 w-4", hasAnyUnread ? "text-primary" : "text-muted-foreground")} />
-         </button>
-
          {isMessengerOpen ? (
-            <div className="p-2 flex flex-col h-[15rem] space-y-2 pt-8">
-                <div className="flex gap-1 justify-center">
-                    <Button 
-                        variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
-                        size="sm" 
-                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.battle && "ring-1 ring-primary")}
-                        onClick={() => toggleCategory('battle')}
+            <div className="p-2 flex flex-col h-[15rem] space-y-2">
+                <div className="flex items-center justify-between">
+                    <button 
+                        onClick={() => setIsMessengerOpen(false)}
+                        className="p-1 hover:bg-muted transition-colors rounded-sm"
                     >
-                        <Sword className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('battle') && "opacity-50")} /> Battle
-                    </Button>
-                    <Button 
-                        variant={visibleCategories.has('social') ? 'default' : 'outline'} 
-                        size="sm" 
-                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.social && "ring-1 ring-accent")}
-                        onClick={() => toggleCategory('social')}
-                    >
-                        <Users className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('social') && "opacity-50")} /> Social
-                    </Button>
-                    <Button 
-                        variant={visibleCategories.has('market') ? 'default' : 'outline'} 
-                        size="sm" 
-                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.market && "ring-1 ring-yellow-500")}
-                        onClick={() => toggleCategory('market')}
-                    >
-                        <ShoppingBag className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('market') && "opacity-50")} /> Trade
-                    </Button>
-                    <Button 
-                        variant={visibleCategories.has('log') ? 'default' : 'outline'} 
-                        size="sm" 
-                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.log && "ring-1 ring-primary")}
-                        onClick={() => toggleCategory('log')}
-                    >
-                        <ScrollText className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('log') && "opacity-50")} /> Log
-                    </Button>
+                        <MessageSquare className="h-4 w-4 text-primary" />
+                    </button>
+                    <div className="flex gap-1">
+                        <Button variant={visibleCategories.has('battle') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('battle')}>Battle</Button>
+                        <Button variant={visibleCategories.has('social') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('social')}>Social</Button>
+                        <Button variant={visibleCategories.has('market') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('market')}>Trade</Button>
+                        <Button variant={visibleCategories.has('log') ? 'default' : 'outline'} size="sm" className="h-6 text-[0.5rem] px-1" onClick={() => toggleCategory('log')}>Log</Button>
+                    </div>
                 </div>
 
-                <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[10rem]">
+                <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2">
                     <div className="space-y-2">
-                        {messages.filter(m => visibleCategories.has(m.category)).length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full opacity-30 mt-10">
-                                <p className="text-[0.6rem] text-muted-foreground text-center italic uppercase">Select categories to view logs.</p>
-                            </div>
-                        ) : (
-                            messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
-                                <div key={msg.id} className="flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
-                                    <div className="flex items-start gap-1">
-                                        <span className={cn("text-[0.6rem] font-bold uppercase", getMessageColor(msg))}>
-                                            {msg.sender === 'SYSTEM' ? '[SYS]:' : `${msg.sender}:`}
-                                        </span>
-                                        <div className="flex flex-col gap-1 flex-1">
-                                            <span className={cn("text-[0.6rem] break-words font-pixel leading-tight tracking-tight", getMessageColor(msg))}>
-                                                {msg.text}
-                                            </span>
-                                        </div>
-                                    </div>
+                        {messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
+                            <div key={msg.id} className="flex flex-col">
+                                <div className="flex items-start gap-1">
+                                    <span className={cn("text-[0.6rem] font-bold uppercase", getMessageColor(msg))}>{msg.sender}:</span>
+                                    <span className={cn("text-[0.6rem] break-words flex-1", getMessageColor(msg))}>{msg.text}</span>
                                 </div>
-                            ))
-                        )}
+                            </div>
+                        ))}
                     </div>
                 </ScrollArea>
                 
                 <form onSubmit={handleSend} className="flex gap-1">
-                    <Input
-                        value={chatInput}
-                        onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Message..."
-                        className="h-7 text-[0.6rem] font-sans bg-background"
-                        maxLength={200}
-                    />
-                    <Button type="submit" size="sm" variant="secondary" className="h-7 px-2">
-                        <Send className="h-3 w-3" />
-                    </Button>
+                    <Input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..." className="h-7 text-[0.6rem] bg-background" />
+                    <Button type="submit" size="sm" variant="secondary" className="h-7 px-2"><Send className="h-3 w-3" /></Button>
                 </form>
             </div>
          ) : (
-            <div className="space-y-0.5 flex-grow flex flex-col p-1.5">
-                <div className="flex justify-around items-center text-center">
-                    <div>
-                        <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p>
-                        <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
+            <div className="space-y-0 flex-grow flex flex-col p-2">
+                {/* Row 1: Messenger Icon, Current Player, Streaks */}
+                <div className="flex items-center justify-between mb-2">
+                    <button 
+                        onClick={() => setIsMessengerOpen(true)}
+                        className={cn("p-1 hover:bg-muted transition-colors rounded-sm", hasAnyUnread && "animate-chat-notify")}
+                    >
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                    
+                    <div className="text-center">
+                        <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Current Player</p>
+                        <p className={cn("text-[0.75rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
                             {getPlayerDisplayName(currentPlayer)}
                         </p>
                     </div>
-                    <div className="space-y-0.5">
-                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase"><span className="text-foreground">W</span>-STREAK: {killStreaks.white}</p>
-                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase"><span className="text-secondary">B</span>-STREAK: {killStreaks.black}</p>
+
+                    <div className="text-right flex flex-col gap-0.5">
+                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p>
+                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">B-Streak: {killStreaks.black}</p>
                     </div>
                 </div>
                 
-                <Separator className="my-1" />
-
-                <div className="w-full">
-                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3>
-                    <div className="flex flex-wrap gap-0.5 bg-black/60 min-h-[1.5rem] p-0.5 border border-border/20">
+                {/* Captured Pieces Rows */}
+                <div className="w-full mb-1">
+                    <div className="bg-black text-[0.6rem] font-bold text-muted-foreground uppercase py-0.5 px-2 mb-1">Captured Black</div>
+                    <div className="flex flex-wrap gap-0.5 min-h-[1.2rem] px-1">
                         {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
                     </div>
                 </div>
 
-                <div className="w-full">
-                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3>
-                    <div className="flex flex-wrap gap-0.5 bg-black/60 min-h-[1.5rem] p-0.5 border border-border/20">
+                <div className="w-full mb-2">
+                    <div className="bg-black text-[0.6rem] font-bold text-muted-foreground uppercase py-0.5 px-2 mb-1">Captured White</div>
+                    <div className="flex flex-wrap gap-0.5 min-h-[1.2rem] px-1">
                         {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
                     </div>
                 </div>
 
-                <Separator className="my-1" />
+                <Separator className="my-1 bg-border/30" />
 
-                <div className="flex-grow flex flex-col justify-center min-h-[4.5rem]">
+                {/* Info Area */}
+                <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1">
                     {pieceForInfoDisplay ? (
-                        <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+                        <div className="text-center">
+                            <h3 className={cn("font-bold text-[0.7rem] uppercase leading-tight mb-1", pieceForInfoDisplay.id.startsWith('boss-') ? "text-destructive" : "text-primary")}>
+                                {pieceForInfoDisplay.id.startsWith('boss-hydra') ? "The Hydra" : 
+                                 pieceForInfoDisplay.id === 'boss-necro' ? "The Necromancer" : 
+                                 pieceForInfoDisplay.id.startsWith('boss-colossus') ? "The Colossus" : 
+                                 pieceForInfoDisplay.id === 'boss-mirage' ? "The Mirage" : 
+                                 pieceForInfoDisplay.id === 'boss-entity' ? "The Void Entity" : 
+                                 pieceForInfoDisplay.type} - Level {pieceForInfoDisplay.level}
+                            </h3>
+                            <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+                        </div>
                     ) : (
                         <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
-                            Hover for Info
+                            Select a piece for info
                         </div>
                     )}
                 </div>
@@ -650,11 +613,12 @@ export default function DungeonPage() {
          )}
       </div>
 
+      {/* BOTTOM BUTTONS */}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
-        <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2" onClick={() => setIsInventoryOpen(true)}>
+        <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)}>
           <Package className="h-4 w-4" /> LOOT BAG
         </Button>
-        <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2" onClick={() => setIsRulesDialogOpen(true)}>
+        <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsRulesDialogOpen(true)}>
           <BookOpen className="h-4 w-4" /> RULES
         </Button>
       </div>
