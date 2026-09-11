@@ -36,7 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
+import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText, ChevronDown } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -57,6 +57,7 @@ import { audioManager } from '@/lib/audio-manager';
 import { useSocial } from '@/components/social/SocialContext';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
+import { Separator } from '@/components/ui/separator';
 
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
@@ -295,7 +296,7 @@ export default function DungeonPage() {
     if (nextLevelNum > 50) { 
         setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; 
     }
-    setLevel(nextLevelNum); setBoard(generateDungeonFloor(nextLevelNum, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: graveyard.white, black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null);
+    setLevel(nextLevelNum); setBoard(generateDungeonFloor(nextLevelNum, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: graveyard.white, black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setLastMoveFrom(null); setLastMoveTo(null);
     saveDungeonState(nextLevelNum, generateDungeonFloor(nextLevelNum, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, inventory);
     audioManager.playLevelUp(); addLog(`Descending to Floor ${nextLevelNum}...`);
   }, [level, inventory, saveDungeonState, addLog]);
@@ -304,8 +305,23 @@ export default function DungeonPage() {
     let nextBoard = boardAfter; let nextGraveyard = { white: [...currentGraveyard.white], black: [...currentGraveyard.black] };
     setDidCaptureLastTurn(prev => ({ ...prev, [turnPlayer]: wasCapture }));
     nextBoard = processOilSlickTimers(nextBoard, turnPlayer);
+    
     const actualType = movedType || lastMovedPieceType;
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
+    
+    // Repetition check (shroom-agnostic)
+    const currentHash = boardToPositionHash(nextBoard, nextP, nextEpSquare);
+    let newHistory = [...positionHistory];
+    const isFrontlineMove = actualType && FRONTLINE_TYPES.includes(actualType);
+    if (wasCapture || isFrontlineMove) {
+        newHistory = [currentHash];
+    } else {
+        newHistory.push(currentHash);
+    }
+    setPositionHistory(newHistory);
+    const repetitionCount = newHistory.filter(h => h === currentHash).length;
+    const isRepetition = repetitionCount >= 3;
+
     const { newBoard: boardPoisoned, poisonedCaptures } = processPoisonDamage(nextBoard, nextP);
     nextBoard = boardPoisoned;
     if (poisonedCaptures.length > 0) {
@@ -313,16 +329,28 @@ export default function DungeonPage() {
         audioManager.playCapture(); addLog(`${poisonedCaptures.length} units decayed.`);
     }
     setBoard(nextBoard); setCapturedPieces(nextGraveyard); setKillStreaks(currentKs); setEnPassantTargetSquare(nextEpSquare); setCurrentPlayer(nextP);
+    
     const dungeonKing = findKing(nextBoard, 'black');
     const isDungeonMated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
     if (isDungeonMated) { advanceLevel(nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), nextGraveyard); return; }
+    
     const playerKing = findKing(nextBoard, 'white');
     if (!playerKing || isCheckmate(nextBoard, 'white', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel)) {
       setGameInfo({ message: "YOUR KING HAS FALLEN", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' }); gameOverRef.current = true; audioManager.playDefeat(); return;
     }
+    
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const stale = !inCheck && isStalemate(nextBoard, nextP, nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+
+    if (stale || isRepetition) {
+        const msg = isRepetition ? "Draw by Repetition!" : "Stalemate!";
+        setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
+        addLog(msg); gameOverRef.current = true; return;
+    }
+
     setGameInfo({ message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
-  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog]);
+    if (inCheck) addLog("Check!");
+  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory]);
 
   const triggerSpecialsChain = useCallback((b: BoardState, g: any, ks: any, os: number, ns: number, ex: boolean, ep: any, pl: any, m: any = [], cid: any = null, wc: boolean = false, mt: any = null) => {
     processMoveEnd(b, g, ks, pl, ex, ep, wc, mt);
@@ -334,8 +362,9 @@ export default function DungeonPage() {
     const { row, col } = algebraicToCoords(promotionSquare!);
     nextB[row][col].piece = { ...nextB[row][col].piece!, type, hasMoved: true };
     setBoard(nextB); audioManager.playLevelUp();
+    addLog(`Hero: Pawn promoted to ${type}!`);
     triggerSpecialsChain(nextB, capturedPieces, killStreaks, 0, 0, false, null, 'white', [], null, false, type);
-  }, [board, promotionSquare, capturedPieces, killStreaks, triggerSpecialsChain]);
+  }, [board, promotionSquare, capturedPieces, killStreaks, triggerSpecialsChain, addLog]);
 
   const handleSquareClick = useCallback((alg: AlgebraicSquare) => {
     if (clickGuard.current) return;
@@ -352,20 +381,24 @@ export default function DungeonPage() {
     if (selectedSquare) {
        const moves = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel);
        if (moves.includes(alg)) {
+          const movingPiece = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
+          setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
           const result = applyMove(board, { from: selectedSquare, to: alg, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
           setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
-          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, lastMovedPieceType); }, 800);
+          addLog(`Hero: ${movingPiece?.type} to ${alg}`);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, movingPiece?.type); }, 800);
           return;
        }
     }
     if (piece && piece.color === currentPlayer) { setSelectedSquare(alg); setPossibleMoves(getPossibleMoves(board, alg, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
     else { setSelectedSquare(null); setPossibleMoves([]); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, processMoveEnd]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, processMoveEnd, addLog]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
     setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); setPossibleMoves([]); setPositionHistory([]); gameOverRef.current = false;
+    setLastMoveFrom(null); setLastMoveTo(null);
     setIsAwaitingDanceTarget(false); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setIsInventoryOpen(false); setIsSelectingMycoSpell(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false });
     const saved = userData.dungeonState;
     if (!reset && saved && saved.board && saved.board.length > 0) {
@@ -394,12 +427,15 @@ export default function DungeonPage() {
         const move = aiResult.move;
         const fromAlg = coordsToAlgebraic(move.from[0], move.from[1]);
         const toAlg = coordsToAlgebraic(move.to[0], move.to[1]);
+        const movingPiece = board[move.from[0]][move.from[1]].piece;
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg);
+        setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
         setBoard(result.newBoard);
-        setTimeout(() => { setIsMoveProcessing(false); setIsAiThinking(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'black', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, lastMovedPieceType); }, 800);
+        addLog(`Dungeon: ${movingPiece?.type} to ${toAlg}`);
+        setTimeout(() => { setIsMoveProcessing(false); setIsAiThinking(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'black', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, movingPiece?.type); }, 800);
     } else { setIsAiThinking(false); }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processMoveEnd]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processMoveEnd, addLog]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) {
@@ -475,87 +511,75 @@ export default function DungeonPage() {
         </div>
       </div>
 
-      {/* INTEGRATED PANEL */}
-      <div className="mx-4 mb-4 border-2 border-border/50 bg-black/40 flex flex-col min-h-0 overflow-hidden shrink-0">
-         <div className="p-2 flex items-center justify-between border-b border-border/30">
-            <button 
-              onClick={() => {
-                  setIsMessengerOpen(!isMessengerOpen);
-                  if (!isMessengerOpen) {
-                      visibleCategories.forEach(cat => clearUnread(cat));
-                  }
-              }}
-              className={cn(
-                "p-1 hover:bg-muted transition-colors rounded-sm",
-                !isMessengerOpen && hasAnyUnread && "animate-chat-notify"
-              )}
-            >
-              <MessageSquare className={cn("h-4 w-4", hasAnyUnread ? "text-primary" : "text-muted-foreground")} />
-            </button>
-            <div className="text-center">
-               <p className="text-[8px] text-muted-foreground uppercase leading-none mb-1">Current Player</p>
-               <p className={cn("text-xs font-bold uppercase", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
-                  {getPlayerDisplayName(currentPlayer)}
-               </p>
-            </div>
-            <div className="text-[7px] text-right font-bold space-y-0.5">
-               <p><span className="text-destructive">W</span>-Streak: {killStreaks.white}</p>
-               <p><span className="text-blue-400">B</span>-Streak: {killStreaks.black}</p>
-            </div>
-         </div>
+      {/* INTEGRATED PANEL - Matches GameControls Style */}
+      <div className="mx-4 mb-4 border-2 border-border/50 bg-black/40 flex flex-col min-h-0 overflow-hidden shrink-0 relative">
+         <button 
+           onClick={() => {
+               setIsMessengerOpen(!isMessengerOpen);
+               if (!isMessengerOpen) {
+                   visibleCategories.forEach(cat => clearUnread(cat));
+               }
+           }}
+           className={cn(
+             "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors rounded-sm",
+             !isMessengerOpen && hasAnyUnread && "animate-chat-notify"
+           )}
+         >
+           <MessageSquare className={cn("h-4 w-4", hasAnyUnread ? "text-primary" : "text-muted-foreground")} />
+         </button>
 
          {isMessengerOpen ? (
-            <div className="p-2 flex flex-col h-[15rem] space-y-2">
+            <div className="p-2 flex flex-col h-[15rem] space-y-2 pt-8">
                 <div className="flex gap-1 justify-center">
                     <Button 
                         variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
                         size="sm" 
-                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.battle && "ring-1 ring-primary")}
+                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.battle && "ring-1 ring-primary")}
                         onClick={() => toggleCategory('battle')}
                     >
-                        <Sword className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('battle') && "opacity-50")} /> Battle
+                        <Sword className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('battle') && "opacity-50")} /> Battle
                     </Button>
                     <Button 
                         variant={visibleCategories.has('social') ? 'default' : 'outline'} 
                         size="sm" 
-                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.social && "ring-1 ring-accent")}
+                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.social && "ring-1 ring-accent")}
                         onClick={() => toggleCategory('social')}
                     >
-                        <Users className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('social') && "opacity-50")} /> Social
+                        <Users className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('social') && "opacity-50")} /> Social
                     </Button>
                     <Button 
                         variant={visibleCategories.has('market') ? 'default' : 'outline'} 
                         size="sm" 
-                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.market && "ring-1 ring-yellow-500")}
+                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.market && "ring-1 ring-yellow-500")}
                         onClick={() => toggleCategory('market')}
                     >
-                        <ShoppingBag className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('market') && "opacity-50")} /> Trade
+                        <ShoppingBag className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('market') && "opacity-50")} /> Trade
                     </Button>
                     <Button 
                         variant={visibleCategories.has('log') ? 'default' : 'outline'} 
                         size="sm" 
-                        className={cn("h-5 text-[0.45rem] uppercase font-pixel px-1 relative", hasUnread.log && "ring-1 ring-primary")}
+                        className={cn("h-6 text-[0.5rem] uppercase font-pixel px-1 relative", hasUnread.log && "ring-1 ring-primary")}
                         onClick={() => toggleCategory('log')}
                     >
-                        <ScrollText className={cn("h-2 w-2 mr-0.5", !visibleCategories.has('log') && "opacity-50")} /> Log
+                        <ScrollText className={cn("h-3 w-3 mr-0.5", !visibleCategories.has('log') && "opacity-50")} /> Log
                     </Button>
                 </div>
 
-                <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-1 h-[8rem]">
-                    <div className="space-y-1">
+                <ScrollArea className="flex-grow bg-background/50 border rounded-sm p-2 h-[10rem]">
+                    <div className="space-y-2">
                         {messages.filter(m => visibleCategories.has(m.category)).length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-full opacity-30 mt-5">
-                                <p className="text-[0.5rem] text-muted-foreground text-center italic uppercase">Select filters to view logs.</p>
+                            <div className="flex flex-col items-center justify-center h-full opacity-30 mt-10">
+                                <p className="text-[0.6rem] text-muted-foreground text-center italic uppercase">Select categories to view logs.</p>
                             </div>
                         ) : (
                             messages.filter(m => visibleCategories.has(m.category)).map((msg) => (
                                 <div key={msg.id} className="flex flex-col animate-in fade-in slide-in-from-bottom-1 duration-200">
                                     <div className="flex items-start gap-1">
-                                        <span className={cn("text-[0.55rem] font-bold uppercase", getMessageColor(msg))}>
+                                        <span className={cn("text-[0.6rem] font-bold uppercase", getMessageColor(msg))}>
                                             {msg.sender === 'SYSTEM' ? '[SYS]:' : `${msg.sender}:`}
                                         </span>
                                         <div className="flex flex-col gap-1 flex-1">
-                                            <span className={cn("text-[0.55rem] break-words font-pixel leading-tight", getMessageColor(msg))}>
+                                            <span className={cn("text-[0.6rem] break-words font-pixel leading-tight tracking-tight", getMessageColor(msg))}>
                                                 {msg.text}
                                             </span>
                                         </div>
@@ -570,39 +594,58 @@ export default function DungeonPage() {
                     <Input
                         value={chatInput}
                         onChange={(e) => setChatInput(e.target.value)}
-                        placeholder="Msg..."
-                        className="h-6 text-[0.55rem] font-sans bg-background"
+                        placeholder="Message..."
+                        className="h-7 text-[0.6rem] font-sans bg-background"
                         maxLength={200}
                     />
-                    <Button type="submit" size="sm" variant="secondary" className="h-6 px-1">
-                        <Send className="h-2 w-2" />
+                    <Button type="submit" size="sm" variant="secondary" className="h-7 px-2">
+                        <Send className="h-3 w-3" />
                     </Button>
                 </form>
             </div>
          ) : (
-            <>
-                <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
-                    <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured Black</span>
+            <div className="space-y-0.5 flex-grow flex flex-col p-1.5">
+                <div className="flex justify-around items-center text-center">
+                    <div>
+                        <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p>
+                        <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
+                            {getPlayerDisplayName(currentPlayer)}
+                        </p>
+                    </div>
+                    <div className="space-y-0.5">
+                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase"><span className="text-foreground">W</span>-STREAK: {killStreaks.white}</p>
+                        <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase"><span className="text-secondary">B</span>-STREAK: {killStreaks.black}</p>
+                    </div>
                 </div>
-                <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
-                    {capturedPieces.black.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                
+                <Separator className="my-1" />
+
+                <div className="w-full">
+                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3>
+                    <div className="flex flex-wrap gap-0.5 bg-black/60 min-h-[1.5rem] p-0.5 border border-border/20">
+                        {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                    </div>
                 </div>
 
-                <div className="bg-black/60 border-b border-border/20 px-2 py-0.5">
-                    <span className="text-[7px] font-bold text-muted-foreground uppercase">Captured White</span>
-                </div>
-                <div className="px-2 py-1 min-h-[1.5rem] flex flex-wrap gap-0.5">
-                    {capturedPieces.white.length === 0 ? <span className="text-[6px] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                <div className="w-full">
+                    <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3>
+                    <div className="flex flex-wrap gap-0.5 bg-black/60 min-h-[1.5rem] p-0.5 border border-border/20">
+                        {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground opacity-30 italic">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
+                    </div>
                 </div>
 
-                <div className="mt-auto p-2 bg-muted/10 border-t border-border/30 min-h-[4.5rem] flex flex-col items-center justify-center text-center">
+                <Separator className="my-1" />
+
+                <div className="flex-grow flex flex-col justify-center min-h-[4.5rem]">
                     {pieceForInfoDisplay ? (
                         <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
                     ) : (
-                        <p className="text-[8px] text-muted-foreground uppercase opacity-60">Select units for tactical data</p>
+                        <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
+                            Hover for Info
+                        </div>
                     )}
                 </div>
-            </>
+            </div>
          )}
       </div>
 
