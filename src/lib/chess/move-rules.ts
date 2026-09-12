@@ -313,15 +313,20 @@ export function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      // Swap check for Clergy (Bishop/Archbishop) at L4+
-                      const canSwap = !simplified && currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
-                      if (canSwap) possible.push(coordsToAlgebraic(R, C));
-                      
-                      if (currentLevel >= 2) continue; else break;
+                      const hasPhase = piece.heldItem === 'phase_boots' && currentLevel >= 2;
+                      if (hasPhase) continue; else break;
                   }
               }
           }
       });
+      // GLOBAL Allied Swap check for Clergy (Bishop/Archbishop) at L4+
+      if (!simplified && !silenced && currentLevel >= 4) {
+          board.forEach(row => row.forEach(sq => {
+              if (sq.piece && sq.piece.color === pieceColor && (['knight', 'hero', 'archer'].includes(sq.piece.type))) {
+                  if (!possible.includes(sq.algebraic)) possible.push(sq.algebraic);
+              }
+          }));
+      }
   } else if (piece.type === 'rook' || piece.type === 'palace') {
       const dirs: [number, number][] = [[0,1], [0,-1], [1,0], [-1,0]];
       dirs.forEach(([dr, dc]) => {
@@ -357,10 +362,6 @@ export function getPossibleMovesInternal(
              if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
                possible.push(coordsToAlgebraic(nr, nc));
              }
-          } else {
-             // Swap check for Cavalry (Knight/Hero/Archer) at L4+
-             const canSwap = !simplified && currentLevel >= 4 && (['bishop', 'archbishop'].includes(targetP.type));
-             if (canSwap) possible.push(coordsToAlgebraic(nr, nc));
           }
         }
       });
@@ -408,6 +409,15 @@ export function getPossibleMovesInternal(
           }
         });
       }
+      // GLOBAL Allied Swap check for Cavalry (Knight/Hero/Archer) at L4+
+      if (!simplified && !silenced && currentLevel >= 4) {
+          board.forEach(row => row.forEach(sq => {
+              if (sq.piece && sq.piece.color === pieceColor && (sq.piece.type === 'bishop' || sq.piece.type === 'archbishop')) {
+                  if (!possible.includes(sq.algebraic)) possible.push(sq.algebraic);
+              }
+          }));
+      }
+      if (currentLevel >= 5 && !silenced) possible.push(fromSquare);
   } else if (piece.type === 'queen') {
       const dirs: [number, number][] = [[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]];
       dirs.forEach(([dr, dc]) => {

@@ -473,7 +473,6 @@ export class VibeChessAI {
                                 moves.push({from:[r,c], to:[nr,nc], type:'capture'});
                             }
                         }
-                        else if (effLevel >= 4 && target.color === p.color && (target.type === 'bishop' || target.type === 'archbishop')) moves.push({from:[r,c], to:[nr,nc], type:'swap'});
                     }
                 });
                 if (effLevel >= 2) {
@@ -513,7 +512,16 @@ export class VibeChessAI {
                         }
                     });
                 }
-                if (effLevel >= 5) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
+                // GLOBAL Allied Swap for L4+ Cavalry
+                if (!simplified && !silenced && effLevel >= 4) {
+                    for(let sr=0; sr<8; sr++) for(let sc=0; sc<8; sc++) {
+                        const tp = gs.board[sr][sc].piece;
+                        if(tp && tp.color === p.color && (tp.type === 'bishop' || tp.type === 'archbishop')) {
+                            moves.push({from:[r,c], to:[sr,sc], type:'swap'});
+                        }
+                    }
+                }
+                if (effLevel >= 5 && !silenced) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
                 break;
             case 'bishop': case 'archbishop':
                 this.directions.bishop.forEach(([dr,dc]) => {
@@ -531,11 +539,19 @@ export class VibeChessAI {
                                 }
                                 break;
                             } 
-                            else if (effLevel >= 4 && target.color === p.color && (target.type === 'knight' || target.type === 'hero' || target.type === 'archer')) moves.push({from:[r,c], to:[nr,nc], type:'swap'});
                             if (effLevel < 2) break;
                         }
                     }
                 });
+                // GLOBAL Allied Swap for L4+ Clergy
+                if (!simplified && !silenced && effLevel >= 4) {
+                    for(let sr=0; sr<8; sr++) for(let sc=0; sc<8; sc++) {
+                        const tp = gs.board[sr][sc].piece;
+                        if(tp && tp.color === p.color && (['knight', 'hero', 'archer'].includes(tp.type))) {
+                            moves.push({from:[r,c], to:[sr,sc], type:'swap'});
+                        }
+                    }
+                }
                 break;
             case 'king':
                 const maxD = effLevel >= 2 ? 2 : 1;
