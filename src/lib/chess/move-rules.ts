@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced } from './utils';
@@ -342,7 +343,69 @@ export function getPossibleMovesInternal(
           }
       });
   } else if (['knight', 'hero', 'archer'].includes(piece.type)) {
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (isMoveValidInternal(board, fromSquare, coordsToAlgebraic(r,c), piece, enPassantTargetSquare)) possible.push(coordsToAlgebraic(r,c));
+      // Standard L-moves
+      [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dr, dc]) => {
+        const nr = fromRow + dr; const nc = fromCol + dc;
+        if (isValidSquare(nr, nc)) {
+          const targetSq = board[nr][nc];
+          if (targetSq.item?.type === 'anvil') return;
+          const targetP = targetSq.piece;
+          if (!targetP || targetP.color !== pieceColor) {
+             const targetLevel = getEffectiveLevel(board, nr, nc);
+             if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+               possible.push(coordsToAlgebraic(nr, nc));
+             }
+          } else if (!simplified && currentLevel >= 4 && (['bishop', 'archbishop'].includes(targetP.type))) {
+              possible.push(coordsToAlgebraic(nr, nc));
+          }
+        }
+      });
+
+      // Level 2: Cardinal Moves
+      if (currentLevel >= 2) {
+        [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
+          const nr = fromRow + dr; const nc = fromCol + dc;
+          if (isValidSquare(nr, nc)) {
+            const targetSq = board[nr][nc];
+            if (targetSq.item?.type === 'anvil') return;
+            const targetP = targetSq.piece;
+            if (!targetP || targetP.color !== pieceColor) {
+              const targetLevel = getEffectiveLevel(board, nr, nc);
+              if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+                possible.push(coordsToAlgebraic(nr, nc));
+              }
+            }
+          }
+        });
+      }
+
+      // Level 3: Long Jump
+      if (currentLevel >= 3) {
+        [[3,0],[-3,0],[0,3],[0,-3]].forEach(([dr, dc]) => {
+          const nr = fromRow + dr; const nc = fromCol + dc;
+          if (isValidSquare(nr, nc)) {
+            const targetSq = board[nr][nc];
+            if (targetSq.item?.type === 'anvil') return;
+            const targetP = targetSq.piece;
+            if (!targetP || (targetP.color !== pieceColor && !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board))) {
+              const sR = Math.sign(dr); const sC = Math.sign(dc);
+              let clear = true;
+              for (let i = 1; i < 3; i++) {
+                const ir = fromRow + i * sR; const ic = fromCol + i * sC;
+                if (isValidSquare(ir, ic) && (board[ir][ic].piece || board[ir][ic].item?.type === 'anvil')) {
+                  clear = false; break;
+                }
+              }
+              if (clear) {
+                const targetLevel = getEffectiveLevel(board, nr, nc);
+                if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+                  possible.push(coordsToAlgebraic(nr, nc));
+                }
+              }
+            }
+          }
+        });
+      }
   } else if (piece.type === 'queen') {
       const dirs: [number, number][] = [[0,1], [0,-1], [1,0], [-1,0], [1,1], [1,-1], [-1,1], [-1,-1]];
       dirs.forEach(([dr, dc]) => {
