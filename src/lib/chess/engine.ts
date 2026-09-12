@@ -548,7 +548,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, resurrectionScrollEvent };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, resurrectionScrollEvent };
   }
 
   if (move.type === 'faith-scroll') {
@@ -567,7 +567,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
   }
 
   if (move.type === 'ice-scroll') {
@@ -701,9 +701,9 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
   
-  if (pieceToLand.type === 'mimic' && pieceToLand.heldItem === 'mirror_mask' && lastMovedPieceLevel) {
-      pieceToLand.level = lastMovedPieceLevel;
-      if (lastMovedPieceHeldItem) pieceToLand.heldItem = lastMovedPieceHeldItem;
+  if (pieceToLand.type === 'mimic' && pieceToLand.heldItem === 'mirror_mask' && lastMovedPieceHeldItem) {
+      // Level copying removed. Skills depend on Mimic's own level.
+      pieceToLand.heldItem = lastMovedPieceHeldItem;
   }
 
   const backRankIdx = pieceToLand.color === 'white' ? 0 : 7;

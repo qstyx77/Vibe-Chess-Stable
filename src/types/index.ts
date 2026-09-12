@@ -1,4 +1,3 @@
-
 export type PlayerColor = 'white' | 'black';
 export type PieceType = 'pawn' | 'knight' | 'bishop' | 'rook' | 'queen' | 'king' | 'commander' | 'hero' | 'infiltrator' | 'archbishop' | 'palace' | 'archer' | 'dancer' | 'mimic' | 'grappler' | 'myco_mage';
 export type ItemType = 'anvil' | 'shroom';
@@ -171,7 +170,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'spore_pouch': { name: 'Spore Pouch', description: 'Common bag. Frontline only. 25% chance to spawn a Shroom on vacated square when moving.', isConsumable: false, rarity: 'common' },
   'kings_ransom': { name: 'King\'s Ransom', description: 'Rare amulet. King only. Saves King from Checkmate once by exiling him to back rank at L1.', isConsumable: true, rarity: 'rare' },
   'dancers_ribbon': { name: 'Dancer\'s Ribbon', description: 'Uncommon ribbon. Dancer only. The Dance (KS 1) can now swap places with Anvils.', isConsumable: false, rarity: 'uncommon' },
-  'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Level and Item.', isConsumable: false, rarity: 'rare' },
+  'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Item.', isConsumable: false, rarity: 'rare' },
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides in its current direction for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
   'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },

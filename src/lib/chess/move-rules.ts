@@ -72,15 +72,15 @@ export function getPossibleMovesInternal(
 
   if (piece.type === 'mimic') {
     const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
+    // Available skills are dependent on the Mimic's OWN level (piece.level).
     const virtualPiece = { ...piece, type: patternType };
     
+    // Copy item only if needed for movement pattern (e.g. boots) or specific mimic items
     if (piece.heldItem === 'mirror_mask' || (piece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem)) {
         virtualPiece.heldItem = lastMovedPieceHeldItem || null;
     }
     
-    if (piece.heldItem === 'mirror_mask' && lastMovedPieceLevel) {
-        virtualPiece.level = lastMovedPieceLevel;
-    }
+    // Level copying logic removed to ensure skills depend on Mimic's own level.
 
     return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null, null, null, true);
   }
