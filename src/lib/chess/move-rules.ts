@@ -128,7 +128,7 @@ export function getPossibleMovesInternal(
     const dirs = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
     dirs.forEach(([dr, dc]) => {
       for (let i = 1; i <= 3; i++) {
-        const nr = fromRow + i * dr; const nc = fromCol + i * dc;
+        const nr = fromRow + i * dr; const nc = fromCol + dc;
         if (!isValidSquare(nr, nc) || board[nr][nc].item?.type === 'anvil') break;
         const sq = board[nr][nc];
         if (sq.piece) {
@@ -313,8 +313,10 @@ export function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      const isSwapTarget = !simplified && currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
-                      if (isSwapTarget) possible.push(coordsToAlgebraic(R, C));
+                      // Swap check for Clergy (Bishop/Archbishop) at L4+
+                      const canSwap = !simplified && currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
+                      if (canSwap) possible.push(coordsToAlgebraic(R, C));
+                      
                       if (currentLevel >= 2) continue; else break;
                   }
               }
@@ -355,8 +357,10 @@ export function getPossibleMovesInternal(
              if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
                possible.push(coordsToAlgebraic(nr, nc));
              }
-          } else if (!simplified && currentLevel >= 4 && (['bishop', 'archbishop'].includes(targetP.type))) {
-              possible.push(coordsToAlgebraic(nr, nc));
+          } else {
+             // Swap check for Cavalry (Knight/Hero/Archer) at L4+
+             const canSwap = !simplified && currentLevel >= 4 && (['bishop', 'archbishop'].includes(targetP.type));
+             if (canSwap) possible.push(coordsToAlgebraic(nr, nc));
           }
         }
       });
