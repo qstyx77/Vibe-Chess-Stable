@@ -1,3 +1,4 @@
+
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -319,7 +320,7 @@ export class VibeChessAI {
         if (p.type === 'mimic') {
             const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
             const virtualPiece = { ...p, type: patternType };
-            return this.generatePieceMoves(gs, r, c, virtualPiece, true); 
+            return this.generatePieceMoves(gs, r, c, virtualPiece, simplified); 
         }
         
         if (p.id?.startsWith('boss-colossus')) {
@@ -372,7 +373,7 @@ export class VibeChessAI {
                                const corners: [number, number][] = [[0,0],[0,7],[7,0],[7,7]];
                                corners.forEach(([cr, cc]) => {
                                    const dist = Math.max(Math.abs(cr-r), Math.abs(cc-c));
-                                   if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(cc-c))) {
+                                   if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(tc-c))) {
                                        if (!gs.board[cr][cc].piece && !gs.board[cr][cc].item && !this.isSquareAttacked(gs, cr, cc, oppColor, true)) possibleLandings.push([cr, cc]);
                                    }
                                });

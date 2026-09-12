@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -731,6 +732,7 @@ export default function EvolvingChessPage() {
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { const victim = applyResult.capturedPiece!; const targetPile = victim.color; updatedG[targetPile] = [...updatedG[targetPile], { ...victim, id: victim.id }]; audioManager.playCapture(); addLog("AI attack reflected!"); addEffectCallback('poof', toAlg); const newKs = { ...killStreaks, white: 0, black: 0 }; setBoard(nextB); setCapturedPieces(updatedG); setKillStreaks(newKs); setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, updatedG, newKs, currentPlayer, false, null, false, oldT); }, 800); return; }
       if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); addEffectCallback('level-change', toAlg, currentPlayer, 1); }
+      if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); addEffectCallback('level-change', toAlg, currentPlayer, 1); }
       if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("AI Hero Ascended!"); }
       if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); addLog("AI Conversion triggered!"); }
       if (applyResult.rallyCryTriggered) { addEffectCallback('shockwave', applyResult.rallyCryTriggered.square, applyResult.rallyCryTriggered.color); audioManager.playRally(); addLog("AI Rallying Cry!"); }
@@ -935,12 +937,19 @@ export default function EvolvingChessPage() {
         if (selectedSquare === algebraic && moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
         const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel);
         if (freshlyCalculated.includes(algebraic)) {
-          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: 'move' } })); setSelectedSquare(null); setPossibleMoves([]); }
+          // Detect specific move type for correct execution
+          const targetP = board[row][col].piece;
+          let moveType: Move['type'] = 'move';
+          if (targetP && targetP.color === moving.color) moveType = 'swap';
+          else if (algebraic === enPassantTargetSquare && FRONTLINE_TYPES.includes(moving.type)) moveType = 'enpassant';
+          else if (moving.type === 'king' && Math.abs(col - fC) === 2) moveType = 'castle';
+
+          if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: moveType } })); setSelectedSquare(null); setPossibleMoves([]); }
           else {
               pushHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
               setSelectedSquare(null); setPossibleMoves([]);
               const oldL = moving.level, oldT = moving.type, oldH = moving.heldItem; setLastMovedPieceType(oldT); setLastMovedPieceHeldItem(oldH || null); setLastMovedPieceLevel(oldL);
-              const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+              const applyResult = applyMove(board, { from: selectedSquare, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
               let nextB = applyResult.newBoard; const updatedG = { 
                 white: [...(capturedPieces?.white || [])],
                 black: [...(capturedPieces?.black || [])]

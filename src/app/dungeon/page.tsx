@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -413,18 +414,27 @@ export default function DungeonPage() {
        const moves = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel);
        if (moves.includes(alg)) {
           const movingPiece = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece;
+          if (!movingPiece) return;
+
+          // Detect specific move type for correct execution (Mimic swap fix)
+          const targetP = board[row][col].piece;
+          let moveType: Move['type'] = 'move';
+          if (targetP && targetP.color === movingPiece.color) moveType = 'swap';
+          else if (alg === enPassantTargetSquare && FRONTLINE_TYPES.includes(movingPiece.type)) moveType = 'enpassant';
+          else if (movingPiece.type === 'king' && Math.abs(col - fC) === 2) moveType = 'castle';
+
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg);
           setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
 
           // Update last moved state for Mimic
-          setLastMovedPieceType(movingPiece?.type || null);
-          setLastMovedPieceLevel(movingPiece?.level || null);
-          setLastMovedPieceHeldItem(movingPiece?.heldItem || null);
+          setLastMovedPieceType(movingPiece.type);
+          setLastMovedPieceLevel(movingPiece.level);
+          setLastMovedPieceHeldItem(movingPiece.heldItem || null);
 
-          const result = applyMove(board, { from: selectedSquare, to: alg, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+          const result = applyMove(board, { from: selectedSquare, to: alg, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
           setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
-          addLog(`Hero: ${movingPiece?.type} to ${alg}`);
-          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, movingPiece?.type); }, 800);
+          addLog(`Hero: ${movingPiece.type} to ${alg}`);
+          setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'white', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, movingPiece.type); }, 800);
           return;
        }
     }
@@ -463,20 +473,23 @@ export default function DungeonPage() {
     if (aiResult?.move) {
         const move = aiResult.move;
         const fromAlg = coordsToAlgebraic(move.from[0], move.from[1]);
-        const toAlg = coordsToAlgebraic(move.to[0], move.to[1]);
+        const toAlg = coordsToAlgebraic(move.to[1], move.to[1]); // Typo here? Should be move.to[0], move.to[1] but let's correct it
+        const toAlgCorrected = coordsToAlgebraic(move.to[0], move.to[1]);
         const movingPiece = board[move.from[0]][move.from[1]].piece;
-        setIsMoveProcessing(true); setAnimatedSquareTo(toAlg);
-        setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
+        if (!movingPiece) { setIsAiThinking(false); return; }
+
+        setIsMoveProcessing(true); setAnimatedSquareTo(toAlgCorrected);
+        setLastMoveFrom(fromAlg); setLastMoveTo(toAlgCorrected);
 
         // Update last moved state for Mimic
-        setLastMovedPieceType(movingPiece?.type || null);
-        setLastMovedPieceLevel(movingPiece?.level || null);
-        setLastMovedPieceHeldItem(movingPiece?.heldItem || null);
+        setLastMovedPieceType(movingPiece.type);
+        setLastMovedPieceLevel(movingPiece.level);
+        setLastMovedPieceHeldItem(movingPiece.heldItem || null);
 
-        const result = applyMove(board, { from: fromAlg, to: toAlg, type: 'move' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+        const result = applyMove(board, { from: fromAlg, to: toAlgCorrected, type: move.type as Move['type'] }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
         setBoard(result.newBoard);
-        addLog(`Dungeon: ${movingPiece?.type} to ${toAlg}`);
-        setTimeout(() => { setIsMoveProcessing(false); setIsAiThinking(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'black', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, movingPiece?.type); }, 800);
+        addLog(`Dungeon: ${movingPiece.type} to ${toAlgCorrected}`);
+        setTimeout(() => { setIsMoveProcessing(false); setIsAiThinking(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, 'black', result.extraTurn, result.enPassantTargetSet, !!result.capturedPiece, movingPiece.type); }, 800);
     } else { setIsAiThinking(false); }
   }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processMoveEnd, addLog]);
 

@@ -26,14 +26,21 @@ export function getPossibleMoves(
     enPassantTargetSquare,
     lastMovedPieceType,
     lastMovedPieceHeldItem,
-    lastMovedPieceLevel
+    lastMovedPieceLevel,
+    false // explicitly not simplified for UI move generation
   );
 
   return pseudoMoves.filter(to => {
-    // Basic move legality check: Does this move leave my King in check?
+    // Determine the type for the legality check simulation
+    const targetP = board[algebraicToCoords(to).row][algebraicToCoords(to).col].piece;
+    let moveType: Move['type'] = 'move';
+    if (targetP && targetP.color === piece.color) moveType = 'swap';
+    else if (to === enPassantTargetSquare && FRONTLINE_TYPES.includes(piece.type)) moveType = 'enpassant';
+    else if (piece.type === 'king' && Math.abs(algebraicToCoords(to).col - col) === 2) moveType = 'castle';
+
     const { newBoard, enPassantTargetSet } = applyMove(
       board,
-      { from: fromSquare, to, type: 'move' },
+      { from: fromSquare, to, type: moveType },
       enPassantTargetSquare,
       undefined,
       lastMovedPieceType,
@@ -73,17 +80,13 @@ export function getPossibleMovesInternal(
 
   if (piece.type === 'mimic') {
     const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
-    // Available skills are dependent on the Mimic's OWN level (piece.level).
     const virtualPiece = { ...piece, type: patternType };
     
-    // Copy item only if needed for movement pattern (e.g. boots) or specific mimic items
     if (piece.heldItem === 'mirror_mask' || (piece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem)) {
         virtualPiece.heldItem = lastMovedPieceHeldItem || null;
     }
     
-    // Level copying logic removed to ensure skills depend on Mimic's own level.
-
-    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null, null, null, true);
+    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null, null, null, simplified);
   }
 
   if (piece.id.startsWith('boss-colossus')) {
@@ -196,7 +199,6 @@ export function getPossibleMovesInternal(
         }
     });
     
-    // Pick-up targets (Adjacent)
     if (!simplified && !silenced) {
       for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
@@ -206,7 +208,6 @@ export function getPossibleMovesInternal(
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
                   if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
-                      // Return the square of the target for selection in UI
                       possible.push(coordsToAlgebraic(nr, nc));
                   }
               }
@@ -312,7 +313,7 @@ export function getPossibleMovesInternal(
                       if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       break;
                   } else {
-                      const isSwapTarget = currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
+                      const isSwapTarget = !simplified && currentLevel >= 4 && (['knight', 'hero', 'archer'].includes(targetP.type));
                       if (isSwapTarget) possible.push(coordsToAlgebraic(R, C));
                       if (currentLevel >= 2) continue; else break;
                   }
@@ -343,7 +344,6 @@ export function getPossibleMovesInternal(
           }
       });
   } else if (['knight', 'hero', 'archer'].includes(piece.type)) {
-      // Standard L-moves
       [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]].forEach(([dr, dc]) => {
         const nr = fromRow + dr; const nc = fromCol + dc;
         if (isValidSquare(nr, nc)) {
@@ -361,7 +361,6 @@ export function getPossibleMovesInternal(
         }
       });
 
-      // Level 2: Cardinal Moves
       if (currentLevel >= 2) {
         [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
           const nr = fromRow + dr; const nc = fromCol + dc;
@@ -379,7 +378,6 @@ export function getPossibleMovesInternal(
         });
       }
 
-      // Level 3: Long Jump
       if (currentLevel >= 3) {
         [[3,0],[-3,0],[0,3],[0,-3]].forEach(([dr, dc]) => {
           const nr = fromRow + dr; const nc = fromCol + dc;
