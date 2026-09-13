@@ -753,7 +753,7 @@ export default function DungeonPage() {
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black') return;
     setIsAiThinking(true);
-    const gameState = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didOpponentCaptureLastTurn.white, positionHistory);
+    const gameState = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory);
     const aiResult = aiInstance.current?.getBestMove(gameState, 'black');
     if (aiResult?.move) {
         const move = aiResult.move;
@@ -770,7 +770,7 @@ export default function DungeonPage() {
         setLastMovedPieceLevel(oldL);
         setLastMovedPieceHeldItem(oldH || null);
 
-        const result = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'] }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didOpponentCaptureLastTurn.white);
+        const result = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'] }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
         setBoard(result.newBoard);
         addLog(`Dungeon: ${movingPiece.type} to ${toAlg}`);
         
@@ -785,7 +785,7 @@ export default function DungeonPage() {
           processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'black', {from: fromAlg, to: toAlg, type: move.type as Move['type']}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[move.to[0]][move.to[1]].piece?.id || null, !!result.capturedPiece, oldT);
         }, 800);
     } else { setIsAiThinking(false); }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didOpponentCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) {
