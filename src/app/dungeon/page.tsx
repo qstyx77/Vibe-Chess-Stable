@@ -223,7 +223,6 @@ export default function DungeonPage() {
   const [isAwaitingCommanderPromotion, setIsAwaitingCommanderPromotion] = useState(false);
   const [playerWhoGotFirstBlood, setPlayerWhoGotFirstBlood] = useState<PlayerColor | null>(null);
   const [enPassantTargetSquare, setEnPassantTargetSquare] = useState<AlgebraicSquare | null>(null);
-  const [promotionTargetLevel, setPromotionTargetLevel] = useState<number>(1);
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(5);
   const [necroResurrectionCounter, setNecroResurrectionCounter] = useState(0);
@@ -265,7 +264,6 @@ export default function DungeonPage() {
   const [isAwaitingDecreeTarget, setIsAwaitingDecreeTarget] = useState(false);
   const [isAwaitingEarthquakeScrollTarget, setIsAwaitingEarthquakeScrollTarget] = useState(false);
 
-  const uniqueIdCounterRef = useRef(30000);
   const gameOverRef = useRef(false);
   const isInitialized = useRef(false);
   const aiInstance = useRef<VibeChessAI | null>(null);
@@ -838,7 +836,6 @@ export default function DungeonPage() {
 
   const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
 
-  // REUSABLE PANELS
   const controlPanel = (
     <Card className="flex-grow border-2 border-border/50 bg-card flex flex-col overflow-hidden relative">
       {isMessengerOpen ? (
@@ -927,7 +924,6 @@ export default function DungeonPage() {
 
   const mobileLayout = useMemo(() => (
     <div className="lg:hidden flex flex-col h-full overflow-hidden">
-      {/* HEADER */}
       <div className="px-4 py-1 flex items-center justify-between shrink-0">
         <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors">
           <ArrowLeft className="h-4 w-4" /> LOBBY
@@ -941,14 +937,12 @@ export default function DungeonPage() {
         </Button>
       </div>
 
-      {/* STATUS LINE */}
       <div className="text-center py-0 shrink-0 min-h-[0.75rem]">
         <p className="text-[10px] font-bold text-primary uppercase animate-pulse">
            {statusMessage}
         </p>
       </div>
 
-      {/* BOARD */}
       <div className="w-full flex justify-center py-0.5 shrink-0">
         <div className="w-full max-w-[min(95vw,70vh)] aspect-square relative">
           <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
@@ -959,7 +953,6 @@ export default function DungeonPage() {
         {controlPanel}
       </div>
 
-      {/* BOTTOM BUTTONS */}
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0">
         <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)}>
           <Package className="h-4 w-4 text-yellow-500" /> LOOT BAG
@@ -973,7 +966,6 @@ export default function DungeonPage() {
 
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
-      {/* LEFT COLUMN: CONTROL PANEL / MESSENGER */}
       <div className="w-1/4 flex-shrink-0 flex flex-col gap-2">
         <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1">
           <ArrowLeft className="h-4 w-4" /> Lobby
@@ -981,11 +973,10 @@ export default function DungeonPage() {
         {controlPanel}
       </div>
 
-      {/* MIDDLE COLUMN: FLOOR TITLE, STATUS, BOARD */}
       <div className="w-1/2 flex flex-col items-center gap-2">
-        <div className="flex items-center gap-4 justify-center py-2 shrink-0">
+        <div className="flex items-center gap-4 justify-center py-2 shrink-0 h-16">
            <div className="flex items-center gap-2">
-             {level % 10 === 0 ? <Skull className="h-6 w-6 text-destructive" /> : <Sword className="h-6 w-6 text-primary" />}
+             {level % 10 === 0 ? <Skull className="h-8 w-8 text-destructive" /> : <Sword className="h-8 w-8 text-primary" />}
              <h1 className="text-xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1>
            </div>
         </div>
@@ -997,7 +988,6 @@ export default function DungeonPage() {
         </div>
       </div>
 
-      {/* RIGHT COLUMN: AUTH & BUTTONS */}
       <div className="w-1/4 flex flex-col gap-4">
         <AuthWidget />
         <Card className="border-2 border-border/50 bg-card">
