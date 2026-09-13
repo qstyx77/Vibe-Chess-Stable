@@ -166,7 +166,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             gameInfo: { message: " ", isCheck: false, gameOver: false },
                             shroomSpawnCounter: 0,
                             nextShroomSpawnTurn: 5,
-                            players: { white: data.user, black: null }
+                            players: { white: data.user, black: null },
+                            didOpponentCaptureLastTurn: false
                         }
                     };
                     ws.send(JSON.stringify({ type: 'room-created', roomId, color: 'white', gameState: rooms[roomId].gameState }));
@@ -229,6 +230,30 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
                     break;
                 }
+                case 'ks-resurrection': {
+                    const room = ws.roomId ? rooms[ws.roomId] : null;
+                    if (!room) break;
+                    const { pieceId, square } = data.payload;
+                    const { row, col } = algebraicToCoords(square);
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    const piece = room.gameState.capturedPieces[playerColor].find((p: Piece) => p.id === pieceId);
+                    if (piece && isValidSquare(row, col) && !room.gameState.board[row][col].piece) {
+                        const resPiece = { 
+                            ...piece, 
+                            id: `res_ks_${piece.id}_${Date.now()}`,
+                            level: 1, 
+                            hasMoved: true, 
+                            isShielded: false, 
+                            isPoisoned: false, 
+                            cooldownTurnsRemaining: 0, 
+                            frozenTurnsRemaining: 0 
+                        };
+                        room.gameState.board[row][col].piece = resPiece;
+                        room.gameState.capturedPieces[playerColor] = room.gameState.capturedPieces[playerColor].filter((p: Piece) => p.id !== pieceId);
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                    }
+                    break;
+                }
                 case 'game-move': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
@@ -237,7 +262,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     // Authority check for current player
                     const playerColor = room.clients[0] === ws ? 'white' : 'black';
-                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
+                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
                     
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
 
@@ -250,10 +275,50 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
                     
+                    // Update streaks and captures on server for win condition checks
+                    if (result.capturedPiece) {
+                        gs.capturedPieces[result.capturedPiece.color].push(result.capturedPiece);
+                        gs.killStreaks[playerColor]++;
+                        gs.didOpponentCaptureLastTurn = true;
+                    } else if (result.selfDestructCaptures?.length) {
+                        result.selfDestructCaptures.forEach((p: Piece) => gs.capturedPieces[p.color].push(p));
+                        gs.killStreaks[playerColor] += result.selfDestructCaptures.length;
+                        gs.didOpponentCaptureLastTurn = true;
+                    } else if (result.pieceCapturedByAnvil) {
+                        gs.capturedPieces[result.pieceCapturedByAnvil.color].push(result.pieceCapturedByAnvil);
+                        gs.killStreaks[playerColor]++;
+                        gs.didOpponentCaptureLastTurn = true;
+                    } else if (!isRewardMove) {
+                        gs.killStreaks[playerColor] = 0;
+                        gs.didOpponentCaptureLastTurn = false;
+                    }
+
                     if (movingPiece) {
                         gs.lastMovedPieceType = movingPiece.type;
                         gs.lastMovedPieceLevel = movingPiece.level;
                         gs.lastMovedPieceHeldItem = movingPiece.heldItem;
+                    }
+                    
+                    // CHECK FOR ONLINE WIN CONDITIONS
+                    if (result.infiltrationWin) {
+                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
+                        delete rooms[ws.roomId!];
+                        return;
+                    }
+
+                    const actingKingSq = gs.board.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === playerColor);
+                    if (gs.killStreaks[playerColor] >= 8 && actingKingSq?.piece?.heldItem === 'kings_conquest') {
+                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest' });
+                        delete rooms[ws.roomId!];
+                        return;
+                    }
+
+                    // MATE CHECK
+                    const oppColor = playerColor === 'white' ? 'black' : 'white';
+                    if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel)) {
+                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
+                        delete rooms[ws.roomId!];
+                        return;
                     }
                     
                     const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);
@@ -269,7 +334,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
                         delete rooms[ws.roomId!];
                     } else {
-                        // Flip turn only on terminal moves (not extra turns or mid-reward moves)
+                        // Flip turn only on terminal moves (not extra turns or reward-step moves)
                         if (!result.extraTurn && !isRewardMove) {
                             gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
                         }
