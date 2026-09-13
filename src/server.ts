@@ -24,7 +24,8 @@ import {
     isItemValidForPiece,
     triggerPushBack,
     processOilSlickTimers,
-    processPoisonDamage
+    processPoisonDamage,
+    FRONTLINE_TYPES
 } from './lib/chess-utils';
 import type { PlayerColor, Piece, AlgebraicSquare, PieceType, InventoryItemType, ChatMessage, Move } from './types';
 
@@ -184,6 +185,50 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
                     break;
                 }
+                case 'anvil-drop': {
+                    const room = ws.roomId ? rooms[ws.roomId] : null;
+                    if (!room) break;
+                    const { row, col } = algebraicToCoords(data.square);
+                    if (isValidSquare(row, col) && !room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
+                        room.gameState.board[row][col].item = { type: 'anvil' };
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                    }
+                    break;
+                }
+                case 'holy-shield': {
+                    const room = ws.roomId ? rooms[ws.roomId] : null;
+                    if (!room) break;
+                    const { row, col } = algebraicToCoords(data.square);
+                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
+                        room.gameState.board[row][col].piece.isShielded = true;
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                    }
+                    break;
+                }
+                case 'archer-snipe': {
+                    const room = ws.roomId ? rooms[ws.roomId] : null;
+                    if (!room) break;
+                    const { row, col } = algebraicToCoords(data.square);
+                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
+                        const sniped = room.gameState.board[row][col].piece;
+                        room.gameState.capturedPieces[sniped.color].push(sniped);
+                        room.gameState.board[row][col].piece = null;
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                    }
+                    break;
+                }
+                case 'pawn-sacrifice': {
+                    const room = ws.roomId ? rooms[ws.roomId] : null;
+                    if (!room) break;
+                    const { row, col } = algebraicToCoords(data.payload.square);
+                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
+                        const sacrificed = room.gameState.board[row][col].piece;
+                        room.gameState.capturedPieces[sacrificed.color].push(sacrificed);
+                        room.gameState.board[row][col].piece = null;
+                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                    }
+                    break;
+                }
                 case 'game-move': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
@@ -192,25 +237,27 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     // Authority check for current player
                     const playerColor = room.clients[0] === ws ? 'white' : 'black';
-                    if (gs.currentPlayer !== playerColor) break;
+                    const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
+                    
+                    if (gs.currentPlayer !== playerColor && !isRewardMove) break;
 
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
-                    if (!movingPiece) break;
+                    if (!movingPiece && !isRewardMove) break;
 
                     const result = applyMove(gs.board, movePayload, gs.enPassantTargetSquare, gs.capturedPieces, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel, gs.didOpponentCaptureLastTurn);
                     
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
                     
-                    // Capture info for the NEXT piece (Mimic support)
-                    gs.lastMovedPieceType = movingPiece.type;
-                    gs.lastMovedPieceLevel = movingPiece.level;
-                    gs.lastMovedPieceHeldItem = movingPiece.heldItem;
+                    if (movingPiece) {
+                        gs.lastMovedPieceType = movingPiece.type;
+                        gs.lastMovedPieceLevel = movingPiece.level;
+                        gs.lastMovedPieceHeldItem = movingPiece.heldItem;
+                    }
                     
-                    // SHROOM AGNOSTIC THREEFOLD REPETITION
                     const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);
-                    const isFrontlineMove = movingPiece.type && FRONTLINE_TYPES.includes(movingPiece.type);
+                    const isFrontlineMove = movingPiece?.type && FRONTLINE_TYPES.includes(movingPiece.type);
                     if (result.capturedPiece || isFrontlineMove) {
                         room.positionHistory = [hash];
                     } else {
@@ -222,7 +269,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
                         delete rooms[ws.roomId!];
                     } else {
-                        gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
+                        // Flip turn only on terminal moves (not extra turns or mid-reward moves)
+                        if (!result.extraTurn && !isRewardMove) {
+                            gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
+                        }
                         broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs });
                     }
                     break;
