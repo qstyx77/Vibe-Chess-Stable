@@ -373,7 +373,7 @@ export class VibeChessAI {
                                const corners: [number, number][] = [[0,0],[0,7],[7,0],[7,7]];
                                corners.forEach(([cr, cc]) => {
                                    const dist = Math.max(Math.abs(cr-r), Math.abs(cc-c));
-                                   if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(tc-c))) {
+                                   if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(cc-c))) {
                                        if (!gs.board[cr][cc].piece && !gs.board[cr][cc].item && !this.isSquareAttacked(gs, cr, cc, oppColor, true)) possibleLandings.push([cr, cc]);
                                    }
                                });

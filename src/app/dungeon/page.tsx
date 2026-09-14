@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -837,9 +838,9 @@ export default function DungeonPage() {
   const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
 
   const controlPanel = (
-    <Card className="flex-grow border-2 border-border/50 bg-card flex flex-col overflow-hidden relative">
+    <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden">
       {isMessengerOpen ? (
-        <div className="p-2 flex flex-col h-full space-y-2">
+        <div className="p-2 flex flex-col h-full space-y-2 pt-1">
           <div className="flex items-center justify-between">
             <button onClick={() => setIsMessengerOpen(false)} className="p-1 hover:bg-muted transition-colors rounded-sm">
                 <MessageSquare className="h-4 w-4 text-primary" />
@@ -869,29 +870,36 @@ export default function DungeonPage() {
           </form>
         </div>
       ) : (
-        <div className="space-y-0 flex-grow flex flex-col p-2">
-            <div className="flex items-center justify-between mb-2">
-                <button onClick={() => setIsMessengerOpen(true)} className={cn("p-1 hover:bg-muted transition-colors rounded-sm", hasAnyUnread && "animate-chat-notify")}>
-                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                </button>
-                <div className="text-center">
-                    <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Current Player</p>
-                    <p className={cn("text-[0.75rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-white' : 'text-secondary')}>
+        <div className="space-y-0.5 flex-grow flex flex-col p-1.5 pt-8">
+            <button
+              onClick={() => setIsMessengerOpen(true)}
+              className={cn(
+                "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors",
+                hasAnyUnread && "animate-chat-notify"
+              )}
+            >
+              <MessageSquare className="h-5 w-5" />
+            </button>
+            <div className="flex justify-around items-center text-center">
+                <div>
+                    <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p>
+                    <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-foreground' : 'text-secondary')}>
                         {getPlayerDisplayName(currentPlayer)}
                     </p>
                 </div>
-                <div className="text-right flex flex-col gap-0.5">
+                <div className="space-y-0.5">
                     <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p>
                     <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">B-Streak: {killStreaks.black}</p>
                 </div>
             </div>
+            <Separator className="my-1" />
             <div className="w-full mb-1">
                 <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3>
                 <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
                     {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
                 </div>
             </div>
-            <div className="w-full mb-2">
+            <div className="w-full mb-1">
                 <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3>
                 <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20">
                     {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)}
@@ -913,7 +921,7 @@ export default function DungeonPage() {
                     </div>
                 ) : (
                     <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
-                        Select a piece for info
+                        Hover for Info
                     </div>
                 )}
             </div>
@@ -944,7 +952,7 @@ export default function DungeonPage() {
       </div>
 
       <div className="w-full flex justify-center py-0.5 shrink-0">
-        <div className="w-full max-w-[min(95vw,70vh)] aspect-square relative">
+        <div className="w-full relative">
           <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isAnySpecialModeActive && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
         </div>
       </div>
@@ -966,7 +974,7 @@ export default function DungeonPage() {
 
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
-      <div className="w-1/4 flex-shrink-0 flex flex-col gap-2">
+      <div className="w-1/4 flex-shrink-0 flex flex-col gap-2 h-full">
         <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1">
           <ArrowLeft className="h-4 w-4" /> Lobby
         </Link>
