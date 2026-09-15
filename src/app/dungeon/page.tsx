@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -216,6 +217,7 @@ export default function DungeonPage() {
   const [positionHistory, setPositionHistory] = useState<string[]>([]);
   const [isPromotingPawn, setIsPromotingPawn] = useState(false);
   const [promotionSquare, setPromotionSquare] = useState<AlgebraicSquare | null>(null);
+  const [promotionTargetLevel, setPromotionTargetLevel] = useState<number>(1);
   const [isMoveProcessing, setIsMoveProcessing] = useState(false);
   const [lastMoveFrom, setLastMoveFrom] = useState<AlgebraicSquare | null>(null);
   const [lastMoveTo, setLastMoveTo] = useState<AlgebraicSquare | null>(null);
@@ -666,16 +668,32 @@ export default function DungeonPage() {
     setIsPromotingPawn(false); setPromotionSquare(null);
     let nextB = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
     const { row, col } = algebraicToCoords(promotionSquare!);
-    nextB[row][col].piece = { ...nextB[row][col].piece!, type, hasMoved: true };
-    setBoard(nextB); audioManager.playLevelUp();
-    addLog(`Hero: Pawn promoted to ${type}!`);
+    const piece = nextB[row][col].piece;
+    if (!piece) return;
+
+    nextB[row][col].piece = { ...piece, type, hasMoved: true, level: promotionTargetLevel };
+    if (type === 'queen') nextB[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
     
-    if (specialActionContext) {
-        triggerSpecialsChain(nextB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, type);
+    setBoard(nextB); audioManager.playLevelUp();
+    addLog(`${getPlayerDisplayName(piece.color)}: Pawn promoted to ${type}!`);
+    
+    // STEP 6: Sequential Queue Processing
+    const remainingQueue = promotionQueue.slice(1);
+    if (remainingQueue.length > 0) {
+        setPromotionQueue(remainingQueue);
+        const next = remainingQueue[0];
+        setPromotionSquare(next.square);
+        setPromotionTargetLevel(next.targetLevel);
+        setIsPromotingPawn(true);
     } else {
-        processMoveEnd(nextB, capturedPieces, killStreaks, 'white', false, null, false, type);
+        setPromotionQueue([]);
+        if (specialActionContext) {
+            triggerSpecialsChain(nextB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, type);
+        } else {
+            processMoveEnd(nextB, capturedPieces, killStreaks, 'white', false, null, false, type);
+        }
     }
-  }, [board, promotionSquare, capturedPieces, killStreaks, triggerSpecialsChain, addLog, specialActionContext, processMoveEnd]);
+  }, [board, promotionSquare, promotionTargetLevel, capturedPieces, killStreaks, triggerSpecialsChain, addLog, specialActionContext, processMoveEnd, promotionQueue, getPlayerDisplayName]);
 
   const handleSquareClick = useCallback((alg: AlgebraicSquare) => {
     if (clickGuard.current) return;
@@ -827,7 +845,20 @@ export default function DungeonPage() {
             const nextG = { ...capturedPieces }; if (result.capturedPiece) nextG[result.capturedPiece.color].push(result.capturedPiece);
             const currentKs = { ...killStreaks, white: newS }; setKillStreaks(currentKs);
             
-            processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'white', {from: selectedSquare, to: alg, type: moveType}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, !!result.capturedPiece, oldT);
+            const queue = result.multiPromotions || []; const oppBackRank = movingPiece.color === 'white' ? 0 : 7;
+            if (FRONTLINE_TYPES.includes(result.newBoard[row][col].piece?.type || '') && row === oppBackRank) {
+                queue.push({ square: alg, targetLevel: getPromotionLevel(result.capturedPiece?.type || null) });
+            }
+
+            if (queue.length > 0) {
+                setPromotionQueue(queue);
+                setIsPromotingPawn(true);
+                setPromotionSquare(queue[0].square);
+                setPromotionTargetLevel(queue[0].targetLevel);
+                setSpecialActionContext({ boardForNextStep: result.newBoard, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtra, newEnPassantTarget: result.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: nextG, currentKs, capturingPieceId: result.newBoard[row][col].piece?.id || null });
+            } else {
+                processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'white', {from: selectedSquare, to: alg, type: moveType}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, !!result.capturedPiece, oldT);
+            }
           }, 800);
           return;
        }
@@ -881,6 +912,16 @@ export default function DungeonPage() {
         setLastMovedPieceHeldItem(oldH || null);
 
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'] }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
+        
+        // AI Auto-promotes all in queue
+        if (result.multiPromotions) {
+            result.multiPromotions.forEach(promo => {
+                const {row: pr, col: pc} = algebraicToCoords(promo.square);
+                const p = result.newBoard[pr][pc].piece;
+                if (p) { p.type = 'queen'; p.level = promo.targetLevel; }
+            });
+        }
+        
         setBoard(result.newBoard);
         
         if (result.shroomConsumed) {
@@ -1169,4 +1210,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-
