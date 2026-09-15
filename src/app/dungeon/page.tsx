@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -331,26 +330,50 @@ export default function DungeonPage() {
         poisonedCaptures.forEach(p => { nextGraveyard[p.color].push({ ...p }); });
         audioManager.playCapture(); addLog(`${poisonedCaptures.length} units decayed.`);
     }
+
+    // WIN CONDITION CHECK - DUNGEON (BLACK)
+    const dungeonKing = findKing(nextBoard, 'black');
+    const dungeonMated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const dungeonStalemate = (nextP === 'black') && isStalemate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const dungeonCleared = nextBoard.flat().filter(sq => sq.piece?.color === 'black').length === 0;
+
+    if (dungeonMated || dungeonStalemate || dungeonCleared) {
+        const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+        advanceLevel(survivors, nextGraveyard);
+        return;
+    }
+
+    // LOSS CONDITION CHECK - PLAYER (WHITE)
+    const playerKing = findKing(nextBoard, 'white');
+    const playerMated = playerKing && isCheckmate(nextBoard, 'white', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const playerStalemate = (nextP === 'white') && isStalemate(nextBoard, 'white', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+
+    if (!playerKing || playerMated || playerStalemate) {
+      const reason = !playerKing || playerMated ? "YOUR KING HAS FALLEN" : "STALEMATE - RUN OVER";
+      setGameInfo({ 
+        message: reason, 
+        isCheck: !!playerMated, 
+        playerWithKingInCheck: 'white', 
+        isCheckmate: !!playerMated, 
+        isStalemate: !!playerStalemate, 
+        gameOver: true, 
+        winner: 'black' 
+      }); 
+      gameOverRef.current = true; 
+      audioManager.playDefeat(); 
+      return;
+    }
+
+    // DRAW CHECK
+    if (isRepetition) {
+        setGameInfo({ message: "Draw by Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
+        addLog("Draw by Repetition!"); gameOverRef.current = true; return;
+    }
+
+    // UPDATE STATE FOR NEXT TURN
     setBoard(nextBoard); setCapturedPieces(nextGraveyard); setKillStreaks(currentKs); setEnPassantTargetSquare(nextEpSquare); setCurrentPlayer(nextP);
     
-    const dungeonKing = findKing(nextBoard, 'black');
-    const isDungeonMated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
-    if (isDungeonMated) { advanceLevel(nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!), nextGraveyard); return; }
-    
-    const playerKing = findKing(nextBoard, 'white');
-    if (!playerKing || isCheckmate(nextBoard, 'white', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel)) {
-      setGameInfo({ message: "YOUR KING HAS FALLEN", isCheck: true, playerWithKingInCheck: 'white', isCheckmate: true, isStalemate: false, gameOver: true, winner: 'black' }); gameOverRef.current = true; audioManager.playDefeat(); return;
-    }
-    
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
-    const stale = !inCheck && isStalemate(nextBoard, nextP, nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
-
-    if (stale || isRepetition) {
-        const msg = isRepetition ? "Draw by Repetition!" : "Stalemate!";
-        setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' });
-        addLog(msg); gameOverRef.current = true; return;
-    }
-
     setGameInfo({ message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inCheck) addLog("Check!");
   }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory]);
@@ -1006,7 +1029,7 @@ export default function DungeonPage() {
              <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}>
                <BookOpen className="h-5 w-5 text-yellow-500" /> RULES
              </Button>
-             <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}>
+             <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}>
                <RotateCcw className="h-5 w-5" /> RESET RUN
              </Button>
           </CardContent>
