@@ -84,11 +84,11 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
     if (!p) return false;
     const { row, col } = algebraicToCoords(alg);
     if (isValidSquare(row, col) && !board[row][col].piece) {
-        // STEP 4: Preserve biological status effects (Poison, Exhaustion, Frozen) and Cooldowns between floors
+        // STEP 4 PERSISTENCE: Transfer deep piece properties including biological status and cooldowns
         board[row][col].piece = { 
           ...p, 
           hasMoved: false, 
-          isShielded: false // Holy Shields are temporary and reset between floors
+          isShielded: false // Holy Shields are temporary tactical buffs and reset between floors
         };
         placedIds.add(p.id); return true;
     }
@@ -315,7 +315,7 @@ export default function DungeonPage() {
     setDidCaptureLastTurn(prev => ({ ...prev, [turnPlayer]: wasCapture }));
     nextBoard = processOilSlickTimers(nextBoard, turnPlayer);
     
-    // Step 2: Shroom Spawning
+    // STEP 2: SHROOM SPAWNING - Integrated turn based spawning logic
     const currentCounter = shroomSpawnCounter + 1;
     if (currentCounter >= nextShroomSpawnTurn) {
         const { newBoard: boardWithShroom, spawnedAt } = spawnShroom(nextBoard);
@@ -335,7 +335,7 @@ export default function DungeonPage() {
     const actualType = movedType || lastMovedPieceType;
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
-    // Step 3: Necromancer Logic
+    // STEP 3: NECROMANCER LOGIC - Periodic traits for boss entities
     const necroSq = nextBoard.flat().find(sq => sq.piece?.id === 'boss-necro');
     if (necroSq && nextP === 'black') {
       const nextNrc = necroResurrectionCounter + 1;
@@ -385,6 +385,7 @@ export default function DungeonPage() {
     const repetitionCount = newHistory.filter(h => h === currentHash).length;
     const isRepetition = repetitionCount >= 3;
 
+    // STEP 4: PERSISTENT STATUS PROCESSING - Biological decay decay logic
     const { newBoard: boardPoisoned, poisonedCaptures } = processPoisonDamage(nextBoard, nextP);
     nextBoard = boardPoisoned;
     if (poisonedCaptures.length > 0) {
@@ -392,14 +393,23 @@ export default function DungeonPage() {
         audioManager.playCapture(); addLog(`${poisonedCaptures.length} units decayed.`);
     }
 
-    // WIN CONDITION CHECK - DUNGEON (BLACK)
-    const dungeonKing = findKing(nextBoard, 'black');
-    const dungeonMated = dungeonKing && isCheckmate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
-    const dungeonStalemate = (nextP === 'black') && isStalemate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
-    const dungeonCleared = nextBoard.flat().filter(sq => sq.piece?.color === 'black').length === 0;
+    // STEP 1 CORE PROGRESSION: Updated victory/loss detection
+    const isBossFloor = level % 10 === 0;
+    
+    // Check if player cleared the floor
+    const enemyKing = findKing(nextBoard, 'black');
+    const isMated = enemyKing && isCheckmate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const isStalled = (nextP === 'black') && isStalemate(nextBoard, 'black', nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
+    const isCleared = nextBoard.flat().filter(sq => sq.piece?.color === 'black').length === 0;
 
-    if (dungeonMated || dungeonStalemate || dungeonCleared) {
+    // ADVANCEMENT LOGIC
+    if (isCleared || (isBossFloor && isMated) || isStalled) {
         const survivors = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+        let reason = "ALL FOES VANQUISHED!";
+        if (isBossFloor && isMated) reason = "BOSS ENTITY DEFEATED!";
+        else if (isStalled) reason = "DUNGEON FORCES STALEMATED!";
+        
+        addLog(reason);
         advanceLevel(survivors, nextGraveyard);
         return;
     }
@@ -438,7 +448,6 @@ export default function DungeonPage() {
     setGameInfo({ message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inCheck) addLog("Check!");
     
-    // STEP 4: Persist State after move processing
     saveDungeonState(level, nextBoard, nextP, currentKs, nextGraveyard, shroomSpawnCounter, nextShroomSpawnTurn, nextEpSquare, necroResurrectionCounter, inventory);
   }, [level, inventory, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState]);
 
@@ -572,6 +581,7 @@ export default function DungeonPage() {
         }
     }
     
+    // STEP 5: AUTOMATED RESURRECTION - Strongest ally auto-selected in Dungeon Mode
     if (newStreak >= 4 && oldStreak < 4 && !completedMilestones.includes('resurrection')) {
         const myGraveyard = actingPlayer === 'white' ? nextGraveyard.white : nextGraveyard.black; 
         if (myGraveyard.length > 0) {
@@ -583,7 +593,9 @@ export default function DungeonPage() {
                 const resPiece = { ...choice, level: 1, id: `res_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                 nextBoard[rr][rc].piece = resPiece; const updatedG = { ...nextGraveyard };
                 if (actingPlayer === 'white') updatedG.white = updatedG.white.filter(p => p.id !== choice.id); else updatedG.black = updatedG.black.filter(p => p.id !== choice.id);
-                addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`Resurrection! ${choice.type} has returned.`);
+                addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); 
+                const msgPrefix = actingPlayer === 'white' ? "Hero's forces" : "The Dungeon";
+                addLog(`${msgPrefix} resurrected a ${choice.type}!`);
                 triggerSpecialsChain(nextBoard, updatedG, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'resurrection'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
             }
         }
@@ -600,21 +612,25 @@ export default function DungeonPage() {
     const maxSniperLevel = snipers.length > 0 ? Math.max(...snipers.map(a => a.level || 1)) : 0;
     const hasCrossbow = pieces.some(p => (p.type === 'archer' || (p.type === 'mimic' && lastMovedPieceType === 'archer')) && p.color === actingPlayer && p.heldItem === 'crossbow');
     const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow);
+    
+    // STEP 5: AUTOMATED ARCHER SNIPE - Strongest enemy auto-selected for fast-paced PvE
     if (!silenced && isSnipeTime && !completedMilestones.includes('snipe')) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
         const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
         if (victims.length > 0) {
-            if (isAI) {
-                const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const victimsSorted = victims.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
-                const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
-                const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id }; nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper obliterated a Level ${snipedPiece.level} ${snipedPiece.type}!`);
-                const targetPile = snipedPiece.color; nextGraveyard[targetPile].push(snipedPiece);
-                triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
-            } else {
-                setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'snipe'], currentGraveyard: nextGraveyard, currentKs, capturingPieceId });
-                setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target."); return;
-            }
+            const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            const victimsSorted = victims.sort((a,b) => {
+                if ((b.piece?.level || 0) !== (a.piece?.level || 0)) return (b.piece?.level || 0) - (a.piece?.level || 0);
+                return (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0);
+            });
+            const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
+            const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id }; nextBoard[row][col].piece = null; 
+            const msgPrefix = actingPlayer === 'white' ? "Hero's Archer" : "Dungeon Sniper";
+            addLog(`${msgPrefix} obliterated a Level ${snipedPiece.level} ${snipedPiece.type}!`);
+            audioManager.playSnipe();
+            addEffect('poof', coordsToAlgebraic(row, col));
+            const targetPile = snipedPiece.color; nextGraveyard[targetPile].push(snipedPiece);
+            triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
         }
     }
     
@@ -886,6 +902,7 @@ export default function DungeonPage() {
           processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'black', {from: fromAlg, to: toAlg, type: move.type as Move['type']}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[move.to[0]][move.to[1]].piece?.id || null, !!result.capturedPiece, oldT);
         }, 800);
     } else {
+        // STEP 3: FLOOR COLLAPSE FAIL-SAFE
         const nextNoMove = aiNoMoveCounter + 1;
         setAiNoMoveCounter(nextNoMove);
         if (nextNoMove >= 3) {
@@ -1152,3 +1169,4 @@ export default function DungeonPage() {
     </div>
   );
 }
+
