@@ -226,6 +226,7 @@ export default function DungeonPage() {
   const [shroomSpawnCounter, setShroomSpawnCounter] = useState(0);
   const [nextShroomSpawnTurn, setNextShroomSpawnTurn] = useState(5);
   const [necroResurrectionCounter, setNecroResurrectionCounter] = useState(0);
+  const [aiNoMoveCounter, setAiNoMoveCounter] = useState(0);
   const [isAwaitingAnvilDrop, setIsAwaitingAnvilDrop] = useState(false);
   const [playerToDropAnvil, setPlayerToDropAnvil] = useState<PlayerColor | null>(null);
   const [isAwaitingHolyShield, setIsAwaitingHolyShield] = useState(false);
@@ -299,7 +300,7 @@ export default function DungeonPage() {
     if (nextLevelNum > 50) { 
         setGameInfo(prev => ({ ...prev, message: "DUNGEON CONQUERED!", gameOver: true, winner: 'white' })); gameOverRef.current = true; audioManager.playVictory(); return; 
     }
-    setLevel(nextLevelNum); setBoard(generateDungeonFloor(nextLevelNum, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: graveyard.white, black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setLastMovedPieceHeldItem(null); setLastMoveFrom(null); setLastMoveTo(null);
+    setLevel(nextLevelNum); setBoard(generateDungeonFloor(nextLevelNum, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: graveyard.white, black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setLastMovedPieceHeldItem(null); setLastMoveFrom(null); setLastMoveTo(null); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
     saveDungeonState(nextLevelNum, generateDungeonFloor(nextLevelNum, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, inventory);
     audioManager.playLevelUp(); addLog(`Descending to Floor ${nextLevelNum}...`);
   }, [level, inventory, saveDungeonState, addLog]);
@@ -329,6 +330,44 @@ export default function DungeonPage() {
     const actualType = movedType || lastMovedPieceType;
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
+    // Step 3: Necromancer Logic
+    const necroSq = nextBoard.flat().find(sq => sq.piece?.id === 'boss-necro');
+    if (necroSq && nextP === 'black') {
+      const nextNrc = necroResurrectionCounter + 1;
+      if (nextNrc >= 5) {
+        const graveyard = nextGraveyard.black;
+        if (graveyard.length > 0) {
+            const { rowIndex: nr, colIndex: nc } = necroSq;
+            const adjacent = [];
+            for (let dr = -1; dr <= 1; dr++) {
+                for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue;
+                    const rr = nr + dr, cc = nc + dc;
+                    if (isValidSquare(rr, cc) && !nextBoard[rr][cc].piece && !nextBoard[rr][cc].item) {
+                        adjacent.push({ r: rr, c: cc });
+                    }
+                }
+            }
+            if (adjacent.length > 0) {
+                const target = adjacent[Math.floor(Math.random() * adjacent.length)];
+                const pieceToRes = graveyard[Math.floor(Math.random() * graveyard.length)];
+                nextBoard[target.r][target.c].piece = { ...pieceToRes, level: 1, hasMoved: true, id: `necro_res_${Date.now()}`, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                nextGraveyard.black = graveyard.filter(p => p.id !== pieceToRes.id);
+                setNecroResurrectionCounter(0);
+                addLog("The Necromancer raises a fallen servant!");
+                audioManager.playResurrect();
+                addEffect('light-beam', coordsToAlgebraic(target.r, target.c));
+            } else {
+                setNecroResurrectionCounter(nextNrc);
+            }
+        } else {
+            setNecroResurrectionCounter(nextNrc);
+        }
+      } else {
+        setNecroResurrectionCounter(nextNrc);
+      }
+    }
+
     const currentHash = boardToPositionHash(nextBoard, nextP, nextEpSquare);
     let newHistory = [...positionHistory];
     const isFrontlineMove = actualType && FRONTLINE_TYPES.includes(actualType);
@@ -393,7 +432,7 @@ export default function DungeonPage() {
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
     setGameInfo({ message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inCheck) addLog("Check!");
-  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn]);
+  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtraTurn: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = [], capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null) => {
     const isAI = actingPlayer === 'black';
@@ -572,7 +611,7 @@ export default function DungeonPage() {
     }
     
     processMoveEnd(boardToChain, nextGraveyard, currentKs, actingPlayer, isExtraTurn, nextEp, wasCaptureThisTurn, movedPieceType);
-  }, [lastMovedPieceType, addLog, getPlayerDisplayName, addEffect, processMoveEnd]);
+  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect, processMoveEnd]);
 
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, isExtraTurn: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number, capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null) => {
     if (!move) return false;
@@ -777,7 +816,7 @@ export default function DungeonPage() {
     if (isUserLoading || !userData || !user) return;
     setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null); setPossibleMoves([]); setPositionHistory([]); gameOverRef.current = false;
     setLastMoveFrom(null); setLastMoveTo(null);
-    setIsAwaitingDanceTarget(false); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setIsInventoryOpen(false); setIsSelectingMycoSpell(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false });
+    setIsAwaitingDanceTarget(false); setIsAwaitingCommanderPromotion(false); setIsAwaitingAnvilDrop(false); setIsAwaitingHolyShield(false); setIsAwaitingArcherSnipe(false); setIsAwaitingPawnSacrifice(false); setIsAwaitingGrappleThrow(false); setIsInventoryOpen(false); setIsSelectingMycoSpell(false); setIsAiThinking(false); setPromotionQueue([]); setDidCaptureLastTurn({ white: false, black: false }); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
     const saved = userData.dungeonState;
     if (!reset && saved && saved.board && saved.board.length > 0) {
       setLevel(saved.level); const loadedBoard: BoardState = []; const savedBoard1D = saved.board as SquareState[];
@@ -802,6 +841,7 @@ export default function DungeonPage() {
     const gameState = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory);
     const aiResult = aiInstance.current?.getBestMove(gameState, 'black');
     if (aiResult?.move) {
+        setAiNoMoveCounter(0);
         const move = aiResult.move;
         const fromAlg = coordsToAlgebraic(move.from[0], move.from[1]);
         const toAlg = coordsToAlgebraic(move.to[0], move.to[1]);
@@ -837,8 +877,18 @@ export default function DungeonPage() {
           
           processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'black', {from: fromAlg, to: toAlg, type: move.type as Move['type']}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[move.to[0]][move.to[1]].piece?.id || null, !!result.capturedPiece, oldT);
         }, 800);
-    } else { setIsAiThinking(false); }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect]);
+    } else {
+        const nextNoMove = aiNoMoveCounter + 1;
+        setAiNoMoveCounter(nextNoMove);
+        if (nextNoMove >= 3) {
+            addLog("FLOOR COLLAPSE! THE DUNGEON TREMBLES!");
+            audioManager.playExplosion();
+            const survivors = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+            advanceLevel(survivors, capturedPieces);
+        }
+        setIsAiThinking(false);
+    }
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, aiNoMoveCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) {
