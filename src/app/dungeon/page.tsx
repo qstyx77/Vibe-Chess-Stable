@@ -309,6 +309,23 @@ export default function DungeonPage() {
     setDidCaptureLastTurn(prev => ({ ...prev, [turnPlayer]: wasCapture }));
     nextBoard = processOilSlickTimers(nextBoard, turnPlayer);
     
+    // Step 2: Shroom Spawning
+    const currentCounter = shroomSpawnCounter + 1;
+    if (currentCounter >= nextShroomSpawnTurn) {
+        const { newBoard: boardWithShroom, spawnedAt } = spawnShroom(nextBoard);
+        if (spawnedAt) {
+            nextBoard = boardWithShroom;
+            addLog("A mystical Shroom 🍄 has appeared!");
+            audioManager.playShroom();
+            setShroomSpawnCounter(0);
+            setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5);
+        } else {
+            setShroomSpawnCounter(currentCounter);
+        }
+    } else {
+        setShroomSpawnCounter(currentCounter);
+    }
+
     const actualType = movedType || lastMovedPieceType;
     const nextP = extra ? turnPlayer : (turnPlayer === 'white' ? 'black' : 'white');
     
@@ -376,7 +393,7 @@ export default function DungeonPage() {
     const inCheck = isKingInCheck(nextBoard, nextP, nextEpSquare, actualType, lastMovedPieceHeldItem, lastMovedPieceLevel);
     setGameInfo({ message: inCheck ? "Check!" : " ", isCheck: inCheck, playerWithKingInCheck: inCheck ? nextP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inCheck) addLog("Check!");
-  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory]);
+  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtraTurn: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = [], capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null) => {
     const isAI = actingPlayer === 'black';
@@ -730,11 +747,18 @@ export default function DungeonPage() {
 
           const result = applyMove(board, { from: selectedSquare, to: alg, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.black);
           setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+          
+          if (result.shroomConsumed) {
+              audioManager.playShroom();
+              addLog("Hero: Consumed a Shroom! +1 Level.");
+              addEffect('level-change', alg, 'white', 1);
+          }
+          
           addLog(`Hero: ${movingPiece.type} to ${alg}`);
           
           setTimeout(() => { 
             setIsMoveProcessing(false); clickGuard.current = false; 
-            const gain = (result.capturedPiece ? 1 : 0);
+            const gain = (result.capturedPiece ? 1 : 0) + (result.shroomConsumed ? 1 : 0);
             const oldS = killStreaks['white']; const newS = gain > 0 ? oldS + gain : 0;
             const isExtra = result.extraTurn || (oldS < 6 && newS >= 6);
             const nextG = { ...capturedPieces }; if (result.capturedPiece) nextG[result.capturedPiece.color].push(result.capturedPiece);
@@ -747,7 +771,7 @@ export default function DungeonPage() {
     }
     if (piece && piece.color === currentPlayer) { setSelectedSquare(alg); setPossibleMoves(getPossibleMoves(board, alg, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
     else { setSelectedSquare(null); setPossibleMoves([]); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, addLog, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, addLog, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -794,11 +818,18 @@ export default function DungeonPage() {
 
         const result = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'] }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
         setBoard(result.newBoard);
+        
+        if (result.shroomConsumed) {
+            audioManager.playShroom();
+            addLog("Dungeon: Consumed a Shroom!");
+            addEffect('level-change', toAlg, 'black', 1);
+        }
+
         addLog(`Dungeon: ${movingPiece.type} to ${toAlg}`);
         
         setTimeout(() => { 
           setIsMoveProcessing(false); setIsAiThinking(false); 
-          const gain = (result.capturedPiece ? 1 : 0);
+          const gain = (result.capturedPiece ? 1 : 0) + (result.shroomConsumed ? 1 : 0);
           const oldS = killStreaks['black']; const newS = gain > 0 ? oldS + gain : 0;
           const isExtra = result.extraTurn || (oldS < 6 && newS >= 6);
           const nextG = { ...capturedPieces }; if (result.capturedPiece) nextG[result.capturedPiece.color].push(result.capturedPiece);
@@ -807,7 +838,7 @@ export default function DungeonPage() {
           processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'black', {from: fromAlg, to: toAlg, type: move.type as Move['type']}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[move.to[0]][move.to[1]].piece?.id || null, !!result.capturedPiece, oldT);
         }, 800);
     } else { setIsAiThinking(false); }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect]);
 
   useEffect(() => {
     if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) {
