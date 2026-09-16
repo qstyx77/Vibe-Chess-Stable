@@ -439,7 +439,7 @@ export default function EvolvingChessPage() {
         setGameInfo({ message: msg, isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: mate, isStalemate: stale, isThreefoldRepetitionDraw: isRepetition, gameOver: true, winner: mate ? playerWhoseTurnCompleted : 'draw', isInfiltrationWin: false });
         addLog(msg); gameOverRef.current = true;
     } else {
-        if (inCheck) addLog("Check!");
+        if (inCheck) { addLog("Check!"); audioManager.playCheck(); }
         setGameInfo({ message: inCheck ? "Check!" : (isExtraTurn ? `${getPlayerDisplayName(playerWhoseTurnCompleted)} gets an extra turn!` : " "), isCheck: inCheck, playerWithKingInCheck: inCheck ? nextPlayer : null, isCheckmate: false, isStalemate: false, isThreefoldRepetitionDraw: false, gameOver: false, isInfiltrationWin: false });
     }
     if (onlineStatus === 'disconnected' && viewMode === 'flipping') {
@@ -925,7 +925,7 @@ export default function EvolvingChessPage() {
           const resp = snipers.find(a => a.level >= piece.level);
           if (resp) {
               if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic })); setIsAwaitingArcherSnipe(false); }
-              else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); const sniped = { ...nextB[row][col].piece! }; nextB[row][col].piece = null; 
+              else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); sniped = { ...nextB[row][col].piece! }; nextB[row][col].piece = null; 
                 const nG = { white: Array.isArray(specialActionContext?.currentGraveyard.white) ? [...specialActionContext!.currentGraveyard.white] : [], black: Array.isArray(specialActionContext?.currentGraveyard.black) ? [...specialActionContext!.currentGraveyard.black] : [] };
                 const targetPile = sniped.color; nG[targetPile] = [...nG[targetPile], sniped]; setBoard(nextB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); triggerSpecialsChain(nextB, nG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'snipe'], specialActionContext!.capturingPieceId, false, lastMovedPieceType); }
           }
@@ -1004,7 +1004,95 @@ export default function EvolvingChessPage() {
       const d = JSON.parse(event.data);
       switch (d.type) {
         case 'room-created': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('waiting'); break;
-        case 'game-move': setBoard(d.gameState.board); setCurrentPlayer(d.gameState.currentPlayer); break;
+        case 'game-move': {
+            const { gameState: nextGs, move: remoteMove, events: remoteEvents } = d;
+            
+            // Trigger Movement Animation
+            if (remoteMove) {
+                setLastMoveFrom(remoteMove.from);
+                setLastMoveTo(remoteMove.to);
+                setAnimatedSquareTo(remoteMove.to);
+                setIsMoveProcessing(true);
+            }
+            
+            // Sync Core Game State
+            setBoard(nextGs.board);
+            setCurrentPlayer(nextGs.currentPlayer);
+            setEnPassantTargetSquare(nextGs.enPassantTargetSquare);
+            setKillStreaks(nextGs.killStreaks);
+            setCapturedPieces(nextGs.capturedPieces);
+            
+            // Handle Audio/Visual Events
+            if (remoteEvents && remoteMove) {
+                const actingColor = nextGs.currentPlayer === 'white' ? 'black' : 'white';
+                
+                if (remoteEvents.captured) {
+                    audioManager.playCapture();
+                    addEffectCallback('poof', remoteMove.to);
+                    addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`);
+                }
+                if (remoteEvents.shroom) {
+                    audioManager.playShroom();
+                    addEffectCallback('level-change', remoteMove.to, actingColor, 1);
+                    addLog(`${getPlayerDisplayName(actingColor)} consumed a Shroom!`);
+                }
+                if (remoteEvents.hero) {
+                    audioManager.playLevelUp();
+                    addLog(`${getPlayerDisplayName(actingColor)} Hero Ascended!`);
+                }
+                if (remoteEvents.rally && remoteEvents.rallyPos) {
+                    audioManager.playRally();
+                    addEffectCallback('shockwave', remoteEvents.rallyPos, actingColor);
+                }
+                if (remoteEvents.conversions?.length > 0) {
+                    audioManager.playConversion();
+                    remoteEvents.conversions.forEach((pos: AlgebraicSquare) => {
+                        addEffectCallback('conversion', pos);
+                    });
+                }
+                if (remoteEvents.reflection) {
+                    audioManager.playCapture();
+                    addEffectCallback('poof', remoteMove.to);
+                    addLog("Attack reflected!");
+                }
+                if (remoteEvents.ralliedSquares?.length > 0) {
+                    remoteEvents.ralliedSquares.forEach((pos: AlgebraicSquare) => {
+                        addEffectCallback('level-change', pos, actingColor, 1);
+                    });
+                }
+                if (remoteEvents.anvilDrop) {
+                    audioManager.playAnvil();
+                    addLog(`${getPlayerDisplayName(actingColor)} dropped an Anvil!`);
+                }
+                if (remoteEvents.shield) {
+                    audioManager.playShield();
+                    addLog(`${getPlayerDisplayName(actingColor)} applied a Holy Shield!`);
+                }
+                if (remoteEvents.snipe) {
+                    audioManager.playSnipe();
+                    addLog(`${getPlayerDisplayName(actingColor)} Snipe triggered!`);
+                }
+                
+                // Detection for "Check!"
+                const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, nextGs.lastMovedPieceType, nextGs.lastMovedPieceHeldItem, nextGs.lastMovedPieceLevel);
+                if (isCheck) {
+                    audioManager.playCheck();
+                    addLog("Check!");
+                    setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer }));
+                } else {
+                    setGameInfo(prev => ({ ...prev, isCheck: false, playerWithKingInCheck: null }));
+                }
+            } else if (!remoteEvents) {
+                audioManager.playMove();
+            }
+
+            // End Animation after slide duration
+            setTimeout(() => {
+                setIsMoveProcessing(false);
+                setAnimatedSquareTo(null);
+            }, 800);
+            break;
+        }
         case 'game-over': 
             const winnerN = getPlayerDisplayName(d.winner);
             let vMsg = "";
@@ -1020,7 +1108,7 @@ export default function EvolvingChessPage() {
     };
     ws.onclose = () => { setOnlineStatus('disconnected'); };
     wsRef.current = ws;
-  }, [addLog, localPlayerColor, getPlayerDisplayName]);
+  }, [addLog, localPlayerColor, getPlayerDisplayName, addEffectCallback]);
 
   const handleOnlinePlay = useCallback((action: 'create' | 'join') => {
     if (!user) return;

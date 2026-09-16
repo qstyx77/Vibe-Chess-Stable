@@ -207,7 +207,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const { row, col } = algebraicToCoords(data.square);
                     if (isValidSquare(row, col) && !room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
                         room.gameState.board[row][col].item = { type: 'anvil' };
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                        broadcastToRoom(ws.roomId!, { 
+                            type: 'game-move', 
+                            gameState: room.gameState,
+                            events: { anvilDrop: true, dropPos: data.square }
+                        });
                     }
                     break;
                 }
@@ -217,7 +221,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const { row, col } = algebraicToCoords(data.square);
                     if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
                         room.gameState.board[row][col].piece.isShielded = true;
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                        broadcastToRoom(ws.roomId!, { 
+                            type: 'game-move', 
+                            gameState: room.gameState,
+                            events: { shield: true, shieldPos: data.square }
+                        });
                     }
                     break;
                 }
@@ -229,7 +237,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const sniped = room.gameState.board[row][col].piece;
                         room.gameState.capturedPieces[sniped.color].push(sniped);
                         room.gameState.board[row][col].piece = null;
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                        broadcastToRoom(ws.roomId!, { 
+                            type: 'game-move', 
+                            gameState: room.gameState,
+                            events: { snipe: true, snipePos: data.square }
+                        });
                     }
                     break;
                 }
@@ -241,7 +253,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const sacrificed = room.gameState.board[row][col].piece;
                         room.gameState.capturedPieces[sacrificed.color].push(sacrificed);
                         room.gameState.board[row][col].piece = null;
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                        broadcastToRoom(ws.roomId!, { 
+                            type: 'game-move', 
+                            gameState: room.gameState,
+                            events: { sacrifice: true, sacPos: data.payload.square }
+                        });
                     }
                     break;
                 }
@@ -265,7 +281,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         };
                         room.gameState.board[row][col].piece = resPiece;
                         room.gameState.capturedPieces[playerColor] = room.gameState.capturedPieces[playerColor].filter((p: Piece) => p.id !== pieceId);
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: room.gameState });
+                        broadcastToRoom(ws.roomId!, { 
+                            type: 'game-move', 
+                            gameState: room.gameState,
+                            events: { resurrection: true, resPos: square }
+                        });
                     }
                     break;
                 }
@@ -275,7 +295,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
                     
-                    // Authority check for current player
                     const playerColor = room.clients[0] === ws ? 'white' : 'black';
                     const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
                     
@@ -290,7 +309,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
                     
-                    // Update streaks and captures on server for win condition checks
                     if (result.capturedPiece) {
                         const targetPile = result.capturedPiece.color;
                         if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
@@ -322,7 +340,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         gs.lastMovedPieceHeldItem = movingPiece.heldItem;
                     }
                     
-                    // CHECK FOR ONLINE WIN CONDITIONS
                     if (result.infiltrationWin) {
                         broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
                         delete rooms[ws.roomId!];
@@ -336,7 +353,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         return;
                     }
 
-                    // MATE CHECK
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
                     if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel)) {
                         broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
@@ -357,11 +373,31 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
                         delete rooms[ws.roomId!];
                     } else {
-                        // Flip turn only on terminal moves (not extra turns or reward-step moves)
                         if (!result.extraTurn && !isRewardMove) {
                             gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
                         }
-                        broadcastToRoom(ws.roomId!, { type: 'game-move', gameState: gs });
+                        
+                        // Consolidate rich move data for client animations
+                        const events = {
+                            captured: !!(result.capturedPiece || result.pieceCapturedByAnvil),
+                            capturedType: (result.capturedPiece || result.pieceCapturedByAnvil)?.type,
+                            selfDestructs: result.selfDestructCaptures?.length || 0,
+                            shroom: result.shroomConsumed,
+                            hero: result.promotedToHero,
+                            rally: !!result.rallyCryTriggered,
+                            rallyPos: result.rallyCryTriggered?.square,
+                            conversions: result.conversionEvents?.map(e => e.at) || [],
+                            reflection: result.reflectionOccurred,
+                            ralliedSquares: result.ralliedSquares || [],
+                            extraTurn: result.extraTurn
+                        };
+
+                        broadcastToRoom(ws.roomId!, { 
+                            type: 'game-move', 
+                            gameState: gs, 
+                            move: movePayload,
+                            events
+                        });
                     }
                     break;
                 }
