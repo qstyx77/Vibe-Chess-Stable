@@ -20,7 +20,9 @@ export function initializeBoard(
   whiteElo: number = 1200, 
   blackElo: number = 1200, 
   whiteUnlocks: string[] = [],
-  blackUnlocks: string[] = []
+  blackUnlocks: string[] = [],
+  whiteEquipment: Record<string, string> = {},
+  blackEquipment: Record<string, string> = {}
 ): BoardState {
   const board = createEmptyBoard();
 
@@ -102,6 +104,19 @@ export function initializeBoard(
   for (let i = 0; i < 8; i++) {
     board[6][whitePositions[i]].piece = whiteArmy[i];
     board[1][blackPositions[i]].piece = blackArmy[i];
+  }
+
+  // --- APPLY EQUIPMENT ---
+  for (let r = 0; r < 8; r++) {
+    for (let c = 0; c < 8; c++) {
+      const p = board[r][c].piece;
+      if (p) {
+        const gear = p.color === 'white' ? whiteEquipment : blackEquipment;
+        if (gear && gear[p.id]) {
+          p.heldItem = gear[p.id] as InventoryItemType;
+        }
+      }
+    }
   }
 
   return board;
@@ -207,17 +222,17 @@ export function processRookResurrectionCheck(
 
 export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null, didOpponentCaptureLastTurn?: boolean): ApplyMoveResult {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
-  let enPassantTargetSet: AlgebraicSquare | null = null;
+  
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
   const { row: toRow, col: toCol } = algebraicToCoords(move.to);
   
-  // Initialize state early to avoid ReferenceErrors
   const targetSq = newBoard[toRow]?.[toCol];
   const targetPiece = targetSq?.piece || null;
   const targetItem = targetSq?.item || null;
   let captured: Piece | null = null;
+
+  let enPassantTargetSet: AlgebraicSquare | null = null;
   const selfDestructCaptures: Piece[] = [];
-  
   const conversionEvents: ConversionEvent[] = [];
   let rallyCryTriggered = null;
   let selfCheckByPushBack = false;

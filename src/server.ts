@@ -146,7 +146,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     ws.roomId = roomId;
                     ws.userId = data.user?.userId;
                     ws.username = data.user?.username;
-                    const board = initializeBoard(data.user?.elo || 1200, 1200, data.user?.unlockedPieces || []);
+                    const board = initializeBoard(
+                        data.user?.elo || 1200, 
+                        1200, 
+                        data.user?.unlockedPieces || [], 
+                        [],
+                        data.user?.equipment || {}
+                    );
                     rooms[roomId] = {
                         clients: [ws],
                         isRanked: false,
@@ -181,6 +187,15 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         ws.username = data.user?.username;
                         roomToJoin.clients.push(ws);
                         roomToJoin.gameState.players.black = data.user;
+                        
+                        // Apply gear for the joining black player
+                        const blackEq = data.user?.equipment || {};
+                        roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
+                            if (sq.piece && sq.piece.color === 'black' && blackEq[sq.piece.id]) {
+                                sq.piece.heldItem = blackEq[sq.piece.id];
+                            }
+                        }));
+
                         ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
                         broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
                     }
@@ -277,15 +292,23 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     // Update streaks and captures on server for win condition checks
                     if (result.capturedPiece) {
-                        gs.capturedPieces[result.capturedPiece.color].push(result.capturedPiece);
+                        const targetPile = result.capturedPiece.color;
+                        if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
+                        gs.capturedPieces[targetPile].push(result.capturedPiece);
                         gs.killStreaks[playerColor]++;
                         gs.didOpponentCaptureLastTurn = true;
                     } else if (result.selfDestructCaptures?.length) {
-                        result.selfDestructCaptures.forEach((p: Piece) => gs.capturedPieces[p.color].push(p));
+                        result.selfDestructCaptures.forEach((p: Piece) => {
+                            const targetPile = p.color;
+                            if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
+                            gs.capturedPieces[targetPile].push(p);
+                        });
                         gs.killStreaks[playerColor] += result.selfDestructCaptures.length;
                         gs.didOpponentCaptureLastTurn = true;
                     } else if (result.pieceCapturedByAnvil) {
-                        gs.capturedPieces[result.pieceCapturedByAnvil.color].push(result.pieceCapturedByAnvil);
+                        const targetPile = result.pieceCapturedByAnvil.color;
+                        if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
+                        gs.capturedPieces[targetPile].push(result.pieceCapturedByAnvil);
                         gs.killStreaks[playerColor]++;
                         gs.didOpponentCaptureLastTurn = true;
                     } else if (!isRewardMove) {
