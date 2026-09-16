@@ -206,6 +206,8 @@ export const ChessBoard = memo(({
     .map(sq => sq.piece!);
   const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
 
+  const grappledPickupSquare = (isAwaitingGrappleThrow && (grappledPieceSubject?.from || grappledItemSubject?.from)) || null;
+
   return (
     <div className={cn( "grid grid-cols-8 w-full aspect-square group shadow-lg mx-auto relative", applyBoardOpacityEffect && "opacity-70", viewMode === 'tabletop' && "rotate-90 will-change-transform backface-hidden transform-style-preserve-3d", "lg:max-h-[75vh]", hasTremble && "animate-tremble" )} onMouseLeave={() => onPieceHover(null)} >
       {displayBoard.map((row, displayedRowIndex) =>
@@ -302,6 +304,8 @@ export const ChessBoard = memo(({
           const effectiveLevel = currentSquareData.piece ? getEffectiveLevel(boardState, actualRowIndex, actualColIndex) : 0;
           const isGrimoirBoosted = currentSquareData.piece ? (effectiveLevel > (currentSquareData.piece.level || 1)) : false;
 
+          const isCurrentlyHidingForGrapple = grappledPickupSquare === currentSquareData.algebraic;
+
           return (
             <ChessSquare
               key={currentSquareData.algebraic}
@@ -342,6 +346,7 @@ export const ChessBoard = memo(({
               effectiveLevel={effectiveLevel}
               isGrimoirBoosted={isGrimoirBoosted}
               isAwaitingOilSlickTarget={isAwaitingOilSlickTarget}
+              isBeingGrappled={isCurrentlyHidingForGrapple}
             />
           );
         })

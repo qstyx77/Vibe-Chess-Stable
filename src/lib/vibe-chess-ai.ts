@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -141,6 +140,11 @@ export class VibeChessAI {
         next.lastMovedPieceLevel = movingPiece.level;
 
         if (move.type === 'grapple-throw') {
+            if (move.grappledFrom) {
+                const [gr, gc] = move.grappledFrom;
+                next.board[gr][gc].piece = null;
+                next.board[gr][gc].item = null;
+            }
             if (move.thrownItem === 'anvil') {
                 next.board[tR][tC].item = { type: 'anvil' };
             } else if (move.thrownPiece) {
@@ -386,7 +390,8 @@ export class VibeChessAI {
                                 to: l, 
                                 type: 'grapple-throw', 
                                 thrownPiece: targetPiece ? { ...targetPiece } : undefined,
-                                thrownItem: targetAnvil ? 'anvil' : undefined
+                                thrownItem: targetAnvil ? 'anvil' : undefined,
+                                grappledFrom: [pr, pc]
                             });
                         });
                     }

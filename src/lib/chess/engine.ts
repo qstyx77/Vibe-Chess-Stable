@@ -419,6 +419,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'grapple-throw') {
+      if (move.grappledFrom) {
+          const { row: gr, col: gc } = Array.isArray(move.grappledFrom) ? { row: move.grappledFrom[0], col: move.grappledFrom[1] } : algebraicToCoords(move.grappledFrom as AlgebraicSquare);
+          newBoard[gr][gc].piece = null;
+          newBoard[gr][gc].item = null;
+      }
       if (move.thrownItem === 'anvil') {
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true };
           const dr = Math.sign(toRow - fromRow);
@@ -430,15 +435,18 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               newBoard[slideResult.r][slideResult.c].piece = null;
           }
           newBoard[slideResult.r][slideResult.c].item = { type: 'anvil' };
-      } else {
+      } else if (move.thrownPiece) {
           const thrown = move.thrownPiece!;
           const dr = Math.sign(toRow - fromRow);
           const dc = Math.sign(toCol - fromCol);
           const slideResult = applyOilSlide(newBoard, toRow, toCol, dr, dc);
           newBoard[slideResult.r][slideResult.c].piece = { ...thrown, hasMoved: true };
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true }; 
+          if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') {
+            captured = { ...targetPiece };
+          }
       }
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'grappler', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
+      return { newBoard, capturedPiece: captured, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'grappler', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
   }
 
   if (movingPiece.id?.startsWith('boss-colossus')) {
@@ -702,7 +710,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
   
   if (pieceToLand.type === 'mimic' && pieceToLand.heldItem === 'mirror_mask' && lastMovedPieceHeldItem) {
-      // Level copying removed. Skills depend on Mimic's own level.
       pieceToLand.heldItem = lastMovedPieceHeldItem;
   }
 

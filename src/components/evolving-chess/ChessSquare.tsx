@@ -45,6 +45,7 @@ interface ChessSquareProps {
   effectiveLevel?: number;
   isGrimoirBoosted?: boolean;
   isAwaitingOilSlickTarget?: boolean;
+  isBeingGrappled?: boolean;
 }
 
 export const ChessSquare = memo(({
@@ -85,6 +86,7 @@ export const ChessSquare = memo(({
   effectiveLevel,
   isGrimoirBoosted = false,
   isAwaitingOilSlickTarget = false,
+  isBeingGrappled = false
 }: ChessSquareProps) => {
   const piece = squareData.piece;
   const item = squareData.item;
@@ -126,7 +128,7 @@ export const ChessSquare = memo(({
       onClick={() => !effectiveDisabled && onClick(squareData.algebraic)}
       onMouseEnter={() => onPieceHover(squareData.piece)}
       onMouseLeave={() => onPieceHover(null)}
-      className={cn( 'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu font-sans text-sm font-medium', currentBgClass, selectionRingClass, effectiveDisabled && 'cursor-not-allowed', item && item.type !== 'shroom' && 'cursor-not-allowed' )}
+      className={cn( 'w-full aspect-square flex items-center justify-center relative group rounded-none transform-style-preserve-3d transform-gpu font-pixel text-sm font-medium', currentBgClass, selectionRingClass, effectiveDisabled && 'cursor-not-allowed', item && item.type !== 'shroom' && 'cursor-not-allowed' )}
       aria-label={`Square ${squareData.algebraic}${piece ? `, contains ${piece.color} ${piece.type}` : ''}${item ? `, contains ${item.type}` : ''}`}
       disabled={effectiveDisabled || (!!item && item.type !== 'shroom')}
     >
@@ -138,9 +140,9 @@ export const ChessSquare = memo(({
           <ChessPieceDisplay piece={squareData.phasedPiece} isMini={false} isOnBoard={true} />
         </div>
       )}
-      {item && item.type === 'anvil' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2", shouldRotateItemForTabletop && "rotate-180" )}> <PixelAnvil className="w-full h-full text-muted-foreground/90" /> </div> )}
+      {item && item.type === 'anvil' && !isBeingGrappled && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0 p-2", shouldRotateItemForTabletop && "rotate-180" )}> <PixelAnvil className="w-full h-full text-muted-foreground/90" /> </div> )}
       {item && item.type === 'shroom' && ( <div className={cn( "absolute inset-0 flex items-center justify-center pointer-events-none z-0", shouldRotateItemForTabletop && "rotate-180" )}> <div className="w-4/5 h-4/5 opacity-70 text-destructive"> <ShroomIcon /> </div> </div> )}
-      {piece && ( <div className="relative z-10 w-full h-full"> <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} viewMode={viewMode} isJustMoved={isJustMoved} isSacrificeTarget={isSacrificeTarget} isCommanderPromoTarget={isCommanderPromoTarget} isPromoting={isPromoting} isConverting={isConverting} isSnipeTarget={isSnipeTarget} effectiveLevel={effectiveLevel} isGrimoirBoosted={isGrimoirBoosted} isOnBoard={true} /> </div> )}
+      {piece && !isBeingGrappled && ( <div className="relative z-10 w-full h-full"> <ChessPieceDisplay piece={piece} isKingInCheck={isKingInCheck} viewMode={viewMode} isJustMoved={isJustMoved} isSacrificeTarget={isSacrificeTarget} isCommanderPromoTarget={isCommanderPromoTarget} isPromoting={isPromoting} isConverting={isConverting} isSnipeTarget={isSnipeTarget} effectiveLevel={effectiveLevel} isGrimoirBoosted={isGrimoirBoosted} isOnBoard={true} /> </div> )}
       <span className="absolute bottom-0.5 left-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 group-hover:opacity-100 md:hidden z-20"> {squareData.algebraic} </span>
        <span className="absolute top-0.5 right-0.5 text-[0.6rem] font-medium text-muted-foreground/70 opacity-70 hidden md:block z-20"> {squareData.algebraic} </span>
     </button>

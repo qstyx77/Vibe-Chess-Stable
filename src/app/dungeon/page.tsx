@@ -699,9 +699,23 @@ export default function DungeonPage() {
     if (clickGuard.current) return;
     const { row, col } = algebraicToCoords(alg); const sq = board[row][col]; const piece = sq.piece;
     handlePieceHover(piece);
+
+    if (isAwaitingGrappleThrow) {
+        const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
+        const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
+        if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0 && (!sq?.piece && !sq?.item)) {
+            clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
+            const move: Move = { from: selectedSquare!, to: alg, type: 'grapple-throw', thrownPiece: grappledPieceSubject?.piece, thrownItem: grappledItemSubject?.type, grappledFrom: (grappledPieceSubject?.from || grappledItemSubject?.from) };
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+            setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800);
+        }
+        return;
+    }
+
     if (isInventoryOpen) {
        if (selectedInventoryItemType && piece && piece.color === 'white') {
-           const nextB = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null })));
+           const nextB = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
            nextB[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextB);
            setSelectedInventoryItemType(null); audioManager.playLevelUp();
        }
@@ -880,7 +894,7 @@ export default function DungeonPage() {
     }
     if (piece && piece.color === currentPlayer) { setSelectedSquare(alg); setPossibleMoves(getPossibleMoves(board, alg, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
     else { setSelectedSquare(null); setPossibleMoves([]); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, addLog, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, addLog, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -929,19 +943,19 @@ export default function DungeonPage() {
         setLastMovedPieceLevel(oldL);
         setLastMovedPieceHeldItem(oldH || null);
 
-        const result = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'] }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
+        const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
         
-        if (result.multiPromotions) {
-            result.multiPromotions.forEach(promo => {
+        if (applyResult.multiPromotions) {
+            applyResult.multiPromotions.forEach(promo => {
                 const {row: pr, col: pc} = algebraicToCoords(promo.square);
-                const p = result.newBoard[pr][pc].piece;
+                const p = applyResult.newBoard[pr][pc].piece;
                 if (p) { p.type = 'queen'; p.level = promo.targetLevel; }
             });
         }
         
-        setBoard(result.newBoard);
+        setBoard(applyResult.newBoard);
         
-        if (result.shroomConsumed) {
+        if (applyResult.shroomConsumed) {
             audioManager.playShroom();
             addLog("Dungeon: Consumed a Shroom!");
             addEffect('level-change', toAlg, 'black', 1);
@@ -951,20 +965,20 @@ export default function DungeonPage() {
         
         setTimeout(() => { 
           setIsMoveProcessing(false); setIsAiThinking(false); 
-          const gain = (result.capturedPiece ? 1 : 0) + (result.shroomConsumed ? 1 : 0);
+          const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.shroomConsumed ? 1 : 0);
           const oldS = killStreaks['black']; const newS = gain > 0 ? oldS + gain : 0;
-          const isExtra = result.extraTurn || (oldS < 6 && newS >= 6);
+          const isExtra = applyResult.extraTurn || (oldS < 6 && newS >= 6);
           const nextG = { 
               white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [],
               black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : []
           }; 
-          if (result.capturedPiece) {
-              const pile = result.capturedPiece.color;
-              nextG[pile] = Array.isArray(nextG[pile]) ? [...nextG[pile], result.capturedPiece] : [result.capturedPiece];
+          if (applyResult.capturedPiece) {
+              const pile = applyResult.capturedPiece.color;
+              nextG[pile] = Array.isArray(nextG[pile]) ? [...nextG[pile], applyResult.capturedPiece] : [applyResult.capturedPiece];
           }
           const currentKs = { ...killStreaks, black: newS }; setKillStreaks(currentKs);
           
-          processPawnSacrificeCheck(result.newBoard, nextG, currentKs, 'black', {from: fromAlg, to: toAlg, type: move.type as Move['type']}, oldL, oldT, isExtra, result.enPassantTargetSet, oldS, newS, result.newBoard[move.to[0]][move.to[1]].piece?.id || null, !!result.capturedPiece, oldT);
+          processPawnSacrificeCheck(applyResult.newBoard, nextG, currentKs, 'black', {from: fromAlg, to: toAlg, type: move.type as Move['type']}, oldL, oldT, isExtra, applyResult.enPassantTargetSet, oldS, newS, applyResult.newBoard[move.to[0]][move.to[1]].piece?.id || null, !!applyResult.capturedPiece, oldT);
         }, 800);
     } else {
         const nextNoMove = aiNoMoveCounter + 1;
@@ -1101,17 +1115,7 @@ export default function DungeonPage() {
             <Separator className="my-1 bg-border/30" />
             <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1">
                 {pieceForInfoDisplay ? (
-                    <div className="text-center">
-                        <h3 className={cn("font-bold text-[0.7rem] uppercase leading-tight mb-1", pieceForInfoDisplay.id.startsWith('boss-') ? "text-destructive" : "text-primary")}>
-                            {pieceForInfoDisplay.id.startsWith('boss-hydra') ? "The Hydra" : 
-                            pieceForInfoDisplay.id === 'boss-necro' ? "The Necromancer" : 
-                            pieceForInfoDisplay.id.startsWith('boss-colossus') ? "The Colossus" : 
-                            pieceForInfoDisplay.id === 'boss-mirage' ? "The Mirage" : 
-                            pieceForInfoDisplay.id === 'boss-entity' ? "The Void Entity" : 
-                            pieceForInfoDisplay.type} - Level {pieceForInfoDisplay.level}
-                        </h3>
-                        <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
-                    </div>
+                    <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
                 ) : (
                     <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
                         Hover for Info

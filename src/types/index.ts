@@ -222,6 +222,7 @@ export interface Move {
   thrownPiece?: Piece;
   thrownItem?: ItemType;
   teleportPieceId?: string;
+  grappledFrom?: AlgebraicSquare | [number, number];
 }
 
 export interface GameStatus {
@@ -388,6 +389,7 @@ export interface AIMove {
   thrownPiece?: Piece;
   thrownItem?: ItemType;
   teleportPieceId?: string;
+  grappledFrom?: [number, number];
 }
 
 export interface AIGameState {

@@ -10,14 +10,24 @@ interface PieceAbilitiesInfoProps {
   piece: Piece;
 }
 
+const getPieceName = (piece: Piece) => {
+  const { id, type } = piece;
+  if (id?.startsWith('boss-hydra')) return "The Hydra";
+  if (id === 'boss-necro') return "The Necromancer";
+  if (id?.startsWith('boss-colossus')) return "The Colossus";
+  if (id === 'boss-mirage') return "The Mirage";
+  if (id === 'boss-entity') return "The Void Entity";
+  return type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ');
+};
+
 const getPieceAbilities = (piece: Piece): string[] => {
   const { type, level, heldItem, id } = piece;
   const abilities: string[] = [];
   const l = level || 1;
 
-  if (id.startsWith('boss-hydra')) abilities.push("Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
+  if (id?.startsWith('boss-hydra')) abilities.push("Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
   else if (id === 'boss-necro') abilities.push("Necromancy: Resurrects a fallen ally every 5 turns.");
-  else if (id.startsWith('boss-colossus')) {
+  else if (id?.startsWith('boss-colossus')) {
     abilities.push("Massive: Occupies 2x2 area. Vulnerable to Check.");
     abilities.push("Iron Guard: Invulnerable until minions are cleared.");
     abilities.push("Crushing: Moves 2 squares. Captures entire 2x2 landing area.");
@@ -96,6 +106,11 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'oil_slick') abilities.push("spell: create sliding hazards for 3 turns.");
   if (heldItem === 'gamblers_coin') abilities.push("gambit: 50/50 chance for 2x or 0x level gain.");
   if (heldItem === 'sweet_revenge') abilities.push("revenge: +1 level gain if opponent captured last turn.");
+  if (heldItem === 'chameleon_cloak') abilities.push("mimicry: unit transforms into its capture victim.");
+  if (heldItem === 'phase_out') abilities.push("spell: phases out adjacent entities for 3 turns.");
+  if (heldItem === 'ice_breaker') abilities.push("shatter: unit can capture and destroy Frozen entities.");
+  if (heldItem === 'glacial_ray') abilities.push("spell: targets a line for total flash-freeze.");
+  if (heldItem === 'burning_ray') abilities.push("spell: targets a line for total destruction.");
 
   switch (type) {
     case 'pawn':
@@ -158,21 +173,16 @@ const getPieceAbilities = (piece: Piece): string[] => {
 
 export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
   const abilities = getPieceAbilities(piece);
-  let pieceName = piece.type.charAt(0).toUpperCase() + piece.type.slice(1);
-  const isBoss = piece.id.startsWith('boss-');
-  if (piece.id.startsWith('boss-hydra')) pieceName = "The Hydra";
-  else if (piece.id === 'boss-necro') pieceName = "The Necromancer";
-  else if (piece.id.startsWith('boss-colossus')) pieceName = "The Colossus";
-  else if (piece.id === 'boss-mirage') pieceName = "The Mirage";
-  else if (piece.id === 'boss-entity') pieceName = "The Void Entity";
-  else if (piece.type === 'myco_mage') pieceName = "Myco Mage";
-  
+  const pieceName = getPieceName(piece);
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
   const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
 
   return (
     <div className="text-center text-[0.55rem] font-pixel">
+      <h3 className={cn("font-bold text-[0.7rem] uppercase leading-tight mb-1", piece.id?.startsWith('boss-') ? "text-destructive" : "text-primary")}>
+          {pieceName} - Level {piece.level}
+      </h3>
       <div className="flex flex-col gap-0.5 mb-1">
         {piece.isPoisoned && <p className="text-[#22C55E] text-[0.45rem] animate-pulse uppercase">STATUS: POISONED</p>}
         {isFrozen && <p className="text-sky-400 text-[0.45rem] animate-pulse uppercase">STATUS: FROZEN</p>}
