@@ -154,13 +154,11 @@ export class VibeChessAI {
             }
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
         } else if (movingPiece.id?.startsWith('boss-colossus')) {
-            const parts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
+            const pts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
             let tlR=-1, tlC=-1;
             for(let r=0; r<8; r++) for(let c=0; c<8; c++) if(next.board[r][c].piece?.id === 'boss-colossus-tl') { tlR=r; tlC=c; break; }
-            
-            parts.forEach(pt => { if(isValidSquareUtil(tlR+pt.dr, tlC+pt.dc)) next.board[tlR+pt.dr][tlC+pt.dc].piece = null; });
-            
-            parts.forEach(pt => { 
+            pts.forEach(pt => { if(isValidSquareUtil(tlR+pt.dr, tlC+pt.dc)) next.board[tlR+pt.dr][tlC+pt.dc].piece = null; });
+            pts.forEach(pt => { 
                 const nr=tR+pt.dr, nc=tC+pt.dc; 
                 if(isValidSquareUtil(nr,nc)) { 
                     if(next.board[nr][nc].piece?.color === opponent) captureCount++; 
@@ -170,13 +168,11 @@ export class VibeChessAI {
         } else if (move.type === 'swap' || move.type === 'dance-swap' || move.type === 'grapple-hook-swap') {
             const p1 = { ...movingPiece, hasMoved: true, isShielded: false };
             const p2 = targetPiece ? { ...targetPiece, hasMoved: true, isShielded: false } : null;
-            
             if (move.type === 'dance-swap' && targetItem?.type === 'shroom') {
                 p1.level += 1;
                 if (p1.type === 'queen') p1.level = Math.min(7, p1.level);
                 next.board[tR][tC].item = null;
             }
-            
             next.board[tR][tC].piece = p1;
             next.board[fR][fC].piece = p2;
         } else if (move.type === 'self-destruct') {
@@ -195,18 +191,16 @@ export class VibeChessAI {
                 captureCount = 1; 
             } else if (targetPiece && targetPiece.color !== player && targetPiece.type !== 'king') { 
                 captureCount = 1; 
-                let gain = (this.captureLevelBonuses[targetPiece.type] || 1); 
-                if (landedPiece.heldItem === 'sweet_revenge' && gs.didOpponentCaptureLastTurn) gain += 1;
-                landedPiece.level += gain;
+                let g = (this.captureLevelBonuses[targetPiece.type] || 1); 
+                if (landedPiece.heldItem === 'sweet_revenge' && gs.didOpponentCaptureLastTurn) g += 1;
+                landedPiece.level += g;
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
             }
-            
             if (targetItem?.type === 'shroom') {
                 landedPiece.level += 1;
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
                 next.board[tR][tC].item = null;
             }
-
             const backRank = landedPiece.color === 'white' ? 0 : 7;
             if (tR === backRank) {
                 if (FRONTLINE_TYPES.includes(landedPiece.type)) {
@@ -216,7 +210,6 @@ export class VibeChessAI {
                     landedPiece.type = 'hero';
                 }
             }
-
             next.board[tR][tC].piece = landedPiece; 
             if (fR !== tR || fC !== tC) {
                 next.board[fR][fC].piece = null;
@@ -230,7 +223,6 @@ export class VibeChessAI {
         
         if (next.killStreaks[player] >= 6) next.extraTurn = true;
         if (!next.extraTurn) next.currentPlayer = opponent;
-        
         return next;
     }
 
@@ -242,7 +234,6 @@ export class VibeChessAI {
 
         const playerKing = this.findKingCoords(gs, aiColor);
         const opponentKing = this.findKingCoords(gs, opponentColor);
-        
         if (!playerKing) return -1000000;
         if (!opponentKing) return 1000000;
 
@@ -253,10 +244,8 @@ export class VibeChessAI {
             for (let c = 0; c < 8; c++) {
                 const piece = gs.board[r][c].piece;
                 if (!piece) continue;
-
                 const mult = piece.color === aiColor ? 1 : -1;
                 const levelIdx = Math.min(piece.level || 1, 10) - 1;
-                
                 const values = this.pieceValues[piece.type];
                 if (values) {
                     const baseValue = (values[levelIdx] || values[0]);
@@ -264,13 +253,11 @@ export class VibeChessAI {
                 } else {
                     score += 100 * mult;
                 }
-                
                 if (piece.type === 'infiltrator') {
                     const targetRank = piece.color === 'white' ? 0 : 7;
                     const distance = Math.abs(r - targetRank);
                     score += (7 - distance) * 50 * mult;
                 }
-
                 if (piece.color === aiColor && piece.type !== 'king') {
                     if (this.centerSquares.has(`${r}${c}`)) score += 20;
                 }
@@ -300,7 +287,6 @@ export class VibeChessAI {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === color) {
                     if ((p.cooldownTurnsRemaining || 0) > 0 || (p.frozenTurnsRemaining || 0) > 0) continue;
-
                     if (p.id?.startsWith('boss-colossus')) {
                         if (p.id === 'boss-colossus-tl') {
                             const minions = gs.board.flat().some(sq => sq.piece && sq.piece.color === p.color && !sq.piece.id?.startsWith('boss-colossus'));
@@ -330,7 +316,6 @@ export class VibeChessAI {
         if (p.id?.startsWith('boss-colossus')) {
             const strides = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]];
             const leaps = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];
-            
             [...strides, ...leaps].forEach(([dr,dc]) => { 
                 const nr=r+dr, nc=c+dc; 
                 if(isValidSquareUtil(nr,nc) && isValidSquareUtil(nr+1,nc+1)) {
@@ -343,47 +328,41 @@ export class VibeChessAI {
         if (!simplified && p.type === 'grappler' && !silenced) {
             const range = effLevel;
             const inCheck = this.isInCheck(gs, p.color, true);
-            
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
                     if (dr === 0 && dc === 0) continue;
                     const pr = r + dr, pc = c + dc;
                     if (!isValidSquareUtil(pr, pc)) continue;
-                    
                     const targetSq = gs.board[pr][pc];
                     const targetPiece = targetSq.piece;
                     const targetAnvil = targetSq.item?.type === 'anvil' && p.heldItem === 'power_glove';
-                    
                     if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
                         const possibleLandings: [number, number][] = [];
-                        
                         if (inCheck) {
                            for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
-                               const dist = Math.max(Math.abs(tr-r), Math.abs(tc-c));
-                               if (dist > 0 && dist <= range && (tr === r || tc === c || Math.abs(tr-r) === Math.abs(tc-c))) {
+                               const d = Math.max(Math.abs(tr-r), Math.abs(tc-c));
+                               if (d > 0 && d <= range && (tr === r || tc === c || Math.abs(tr-r) === Math.abs(tc-c))) {
                                    if (!gs.board[tr][tc].piece && !gs.board[tr][tc].item) possibleLandings.push([tr, tc]);
                                }
                            }
                         } else {
                            const backRank = p.color === 'white' ? 0 : 7;
                            for(let tc=0; tc<8; tc++) {
-                               const dist = Math.max(Math.abs(backRank-r), Math.abs(tc-c));
-                               if (dist > 0 && dist <= range && (backRank === r || tc === c || Math.abs(backRank-r) === Math.abs(tc-c))) {
+                               const d = Math.max(Math.abs(backRank-r), Math.abs(tc-c));
+                               if (d > 0 && d <= range && (backRank === r || tc === c || Math.abs(backRank-r) === Math.abs(tc-c))) {
                                    if (!gs.board[backRank][tc].piece && !gs.board[backRank][tc].item) possibleLandings.push([backRank, tc]);
                                }
                            }
-                           
                            if (targetPiece && targetPiece.color === p.color && this.isSquareAttacked(gs, pr, pc, oppColor, true)) {
                                const corners: [number, number][] = [[0,0],[0,7],[7,0],[7,7]];
                                corners.forEach(([cr, cc]) => {
-                                   const dist = Math.max(Math.abs(cr-r), Math.abs(cc-c));
-                                   if (dist > 0 && dist <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(cc-c))) {
+                                   const d = Math.max(Math.abs(cr-r), Math.abs(cc-c));
+                                   if (d > 0 && d <= range && (cr === r || cc === c || Math.abs(cr-r) === Math.abs(cc-c))) {
                                        if (!gs.board[cr][cc].piece && !gs.board[cr][cc].item && !this.isSquareAttacked(gs, cr, cc, oppColor, true)) possibleLandings.push([cr, cc]);
                                    }
                                });
                            }
                         }
-
                         possibleLandings.forEach(l => {
                             moves.push({ 
                                 from: [r, c], 
@@ -400,7 +379,6 @@ export class VibeChessAI {
         }
 
         const dir = p.color === 'white' ? -1 : 1;
-        
         switch (p.type) {
             case 'pawn':
             case 'dancer':
@@ -517,7 +495,6 @@ export class VibeChessAI {
                         }
                     });
                 }
-                // GLOBAL Allied Swap for L4+ Cavalry
                 if (!simplified && !silenced && effLevel >= 4) {
                     for(let sr=0; sr<8; sr++) for(let sc=0; sc<8; sc++) {
                         const tp = gs.board[sr][sc].piece;
@@ -548,7 +525,6 @@ export class VibeChessAI {
                         }
                     }
                 });
-                // GLOBAL Allied Swap for L4+ Clergy
                 if (!simplified && !silenced && effLevel >= 4) {
                     for(let sr=0; sr<8; sr++) for(let sc=0; sc<8; sc++) {
                         const tp = gs.board[sr][sc].piece;
@@ -681,7 +657,6 @@ export class VibeChessAI {
         if (tr === -1) return false;
         const targetPiece = gs.board[tr][tc].piece;
         const targetLevel = getEffectiveLevel(gs.board as any, tr, tc);
-
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
