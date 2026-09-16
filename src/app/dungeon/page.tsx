@@ -61,6 +61,11 @@ import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Separator } from '@/components/ui/separator';
 
+const DUNGEON_EXP_MAP: Record<string, number> = {
+  pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
+  knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2
+};
+
 function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   const board: BoardState = [];
   for (let r = 0; r < 8; r++) {
@@ -593,12 +598,21 @@ export default function DungeonPage() {
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg); setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
           const oL = movingP.level, oT = movingP.type, oH = movingP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.black);
+          
+          if (res.capturedPiece) { audioManager.playCapture(); addEffect('poof', alg); addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
+          if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
+          
           setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
-          if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom! +1 Level."); addEffect('level-change', alg, 'white', 1); }
-          addLog(`Hero: ${movingP.type} to ${alg}`);
           setTimeout(() => { 
-            setIsMoveProcessing(false); clickGuard.current = false; const gain = (res.capturedPiece ? 1 : 0) + (res.shroomConsumed ? 1 : 0);
-            const oS = killStreaks['white'], nS = gain > 0 ? oS + gain : 0, isEx = res.extraTurn || (oS < 6 && nS >= 6);
+            setIsMoveProcessing(false); clickGuard.current = false; 
+            const captureGain = res.capturedPiece ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
+            const shroomGain = res.shroomConsumed ? 1 : 0;
+            const totalGain = captureGain + shroomGain;
+            
+            if (totalGain > 0) addEffect('level-change', alg, 'white', totalGain);
+            if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
+
+            const oS = killStreaks['white'], nS = totalGain > 0 ? oS + totalGain : 0, isEx = res.extraTurn || (oS < 6 && nS >= 6);
             const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
             if (res.capturedPiece) { const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; }
             const cKs = { ...killStreaks, white: nS }; setKillStreaks(cKs);
@@ -647,12 +661,23 @@ export default function DungeonPage() {
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
         const oL = mP.level, oT = mP.type, oH = mP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
         const appRes = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
+        
+        if (appRes.capturedPiece) { audioManager.playCapture(); addEffect('poof', toAlg); }
+        if (appRes.shroomConsumed) { audioManager.playShroom(); }
+        
         if (appRes.multiPromotions) { appRes.multiPromotions.forEach(promo => { const {row: pr, col: pc} = algebraicToCoords(promo.square); const p = appRes.newBoard[pr][pc].piece; if (p) { p.type = 'queen'; p.level = promo.targetLevel; } }); }
-        setBoard(appRes.newBoard); if (appRes.shroomConsumed) { audioManager.playShroom(); addLog("Dungeon: Consumed a Shroom!"); addEffect('level-change', toAlg, 'black', 1); }
+        setBoard(appRes.newBoard);
         addLog(`Dungeon: ${mP.type} to ${toAlg}`);
         setTimeout(() => { 
-          setIsMoveProcessing(false); setIsAiThinking(false); const gain = (appRes.capturedPiece ? 1 : 0) + (appRes.shroomConsumed ? 1 : 0);
-          const oS = killStreaks['black'], nS = gain > 0 ? oS + gain : 0, isEx = appRes.extraTurn || (oS < 6 && nS >= 6);
+          setIsMoveProcessing(false); setIsAiThinking(false); 
+          const captureGain = appRes.capturedPiece ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
+          const shroomGain = appRes.shroomConsumed ? 1 : 0;
+          const totalGain = captureGain + shroomGain;
+
+          if (totalGain > 0) addEffect('level-change', toAlg, 'black', totalGain);
+          if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
+
+          const oS = killStreaks['black'], nS = totalGain > 0 ? oS + totalGain : 0, isEx = appRes.extraTurn || (oS < 6 && nS >= 6);
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
@@ -730,7 +755,7 @@ export default function DungeonPage() {
       <div className="px-4 py-1 flex items-center justify-between shrink-0"> <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> <div className="flex items-center gap-2"> {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive" /> : <Sword className="h-4 w-4 text-primary" />} <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> </div> <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase gap-1 border-2" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-3 w-3" /> RESET </Button> </div>
       <div className="text-center py-0 shrink-0 min-h-[0.75rem]"> <p className="text-[10px] font-bold text-primary uppercase animate-pulse"> {statMsg} </p> </div>
       <div className="w-full flex justify-center py-0.5 shrink-0"> <div className="w-full relative"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={null} enemyPossibleMoves={[]} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} /> </div> </div>
-      <div className="flex-grow min-h-0 flex flex-col p-0.5"> {cPanel} </div>
+      <div className="flex-grow min-0 flex flex-col p-0.5"> {cPanel} </div>
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0"> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)}> <Package className="h-4 w-4 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-4 w-4 text-yellow-500" /> RULES </Button> </div>
     </div>
   ), [level, statMsg, board, selectedSquare, possibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingGrappleThrow, isAwaitingDanceTarget, dancerToDance, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel]);
