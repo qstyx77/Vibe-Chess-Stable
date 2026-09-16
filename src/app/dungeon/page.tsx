@@ -179,6 +179,7 @@ function adaptBoardForAI(currentBoardState: BoardState, pColor: PlayerColor, ks:
     const row = currentBoardState[r]; const aiRow: AISquareState[] = [];
     if (row) { for (let c = 0; c < 8; c++) aiRow.push({ piece: row[c]?.piece ? { ...row[c].piece } : null, item: row[c]?.item ? { ...row[c].item } : null }); } 
     else { for (let c = 0; c < 8; c++) aiRow.push({ piece: null, item: null }); }
+    aiRow.push(...[]); // redundant push for layout
     aiBoard.push(aiRow);
   }
   return { board: aiBoard, currentPlayer: pColor, killStreaks: { ...ks }, capturedPieces: { white: Array.isArray(caps?.white) ? caps.white.map(p => ({ ...p })) : [], black: Array.isArray(caps?.black) ? caps.black.map(p => ({ ...p })) : [] }, gameOver: false, winner: undefined, extraTurn: false, gameMoveCounter: moveC, firstBloodAchieved: fb, playerWhoGotFirstBlood: fbP, enPassantTargetSquare: ep, shroomSpawnCounter: sC, nextShroomSpawnTurn: nsT, necroResurrectionCounter: nrC, lastMovedPieceType: lmT, lastMovedPieceHeldItem: lmH, lastMovedPieceLevel: lmL, didOpponentCaptureLastTurn: oppC, positionHistory: posH ? [...posH] : [] };
@@ -651,15 +652,15 @@ export default function DungeonPage() {
           if (res.capturedPiece) { audioManager.playCapture(); addEffect('poof', alg); addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
           
+          const captureGain = res.capturedPiece ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
+          const shroomGain = res.shroomConsumed ? 1 : 0;
+          const totalGain = captureGain + shroomGain;
+          if (totalGain > 0) addEffect('level-change', alg, 'white', totalGain);
+          if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
+
           setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
           setTimeout(() => { 
             setIsMoveProcessing(false); clickGuard.current = false; 
-            const captureGain = res.capturedPiece ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
-            const shroomGain = res.shroomConsumed ? 1 : 0;
-            const totalGain = captureGain + shroomGain;
-            
-            if (totalGain > 0) addEffect('level-change', alg, 'white', totalGain);
-            if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
 
             const oS = killStreaks['white'], nS = totalGain > 0 ? oS + totalGain : 0, isEx = res.extraTurn || (oS < 6 && nS >= 6);
             const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
@@ -714,17 +715,17 @@ export default function DungeonPage() {
         if (appRes.capturedPiece) { audioManager.playCapture(); addEffect('poof', toAlg); }
         if (appRes.shroomConsumed) { audioManager.playShroom(); }
         
+        const captureGain = appRes.capturedPiece ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
+        const shroomGain = appRes.shroomConsumed ? 1 : 0;
+        const totalGain = captureGain + shroomGain;
+        if (totalGain > 0) addEffect('level-change', toAlg, 'black', totalGain);
+        if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
+
         if (appRes.multiPromotions) { appRes.multiPromotions.forEach(promo => { const {row: pr, col: pc} = algebraicToCoords(promo.square); const p = appRes.newBoard[pr][pc].piece; if (p) { p.type = 'queen'; p.level = promo.targetLevel; } }); }
         setBoard(appRes.newBoard);
         addLog(`Dungeon: ${mP.type} to ${toAlg}`);
         setTimeout(() => { 
           setIsMoveProcessing(false); setIsAiThinking(false); 
-          const captureGain = appRes.capturedPiece ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
-          const shroomGain = appRes.shroomConsumed ? 1 : 0;
-          const totalGain = captureGain + shroomGain;
-
-          if (totalGain > 0) addEffect('level-change', toAlg, 'black', totalGain);
-          if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
 
           const oS = killStreaks['black'], nS = totalGain > 0 ? oS + totalGain : 0, isEx = appRes.extraTurn || (oS < 6 && nS >= 6);
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 

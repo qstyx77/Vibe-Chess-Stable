@@ -743,10 +743,13 @@ export default function EvolvingChessPage() {
       else { audioManager.playMove(); addLog(`AI ${p.type} to ${toAlg}`); }
       if (applyResult.capturedPiece && !isObliteration) { const pile = applyResult.capturedPiece.color; updatedG[pile] = [...updatedG[pile], { ...applyResult.capturedPiece }]; }
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
-      setBoard(nextB); setCapturedPieces(updatedG);
+      
       const wasCap = !!applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0);
-      const gain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
+      const gain = (applyResult.capturedPiece ? (DUNGEON_EXP_MAP[applyResult.capturedPiece.type] || 1) : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.reduce((acc, vic) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
       if (gain > 0) addEffectCallback('level-change', toAlg, currentPlayer, gain);
+      if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
+      
+      setBoard(nextB); setCapturedPieces(updatedG);
       const oldS = killStreaks[currentPlayer], newS = gain > 0 ? oldS + gain : 0, currentKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(currentKs);
       setTimeout(() => {
         setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); if (gameOverRef.current) return;
@@ -963,6 +966,12 @@ export default function EvolvingChessPage() {
               const oldL = moving.level, oldT = moving.type, oldH = moving.heldItem; setLastMovedPieceType(oldT); setLastMovedPieceHeldItem(oldH || null); setLastMovedPieceLevel(oldL);
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
               let nextB = applyRes.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; setBoard(nextB); setCapturedPieces(updatedG);
+              
+              const captureGain = applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0;
+              if (captureGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, captureGain);
+              if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
+              if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
+
               setTimeout(() => {
                   setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return;
                   if (applyRes.infiltrationWin) {
@@ -1007,7 +1016,6 @@ export default function EvolvingChessPage() {
         case 'game-move': {
             const { gameState: nextGs, move: remoteMove, events: remoteEvents } = d;
             
-            // Trigger Movement Animation
             if (remoteMove) {
                 setLastMoveFrom(remoteMove.from);
                 setLastMoveTo(remoteMove.to);
@@ -1015,20 +1023,20 @@ export default function EvolvingChessPage() {
                 setIsMoveProcessing(true);
             }
             
-            // Sync Core Game State
             setBoard(nextGs.board);
             setCurrentPlayer(nextGs.currentPlayer);
             setEnPassantTargetSquare(nextGs.enPassantTargetSquare);
             setKillStreaks(nextGs.killStreaks);
             setCapturedPieces(nextGs.capturedPieces);
             
-            // Handle Audio/Visual Events
             if (remoteEvents && remoteMove) {
                 const actingColor = nextGs.currentPlayer === 'white' ? 'black' : 'white';
                 
                 if (remoteEvents.captured) {
                     audioManager.playCapture();
                     addEffectCallback('poof', remoteMove.to);
+                    const gain = DUNGEON_EXP_MAP[remoteEvents.capturedType] || 1;
+                    addEffectCallback('level-change', remoteMove.to, actingColor, gain);
                     addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`);
                 }
                 if (remoteEvents.shroom) {
@@ -1073,7 +1081,6 @@ export default function EvolvingChessPage() {
                     addLog(`${getPlayerDisplayName(actingColor)} Snipe triggered!`);
                 }
                 
-                // Detection for "Check!"
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, nextGs.lastMovedPieceType, nextGs.lastMovedPieceHeldItem, nextGs.lastMovedPieceLevel);
                 if (isCheck) {
                     audioManager.playCheck();
@@ -1086,7 +1093,6 @@ export default function EvolvingChessPage() {
                 audioManager.playMove();
             }
 
-            // End Animation after slide duration
             setTimeout(() => {
                 setIsMoveProcessing(false);
                 setAnimatedSquareTo(null);
