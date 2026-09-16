@@ -4,7 +4,7 @@ import React, { memo } from 'react';
 import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
-import { algebraicToCoords, getEffectiveLevel, isItemValidForPiece, isSilenced, coordsToAlgebraic } from '@/lib/chess-utils';
+import { algebraicToCoords, getEffectiveLevel, isItemValidForPiece, isSilenced, coordsToAlgebraic, FRONTLINE_TYPES, isValidSquare } from '@/lib/chess-utils';
 import { ExplosionIcon, PixelColossus } from './IconLibrary';
 
 interface ChessBoardProps {
