@@ -88,6 +88,11 @@ const initialGameStatus: GameStatus = {
   winner: undefined,
 };
 
+const DUNGEON_EXP_MAP: Record<string, number> = {
+  pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
+  knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2
+};
+
 function adaptBoardForAI(
   currentBoardState: BoardState,
   playerForAITurn: PlayerColor,
@@ -627,7 +632,7 @@ export default function EvolvingChessPage() {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const victimsSorted = victims.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
                 const v = victimsSorted[0]; const {rowIndex: row, colIndex: col} = v;
-                const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id }; nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper obliterated a Level ${snipedPiece.level} ${snipedPiece.type}!`);
+                const snipedPiece = { ...nextBoard[row][col].piece!, id: nextBoard[row][col].piece!.id }; nextBoard[row][col].piece = null; addLog(`${getPlayerDisplayName(actingPlayer)} Sniper sniped a Level ${snipedPiece.level} ${snipedPiece.type}!`);
                 const targetPile = snipedPiece.color; 
                 nextGraveyard[targetPile] = Array.isArray(nextGraveyard[targetPile]) ? [...nextGraveyard[targetPile], snipedPiece] : [snipedPiece];
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'snipe'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
@@ -749,8 +754,25 @@ export default function EvolvingChessPage() {
       if (gain > 0) addEffectCallback('level-change', toAlg, currentPlayer, gain);
       if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
       
-      setBoard(nextB); setCapturedPieces(updatedG);
       const oldS = killStreaks[currentPlayer], newS = gain > 0 ? oldS + gain : 0, currentKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(currentKs);
+
+      // Check for Rook/Palace Resurrection Call (AI)
+      let rookResResult: RookResurrectionResult | null = null;
+      if ((oldT === 'rook' || oldT === 'palace') && wasCap) {
+          const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oldL, updatedG, uniqueIdCounterRef.current);
+          if (resRes.resurrectionPerformed) {
+              nextB = resRes.boardWithResurrection;
+              updatedG.white = resRes.capturedPiecesAfterResurrection.white;
+              updatedG.black = resRes.capturedPiecesAfterResurrection.black;
+              uniqueIdCounterRef.current = resRes.newResurrectionIdCounter!;
+              rookResResult = resRes;
+              addEffectCallback('light-beam', resRes.resurrectedSquareAlg!);
+              audioManager.playResurrect();
+              addLog(`AI Resurrection Call! ${resRes.resurrectedPieceData?.type} returns.`);
+          }
+      }
+
+      setBoard(nextB); setCapturedPieces(updatedG);
       setTimeout(() => {
         setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); if (gameOverRef.current) return;
         if (applyResult.infiltrationWin) {
@@ -760,11 +782,15 @@ export default function EvolvingChessPage() {
         }
         let isExtraTurn = applyResult.extraTurn || (oldS < 6 && newS >= 6); 
         const landed = nextB[aiMove!.to[0]][aiMove!.to[1]].piece; const oppBackRank = currentPlayer === 'white' ? 0 : 7;
-        if (applyResult.multiPromotions) { applyResult.multiPromotions.forEach(promo => { const {row: pr, col: pc} = algebraicToCoords(promo.square); const pcL = nextB[pr][pc].piece; if (pcL) { pcL.type = 'queen'; pcL.level = promo.targetLevel; } }); }
+        const q = applyResult.multiPromotions || [];
         if (landed && FRONTLINE_TYPES.includes(landed.type) && aiMove!.to[0] === oppBackRank) { 
             const promoType = aiMove!.promoteTo || 'queen'; const targetL = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null); 
             landed.type = promoType; landed.level = targetL; if (promoType === 'queen') landed.level = Math.min(landed.level, 7); 
             if (landed.level >= 5) isExtraTurn = true; addLog(`AI promoted to ${promoType}!`); 
+        }
+        if (rookResResult?.promotionRequiredForResurrectedPawn) {
+            const {row: rr, col: rc} = algebraicToCoords(rookResResult.resurrectedSquareAlg!);
+            const rp = nextB[rr][rc].piece; if (rp) { rp.type = 'queen'; addLog("AI resurrected unit auto-promoted!"); }
         }
         setBoard(nextB); processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove!.type as AIMoveType['type']}, oldL, oldT, isExtraTurn, applyResult.enPassantTargetSet, oldS, newS, (gain > 0) ? landed?.id || null : null, wasCap, oldT);
       }, 800);
@@ -928,7 +954,7 @@ export default function EvolvingChessPage() {
           const resp = snipers.find(a => a.level >= piece.level);
           if (resp) {
               if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic })); setIsAwaitingArcherSnipe(false); }
-              else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); sniped = { ...nextB[row][col].piece! }; nextB[row][col].piece = null; 
+              else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); const sniped = { ...nextB[row][col].piece! }; nextB[row][col].piece = null; 
                 const nG = { white: Array.isArray(specialActionContext?.currentGraveyard.white) ? [...specialActionContext!.currentGraveyard.white] : [], black: Array.isArray(specialActionContext?.currentGraveyard.black) ? [...specialActionContext!.currentGraveyard.black] : [] };
                 const targetPile = sniped.color; nG[targetPile] = [...nG[targetPile], sniped]; setBoard(nextB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); triggerSpecialsChain(nextB, nG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'snipe'], specialActionContext!.capturingPieceId, false, lastMovedPieceType); }
           }
@@ -967,10 +993,29 @@ export default function EvolvingChessPage() {
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
               let nextB = applyRes.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; setBoard(nextB); setCapturedPieces(updatedG);
               
+              const wasCap = !!(applyRes.capturedPiece || applyRes.pieceCapturedByAnvil || applyRes.selfDestructCaptures?.length);
               const captureGain = applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0;
               if (captureGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, captureGain);
               if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
+
+              // Rook/Palace Resurrection Call (Lobby)
+              let rookResResult: RookResurrectionResult | null = null;
+              if ((oldT === 'rook' || oldT === 'palace') && wasCap) {
+                  const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: selectedSquare, to: algebraic, type: mType}, algebraic, oldL, updatedG, uniqueIdCounterRef.current);
+                  if (resRes.resurrectionPerformed) {
+                      nextB = resRes.boardWithResurrection;
+                      updatedG.white = resRes.capturedPiecesAfterResurrection.white;
+                      updatedG.black = resRes.capturedPiecesAfterResurrection.black;
+                      uniqueIdCounterRef.current = resRes.newResurrectionIdCounter!;
+                      rookResResult = resRes;
+                      addEffectCallback('light-beam', resRes.resurrectedSquareAlg!);
+                      audioManager.playResurrect();
+                      addLog(`Resurrection! ${resRes.resurrectedPieceData?.type} has returned.`);
+                  }
+              }
+
+              setBoard(nextB); setCapturedPieces(updatedG);
 
               setTimeout(() => {
                   setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return;
@@ -982,6 +1027,11 @@ export default function EvolvingChessPage() {
                   const isExtra = applyRes.extraTurn || (killStreaks[currentPlayer] < 6 && (killStreaks[currentPlayer] + (applyRes.capturedPiece ? 1 : 0)) >= 6);
                   const q = applyRes.multiPromotions || []; const oppBackRank = currentPlayer === 'white' ? 0 : 7;
                   if (FRONTLINE_TYPES.includes(nextB[row][col].piece?.type || '') && row === oppBackRank) q.push({ square: algebraic, targetLevel: getPromotionLevel(applyRes.capturedPiece?.type || null) });
+                  
+                  if (rookResResult?.promotionRequiredForResurrectedPawn) {
+                      q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
+                  }
+
                   if (q.length > 0) { 
                       setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
                       setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyRes.enPassantTargetSet, oldStreak: killStreaks[currentPlayer], newStreak: killStreaks[currentPlayer] + (applyRes.capturedPiece ? 1 : 0), currentGraveyard: updatedG, currentKs: killStreaks, capturingPieceId: nextB[row][col].piece?.id || null } as any); 
@@ -1079,6 +1129,11 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.snipe) {
                     audioManager.playSnipe();
                     addLog(`${getPlayerDisplayName(actingColor)} Snipe triggered!`);
+                }
+                if (remoteEvents.resurrection && remoteEvents.resPos) {
+                    audioManager.playResurrect();
+                    addEffectCallback('light-beam', remoteEvents.resPos);
+                    addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`);
                 }
                 
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, nextGs.lastMovedPieceType, nextGs.lastMovedPieceHeldItem, nextGs.lastMovedPieceLevel);

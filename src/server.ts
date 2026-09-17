@@ -309,6 +309,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
                     
+                    let resurrectionEvent = null;
                     if (result.capturedPiece) {
                         const targetPile = result.capturedPiece.color;
                         if (!Array.isArray(gs.capturedPieces[targetPile])) gs.capturedPieces[targetPile] = [];
@@ -332,6 +333,31 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     } else if (!isRewardMove) {
                         gs.killStreaks[playerColor] = 0;
                         gs.didOpponentCaptureLastTurn = false;
+                    }
+
+                    // Check for Rook/Palace Resurrection Call
+                    const toCoords = algebraicToCoords(movePayload.to);
+                    const landedPiece = gs.board[toCoords.row][toCoords.col].piece;
+                    const wasCapture = !!(result.capturedPiece || result.pieceCapturedByAnvil || result.selfDestructCaptures?.length);
+                    
+                    if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && wasCapture) {
+                        const resRes = processRookResurrectionCheck(
+                            gs.board,
+                            playerColor,
+                            movePayload,
+                            movePayload.to,
+                            gs.lastMovedPieceLevel || 1,
+                            gs.capturedPieces,
+                            Date.now()
+                        );
+                        if (resRes.resurrectionPerformed) {
+                            gs.board = resRes.boardWithResurrection;
+                            gs.capturedPieces = resRes.capturedPiecesAfterResurrection;
+                            resurrectionEvent = {
+                                square: resRes.resurrectedSquareAlg,
+                                piece: resRes.resurrectedPieceData
+                            };
+                        }
                     }
 
                     if (movingPiece) {
@@ -379,7 +405,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         
                         // Consolidate rich move data for client animations
                         const events = {
-                            captured: !!(result.capturedPiece || result.pieceCapturedByAnvil),
+                            captured: wasCapture,
                             capturedType: (result.capturedPiece || result.pieceCapturedByAnvil)?.type,
                             selfDestructs: result.selfDestructCaptures?.length || 0,
                             shroom: result.shroomConsumed,
@@ -389,7 +415,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             conversions: result.conversionEvents?.map(e => e.at) || [],
                             reflection: result.reflectionOccurred,
                             ralliedSquares: result.ralliedSquares || [],
-                            extraTurn: result.extraTurn
+                            extraTurn: result.extraTurn,
+                            resurrection: !!resurrectionEvent,
+                            resPos: resurrectionEvent?.square
                         };
 
                         broadcastToRoom(ws.roomId!, { 
