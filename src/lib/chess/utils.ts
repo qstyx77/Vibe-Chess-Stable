@@ -77,6 +77,7 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 }
 
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
+  if (item.startsWith('portal_scroll_')) return false;
   if (item === 'great_sword' || item === 'swift_cloak' || item === 'spore_pouch') return FRONTLINE_TYPES.includes(type);
   if (item === 'queens_peace' || item === 'kings_ransom') return (type === 'queen' || type === 'king');
   if (item === 'kings_conquest') return (type === 'king');
