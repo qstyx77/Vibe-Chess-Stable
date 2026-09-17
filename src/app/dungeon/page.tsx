@@ -179,7 +179,7 @@ function adaptBoardForAI(currentBoardState: BoardState, pColor: PlayerColor, ks:
     const row = currentBoardState[r]; const aiRow: AISquareState[] = [];
     if (row) { for (let c = 0; c < 8; c++) aiRow.push({ piece: row[c]?.piece ? { ...row[c].piece } : null, item: row[c]?.item ? { ...row[c].item } : null }); } 
     else { for (let c = 0; c < 8; c++) aiRow.push({ piece: null, item: null }); }
-    aiRow.push(...[]); // redundant push for layout
+    aiRow.push(...[]); 
     aiBoard.push(aiRow);
   }
   return { board: aiBoard, currentPlayer: pColor, killStreaks: { ...ks }, capturedPieces: { white: Array.isArray(caps?.white) ? caps.white.map(p => ({ ...p })) : [], black: Array.isArray(caps?.black) ? caps.black.map(p => ({ ...p })) : [] }, gameOver: false, winner: undefined, extraTurn: false, gameMoveCounter: moveC, firstBloodAchieved: fb, playerWhoGotFirstBlood: fbP, enPassantTargetSquare: ep, shroomSpawnCounter: sC, nextShroomSpawnTurn: nsT, necroResurrectionCounter: nrC, lastMovedPieceType: lmT, lastMovedPieceHeldItem: lmH, lastMovedPieceLevel: lmL, didOpponentCaptureLastTurn: oppC, positionHistory: posH ? [...posH] : [] };
@@ -595,7 +595,7 @@ export default function DungeonPage() {
 
     if (isAwaitingArcherSnipe && piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen') {
         const ps = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
-        const snips = ps.filter(p => { if (p.type === 'archer') return true; if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; const crds = board.flat().find(sq => sq.piece?.id === p.id); if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; return false; });
+        const snips = ps.filter(p => { if (p.type === 'archer') return true; if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; const crds = board.flat().find(sq => sq.piece?.id === p.id); if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; return false; });
         if (snips.find(a => a.level >= piece.level)) {
             const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); const sniped = { ...nxtB[row][col].piece! }; nxtB[row][col].piece = null; 
             const nG = { white: Array.isArray(specialActionContext.currentGraveyard.white) ? [...specialActionContext.currentGraveyard.white] : [], black: Array.isArray(specialActionContext.currentGraveyard.black) ? [...specialActionContext.currentGraveyard.black] : [] }; nG[sniped.color] = [...nG[sniped.color], sniped];
@@ -659,7 +659,6 @@ export default function DungeonPage() {
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (res.capturedPiece) { const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; }
 
-          // Rook/Palace Resurrection Call (Dungeon Player)
           const wasCap = !!(res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length);
           let rookResResult: RookResurrectionResult | null = null;
           if ((oT === 'rook' || oT === 'palace') && wasCap) {
@@ -695,7 +694,7 @@ export default function DungeonPage() {
     }
     if (piece && piece.color === currentPlayer) { setSelectedSquare(alg); setPossibleMoves(getPossibleMoves(board, alg, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, null, lastMovedPieceLevel)); } 
     else { setSelectedSquare(null); setPossibleMoves([]); }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, addLog, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerToDropAnvil, playerToPromoteCommander, playerToSacrificePawn, teleportAllyPieceId]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, addLog, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerToDropAnvil, playerWhoGotFirstBlood, playerToSacrificePawn, teleportAllyPieceId]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -743,7 +742,6 @@ export default function DungeonPage() {
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
         if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
 
-        // Rook/Palace Resurrection Call (AI)
         let rookResResult: RookResurrectionResult | null = null;
         if ((oT === 'rook' || oT === 'palace') && wasCap) {
             const resRes = processRookResurrectionCheck(nextB, 'black', {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oL, nxtG, Date.now());
@@ -841,7 +839,7 @@ export default function DungeonPage() {
             <button onClick={() => setIsMessengerOpen(true)} className={cn( "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors", hasUn && "animate-chat-notify" )} > <MessageSquare className="h-5 w-5" /> </button>
             <div className="flex justify-around items-center text-center">
                 <div> <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p> <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-foreground' : 'text-secondary')}> {getPlayerDisplayName(currentPlayer)} </p> </div>
-                <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">B-Streak: {killStreaks.black}</p> </div>
+                <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive interleaved uppercase">B-Streak: {killStreaks.black}</p> </div>
             </div>
             <Separator className="my-1" />
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
