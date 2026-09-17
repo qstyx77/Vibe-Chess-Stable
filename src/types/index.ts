@@ -297,6 +297,7 @@ export interface ApplyMoveResult {
   ralliedSquares?: AlgebraicSquare[];
   winByKingsConquest?: boolean;
   kingCapturedByColossus?: boolean;
+  hydraSplitOccurred?: boolean;
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

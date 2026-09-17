@@ -252,6 +252,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   const multiPromotions: { square: AlgebraicSquare, targetLevel: number }[] = [];
   let ralliedSquares: AlgebraicSquare[] = [];
   let winByKingsConquest = false;
+  let hydraSplitOccurred = false;
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare };
@@ -885,5 +886,37 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions, ralliedSquares, winByKingsConquest };
+
+  const hydraToSplit = (captured?.id?.startsWith('boss-hydra') ? captured : (pieceCapturedByAnvil?.id?.startsWith('boss-hydra') ? pieceCapturedByAnvil : null));
+  if (hydraToSplit) {
+      hydraSplitOccurred = true;
+      const { row: cr, col: cc } = algebraicToCoords(move.to);
+      const adj = [];
+      for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+              if (dr === 0 && dc === 0) continue;
+              const nr = cr + dr, nc = cc + dc;
+              if (isValidSquare(nr, nc)) {
+                  const s = newBoard[nr][nc];
+                  if (!s.piece && (!s.item || s.item.type === 'shroom')) adj.push({ r: nr, c: nc });
+              }
+          }
+      }
+      const spawnCount = Math.min(adj.length, 2);
+      const shuffled = adj.sort(() => Math.random() - 0.5);
+      for (let i = 0; i < spawnCount; i++) {
+          const pos = shuffled[i];
+          newBoard[pos.r][pos.c].piece = {
+              id: `hydra_spawn_${hydraToSplit.id}_${i}_${Date.now()}`,
+              type: 'knight',
+              color: hydraToSplit.color,
+              level: 2,
+              hasMoved: true,
+              isShielded: false
+          };
+          newBoard[pos.r][pos.c].item = null;
+      }
+  }
+
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred };
 }

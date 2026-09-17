@@ -746,6 +746,7 @@ export default function EvolvingChessPage() {
       if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); addEffectCallback('poof', toAlg); }
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { audioManager.playMove(); addLog(`AI ${p.type} to ${toAlg}`); }
+      if (applyResult.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); }
       if (applyResult.capturedPiece && !isObliteration) { const pile = applyResult.capturedPiece.color; updatedG[pile] = [...updatedG[pile], { ...applyResult.capturedPiece }]; }
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
       
@@ -998,6 +999,7 @@ export default function EvolvingChessPage() {
               if (captureGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, captureGain);
               if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
+              if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads! 2 Knights appear!"); }
 
               // Rook/Palace Resurrection Call (Lobby)
               let rookResResult: RookResurrectionResult | null = null;
@@ -1142,6 +1144,10 @@ export default function EvolvingChessPage() {
                     audioManager.playResurrect();
                     addEffectCallback('light-beam', remoteEvents.resPos);
                     addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`);
+                }
+                if (remoteEvents.hydraSplit) {
+                    audioManager.playResurrect();
+                    addLog("The Hydra regrows its heads!");
                 }
                 
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, nextGs.lastMovedPieceType, nextGs.lastMovedPieceHeldItem, nextGs.lastMovedPieceLevel);

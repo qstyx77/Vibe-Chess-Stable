@@ -417,7 +417,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             ralliedSquares: result.ralliedSquares || [],
                             extraTurn: result.extraTurn,
                             resurrection: !!resurrectionEvent,
-                            resPos: resurrectionEvent?.square
+                            resPos: resurrectionEvent?.square,
+                            hydraSplit: result.hydraSplitOccurred
                         };
 
                         broadcastToRoom(ws.roomId!, { 
