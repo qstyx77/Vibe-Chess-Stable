@@ -770,6 +770,12 @@ export default function EvolvingChessPage() {
           const newKs = { ...killStreaks, white: 0, black: 0 }; setBoard(nextB); setCapturedPieces(updatedG); setKillStreaks(newKs); 
           setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, updatedG, newKs, currentPlayer, false, null, false, oldT); }, 800); return; 
       }
+      
+      const expGain = (applyResult.capturedPiece ? (DUNGEON_EXP_MAP[applyResult.capturedPiece.type] || 1) : 0) + 
+                     (applyResult.pieceCapturedByAnvil ? 1 : 0) + 
+                     (applyResult.selfDestructCaptures?.reduce((acc, vic) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
+      const streakGain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
+
       if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); addEffectCallback('level-change', toAlg, currentPlayer, 1); }
       if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("AI Hero Ascended!"); }
       if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); addLog("AI Conversion triggered!"); }
@@ -782,15 +788,14 @@ export default function EvolvingChessPage() {
       if (applyResult.capturedPiece && !isObliteration) { const pile = applyResult.capturedPiece.color; updatedG[pile] = [...updatedG[pile], { ...applyResult.capturedPiece }]; }
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
       
-      const wasCap = !!applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0);
-      const gain = (applyResult.capturedPiece ? (DUNGEON_EXP_MAP[applyResult.capturedPiece.type] || 1) : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.reduce((acc, vic) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
-      if (gain > 0) addEffectCallback('level-change', toAlg, currentPlayer, gain);
+      if (expGain > 0) addEffectCallback('level-change', toAlg, currentPlayer, expGain);
       if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
       
-      const oldS = killStreaks[currentPlayer], newS = gain > 0 ? oldS + gain : 0, currentKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(currentKs);
+      const oldS = killStreaks[currentPlayer], newS = streakGain > 0 ? oldS + streakGain : 0, currentKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(currentKs);
 
       // Check for Rook/Palace Resurrection Call (AI)
       let rookResResult: RookResurrectionResult | null = null;
+      const wasCap = streakGain > 0;
       if ((oldT === 'rook' || oldT === 'palace') && wasCap) {
           const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oldL, updatedG, uniqueIdCounterRef.current);
           if (resRes.resurrectionPerformed) {
@@ -815,7 +820,6 @@ export default function EvolvingChessPage() {
         }
         let isExtraTurn = applyResult.extraTurn || (oldS < 6 && newS >= 6); 
         const landed = nextB[aiMove!.to[0]][aiMove!.to[1]].piece; const oppBackRank = currentPlayer === 'white' ? 0 : 7;
-        const q = applyResult.multiPromotions || [];
         if (landed && FRONTLINE_TYPES.includes(landed.type) && aiMove!.to[0] === oppBackRank) { 
             const promoType = aiMove!.promoteTo || 'queen'; const targetL = getPromotionLevel(applyResult.capturedPiece?.type || applyResult.pieceCapturedByAnvil?.type || null); 
             landed.type = promoType; landed.level = targetL; if (promoType === 'queen') landed.level = Math.min(landed.level, 7); 
@@ -825,7 +829,7 @@ export default function EvolvingChessPage() {
             const {row: rr, col: rc} = algebraicToCoords(rookResResult.resurrectedSquareAlg!);
             const rp = nextB[rr][rc].piece; if (rp) { rp.type = 'queen'; addLog("AI resurrected unit auto-promoted!"); }
         }
-        setBoard(nextB); processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove!.type as AIMoveType['type']}, oldL, oldT, isExtraTurn, applyResult.enPassantTargetSet, oldS, newS, (gain > 0) ? landed?.id || null : null, wasCap, oldT);
+        setBoard(nextB); processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove!.type as AIMoveType['type']}, oldL, oldT, isExtraTurn, applyResult.enPassantTargetSet, oldS, newS, wasCap ? landed?.id || null : null, wasCap, oldT);
       }, 800);
     } catch (e) { console.error(`[AI Error]`, e); setIsAiThinking(false); }
   }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, isWhiteAI, isBlackAI, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, processPawnSacrificeCheck, gameMoveCounter, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffectCallback, pushHistory, addLog, killStreaks, capturedPieces, aiStrikeCount, didCaptureLastTurn, positionHistory]);
@@ -944,9 +948,9 @@ export default function EvolvingChessPage() {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
                 pushHistory(); let nextB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-                const activeD = nextB[fr][fc].piece!; const tP = nextB[row][col].piece; const tI = nxtB[row][col].item;
-                if (tI?.type === 'shroom') { activeD.level = Math.min(activeD.type === 'queen' ? 7 : 99, (activeD.level || 1) + 1); nextB[row][col].item = null; }
-                nextB[row][col].piece = activeD; nextB[fr][fc].piece = tP ? { ...tP, hasMoved: true } : null; nextB[fr][fc].item = tI?.type === 'shroom' ? null : tI;
+                const activeD = nextB[fr][fc].piece!; const tP = nextB[row][col].piece; const targetItem = nextB[row][col].item;
+                if (targetItem?.type === 'shroom') { activeD.level = Math.min(activeD.type === 'queen' ? 7 : 99, (activeD.level || 1) + 1); nextB[row][col].item = null; }
+                nextB[row][col].piece = activeD; nextB[fr][fc].piece = tP ? { ...tP, hasMoved: true } : null; nextB[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
                 setBoard(nextB); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
                 triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext.capturingPieceId, false, lastMovedPieceType);
             }
@@ -1026,15 +1030,19 @@ export default function EvolvingChessPage() {
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
               let nextB = applyRes.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; setBoard(nextB); setCapturedPieces(updatedG);
               
-              const wasCap = !!(applyRes.capturedPiece || applyRes.pieceCapturedByAnvil || applyRes.selfDestructCaptures?.length);
-              const captureGain = applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0;
-              if (captureGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, captureGain);
+              const expGain = (applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0) + 
+                             (applyRes.pieceCapturedByAnvil ? 1 : 0) + 
+                             (applyRes.selfDestructCaptures?.reduce((acc: number, vic: any) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
+              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
+
+              if (expGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, expGain);
               if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
               if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads! 2 Knights appear!"); }
 
               // Rook/Palace Resurrection Call (Lobby)
               let rookResResult: RookResurrectionResult | null = null;
+              const wasCap = streakGain > 0;
               if ((oldT === 'rook' || oldT === 'palace') && wasCap) {
                   const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: selectedSquare, to: algebraic, type: mType}, algebraic, oldL, updatedG, uniqueIdCounterRef.current);
                   if (resRes.resurrectionPerformed) {
@@ -1060,10 +1068,7 @@ export default function EvolvingChessPage() {
                   }
                   
                   const oldS = killStreaks[currentPlayer];
-                  const gain = (applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0) + 
-                               (applyRes.pieceCapturedByAnvil ? 1 : 0) + 
-                               (applyRes.selfDestructCaptures?.reduce((acc: number, vic: any) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
-                  const newS = gain > 0 ? oldS + gain : 0;
+                  const newS = wasCap ? oldS + streakGain : 0;
                   const updatedKs = { ...killStreaks, [currentPlayer]: newS };
                   const isExtra = applyRes.extraTurn || (oldS < 6 && newS >= 6);
 
@@ -1077,7 +1082,7 @@ export default function EvolvingChessPage() {
                   if (q.length > 0) { 
                       setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
                       setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: isExtra, newEnPassantTarget: applyRes.enPassantTargetSet, oldStreak: oldS, newStreak: newS, currentGraveyard: updatedG, currentKs: updatedKs, capturingPieceId: nextB[row][col].piece?.id || null } as any); 
-                  } else { triggerSpecialsChain(nextB, updatedG, updatedKs, oldS, newS, isExtra, applyRes.enPassantTargetSet, currentPlayer, [], nextB[row][col].piece?.id || null, !!(gain > 0), oldT); }
+                  } else { triggerSpecialsChain(nextB, updatedG, updatedKs, oldS, newS, isExtra, applyRes.enPassantTargetSet, currentPlayer, [], nextB[row][col].piece?.id || null, wasCap, oldT); }
               }, 800);
           }
           return;
@@ -1127,8 +1132,8 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.captured) {
                     audioManager.playCapture();
                     addEffectCallback('poof', remoteMove.to);
-                    const gain = DUNGEON_EXP_MAP[remoteEvents.capturedType] || 1;
-                    addEffectCallback('level-change', remoteMove.to, actingColor, gain);
+                    const expGain = DUNGEON_EXP_MAP[remoteEvents.capturedType] || 1;
+                    addEffectCallback('level-change', remoteMove.to, actingColor, expGain);
                     addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`);
                 }
                 if (remoteEvents.shroom) {
