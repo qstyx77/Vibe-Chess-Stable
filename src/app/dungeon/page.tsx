@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -323,29 +324,30 @@ export default function DungeonPage() {
 
   const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
     if (level % 10 === 0) {
-        // Roll for Boss Loot
-        const luckBonus = (Math.floor(level / 10) - 1) * 0.06;
+        // PER-ITEM Independent Roll System
+        const bonus = (Math.floor(level / 10) - 1) * 0.03;
         const drops: InventoryItemType[] = [];
         const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
-        // Common Roll (12% + scaling)
-        if (Math.random() < (0.12 + luckBonus)) {
-            const pool = allItems.filter(i => ITEM_METADATA[i].rarity === 'common');
-            drops.push(pool[Math.floor(Math.random() * pool.length)]);
-        }
-        // Uncommon Roll (6% + scaling)
-        if (Math.random() < (0.06 + luckBonus)) {
-            const pool = allItems.filter(i => ITEM_METADATA[i].rarity === 'uncommon');
-            drops.push(pool[Math.floor(Math.random() * pool.length)]);
-        }
-        // Rare Roll (3% + scaling)
-        if (Math.random() < (0.03 + luckBonus)) {
-            const currentPortal = `portal_scroll_${level}` as InventoryItemType;
-            const baseRares = allItems.filter(i => ITEM_METADATA[i].rarity === 'rare' && !i.startsWith('portal_scroll_'));
-            // Specifically allow THIS floor's portal scroll to drop
-            const rarePool = ITEM_METADATA[currentPortal] ? [...baseRares, currentPortal] : baseRares;
-            drops.push(rarePool[Math.floor(Math.random() * rarePool.length)] as InventoryItemType);
-        }
+        allItems.forEach(type => {
+            const meta = ITEM_METADATA[type];
+            if (!meta) return;
+
+            // Portal Scroll Restriction: only drop the scroll for the CURRENT boss floor
+            if (type.startsWith('portal_scroll_')) {
+                const scrollFloor = parseInt(type.split('_')[2]);
+                if (scrollFloor !== level) return;
+            }
+
+            let chance = 0;
+            if (meta.rarity === 'common') chance = 0.12 + bonus;
+            else if (meta.rarity === 'uncommon') chance = 0.06 + bonus;
+            else if (meta.rarity === 'rare') chance = 0.03 + bonus;
+
+            if (Math.random() < chance) {
+                drops.push(type);
+            }
+        });
 
         setLootFound(drops);
         setPendingProgression({ survivors, graveyard });
@@ -781,7 +783,7 @@ export default function DungeonPage() {
           if (captureGain > 0) addEffect('level-change', alg, 'white', captureGain);
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); addEffect('level-change', alg, 'white', 1); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
-          if (res.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads! 2 Knights appear!"); }
+          if (res.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); }
 
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
@@ -990,7 +992,7 @@ export default function DungeonPage() {
 
   const deskLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
-      <div className="w-1/4 flex-shrink-0 flex flex-col gap-2 h-full"> <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1"> <ArrowLeft className="h-4 w-4" /> Lobby </Link> {cPanel} </div>
+      <div className="w-1/4 flex-shrink-0 flex-col gap-2 h-full"> <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1"> <ArrowLeft className="h-4 w-4" /> Lobby </Link> {cPanel} </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
         <div className="flex items-center gap-4 justify-center py-2 shrink-0 h-16"> <div className="flex items-center gap-2"> {level % 10 === 0 ? <Skull className="h-8 w-8 text-destructive" /> : <Sword className="h-8 w-8 text-primary" />} <h1 className="text-xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> </div> </div>
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
