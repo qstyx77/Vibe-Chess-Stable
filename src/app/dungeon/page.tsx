@@ -517,6 +517,20 @@ export default function DungeonPage() {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const vSrt = vics.sort((a,b) => { if ((b.piece?.level || 0) !== (a.piece?.level || 0)) return (b.piece?.level || 0) - (a.piece?.level || 0); return (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0); });
                 const v = vSrt[0]; const {rowIndex: row, colIndex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
+                
+                if (sniped.id?.startsWith('boss-hydra')) {
+                    const adj = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                        if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc;
+                        if (isValidSquare(nr, nc) && !nxtB[nr][nc].piece && (!nxtB[nr][nc].item || nxtB[nr][nc].item?.type === 'shroom')) adj.push({ r: nr, c: nc });
+                    }
+                    const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
+                    for (let i = 0; i < sc; i++) {
+                        const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
+                        nxtB[pos.r][pos.c].item = null;
+                    }
+                    audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
+                }
+
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
                 triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT); return;
@@ -632,12 +646,27 @@ export default function DungeonPage() {
 
     if (isAwaitingArcherSnipe && piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen') {
         const ps = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
-        const snips = ps.filter(p => { if (p.type === 'archer') return true; if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; const crds = board.flat().find(sq => sq.piece?.id === p.id); if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; return false; });
+        const snips = ps.filter(p => { if (p.type === 'archer') return true; if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; const crds = board.flat().find(sq => sq.piece?.id === p.id); if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; return false; });
         if (snips.find(a => a.level >= piece.level)) {
-            const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); const sniped = { ...nxtB[row][col].piece! }; nxtB[row][col].piece = null; 
+            let nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); const sniped = { ...nxtB[row][col].piece! }; nxtB[row][col].piece = null; 
+            
+            if (sniped.id?.startsWith('boss-hydra')) {
+                const adj = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                    if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc;
+                    if (isValidSquare(nr, nc) && !nxtB[nr][nc].piece && (!nxtB[nr][nc].item || nxtB[nr][nc].item?.type === 'shroom')) adj.push({ r: nr, c: nc });
+                }
+                const sc = Math.min(adj.length, 2); const sh = adj.sort(() => Math.random() - 0.5);
+                for (let i = 0; i < sc; i++) {
+                    const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
+                    nxtB[pos.r][pos.c].item = null;
+                }
+                audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
+            }
+
             const nG = { white: Array.isArray(specialActionContext.currentGraveyard.white) ? [...specialActionContext.currentGraveyard.white] : [], black: Array.isArray(specialActionContext.currentGraveyard.black) ? [...specialActionContext.currentGraveyard.black] : [] }; nG[sniped.color] = [...nG[sniped.color], sniped];
             addLog(`Hero sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
-            setBoard(nxtB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); triggerSpecialsChain(nxtB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'snipe'], specialActionContext.capturingPieceId, false, lastMovedPieceType);
+            setBoard(nxtB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); 
+            triggerSpecialsChain(nxtB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'snipe'], specialActionContext.capturingPieceId, false, lastMovedPieceType);
         }
         return;
     }
@@ -759,7 +788,7 @@ export default function DungeonPage() {
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black') return;
     setIsAiThinking(true);
-    const gs = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory);
+    const gs = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory);
     const res = aiInstance.current?.getBestMove(gs, 'black');
     if (res?.move) {
         setAiNoMoveCounter(0); const move = res.move; const fromAlg = coordsToAlgebraic(move.from[0], move.from[1]); const toAlg = coordsToAlgebraic(move.to[0], move.to[1]);
@@ -824,8 +853,8 @@ export default function DungeonPage() {
     isAwaitingArcherSnipe || isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || 
     isSelectingMycoSpell || isAwaitingGrappleThrow || isAwaitingDanceTarget || 
     isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || 
-    isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || isAwaitingEarthquakeScrollTarget || 
-    isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
+    isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || 
+    isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom, 
   [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom]);
 
