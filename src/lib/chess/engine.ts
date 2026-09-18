@@ -26,7 +26,6 @@ export function initializeBoard(
 ): BoardState {
   const board = createEmptyBoard();
 
-  // --- WHITE BACK RANK ---
   const whiteBishops: Piece[] = [
     { id: 'wB1', type: whiteElo >= 1500 ? 'archbishop' : 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'wB2', type: 'bishop', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null }
@@ -53,7 +52,6 @@ export function initializeBoard(
   board[7][3].piece = { id: 'wQ', type: 'queen', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   board[7][4].piece = { id: 'wK', type: 'king', color: 'white', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
-  // --- BLACK BACK RANK ---
   const blackBishops: Piece[] = [
     { id: 'bB1', type: blackElo >= 1500 ? 'archbishop' : 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null },
     { id: 'bB2', type: 'bishop', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null }
@@ -80,7 +78,6 @@ export function initializeBoard(
   board[0][3].piece = { id: 'bQ', type: 'queen', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
   board[0][4].piece = { id: 'bK', type: 'king', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
 
-  // --- FRONTLINE ---
   const assignFrontlineTypes = (color: PlayerColor, unlocks: string[]) => {
     const prefix = color === 'white' ? 'w' : 'b';
     const army: Piece[] = [];
@@ -106,7 +103,6 @@ export function initializeBoard(
     board[1][blackPositions[i]].piece = blackArmy[i];
   }
 
-  // --- APPLY EQUIPMENT ---
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
       const p = board[r][c].piece;
@@ -863,6 +859,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (didLevelUp) { pieceToLand.isPoisoned = false; pieceToLand.isExhausted = false; pieceToLand.cooldownTurnsRemaining = 0; }
+  
+  // End of move auto-trigger: Coffee Bean clears Exhaustion
   if (pieceToLand.isExhausted) { 
       if (pieceToLand.heldItem === 'coffee_bean') {
           pieceToLand.isExhausted = false;
@@ -872,6 +870,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           pieceToLand.cooldownTurnsRemaining = 2; 
       }
   }
+
   if (effectiveHeldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;

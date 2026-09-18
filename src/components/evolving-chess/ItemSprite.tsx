@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -18,6 +17,50 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   const renderIcon = () => {
     switch (type) {
+      case 'coffee_bean':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="3" width="6" height="7" fill="#78350F" rx="2" />
+            <rect x="3" y="4" width="1" height="5" fill="#451a03" />
+          </svg>
+        );
+      case 'filter_mask':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="4" width="6" height="4" fill="#10B981" />
+            <rect x="1" y="5" width="8" height="2" fill="#059669" />
+            <rect x="3" y="6" width="4" height="1" fill="#FFF" opacity="0.3" />
+          </svg>
+        );
+      case 'thermal_socks':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="6" width="3" height="4" fill="#EF4444" />
+            <rect x="1" y="9" width="4" height="2" fill="#EF4444" />
+            <rect x="2" y="6" width="3" height="1" fill="#FFF" />
+            <rect x="6" y="6" width="3" height="4" fill="#EF4444" />
+            <rect x="5" y="9" width="4" height="2" fill="#EF4444" />
+            <rect x="6" y="6" width="3" height="1" fill="#FFF" />
+          </svg>
+        );
+      case 'spiked_buckler':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <circle cx="5" cy="6" r="4" fill="#94A3B8" />
+            <rect x="4.5" y="2" width="1" height="2" fill="#EAB308" />
+            <rect x="4.5" y="8" width="1" height="2" fill="#EAB308" />
+            <rect x="1" y="5.5" width="2" height="1" fill="#EAB308" />
+            <rect x="7" y="5.5" width="2" height="1" fill="#EAB308" />
+          </svg>
+        );
+      case 'whetstone':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="3" width="6" height="6" fill="#475569" />
+            <rect x="1" y="2" width="8" height="1" fill="#64748B" />
+            <rect x="3" y="5" width="4" height="1" fill="#94A3B8" />
+          </svg>
+        );
       case 'phase_out':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -713,50 +756,6 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="3" y="1" width="1.5" height="4" fill="#404040" />
             <rect x="5.5" y="1" width="1.5" height="4" fill="#404040" />
             <rect x="3" y="5" width="4" height="2" fill="#171717" />
-          </svg>
-        );
-      case 'coffee_bean':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="3" width="6" height="7" fill="#78350F" rx="2" />
-            <rect x="3" y="4" width="1" height="5" fill="#451a03" />
-          </svg>
-        );
-      case 'filter_mask':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="4" width="6" height="4" fill="#10B981" />
-            <rect x="1" y="5" width="8" height="2" fill="#059669" />
-            <rect x="3" y="6" width="4" height="1" fill="#FFF" opacity="0.3" />
-          </svg>
-        );
-      case 'thermal_socks':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="6" width="3" height="4" fill="#EF4444" />
-            <rect x="1" y="9" width="4" height="2" fill="#EF4444" />
-            <rect x="2" y="6" width="3" height="1" fill="#FFF" />
-            <rect x="6" y="6" width="3" height="4" fill="#EF4444" />
-            <rect x="5" y="9" width="4" height="2" fill="#EF4444" />
-            <rect x="6" y="6" width="3" height="1" fill="#FFF" />
-          </svg>
-        );
-      case 'spiked_buckler':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <circle cx="5" cy="6" r="4" fill="#94A3B8" />
-            <rect x="4.5" y="2" width="1" height="2" fill="#EAB308" />
-            <rect x="4.5" y="8" width="1" height="2" fill="#EAB308" />
-            <rect x="1" y="5.5" width="2" height="1" fill="#EAB308" />
-            <rect x="7" y="5.5" width="2" height="1" fill="#EAB308" />
-          </svg>
-        );
-      case 'whetstone':
-        return (
-          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
-            <rect x="2" y="3" width="6" height="6" fill="#475569" />
-            <rect x="1" y="2" width="8" height="1" fill="#64748B" />
-            <rect x="3" y="5" width="4" height="1" fill="#94A3B8" />
           </svg>
         );
       default:

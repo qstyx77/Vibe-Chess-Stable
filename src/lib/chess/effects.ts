@@ -12,7 +12,7 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
         if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots') continue;
         
-        // Spiked Buckler logic
+        // Spiked Buckler logic: If victim has it, attacker (at r,c) becomes poisoned
         if (victim.piece?.heldItem === 'spiked_buckler') {
             const attacker = board[r][c].piece;
             if (attacker && attacker.heldItem !== 'filter_mask') {
@@ -48,7 +48,7 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
             const oldLevel = sq.piece.level;
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, sq.piece.level + 1);
             if (sq.piece.level > oldLevel) {
-                // Gaining a level clears Poison and Exhaustion, but NOT Frozen (must wait duration)
+                // Gaining a level clears Poison and Exhaustion
                 sq.piece.isPoisoned = false;
                 sq.piece.isExhausted = false;
                 sq.piece.cooldownTurnsRemaining = 0;
@@ -155,12 +155,10 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
     for (let c = 0; c < 8; c++) {
       const sq = newBoard[r][c];
 
-      // Phased Decay & Quantum Re-Entry
       if (sq.phasedTurnsRemaining > 0) {
         sq.phasedTurnsRemaining--;
         if (sq.phasedTurnsRemaining === 0 && sq.phasedPiece) {
            if (sq.piece) {
-             // Quantum Collision
              poisonedCaptures.push({ ...sq.piece });
              poisonedCaptures.push({ ...sq.phasedPiece });
              sq.piece = null;
@@ -174,22 +172,20 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 
       const p = sq.piece;
       if (p && p.color === currentPlayer) {
-        // 1. Poison Processing
+        // Filter Mask immunity
         if (p.isPoisoned && p.heldItem !== 'filter_mask') {
           const currentL = p.level || 1;
           if (currentL > 1) {
             p.level = currentL - 1;
           } else {
-            p.isExhausted = true; // Level 1 + Poison = permanent Exhaustion state
+            p.isExhausted = true;
           }
         }
         
-        // 2. Cooldown Decay (Decrements at start of player's turn phase)
         if (p.cooldownTurnsRemaining && p.cooldownTurnsRemaining > 0) {
           p.cooldownTurnsRemaining--;
         }
 
-        // 3. Frozen Decay (Decrements at start of player's turn phase)
         if (p.frozenTurnsRemaining && p.frozenTurnsRemaining > 0) {
           p.frozenTurnsRemaining--;
         }
@@ -229,10 +225,6 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                 board[currentR][currentC].piece = null;
                 currentR = nr;
                 currentC = nc;
-            } else if (targetSq.item?.type === 'anvil') {
-                break;
-            } else if (targetSq.piece) {
-                break;
             } else {
                 break;
             }
@@ -268,7 +260,7 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
             if (isValidSquare(nr, nc)) {
                 const victim = board[nr][nc].piece;
                 if (victim && victim.color === oppColor) {
-                    victim.cooldownTurnsRemaining = 2; // Set to 2 to survive start-of-turn decay
+                    victim.cooldownTurnsRemaining = 2;
                 }
             }
         }

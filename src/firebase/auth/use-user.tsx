@@ -33,18 +33,8 @@ interface UserData {
   goldBalance: number;
   marketSlots?: MarketListing[];
   lastActive?: string;
-  goldResetV1?: boolean;
-  hanzFixV1?: boolean;
   processedTransactions?: string[];
   lootSyncV2?: boolean;
-  oilSyncV1?: boolean;
-  gamblerSyncV1?: boolean;
-  revengeSyncV1?: boolean;
-  sweetRevengeFixV1?: boolean;
-  chameleonSyncV1?: boolean;
-  chameleonSyncV2?: boolean;
-  phaseOutSyncV1?: boolean;
-  raySyncV1?: boolean;
   statusSyncV1?: boolean;
 }
 
@@ -60,13 +50,13 @@ export function useUser() {
   const [user, setUser] = useState<User | null>(null);
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
+  const [userError, setUserError] = useState<Error | null>(null);
   const hasInitialized = useRef<string | null>(null);
 
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
 
     const unsubscribeAuth = onAuthStateChanged(auth, (firebaseUser) => {
-      // Clean up existing profile listener if switching users
       if (unsubProfile) {
         unsubProfile();
         unsubProfile = undefined;
@@ -87,6 +77,7 @@ export function useUser() {
           setIsUserLoading(false);
         }, (error) => {
           console.warn("User profile listener error:", error);
+          setUserError(error);
           setIsUserLoading(false);
         });
 
@@ -108,7 +99,6 @@ export function useUser() {
     if (!user || isUserLoading) return;
     if (hasInitialized.current === user.uid) return;
 
-    // Prevent multiple parallel initialization runs
     hasInitialized.current = user.uid;
 
     const db = getFirestore();
@@ -126,7 +116,7 @@ export function useUser() {
             id: user.uid,
             username: user.displayName || `Player-${user.uid.slice(0,5)}`,
             email: user.email || 'anonymous',
-            eloRating: user.displayName === 'SUGGA' ? 2100 : 1200,
+            eloRating: 1200,
             wins: 0,
             losses: 0,
             inventory: ITEM_TYPES.map(type => ({ type, count: 5 })),
@@ -137,14 +127,6 @@ export function useUser() {
             marketSlots: [],
             processedTransactions: [],
             lootSyncV2: true,
-            oilSyncV1: true,
-            gamblerSyncV1: true,
-            revengeSyncV1: true,
-            sweetRevengeFixV1: true,
-            chameleonSyncV1: true,
-            chameleonSyncV2: true,
-            phaseOutSyncV1: true,
-            raySyncV1: true,
             statusSyncV1: true
           };
         } else {
@@ -154,7 +136,6 @@ export function useUser() {
         let needsUpdate = false;
         const updates: any = {};
 
-        // Inventory Integrity Check
         const currentInv = currentData.inventory || [];
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
         let inventoryNeedsSync = false;
@@ -168,7 +149,7 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Status Items
+        // Forced sync for Status Items Playtesting
         if (!currentData.statusSyncV1) {
             const forceAdd: InventoryItemType[] = ['coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone'];
             forceAdd.forEach(t => {
@@ -199,12 +180,12 @@ export function useUser() {
         }
       } catch (e) {
         console.warn("User initialization cycle error:", e);
-        hasInitialized.current = null; // Allow retry on failure
+        hasInitialized.current = null;
       }
     };
 
     ensureInitialized();
   }, [user, isUserLoading]);
 
-  return { user, userData, isUserLoading };
+  return { user, userData, isUserLoading, userError };
 }
