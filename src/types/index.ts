@@ -89,7 +89,9 @@ export type InventoryItemType =
   | 'filter_mask'
   | 'thermal_socks'
   | 'spiked_buckler'
-  | 'whetstone';
+  | 'whetstone'
+  | 'grip_gloves'
+  | 'clover';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -189,6 +191,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'thermal_socks': { name: 'Thermal Socks', description: 'Common Passive. Equipped unit cannot be Frozen.', isConsumable: false, rarity: 'common' },
   'spiked_buckler': { name: 'Spiked Buckler', description: 'Common Passive. If wearer is Pushed Back, the attacker becomes Poisoned.', isConsumable: false, rarity: 'common' },
   'whetstone': { name: 'Whetstone', description: 'Common Passive. Frontline only. +1 Level when capturing a Level 1 enemy unit.', isConsumable: false, rarity: 'common' },
+  'grip_gloves': { name: 'Grip Gloves', description: 'Common Passive. Frontline only. Allows pushing Anvils at any level (Normally Level 4).', isConsumable: false, rarity: 'common' },
+  'clover': { name: 'Clover', description: 'Common Passive. Increases item drop rate in Boss Battles by 2%.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {

@@ -887,11 +887,16 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       newBoard[rr][rc].piece = res; phoenixResurrection = { piece: res, square: sq }; captured = null;
     }
   }
+
   const effectiveLevelAfterMove = getEffectiveLevel(newBoard, toRow, toCol);
-  if ((FRONTLINE_TYPES.includes(pieceToLand.type) || effectiveHeldItem === 'wind_cloak') && effectiveLevelAfterMove >= 4) {
-    const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
+  const isFrontline = FRONTLINE_TYPES.includes(pieceToLand.type);
+  const hasGripGloves = effectiveHeldItem === 'grip_gloves' && isFrontline;
+  if ((isFrontline || effectiveHeldItem === 'wind_cloak') && (effectiveLevelAfterMove >= 4 || hasGripGloves)) {
+    const onlyAnvils = hasGripGloves && effectiveLevelAfterMove < 4;
+    const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color, onlyAnvils);
     if (crush) pieceCapturedByAnvil = crush;
   }
+
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
 

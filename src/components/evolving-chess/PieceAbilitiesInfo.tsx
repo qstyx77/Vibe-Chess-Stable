@@ -116,6 +116,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'thermal_socks') abilities.push("warmth: piece cannot be Frozen.");
   if (heldItem === 'spiked_buckler') abilities.push("spiked: Pushing this unit poisons the attacker.");
   if (heldItem === 'whetstone') abilities.push("sharpened: +1 extra level gain on L1 captures.");
+  if (heldItem === 'grip_gloves') abilities.push("grip: can push Anvils at any level.");
+  if (heldItem === 'clover') abilities.push("luck: +2% boss battle item drop rate.");
 
   switch (type) {
     case 'pawn':

@@ -2,13 +2,16 @@ import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent }
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords } from './utils';
 import { FRONTLINE_TYPES } from './constants';
 
-export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor): Piece | null {
+export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, onlyAnvils: boolean = false): Piece | null {
   let crushed: Piece | null = null;
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     if(dr===0 && dc===0) continue;
     const nr = r+dr; const nc = c+dc;
     if(isValidSquare(nr, nc)) {
       const victim = board[nr][nc];
+      
+      if (onlyAnvils && victim.item?.type !== 'anvil') continue;
+
       if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
         if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots') continue;
         
