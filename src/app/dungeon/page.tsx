@@ -854,7 +854,7 @@ export default function DungeonPage() {
         if (nextNo >= 3) { addLog("FLOOR COLLAPSE! THE DUNGEON TREMBLES!"); audioManager.playExplosion(); const sur = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(sur, capturedPieces); }
         setIsAiThinking(false);
     }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, aiNoMoveCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, aiNoMoveCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel]);
 
   useEffect(() => { if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) { const t = setTimeout(performAiMove, 1000); return () => currentPlayer === 'black' && clearTimeout(t); } }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, performAiMove]);
 
@@ -863,7 +863,7 @@ export default function DungeonPage() {
     isAwaitingArcherSnipe || isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || 
     isSelectingMycoSpell || isAwaitingGrappleThrow || isAwaitingDanceTarget || 
     isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || 
-    isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || 
+    isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
   [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen]);
@@ -875,7 +875,7 @@ export default function DungeonPage() {
     if (isAwaitingAnvilScrollTarget) return "PLACE AN ANVIL!";
     if (isAwaitingWindScrollTarget) return "SELECT WIND PUSH AREA!";
     if (isAwaitingEarthquakeScrollTarget) return "SELECT EARTHQUAKE AREA!";
-    if (isAwaitingOilSlickTarget) return "SELECT OIL SLICK AREA!";
+    if (isAwaitingOilSlickTarget) return "SELECT 3X3 AREA FOR OIL SLICK!";
     if (isAwaitingRayTarget) return "SELECT RAY DIRECTION!";
     if (gameInfo.message !== " ") return gameInfo.message; return "";
   }, [isAiThinking, gameInfo.message, isAwaitingPawnSacrifice, isPromotingPawn, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget]);

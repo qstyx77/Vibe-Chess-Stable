@@ -37,6 +37,7 @@ interface UserData {
   lootSyncV2?: boolean;
   statusSyncV1?: boolean;
   lootSyncV3?: boolean;
+  lootSyncV4?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -129,7 +130,8 @@ export function useUser() {
             processedTransactions: [],
             lootSyncV2: true,
             statusSyncV1: true,
-            lootSyncV3: true
+            lootSyncV3: true,
+            lootSyncV4: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -170,14 +172,14 @@ export function useUser() {
             needsUpdate = true;
         }
 
-        // Forced sync for Batch 3 Playtesting (Grip Gloves, Clover)
-        if (!currentData.lootSyncV3) {
+        // Forced sync for Batch 4 Playtesting (Grip Gloves, Clover)
+        if (!currentData.lootSyncV4) {
             const forceAdd: InventoryItemType[] = ['grip_gloves', 'clover'];
             forceAdd.forEach(t => {
-                const item = updatedInventory.find(i => i.type === t);
-                if (item) {
-                    if (item.count < 5) {
-                        item.count = 5;
+                const itemIdx = updatedInventory.findIndex(i => i.type === t);
+                if (itemIdx > -1) {
+                    if (updatedInventory[itemIdx].count < 5) {
+                        updatedInventory[itemIdx].count = 5;
                         inventoryNeedsSync = true;
                     }
                 } else {
@@ -185,7 +187,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV3 = true;
+            updates.lootSyncV4 = true;
             needsUpdate = true;
         }
 
