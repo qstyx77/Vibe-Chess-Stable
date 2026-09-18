@@ -234,11 +234,14 @@ export class VibeChessAI {
 
         const playerKing = this.findKingCoords(gs, aiColor);
         const opponentKing = this.findKingCoords(gs, opponentColor);
-        if (!playerKing) return -1000000;
-        if (!opponentKing) return 1000000;
+        
+        // Terminal states are now part of the sum, allowing the AI to 
+        // fight for material even in "doomed" or "kingless" positions.
+        if (!playerKing) score -= 1000000;
+        if (!opponentKing) score += 1000000;
 
-        score += (currentStreak * 15);
-        score -= (opponentStreak * 15);
+        score += (currentStreak * 25);
+        score -= (opponentStreak * 25);
 
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
@@ -247,19 +250,37 @@ export class VibeChessAI {
                 const mult = piece.color === aiColor ? 1 : -1;
                 const levelIdx = Math.min(piece.level || 1, 10) - 1;
                 const values = this.pieceValues[piece.type];
+                
                 if (values) {
                     const baseValue = (values[levelIdx] || values[0]);
                     score += baseValue * mult;
                 } else {
                     score += 100 * mult;
                 }
-                if (piece.type === 'infiltrator') {
-                    const targetRank = piece.color === 'white' ? 0 : 7;
-                    const distance = Math.abs(r - targetRank);
-                    score += (7 - distance) * 50 * mult;
-                }
-                if (piece.color === aiColor && piece.type !== 'king') {
-                    if (this.centerSquares.has(`${r}${c}`)) score += 20;
+
+                // Positional bonuses
+                if (piece.color === aiColor) {
+                    if (piece.type === 'infiltrator') {
+                        const targetRank = piece.color === 'white' ? 0 : 7;
+                        const distance = Math.abs(r - targetRank);
+                        score += (7 - distance) * 60; 
+                    }
+                    if (this.centerSquares.has(`${r}${c}`)) score += 30;
+                    
+                    // Specific Piece Type bonuses (favor advanced classes)
+                    if (['hero', 'archbishop', 'palace', 'archer'].includes(piece.type)) {
+                        score += 50;
+                    }
+                    if (['commander', 'myco_mage', 'dancer', 'mimic', 'grappler'].includes(piece.type)) {
+                        score += 30;
+                    }
+                } else {
+                    if (piece.type === 'infiltrator') {
+                        const targetRank = piece.color === 'white' ? 0 : 7;
+                        const distance = Math.abs(r - targetRank);
+                        score -= (7 - distance) * 60;
+                    }
+                    if (this.centerSquares.has(`${r}${c}`)) score -= 30;
                 }
             }
         }
@@ -639,12 +660,22 @@ export class VibeChessAI {
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
-        if (color === 'black') {
-            for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) 
-                if (gs.board[r][c].piece?.id === 'boss-colossus-tl') return { row: r, col: c };
+        // Look for standard king first
+        for (let r = 0; r < 8; r++) {
+            for (let c = 0; c < 8; c++) {
+                const p = gs.board[r][c].piece;
+                if (p && p.color === color && p.type === 'king') return { row: r, col: c };
+            }
         }
-        for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) 
-            if (gs.board[r][c].piece?.type === 'king' && gs.board[r][c].piece?.color === color) return { row: r, col: c };
+        // Then look for boss anchors in Dungeon context
+        if (color === 'black') {
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const p = gs.board[r][c].piece;
+                    if (p && p.id?.startsWith('boss-')) return { row: r, col: c };
+                }
+            }
+        }
         return null;
     }
     
