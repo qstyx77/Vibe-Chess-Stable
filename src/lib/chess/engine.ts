@@ -294,7 +294,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           const nc = fromCol + i * dc;
           if (!isValidSquare(nr, nc)) break;
           const tSq = newBoard[nr][nc];
-          if (tSq.piece) tSq.piece.frozenTurnsRemaining = 2;
+          if (tSq.piece && tSq.piece.heldItem !== 'thermal_socks') tSq.piece.frozenTurnsRemaining = 2;
       }
       movingPiece.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
@@ -518,7 +518,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         const nr=fromRow+dr; const nc=fromCol+dc;
         if(isValidSquare(nr,nc)) {
           const victim = newBoard[nr][nc].piece;
-          if(victim && victim.color === oppColor) { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
+          if(victim && victim.color === oppColor && victim.heldItem !== 'thermal_socks') { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
@@ -602,7 +602,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         const nr=fromRow+dr; const nc=fromCol+dc;
         if(isValidSquare(nr,nc)) {
           const victim = newBoard[nr][nc].piece;
-          if(victim && victim.color === oppColor) { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
+          if(victim && victim.color === oppColor && victim.heldItem !== 'thermal_socks') { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
@@ -788,7 +788,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         pieceToLand.type = captured.type;
         pieceToLand.id = `${pieceToLand.id}_morph_${Date.now()}`;
     }
-    if (captured.heldItem === 'ice_tunic') { pieceToLand.frozenTurnsRemaining = 2; pieceToLand.cooldownTurnsRemaining = 2; }
+    if (captured.heldItem === 'ice_tunic' && pieceToLand.heldItem !== 'thermal_socks') { pieceToLand.frozenTurnsRemaining = 2; pieceToLand.cooldownTurnsRemaining = 2; }
     if (captured.heldItem === 'trap_net') { triggerExhaustion(newBoard, toRow, toCol, pieceToLand.color); }
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceToLand.type) && captured.type === 'commander') pieceToLand.type = 'commander';
     let g = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
@@ -815,6 +815,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (effectiveHeldItem === 'gnosis') g += 1;
     if (effectiveHeldItem === 'golden_chalice') g += 1;
     if (effectiveHeldItem === 'sweet_revenge' && didOpponentCaptureLastTurn) g += 1;
+    if (effectiveHeldItem === 'whetstone' && captured.level === 1) g += 1;
     if (effectiveHeldItem === 'gamblers_coin') { if (Math.random() < 0.5) g *= 2; else g = 0; }
 
     const oldL = pieceToLand.level || 1;
@@ -824,14 +825,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     if (originalPieceType === 'hero') { ralliedSquares = applyRally(newBoard, pieceToLand.color, 'all', move.to); rallyCryTriggered = { square: move.to, color: pieceToLand.color }; }
     if (pieceToLand.type === 'king') applyKingDominion(newBoard, pieceToLand.color, g);
     if (effectiveHeldItem === 'poison_sword') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
-    if (captured.heldItem === 'poison_tunic') pieceToLand.isPoisoned = true;
+    if (captured.heldItem === 'poison_tunic' && pieceToLand.heldItem !== 'filter_mask') pieceToLand.isPoisoned = true;
     if (effectiveHeldItem === 'ice_sword') {
         const oppColor = pieceToLand.color === 'white' ? 'black' : 'white';
         [[0,1], [0,-1], [1,0], [-1,0]].forEach(([dr, dc]) => {
             const nr = toRow + dr, nc = toCol + dc;
             if (isValidSquare(nr, nc)) {
                 const victim = newBoard[nr][nc].piece;
-                if (victim && victim.color === oppColor) { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
+                if (victim && victim.color === oppColor && victim.heldItem !== 'thermal_socks') { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
             }
         });
     }
@@ -862,7 +863,15 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (didLevelUp) { pieceToLand.isPoisoned = false; pieceToLand.isExhausted = false; pieceToLand.cooldownTurnsRemaining = 0; }
-  if (pieceToLand.isExhausted) { pieceToLand.cooldownTurnsRemaining = 2; }
+  if (pieceToLand.isExhausted) { 
+      if (pieceToLand.heldItem === 'coffee_bean') {
+          pieceToLand.isExhausted = false;
+          pieceToLand.cooldownTurnsRemaining = 0;
+          pieceToLand.heldItem = null;
+      } else {
+          pieceToLand.cooldownTurnsRemaining = 2; 
+      }
+  }
   if (effectiveHeldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;

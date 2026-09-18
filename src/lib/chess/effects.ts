@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent } from '@/types';
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords } from './utils';
 import { FRONTLINE_TYPES } from './constants';
@@ -12,6 +11,15 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       const victim = board[nr][nc];
       if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
         if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots') continue;
+        
+        // Spiked Buckler logic
+        if (victim.piece?.heldItem === 'spiked_buckler') {
+            const attacker = board[r][c].piece;
+            if (attacker && attacker.heldItem !== 'filter_mask') {
+                attacker.isPoisoned = true;
+            }
+        }
+
         const tr = nr+dr; const dc_dest = nc+dc;
         if(!isValidSquare(tr, dc_dest)) { if(victim.item) board[nr][nc].item = null; }
         else {
@@ -80,7 +88,7 @@ export function triggerPoisonSplash(board: BoardState, r: number, c: number, att
         const nr = r+dr; const nc = c+dc;
         if(isValidSquare(nr, nc)) {
             const victim = board[nr][nc].piece;
-            if(victim && victim.color !== attackerColor) victim.isPoisoned = true;
+            if(victim && victim.color !== attackerColor && victim.heldItem !== 'filter_mask') victim.isPoisoned = true;
         }
     }
 }
@@ -167,7 +175,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
       const p = sq.piece;
       if (p && p.color === currentPlayer) {
         // 1. Poison Processing
-        if (p.isPoisoned) {
+        if (p.isPoisoned && p.heldItem !== 'filter_mask') {
           const currentL = p.level || 1;
           if (currentL > 1) {
             p.level = currentL - 1;

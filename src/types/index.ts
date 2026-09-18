@@ -84,7 +84,12 @@ export type InventoryItemType =
   | 'phase_out'
   | 'ice_breaker'
   | 'glacial_ray'
-  | 'burning_ray';
+  | 'burning_ray'
+  | 'coffee_bean'
+  | 'filter_mask'
+  | 'thermal_socks'
+  | 'spiked_buckler'
+  | 'whetstone';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -179,6 +184,11 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'ice_breaker': { name: 'Ice Breaker', description: 'Passive. Allows unit to capture Frozen units. Frozen units captured by Ice Breaker shatter and are obliterated.', isConsumable: false, rarity: 'common' },
   'glacial_ray': { name: 'Glacial Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units in line become Frozen.', isConsumable: true, rarity: 'rare' },
   'burning_ray': { name: 'Burning Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units and objects in line are destroyed.', isConsumable: true, rarity: 'rare' },
+  'coffee_bean': { name: 'Coffee Bean', description: 'Common Consumable. Automatically heals Exhaustion the moment it is applied.', isConsumable: true, rarity: 'common' },
+  'filter_mask': { name: 'Filter Mask', description: 'Common Passive. Equipped unit is completely immune to Poison.', isConsumable: false, rarity: 'common' },
+  'thermal_socks': { name: 'Thermal Socks', description: 'Common Passive. Equipped unit cannot be Frozen.', isConsumable: false, rarity: 'common' },
+  'spiked_buckler': { name: 'Spiked Buckler', description: 'Common Passive. If wearer is Pushed Back, the attacker becomes Poisoned.', isConsumable: false, rarity: 'common' },
+  'whetstone': { name: 'Whetstone', description: 'Common Passive. Frontline only. +1 Level when capturing a Level 1 enemy unit.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {

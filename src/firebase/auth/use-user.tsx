@@ -45,6 +45,7 @@ interface UserData {
   chameleonSyncV2?: boolean;
   phaseOutSyncV1?: boolean;
   raySyncV1?: boolean;
+  statusSyncV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -143,7 +144,8 @@ export function useUser() {
             chameleonSyncV1: true,
             chameleonSyncV2: true,
             phaseOutSyncV1: true,
-            raySyncV1: true
+            raySyncV1: true,
+            statusSyncV1: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -166,9 +168,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Rays and Ice Breaker
-        if (!currentData.raySyncV1) {
-            const forceAdd: InventoryItemType[] = ['ice_breaker', 'glacial_ray', 'burning_ray'];
+        // Forced sync for Status Items
+        if (!currentData.statusSyncV1) {
+            const forceAdd: InventoryItemType[] = ['coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone'];
             forceAdd.forEach(t => {
                 const item = updatedInventory.find(i => i.type === t);
                 if (item) {
@@ -181,7 +183,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.raySyncV1 = true;
+            updates.statusSyncV1 = true;
             needsUpdate = true;
         }
 

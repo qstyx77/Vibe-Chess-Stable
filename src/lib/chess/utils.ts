@@ -78,13 +78,13 @@ export function getPromotionLevel(capturedPieceType: PieceType | null): number {
 
 export function isItemValidForPiece(item: InventoryItemType, type: PieceType): boolean {
   if (item.startsWith('portal_scroll_')) return false;
-  if (item === 'great_sword' || item === 'swift_cloak' || item === 'spore_pouch') return FRONTLINE_TYPES.includes(type);
+  if (item === 'great_sword' || item === 'swift_cloak' || item === 'spore_pouch' || item === 'whetstone') return FRONTLINE_TYPES.includes(type);
   if (item === 'queens_peace' || item === 'kings_ransom') return (type === 'queen' || type === 'king');
   if (item === 'kings_conquest') return (type === 'king');
   if (item === 'power_glove') return type === 'grappler';
   if (item === 'chameleon_cloak') return type !== 'king';
   if (item === 'phase_out') return type !== 'king';
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge', 'filter_mask', 'thermal_socks', 'spiked_buckler'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum' || item === 'dancers_ribbon') return type === 'dancer';
@@ -96,7 +96,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'kings_decree') return (type === 'king');
   if (item === 'monks_robe') return (type === 'bishop' || type === 'archbishop');
   if (item === 'mimic_blade' || item === 'mirror_mask') return type === 'mimic';
-  if (item === 'trap_net' || item === 'oil_slick') return true;
+  if (item === 'trap_net' || item === 'oil_slick' || item === 'coffee_bean') return true;
   return true;
 }
 

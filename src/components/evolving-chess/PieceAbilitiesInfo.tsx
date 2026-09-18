@@ -111,6 +111,11 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'ice_breaker') abilities.push("shatter: unit can capture and destroy Frozen entities.");
   if (heldItem === 'glacial_ray') abilities.push("spell: targets a line for total flash-freeze.");
   if (heldItem === 'burning_ray') abilities.push("spell: targets a line for total destruction.");
+  if (heldItem === 'coffee_bean') abilities.push("pick-me-up: automatically clears Exhaustion on application.");
+  if (heldItem === 'filter_mask') abilities.push("safety: piece is completely immune to Poison.");
+  if (heldItem === 'thermal_socks') abilities.push("warmth: piece cannot be Frozen.");
+  if (heldItem === 'spiked_buckler') abilities.push("spiked: Pushing this unit poisons the attacker.");
+  if (heldItem === 'whetstone') abilities.push("sharpened: +1 extra level gain on L1 captures.");
 
   switch (type) {
     case 'pawn':
