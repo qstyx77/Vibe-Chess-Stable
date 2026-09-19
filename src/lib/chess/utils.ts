@@ -84,7 +84,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'power_glove') return type === 'grappler';
   if (item === 'chameleon_cloak') return type !== 'king';
   if (item === 'phase_out') return type !== 'king';
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'clover', 'antifreeze', 'frayed_rope', 'weighted_helm', 'crowbar', 'signal_horn', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'clover', 'antifreeze', 'frayed_rope', 'weighted_helm', 'crowbar', 'signal_horn', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard', 'defiant_spark'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum' || item === 'dancers_ribbon') return type === 'dancer';

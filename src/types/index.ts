@@ -101,7 +101,8 @@ export type InventoryItemType =
   | 'relay_ribbon'
   | 'spiked_plate'
   | 'traction_cleats'
-  | 'glass_shard';
+  | 'glass_shard'
+  | 'defiant_spark';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -213,6 +214,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'spiked_plate': { name: 'Spiked Plate', description: 'Common Passive. Any enemy unit that captures the wearer becomes Poisoned immediately.', isConsumable: false, rarity: 'common' },
   'traction_cleats': { name: 'Traction Cleats', description: 'Common Passive. The wearer is completely immune to the sliding effect of Oil Slicks.', isConsumable: false, rarity: 'common' },
   'glass_shard': { name: 'Glass Shard', description: 'Common Consumable. Automatically consumed when the wearer is captured to make the capturer Exhausted for 1 turn.', isConsumable: true, rarity: 'common' },
+  'defiant_spark': { name: 'Defiant Spark', description: 'Common Consumable. If an adjacent ally is captured, this item is consumed to grant the wearer a Holy Shield.', isConsumable: true, rarity: 'common' },
 };
 
 export interface InventoryItem {

@@ -125,6 +125,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'spiked_plate') abilities.push("thorns: poisons enemy capturer.");
   if (heldItem === 'traction_cleats') abilities.push("grip: immune to Oil Slick sliding.");
   if (heldItem === 'glass_shard') abilities.push("trap: exhausts enemy capturer (one-time).");
+  if (heldItem === 'defiant_spark') abilities.push("defiance: if adjacent ally is taken, wearer gains Holy Shield.");
 
   switch (type) {
     case 'pawn':

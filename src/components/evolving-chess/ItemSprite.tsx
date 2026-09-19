@@ -189,6 +189,15 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4" y="3" width="1" height="1" fill="#FFF" fillOpacity="0.8" />
           </svg>
         );
+      case 'defiant_spark':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="2" width="2" height="8" fill="#F97316" />
+            <rect x="2" y="4" width="6" height="4" fill="#FB923C" />
+            <rect x="4" y="4" width="2" height="4" fill="#FEF3C7" />
+            <rect x="4.5" y="3" width="1" height="1" fill="#FFF" />
+          </svg>
+        );
       case 'phase_out':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
