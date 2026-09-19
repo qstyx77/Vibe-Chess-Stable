@@ -98,7 +98,10 @@ export type InventoryItemType =
   | 'crowbar'
   | 'signal_horn'
   | 'kinetic_coil'
-  | 'relay_ribbon';
+  | 'relay_ribbon'
+  | 'spiked_plate'
+  | 'traction_cleats'
+  | 'glass_shard';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -207,7 +210,22 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'signal_horn': { name: 'Signal Horn', description: 'Common Passive. When captured, a random allied unit of the same type gains +1 Level.', isConsumable: false, rarity: 'common' },
   'kinetic_coil': { name: 'Kinetic Coil', description: 'Common Passive. Gaining power from displacement. Gain +1 Level whenever Pushed or Pulled.', isConsumable: false, rarity: 'common' },
   'relay_ribbon': { name: 'Relay Ribbon', description: 'Common Passive. Gaining power from coordination. Gain +1 Level whenever this unit is the target of an Allied Swap.', isConsumable: false, rarity: 'common' },
+  'spiked_plate': { name: 'Spiked Plate', description: 'Common Passive. Any enemy unit that captures the wearer becomes Poisoned immediately.', isConsumable: false, rarity: 'common' },
+  'traction_cleats': { name: 'Traction Cleats', description: 'Common Passive. The wearer is completely immune to the sliding effect of Oil Slicks.', isConsumable: false, rarity: 'common' },
+  'glass_shard': { name: 'Glass Shard', description: 'Common Consumable. Automatically consumed when the wearer is captured to make the capturer Exhausted for 1 turn.', isConsumable: true, rarity: 'common' },
 };
+
+export interface InventoryItem {
+  type: InventoryItemType;
+  count: number;
+}
+
+export interface ItemMetadata {
+  name: string;
+  description: string;
+  isConsumable: boolean;
+  rarity: Rarity;
+}
 
 export interface Piece {
   id: string;

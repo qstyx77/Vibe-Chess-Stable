@@ -253,6 +253,8 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
         const movingObjItem = board[currentR][currentC].item;
 
         if (movingObjPiece) {
+            if (movingObjPiece.heldItem === 'traction_cleats') break;
+
             if (!targetSq.piece && (!targetSq.item || targetSq.item.type === 'shroom')) {
                 board[nr][nc].piece = { ...movingObjPiece };
                 board[currentR][currentC].piece = null;

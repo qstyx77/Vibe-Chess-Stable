@@ -122,6 +122,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'frayed_rope') abilities.push("reactive: pushing/pulling wearer exhausts attacker.");
   if (heldItem === 'kinetic_coil') abilities.push("kinetic: +1 Level gain whenever Pushed or Pulled.");
   if (heldItem === 'relay_ribbon') abilities.push("relay: +1 Level gain whenever target of Allied Swap.");
+  if (heldItem === 'spiked_plate') abilities.push("thorns: poisons enemy capturer.");
+  if (heldItem === 'traction_cleats') abilities.push("grip: immune to Oil Slick sliding.");
+  if (heldItem === 'glass_shard') abilities.push("trap: exhausts enemy capturer (one-time).");
 
   switch (type) {
     case 'pawn':

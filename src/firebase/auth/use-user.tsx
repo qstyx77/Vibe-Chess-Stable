@@ -44,6 +44,7 @@ interface UserData {
   lootSyncV8?: boolean;
   lootSyncV9?: boolean;
   lootSyncV10?: boolean;
+  lootSyncV11?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -143,7 +144,8 @@ export function useUser() {
             lootSyncV7: true,
             lootSyncV8: true,
             lootSyncV9: true,
-            lootSyncV10: true
+            lootSyncV10: true,
+            lootSyncV11: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -165,9 +167,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 10 Playtesting (Kinetic Coil, Relay Ribbon Re-Sync)
-        if (!currentData.lootSyncV10) {
-            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover', 'kinetic_coil', 'relay_ribbon'];
+        // Forced sync for Batch 11 Playtesting (Spiked Plate, Traction Cleats, Glass Shard)
+        if (!currentData.lootSyncV11) {
+            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
                 if (itemIdx > -1) {
@@ -180,7 +182,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV10 = true;
+            updates.lootSyncV11 = true;
             needsUpdate = true;
         }
 

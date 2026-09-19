@@ -156,6 +156,39 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="1" y="5" width="1" height="2" fill="#B45309" />
           </svg>
         );
+      case 'spiked_plate':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="3" width="6" height="7" fill="#94A3B8" />
+            <rect x="1" y="4" width="1" height="1" fill="#EF4444" />
+            <rect x="1" y="6" width="1" height="1" fill="#EF4444" />
+            <rect x="1" y="8" width="1" height="1" fill="#EF4444" />
+            <rect x="8" y="4" width="1" height="1" fill="#EF4444" />
+            <rect x="8" y="6" width="1" height="1" fill="#EF4444" />
+            <rect x="8" y="8" width="1" height="1" fill="#EF4444" />
+            <rect x="3" y="4" width="4" height="5" fill="#CBD5E1" opacity="0.4" />
+          </svg>
+        );
+      case 'traction_cleats':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="6" width="3" height="4" fill="#78350F" />
+            <rect x="6" y="6" width="3" height="4" fill="#78350F" />
+            <rect x="1" y="10" width="3" height="1" fill="#EAB308" />
+            <rect x="6" y="10" width="3" height="1" fill="#EAB308" />
+            <rect x="2" y="7" width="1" height="1" fill="#92400E" />
+            <rect x="7" y="7" width="1" height="1" fill="#92400E" />
+          </svg>
+        );
+      case 'glass_shard':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="2" width="2" height="8" fill="#BAE6FD" fillOpacity="0.8" />
+            <rect x="3" y="4" width="4" height="4" fill="#BAE6FD" fillOpacity="0.6" />
+            <rect x="2" y="6" width="6" height="2" fill="#BAE6FD" fillOpacity="0.4" />
+            <rect x="4" y="3" width="1" height="1" fill="#FFF" fillOpacity="0.8" />
+          </svg>
+        );
       case 'phase_out':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">

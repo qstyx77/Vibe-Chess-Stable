@@ -824,6 +824,17 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (captured) {
+    // Spiked Plate logic
+    if (captured.heldItem === 'spiked_plate' && pieceToLand.heldItem !== 'filter_mask') {
+        pieceToLand.isPoisoned = true;
+    }
+
+    // Glass Shard logic
+    if (captured.heldItem === 'glass_shard') {
+        pieceToLand.isExhausted = true;
+        pieceToLand.cooldownTurnsRemaining = 2;
+    }
+
     // Signal Horn logic
     if (captured.heldItem === 'signal_horn') {
         const alliesSameType = newBoard.flat()
