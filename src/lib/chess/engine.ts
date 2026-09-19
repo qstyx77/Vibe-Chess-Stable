@@ -260,6 +260,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
+  // Crowbar check
+  if (targetItem?.type === 'anvil' && movingPiece.heldItem === 'crowbar') {
+      newBoard[toRow][toCol].item = null;
+      movingPiece.heldItem = null;
+  }
+
   if (move.type === 'burning-ray') {
       let totalGain = 0;
       const dr = Math.sign(toRow - fromRow);
@@ -592,7 +598,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           if(isValidSquare(nr,nc)) {
               const victim = newBoard[nr][nc].piece;
               if (victim && victim.color !== converterColor && victim.type !== 'king') {
-                  const hasChalk = victim.heldItem === 'antifreeze'; // (Hypothetically block conversion? User didn't ask for Chalk yet, ignoring for Antifreeze/FrayedRope prompt)
                   if (Math.random() < 0.5) {
                     const orig = {...victim};
                     victim.color = converterColor;
@@ -800,6 +805,22 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (captured) {
+    // Signal Horn logic
+    if (captured.heldItem === 'signal_horn') {
+        const alliesSameType = newBoard.flat()
+            .filter(sq => sq.piece && sq.piece.color === captured!.color && sq.piece.type === captured!.type)
+            .map(sq => sq.piece!);
+        if (alliesSameType.length > 0) {
+            const recruit = alliesSameType[Math.floor(Math.random() * alliesSameType.length)];
+            if (recruit.type !== 'queen' || recruit.level < 7) {
+                recruit.level++;
+                recruit.isPoisoned = false;
+                recruit.isExhausted = false;
+                recruit.cooldownTurnsRemaining = 0;
+            }
+        }
+    }
+
     const isShatter = pieceToLand.heldItem === 'ice_breaker' && (captured.frozenTurnsRemaining || 0) > 0;
     if (effectiveHeldItem === 'chameleon_cloak' && pieceToLand.type !== 'king') {
         pieceToLand.type = captured.type;

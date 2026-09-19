@@ -40,6 +40,7 @@ interface UserData {
   lootSyncV4?: boolean;
   lootSyncV5?: boolean;
   lootSyncV6?: boolean;
+  lootSyncV7?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -135,7 +136,8 @@ export function useUser() {
             lootSyncV3: true,
             lootSyncV4: true,
             lootSyncV5: true,
-            lootSyncV6: true
+            lootSyncV6: true,
+            lootSyncV7: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -157,9 +159,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 6 Playtesting (Explicitly Antifreeze, Frayed Rope)
-        if (!currentData.lootSyncV6) {
-            const forceAdd: InventoryItemType[] = ['antifreeze', 'frayed_rope'];
+        // Forced sync for Batch 7 Playtesting (Weighted Helm, Crowbar, Signal Horn)
+        if (!currentData.lootSyncV7) {
+            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
                 if (itemIdx > -1) {
@@ -172,7 +174,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV6 = true;
+            updates.lootSyncV7 = true;
             needsUpdate = true;
         }
 

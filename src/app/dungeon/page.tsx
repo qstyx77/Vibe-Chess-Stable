@@ -538,6 +538,7 @@ export default function DungeonPage() {
     }
     const pieces = bCh.flat().filter(sq => sq.piece && sq.piece.color === actP).map(sq => sq.piece!);
     const snipers = pieces.filter(p => { 
+        if (p.heldItem === 'weighted_helm') return false;
         if (p.type === 'archer') return true; if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true;
         const coords = bCh.flat().find(sq => sq.piece?.id === p.id); 
         if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && coords && getEffectiveLevel(bCh, coords.rowIndex, coords.colIndex) >= 3) return true; 
@@ -547,7 +548,7 @@ export default function DungeonPage() {
     const hasCB = pieces.some(p => (p.type === 'archer' || (p.type === 'mimic' && lastMovedPieceType === 'archer')) && p.color === actP && p.heldItem === 'crossbow');
     if (!sil && ((newS >= 5 && oldS < 5 && snipers.length > 0) || (newS >= 3 && oldS < 3 && hasCB)) && !compM.includes('snipe')) {
         const oppC = actP === 'white' ? 'black' : 'white';
-        const vics = bCh.flat().filter(sq => sq.piece && sq.piece.color === oppC && sq.piece.level <= maxSL && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        const vics = bCh.flat().filter(sq => sq.piece && sq.piece.color === oppC && sq.piece.level <= maxSL && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && sq.piece.heldItem !== 'weighted_helm');
         if (vics.length > 0) {
             if (isAI) {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
@@ -671,9 +672,16 @@ export default function DungeonPage() {
     }
     if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
     if (isAwaitingHolyShield && piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.isShielded = true; setBoard(nxtB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'shield'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
-    if (isAwaitingArcherSnipe && piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen') {
+    if (isAwaitingArcherSnipe && piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen' && piece.heldItem !== 'weighted_helm') {
         const ps = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
-        const snips = ps.filter(p => { if (p.type === 'archer') return true; if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; const crds = board.flat().find(sq => sq.piece?.id === p.id); if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; return false; });
+        const snips = ps.filter(p => { 
+            if (p.heldItem === 'weighted_helm') return false;
+            if (p.type === 'archer') return true; 
+            if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; 
+            const crds = board.flat().find(sq => sq.piece?.id === p.id); 
+            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
+            return false; 
+        });
         if (snips.find(a => a.level >= piece.level)) {
             let nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); const sniped = { ...nxtB[row][col].piece! }; nxtB[row][col].piece = null; 
             if (sniped.id?.startsWith('boss-hydra')) {
@@ -691,7 +699,7 @@ export default function DungeonPage() {
             const nG = { white: Array.isArray(specialActionContext.currentGraveyard.white) ? [...specialActionContext.currentGraveyard.white] : [], black: Array.isArray(specialActionContext.currentGraveyard.black) ? [...specialActionContext.currentGraveyard.black] : [] }; nG[sniped.color] = [...nG[sniped.color], sniped];
             addLog(`Hero sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
             setBoard(nxtB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); 
-            triggerSpecialsChain(nxtB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'snipe'], specialActionContext.capturingPieceId, false, lastMovedPieceType);
+            triggerSpecialsChain(nxtB, nG, specialActionContext.currentKs, specialActionContext.newStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'snipe'], specialActionContext.capturingPieceId, false, lastMovedPieceType);
         }
         return;
     }

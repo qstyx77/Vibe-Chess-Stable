@@ -93,7 +93,10 @@ export type InventoryItemType =
   | 'grip_gloves'
   | 'clover'
   | 'antifreeze'
-  | 'frayed_rope';
+  | 'frayed_rope'
+  | 'weighted_helm'
+  | 'crowbar'
+  | 'signal_horn';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -197,6 +200,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'clover': { name: 'Clover', description: 'Common Passive. Increases item drop rate in Boss Battles by 2%.', isConsumable: false, rarity: 'common' },
   'antifreeze': { name: 'Antifreeze', description: 'Common Consumable. Automatically clears Frozen status the moment it is applied.', isConsumable: true, rarity: 'common' },
   'frayed_rope': { name: 'Frayed Rope', description: 'Common Passive. Any enemy unit that Pushes or Pulls the wearer becomes Exhausted.', isConsumable: false, rarity: 'common' },
+  'weighted_helm': { name: 'Weighted Helm', description: 'Common Passive. Piece is completely immune to Archer Snipes.', isConsumable: false, rarity: 'common' },
+  'crowbar': { name: 'Crowbar', description: 'Common Consumable. Move onto an Anvil square to destroy it.', isConsumable: true, rarity: 'common' },
+  'signal_horn': { name: 'Signal Horn', description: 'Common Passive. When captured, a random allied unit of the same type gains +1 Level.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {

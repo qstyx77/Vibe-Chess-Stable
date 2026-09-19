@@ -647,6 +647,7 @@ export default function EvolvingChessPage() {
     }
     const pieces = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer).map(sq => sq.piece!);
     const snipers = pieces.filter(p => { 
+        if (p.heldItem === 'weighted_helm') return false; // Not a sniper
         if (p.type === 'archer') return true; 
         if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true;
         const coords = boardToChain.flat().find(sq => sq.piece?.id === p.id); 
@@ -658,7 +659,7 @@ export default function EvolvingChessPage() {
     const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow);
     if (!silenced && isSnipeTime && !completedMilestones.includes('snipe')) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen');
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && sq.piece.heldItem !== 'weighted_helm');
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
@@ -981,13 +982,14 @@ export default function EvolvingChessPage() {
   if (isAwaitingArcherSnipe) {
       const pArr = board.flat().filter(sq => sq.piece && sq.piece.color === currentPlayer).map(sq => sq.piece!);
       const snipers = pArr.filter(pt => { 
+        if (pt.heldItem === 'weighted_helm') return false;
         if (pt.type === 'archer') return true; 
         if (pt.type === 'mimic' && lastMovedPieceType === 'archer') return true;
         const coords = board.flat().find(sq => sq.piece?.id === pt.id); 
         if ((pt.type === 'knight' || (pt.type === 'mimic' && lastMovedPieceType === 'knight')) && pt.heldItem === 'shortbow' && coords && getEffectiveLevel(board, coords.rowIndex, coords.colIndex) >= 3) return true; 
         return false; 
       });
-      if (piece && piece.color !== currentPlayer && piece.type !== 'king' && piece.type !== 'queen') {
+      if (piece && piece.color !== currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.heldItem !== 'weighted_helm') {
           const resp = snipers.find(a => a.level >= piece.level);
           if (resp) {
               if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic })); setIsAwaitingArcherSnipe(false); }

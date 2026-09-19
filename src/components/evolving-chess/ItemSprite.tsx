@@ -106,6 +106,34 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="7" y="9" width="3" height="1" fill="#FBBF24" opacity="0.4" />
           </svg>
         );
+      case 'weighted_helm':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="8" fill="#525252" />
+            <rect x="1" y="4" width="8" height="4" fill="#525252" />
+            <rect x="3" y="1" width="4" height="2" fill="#737373" />
+            <rect x="4" y="4" width="2" height="2" fill="#171717" />
+            <rect x="2" y="9" width="6" height="1" fill="#171717" />
+          </svg>
+        );
+      case 'crowbar':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="1" width="1" height="8" fill="#475569" />
+            <rect x="4" y="2" width="1" height="7" fill="#475569" />
+            <rect x="2" y="0" width="3" height="1" fill="#475569" />
+            <rect x="2" y="8" width="4" height="2" fill="#1E293B" />
+          </svg>
+        );
+      case 'signal_horn':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="4" width="2" height="4" fill="#EAB308" />
+            <rect x="4" y="3" width="4" height="6" fill="#EAB308" />
+            <rect x="8" y="2" width="1" height="8" fill="#B45309" />
+            <rect x="1" y="5" width="1" height="2" fill="#B45309" />
+          </svg>
+        );
       case 'phase_out':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
