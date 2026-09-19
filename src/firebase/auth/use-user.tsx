@@ -42,6 +42,7 @@ interface UserData {
   lootSyncV6?: boolean;
   lootSyncV7?: boolean;
   lootSyncV8?: boolean;
+  lootSyncV9?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -139,7 +140,8 @@ export function useUser() {
             lootSyncV5: true,
             lootSyncV6: true,
             lootSyncV7: true,
-            lootSyncV8: true
+            lootSyncV8: true,
+            lootSyncV9: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -161,9 +163,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 8 Playtesting (Weighted Helm, Crowbar, Signal Horn, Antifreeze, Frayed Rope)
-        if (!currentData.lootSyncV8) {
-            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover'];
+        // Forced sync for Batch 9 Playtesting (Kinetic Coil, Relay Ribbon)
+        if (!currentData.lootSyncV9) {
+            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover', 'kinetic_coil', 'relay_ribbon'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
                 if (itemIdx > -1) {
@@ -176,7 +178,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV8 = true;
+            updates.lootSyncV9 = true;
             needsUpdate = true;
         }
 

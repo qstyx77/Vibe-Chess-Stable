@@ -96,7 +96,9 @@ export type InventoryItemType =
   | 'frayed_rope'
   | 'weighted_helm'
   | 'crowbar'
-  | 'signal_horn';
+  | 'signal_horn'
+  | 'kinetic_coil'
+  | 'relay_ribbon';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -203,6 +205,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'weighted_helm': { name: 'Weighted Helm', description: 'Common Passive. Piece is completely immune to Archer Snipes.', isConsumable: false, rarity: 'common' },
   'crowbar': { name: 'Crowbar', description: 'Common Consumable. Move onto an Anvil square to destroy it.', isConsumable: true, rarity: 'common' },
   'signal_horn': { name: 'Signal Horn', description: 'Common Passive. When captured, a random allied unit of the same type gains +1 Level.', isConsumable: false, rarity: 'common' },
+  'kinetic_coil': { name: 'Kinetic Coil', description: 'Common Passive. Gaining power from displacement. Gain +1 Level whenever Pushed or Pulled.', isConsumable: false, rarity: 'common' },
+  'relay_ribbon': { name: 'Relay Ribbon', description: 'Common Passive. Gaining power from coordination. Gain +1 Level whenever this unit is the target of an Allied Swap.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {

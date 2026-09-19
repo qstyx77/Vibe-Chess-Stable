@@ -15,6 +15,14 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
         if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots') continue;
         
+        // Kinetic Coil logic: Gain level on push
+        if (victim.piece?.heldItem === 'kinetic_coil') {
+            victim.piece.level = Math.min(victim.piece.type === 'queen' ? 7 : 99, (victim.piece.level || 1) + 1);
+            victim.piece.isPoisoned = false;
+            victim.piece.isExhausted = false;
+            victim.piece.cooldownTurnsRemaining = 0;
+        }
+
         // Spiked Buckler logic: If victim has it, attacker (at r,c) becomes poisoned
         if (victim.piece?.heldItem === 'spiked_buckler') {
             const attacker = board[r][c].piece;
@@ -87,6 +95,14 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
             if (victimSq.piece && victimSq.piece.color === oppColor) {
                 if (victimSq.piece.heldItem === 'lead_boots') continue;
                 
+                // Kinetic Coil logic: Gain level on pull
+                if (victimSq.piece.heldItem === 'kinetic_coil') {
+                    victimSq.piece.level = Math.min(victimSq.piece.type === 'queen' ? 7 : 99, (victimSq.piece.level || 1) + 1);
+                    victimSq.piece.isPoisoned = false;
+                    victimSq.piece.isExhausted = false;
+                    victimSq.piece.cooldownTurnsRemaining = 0;
+                }
+
                 if (victimSq.piece.heldItem === 'frayed_rope') {
                     const attacker = board[r][c].piece;
                     if (attacker) attacker.cooldownTurnsRemaining = 2;
@@ -213,7 +229,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 }
 
 export function processOilSlickTimers(board: BoardState, player: PlayerColor): BoardState {
-    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
+    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             if (newBoard[r][c].oilSlickTurnsRemaining > 0) {

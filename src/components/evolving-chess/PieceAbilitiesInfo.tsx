@@ -120,6 +120,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'clover') abilities.push("luck: +2% boss battle item drop rate.");
   if (heldItem === 'antifreeze') abilities.push("anti-freeze: automatically clears Frozen status.");
   if (heldItem === 'frayed_rope') abilities.push("reactive: pushing/pulling wearer exhausts attacker.");
+  if (heldItem === 'kinetic_coil') abilities.push("kinetic: +1 Level gain whenever Pushed or Pulled.");
+  if (heldItem === 'relay_ribbon') abilities.push("relay: +1 Level gain whenever target of Allied Swap.");
 
   switch (type) {
     case 'pawn':

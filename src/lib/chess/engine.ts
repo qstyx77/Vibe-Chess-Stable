@@ -416,9 +416,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'grapple-hook-swap') {
       const p1 = newBoard[fromRow][fromCol].piece;
       const p2 = newBoard[toRow][toCol].piece;
+      
+      // Relay Ribbon logic
+      if (p1?.heldItem === 'relay_ribbon') p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
+      if (p2?.heldItem === 'relay_ribbon') p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
+
       newBoard[fromRow][fromCol].piece = p2;
       newBoard[toRow][toCol].piece = p1;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
   }
 
   if (move.type === 'ram-push') {
@@ -507,6 +512,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         else { p2.cooldownTurnsRemaining = 2; }
     }
     
+    // Relay Ribbon logic
+    if (p1?.heldItem === 'relay_ribbon') p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
+    if (p2?.heldItem === 'relay_ribbon') p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
+
     newBoard[toRow][toCol].piece = { ...p1, hasMoved: true };
     newBoard[toRow][toCol].item = null;
     newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
@@ -634,6 +643,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'swap-scroll') {
       const p1 = newBoard[fromRow][fromCol].piece;
       const p2 = newBoard[toRow][toCol].piece;
+      
+      // Relay Ribbon logic
+      if (p1?.heldItem === 'relay_ribbon') p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
+      if (p2?.heldItem === 'relay_ribbon') p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
+
       newBoard[fromRow][fromCol].piece = p2;
       newBoard[toRow][toCol].piece = p1;
       if (newBoard[toRow][toCol].piece) newBoard[toRow][toCol].piece!.heldItem = null; 
@@ -643,6 +657,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (move.type === 'swap') {
       const p1 = newBoard[fromRow][fromCol].piece;
       const p2 = newBoard[toRow][toCol].piece;
+      
+      // Relay Ribbon logic
+      if (p1?.heldItem === 'relay_ribbon') p1.level = Math.min(p1.type === 'queen' ? 7 : 99, (p1.level || 1) + 1);
+      if (p2?.heldItem === 'relay_ribbon') p2.level = Math.min(p2.type === 'queen' ? 7 : 99, (p2.level || 1) + 1);
+
       newBoard[fromRow][fromCol].piece = p2 ? { ...p2, hasMoved: true, isShielded: false } : null;
       newBoard[toRow][toCol].piece = p1 ? { ...p1, hasMoved: true, isShielded: false } : null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: 0, originalPieceType: originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };

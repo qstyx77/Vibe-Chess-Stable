@@ -17,6 +17,28 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   const renderIcon = () => {
     switch (type) {
+      case 'kinetic_coil':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="2" width="6" height="1" fill="#BAE6FD" />
+            <rect x="2" y="4" width="6" height="1" fill="#BAE6FD" />
+            <rect x="2" y="6" width="6" height="1" fill="#BAE6FD" />
+            <rect x="2" y="8" width="6" height="1" fill="#BAE6FD" />
+            <rect x="4" y="1" width="2" height="10" fill="#0284C7" fillOpacity="0.4" />
+            <rect x="1" y="1" width="1" height="10" fill="#0284C7" />
+            <rect x="8" y="1" width="1" height="10" fill="#0284C7" />
+          </svg>
+        );
+      case 'relay_ribbon':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="2" fill="#D946EF" />
+            <rect x="1" y="5" width="8" height="2" fill="#FFF" />
+            <rect x="1" y="8" width="8" height="2" fill="#D946EF" />
+            <rect x="0" y="2" width="1" height="8" fill="#701A75" />
+            <rect x="9" y="2" width="1" height="8" fill="#701A75" />
+          </svg>
+        );
       case 'coffee_bean':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -472,7 +494,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="4" y="0" width="2" height="9" fill="#93C5FD" />
-            <rect x="3" y="1" width="4" height="7" fill="#93C5FD" />
+            <rect x="3" y="1" width="4" height="9" fill="#93C5FD" />
             <rect x="2" y="9" width="6" height="2" fill="#1E3A8A" />
             <rect x="4" y="11" width="2" height="1" fill="#1E3A8A" />
             <rect x="4" y="2" width="2" height="4" fill="#F0F9FF" opacity="0.7" />
