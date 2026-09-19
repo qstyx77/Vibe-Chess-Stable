@@ -91,7 +91,9 @@ export type InventoryItemType =
   | 'spiked_buckler'
   | 'whetstone'
   | 'grip_gloves'
-  | 'clover';
+  | 'clover'
+  | 'antifreeze'
+  | 'frayed_rope';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -193,6 +195,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'whetstone': { name: 'Whetstone', description: 'Common Passive. Frontline only. +1 Level when capturing a Level 1 enemy unit.', isConsumable: false, rarity: 'common' },
   'grip_gloves': { name: 'Grip Gloves', description: 'Common Passive. Frontline only. Allows pushing Anvils at any level (Normally Level 4).', isConsumable: false, rarity: 'common' },
   'clover': { name: 'Clover', description: 'Common Passive. Increases item drop rate in Boss Battles by 2%.', isConsumable: false, rarity: 'common' },
+  'antifreeze': { name: 'Antifreeze', description: 'Common Consumable. Automatically clears Frozen status the moment it is applied.', isConsumable: true, rarity: 'common' },
+  'frayed_rope': { name: 'Frayed Rope', description: 'Common Passive. Any enemy unit that Pushes or Pulls the wearer becomes Exhausted.', isConsumable: false, rarity: 'common' },
 };
 
 export interface Piece {

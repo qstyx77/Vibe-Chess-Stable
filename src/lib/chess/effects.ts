@@ -23,6 +23,14 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
             }
         }
 
+        // Frayed Rope logic: If victim has it, attacker (at r,c) becomes exhausted
+        if (victim.piece?.heldItem === 'frayed_rope') {
+            const attacker = board[r][c].piece;
+            if (attacker) {
+                attacker.cooldownTurnsRemaining = 2; // Exhausted
+            }
+        }
+
         const tr = nr+dr; const dc_dest = nc+dc;
         if(!isValidSquare(tr, dc_dest)) { if(victim.item) board[nr][nc].item = null; }
         else {
@@ -78,6 +86,12 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
             const victimSq = board[targetR][targetC];
             if (victimSq.piece && victimSq.piece.color === oppColor) {
                 if (victimSq.piece.heldItem === 'lead_boots') continue;
+                
+                if (victimSq.piece.heldItem === 'frayed_rope') {
+                    const attacker = board[r][c].piece;
+                    if (attacker) attacker.cooldownTurnsRemaining = 2;
+                }
+
                 const midR = r + dr, midC = c + dc;
                 if (isValidSquare(midR, midC) && !board[midR][midC].piece && !board[midR][midC].item) { board[midR][midC].piece = victimSq.piece; victimSq.piece = null; }
             }

@@ -82,6 +82,30 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4.5" y="3.5" width="1" height="1" fill="#FFF" opacity="0.3" />
           </svg>
         );
+      case 'antifreeze':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="3" y="1" width="4" height="2" fill="#94A3B8" />
+            <rect x="2" y="3" width="6" height="8" fill="#3B82F6" />
+            <rect x="1" y="4" width="8" height="6" fill="#3B82F6" />
+            <rect x="4" y="5" width="2" height="2" fill="#BAE6FD" opacity="0.6" />
+            <rect x="3" y="0" width="4" height="1" fill="#1E3A8A" />
+          </svg>
+        );
+      case 'frayed_rope':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="2" y="1" width="6" height="1" fill="#B45309" />
+            <rect x="1" y="2" width="8" height="2" fill="#B45309" />
+            <rect x="2" y="4" width="6" height="1" fill="#B45309" />
+            <rect x="1" y="5" width="8" height="2" fill="#B45309" />
+            <rect x="2" y="7" width="6" height="1" fill="#B45309" />
+            <rect x="0" y="8" width="4" height="1" fill="#D97706" />
+            <rect x="6" y="8" width="4" height="1" fill="#D97706" />
+            <rect x="0" y="9" width="3" height="1" fill="#FBBF24" opacity="0.4" />
+            <rect x="7" y="9" width="3" height="1" fill="#FBBF24" opacity="0.4" />
+          </svg>
+        );
       case 'phase_out':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">

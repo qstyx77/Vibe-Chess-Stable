@@ -118,6 +118,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'whetstone') abilities.push("sharpened: +1 extra level gain on L1 captures.");
   if (heldItem === 'grip_gloves') abilities.push("grip: can push Anvils at any level.");
   if (heldItem === 'clover') abilities.push("luck: +2% boss battle item drop rate.");
+  if (heldItem === 'antifreeze') abilities.push("anti-freeze: automatically clears Frozen status.");
+  if (heldItem === 'frayed_rope') abilities.push("reactive: pushing/pulling wearer exhausts attacker.");
 
   switch (type) {
     case 'pawn':
@@ -129,7 +131,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
       if (l >= 1) abilities.push("Standard move/capture.");
       if (l >= 2) abilities.push("Can move 1 square backward.");
       if (l >= 3) abilities.push("Can move 1 square sideways.");
-      if (l >= 4) abilities.push("Push-Back adjacent entities.");
+      if (l >= 4) abilities.push("Push-Back: Moving adjacent to units/items pushes them away.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
       if (type === 'commander') abilities.push("Rallying Cry on capture.");
       if (type === 'dancer') abilities.push("Dance: KS 1 free cardinal move/swap.");

@@ -290,7 +290,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           const nc = fromCol + i * dc;
           if (!isValidSquare(nr, nc)) break;
           const tSq = newBoard[nr][nc];
-          if (tSq.piece && tSq.piece.heldItem !== 'thermal_socks') tSq.piece.frozenTurnsRemaining = 2;
+          if (tSq.piece) {
+              if (tSq.piece.heldItem === 'antifreeze') {
+                  tSq.piece.heldItem = null; // consumed
+              } else if (tSq.piece.heldItem !== 'thermal_socks') {
+                  tSq.piece.frozenTurnsRemaining = 2;
+              }
+          }
       }
       movingPiece.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
@@ -514,7 +520,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         const nr=fromRow+dr; const nc=fromCol+dc;
         if(isValidSquare(nr,nc)) {
           const victim = newBoard[nr][nc].piece;
-          if(victim && victim.color === oppColor && victim.heldItem !== 'thermal_socks') { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
+          if(victim && victim.color === oppColor) {
+              if (victim.heldItem === 'antifreeze') {
+                  victim.heldItem = null; // consumed
+              } else if (victim.heldItem !== 'thermal_socks') {
+                  victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2;
+              }
+          }
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
@@ -579,11 +591,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           const nr=fromRow+dr; const nc=fromCol+dc;
           if(isValidSquare(nr,nc)) {
               const victim = newBoard[nr][nc].piece;
-              if (victim && victim.color !== converterColor && victim.type !== 'king' && Math.random() < 0.5) {
-                  const orig = {...victim};
-                  victim.color = converterColor;
-                  victim.id = `conv_${victim.id}_${Date.now()}`;
-                  conversionEvents.push({ originalPiece: orig, convertedPiece: {...victim}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
+              if (victim && victim.color !== converterColor && victim.type !== 'king') {
+                  const hasChalk = victim.heldItem === 'antifreeze'; // (Hypothetically block conversion? User didn't ask for Chalk yet, ignoring for Antifreeze/FrayedRope prompt)
+                  if (Math.random() < 0.5) {
+                    const orig = {...victim};
+                    victim.color = converterColor;
+                    victim.id = `conv_${victim.id}_${Date.now()}`;
+                    conversionEvents.push({ originalPiece: orig, convertedPiece: {...victim}, byPiece: {...movingPiece}, at: coordsToAlgebraic(nr, nc) });
+                  }
               }
           }
       }
@@ -598,7 +613,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         const nr=fromRow+dr; const nc=fromCol+dc;
         if(isValidSquare(nr,nc)) {
           const victim = newBoard[nr][nc].piece;
-          if(victim && victim.color === oppColor && victim.heldItem !== 'thermal_socks') { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
+          if(victim && victim.color === oppColor) {
+              if (victim.heldItem === 'antifreeze') {
+                  victim.heldItem = null; // consumed
+              } else if (victim.heldItem !== 'thermal_socks') {
+                  victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2;
+              }
+          }
         }
       }
       newBoard[fromRow][fromCol].piece!.heldItem = null;
@@ -784,7 +805,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         pieceToLand.type = captured.type;
         pieceToLand.id = `${pieceToLand.id}_morph_${Date.now()}`;
     }
-    if (captured.heldItem === 'ice_tunic' && pieceToLand.heldItem !== 'thermal_socks') { pieceToLand.frozenTurnsRemaining = 2; pieceToLand.cooldownTurnsRemaining = 2; }
+    if (captured.heldItem === 'ice_tunic' && pieceToLand.heldItem !== 'thermal_socks') {
+        if (pieceToLand.heldItem === 'antifreeze') {
+            pieceToLand.heldItem = null; // consumed
+        } else {
+            pieceToLand.frozenTurnsRemaining = 2; pieceToLand.cooldownTurnsRemaining = 2;
+        }
+    }
     if (captured.heldItem === 'trap_net') { triggerExhaustion(newBoard, toRow, toCol, pieceToLand.color); }
     if (['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage'].includes(pieceToLand.type) && captured.type === 'commander') pieceToLand.type = 'commander';
     let g = effectiveHeldItem === 'berserkers_mask' ? 3 : ({pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2}[captured.type] || 0);
@@ -828,7 +855,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
             const nr = toRow + dr, nc = toCol + dc;
             if (isValidSquare(nr, nc)) {
                 const victim = newBoard[nr][nc].piece;
-                if (victim && victim.color === oppColor && victim.heldItem !== 'thermal_socks') { victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2; }
+                if (victim && victim.color === oppColor) {
+                    if (victim.heldItem === 'antifreeze') {
+                        victim.heldItem = null;
+                    } else if (victim.heldItem !== 'thermal_socks') {
+                        victim.frozenTurnsRemaining = 2; victim.cooldownTurnsRemaining = 2;
+                    }
+                }
             }
         });
     }
