@@ -39,6 +39,7 @@ interface UserData {
   lootSyncV3?: boolean;
   lootSyncV4?: boolean;
   lootSyncV5?: boolean;
+  lootSyncV6?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -133,7 +134,8 @@ export function useUser() {
             statusSyncV1: true,
             lootSyncV3: true,
             lootSyncV4: true,
-            lootSyncV5: true
+            lootSyncV5: true,
+            lootSyncV6: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -155,46 +157,8 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Status Items Playtesting
-        if (!currentData.statusSyncV1) {
-            const forceAdd: InventoryItemType[] = ['coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone'];
-            forceAdd.forEach(t => {
-                const item = updatedInventory.find(i => i.type === t);
-                if (item) {
-                    if (item.count < 5) {
-                        item.count = 5;
-                        inventoryNeedsSync = true;
-                    }
-                } else {
-                    updatedInventory.push({ type: t, count: 5 });
-                    inventoryNeedsSync = true;
-                }
-            });
-            updates.statusSyncV1 = true;
-            needsUpdate = true;
-        }
-
-        // Forced sync for Batch 4 Playtesting (Grip Gloves, Clover)
-        if (!currentData.lootSyncV4) {
-            const forceAdd: InventoryItemType[] = ['grip_gloves', 'clover'];
-            forceAdd.forEach(t => {
-                const itemIdx = updatedInventory.findIndex(i => i.type === t);
-                if (itemIdx > -1) {
-                    if (updatedInventory[itemIdx].count < 5) {
-                        updatedInventory[itemIdx].count = 5;
-                        inventoryNeedsSync = true;
-                    }
-                } else {
-                    updatedInventory.push({ type: t, count: 5 });
-                    inventoryNeedsSync = true;
-                }
-            });
-            updates.lootSyncV4 = true;
-            needsUpdate = true;
-        }
-
-        // Forced sync for Batch 5 Playtesting (Antifreeze, Frayed Rope)
-        if (!currentData.lootSyncV5) {
+        // Forced sync for Batch 6 Playtesting (Explicitly Antifreeze, Frayed Rope)
+        if (!currentData.lootSyncV6) {
             const forceAdd: InventoryItemType[] = ['antifreeze', 'frayed_rope'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
@@ -208,7 +172,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV5 = true;
+            updates.lootSyncV6 = true;
             needsUpdate = true;
         }
 
