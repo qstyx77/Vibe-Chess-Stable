@@ -48,6 +48,7 @@ interface UserData {
   lootSyncV12?: boolean;
   lootSyncV13?: boolean;
   lootSyncV14?: boolean;
+  lootSyncV15?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -151,7 +152,8 @@ export function useUser() {
             lootSyncV11: true,
             lootSyncV12: true,
             lootSyncV13: true,
-            lootSyncV14: true
+            lootSyncV14: true,
+            lootSyncV15: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -173,9 +175,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 14 Playtesting (Defiant Spark Injection)
-        if (!currentData.lootSyncV14) {
-            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard', 'defiant_spark'];
+        // Forced sync for Batch 15 Playtesting (Soul Spark & Scout's Map)
+        if (!currentData.lootSyncV15) {
+            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard', 'defiant_spark', 'soul_spark', 'scouts_map'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
                 if (itemIdx > -1) {
@@ -188,7 +190,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV14 = true;
+            updates.lootSyncV15 = true;
             needsUpdate = true;
         }
 

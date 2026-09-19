@@ -205,7 +205,7 @@ export function getPossibleMovesInternal(
       for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
               if (dr === 0 && dc === 0) continue;
-              const nr = fromRow + dr, nc = fromCol + dc;
+              const nr = fromRow + dr, nc = c + dc;
               if (isValidSquare(nr, nc)) {
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
@@ -299,9 +299,24 @@ export function getPossibleMovesInternal(
         }
     }
   } else if (FRONTLINE_TYPES.includes(piece.type)) {
+      let rangeBonus = 0;
+      if (piece.heldItem === 'scouts_map') {
+        let enemyNearby = false;
+        for (let dr = -3; dr <= 3; dr++) {
+          for (let dc = -3; dc <= 3; dc++) {
+            if (isValidSquare(fromRow + dr, fromCol + dc)) {
+              const p = board[fromRow + dr][fromCol + dc].piece;
+              if (p && p.color === opponentColor) { enemyNearby = true; break; }
+            }
+          }
+          if (enemyNearby) break;
+        }
+        if (!enemyNearby) rangeBonus = 1;
+      }
+
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
           const to = coordsToAlgebraic(r,c);
-          if (isMoveValidInternal(board, fromSquare, to, piece, enPassantTargetSquare)) if(!possible.includes(to)) possible.push(to);
+          if (isMoveValidInternal(board, fromSquare, to, piece, enPassantTargetSquare, rangeBonus)) if(!possible.includes(to)) possible.push(to);
       }
   } else if (piece.type === 'bishop' || piece.type === 'archbishop') {
       const dirs: [number, number][] = [[1,1], [1,-1], [-1,1], [-1,-1]];
@@ -494,7 +509,7 @@ export function getPossibleMovesInternal(
   return possible;
 }
 
-function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, ep: AlgebraicSquare | null): boolean {
+function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, ep: AlgebraicSquare | null, rangeBonus: number = 0): boolean {
   const { row: fR, col: fC } = algebraicToCoords(from);
   const { row: tR, col: tC } = algebraicToCoords(to);
   const dr = tR - fR;
@@ -511,10 +526,12 @@ function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: Algeb
     const effL = getEffectiveLevel(board, fR, fC);
     if (dc === 0 && (!targetP || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar'))) {
       if (dr === forward) return true;
+      if (rangeBonus > 0 && dr === (1 + rangeBonus) * forward) return true;
       if (dr === 2 * forward && !piece.hasMoved && !board[fR + forward][fC].piece && !board[fR + forward][fC].item) return true;
       if (dr === -forward && effL >= 2) return true;
+      if (rangeBonus > 0 && dr === -(1 + rangeBonus) * forward && effL >= 2) return true;
     }
-    if (dr === 0 && Math.abs(dc) === 1 && effL >= 3 && (!targetP || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar'))) return true;
+    if (dr === 0 && Math.abs(dc) <= (1 + rangeBonus) && effL >= 3 && (!targetP || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar'))) return true;
     if (dr === forward && Math.abs(dc) === 1) {
        if (targetP && targetP.color === opp) return true;
        if (!targetP && to === ep) return true;

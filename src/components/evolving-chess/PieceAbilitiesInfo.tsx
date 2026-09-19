@@ -126,6 +126,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'traction_cleats') abilities.push("grip: immune to Oil Slick sliding.");
   if (heldItem === 'glass_shard') abilities.push("trap: exhausts enemy capturer (one-time).");
   if (heldItem === 'defiant_spark') abilities.push("defiance: if adjacent ally is taken, wearer gains Holy Shield.");
+  if (heldItem === 'soul_spark') abilities.push("soul spark: return at L2 when resurrected.");
+  if (heldItem === 'scouts_map') abilities.push("scouting: +1 move range if area is clear of foes.");
 
   switch (type) {
     case 'pawn':

@@ -182,7 +182,10 @@ export function processRookResurrectionCheck(
 
   const newBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
   
-  const resLevel = piece.type === 'palace' ? (best.level || 1) : 1;
+  let resLevel = 1;
+  if (piece.type === 'palace') resLevel = (best.level || 1);
+  else if (best.heldItem === 'soul_spark') resLevel = 2;
+
   const resPiece: Piece = {
     ...best,
     id: `res_${best.id}_${idCounter}`,
@@ -614,7 +617,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               if (adjacent.length > 0) {
                   const target = adjacent[Math.floor(Math.random()*adjacent.length)];
                   const {row: rr, col: rc} = algebraicToCoords(target);
-                  const resPiece = { ...best, id: `res_scroll_${best.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                  
+                  let resLevel = 1;
+                  if (best.heldItem === 'soul_spark') resLevel = 2;
+
+                  const resPiece = { ...best, id: `res_scroll_${best.id}_${Date.now()}`, level: resLevel, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                   newBoard[rr][rc].piece = resPiece;
                   resurrectionScrollEvent = { piece: best, square: target };
               }

@@ -198,6 +198,27 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
             <rect x="4.5" y="3" width="1" height="1" fill="#FFF" />
           </svg>
         );
+      case 'soul_spark':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="2" width="2" height="8" fill="#22D3EE" />
+            <rect x="2" y="4" width="6" height="4" fill="#67E8F9" />
+            <rect x="4" y="4" width="2" height="4" fill="#FFF" opacity="0.6" />
+            <rect x="4.5" y="1" width="1" height="1" fill="#FFF" />
+            <rect x="4.5" y="10" width="1" height="1" fill="#FFF" />
+          </svg>
+        );
+      case 'scouts_map':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#FEF08A" />
+            <rect x="0" y="1" width="10" height="2" fill="#B45309" />
+            <rect x="0" y="9" width="10" height="2" fill="#B45309" />
+            <rect x="7" y="3" width="1" height="1" fill="#EF4444" />
+            <rect x="2" y="4" width="2" height="1" fill="#92400E" opacity="0.3" />
+            <rect x="5" y="7" width="2" height="1" fill="#92400E" opacity="0.3" />
+          </svg>
+        );
       case 'phase_out':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">

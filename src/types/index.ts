@@ -102,7 +102,9 @@ export type InventoryItemType =
   | 'spiked_plate'
   | 'traction_cleats'
   | 'glass_shard'
-  | 'defiant_spark';
+  | 'defiant_spark'
+  | 'soul_spark'
+  | 'scouts_map';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -215,6 +217,8 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'traction_cleats': { name: 'Traction Cleats', description: 'Common Passive. The wearer is completely immune to the sliding effect of Oil Slicks.', isConsumable: false, rarity: 'common' },
   'glass_shard': { name: 'Glass Shard', description: 'Common Consumable. Automatically consumed when the wearer is captured to make the capturer Exhausted for 1 turn.', isConsumable: true, rarity: 'common' },
   'defiant_spark': { name: 'Defiant Spark', description: 'Common Consumable. If an adjacent ally is captured, this item is consumed to grant the wearer a Holy Shield.', isConsumable: true, rarity: 'common' },
+  'soul_spark': { name: 'Soul Spark', description: 'Common Passive. Returns to the board at Level 2 when Resurrected.', isConsumable: false, rarity: 'common' },
+  'scouts_map': { name: 'Scout\'s Map', description: 'Common Passive. Frontline only. +1 Move range if no enemies within 3 squares.', isConsumable: false, rarity: 'common' },
 };
 
 export interface InventoryItem {
