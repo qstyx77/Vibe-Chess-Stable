@@ -319,8 +319,8 @@ export default function DungeonPage() {
 
   const advanceLevel = useCallback((survivors: Piece[], graveyard: any) => {
     if (level % 10 === 0) {
-        const cloverBonus = survivors.filter(p => p.heldItem === 'clover').length * 0.02;
-        const bonus = (Math.floor(level / 10) - 1) * 0.03 + cloverBonus;
+        const cloverBonus = survivors.filter(p => p.heldItem === 'clover').length * 0.01;
+        const bonus = (Math.floor(level / 10) - 1) * 0.01 + cloverBonus;
         const drops: InventoryItemType[] = [];
         const allItems = Object.keys(ITEM_METADATA) as InventoryItemType[];
         allItems.forEach(type => {
@@ -609,7 +609,7 @@ export default function DungeonPage() {
             return true;
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(p); setBoardForPostSacrifice(bAf);
-        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, newStreak: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
+        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, nS: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
         addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
       }
     }

@@ -117,7 +117,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'spiked_buckler') abilities.push("spiked: Pushing this unit poisons the attacker.");
   if (heldItem === 'whetstone') abilities.push("sharpened: +1 extra level gain on L1 captures.");
   if (heldItem === 'grip_gloves') abilities.push("grip: can push Anvils at any level.");
-  if (heldItem === 'clover') abilities.push("luck: +2% boss battle item drop rate.");
+  if (heldItem === 'clover') abilities.push("luck: +1% boss battle item drop rate.");
   if (heldItem === 'antifreeze') abilities.push("anti-freeze: automatically clears Frozen status.");
   if (heldItem === 'frayed_rope') abilities.push("reactive: pushing/pulling wearer exhausts attacker.");
   if (heldItem === 'kinetic_coil') abilities.push("kinetic: +1 Level gain whenever Pushed or Pulled.");
