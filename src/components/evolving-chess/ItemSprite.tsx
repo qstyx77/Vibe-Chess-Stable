@@ -17,6 +17,40 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   const renderIcon = () => {
     switch (type) {
+      case 'rosary':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="2" width="2" height="1" fill="#FEF08A" />
+            <rect x="3" y="3" width="1" height="1" fill="#FEF08A" />
+            <rect x="6" y="3" width="1" height="1" fill="#FEF08A" />
+            <rect x="3" y="4" width="1" height="1" fill="#FEF08A" />
+            <rect x="6" y="4" width="1" height="1" fill="#FEF08A" />
+            <rect x="4" y="5" width="2" height="1" fill="#FEF08A" />
+            <rect x="4.5" y="6" width="1" height="4" fill="#EAB308" />
+            <rect x="3.5" y="7" width="3" height="1" fill="#EAB308" />
+          </svg>
+        );
+      case 'obsidian_blade':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="4" y="1" width="2" height="8" fill="#171717" />
+            <rect x="3" y="2" width="4" height="6" fill="#171717" />
+            <rect x="4.5" y="2" width="1" height="6" fill="#A855F7" fillOpacity="0.3" />
+            <rect x="2" y="9" width="6" height="1" fill="#78350F" />
+            <rect x="4" y="10" width="2" height="2" fill="#78350F" />
+          </svg>
+        );
+      case 'lose_faith_scroll':
+        return (
+          <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
+            <rect x="1" y="2" width="8" height="8" fill="#FEF9C3" />
+            <rect x="0" y="1" width="10" height="2" fill="#78350F" />
+            <rect x="0" y="9" width="10" height="2" fill="#78350F" />
+            <rect x="2" y="3" width="6" height="6" fill="#EF4444" opacity="0.3" />
+            <rect x="4" y="4" width="2" height="4" fill="#EF4444" />
+            <rect x="3" y="5" width="4" height="2" fill="#EF4444" />
+          </svg>
+        );
       case 'kinetic_coil':
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
@@ -490,8 +524,8 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
         return (
           <svg viewBox="0 0 10 12" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full drop-shadow-md">
             <rect x="1" y="2" width="8" height="8" fill="#FDE68A" />
-            <rect x="0" y="1" width="10" height="2" fill="#B45309" />
-            <rect x="0" y="9" width="10" height="2" fill="#B45309" />
+            <rect x="0" y="1" width="10" height="2" fill="#78350F" />
+            <rect x="0" y="9" width="10" height="2" fill="#78350F" />
             <rect x="3" y="4" width="4" height="4" fill="#B45309" opacity="0.8" />
           </svg>
         );

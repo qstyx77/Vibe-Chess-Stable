@@ -50,6 +50,7 @@ interface UserData {
   lootSyncV14?: boolean;
   lootSyncV15?: boolean;
   lootSyncV16?: boolean;
+  lootSyncV17?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -155,7 +156,8 @@ export function useUser() {
             lootSyncV13: true,
             lootSyncV14: true,
             lootSyncV15: true,
-            lootSyncV16: true
+            lootSyncV16: true,
+            lootSyncV17: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -177,9 +179,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 16 Playtesting (Soul Spark & Scout's Map)
-        if (!currentData.lootSyncV16) {
-            const forceAdd: InventoryItemType[] = ['weighted_helm', 'crowbar', 'signal_horn', 'antifreeze', 'frayed_rope', 'coffee_bean', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'whetstone', 'grip_gloves', 'clover', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard', 'defiant_spark', 'soul_spark', 'scouts_map'];
+        // Forced sync for Batch 17 Playtesting (Rosary, Obsidian Blade, Lose Faith)
+        if (!currentData.lootSyncV17) {
+            const forceAdd: InventoryItemType[] = ['rosary', 'obsidian_blade', 'lose_faith_scroll'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
                 if (itemIdx > -1) {
@@ -192,7 +194,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV16 = true;
+            updates.lootSyncV17 = true;
             needsUpdate = true;
         }
 

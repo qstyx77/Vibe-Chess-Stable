@@ -495,7 +495,16 @@ export default function DungeonPage() {
             if (isAI) {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const targs = nxtB.flat().filter(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
-                if (targs.length > 0) { targs[0].piece!.isShielded = true; addLog(`${getPlayerDisplayName(actP)} Archbishop applied a Holy Shield!`); }
+                if (targs.length > 0) { 
+                    const ally = targs[0].piece!;
+                    ally.isShielded = true; 
+                    // Rosary synergy check
+                    const rosaryArchbishop = nxtB.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.heldItem === 'rosary');
+                    if (rosaryArchbishop) {
+                        ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+                    }
+                    addLog(`${getPlayerDisplayName(actP)} Archbishop applied a Holy Shield!`); 
+                }
                 triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT); return;
             } else {
                 const hasElig = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId);
@@ -529,7 +538,11 @@ export default function DungeonPage() {
             const srt = [...mG].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0)); const choice = srt[0]; const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && emp.length > 0) {
                 const sq = emp[Math.floor(Math.random()*emp.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
-                nxtB[rr][rc].piece = { ...choice, level: 1, id: `res_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; 
+                
+                let resLevel = 1;
+                if (choice.heldItem === 'soul_spark') resLevel = 2;
+
+                nxtB[rr][rc].piece = { ...choice, level: resLevel, id: `res_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; 
                 if (actP === 'white') nG.white = nG.white.filter(p => p.id !== choice.id); else nG.black = nG.black.filter(p => p.id !== choice.id);
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`${actP === 'white' ? "Hero" : "Dungeon"} resurrected a ${choice.type}!`);
                 triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'resurrection'], capId, wasCap, movedT); return;
@@ -671,7 +684,17 @@ export default function DungeonPage() {
         return;
     }
     if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
-    if (isAwaitingHolyShield && piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.isShielded = true; setBoard(nxtB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'shield'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
+    if (isAwaitingHolyShield && piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) { 
+        const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); 
+        const ally = nxtB[row][col].piece!;
+        ally.isShielded = true; 
+        // Rosary synergy check
+        const rosaryArchbishop = nxtB.flat().find(sq => sq.piece && sq.piece.color === 'white' && sq.piece.heldItem === 'rosary');
+        if (rosaryArchbishop) {
+            ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+        }
+        setBoard(nxtB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'shield'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; 
+    }
     if (isAwaitingArcherSnipe && piece && piece.color === 'black' && piece.type !== 'king' && piece.type !== 'queen' && piece.heldItem !== 'weighted_helm') {
         const ps = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
         const snips = ps.filter(p => { 
@@ -727,7 +750,7 @@ export default function DungeonPage() {
                    if (tP) setGrappledPieceSubject({ piece: { ...tP }, from: alg }); else setGrappledItemSubject({ type: 'anvil', from: alg });
                    setIsAwaitingGrappleThrow(true); const range = getEffectiveLevel(board, fR, fC); const tT: AlgebraicSquare[] = [];
                    for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
-                       const d = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
+                       const d = Math.max(Math.abs(tr-fR), Math.abs(tc-c));
                        if (d>0 && d<=range && (tr===fR||tc===fC||Math.abs(tr-fR)===Math.abs(tc-fC)) && !board[tr][tc].piece && !board[tr][tc].item) tT.push(coordsToAlgebraic(tr,tc));
                    }
                    setPossibleMoves(tT); addLog("Grappler: Select destination to throw!"); return;
@@ -945,7 +968,7 @@ export default function DungeonPage() {
       <div className="flex-grow min-h-0 flex flex-col p-0.5"> {cPanel} </div>
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0"> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)}> <Package className="h-4 w-4 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-4 w-4 text-yellow-500" /> RULES </Button> </div>
     </div>
-  ), [level, statMsg, board, selectedSquare, possibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingGrappleThrow, isAwaitingDanceTarget, dancerToDance, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel]);
+  ), [level, statMsg, board, selectedSquare, possibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel]);
 
   const deskLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
@@ -957,7 +980,7 @@ export default function DungeonPage() {
       </div>
       <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 w-5" /> RESET RUN </Button> </CardContent> </Card> </div>
     </div>
-  ), [level, statMsg, board, selectedSquare, possibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingGrappleThrow, isAwaitingDanceTarget, dancerToDance, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel]);
+  ), [level, statMsg, board, selectedSquare, possibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden p-0.5">
@@ -971,6 +994,7 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>

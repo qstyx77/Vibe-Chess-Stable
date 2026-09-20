@@ -128,6 +128,9 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'defiant_spark') abilities.push("defiance: if adjacent ally is taken, wearer gains Holy Shield.");
   if (heldItem === 'soul_spark') abilities.push("soul spark: return at L2 when resurrected.");
   if (heldItem === 'scouts_map') abilities.push("scouting: +1 move range if area is clear of foes.");
+  if (heldItem === 'rosary') abilities.push("divine: targeted shields grant +1 level.");
+  if (heldItem === 'obsidian_blade') abilities.push("pierce: can capture units with Holy Shields.");
+  if (heldItem === 'lose_faith_scroll') abilities.push("spell: remove all opponent Holy Shields.");
 
   switch (type) {
     case 'pawn':

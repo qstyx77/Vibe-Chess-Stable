@@ -589,7 +589,16 @@ export default function EvolvingChessPage() {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const targets = nextBoard.flat().filter(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId).sort((a, b) => (b.piece?.level || 0) - (a.piece?.level || 0));
-                if (targets.length > 0) { targets[0].piece!.isShielded = true; addLog(`${getPlayerDisplayName(actingPlayer)} Archbishop applied a Holy Shield!`); }
+                if (targets.length > 0) { 
+                    const ally = targets[0].piece!;
+                    ally.isShielded = true; 
+                    // Rosary synergy
+                    const rosaryArchbishop = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.heldItem === 'rosary');
+                    if (rosaryArchbishop) {
+                        ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+                    }
+                    addLog(`${getPlayerDisplayName(actingPlayer)} Archbishop applied a Holy Shield!`); 
+                }
                 triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'shield'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
             } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
                 const hasEligible = boardToChain.flat().some(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capturingPieceId);
@@ -976,7 +985,15 @@ export default function EvolvingChessPage() {
   }
   if (isAwaitingHolyShield && piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) {
       if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'holy-shield', square: algebraic })); setIsAwaitingHolyShield(false); }
-      else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); nextB[row][col].piece!.isShielded = true; setBoard(nextB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMovedPieceType); }
+      else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); 
+        const ally = nextB[row][col].piece!;
+        ally.isShielded = true; 
+        // Rosary synergy check
+        const rosaryArchbishop = nextB.flat().find(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.heldItem === 'rosary');
+        if (rosaryArchbishop) {
+            ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+        }
+        setBoard(nextB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMovedPieceType); }
       return;
   }
   if (isAwaitingArcherSnipe) {

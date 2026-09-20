@@ -104,7 +104,10 @@ export type InventoryItemType =
   | 'glass_shard'
   | 'defiant_spark'
   | 'soul_spark'
-  | 'scouts_map';
+  | 'scouts_map'
+  | 'rosary'
+  | 'obsidian_blade'
+  | 'lose_faith_scroll';
 
 export interface InventoryItem {
   type: InventoryItemType;
@@ -219,6 +222,9 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'defiant_spark': { name: 'Defiant Spark', description: 'Common Consumable. If an adjacent ally is captured, this item is consumed to grant the wearer a Holy Shield.', isConsumable: true, rarity: 'common' },
   'soul_spark': { name: 'Soul Spark', description: 'Common Passive. Returns to the board at Level 2 when Resurrected.', isConsumable: false, rarity: 'common' },
   'scouts_map': { name: 'Scout\'s Map', description: 'Common Passive. Frontline only. +1 Move range if no enemies within 3 squares.', isConsumable: false, rarity: 'common' },
+  'rosary': { name: 'Rosary', description: 'Rare Accessory. Archbishop only. When an allied piece is targeted for a Holy Shield, it also gains +1 Level.', isConsumable: false, rarity: 'rare' },
+  'obsidian_blade': { name: 'Obsidian Blade', description: 'Common Passive. Equipped unit can capture pieces that have a Holy Shield.', isConsumable: false, rarity: 'common' },
+  'lose_faith_scroll': { name: 'Lose Thy Faith', description: 'Uncommon Scroll (L2+). Consumable spell. Removes all Holy Shields from the opponent\'s army.', isConsumable: true, rarity: 'uncommon' },
 };
 
 export interface InventoryItem {
@@ -269,7 +275,7 @@ export type BoardState = SquareState[][];
 export interface Move {
   from: AlgebraicSquare;
   to: AlgebraicSquare;
-  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray';
+  type?: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray' | 'lose-thy-faith';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
   thrownItem?: ItemType;
@@ -437,7 +443,7 @@ export type AIBoardState = AISquareState[][];
 export interface AIMove {
   from: [number, number];
   to: [number, number];
-  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray';
+  type: 'move' | 'capture' | 'castle' | 'promotion' | 'self-destruct' | 'swap' | 'enpassant' | 'wind-scroll' | 'life-leach' | 'summon-anvil' | 'shield-scroll' | 'rally-scroll' | 'antidote' | 'swap-scroll' | 'ice-scroll' | 'resurrection-scroll' | 'faith-scroll' | 'kings-decree' | 'ice-blast' | 'soul-harvest' | 'dance-move' | 'dance-swap' | 'grapple-throw' | 'grapple-hook-swap' | 'ram-push' | 'earthquake-scroll' | 'myco-propagate' | 'tele-portobello' | 'spore-bomb' | 'raise-mycelimen' | 'demonic-possession' | 'heavy-rain' | 'trap-net' | 'oil-slick' | 'phase-out' | 'glacial-ray' | 'burning-ray' | 'lose-thy-faith';
   promoteTo?: PieceType;
   thrownPiece?: Piece;
   thrownItem?: ItemType;

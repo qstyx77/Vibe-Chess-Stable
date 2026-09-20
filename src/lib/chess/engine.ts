@@ -266,6 +266,11 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
                 if (ally && ally.color === victimColor && ally.heldItem === 'defiant_spark') {
                     ally.isShielded = true;
                     ally.heldItem = null;
+                    // Rosary synergy check
+                    const rosaryArchbishop = newBoard.flat().find(sq => sq.piece && sq.piece.color === victimColor && sq.piece.heldItem === 'rosary');
+                    if (rosaryArchbishop) {
+                        ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+                    }
                 }
             }
         }
@@ -283,6 +288,15 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   if (targetItem?.type === 'anvil' && movingPiece.heldItem === 'crowbar') {
       newBoard[toRow][toCol].item = null;
       movingPiece.heldItem = null;
+  }
+
+  if (move.type === 'lose-thy-faith') {
+      const oppColor = movingPiece.color === 'white' ? 'black' : 'white';
+      newBoard.forEach(row => row.forEach(sq => {
+          if (sq.piece && sq.piece.color === oppColor) sq.piece.isShielded = false;
+      }));
+      newBoard[fromRow][fromCol].piece!.heldItem = null;
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null };
   }
 
   if (move.type === 'burning-ray') {
@@ -612,7 +626,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                   if (dr===0 && dc===0) continue;
                   const nr=fromRow+dr; const nc=fromCol+dc;
-                  if(isValidSquare(nr,nc) && !newBoard[nr][nc].piece && !newBoard[nr][nc].item) adjacent.push(coordsToAlgebraic(nr,nc));
+                  if(isValidSquare(nr,nc) && !newBoard[nr][nr].piece && !newBoard[nr][nc].item) adjacent.push(coordsToAlgebraic(nr,nc));
               }
               if (adjacent.length > 0) {
                   const target = adjacent[Math.floor(Math.random()*adjacent.length)];
@@ -748,7 +762,15 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (move.type === 'shield-scroll') {
       const { row: tr, col: tc } = algebraicToCoords(move.to);
-      if (newBoard[tr][tc].piece) newBoard[tr][tc].piece!.isShielded = true;
+      if (newBoard[tr][tc].piece) {
+          const ally = newBoard[tr][tc].piece!;
+          ally.isShielded = true;
+          // Rosary synergy check
+          const rosaryArchbishop = newBoard.flat().find(sq => sq.piece && sq.piece.color === movingPiece.color && sq.piece.heldItem === 'rosary');
+          if (rosaryArchbishop) {
+              ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+          }
+      }
       newBoard[fromRow][fromCol].piece!.heldItem = null; 
       return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null };
   }

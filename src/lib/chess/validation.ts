@@ -19,6 +19,10 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
         if (attackingPiece.heldItem === 'ice_breaker') return false;
         return true;
     }
+    
+    // Obsidian Blade bypasses Holy Shields
+    if (targetPiece.isShielded && attackingPiece.heldItem === 'obsidian_blade') return false;
+
     if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
     if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
     
