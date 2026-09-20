@@ -51,6 +51,7 @@ interface UserData {
   lootSyncV15?: boolean;
   lootSyncV16?: boolean;
   lootSyncV17?: boolean;
+  lootSyncV18?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -157,7 +158,8 @@ export function useUser() {
             lootSyncV14: true,
             lootSyncV15: true,
             lootSyncV16: true,
-            lootSyncV17: true
+            lootSyncV17: true,
+            lootSyncV18: true
           };
         } else {
           currentData = snap.data() as UserData;
@@ -179,9 +181,9 @@ export function useUser() {
           return { type, count };
         });
 
-        // Forced sync for Batch 17 Playtesting (Rosary, Obsidian Blade, Lose Faith)
-        if (!currentData.lootSyncV17) {
-            const forceAdd: InventoryItemType[] = ['rosary', 'obsidian_blade', 'lose_faith_scroll'];
+        // Forced sync for Batch 18 Playtesting (Rosary, Obsidian Blade, Lose Faith)
+        if (!currentData.lootSyncV18) {
+            const forceAdd: InventoryItemType[] = ['rosary', 'obsidian_blade', 'lose_faith_scroll', 'soul_spark', 'scouts_map'];
             forceAdd.forEach(t => {
                 const itemIdx = updatedInventory.findIndex(i => i.type === t);
                 if (itemIdx > -1) {
@@ -194,7 +196,7 @@ export function useUser() {
                     inventoryNeedsSync = true;
                 }
             });
-            updates.lootSyncV17 = true;
+            updates.lootSyncV18 = true;
             needsUpdate = true;
         }
 
