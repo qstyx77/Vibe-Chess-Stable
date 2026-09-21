@@ -45,8 +45,18 @@ const server = http.createServer((req, res) => {
 
 const wss = new WebSocket.Server({ server });
 
-const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string, username?: string })[]; gameState: any; isRanked: boolean; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
+interface Tournament {
+    id: string;
+    round: 1 | 2 | 3;
+    participantsData: Record<string, any>; // userId -> data
+    activeRoomIds: Set<string>;
+    roundWinners: string[]; // userIds
+    countdownTimer?: NodeJS.Timeout;
+}
+
+const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string, username?: string })[]; gameState: any; isRanked: boolean; tournamentId?: string; round?: number; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
 const userConnections: Record<string, (WebSocket & { userId?: string, roomId?: string, username?: string })> = {};
+const tournaments: Record<string, Tournament> = {};
 
 const broadcastToRoom = (roomId: string, message: any) => {
     const room = rooms[roomId];
@@ -76,17 +86,213 @@ const broadcastPresence = () => {
 const startArena = () => {
     if (arenaQueue.length < 8) return;
     const participants = arenaQueue.splice(0, 8);
+    const tournamentId = `tourney_${Math.random().toString(36).substring(2, 9)}`;
+    
+    const tournament: Tournament = {
+        id: tournamentId,
+        round: 1,
+        participantsData: {},
+        activeRoomIds: new Set(),
+        roundWinners: []
+    };
+
+    // Store participant data and initialize rooms for Round 1
     for (let i = 0; i < 4; i++) {
         const p1 = participants[i*2];
         const p2 = participants[i*2+1];
-        const roomId = `arena_${Math.random().toString(36).substring(2, 9)}`;
+        
+        tournament.participantsData[p1.userId] = p1.userData;
+        tournament.participantsData[p2.userId] = p2.userData;
+
+        const roomId = `arena_${tournamentId}_r1_${i}`;
+        const board = initializeBoard(
+            p1.userData?.elo || 1200, 
+            p2.userData?.elo || 1200, 
+            p1.userData?.unlockedPieces || [], 
+            p2.userData?.unlockedPieces || [],
+            p1.userData?.equipment || {},
+            p2.userData?.equipment || {}
+        );
+
+        rooms[roomId] = {
+            clients: [], // Will be populated when they join via match-ready redirect
+            isRanked: true,
+            tournamentId: tournamentId,
+            round: 1,
+            positionHistory: [],
+            gameState: {
+                board,
+                currentPlayer: 'white',
+                capturedPieces: { white: [], black: [] },
+                killStreaks: { white: 0, black: 0 },
+                enPassantTargetSquare: null,
+                gameMoveCounter: 0,
+                lastMoveFrom: null,
+                lastMoveTo: null,
+                lastMovedPieceType: null,
+                lastMovedPieceLevel: null,
+                lastMovedPieceHeldItem: null,
+                gameInfo: { message: " ", isCheck: false, gameOver: false },
+                shroomSpawnCounter: 0,
+                nextShroomSpawnTurn: 5,
+                players: { white: p1.userData, black: p2.userData },
+                didOpponentCaptureLastTurn: false
+            }
+        };
+
+        tournament.activeRoomIds.add(roomId);
+
         p1.ws.send(JSON.stringify({ type: 'tournament-match-ready', roomId }));
         p2.ws.send(JSON.stringify({ type: 'tournament-match-ready', roomId }));
     }
+
+    tournaments[tournamentId] = tournament;
     wss.clients.forEach(c => c.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length })));
 };
 
-let arenaQueue: { ws: WebSocket; userId: string }[] = [];
+const startNextTournamentRound = (tournamentId: string) => {
+    const tournament = tournaments[tournamentId];
+    if (!tournament) return;
+
+    tournament.round++;
+    const winners = tournament.roundWinners;
+    tournament.roundWinners = [];
+    
+    // Clear active rooms from previous round (they should already be gone but just in case)
+    tournament.activeRoomIds.clear();
+
+    for (let i = 0; i < winners.length; i += 2) {
+        const p1Id = winners[i];
+        const p2Id = winners[i+1];
+        
+        if (!p2Id) {
+            // Bye logic
+            tournament.roundWinners.push(p1Id);
+            const ws = userConnections[p1Id];
+            if (ws) ws.send(JSON.stringify({ type: 'tournament-intermission', round: tournament.round, nextRound: tournament.round + 1 }));
+            continue;
+        }
+
+        const p1Data = tournament.participantsData[p1Id];
+        const p2Data = tournament.participantsData[p2Id];
+
+        const roomId = `arena_${tournamentId}_r${tournament.round}_${i}`;
+        const board = initializeBoard(
+            p1Data?.elo || 1200, 
+            p2Data?.elo || 1200, 
+            p1Data?.unlockedPieces || [], 
+            p2Data?.unlockedPieces || [],
+            p1Data?.equipment || {},
+            p2Data?.equipment || {}
+        );
+
+        rooms[roomId] = {
+            clients: [],
+            isRanked: true,
+            tournamentId: tournamentId,
+            round: tournament.round,
+            positionHistory: [],
+            gameState: {
+                board,
+                currentPlayer: 'white',
+                capturedPieces: { white: [], black: [] },
+                killStreaks: { white: 0, black: 0 },
+                enPassantTargetSquare: null,
+                gameMoveCounter: 0,
+                lastMoveFrom: null,
+                lastMoveTo: null,
+                lastMovedPieceType: null,
+                lastMovedPieceLevel: null,
+                lastMovedPieceHeldItem: null,
+                gameInfo: { message: " ", isCheck: false, gameOver: false },
+                shroomSpawnCounter: 0,
+                nextShroomSpawnTurn: 5,
+                players: { white: p1Data, black: p2Data },
+                didOpponentCaptureLastTurn: false
+            }
+        };
+
+        tournament.activeRoomIds.add(roomId);
+
+        const ws1 = userConnections[p1Id];
+        const ws2 = userConnections[p2Id];
+        if (ws1) ws1.send(JSON.stringify({ type: 'tournament-match-ready', roomId }));
+        if (ws2) ws2.send(JSON.stringify({ type: 'tournament-match-ready', roomId }));
+    }
+};
+
+const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerColor: PlayerColor, reason: string) => {
+    const tournament = tournaments[tournamentId];
+    const room = rooms[roomId];
+    if (!tournament || !room) return;
+
+    const winnerData = winnerColor === 'white' ? room.gameState.players.white : room.gameState.players.black;
+    const loserData = winnerColor === 'white' ? room.gameState.players.black : room.gameState.players.white;
+
+    if (!winnerData || !loserData) return;
+
+    tournament.roundWinners.push(winnerData.userId);
+    tournament.activeRoomIds.delete(roomId);
+
+    // Standard game-over broadcast to the room
+    broadcastToRoom(roomId, { type: 'game-over', winner: winnerColor, reason });
+
+    // Handle winner intermission
+    const winnerWs = userConnections[winnerData.userId];
+    if (winnerWs) {
+        winnerWs.send(JSON.stringify({ 
+            type: 'tournament-intermission', 
+            round: tournament.round,
+            nextRound: tournament.round + 1
+        }));
+    }
+
+    delete rooms[roomId];
+
+    if (tournament.activeRoomIds.size === 0) {
+        if (tournament.round < 3) {
+            // Wait 15 seconds before starting next round to allow re-equipping
+            broadcastTournamentMessage(tournamentId, `Round ${tournament.round} complete! Next round starts in 15 seconds...`);
+            tournament.countdownTimer = setTimeout(() => {
+                startNextTournamentRound(tournamentId);
+            }, 15000);
+        } else {
+            // Tournament Final Complete
+            if (winnerWs) {
+                winnerWs.send(JSON.stringify({ type: 'chat-message', message: {
+                    id: `tourney_win_${Date.now()}`,
+                    sender: 'SYSTEM',
+                    text: `[ARENA]: CONGRATULATIONS! You are the Tournament Champion!`,
+                    timestamp: Date.now(),
+                    category: 'social'
+                }}));
+            }
+            delete tournaments[tournamentId];
+        }
+    }
+};
+
+const broadcastTournamentMessage = (tournamentId: string, text: string) => {
+    const tournament = tournaments[tournamentId];
+    if (!tournament) return;
+    Object.keys(tournament.participantsData).forEach(uid => {
+        const ws = userConnections[uid];
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'chat-message',
+                message: {
+                    id: `tourney_msg_${Date.now()}`,
+                    sender: 'SYSTEM',
+                    text: `[ARENA]: ${text}`,
+                    timestamp: Date.now(),
+                    category: 'social'
+                }
+            }));
+        }
+    });
+};
+
+let arenaQueue: { ws: WebSocket; userId: string; userData: any }[] = [];
 
 wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, username?: string }) => {
     ws.on('message', async (message) => {
@@ -103,7 +309,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     break;
                 case 'join-tournament-queue':
                     if (!arenaQueue.find(p => p.userId === data.userId)) {
-                        arenaQueue.push({ ws, userId: data.userId });
+                        arenaQueue.push({ ws, userId: data.userId, userData: data.user });
                         wss.clients.forEach(c => c.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length })));
                         if (arenaQueue.length >= 8) startArena();
                     }
@@ -186,17 +392,21 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         ws.userId = data.user?.userId;
                         ws.username = data.user?.username;
                         roomToJoin.clients.push(ws);
-                        roomToJoin.gameState.players.black = data.user;
                         
-                        // Apply gear for the joining black player
-                        const blackEq = data.user?.equipment || {};
+                        // Sync room player data if missing (e.g. tournament auto-redirect)
+                        if (!roomToJoin.gameState.players.white && data.color === 'white') roomToJoin.gameState.players.white = data.user;
+                        if (!roomToJoin.gameState.players.black && data.color === 'black') roomToJoin.gameState.players.black = data.user;
+
+                        // Apply gear for the joining player
+                        const eq = data.user?.equipment || {};
+                        const pColor = roomToJoin.clients.length === 1 ? 'white' : 'black';
                         roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
-                            if (sq.piece && sq.piece.color === 'black' && blackEq[sq.piece.id]) {
-                                sq.piece.heldItem = blackEq[sq.piece.id];
+                            if (sq.piece && sq.piece.color === pColor && eq[sq.piece.id]) {
+                                sq.piece.heldItem = eq[sq.piece.id];
                             }
                         }));
 
-                        ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: 'black', gameState: roomToJoin.gameState }));
+                        ws.send(JSON.stringify({ type: 'room-joined', roomId: data.roomId, color: pColor, gameState: roomToJoin.gameState }));
                         broadcastToRoom(data.roomId, { type: 'player-joined', gameState: roomToJoin.gameState });
                     }
                     break;
@@ -367,22 +577,34 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
                     
                     if (result.infiltrationWin) {
-                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
-                        delete rooms[ws.roomId!];
+                        if (room.tournamentId) {
+                            handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'infiltration');
+                        } else {
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
+                            delete rooms[ws.roomId!];
+                        }
                         return;
                     }
 
                     const actingKingSq = gs.board.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === playerColor);
                     if (gs.killStreaks[playerColor] >= 8 && actingKingSq?.piece?.heldItem === 'kings_conquest') {
-                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest' });
-                        delete rooms[ws.roomId!];
+                        if (room.tournamentId) {
+                            handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'conquest');
+                        } else {
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest' });
+                            delete rooms[ws.roomId!];
+                        }
                         return;
                     }
 
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
                     if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel)) {
-                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
-                        delete rooms[ws.roomId!];
+                        if (room.tournamentId) {
+                            handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
+                        } else {
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
+                            delete rooms[ws.roomId!];
+                        }
                         return;
                     }
                     
@@ -396,14 +618,17 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
                     const repeats = room.positionHistory.filter(h => h === hash).length;
                     if (repeats >= 3) {
-                        broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
-                        delete rooms[ws.roomId!];
+                        if (room.tournamentId) {
+                             handleTournamentGameOver(room.tournamentId, ws.roomId!, 'draw', 'repetition');
+                        } else {
+                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
+                            delete rooms[ws.roomId!];
+                        }
                     } else {
                         if (!result.extraTurn && !isRewardMove) {
                             gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
                         }
                         
-                        // Consolidate rich move data for client animations
                         const events = {
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.pieceCapturedByAnvil)?.type,
@@ -435,7 +660,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
     });
     ws.on('close', () => {
         if (ws.userId) delete userConnections[ws.userId];
-        arenaQueue = arenaQueue.filter(p => p.ws !== ws);
+        arenaQueue = arenaQueue.filter(p => p.userId !== ws.userId);
         wss.clients.forEach(c => c.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length })));
     });
 });

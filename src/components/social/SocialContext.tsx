@@ -32,6 +32,8 @@ interface SocialContextType {
   buyItemFromMarket: (sellerId: string, slot: number) => Promise<void>;
   joinTournamentQueue: () => void;
   tournamentQueueCount: number;
+  isTournamentIntermission: boolean;
+  tournamentRound: number;
 }
 
 const SocialContext = createContext<SocialContextType | undefined>(undefined);
@@ -46,6 +48,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
   const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
   const [onlineUsers, setOnlineUsers] = useState<{ userId: string, username: string }[]>([]);
   const [tournamentQueueCount, setTournamentQueueCount] = useState(0);
+  const [isTournamentIntermission, setIsTournamentIntermission] = useState(false);
+  const [tournamentRound, setTournamentRound] = useState(0);
+  
   const wsRef = useRef<WebSocket | null>(null);
   const userDataRef = useRef(userData);
 
@@ -147,8 +152,13 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
             } else if (data.type === 'tournament-queue-update') {
                 setTournamentQueueCount(data.count);
             } else if (data.type === 'tournament-match-ready') {
+                setIsTournamentIntermission(false);
                 toast({ title: 'Arena Ready!', description: 'Your tournament match is starting!', duration: 10000 });
                 window.location.href = `/?roomId=${data.roomId}`;
+            } else if (data.type === 'tournament-intermission') {
+                setIsTournamentIntermission(true);
+                setTournamentRound(data.round);
+                toast({ title: 'Advanced!', description: `You have advanced to Round ${data.nextRound}! Re-equip your units now.`, duration: 15000 });
             }
         };
         socket.onclose = () => {
@@ -220,6 +230,11 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
+    const eq: Record<string, string> = {}; 
+    // We can't easily get the board equipment here, so we rely on identify/join-tournament-queue
+    // to have sent the initial equipment. The intermission allows them to update equipment
+    // which the server will pick up when it pairs them for the next match because they identify again.
+
     wsRef.current.send(JSON.stringify({ 
         type: 'chat-message', 
         category, 
@@ -273,7 +288,20 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         toast({ variant: 'destructive', title: "Broke!", description: "100 Gold required for entry." }); 
         return; 
     }
-    wsRef.current.send(JSON.stringify({ type: 'join-tournament-queue', userId: user?.uid }));
+    
+    // We send equipment with the queue request so the server has it for pairing
+    const equipment = userDataRef.current.equipment || {};
+    wsRef.current.send(JSON.stringify({ 
+        type: 'join-tournament-queue', 
+        userId: user?.uid,
+        user: {
+            userId: user?.uid,
+            username: userDataRef.current.username,
+            elo: userDataRef.current.eloRating,
+            unlockedPieces: userDataRef.current.unlockedPieces || [],
+            equipment: equipment
+        }
+    }));
     addLog("Joined Arena Queue. 100 Gold entry paid.");
   }, [user?.uid, toast, addLog]);
 
@@ -338,7 +366,9 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
       startDm, 
       buyItemFromMarket, 
       joinTournamentQueue, 
-      tournamentQueueCount
+      tournamentQueueCount,
+      isTournamentIntermission,
+      tournamentRound
     }}>{children}</SocialContext.Provider>
   );
 }
