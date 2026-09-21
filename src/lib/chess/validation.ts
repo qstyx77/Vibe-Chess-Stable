@@ -1,6 +1,6 @@
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
-import { getEffectiveLevel, algebraicToCoords, coordsToAlgebraic, isValidSquare } from './utils';
+import { getEffectiveLevel, algebraicToCoords, coordsToAlgebraic, isValidSquare, getActiveSets } from './utils';
 import { getPossibleMovesInternal, getPossibleMoves } from './move-rules';
 
 export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attackingPiece: Piece | null, targetLevel: number, attackingLevel: number, board?: BoardState, ignoreDefensiveAbilities: boolean = false): boolean {
@@ -50,6 +50,9 @@ export function isSquareAttacked(
     const targetR = coords.row;
     const targetC = coords.col;
 
+    const activeSets = getActiveSets(board, attackerColor);
+    const isAssassinSet = activeSets.includes('assassin');
+
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const attackingSquareAlgebraic = coordsToAlgebraic(r,c);
@@ -60,12 +63,14 @@ export function isSquareAttacked(
                 const targetLevel = getEffectiveLevel(board, targetR, targetC);
                 const effectiveLevel = getEffectiveLevel(board, r, c);
                 
-                if (['pawn', 'dancer', 'commander', 'grappler', 'myco_mage'].includes(attackingPiece.type)) {
+                const isAssassinAttacker = isAssassinSet && FRONTLINE_TYPES.includes(attackingPiece.type) && effectiveLevel >= 5;
+
+                if (['pawn', 'dancer', 'commander', 'grappler', 'myco_mage'].includes(attackingPiece.type) && !isAssassinAttacker) {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
                     if (r + direction === targetR && Math.abs(c - targetC) === 1) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
                     }
-                } else if (attackingPiece.type === 'infiltrator') {
+                } else if (attackingPiece.type === 'infiltrator' || isAssassinAttacker) {
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
                     if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;

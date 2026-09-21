@@ -227,17 +227,34 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'lose_faith_scroll': { name: 'Lose Thy Faith', description: 'Uncommon Scroll (L2+). Consumable spell. Removes all Holy Shields from the opponent\'s army.', isConsumable: true, rarity: 'uncommon' },
 };
 
-export interface InventoryItem {
-  type: InventoryItemType;
-  count: number;
+export interface ItemSet {
+  name: string;
+  items: InventoryItemType[];
+  bonus: string;
 }
 
-export interface ItemMetadata {
-  name: string;
-  description: string;
-  isConsumable: boolean;
-  rarity: Rarity;
-}
+export const ITEM_SETS: Record<string, ItemSet> = {
+  alchemist: {
+    name: "Alchemist Set",
+    items: ['antidote', 'spore_pouch', 'sclerotia'],
+    bonus: "Shrooms spawn twice as often."
+  },
+  heavy_guard: {
+    name: "Heavy Guard Set",
+    items: ['passive_armor', 'lead_boots', 'weighted_helm'],
+    bonus: "Frontline units are immune to all Push/Pull effects."
+  },
+  assassin: {
+    name: "Assassin Set",
+    items: ['obsidian_blade', 'smoke_bomb', 'chameleon_cloak'],
+    bonus: "All Level 5+ frontline units become Infiltrators."
+  },
+  luminous: {
+    name: "Luminous Set",
+    items: ['logas', 'gnosis', 'golden_chalice'],
+    bonus: "Shared Divinity: Whenever a unit levels up, the lowest-level unit also gains +1 Level."
+  }
+};
 
 export interface Piece {
   id: string;

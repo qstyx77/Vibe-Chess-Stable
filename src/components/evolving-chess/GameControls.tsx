@@ -1,6 +1,6 @@
 'use client';
 
-import type { PlayerColor, Piece, ChatMessage, MessageCategory } from '@/types';
+import type { PlayerColor, Piece, ChatMessage, MessageCategory, BoardState } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '../ui/separator';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
@@ -25,6 +25,7 @@ interface GameControlsProps {
   onlineStatus: 'disconnected' | 'connecting' | 'connected' | 'waiting';
   turnTimer: number | null;
   activeTimerPlayer: PlayerColor | null;
+  board?: BoardState;
 }
 
 export function GameControls({
@@ -38,6 +39,7 @@ export function GameControls({
   onlineStatus,
   turnTimer,
   activeTimerPlayer,
+  board,
 }: GameControlsProps) {
   const { 
     messages, 
@@ -306,7 +308,7 @@ export function GameControls({
           <Separator className="my-1" />
           <div className="flex-grow flex flex-col justify-center min-h-[3rem]">
             {pieceForInfoDisplay ? (
-              <PieceAbilitiesInfo piece={pieceForInfoDisplay} />
+              <PieceAbilitiesInfo piece={pieceForInfoDisplay} board={board} />
             ) : (
                <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50">
                   Hover for Info

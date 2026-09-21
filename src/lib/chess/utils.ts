@@ -1,5 +1,5 @@
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType } from '@/types';
-import { ITEM_METADATA } from '@/types';
+import { ITEM_METADATA, ITEM_SETS } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 
 export function algebraicToCoords(algebraic: AlgebraicSquare): { row: number, col: number } {
@@ -84,7 +84,7 @@ export function isItemValidForPiece(item: InventoryItemType, type: PieceType): b
   if (item === 'power_glove') return type === 'grappler';
   if (item === 'chameleon_cloak') return type !== 'king';
   if (item === 'phase_out') return type !== 'king';
-  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'clover', 'antifreeze', 'frayed_rope', 'weighted_helm', 'crowbar', 'signal_horn', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard', 'defiant_spark', 'soul_spark', 'obsidian_blade', 'lose_faith_scroll'].includes(item)) {
+  if (['gnosis', 'mirror_shield', 'berserkers_mask', 'blast_shield', 'training_weights', 'soul_harvest', 'knights_boots', 'aura_silence', 'grappling_hook', 'golden_chalice', 'smoke_bomb', 'cyanide_pill', 'mushroom_magnet', 'thieves_gloves', 'gamblers_coin', 'sweet_revenge', 'filter_mask', 'thermal_socks', 'spiked_buckler', 'clover', 'antifreeze', 'frayed_rope', 'weighted_helm', 'crowbar', 'signal_horn', 'kinetic_coil', 'relay_ribbon', 'spiked_plate', 'traction_cleats', 'glass_shard', 'defiant_spark', 'soul_spark', 'scouts_map', 'rosary', 'obsidian_blade', 'lose_faith_scroll'].includes(item)) {
     return (type !== 'king' && type !== 'queen');
   }
   if (item === 'war_drum' || item === 'dancers_ribbon') return type === 'dancer';
@@ -171,4 +171,22 @@ export function isQueenSacrificeRequired(board: BoardState, player: PlayerColor,
         return board.flat().some(sq => sq.piece && sq.piece.color === player && FRONTLINE_TYPES.includes(sq.piece.type));
     }
     return false;
+}
+
+export function getActiveSets(board: BoardState, color: PlayerColor): string[] {
+  if (!board) return [];
+  const heldItems = new Set<string>();
+  board.flat().forEach(sq => {
+    if (sq.piece && sq.piece.color === color && sq.piece.heldItem) {
+      heldItems.add(sq.piece.heldItem);
+    }
+  });
+
+  const activeSets: string[] = [];
+  Object.entries(ITEM_SETS).forEach(([id, set]) => {
+    if (set.items.every(item => heldItems.has(item))) {
+      activeSets.push(id);
+    }
+  });
+  return activeSets;
 }

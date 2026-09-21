@@ -1,13 +1,14 @@
 'use client';
 
-import type { Piece } from '@/types';
-import { ITEM_METADATA } from '@/types';
+import type { Piece, BoardState } from '@/types';
+import { ITEM_METADATA, ITEM_SETS } from '@/types';
 import { ItemSprite } from './ItemSprite';
 import { cn } from '@/lib/utils';
-import { FRONTLINE_TYPES } from '@/lib/chess-utils';
+import { FRONTLINE_TYPES, getActiveSets } from '@/lib/chess-utils';
 
 interface PieceAbilitiesInfoProps {
   piece: Piece;
+  board?: BoardState;
 }
 
 const getPieceName = (piece: Piece) => {
@@ -20,7 +21,7 @@ const getPieceName = (piece: Piece) => {
   return type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ');
 };
 
-const getPieceAbilities = (piece: Piece): string[] => {
+const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   const { type, level, heldItem, id } = piece;
   const abilities: string[] = [];
   const l = level || 1;
@@ -31,13 +32,21 @@ const getPieceAbilities = (piece: Piece): string[] => {
     abilities.push("Massive: Occupies 2x2 area. Vulnerable to Check.");
     abilities.push("Iron Guard: Invulnerable until minions are cleared.");
     abilities.push("Crushing: Moves 2 squares. Captures entire 2x2 landing area.");
-  } else if (id === 'boss-mirage') {
-    abilities.push("Phantom Mirror: Summons a phalanx of Phantom Bishops.");
-    abilities.push("Illusionist: Can jump over any unit while moving.");
   } else if (id === 'boss-entity') {
     abilities.push("Void Shield: Starts with a permanent Holy Shield.");
     abilities.push("Void Command: Surrounded by Hero/Infiltrator Aspects.");
     abilities.push("The End: Wins immediately if back rank is reached.");
+  }
+
+  // Set Bonuses
+  if (board) {
+    const activeSets = getActiveSets(board, piece.color);
+    activeSets.forEach(setId => {
+        const set = ITEM_SETS[setId];
+        if (set && set.items.includes(heldItem as any)) {
+            abilities.push(`SET: ${set.name} active! (${set.bonus})`);
+        }
+    });
   }
 
   if (heldItem === 'cardinal_greaves') abilities.push("cardinal: move (no capture) 1 space forward.");
@@ -65,7 +74,7 @@ const getPieceAbilities = (piece: Piece): string[] => {
   if (heldItem === 'swap_scroll') abilities.push("spell (L3+): trade places with allied piece.");
   if (heldItem === 'grimoir') abilities.push("dark wisdom: adjacent allies gain +2 levels.");
   if (heldItem === 'soul_link') abilities.push("bound: pieces share levels and shared destruction.");
-  if (heldItem === 'logas') abilities.push("sacred: adjacent allies gain +1 level on capture.");
+  if (heldItem === 'logas') abilities.push("sacred: adjacent allies gain +1 level on their captures.");
   if (heldItem === 'berserkers_mask') abilities.push("frenzy: +3 levels on capture, but must capture.");
   if (heldItem === 'ice_scroll') abilities.push("spell (L2+): freeze adjacent enemies.");
   if (heldItem === 'resurrection_scroll') abilities.push("spell (L4+): resurrect strongest adjacent ally.");
@@ -191,8 +200,8 @@ const getPieceAbilities = (piece: Piece): string[] => {
   return abilities;
 };
 
-export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
-  const abilities = getPieceAbilities(piece);
+export function PieceAbilitiesInfo({ piece, board }: PieceAbilitiesInfoProps) {
+  const abilities = getPieceAbilities(piece, board);
   const pieceName = getPieceName(piece);
   const item = piece.heldItem ? ITEM_METADATA[piece.heldItem] : null;
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
@@ -216,7 +225,7 @@ export function PieceAbilitiesInfo({ piece }: PieceAbilitiesInfoProps) {
       )}
       <ul className="list-none p-0 m-0 space-y-0.5">
         {abilities.map((ability, index) => (
-          <li key={index} className={cn("leading-tight uppercase text-[0.45rem]", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70")}>
+          <li key={index} className={cn("leading-tight uppercase text-[0.45rem]", (piece.isPoisoned || isExhausted || isFrozen) && "opacity-70", ability.startsWith('SET:') && "text-yellow-400 font-bold")}>
             {ability}
           </li>
         ))}

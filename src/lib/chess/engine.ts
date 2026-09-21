@@ -1,6 +1,6 @@
 import type { BoardState, Piece, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, PieceType, ItemType, SquareState, RookResurrectionResult } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
-import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece } from './utils';
+import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
 import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide } from './effects';
 
 export function createEmptyBoard(): BoardState {
@@ -827,11 +827,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   const backRankIdx = pieceToLand.color === 'white' ? 0 : 7;
+  const activeSetsAtBackRank = getActiveSets(newBoard, pieceToLand.color);
+  const isAssassinAtBackRank = activeSetsAtBackRank.includes('assassin') && FRONTLINE_TYPES.includes(pieceToLand.type) && pieceToLand.level >= 5;
+
   if (pieceToLand.type === 'commander' && toRow === backRankIdx && move.type !== 'self-destruct') {
     pieceToLand.type = 'hero'; pieceToLand.id = `${pieceToLand.id}_hero_auto_${Date.now()}`;
     if (originalEffectiveLevelBeforeMove >= 5) extraTurn = true;
     promotedToHero = true;
-  } else if (FRONTLINE_TYPES.includes(pieceToLand.type) && toRow === backRankIdx && move.type !== 'self-destruct' && !promotedToInfiltrator) {
+  } else if (FRONTLINE_TYPES.includes(pieceToLand.type) && toRow === backRankIdx && move.type !== 'self-destruct' && !promotedToInfiltrator && !isAssassinAtBackRank) {
     if (originalEffectiveLevelBeforeMove >= 5) extraTurn = true;
   }
 
@@ -1000,9 +1003,39 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }));
   }
 
+  if (didLevelUp) {
+    const activeSets = getActiveSets(newBoard, pieceToLand.color);
+    if (activeSets.includes('luminous')) {
+      let minLevel = 999;
+      newBoard.forEach(row => row.forEach(sq => {
+        if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.id !== pieceToLand.id) {
+           minLevel = Math.min(minLevel, sq.piece.level || 1);
+        }
+      }));
+      
+      const candidates: Piece[] = [];
+      newBoard.forEach(row => row.forEach(sq => {
+        if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.id !== pieceToLand.id && (sq.piece.level || 1) === minLevel) {
+           if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
+             candidates.push(sq.piece);
+           }
+        }
+      }));
+      
+      if (candidates.length > 0) {
+        const lucky = candidates[0];
+        lucky.level = (lucky.level || 1) + 1;
+        lucky.isPoisoned = false;
+        lucky.isExhausted = false;
+        lucky.cooldownTurnsRemaining = 0;
+        const coords = newBoard.flat().find(sq => sq.piece?.id === lucky.id);
+        if (coords) ralliedSquares.push(coords.algebraic);
+      }
+    }
+  }
+
   if (didLevelUp) { pieceToLand.isPoisoned = false; pieceToLand.isExhausted = false; pieceToLand.cooldownTurnsRemaining = 0; }
   
-  // End of move auto-trigger: Coffee Bean clears Exhaustion
   if (pieceToLand.isExhausted) { 
       if (pieceToLand.heldItem === 'coffee_bean') {
           pieceToLand.isExhausted = false;
@@ -1040,7 +1073,10 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
-  if (pieceToLand.type === 'infiltrator' && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
+  
+  const currentSets = getActiveSets(newBoard, pieceToLand.color);
+  const isAssassinActive = currentSets.includes('assassin') && isFrontline && pieceToLand.level >= 5;
+  if ((pieceToLand.type === 'infiltrator' || isAssassinActive) && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
 
   const hydraToSplit = (captured?.id?.startsWith('boss-hydra') ? captured : (pieceCapturedByAnvil?.id?.startsWith('boss-hydra') ? pieceCapturedByAnvil : null));
   if (hydraToSplit) {

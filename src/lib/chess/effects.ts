@@ -1,5 +1,5 @@
 import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent } from '@/types';
-import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords } from './utils';
+import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords, getActiveSets } from './utils';
 import { FRONTLINE_TYPES } from './constants';
 
 export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, onlyAnvils: boolean = false): Piece | null {
@@ -13,7 +13,11 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       if (onlyAnvils && victim.item?.type !== 'anvil') continue;
 
       if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
-        if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots') continue;
+        const activeSets = getActiveSets(board, victim.piece?.color || 'white');
+        const isHeavyGuard = activeSets.includes('heavy_guard');
+        const isFrontline = victim.piece && FRONTLINE_TYPES.includes(victim.piece.type);
+
+        if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots' || (isHeavyGuard && isFrontline)) continue;
         
         // Kinetic Coil logic: Gain level on push
         if (victim.piece?.heldItem === 'kinetic_coil') {
@@ -93,7 +97,11 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
         if (isValidSquare(targetR, targetC)) {
             const victimSq = board[targetR][targetC];
             if (victimSq.piece && victimSq.piece.color === oppColor) {
-                if (victimSq.piece.heldItem === 'lead_boots') continue;
+                const activeSets = getActiveSets(board, victimSq.piece.color);
+                const isHeavyGuard = activeSets.includes('heavy_guard');
+                const isFrontline = victimSq.piece && FRONTLINE_TYPES.includes(victimSq.piece.type);
+
+                if (victimSq.piece.heldItem === 'lead_boots' || (isHeavyGuard && isFrontline)) continue;
                 
                 // Kinetic Coil logic: Gain level on pull
                 if (victimSq.piece.heldItem === 'kinetic_coil') {

@@ -1,6 +1,6 @@
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
-import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced } from './utils';
+import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getActiveSets } from './utils';
 import { isPieceInvulnerableToAttack, isSquareAttacked, isKingInCheck } from './validation';
 import { applyMove } from './engine';
 
@@ -175,8 +175,27 @@ export function getPossibleMovesInternal(
     return possible;
   }
 
-  if (piece.type === 'grappler') {
-    const dir = pieceColor === 'white' ? -1 : 1;
+  const activeSets = getActiveSets(board, piece.color);
+  const isAssassinSet = activeSets.includes('assassin');
+  const dir = piece.color === 'white' ? -1 : 1;
+
+  if (isAssassinSet && FRONTLINE_TYPES.includes(piece.type) && currentLevel >= 5) {
+      [-1, 0, 1].forEach(dc => {
+          const nr = fromRow + dir; const nc = fromCol + dc;
+          if (isValidSquare(nr, nc)) {
+              const targetSq = board[nr][nc];
+              if (targetSq.item?.type === 'anvil') return; 
+              const target = targetSq.piece;
+              if (!target) possible.push(coordsToAlgebraic(nr, nc));
+              else if (target.color !== pieceColor) {
+                  const targetLevel = getEffectiveLevel(board, nr, nc);
+                  if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) {
+                      possible.push(coordsToAlgebraic(nr, nc));
+                  }
+              }
+          }
+      });
+  } else if (piece.type === 'grappler') {
     if (isValidSquare(fromRow + dir, fromCol)) {
         const tSq = board[fromRow + dir][fromCol];
         if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
@@ -205,7 +224,7 @@ export function getPossibleMovesInternal(
       for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
               if (dr === 0 && dc === 0) continue;
-              const nr = fromRow + dr, nc = c + dc;
+              const nr = fromRow + dr, nc = fromCol + dc;
               if (isValidSquare(nr, nc)) {
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
@@ -216,11 +235,7 @@ export function getPossibleMovesInternal(
           }
       }
     }
-    return possible;
-  }
-
-  if (piece.heldItem === 'tortoise_hammer') {
-    const dir = piece.color === 'white' ? -1 : 1;
+  } else if (piece.heldItem === 'tortoise_hammer') {
     const nr = fromRow + dir;
     if (isValidSquare(nr, fromCol)) {
         const targetSq = board[nr][fromCol];
