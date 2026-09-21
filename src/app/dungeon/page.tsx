@@ -32,13 +32,13 @@ import {
   processOilSlickTimers,
   boardToPositionHash,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult, AIMove as AIMoveType } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -174,16 +174,52 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
   return board;
 }
 
-function adaptBoardForAI(currentBoardState: BoardState, pColor: PlayerColor, ks: { white: number; black: number }, caps: { white: Piece[]; black: Piece[] }, moveC: number, fb: boolean, fbP: PlayerColor | null, ep: AlgebraicSquare | null, lmT?: PieceType | null, lmH?: InventoryItemType | null, sC?: number, nsT?: number, nrC?: number, lmL?: number | null, oppC?: boolean, posH?: string[]): AIGameState {
+function adaptBoardForAI(
+  currentBoardState: BoardState, 
+  pColor: PlayerColor, 
+  ks: { white: number; black: number }, 
+  caps: { white: Piece[]; black: Piece[] }, 
+  moveC: number, 
+  fb: boolean, 
+  fbP: PlayerColor | null, 
+  ep: AlgebraicSquare | null, 
+  lmT?: PieceType | null, 
+  sC?: number, 
+  nsT?: number, 
+  lmH?: InventoryItemType | null, 
+  lmL?: number | null, 
+  oppC?: boolean, 
+  posH?: string[],
+  nrC?: number
+): AIGameState {
   const aiBoard: AIBoardState = [];
   for (let r = 0; r < 8; r++) {
     const row = currentBoardState[r]; const aiRow: AISquareState[] = [];
     if (row) { for (let c = 0; c < 8; c++) aiRow.push({ piece: row[c]?.piece ? { ...row[c].piece } : null, item: row[c]?.item ? { ...row[c].item } : null }); } 
     else { for (let c = 0; c < 8; c++) aiRow.push({ piece: null, item: null }); }
-    aiRow.push(...[]); 
     aiBoard.push(aiRow);
   }
-  return { board: aiBoard, currentPlayer: pColor, killStreaks: { ...ks }, capturedPieces: { white: Array.isArray(caps?.white) ? caps.white.map(p => ({ ...p })) : [], black: Array.isArray(caps?.black) ? caps.black.map(p => ({ ...p })) : [] }, gameOver: false, winner: undefined, extraTurn: false, gameMoveCounter: moveC, firstBloodAchieved: fb, playerWhoGotFirstblood: fbP, enPassantTargetSquare: ep, shroomSpawnCounter: sC, nextShroomSpawnTurn: nsT, necroResurrectionCounter: nrC, lastMovedPieceType: lmT, lastMovedPieceHeldItem: lmH, lastMovedPieceLevel: lmL, didOpponentCaptureLastTurn: oppC, positionHistory: posH ? [...posH] : [] };
+  return { 
+    board: aiBoard, 
+    currentPlayer: pColor, 
+    killStreaks: { ...ks }, 
+    capturedPieces: { white: Array.isArray(caps?.white) ? caps.white.map(p => ({ ...p })) : [], black: Array.isArray(caps?.black) ? caps.black.map(p => ({ ...p })) : [] }, 
+    gameOver: false, 
+    winner: undefined, 
+    extraTurn: false, 
+    gameMoveCounter: moveC, 
+    firstBloodAchieved: fb, 
+    playerWhoGotFirstBlood: fbP, 
+    enPassantTargetSquare: ep, 
+    shroomSpawnCounter: sC, 
+    nextShroomSpawnTurn: nsT, 
+    necroResurrectionCounter: nrC, 
+    lastMovedPieceType: lmT, 
+    lastMovedPieceHeldItem: lmH, 
+    lastMovedPieceLevel: lmL, 
+    didOpponentCaptureLastTurn: oppC, 
+    positionHistory: posH ? [...posH] : [] 
+  };
 }
 
 export default function DungeonPage() {
@@ -313,7 +349,6 @@ export default function DungeonPage() {
         setEnemyPossibleMoves(moves);
       }
     } else {
-      // Revert to sticky clicked enemy if hover is over nothing/friendly
       if (clickedEnemySquare) {
         const coords = board.flat().find(sq => sq.algebraic === clickedEnemySquare);
         if (coords && coords.piece) {
@@ -465,26 +500,24 @@ export default function DungeonPage() {
         const sur = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
         addLog(cleared ? "ALL FOES VANQUISHED!" : (isBoss && mated ? "BOSS ENTITY DEFEATED!" : "DUNGEON FORCES STALEMATED!"));
         
-        // Handle Earned Boss Unlocks
         if (user && firestore && isBoss && (cleared || mated)) {
             const userRef = doc(firestore, 'users', user.uid);
-            if (level === 20) { // Necromancer
+            if (level === 20) { 
                 const current = (userData?.necromancerDefeats || 0) + 1;
                 updateDocumentNonBlocking(userRef, { necromancerDefeats: increment(1) });
                 if (current >= 15) updateDocumentNonBlocking(userRef, { unlockedPieces: arrayUnion('myco_mage') });
-            } else if (level === 30) { // Colossus
+            } else if (level === 30) { 
                 const current = (userData?.colossusDefeats || 0) + 1;
                 updateDocumentNonBlocking(userRef, { colossusDefeats: increment(1) });
                 if (current >= 10) updateDocumentNonBlocking(userRef, { unlockedPieces: arrayUnion('grappler') });
-            } else if (level === 40) { // Mirage
+            } else if (level === 40) { 
                 const current = (userData?.mirageDefeats || 0) + 1;
                 updateDocumentNonBlocking(userRef, { mirageDefeats: increment(1) });
                 if (current >= 5) updateDocumentNonBlocking(userRef, { unlockedPieces: arrayUnion('mimic') });
-            } else if (level === 50) { // Void Entity
+            } else if (level === 50) {
                 updateDocumentNonBlocking(userRef, { voidDefeats: increment(1), unlockedPieces: arrayUnion('dancer') });
             }
         }
-
         advanceLevel(sur, nG); return;
     }
     const pKing = findKing(nB, 'white');
@@ -564,7 +597,6 @@ export default function DungeonPage() {
                 if (targs.length > 0) { 
                     const ally = targs[0].piece!;
                     ally.isShielded = true; 
-                    // Rosary synergy check
                     const rosaryArchbishop = nxtB.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.heldItem === 'rosary');
                     if (rosaryArchbishop) {
                         ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
@@ -604,10 +636,8 @@ export default function DungeonPage() {
             const srt = [...mG].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0)); const choice = srt[0]; const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && emp.length > 0) {
                 const sq = emp[Math.floor(Math.random()*emp.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
-                
                 let resLevel = 1;
                 if (choice.heldItem === 'soul_spark') resLevel = 2;
-
                 nxtB[rr][rc].piece = { ...choice, level: resLevel, id: `res_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 }; 
                 if (actP === 'white') nG.white = nG.white.filter(p => p.id !== choice.id); else nG.black = nG.black.filter(p => p.id !== choice.id);
                 addEffect('light-beam', sq.algebraic); audioManager.playResurrect(); addLog(`${actP === 'white' ? "Hero" : "Dungeon"} resurrected a ${choice.type}!`);
@@ -633,7 +663,6 @@ export default function DungeonPage() {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const vSrt = vics.sort((a,b) => (VAL_MAP[b.piece!.type]||0) - (VAL_MAP[a.piece!.type]||0));
                 const v = vSrt[0]; const {rowIndex: row, colIndex: col} = v; const sniped = { ...nxtB[row][col].piece!, id: nxtB[row][col].piece!.id }; nxtB[row][col].piece = null; 
-                
                 if (sniped.id?.startsWith('boss-hydra')) {
                     const adj = []; for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
                         if (dr === 0 && dc === 0) continue; const nr = row + dr, nc = col + dc;
@@ -646,7 +675,6 @@ export default function DungeonPage() {
                     }
                     audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
                 }
-
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
                 triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'snipe'], capId, wasCap, movedT); return;
@@ -659,7 +687,7 @@ export default function DungeonPage() {
     processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT);
   }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect]);
 
-  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isEx: boolean, ep: AlgebraicSquare | null, oS: number, nS: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null) => {
+  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isExtraTurn: boolean, ep: AlgebraicSquare | null, oS: number, newStreak: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
     if (piece?.type === 'queen' && piece.level === 7 && oT === 'queen' && (oL || 0) < 7) {
       if (bAf.flat().some(sq => sq.piece && sq.piece.color === p && FRONTLINE_TYPES.includes(sq.piece.type))) {
@@ -670,16 +698,16 @@ export default function DungeonPage() {
                 const {row: pr, col: pc} = algebraicToCoords(pSq.algebraic); const sacrificed = { ...nxtB[pr][pc].piece! };
                 nxtB[pr][pc].piece = null; audioManager.playCapture(); addLog(`AI Sacrificed ${sacrificed.type} for the Queen!`);
                 const nG = { white: Array.isArray(g.white) ? [...g.white] : [], black: Array.isArray(g.black) ? [...g.black] : [] }; nG[sacrificed.color] = [...nG[sacrificed.color], sacrificed];
-                triggerSpecialsChain(nxtB, nG, cKs, oS, nS, isEx, ep, p, [], cId, wC, mT);
+                triggerSpecialsChain(nxtB, nG, cKs, oS, newStreak, isExtraTurn, ep, p, [], cId, wC, mT);
             }
             return true;
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(p); setBoardForPostSacrifice(bAf);
-        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, nS: nS, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
+        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isExtraTurn, newEnPassantTarget: ep, oldStreak: oS, newStreak: newStreak, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
         addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
       }
     }
-    triggerSpecialsChain(bAf, g, cKs, oS, nS, isEx, ep, p, [], cId, wC, mT); return false;
+    triggerSpecialsChain(bAf, g, cKs, oS, newStreak, isExtraTurn, ep, p, [], cId, wC, mT); return false;
   }, [triggerSpecialsChain, addLog]);
 
   const handlePromotionSelect = useCallback((t: PieceType) => {
@@ -754,7 +782,6 @@ export default function DungeonPage() {
         const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); 
         const ally = nxtB[row][col].piece!;
         ally.isShielded = true; 
-        // Rosary synergy check
         const rosaryArchbishop = nxtB.flat().find(sq => sq.piece && sq.piece.color === 'white' && sq.piece.heldItem === 'rosary');
         if (rosaryArchbishop) {
             ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
@@ -816,7 +843,7 @@ export default function DungeonPage() {
                    if (tP) setGrappledPieceSubject({ piece: { ...tP }, from: alg }); else setGrappledItemSubject({ type: 'anvil', from: alg });
                    setIsAwaitingGrappleThrow(true); const range = getEffectiveLevel(board, fR, fC); const tT: AlgebraicSquare[] = [];
                    for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
-                       const d = Math.max(Math.abs(tr-fR), Math.abs(tc-c));
+                       const d = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
                        if (d>0 && d<=range && (tr===fR||tc===fC||Math.abs(tr-fR)===Math.abs(tc-fC)) && !board[tr][tc].piece && !board[tr][tc].item) tT.push(coordsToAlgebraic(tr,tc));
                    }
                    setPossibleMoves(tT); addLog("Grappler: Select destination to throw!"); return;
@@ -834,7 +861,6 @@ export default function DungeonPage() {
           const oL = movingP.level, oT = movingP.type, oH = movingP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
           if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
-          
           const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0);
           const captureGainExp = res.capturedPiece ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
           if (captureGainExp > 0) addEffect('level-change', alg, 'white', captureGainExp);
@@ -861,15 +887,15 @@ export default function DungeonPage() {
           setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
           setTimeout(() => { 
             setIsMoveProcessing(false); clickGuard.current = false; 
-            const oS = killStreaks['white'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isEx = res.extraTurn || (oS < 6 && nS >= 6);
+            const oS = killStreaks['white'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isExtraTurn = res.extraTurn || (oS < 6 && nS >= 6);
             const cKs = { ...killStreaks, white: nS }; setKillStreaks(cKs);
             const q = res.multiPromotions || []; const oppRank = movingP.color === 'white' ? 0 : 7;
             if (FRONTLINE_TYPES.includes(nextBoardState[row][col].piece?.type || '') && row === oppRank) { q.push({ square: alg, targetLevel: getPromotionLevel(res.capturedPiece?.type || null) }); }
             if (rookResResult?.promotionRequiredForResurrectedPawn) {
                 q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
             }
-            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isEx, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null }); } 
-            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, isEx, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, totalCaptures > 0, oT); }
+            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null }); } 
+            else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, totalCaptures > 0, oT); }
           }, 800);
           return;
        }
@@ -913,14 +939,14 @@ export default function DungeonPage() {
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black') return;
     setIsAiThinking(true);
-    const gs = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory);
+    const gs = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory, necroResurrectionCounter);
     const res = aiInstance.current?.getBestMove(gs, 'black');
     if (res?.move) {
         setAiNoMoveCounter(0); const move = res.move; const fromAlg = coordsToAlgebraic(move.from[0], move.from[1]); const toAlg = coordsToAlgebraic(move.to[0], move.to[1]);
         const mP = board[move.from[0]][move.from[1]].piece; if (!mP) { setIsAiThinking(false); return; }
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
         const oL = mP.level, oT = mP.type, oH = mP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
-        const appRes = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
+        const appRes = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
         const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0);
         const captureGainExp = appRes.capturedPiece ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
         if (totalCaptures > 0) { audioManager.playCapture(); addEffect('poof', toAlg); }
@@ -953,7 +979,7 @@ export default function DungeonPage() {
         addLog(`Dungeon: ${mP.type} to ${toAlg}`);
         setTimeout(() => { 
           setIsMoveProcessing(false); setIsAiThinking(false); 
-          const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isEx = appRes.extraTurn || (oS < 6 && nS >= 6);
+          const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
           processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT);
         }, 800);
