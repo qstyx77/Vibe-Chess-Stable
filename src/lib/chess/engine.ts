@@ -1046,6 +1046,12 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       }
   }
 
+  // Training Weights Exhaustion Trigger
+  if (pieceToLand.heldItem === 'training_weights') {
+      pieceToLand.isExhausted = true;
+      pieceToLand.cooldownTurnsRemaining = 2;
+  }
+
   if (effectiveHeldItem === 'wind_sword' && (captured || pieceCapturedByAnvil)) {
       const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color);
       if (crush) pieceCapturedByAnvil = crush;

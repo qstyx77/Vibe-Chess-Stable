@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -55,7 +54,7 @@ export function LootWinningsWindow({ isOpen, onClose, loot, floor }: LootWinning
                           const meta = ITEM_METADATA[item];
                           const rarityCol = {
                               common: "border-slate-500 text-slate-300",
-                              uncommon: "border-green-500 text-green-400",
+                              uncommon: "border-[#4ade80] text-[#4ade80]",
                               rare: "border-purple-500 text-purple-400"
                           }[meta.rarity];
 

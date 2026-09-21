@@ -286,7 +286,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                                 <button className={cn(
                                                     "aspect-square border flex items-center justify-center bg-black cursor-help p-1 outline-none focus:ring-1 focus:ring-accent",
                                                     meta.rarity === 'rare' ? "border-purple-500 shadow-[0_0_5px_rgba(168,85,247,0.4)]" :
-                                                    meta.rarity === 'uncommon' ? "border-green-500" : "border-slate-700"
+                                                    meta.rarity === 'uncommon' ? "border-[#4ade80]" : "border-slate-700"
                                                 )}>
                                                     <ItemSprite type={type} size={32} />
                                                 </button>
@@ -301,7 +301,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                                                 <p className={cn(
                                                     "text-[0.45rem] uppercase mt-2 font-bold",
                                                     meta.rarity === 'rare' ? "text-purple-400" : 
-                                                    meta.rarity === 'uncommon' ? "text-green-400" : "text-slate-400"
+                                                    meta.rarity === 'uncommon' ? "text-[#4ade80]" : "text-slate-400"
                                                 )}>{meta.rarity}</p>
                                             </PopoverContent>
                                         </Popover>

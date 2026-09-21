@@ -86,7 +86,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'lead_boots') abilities.push("anchored: immune to push/pull.");
   if (heldItem === 'blast_shield') abilities.push("blast guard: immune to explosions.");
   if (heldItem === 'monks_robe') abilities.push("devotions: +20% conversion chance.");
-  if (heldItem === 'training_weights') abilities.push("conditioning: +1 level every 3 turns.");
+  if (heldItem === 'training_weights') abilities.push("conditioning: +1 level every 5 turns. Actions cause exhaustion.");
   if (heldItem === 'ice_tunic') abilities.push("cryo skin: freezes capturer for 2 turns.");
   if (heldItem === 'ice_sword') abilities.push("cryo blade: freezes adjacent enemies on capture.");
   if (heldItem === 'ice_blast') abilities.push("spell: freeze all adjacent enemies.");

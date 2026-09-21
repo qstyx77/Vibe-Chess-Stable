@@ -119,7 +119,7 @@ export const InventoryWindow = memo(({
                   
                   const rarityBorderClasses = {
                       common: "border-slate-600 hover:border-slate-400",
-                      uncommon: "border-green-400 hover:border-green-200 shadow-[0_0_8px_rgba(74,222,128,0.4)]",
+                      uncommon: "border-[#4ade80] hover:border-green-200 shadow-[0_0_12px_rgba(74,222,128,0.6)]",
                       rare: "border-purple-600 hover:border-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.4)]"
                   }[meta.rarity];
 
@@ -168,7 +168,7 @@ export const InventoryWindow = memo(({
                       "text-[0.45rem] px-1 py-0.5 rounded-sm uppercase font-bold",
                       {
                           common: "bg-slate-700 text-slate-300",
-                          uncommon: "bg-green-900 text-green-400",
+                          uncommon: "bg-green-900 text-[#4ade80]",
                           rare: "bg-purple-900 text-purple-300"
                       }[ITEM_METADATA[selectedItemType].rarity]
                   )}>

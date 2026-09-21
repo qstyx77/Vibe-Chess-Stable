@@ -213,6 +213,24 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 
       const p = sq.piece;
       if (p && p.color === currentPlayer) {
+        // Training Weights / Sclerotia cycle
+        if (p.heldItem === 'training_weights' || p.heldItem === 'sclerotia') {
+            p.itemTurnCount = (p.itemTurnCount || 0) + 1;
+            if (p.itemTurnCount % 5 === 0) {
+                if (p.heldItem === 'training_weights') {
+                    if (p.type !== 'queen' || p.level < 7) {
+                        p.level = (p.level || 1) + 1;
+                        // Gaining a level clears status
+                        p.isPoisoned = false;
+                        p.isExhausted = false;
+                        p.cooldownTurnsRemaining = 0;
+                    }
+                } else if (p.heldItem === 'sclerotia' && p.type === 'myco_mage') {
+                    p.shroomMana = (p.shroomMana || 0) + 1;
+                }
+            }
+        }
+
         // Filter Mask immunity
         if (p.isPoisoned && p.heldItem !== 'filter_mask') {
           const currentL = p.level || 1;
