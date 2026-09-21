@@ -30,6 +30,9 @@ interface UserData {
   dungeonState?: DungeonState;
   unlockedPieces?: string[];
   colossusDefeats?: number;
+  mirageDefeats?: number;
+  necromancerDefeats?: number;
+  voidDefeats?: number;
   goldBalance: number;
   marketSlots?: MarketListing[];
   lastActive?: string;
@@ -56,7 +59,8 @@ interface UserData {
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
 
-const PLAYTEST_UNLOCKS = ['dancer', 'mimic', 'grappler', 'myco_mage'];
+// Pieces are now earned via boss defeats or store purchases
+const PLAYTEST_UNLOCKS: string[] = [];
 
 /**
  * Hook to manage and provide current user data.
@@ -139,6 +143,9 @@ export function useUser() {
             equipment: {},
             unlockedPieces: PLAYTEST_UNLOCKS,
             colossusDefeats: 0,
+            mirageDefeats: 0,
+            necromancerDefeats: 0,
+            voidDefeats: 0,
             goldBalance: 0,
             marketSlots: [],
             processedTransactions: [],

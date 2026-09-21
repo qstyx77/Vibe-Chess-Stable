@@ -190,10 +190,10 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
     { type: 'archbishop', name: 'Archbishop', desc: 'Elite Clergy. Grants Holy Shield at KS 2.', req: '1500 Elo', isElo: true },
     { type: 'palace', name: 'The Palace', desc: 'Living Fortress. High-level resurrections.', req: '1800 Elo', isElo: true },
     { type: 'archer', name: 'Archer', desc: 'Long-range Cavalry. Global Snipe at KS 5.', req: '2100 Elo', isElo: true },
-    { type: 'dancer', name: 'The Dancer', desc: 'Mobile specialist. Free move/swap at KS 1.', req: 'Dungeon Floor 50 or $1.00' },
-    { type: 'mimic', name: 'The Mimic', desc: 'Utility unit. Copies the last moved piece.', req: 'Dungeon Floor 50 or $1.00' },
-    { type: 'grappler', name: 'The Grappler', desc: 'Area control. Throws adjacent units.', req: 'Dungeon Floor 50 or $1.00' },
-    { type: 'myco_mage', name: 'Myco Mage', desc: 'Mushroomancer. Uses global fungal spells.', req: 'Dungeon Floor 50 or $1.00' },
+    { type: 'dancer', name: 'The Dancer', desc: 'Mobile specialist. Free move/swap at KS 1.', req: 'Defeat Floor 50 or $1.00' },
+    { type: 'mimic', name: 'The Mimic', desc: 'Utility unit. Copies the last moved piece.', req: 'Defeat The Mirage 5x or $1.00' },
+    { type: 'grappler', name: 'The Grappler', desc: 'Area control. Throws adjacent units.', req: 'Defeat The Colossus 10x or $1.00' },
+    { type: 'myco_mage', name: 'Myco Mage', desc: 'Mushroomancer. Uses global fungal spells.', req: 'Defeat The Necromancer 15x or $1.00' },
   ];
 
   return (

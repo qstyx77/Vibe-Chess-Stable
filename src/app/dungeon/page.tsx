@@ -43,7 +43,7 @@ import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
 import { AuthWidget } from '@/components/auth/AuthWidget';
-import { doc } from 'firebase/firestore';
+import { doc, increment, arrayUnion } from 'firebase/firestore';
 import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import {
@@ -464,6 +464,27 @@ export default function DungeonPage() {
     if (cleared || (isBoss && mated) || stalled) {
         const sur = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
         addLog(cleared ? "ALL FOES VANQUISHED!" : (isBoss && mated ? "BOSS ENTITY DEFEATED!" : "DUNGEON FORCES STALEMATED!"));
+        
+        // Handle Earned Boss Unlocks
+        if (user && firestore && isBoss && (cleared || mated)) {
+            const userRef = doc(firestore, 'users', user.uid);
+            if (level === 20) { // Necromancer
+                const current = (userData?.necromancerDefeats || 0) + 1;
+                updateDocumentNonBlocking(userRef, { necromancerDefeats: increment(1) });
+                if (current >= 15) updateDocumentNonBlocking(userRef, { unlockedPieces: arrayUnion('myco_mage') });
+            } else if (level === 30) { // Colossus
+                const current = (userData?.colossusDefeats || 0) + 1;
+                updateDocumentNonBlocking(userRef, { colossusDefeats: increment(1) });
+                if (current >= 10) updateDocumentNonBlocking(userRef, { unlockedPieces: arrayUnion('grappler') });
+            } else if (level === 40) { // Mirage
+                const current = (userData?.mirageDefeats || 0) + 1;
+                updateDocumentNonBlocking(userRef, { mirageDefeats: increment(1) });
+                if (current >= 5) updateDocumentNonBlocking(userRef, { unlockedPieces: arrayUnion('mimic') });
+            } else if (level === 50) { // Void Entity
+                updateDocumentNonBlocking(userRef, { voidDefeats: increment(1), unlockedPieces: arrayUnion('dancer') });
+            }
+        }
+
         advanceLevel(sur, nG); return;
     }
     const pKing = findKing(nB, 'white');
@@ -478,7 +499,7 @@ export default function DungeonPage() {
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inC) addLog("Check!");
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
-  }, [level, inventory, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, getPlayerDisplayName]);
+  }, [level, inventory, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, getPlayerDisplayName, user, firestore, userData]);
 
   const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
@@ -747,7 +768,7 @@ export default function DungeonPage() {
             if (p.type === 'archer') return true; 
             if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; 
             const crds = board.flat().find(sq => sq.piece?.id === p.id); 
-            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
+            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {
@@ -934,7 +955,7 @@ export default function DungeonPage() {
           setIsMoveProcessing(false); setIsAiThinking(false); 
           const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isEx = appRes.extraTurn || (oS < 6 && nS >= 6);
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
-          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isEx, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT);
+          processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT);
         }, 800);
     } else {
         const nextNo = aiNoMoveCounter + 1; setAiNoMoveCounter(nextNo);
