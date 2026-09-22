@@ -337,7 +337,7 @@ export default function DungeonPage() {
     isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
 
   const handlePieceHover = useCallback((p: Piece | null) => {
     setPieceForInfoDisplay(p);
@@ -488,7 +488,7 @@ export default function DungeonPage() {
     const cHash = boardToPositionHash(nB, nxtP, nEp); let nHist = [...positionHistory];
     if (wasCap || (actT && FRONTLINE_TYPES.includes(actT))) { nHist = [cHash]; } else { nHist.push(cHash); }
     setPositionHistory(nHist);
-    if (nHist.filter(h => h === cHash).length >= 3) { setGameInfo({ message: "Draw by Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }); addLog("Draw by Repetition!"); gameOverRef.current = true; return; }
+    if (nHist.filter(h => h === cHash).length >= 3) { setGameInfo({ message: "Draw by Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }); addLog("Draw by Repetition!"); gameOverRef.current = true; audioManager.playDraw(); return; }
     const { newBoard: bP, poisonedCaptures } = processPoisonDamage(nB, nxtP);
     nB = bP;
     if (poisonedCaptures.length > 0) { poisonedCaptures.forEach(p => { const pile = p.color; nG[pile] = [...(nG[pile]||[]), p]; }); audioManager.playCapture(); addLog(`${poisonedCaptures.length} units decayed.`); }
@@ -499,7 +499,7 @@ export default function DungeonPage() {
     if (cleared || (isBoss && mated) || stalled) {
         const sur = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
         addLog(cleared ? "ALL FOES VANQUISHED!" : (isBoss && mated ? "BOSS ENTITY DEFEATED!" : "DUNGEON FORCES STALEMATED!"));
-        
+        if (stalled) audioManager.playDraw(); else audioManager.playVictory();
         if (user && firestore && isBoss && (cleared || mated)) {
             const userRef = doc(firestore, 'users', user.uid);
             if (level === 20) { 
@@ -525,7 +525,9 @@ export default function DungeonPage() {
     const pStale = (nxtP === 'white') && isStalemate(nB, 'white', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
     if (!pKing || pMated || pStale) {
       setGameInfo({ message: !pKing || pMated ? "YOUR KING HAS FALLEN" : "STALEMATE - RUN OVER", isCheck: !!pMated, playerWithKingInCheck: 'white', isCheckmate: !!pMated, isStalemate: !!pStale, gameOver: true, winner: 'black' }); 
-      gameOverRef.current = true; audioManager.playDefeat(); return;
+      gameOverRef.current = true; 
+      if (pStale) audioManager.playDraw(); else audioManager.playDefeat(); 
+      return;
     }
     setBoard(nB); setCapturedPieces(nG); setKillStreaks(curKs); setEnPassantTargetSquare(nEp); setCurrentPlayer(nxtP);
     const inC = isKingInCheck(nB, nxtP, nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
@@ -687,7 +689,7 @@ export default function DungeonPage() {
     processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT);
   }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect]);
 
-  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isExtraTurn: boolean, ep: AlgebraicSquare | null, oS: number, newStreak: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null) => {
+  const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isEx: boolean, ep: AlgebraicSquare | null, oS: number, newStreak: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
     if (piece?.type === 'queen' && piece.level === 7 && oT === 'queen' && (oL || 0) < 7) {
       if (bAf.flat().some(sq => sq.piece && sq.piece.color === p && FRONTLINE_TYPES.includes(sq.piece.type))) {
@@ -698,16 +700,16 @@ export default function DungeonPage() {
                 const {row: pr, col: pc} = algebraicToCoords(pSq.algebraic); const sacrificed = { ...nxtB[pr][pc].piece! };
                 nxtB[pr][pc].piece = null; audioManager.playCapture(); addLog(`AI Sacrificed ${sacrificed.type} for the Queen!`);
                 const nG = { white: Array.isArray(g.white) ? [...g.white] : [], black: Array.isArray(g.black) ? [...g.black] : [] }; nG[sacrificed.color] = [...nG[sacrificed.color], sacrificed];
-                triggerSpecialsChain(nxtB, nG, cKs, oS, newStreak, isExtraTurn, ep, p, [], cId, wC, mT);
+                triggerSpecialsChain(nxtB, nG, cKs, oS, newStreak, isEx, ep, p, [], cId, wC, mT);
             }
             return true;
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(p); setBoardForPostSacrifice(bAf);
-        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isExtraTurn, newEnPassantTarget: ep, oldStreak: oS, newStreak: newStreak, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
+        setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isEx, newEnPassantTarget: ep, oldStreak: oS, newStreak: newStreak, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
         addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
       }
     }
-    triggerSpecialsChain(bAf, g, cKs, oS, newStreak, isExtraTurn, ep, p, [], cId, wC, mT); return false;
+    triggerSpecialsChain(bAf, g, cKs, oS, newStreak, isEx, ep, p, [], cId, wC, mT); return false;
   }, [triggerSpecialsChain, addLog]);
 
   const handlePromotionSelect = useCallback((t: PieceType) => {
@@ -795,7 +797,7 @@ export default function DungeonPage() {
             if (p.type === 'archer') return true; 
             if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; 
             const crds = board.flat().find(sq => sq.piece?.id === p.id); 
-            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
+            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {

@@ -280,6 +280,12 @@ class AudioManager {
     });
   }
 
+  playDraw() {
+    [220, 220, 220].forEach((f, i) => {
+        setTimeout(() => this.playTone(f, 'sine', 0.2, 0.3), i * 200);
+    });
+  }
+
   playStart() {
     this.playTone(440, 'sine', 0.1, 0.5);
     setTimeout(() => this.playTone(880, 'sine', 0.15, 0.4), 100);
