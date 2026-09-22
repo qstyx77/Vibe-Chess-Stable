@@ -139,10 +139,10 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture. [LUMINOUS SET: w/ Logas, Golden Chalice. Bonus: Shared Divinity.]', isConsumable: false, rarity: 'rare' },
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true, rarity: 'uncommon' },
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true, rarity: 'rare' },
-  'poison_sword': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false, rarity: 'rare' },
+  'poison_sword': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture. [TOXIC CLOUD SET: w/ Poison Tunic, Spiked Plate. Bonus: Adjacency poisons enemies.]', isConsumable: false, rarity: 'rare' },
   'antidote': { name: 'Antidote', description: 'Consumable vial. Cures all allied units of poison and exhaustion. [ALCHEMIST SET: w/ Spore Pouch, Sclerotia. Bonus: Double Shrooms.]', isConsumable: true, rarity: 'common' },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false, rarity: 'uncommon' },
-  'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false, rarity: 'uncommon' },
+  'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer. [TOXIC CLOUD SET: w/ Poison Dagger, Spiked Plate. Bonus: Adjacency poisons enemies.]', isConsumable: false, rarity: 'uncommon' },
   'detonation_scroll': { name: 'Detonation Scroll', description: 'Consumable (L5+). Causes the equipped piece to self-destruct.', isConsumable: true, rarity: 'uncommon' },
   'phase_boots': { name: 'Phase Boots', description: 'Ethereal boots (L2+). Jump over friendly pieces while moving.', isConsumable: false, rarity: 'rare' },
   'swap_scroll': { name: 'Swap Scroll', description: 'Consumable (L3+). Trade places with another allied piece.', isConsumable: true, rarity: 'uncommon' },
@@ -216,7 +216,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'signal_horn': { name: 'Signal Horn', description: 'Common Passive. When captured, a random allied unit of the same type gains +1 Level.', isConsumable: false, rarity: 'common' },
   'kinetic_coil': { name: 'Kinetic Coil', description: 'Common Passive. Gaining power from displacement. Gain +1 Level whenever Pushed or Pulled.', isConsumable: false, rarity: 'common' },
   'relay_ribbon': { name: 'Relay Ribbon', description: 'Common Passive. Gaining power from coordination. Gain +1 Level whenever this unit is the target of an Allied Swap.', isConsumable: false, rarity: 'common' },
-  'spiked_plate': { name: 'Spiked Plate', description: 'Common Passive. Any enemy unit that captures the wearer becomes Poisoned immediately.', isConsumable: false, rarity: 'common' },
+  'spiked_plate': { name: 'Spiked Plate', description: 'Common Passive. Poisons enemy capturer. [TOXIC CLOUD SET: w/ Poison Dagger, Poison Tunic. Bonus: Adjacency poisons enemies.]', isConsumable: false, rarity: 'common' },
   'traction_cleats': { name: 'Traction Cleats', description: 'Common Passive. The wearer is completely immune to the sliding effect of Oil Slicks.', isConsumable: false, rarity: 'common' },
   'glass_shard': { name: 'Glass Shard', description: 'Common Consumable. Automatically consumed when the wearer is captured to make the capturer Exhausted for 1 turn.', isConsumable: true, rarity: 'common' },
   'defiant_spark': { name: 'Defiant Spark', description: 'Common Consumable. If an adjacent ally is captured, this item is consumed to grant the wearer a Holy Shield.', isConsumable: true, rarity: 'common' },
@@ -258,6 +258,11 @@ export const ITEM_SETS: Record<string, ItemSet> = {
     name: "Wind Set",
     items: ['wind_sword', 'wind_cloak', 'wind_scroll'],
     bonus: "Frontline units gain Push-Back at Level 2."
+  },
+  toxic_cloud: {
+    name: "Toxic Cloud Set",
+    items: ['poison_sword', 'poison_tunic', 'spiked_plate'],
+    bonus: "Toxic Cloud: Enemy units moving adjacent to this set's units are poisoned automatically. This turns your units into 'poison zones.'"
   }
 };
 
