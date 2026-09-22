@@ -26,7 +26,6 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   const abilities: string[] = [];
   const l = level || 1;
   const currentSets = board ? getActiveSets(board, piece.color) : [];
-  const isWindSetActive = currentSets.includes('wind_set');
 
   if (id?.startsWith('boss-hydra')) abilities.push("Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
   else if (id === 'boss-necro') abilities.push("Necromancy: Resurrects a fallen ally every 5 turns.");
@@ -153,10 +152,10 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
       if (l >= 1) abilities.push("Standard move/capture.");
       if (l >= 2) {
         abilities.push("Can move 1 square backward.");
-        if (isWindSetActive) abilities.push("Push-Back (SET BONUS): Moving adjacent to units/items pushes them away.");
+        if (currentSets.includes('wind_set')) abilities.push("Push-Back (SET BONUS): Moving adjacent to units/items pushes them away.");
       }
       if (l >= 3) abilities.push("Can move 1 square sideways.");
-      if (l >= 4 && !isWindSetActive) abilities.push("Push-Back: Moving adjacent to units/items pushes them away.");
+      if (l >= 4 && !currentSets.includes('wind_set')) abilities.push("Push-Back: Moving adjacent to units/items pushes them away.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
       if (type === 'commander') abilities.push("Rallying Cry on capture.");
       if (type === 'dancer') abilities.push("Dance: KS 1 free cardinal move/swap.");

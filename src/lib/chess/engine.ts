@@ -864,6 +864,35 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (captured) {
+    const activeSets = getActiveSets(newBoard, pieceToLand.color);
+    if (activeSets.includes('reapers_tithe')) {
+        const extraLevels = (captured.level || 1) - 1;
+        captured.level = 1;
+        if (extraLevels > 0) {
+            const setUnits: {p: Piece, r: number, c: number}[] = [];
+            const setItems = ITEM_SETS['reapers_tithe'].items;
+            newBoard.forEach((row, ri) => row.forEach((sq, ci) => {
+                if (sq.piece && sq.piece.color === pieceToLand.color && sq.piece.heldItem && setItems.includes(sq.piece.heldItem)) {
+                    setUnits.push({p: sq.piece, r: ri, c: ci});
+                }
+            }));
+            if (setUnits.length > 0) {
+                for (let i = 0; i < extraLevels; i++) {
+                    const target = setUnits[Math.floor(Math.random() * setUnits.length)];
+                    const p = target.p;
+                    if (p.type !== 'queen' || p.level < 7) {
+                        p.level++;
+                        p.isPoisoned = false;
+                        p.isExhausted = false;
+                        p.cooldownTurnsRemaining = 0;
+                        const alg = coordsToAlgebraic(target.r, target.c);
+                        if (!ralliedSquares.includes(alg)) ralliedSquares.push(alg);
+                    }
+                }
+            }
+        }
+    }
+
     if (captured.heldItem === 'spiked_plate' && pieceToLand.heldItem !== 'filter_mask') {
         pieceToLand.isPoisoned = true;
     }
