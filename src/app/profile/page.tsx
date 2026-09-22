@@ -1,8 +1,8 @@
 
 'use client';
 
-import { useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking } from '@/firebase';
-import { doc, getFirestore } from 'firebase/firestore';
+import { useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking, useAuth } from '@/firebase';
+import { doc, getFirestore, deleteDoc } from 'firebase/firestore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -11,15 +11,27 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
-import { Package, Store, Trash2, UserPlus } from 'lucide-react';
+import { Package, Store, Trash2, UserPlus, AlertTriangle, ShieldAlert } from 'lucide-react';
 import { ITEM_METADATA, type InventoryItemType, type MarketListing } from '@/types';
 import { ItemSprite } from '@/components/evolving-chess/ItemSprite';
 import { useToast } from '@/hooks/use-toast';
 import { useSocial } from '@/components/social/SocialContext';
 import { Coins } from 'lucide-react';
+import { EmailAuthProvider, reauthenticateWithCredential, deleteUser } from 'firebase/auth';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function ProfilePage() {
   const { user, userData, isUserLoading, userError } = useUser();
+  const auth = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryUserId = searchParams.get('userId');
@@ -30,6 +42,11 @@ export default function ProfilePage() {
   const firestore = getFirestore();
   const [isListingItem, setIsListingItem] = useState<number | null>(null);
   const [listingPrice, setListingPrice] = useState(100);
+
+  // Deletion state
+  const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const userProfileRef = useMemoFirebase(() => {
     if (!targetId) return null;
@@ -87,6 +104,33 @@ export default function ProfilePage() {
     const userRef = doc(firestore, 'users', user.uid);
     updateDocumentNonBlocking(userRef, { marketSlots: newMarket, inventory: newInv });
     toast({ title: "Listing Removed", description: "Item returned to loot bag." });
+  };
+
+  const confirmDeleteAccount = async () => {
+    if (!user || !deletePassword) return;
+    setIsDeleting(true);
+    try {
+        const credential = EmailAuthProvider.credential(user.email!, deletePassword);
+        await reauthenticateWithCredential(user, credential);
+        
+        // Re-auth success, proceed with cleanup
+        const userRef = doc(firestore, 'users', user.uid);
+        await deleteDoc(userRef);
+        await deleteUser(user);
+        
+        toast({ title: "Account Deleted", description: "Your journey has ended." });
+        setIsDeleteAccountOpen(false);
+        router.push('/');
+    } catch (e: any) {
+        console.error("Account deletion error:", e);
+        toast({ 
+            variant: 'destructive', 
+            title: "Deletion Failed", 
+            description: e.code === 'auth/wrong-password' ? "Incorrect password provided." : e.message || "An error occurred during verification." 
+        });
+    } finally {
+        setIsDeleting(false);
+    }
   };
 
   if (isUserLoading || isProfileLoading) {
@@ -183,11 +227,23 @@ export default function ProfilePage() {
              </div>
           </div>
 
-          <div className="text-center pt-6">
+          <div className="text-center pt-10">
              <Link href="/">
                 <Button variant="ghost" className="text-[10px] uppercase">Return to Battle</Button>
             </Link>
           </div>
+
+          {isMe && (
+              <div className="mt-12 pt-6 border-t border-destructive/20 flex justify-center">
+                  <Button 
+                    variant="outline" 
+                    className="text-[8px] text-destructive border-destructive/30 hover:bg-destructive/10 uppercase py-6 px-4"
+                    onClick={() => setIsDeleteAccountOpen(true)}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-2" /> Terminate Account
+                  </Button>
+              </div>
+          )}
         </CardContent>
       </Card>
 
@@ -229,6 +285,46 @@ export default function ProfilePage() {
               </Card>
           </div>
       )}
+
+      {/* ACCOUNT DELETION OVERLAY */}
+      <Dialog open={isDeleteAccountOpen} onOpenChange={setIsDeleteAccountOpen}>
+          <DialogContent className="bg-black border-2 border-destructive font-pixel sm:max-w-md z-[120]">
+              <DialogHeader>
+                  <div className="flex items-center gap-2 text-destructive mb-2">
+                    <ShieldAlert className="h-5 w-5" />
+                    <DialogTitle className="text-sm uppercase">Irreversible Action</DialogTitle>
+                  </div>
+                  <DialogDescription className="text-[0.6rem] text-white/70 uppercase leading-relaxed">
+                    You are about to delete your account. All gold, levels, items, and progress will be lost forever.
+                  </DialogDescription>
+              </DialogHeader>
+              
+              <div className="py-4 space-y-4">
+                  <div className="space-y-2">
+                      <Label className="text-[0.5rem] uppercase text-muted-foreground px-1">Verify Identity (Password)</Label>
+                      <Input 
+                        type="password" 
+                        value={deletePassword}
+                        onChange={(e) => setDeletePassword(e.target.value)}
+                        className="bg-black border-destructive/40 text-white font-sans text-sm h-10"
+                        placeholder="••••••••"
+                      />
+                  </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:flex-col lg:flex-row">
+                  <Button variant="ghost" onClick={() => setIsDeleteAccountOpen(false)} className="text-[0.6rem] uppercase h-10">Cancel</Button>
+                  <Button 
+                    variant="destructive" 
+                    onClick={confirmDeleteAccount} 
+                    className="text-[0.6rem] uppercase h-10"
+                    disabled={!deletePassword || isDeleting}
+                  >
+                    {isDeleting ? "Exiling..." : "Confirm Deletion"}
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }
