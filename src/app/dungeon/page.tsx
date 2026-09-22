@@ -496,10 +496,13 @@ export default function DungeonPage() {
     const mated = eKing && isCheckmate(nB, 'black', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
     const stalled = (nxtP === 'black') && isStalemate(nB, 'black', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
     const cleared = nB.flat().filter(sq => sq.piece?.color === 'black').length === 0;
-    if (cleared || (isBoss && mated) || stalled) {
+    
+    // Stalemate for Black (AI) no longer triggers immediate advancement here.
+    // Instead, nxtP will be 'black' and performAiMove will handle the turn counter.
+    if (cleared || (isBoss && mated)) {
         const sur = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
-        addLog(cleared ? "ALL FOES VANQUISHED!" : (isBoss && mated ? "BOSS ENTITY DEFEATED!" : "DUNGEON FORCES STALEMATED!"));
-        if (stalled) audioManager.playDraw(); else audioManager.playVictory();
+        addLog(cleared ? "ALL FOES VANQUISHED!" : "BOSS ENTITY DEFEATED!");
+        audioManager.playVictory();
         if (user && firestore && isBoss && (cleared || mated)) {
             const userRef = doc(firestore, 'users', user.uid);
             if (level === 20) { 
@@ -520,6 +523,7 @@ export default function DungeonPage() {
         }
         advanceLevel(sur, nG); return;
     }
+
     const pKing = findKing(nB, 'white');
     const pMated = pKing && isCheckmate(nB, 'white', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
     const pStale = (nxtP === 'white') && isStalemate(nB, 'white', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
@@ -532,7 +536,7 @@ export default function DungeonPage() {
     setBoard(nB); setCapturedPieces(nG); setKillStreaks(curKs); setEnPassantTargetSquare(nEp); setCurrentPlayer(nxtP);
     const inC = isKingInCheck(nB, nxtP, nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
-    if (inC) addLog("Check!");
+    if (inC) { addLog("Check!"); audioManager.playCheck(); }
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
   }, [level, inventory, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, getPlayerDisplayName, user, firestore, userData]);
 
@@ -687,7 +691,7 @@ export default function DungeonPage() {
         }
     }
     processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT);
-  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect]);
+  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect, processMoveEnd]);
 
   const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isEx: boolean, ep: AlgebraicSquare | null, oS: number, newStreak: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
@@ -913,7 +917,7 @@ export default function DungeonPage() {
         setSelectedSquare(null); setPossibleMoves([]); 
         setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -987,10 +991,46 @@ export default function DungeonPage() {
         }, 800);
     } else {
         const nextNo = aiNoMoveCounter + 1; setAiNoMoveCounter(nextNo);
-        if (nextNo >= 3) { addLog("FLOOR COLLAPSE! THE DUNGEON TREMBLES!"); audioManager.playExplosion(); const sur = board.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!); advanceLevel(sur, capturedPieces); }
+        if (nextNo >= 3) { 
+            addLog("FLOOR COLLAPSE! THE DUNGEON TREMBLES!"); 
+            audioManager.playExplosion(); 
+            
+            // Execute Floor Collapse self-destruct sequence
+            let nB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+            const nG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] };
+            
+            const blackSquares = nB.flat().filter(sq => sq.piece?.color === 'black');
+            blackSquares.forEach(sq => {
+                const { rowIndex: r, colIndex: c } = sq;
+                addEffect('explosion', sq.algebraic);
+                // 3x3 radius explosion
+                for (let dr = -1; dr <= 1; dr++) {
+                    for (let dc = -1; dc <= 1; dc++) {
+                        const nr = r + dr; const nc = c + dc;
+                        if (isValidSquare(nr, nc)) {
+                            const victimSq = nB[nr][nc];
+                            if (victimSq.piece && victimSq.piece.color === 'white' && victimSq.piece.type !== 'king' && victimSq.piece.heldItem !== 'blast_shield') {
+                                nG.white.push({ ...victimSq.piece });
+                                nB[nr][nc].piece = null;
+                            }
+                            if (victimSq.item?.type === 'anvil') nB[nr][nc].item = null;
+                        }
+                    }
+                }
+                nB[r][c].piece = null;
+            });
+            setBoard(nB);
+            setCapturedPieces(nG);
+            
+            const survivors = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
+            setTimeout(() => advanceLevel(survivors, nG), 1200);
+        } else {
+            addLog(`The Dungeon is frozen... (${nextNo}/3)`);
+            setCurrentPlayer('white'); // Pass turn back to player to allow breaking the stalemate
+        }
         setIsAiThinking(false);
     }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, aiNoMoveCounter, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel, aiNoMoveCounter]);
 
   useEffect(() => { if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) { const t = setTimeout(performAiMove, 1000); return () => currentPlayer === 'black' && clearTimeout(t); } }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, performAiMove]);
 
