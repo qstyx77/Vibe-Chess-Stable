@@ -25,6 +25,8 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   const { type, level, heldItem, id } = piece;
   const abilities: string[] = [];
   const l = level || 1;
+  const currentSets = board ? getActiveSets(board, piece.color) : [];
+  const isWindSetActive = currentSets.includes('wind_set');
 
   if (id?.startsWith('boss-hydra')) abilities.push("Hydra Split: When captured, its heads regrow into 2 Knights on adjacent squares.");
   else if (id === 'boss-necro') abilities.push("Necromancy: Resurrects a fallen ally every 5 turns.");
@@ -135,7 +137,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'traction_cleats') abilities.push("grip: immune to Oil Slick sliding.");
   if (heldItem === 'glass_shard') abilities.push("trap: exhausts enemy capturer (one-time).");
   if (heldItem === 'defiant_spark') abilities.push("defiance: if adjacent ally is taken, wearer gains Holy Shield.");
-  if (heldItem === 'soul_spark') abilities.push("soul spark: return at L2 when resurrected.");
+  if (heldItem === 'soul_spark') abilities.push("soul spark: return at L2 when Resurrected.");
   if (heldItem === 'scouts_map') abilities.push("scouting: +1 move range if area is clear of foes.");
   if (heldItem === 'rosary') abilities.push("divine: targeted shields grant +1 level.");
   if (heldItem === 'obsidian_blade') abilities.push("pierce: can capture units with Holy Shields.");
@@ -149,9 +151,12 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
     case 'commander':
     case 'myco_mage':
       if (l >= 1) abilities.push("Standard move/capture.");
-      if (l >= 2) abilities.push("Can move 1 square backward.");
+      if (l >= 2) {
+        abilities.push("Can move 1 square backward.");
+        if (isWindSetActive) abilities.push("Push-Back (SET BONUS): Moving adjacent to units/items pushes them away.");
+      }
       if (l >= 3) abilities.push("Can move 1 square sideways.");
-      if (l >= 4) abilities.push("Push-Back: Moving adjacent to units/items pushes them away.");
+      if (l >= 4 && !isWindSetActive) abilities.push("Push-Back: Moving adjacent to units/items pushes them away.");
       if (l >= 5) abilities.push("Promotion grants extra turn.");
       if (type === 'commander') abilities.push("Rallying Cry on capture.");
       if (type === 'dancer') abilities.push("Dance: KS 1 free cardinal move/swap.");

@@ -128,18 +128,18 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'cardinal_greaves': { name: 'Cardinal Greaves', description: 'Green boots. Move (no capture) 1 space cardinally forward.', isConsumable: false, rarity: 'common' },
   'drift_boots': { name: 'Drift Boots', description: 'Blue boots. Move (no capture) 1 space diagonally forward.', isConsumable: false, rarity: 'common' },
   'queens_peace': { name: 'Queen\'s Peace', description: 'Serene ring. Queen only. Invulnerable but cannot capture.', isConsumable: false, rarity: 'rare' },
-  'wind_sword': { name: 'Wind Sword', description: 'Aero blade. Push-Back ability triggered on attack.', isConsumable: false, rarity: 'rare' },
+  'wind_sword': { name: 'Wind Sword', description: 'Aero blade. Push-Back ability triggered on attack. [WIND SET: w/ Wind Cloak, Wind Scroll. Bonus: Frontline Push-Back at L2.]', isConsumable: false, rarity: 'rare' },
   'middle_way': { name: 'The Middle Way', description: 'Balanced amulet. Locks piece level at 3 permanently.', isConsumable: false, rarity: 'rare' },
   'phoenix_down': { name: 'Phoenix Down', description: 'Magic feather. Auto-resurrection at L1 (Consumable).', isConsumable: true, rarity: 'rare' },
-  'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units.', isConsumable: true, rarity: 'common' },
+  'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units. [WIND SET: w/ Wind Sword, Wind Cloak. Bonus: Frontline Push-Back at L2.]', isConsumable: true, rarity: 'common' },
   'life_leach': { name: 'Life Leach', description: 'Consumable. Global: reduces all enemy levels by 1.', isConsumable: true, rarity: 'common' },
   'summon_anvil': { name: 'Anvil Scroll', description: 'Consumable. Target an empty square to drop a solid Anvil.', isConsumable: true, rarity: 'uncommon' },
   'great_sword': { name: 'Great Sword', description: 'Frontline only. Capture an enemy directly behind your primary target.', isConsumable: false, rarity: 'uncommon' },
-  'wind_cloak': { name: 'Wind Cloak', description: 'Aero mantle. L4+ pieces gain Push-Back ability.', isConsumable: false, rarity: 'uncommon' },
+  'wind_cloak': { name: 'Wind Cloak', description: 'Aero mantle. L4+ pieces gain Push-Back ability. [WIND SET: w/ Wind Sword, Wind Scroll. Bonus: Frontline Push-Back at L2.]', isConsumable: false, rarity: 'uncommon' },
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture. [LUMINOUS SET: w/ Logas, Golden Chalice. Bonus: Shared Divinity.]', isConsumable: false, rarity: 'rare' },
   'shield_scroll': { name: 'Shield Scroll', description: 'Consumable (L2+). Target an allied unit to shield it.', isConsumable: true, rarity: 'uncommon' },
   'rally_scroll': { name: 'Rally Scroll', description: 'Consumable (L3+). Resets user level to trigger a global allied Rally.', isConsumable: true, rarity: 'rare' },
-  'poison_sword': { name: 'Poison Sword', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false, rarity: 'uncommon' },
+  'poison_sword': { name: 'Poison Dagger', description: 'Toxic blade. Splashes poison to adjacent enemies on capture.', isConsumable: false, rarity: 'rare' },
   'antidote': { name: 'Antidote', description: 'Consumable vial. Cures all allied units of poison and exhaustion. [ALCHEMIST SET: w/ Spore Pouch, Sclerotia. Bonus: Double Shrooms.]', isConsumable: true, rarity: 'common' },
   'crossbow': { name: 'Crossbow', description: 'Archer only. Snipe KS at 3. Targets equal/lower level enemies. Archer levels on capture.', isConsumable: false, rarity: 'uncommon' },
   'poison_tunic': { name: 'Poison Tunic', description: 'Hazardous vest. Poisons any piece that captures the wearer.', isConsumable: false, rarity: 'uncommon' },
@@ -197,7 +197,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
   'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },
-  'chameleon_cloak': { name: 'Chameleon Cloak', description: 'Non-King only. Unit copies the type of the piece it captures while retaining its level. [ASSASSIN SET: w/ Obsidian Blade, Smoke Bomb. Bonus: L5+ Frontline become Infiltrators.]', isConsumable: false, rarity: 'rare' },
+  'chameleon_cloak': { name: 'Chameleon Cloak', description: 'Non-King only. Unit copies the type of the piece it captures while retaining its level. [ASSASSIN SET: w/ Smoke Bomb, Obsidian Blade. Bonus: L5+ Frontline become Infiltrators.]', isConsumable: false, rarity: 'rare' },
   'phase_out': { name: 'Phase Out Scroll', description: 'Uncommon scroll (L2+). Non-Royal. Unit and adjacent units phase out for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'ice_breaker': { name: 'Ice Breaker', description: 'Passive. Allows unit to capture Frozen units. Frozen units captured by Ice Breaker shatter and are obliterated.', isConsumable: false, rarity: 'common' },
   'glacial_ray': { name: 'Glacial Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units in line become Frozen.', isConsumable: true, rarity: 'rare' },
@@ -253,6 +253,11 @@ export const ITEM_SETS: Record<string, ItemSet> = {
     name: "Luminous Set",
     items: ['logas', 'gnosis', 'golden_chalice'],
     bonus: "Shared Divinity: Whenever a unit levels up, the lowest-level unit also gains +1 Level."
+  },
+  wind_set: {
+    name: "Wind Set",
+    items: ['wind_sword', 'wind_cloak', 'wind_scroll'],
+    bonus: "Frontline units gain Push-Back at Level 2."
   }
 };
 

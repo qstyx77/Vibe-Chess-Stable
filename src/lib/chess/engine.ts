@@ -1069,10 +1069,13 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     }
   }
 
+  const currentSets = getActiveSets(newBoard, pieceToLand.color);
   const effectiveLevelAfterMove = getEffectiveLevel(newBoard, toRow, toCol);
   const isFrontline = FRONTLINE_TYPES.includes(pieceToLand.type);
   const hasGripGloves = effectiveHeldItem === 'grip_gloves' && isFrontline;
-  if ((isFrontline || effectiveHeldItem === 'wind_cloak') && (effectiveLevelAfterMove >= 4 || hasGripGloves)) {
+  const hasWindSetBonus = isFrontline && effectiveLevelAfterMove >= 2 && currentSets.includes('wind_set');
+
+  if ((isFrontline || effectiveHeldItem === 'wind_cloak') && (effectiveLevelAfterMove >= 4 || hasGripGloves || hasWindSetBonus)) {
     const onlyAnvils = hasGripGloves && effectiveLevelAfterMove < 4;
     const crush = triggerPushBack(newBoard, toRow, toCol, pieceToLand.color, onlyAnvils);
     if (crush) pieceCapturedByAnvil = crush;
@@ -1080,7 +1083,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   
-  const currentSets = getActiveSets(newBoard, pieceToLand.color);
   const isAssassinActive = currentSets.includes('assassin') && isFrontline && pieceToLand.level >= 5;
   if ((pieceToLand.type === 'infiltrator' || isAssassinActive) && toRow === (pieceToLand.color === 'white' ? 0 : 7)) infiltrationWin = true;
 
