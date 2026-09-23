@@ -303,7 +303,6 @@ export default function EvolvingChessPage() {
             if (winner === aiColor) audioManager.playDefeat();
             else audioManager.playVictory();
         } else {
-            // Local non-AI play: any non-draw ending is a "win" for the player at terminal
             audioManager.playVictory();
         }
     }
@@ -1038,7 +1037,7 @@ export default function EvolvingChessPage() {
       else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null }))); 
         const ally = nextB[row][col].piece!;
         ally.isShielded = true; 
-        const rosaryArchbishop = nextBoard.flat().find(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.heldItem === 'rosary');
+        const rosaryArchbishop = nextB.flat().find(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.heldItem === 'rosary');
         if (rosaryArchbishop) {
             ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
         }
