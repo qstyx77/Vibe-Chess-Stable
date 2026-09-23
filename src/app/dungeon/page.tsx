@@ -312,7 +312,7 @@ export default function DungeonPage() {
   }, [userData]);
 
   const attunementSlots = useMemo(() => {
-    const elo = userData?.eloRating || 1200; return elo <= 1200 ? 2 : 2 + Math.floor((elo - 1200) / 400);
+    const elo = userData?.eloRating || 1200; return elo <= 1200 ? 3 : 3 + Math.floor((elo - 1200) / 400);
   }, [userData]);
 
   const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
