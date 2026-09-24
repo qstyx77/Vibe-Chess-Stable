@@ -368,3 +368,12 @@ body {
 .animate-mirage-particle {
   animation: mirage-particle 4s ease-out infinite;
 }
+
+/* --- SELECTED PIECE HOP --- */
+@keyframes hop {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+.animate-hop {
+  animation: hop 0.6s ease-in-out infinite;
+}

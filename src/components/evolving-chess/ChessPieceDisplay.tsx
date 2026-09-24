@@ -41,6 +41,7 @@ interface ChessPieceDisplayProps {
   isGrimoirBoosted?: boolean;
   isMini?: boolean;
   isOnBoard?: boolean;
+  isSelected?: boolean;
 }
 
 const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
@@ -76,6 +77,7 @@ export const ChessPieceDisplay = memo(({
   isGrimoirBoosted = false,
   isMini = false,
   isOnBoard = false,
+  isSelected = false,
 }: ChessPieceDisplayProps) => {
   
   if (piece.id?.startsWith('boss-colossus') && isOnBoard) {
@@ -142,6 +144,7 @@ export const ChessPieceDisplay = memo(({
           piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]",
           isExhausted && "grayscale opacity-60 contrast-50",
           piece.id === 'boss-entity' && "animate-void-vibe",
+          isSelected && "animate-hop",
           "origin-center"
         )}
         style={bossStyle}

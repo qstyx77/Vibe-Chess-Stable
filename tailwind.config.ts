@@ -161,6 +161,10 @@ export default {
             from: { backgroundColor: 'transparent' },
             to: { backgroundColor: 'black' },
         },
+        'hop': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-4px)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -174,6 +178,7 @@ export default {
         'animate-piece-slide-in': 'piece-slide-in 0.7s ease-out forwards',
         'flash-timer-warning': 'flash-timer-warning 1.5s ease-in-out forwards',
         'fade-to-black': 'fade-to-black 2.5s ease-in forwards',
+        'hop': 'hop 0.6s ease-in-out infinite',
   		}
   	}
   },
