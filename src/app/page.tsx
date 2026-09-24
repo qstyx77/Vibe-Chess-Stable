@@ -667,7 +667,10 @@ export default function EvolvingChessPage() {
             const empty = nextBoard.flat().filter(sq => !sq.piece && !sq.item);
             if (empty.length > 0) {
                 empty.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
-                nextBoard[empty[0].rowIndex][empty[0].colIndex].item = { type: 'anvil' };
+                const target = empty[0];
+                nextBoard[target.rowIndex][target.colIndex].item = { type: 'anvil' };
+                addEffectCallback('poof', target.algebraic);
+                audioManager.playAnvil();
                 addLog(`${getPlayerDisplayName(actingPlayer)} dropped a defensive Anvil!`);
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
@@ -851,7 +854,11 @@ export default function EvolvingChessPage() {
       
       if (expGain > 0) addEffectCallback('level-change', toAlg, currentPlayer, expGain);
       if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
-      
+      if (applyResult.anvilDroppedSquares) applyResult.anvilDroppedSquares.forEach(sq => {
+          addEffectCallback('poof', sq);
+          audioManager.playAnvil();
+      });
+
       const oldS = killStreaks[currentPlayer], newS = streakGain > 0 ? oldS + streakGain : 0, currentKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(currentKs);
       let rookResResult: RookResurrectionResult | null = null;
       const wasCap = streakGain > 0;
@@ -981,7 +988,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1029,7 +1036,21 @@ export default function EvolvingChessPage() {
   }
   if ((isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget) && !sq?.piece && !sq?.item) {
       if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'anvil-drop', square: algebraic })); setIsAwaitingAnvilDrop(false); }
-      else { pushHistory(); if (isAwaitingOilSlickTarget) { setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'oil-slick' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false); setBoard(res.newBoard); setTimeout(() => { setIsMoveProcessing(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800); } else { const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s }))); nextB[row][col].item = { type: 'anvil' }; setBoard(nextB); setIsAwaitingAnvilDrop(false); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMovedPieceType); } }
+      else { 
+          pushHistory(); 
+          if (isAwaitingOilSlickTarget) { 
+              setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'oil-slick' }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false); setBoard(res.newBoard); setTimeout(() => { setIsMoveProcessing(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800); 
+          } else { 
+              const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s }))); 
+              nextB[row][col].item = { type: 'anvil' }; 
+              setBoard(nextB); 
+              addEffectCallback('poof', algebraic);
+              audioManager.playAnvil();
+              setIsAwaitingAnvilDrop(false); 
+              setIsAwaitingAnvilScrollTarget(false);
+              triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMovedPieceType); 
+          } 
+      }
       return;
   }
   if (isAwaitingHolyShield && piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) {
@@ -1104,6 +1125,11 @@ export default function EvolvingChessPage() {
               if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
               if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads! 2 Knights appear!"); }
+              if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach(sq => {
+                  addEffectCallback('poof', sq);
+                  audioManager.playAnvil();
+              });
+
               let rookResResult: RookResurrectionResult | null = null;
               const wasCap = streakGain > 0;
               if ((oldT === 'rook' || oldT === 'palace') && wasCap) {
@@ -1174,7 +1200,7 @@ export default function EvolvingChessPage() {
     ws.onopen = () => { setOnlineStatus('connected'); if (onOpenCallback) onOpenCallback(); };
     ws.onmessage = (event) => {
       const d = JSON.parse(event.data);
-      switch (d.type) {
+      switch (d) {
         case 'room-created': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('waiting'); break;
         case 'room-joined': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('connected'); break;
         case 'game-move': {
@@ -1190,7 +1216,11 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.conversions?.length > 0) { audioManager.playConversion(); remoteEvents.conversions.forEach((pos: AlgebraicSquare) => { addEffectCallback('conversion', pos); }); }
                 if (remoteEvents.reflection) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog("Attack reflected!"); }
                 if (remoteEvents.ralliedSquares?.length > 0) { remoteEvents.ralliedSquares.forEach((pos: AlgebraicSquare) => { addEffectCallback('level-change', pos, actingColor, 1); }); }
-                if (remoteEvents.anvilDrop) { audioManager.playAnvil(); addLog(`${getPlayerDisplayName(actingColor)} dropped an Anvil!`); }
+                if (remoteEvents.anvilDrop) { 
+                  audioManager.playAnvil(); 
+                  addEffectCallback('poof', remoteEvents.dropPos);
+                  addLog(`${getPlayerDisplayName(actingColor)} dropped an Anvil!`); 
+                }
                 if (remoteEvents.shield) { audioManager.playShield(); addLog(`${getPlayerDisplayName(actingColor)} applied a Holy Shield!`); }
                 if (remoteEvents.snipe) { audioManager.playSnipe(); addLog(`${getPlayerDisplayName(actingColor)} Snipe triggered!`); }
                 if (remoteEvents.resurrection && remoteEvents.resPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resPos); addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`); }

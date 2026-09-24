@@ -165,6 +165,12 @@ export default {
           '0%, 100%': { transform: 'translateY(0)' },
           '50%': { transform: 'translateY(-4px)' },
         },
+        'anvil-impact': {
+          '0%': { transform: 'translateY(-300%) scaleY(1.3)', opacity: '0' },
+          '60%': { transform: 'translateY(0) scaleY(1.3)', opacity: '1' },
+          '80%': { transform: 'translateY(0) scaleY(0.7)' },
+          '100%': { transform: 'translateY(0) scaleY(1)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -179,6 +185,7 @@ export default {
         'flash-timer-warning': 'flash-timer-warning 1.5s ease-in-out forwards',
         'fade-to-black': 'fade-to-black 2.5s ease-in forwards',
         'hop': 'hop 0.6s ease-in-out infinite',
+        'anvil-impact': 'anvil-impact 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
   		}
   	}
   },

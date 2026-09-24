@@ -157,7 +157,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'leach_blade': { name: 'Leach Blade', description: 'Dark blade. Capturing reduces adjacent enemies level. [REAPER\'S TITHE SET: w/ Grimoir, Soul Harvest. Bonus: Stolen levels distributed randomly.]', isConsumable: false, rarity: 'rare' },
   'kings_decree': { name: 'King\'s Decree', description: 'Consumable. King only. Target an allied Level 1 Pawn to promote it to a Commander.', isConsumable: true, rarity: 'rare' },
   'gravity_stone': { name: 'Gravity Stone', description: 'Accessory. Capturing pieces pulls enemy units that are 2 squares away 1 square closer.', isConsumable: false, rarity: 'rare' },
-  'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects. [HEAVY GUARD SET: w/ Blue Plate, Weighted Helm. Bonus: Frontline Push/Pull immune.]', isConsumable: false, rarity: 'common' },
+  'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects. [HEAVY GUARD SET: w/ Blue Plate, Lead Boots. Bonus: Frontline Push/Pull immune.]', isConsumable: false, rarity: 'common' },
   'blast_shield': { name: 'Blast Shield', description: 'Shield. Non-Royal only. Immune to self-destructs and explosions.', isConsumable: false, rarity: 'uncommon' },
   'monks_robe': { name: 'Monk\'s Robe', description: 'Robe. Bishops/Archbishops only. Increases conversion chance by 20%.', isConsumable: false, rarity: 'uncommon' },
   'training_weights': { name: 'Training Weights', description: 'Conditioning: +1 level every 5 turns. Actions cause immediate exhaustion.', isConsumable: false, rarity: 'common' },
@@ -197,7 +197,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
   'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },
-  'chameleon_cloak': { name: 'Chameleon Cloak', description: 'Non-King only. Unit copies the type of the piece it captures while retaining its level. [ASSASSIN SET: w/ Smoke Bomb, Obsidian Blade. Bonus: L5+ Frontline become Infiltrators.]', isConsumable: false, rarity: 'rare' },
+  'chameleon_cloak': { name: 'Chameleon Cloak', description: 'Non-King only. Unit copies the type of the piece it captures while retaining its level. [ASSASSIN SET: w/ Smoke Bomb, Chameleon Cloak. Bonus: L5+ Frontline become Infiltrators.]', isConsumable: false, rarity: 'rare' },
   'phase_out': { name: 'Phase Out Scroll', description: 'Uncommon scroll (L2+). Non-Royal. Unit and adjacent units phase out for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'ice_breaker': { name: 'Ice Breaker', description: 'Passive. Allows unit to capture Frozen units. Frozen units captured by Ice Breaker shatter and are obliterated.', isConsumable: false, rarity: 'common' },
   'glacial_ray': { name: 'Glacial Ray Scroll', description: 'Consumable. Target a cardinal line of 4 squares. All units in line become Frozen.', isConsumable: true, rarity: 'rare' },
@@ -388,6 +388,7 @@ export interface ApplyMoveResult {
   winByKingsConquest?: boolean;
   kingCapturedByColossus?: boolean;
   hydraSplitOccurred?: boolean;
+  anvilDroppedSquares?: AlgebraicSquare[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

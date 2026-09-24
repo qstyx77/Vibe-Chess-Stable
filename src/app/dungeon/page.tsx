@@ -627,7 +627,11 @@ export default function DungeonPage() {
             const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (emp.length > 0) {
                 emp.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
-                nxtB[emp[0].rowIndex][emp[0].colIndex].item = { type: 'anvil' }; addLog(`${getPlayerDisplayName(actP)} dropped a defensive Anvil!`);
+                const target = emp[0];
+                nxtB[target.rowIndex][target.colIndex].item = { type: 'anvil' }; 
+                addEffect('poof', target.algebraic);
+                audioManager.playAnvil();
+                addLog(`${getPlayerDisplayName(actP)} dropped a defensive Anvil!`);
             }
             triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT); return;
         } else {
@@ -768,11 +772,17 @@ export default function DungeonPage() {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
                 nextB[row][col].item = { type: 'anvil' }; setBoard(nextB); setIsAwaitingAnvilDrop(false); 
+                addEffect('poof', alg);
+                audioManager.playAnvil();
                 triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', [...(specialActionContext!.completedMilestones || []), 'anvil'], specialActionContext!.capturingPieceId, false, lastMovedPieceType);
                 return;
             }
             const res = applyMove(board, { from: selectedSquare!, to: alg, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
             setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+            if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(s => {
+                addEffect('poof', s);
+                audioManager.playAnvil();
+            });
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsAwaitingOilSlickTarget(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800);
         }
         return;
@@ -873,6 +883,11 @@ export default function DungeonPage() {
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); addEffect('level-change', alg, 'white', 1); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
           if (res.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); }
+          if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => {
+              addEffect('poof', sq);
+              audioManager.playAnvil();
+          });
+
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (res.capturedPiece) { const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; }
@@ -960,6 +975,11 @@ export default function DungeonPage() {
         if (appRes.shroomConsumed) { audioManager.playShroom(); addEffect('level-change', toAlg, 'black', 1); }
         if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
         if (appRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); }
+        if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => {
+            addEffect('poof', sq);
+            audioManager.playAnvil();
+        });
+
         let nextB = appRes.newBoard;
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
         if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
