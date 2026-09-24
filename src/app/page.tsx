@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { ReactNode } from 'react';
@@ -668,8 +669,10 @@ export default function EvolvingChessPage() {
                 empty.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
                 const target = empty[0];
                 nextBoard[target.rowIndex][target.colIndex].item = { type: 'anvil' };
-                addEffectCallback('poof', target.algebraic);
-                audioManager.playAnvil();
+                setTimeout(() => {
+                  addEffectCallback('poof', target.algebraic);
+                  audioManager.playAnvil();
+                }, 300);
                 addLog(`${getPlayerDisplayName(actingPlayer)} dropped a defensive Anvil!`);
             }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'anvil'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
@@ -841,7 +844,7 @@ export default function EvolvingChessPage() {
 
       if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); addEffectCallback('level-change', toAlg, currentPlayer, 1); }
       if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("AI Hero Ascended!"); }
-      if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); addLog("AI Conversion triggered!"); }
+      if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); data.remoteEvents.conversions.forEach((pos: AlgebraicSquare) => { addEffectCallback('conversion', pos); }); }
       if (applyResult.rallyCryTriggered) { addEffectCallback('shockwave', applyResult.rallyCryTriggered.square, applyResult.rallyCryTriggered.color); audioManager.playRally(); addLog("AI Rallying Cry!"); }
       const isObliteration = applyResult.promotedToInfiltrator || (p.type === 'infiltrator' && applyResult.capturedPiece);
       if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); addEffectCallback('poof', toAlg); }
@@ -861,8 +864,10 @@ export default function EvolvingChessPage() {
       if (expGain > 0) addEffectCallback('level-change', toAlg, currentPlayer, expGain);
       if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
       if (applyResult.anvilDroppedSquares) applyResult.anvilDroppedSquares.forEach(sq => {
-          addEffectCallback('poof', sq);
-          audioManager.playAnvil();
+          setTimeout(() => {
+            addEffectCallback('poof', sq);
+            audioManager.playAnvil();
+          }, 300);
       });
 
       const oldS = killStreaks[currentPlayer], newS = streakGain > 0 ? oldS + streakGain : 0, currentKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(currentKs);
@@ -994,7 +999,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1050,8 +1055,10 @@ export default function EvolvingChessPage() {
               const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s }))); 
               nextB[row][col].item = { type: 'anvil' }; 
               setBoard(nextB); 
-              addEffectCallback('poof', algebraic);
-              audioManager.playAnvil();
+              setTimeout(() => {
+                addEffectCallback('poof', algebraic);
+                audioManager.playAnvil();
+              }, 300);
               setIsAwaitingAnvilDrop(false); 
               setIsAwaitingAnvilScrollTarget(false);
               triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMovedPieceType); 
@@ -1139,8 +1146,10 @@ export default function EvolvingChessPage() {
               if (applyRes.resurrectionScrollEvent) { addEffectCallback('light-beam', applyRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
 
               if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach(sq => {
-                  addEffectCallback('poof', sq);
-                  audioManager.playAnvil();
+                  setTimeout(() => {
+                    addEffectCallback('poof', sq);
+                    audioManager.playAnvil();
+                  }, 300);
               });
 
               let rookResResult: RookResurrectionResult | null = null;
@@ -1230,8 +1239,10 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.reflection) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog("Attack reflected!"); }
                 if (remoteEvents.ralliedSquares?.length > 0) { remoteEvents.ralliedSquares.forEach((pos: AlgebraicSquare) => { addEffectCallback('level-change', pos, actingColor, 1); }); }
                 if (remoteEvents.anvilDrop) { 
-                  audioManager.playAnvil(); 
-                  addEffectCallback('poof', remoteEvents.dropPos);
+                  setTimeout(() => {
+                    audioManager.playAnvil(); 
+                    addEffectCallback('poof', remoteEvents.dropPos);
+                  }, 300);
                   addLog(`${getPlayerDisplayName(actingColor)} dropped an Anvil!`); 
                 }
                 if (remoteEvents.shield) { audioManager.playShield(); addLog(`${getPlayerDisplayName(actingColor)} applied a Holy Shield!`); }

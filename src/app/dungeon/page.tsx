@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -209,7 +210,7 @@ function adaptBoardForAI(
     extraTurn: false, 
     gameMoveCounter: moveC, 
     firstBloodAchieved: fb, 
-    playerWhoGotFirstBlood: fbP, 
+    playerWhoGotFirstblood: fbP, 
     enPassantTargetSquare: ep, 
     shroomSpawnCounter: sC, 
     nextShroomSpawnTurn: nsT, 
@@ -629,8 +630,10 @@ export default function DungeonPage() {
                 emp.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
                 const target = emp[0];
                 nxtB[target.rowIndex][target.colIndex].item = { type: 'anvil' }; 
-                addEffect('poof', target.algebraic);
-                audioManager.playAnvil();
+                setTimeout(() => {
+                  addEffect('poof', target.algebraic);
+                  audioManager.playAnvil();
+                }, 300);
                 addLog(`${getPlayerDisplayName(actP)} dropped a defensive Anvil!`);
             }
             triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT); return;
@@ -773,16 +776,20 @@ export default function DungeonPage() {
                 clickGuard.current = false; setIsMoveProcessing(false); setAnimatedSquareTo(null);
                 const nextB = specialActionContext!.boardForNextStep.map((r:any) => r.map((s:any) => ({ ...s }))); 
                 nextB[row][col].item = { type: 'anvil' }; setBoard(nextB); setIsAwaitingAnvilDrop(false); 
-                addEffect('poof', alg);
-                audioManager.playAnvil();
+                setTimeout(() => {
+                  addEffect('poof', alg);
+                  audioManager.playAnvil();
+                }, 300);
                 triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', [...(specialActionContext!.completedMilestones || []), 'anvil'], specialActionContext!.capturingPieceId, false, lastMovedPieceType);
                 return;
             }
             const res = applyMove(board, { from: selectedSquare!, to: alg, type: moveType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
             setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
             if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(s => {
-                addEffect('poof', s);
-                audioManager.playAnvil();
+                setTimeout(() => {
+                  addEffect('poof', s);
+                  audioManager.playAnvil();
+                }, 300);
             });
             setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingWindScrollTarget(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsAwaitingOilSlickTarget(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800);
         }
@@ -893,8 +900,10 @@ export default function DungeonPage() {
           if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
 
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => {
-              addEffect('poof', sq);
-              audioManager.playAnvil();
+              setTimeout(() => {
+                addEffect('poof', sq);
+                audioManager.playAnvil();
+              }, 300);
           });
 
           let nextBoardState = res.newBoard;
@@ -992,8 +1001,10 @@ export default function DungeonPage() {
         if (appRes.resurrectionScrollEvent) { addEffect('light-beam', appRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
 
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => {
-            addEffect('poof', sq);
-            audioManager.playAnvil();
+            setTimeout(() => {
+              addEffect('poof', sq);
+              audioManager.playAnvil();
+            }, 300);
         });
 
         let nextB = appRes.newBoard;
