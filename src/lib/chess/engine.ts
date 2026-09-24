@@ -252,6 +252,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   let ralliedSquares: AlgebraicSquare[] = [];
   let winByKingsConquest = false;
   let hydraSplitOccurred = false;
+  let hydraSpawnSquares: AlgebraicSquare[] = [];
   let anvilDroppedSquares: AlgebraicSquare[] = [];
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
@@ -620,7 +621,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
                   if (dr===0 && dc===0) continue;
                   const nr=fromRow+dr; const nc=fromCol+dc;
-                  if(isValidSquare(nr,nc) && !newBoard[nr][nr].piece && !newBoard[nr][nc].item) adjacent.push(coordsToAlgebraic(nr,nc));
+                  if(isValidSquare(nr,nc) && !newBoard[nr][nc].piece && !newBoard[nr][nc].item) adjacent.push(coordsToAlgebraic(nr,nc));
               }
               if (adjacent.length > 0) {
                   const target = adjacent[Math.floor(Math.random()*adjacent.length)];
@@ -1128,6 +1129,8 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       const shuffled = adj.sort(() => Math.random() - 0.5);
       for (let i = 0; i < spawnCount; i++) {
           const pos = shuffled[i];
+          const alg = coordsToAlgebraic(pos.r, pos.c);
+          hydraSpawnSquares.push(alg);
           newBoard[pos.r][pos.c].piece = {
               id: `hydra_spawn_${hydraToSplit.id}_${i}_${Date.now()}`,
               type: 'knight',
@@ -1140,5 +1143,5 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
       }
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, anvilDroppedSquares };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel, originalPieceType, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares };
 }

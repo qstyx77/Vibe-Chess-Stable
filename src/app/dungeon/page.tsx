@@ -312,7 +312,7 @@ export default function DungeonPage() {
   }, [userData]);
 
   const attunementSlots = useMemo(() => {
-    const elo = userData?.eloRating || 1200; return elo <= 1200 ? 3 : 3 + Math.floor((elo - 1200) / 400);
+    const elo = userData?.eloRating || 1200; return 3 + Math.floor((Math.max(0, elo - 1200)) / 400);
   }, [userData]);
 
   const usedSlots = useMemo(() => board.flat().filter(sq => sq.piece?.heldItem).length, [board]);
@@ -682,6 +682,7 @@ export default function DungeonPage() {
                     for (let i = 0; i < sc; i++) {
                         const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
                         nxtB[pos.r][pos.c].item = null;
+                        addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
                     }
                     audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
                 }
@@ -825,6 +826,7 @@ export default function DungeonPage() {
                 for (let i = 0; i < sc; i++) {
                     const pos = sh[i]; nxtB[pos.r][pos.c].piece = { id: `hydra_spawn_snipe_${sniped.id}_${i}_${Date.now()}`, type: 'knight', color: sniped.color, level: 2, hasMoved: true, isShielded: false };
                     nxtB[pos.r][pos.c].item = null;
+                    addEffect('light-beam', coordsToAlgebraic(pos.r, pos.c));
                 }
                 audioManager.playResurrect(); addLog("The Hydra regrows its heads!");
             }
@@ -882,7 +884,14 @@ export default function DungeonPage() {
           if (captureGainExp > 0) addEffect('level-change', alg, 'white', captureGainExp);
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); addEffect('level-change', alg, 'white', 1); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
-          if (res.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); }
+          
+          if (res.hydraSplitOccurred) { 
+              audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); 
+              if (res.hydraSpawnSquares) res.hydraSpawnSquares.forEach(sq => addEffect('light-beam', sq));
+          }
+          if (res.phoenixResurrection) { addEffect('light-beam', res.phoenixResurrection.square); audioManager.playResurrect(); }
+          if (res.resurrectionScrollEvent) { addEffect('light-beam', res.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => {
               addEffect('poof', sq);
               audioManager.playAnvil();
@@ -974,7 +983,14 @@ export default function DungeonPage() {
         if (captureGainExp > 0) addEffect('level-change', toAlg, 'black', captureGainExp);
         if (appRes.shroomConsumed) { audioManager.playShroom(); addEffect('level-change', toAlg, 'black', 1); }
         if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
-        if (appRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); }
+        
+        if (appRes.hydraSplitOccurred) { 
+            audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); 
+            if (appRes.hydraSpawnSquares) appRes.hydraSpawnSquares.forEach(sq => addEffect('light-beam', sq));
+        }
+        if (appRes.phoenixResurrection) { addEffect('light-beam', appRes.phoenixResurrection.square); audioManager.playResurrect(); }
+        if (appRes.resurrectionScrollEvent) { addEffect('light-beam', appRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
+
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => {
             addEffect('poof', sq);
             audioManager.playAnvil();

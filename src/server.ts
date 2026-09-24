@@ -643,7 +643,12 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             extraTurn: result.extraTurn,
                             resurrection: !!resurrectionEvent,
                             resPos: resurrectionEvent?.square,
-                            hydraSplit: result.hydraSplitOccurred
+                            hydraSplit: result.hydraSplitOccurred,
+                            hydraSpawnSquares: result.hydraSpawnSquares,
+                            phoenixRes: !!result.phoenixResurrection,
+                            phoenixPos: result.phoenixResurrection?.square,
+                            resScroll: !!result.resurrectionScrollEvent,
+                            resScrollPos: result.resurrectionScrollEvent?.square
                         };
 
                         broadcastToRoom(ws.roomId!, { 

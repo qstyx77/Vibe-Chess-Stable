@@ -20,6 +20,7 @@ export type InventoryItemType =
   | 'wind_scroll'
   | 'life_leach'
   | 'summon_anvil'
+  | 'get_faith'
   | 'great_sword'
   | 'shield_scroll'
   | 'rally_scroll'
@@ -134,6 +135,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'wind_scroll': { name: 'Wind Scroll', description: 'Consumable. Target an empty space to push back adjacent units. [WIND SET: w/ Wind Sword, Wind Cloak. Bonus: Frontline Push-Back at L2.]', isConsumable: true, rarity: 'common' },
   'life_leach': { name: 'Life Leach', description: 'Consumable. Global: reduces all enemy levels by 1.', isConsumable: true, rarity: 'common' },
   'summon_anvil': { name: 'Anvil Scroll', description: 'Consumable. Target an empty square to drop a solid Anvil.', isConsumable: true, rarity: 'uncommon' },
+  'get_faith': { name: 'Atonement', description: 'Rare Relic. Piece cannot be converted by enemy Faith.', isConsumable: false, rarity: 'rare' },
   'great_sword': { name: 'Great Sword', description: 'Frontline only. Capture an enemy directly behind your primary target.', isConsumable: false, rarity: 'uncommon' },
   'wind_cloak': { name: 'Wind Cloak', description: 'Aero mantle. L4+ pieces gain Push-Back ability. [WIND SET: w/ Wind Sword, Wind Scroll. Bonus: Frontline Push-Back at L2.]', isConsumable: false, rarity: 'uncommon' },
   'gnosis': { name: 'Gnosis', description: 'Golden blade. Non-King/Queen. Grants +1 extra level gain on every capture. [LUMINOUS SET: w/ Logas, Golden Chalice. Bonus: Shared Divinity.]', isConsumable: false, rarity: 'rare' },
@@ -388,6 +390,7 @@ export interface ApplyMoveResult {
   winByKingsConquest?: boolean;
   kingCapturedByColossus?: boolean;
   hydraSplitOccurred?: boolean;
+  hydraSpawnSquares?: AlgebraicSquare[];
   anvilDroppedSquares?: AlgebraicSquare[];
 }
 
