@@ -171,6 +171,12 @@ export default {
           '80%': { transform: 'translateY(0) scaleY(0.7)' },
           '100%': { transform: 'translateY(0) scaleY(1)' },
         },
+        'shroom-spring': {
+          '0%': { transform: 'scale(0)', opacity: '0' },
+          '50%': { transform: 'scale(1.3)', opacity: '1' },
+          '75%': { transform: 'scale(0.9)' },
+          '100%': { transform: 'scale(1)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -186,6 +192,7 @@ export default {
         'fade-to-black': 'fade-to-black 2.5s ease-in forwards',
         'hop': 'hop 0.6s ease-in-out infinite',
         'anvil-impact': 'anvil-impact 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
+        'shroom-spring': 'shroom-spring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
   		}
   	}
   },
