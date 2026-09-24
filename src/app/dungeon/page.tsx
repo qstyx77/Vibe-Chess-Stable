@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -33,7 +32,7 @@ import {
   processOilSlickTimers,
   boardToPositionHash,
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult, AIMove as AIMoveType } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult, AIMove as AIMoveType, ConversionEvent } from '@/types';
 import { ITEM_METADATA } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
@@ -498,8 +497,6 @@ export default function DungeonPage() {
     const stalled = (nxtP === 'black') && isStalemate(nB, 'black', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
     const cleared = nB.flat().filter(sq => sq.piece?.color === 'black').length === 0;
     
-    // Stalemate for Black (AI) no longer triggers immediate advancement here.
-    // Instead, nxtP will be 'black' and performAiMove will handle the turn counter.
     if (cleared || (isBoss && mated)) {
         const sur = nB.flat().filter(sq => sq.piece && sq.piece.color === 'white').map(sq => sq.piece!);
         addLog(cleared ? "ALL FOES VANQUISHED!" : "BOSS ENTITY DEFEATED!");
@@ -819,7 +816,7 @@ export default function DungeonPage() {
             if (p.type === 'archer') return true; 
             if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; 
             const crds = board.flat().find(sq => sq.piece?.id === p.id); 
-            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
+            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {
@@ -1160,7 +1157,7 @@ export default function DungeonPage() {
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
         <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} /> </div>
       </div>
-      <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 w-5" /> RESET RUN </Button> </CardContent> </Card> </div>
+      <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 h-5" /> RESET RUN </Button> </CardContent> </Card> </div>
     </div>
   ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
 
