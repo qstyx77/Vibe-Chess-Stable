@@ -230,6 +230,31 @@ class AudioManager {
     setTimeout(() => this.playTone(225, 'sawtooth', 0.2, 0.4), 100);
   }
 
+  playFreeze() {
+    this.init();
+    this.resume();
+    if (!this.ctx || !this.masterGain) return;
+    const now = this.ctx.currentTime;
+    [880, 1320, 1760, 2200].forEach((f, i) => {
+      const osc = this.ctx!.createOscillator();
+      const gain = this.ctx!.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(f, now + i * 0.05);
+      gain.gain.setValueAtTime(0, now + i * 0.05);
+      gain.gain.linearRampToValueAtTime(0.3, now + i * 0.05 + 0.02);
+      gain.gain.linearRampToValueAtTime(0, now + i * 0.05 + 0.1);
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+      osc.start(now + i * 0.05);
+      osc.stop(now + i * 0.05 + 0.1);
+    });
+  }
+
+  playShatter() {
+    this.playNoise(0.1, 0.6, 'white');
+    this.playTone(2000, 'square', 0.1, 0.3);
+  }
+
   playVictory() {
     this.init();
     this.resume();

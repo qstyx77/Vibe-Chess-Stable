@@ -374,7 +374,7 @@ export default function DungeonPage() {
     setLevel(nextL); setBoard(generateDungeonFloor(nextL, survivors)); setPlayerArmy(survivors); setCapturedPieces({ white: Array.isArray(graveyard.white) ? graveyard.white : [], black: [] }); setKillStreaks({ white: 0, black: 0 }); setPositionHistory([]); setEnPassantTargetSquare(null); setLastMovedPieceType(null); setLastMovedPieceLevel(null); setLastMovedPieceHeldItem(null); setLastMoveFrom(null); setLastMoveTo(null); setNecroResurrectionCounter(0); setAiNoMoveCounter(0);
     setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     saveDungeonState(nextL, generateDungeonFloor(nextL, survivors), 'white', { white: 0, black: 0 }, { white: graveyard.white, black: [] }, 0, 5, null, 0, finalInv);
-    audioManager.playLevelUp(); addLog(`Descending to Floor ${nextL}...`);
+    audioManager.playStart(); addLog(`Descending to Floor ${nextL}...`);
   }, [inventory, saveDungeonState, addLog]);
 
   const handleClaimLoot = useCallback(() => {
@@ -457,6 +457,12 @@ export default function DungeonPage() {
 
   const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null) => {
     let nB = boardAfter; setDidCaptureLastTurn(prev => ({ ...prev, [turnP]: wasCap }));
+    
+    // Status effect audio detection
+    const prevFrozenIds = board.flat().filter(sq => (sq.piece?.frozenTurnsRemaining || 0) > 0).map(sq => sq.piece!.id);
+    const midFrozenIds = nB.flat().filter(sq => (sq.piece?.frozenTurnsRemaining || 0) > 0).map(sq => sq.piece!.id);
+    if (midFrozenIds.length > prevFrozenIds.length) audioManager.playFreeze();
+
     nB = processOilSlickTimers(nB, turnP);
     const cCounter = shroomSpawnCounter + 1;
     if (cCounter >= nextShroomSpawnTurn) {
@@ -489,8 +495,18 @@ export default function DungeonPage() {
     if (wasCap || (actT && FRONTLINE_TYPES.includes(actT))) { nHist = [cHash]; } else { nHist.push(cHash); }
     setPositionHistory(nHist);
     if (nHist.filter(h => h === cHash).length >= 3) { setGameInfo({ message: "Draw by Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }); addLog("Draw by Repetition!"); gameOverRef.current = true; audioManager.playDraw(); return; }
+    
     const { newBoard: bP, poisonedCaptures } = processPoisonDamage(nB, nxtP);
     nB = bP;
+
+    // Shatter audio detection
+    const postPoisonPieces = nB.flat().filter(sq => sq.piece).map(sq => sq.piece!);
+    const anyShattered = midFrozenIds.some(id => {
+        const p = postPoisonPieces.find(piece => piece.id === id);
+        return p && (p.frozenTurnsRemaining || 0) === 0;
+    });
+    if (anyShattered) audioManager.playShatter();
+
     if (poisonedCaptures.length > 0) { poisonedCaptures.forEach(p => { const pile = p.color; nG[pile] = [...(nG[pile]||[]), p]; }); audioManager.playCapture(); addLog(`${poisonedCaptures.length} units decayed.`); }
     const isBoss = level % 10 === 0; const eKing = findKing(nB, 'black');
     const mated = eKing && isCheckmate(nB, 'black', nEp, actT, lastMovedPieceHeldItem, lastMovedPieceLevel);
@@ -536,7 +552,7 @@ export default function DungeonPage() {
     setGameInfo({ message: inC ? "Check!" : " ", isCheck: inC, playerWithKingInCheck: inC ? nxtP : null, isCheckmate: false, isStalemate: false, gameOver: false });
     if (inC) { addLog("Check!"); audioManager.playCheck(); }
     saveDungeonState(level, nB, nxtP, curKs, nG, shroomSpawnCounter, nextShroomSpawnTurn, nEp, necroResurrectionCounter, inventory);
-  }, [level, inventory, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, getPlayerDisplayName, user, firestore, userData]);
+  }, [board, level, inventory, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, positionHistory, shroomSpawnCounter, nextShroomSpawnTurn, necroResurrectionCounter, saveDungeonState, addEffect, getPlayerDisplayName, user, firestore, userData]);
 
   const triggerSpecialsChain = useCallback((bCh: BoardState, cG: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, oldS: number, newS: number, isEx: boolean, nEp: AlgebraicSquare | null, actP: PlayerColor = 'white', compM: string[] = [], capId: string | null = null, wasCap: boolean = false, movedT?: PieceType | null) => {
     const isAI = actP === 'black'; const sil = bCh.flat().find(sq => sq.piece?.color === actP && isSilenced(bCh, sq.rowIndex, sq.colIndex, actP));
@@ -624,7 +640,7 @@ export default function DungeonPage() {
             const kR = mKing ? mKing.rowIndex : 0; const kC = mKing ? mKing.colIndex : 4;
             const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (emp.length > 0) {
-                emp.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
+                emp.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - c)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
                 const target = emp[0];
                 nxtB[target.rowIndex][target.colIndex].item = { type: 'anvil' }; 
                 setTimeout(() => {
@@ -696,7 +712,7 @@ export default function DungeonPage() {
         }
     }
     processMoveEnd(bCh, nG, cKs, actP, isEx, nEp, wasCap, movedT);
-  }, [advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect, processMoveEnd]);
+  }, [board, advanceLevel, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addLog, getPlayerDisplayName, addEffect, processMoveEnd]);
 
   const processPawnSacrificeCheck = useCallback((bAf: BoardState, g: { white: Piece[], black: Piece[] }, cKs: { white: number, black: number }, p: PlayerColor, m: Move | null, oL: number | undefined, oT: PieceType | undefined, isEx: boolean, ep: AlgebraicSquare | null, oS: number, newStreak: number, cId: string | null = null, wC: boolean = false, mT?: PieceType | null) => {
     if (!m) return false; const { row, col } = algebraicToCoords(m.to); const piece = bAf[row][col].piece;
@@ -1159,7 +1175,7 @@ export default function DungeonPage() {
       </div>
       <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 h-5" /> RESET RUN </Button> </CardContent> </Card> </div>
     </div>
-  ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
+  ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden p-0.5">

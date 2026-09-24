@@ -63,6 +63,18 @@ const PieceIconMap: Record<string, React.FC<{ className?: string }>> = {
   king: PixelKing,
 };
 
+const FrozenOverlay = () => (
+  <div className="absolute inset-0 z-[30] pointer-events-none overflow-hidden">
+    {/* The Ice Block */}
+    <div className="absolute inset-0 bg-sky-300/40 border-2 border-sky-500 animate-[frost-pulse_3s_infinite_ease-in-out]" />
+    
+    {/* Glints */}
+    <div className="absolute top-[15%] left-[20%] w-1 h-1 bg-white animate-[ice-glint_4s_infinite]" style={{ animationDelay: '0.5s' }} />
+    <div className="absolute top-[60%] left-[75%] w-1 h-1 bg-white animate-[ice-glint_4s_infinite]" style={{ animationDelay: '2.5s' }} />
+    <div className="absolute top-[30%] left-[65%] w-0.5 h-0.5 bg-white animate-[ice-glint_4s_infinite]" style={{ animationDelay: '1.2s' }} />
+  </div>
+);
+
 export const ChessPieceDisplay = memo(({
   piece,
   isKingInCheck = false,
@@ -129,6 +141,7 @@ export const ChessPieceDisplay = memo(({
   }
 
   const isExhausted = (piece.cooldownTurnsRemaining || 0) > 0;
+  const isFrozen = (piece.frozenTurnsRemaining || 0) > 0;
   const displayLevelValue = effectiveLevel ?? level;
 
   return (
@@ -142,13 +155,16 @@ export const ChessPieceDisplay = memo(({
           animationClass,
           powerGlowClass,
           piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]",
-          isExhausted && "grayscale opacity-60 contrast-50",
+          isExhausted && !isFrozen && "grayscale opacity-60 contrast-50",
+          isFrozen && "grayscale-[0.3] brightness-[1.1]",
           piece.id === 'boss-entity' && "animate-void-vibe",
-          isSelected && "animate-hop",
+          isSelected && !isFrozen && "animate-hop",
           "origin-center"
         )}
         style={bossStyle}
       >
+        {isFrozen && <FrozenOverlay />}
+
         {piece.id === 'boss-entity' && !isMini && (
           <div className="absolute inset-0 z-0 pointer-events-none">
             <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-primary rounded-full animate-void-particle" style={{ '--x': '30px', '--y': '-35px' } as React.CSSProperties} />
