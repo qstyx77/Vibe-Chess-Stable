@@ -90,7 +90,14 @@ const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardSt
   const left = `${visualCol * 12.5}%`;
   return (
     <div className="absolute pointer-events-none z-[40]" style={{ top, left, width: '25%', height: '25%', color: '#64748B' }} >
-       <PixelColossus className="w-full h-full drop-shadow-xl" />
+       <div className="w-full h-full relative animate-colossus-sleep-breath">
+          <PixelColossus className="w-full h-full drop-shadow-xl" />
+          <div className="absolute top-0 right-0 w-full h-full pointer-events-none overflow-visible">
+             <span className="absolute animate-sleep-z text-white font-pixel text-[1.4rem] right-[5%] top-[5%]" style={{ animationDelay: '0s' }}>Z</span>
+             <span className="absolute animate-sleep-z text-white font-pixel text-[0.9rem] right-[15%] top-[12%]" style={{ animationDelay: '1.8s' }}>Z</span>
+             <span className="absolute animate-sleep-z text-white font-pixel text-[0.6rem] right-[25%] top-[20%]" style={{ animationDelay: '3.6s' }}>Z</span>
+          </div>
+       </div>
        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span className="font-pixel z-[60] text-[1.5rem] md:text-[1.95rem]" style={{ textShadow: '1px 1px 0 #000', color: 'hsl(var(--destructive))', marginTop: '8%' }} > {colossusAnchor.piece.level} </span>
        </div>

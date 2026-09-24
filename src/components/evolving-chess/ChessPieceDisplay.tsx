@@ -86,25 +86,28 @@ export const ChessPieceDisplay = memo(({
 
   let pieceColorClass = piece.color === 'white' ? 'text-foreground' : 'text-secondary';
   let bossStyle: React.CSSProperties = {};
+  let animationClass = '';
 
   if (piece.id?.startsWith('boss-hydra')) {
     IconComponent = PixelHydra;
     pieceColorClass = ""; bossStyle = { color: '#10B981' };
+    animationClass = "animate-hydra-idle";
   } else if (piece.id === 'boss-necro') {
     IconComponent = PixelNecromancer;
     pieceColorClass = ""; bossStyle = { color: '#8B5CF6' };
+    animationClass = "animate-necro-hover";
   } else if (piece.id?.startsWith('boss-colossus')) {
     IconComponent = PixelColossus;
     pieceColorClass = ""; bossStyle = { color: '#64748B' };
   } else if (piece.id === 'boss-mirage') {
     IconComponent = PixelMirage;
     pieceColorClass = ""; bossStyle = { color: '#38BDF8' };
+    animationClass = "animate-mirage-shimmer";
   } else if (piece.id === 'boss-entity') {
     IconComponent = PixelVoidEntity;
     pieceColorClass = ""; bossStyle = { color: '#4338CA' };
   }
   
-  let animationClass = '';
   if (isConverting) {
     animationClass = piece.color === 'white' ? 'animate-color-flash-wtb' : 'animate-color-flash-btw';
   }
@@ -149,6 +152,15 @@ export const ChessPieceDisplay = memo(({
             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-accent rounded-full animate-void-particle" style={{ '--x': '-35px', '--y': '25px', animationDelay: '0.8s' } as React.CSSProperties} />
             <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-secondary rounded-full animate-void-particle" style={{ '--x': '25px', '--y': '30px', animationDelay: '1.6s' } as React.CSSProperties} />
             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-void-particle" style={{ '--x': '-28px', '--y': '-28px', animationDelay: '0.4s' } as React.CSSProperties} />
+          </div>
+        )}
+
+        {piece.id === 'boss-mirage' && !isMini && (
+          <div className="absolute inset-0 z-0 pointer-events-none">
+             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-300 rounded-full animate-mirage-particle" style={{ '--dx': '40px', '--dy': '-40px' } as React.CSSProperties} />
+             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-mirage-particle" style={{ '--dx': '-35px', '--dy': '35px', animationDelay: '1s' } as React.CSSProperties} />
+             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-100 rounded-full animate-mirage-particle" style={{ '--dx': '30px', '--dy': '45px', animationDelay: '2.2s' } as React.CSSProperties} />
+             <div className="absolute top-1/2 left-1/2 w-0.5 h-0.5 bg-sky-400 rounded-full animate-mirage-particle" style={{ '--dx': '-45px', '--dy': '-20px', animationDelay: '0.5s' } as React.CSSProperties} />
           </div>
         )}
 
