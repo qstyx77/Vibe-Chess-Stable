@@ -275,7 +275,15 @@ export const PixelAnvil = ({ className }: IconProps) => (
 
 export const VibeChessTitle = ({ className }: IconProps) => (
   <svg viewBox="0 0 220 40" className={cn(className, "animate-title-shimmer")} xmlns="http://www.w3.org/2000/svg">
-    <g fill="currentColor">
+    <defs>
+      <pattern id="ascii-shader" x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
+        <rect x="0" y="0" width="1" height="1" fill="white" />
+      </pattern>
+      <mask id="ascii-mask">
+        <rect x="0" y="0" width="220" height="40" fill="url(#ascii-shader)" />
+      </mask>
+    </defs>
+    <g mask="url(#ascii-mask)">
        {/* VIBE */}
        <g fill="hsl(var(--primary))">
           {/* V */}
