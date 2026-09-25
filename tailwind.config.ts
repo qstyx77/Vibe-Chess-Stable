@@ -182,8 +182,9 @@ export default {
           '50%': { transform: 'translateY(-3px)' },
         },
         'title-shimmer': {
-          '0%': { filter: 'hue-rotate(0deg)' },
-          '100%': { filter: 'hue-rotate(360deg)' },
+          '0%': { filter: 'hue-rotate(0deg) brightness(2.5) contrast(1.2)' },
+          '50%': { filter: 'hue-rotate(180deg) brightness(4.0) contrast(1.4)' },
+          '100%': { filter: 'hue-rotate(360deg) brightness(2.5) contrast(1.2)' },
         },
   		},
   		animation: {
