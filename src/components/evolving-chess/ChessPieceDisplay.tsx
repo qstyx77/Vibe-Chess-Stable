@@ -148,7 +148,7 @@ export const ChessPieceDisplay = memo(({
     <div className={cn("w-full h-full", shouldRotateBlackPieceForTabletop && "rotate-180")}>
       <div
         className={cn(
-          "relative flex items-center justify-center w-full h-full",
+          "relative flex items-center justify-center w-full h-full ascii-shader",
           pieceColorClass,
           (isSacrificeTarget || isCommanderPromoTarget || isSnipeTarget) && "animate-pulse",
           isPromoting && "animate-ping",

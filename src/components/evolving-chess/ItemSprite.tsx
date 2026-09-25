@@ -961,7 +961,7 @@ export function ItemSprite({ type, size = 16, className }: ItemSpriteProps) {
 
   return (
     <div 
-      className={cn("relative inline-block shrink-0", className)}
+      className={cn("relative inline-block shrink-0 ascii-shader", className)}
       style={{
         width: remSize,
         height: `calc(${remSize} * 1.2)`,

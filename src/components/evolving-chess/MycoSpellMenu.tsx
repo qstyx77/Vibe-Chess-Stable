@@ -96,28 +96,28 @@ const spells: { id: MycoSpell, name: string, cost: number, description: string, 
     name: 'Propagate', 
     cost: 1, 
     description: 'Spawn 5 random shrooms.',
-    icon: <PixelSparkles className="w-20 h-20 text-primary" />
+    icon: <PixelSparkles className="w-20 h-20 text-primary ascii-shader" />
   },
   { 
     id: 'teleport', 
     name: 'Tele-portobello', 
     cost: 2, 
     description: 'Teleport ally to a shroom.',
-    icon: <PixelZap className="w-20 h-20 text-secondary" />
+    icon: <PixelZap className="w-20 h-20 text-secondary ascii-shader" />
   },
   { 
     id: 'spore-bomb', 
     name: 'Spore Bomb', 
     cost: 4, 
     description: 'Target shroom explodes.',
-    icon: <PixelBomb className="w-20 h-20 text-destructive" />
+    icon: <PixelBomb className="w-20 h-20 text-destructive ascii-shader" />
   },
   { 
     id: 'raise-mycelimen', 
     name: 'Raise Myceli-Men', 
     cost: 6, 
     description: 'Turn all shrooms into Pawns.',
-    icon: <PixelUserPlus className="w-20 h-20 text-accent" />
+    icon: <PixelUserPlus className="w-20 h-20 text-accent ascii-shader" />
   },
 ];
 
@@ -125,7 +125,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: Myc
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); } }}>
       <DialogContent className="sm:max-w-[32rem] bg-card border-2 border-primary/50 font-pixel p-4">
-        <DialogHeader className="space-y-1">
+        <DialogHeader space-y-1>
           <div className="flex items-center justify-center gap-2">
               <ShroomIcon className="w-5 h-5 text-primary" />
               <DialogTitle className="text-primary text-center font-pixel uppercase text-base">Mushroomancy</DialogTitle>
@@ -151,7 +151,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: Myc
               >
                 {/* Cost Overlay in Top Right */}
                 <div className="absolute top-2 right-2 flex items-center justify-center">
-                    <BigShroom className="w-12 h-12 text-primary opacity-30" />
+                    <BigShroom className="w-12 h-12 text-primary opacity-30 ascii-shader" />
                     <span className="absolute font-pixel text-[0.65rem] text-white" style={{ textShadow: '1px 1px 0px black' }}>
                         {spell.cost}
                     </span>

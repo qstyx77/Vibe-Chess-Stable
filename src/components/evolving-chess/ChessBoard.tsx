@@ -89,7 +89,7 @@ const LargeEntityOverlay = ({ boardState, visuallyFlipBoardForLogic }: { boardSt
   const top = `${visualRow * 12.5}%`;
   const left = `${visualCol * 12.5}%`;
   return (
-    <div className="absolute pointer-events-none z-[40]" style={{ top, left, width: '25%', height: '25%', color: '#64748B' }} >
+    <div className="absolute pointer-events-none z-[40] ascii-shader" style={{ top, left, width: '25%', height: '25%', color: '#64748B' }} >
        <div className="w-full h-full relative animate-colossus-sleep-breath">
           <PixelColossus className="w-full h-full drop-shadow-xl" />
           <div className="absolute top-0 right-0 w-full h-full pointer-events-none overflow-visible">
