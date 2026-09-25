@@ -1410,13 +1410,13 @@ export default function EvolvingChessPage() {
           <div className="w-1/3 flex items-center justify-center"></div>
           <div className="w-1/3 flex items-center justify-center"> 
             <div className="flex items-center gap-1.5 shrink-0"> 
-               <div className={cn("transition-opacity duration-1000", headerIconsOpacity ? "opacity-100" : "opacity-0")}>
+               <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <PixelAnvil key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 text-muted-foreground/50 shrink-0 animate-anvil-impact ascii-shader" />
                   )}
                </div>
                <VibeChessTitle className="h-8 w-auto" /> 
-               <div className={cn("transition-opacity duration-1000", headerIconsOpacity ? "opacity-100" : "opacity-0")}>
+               <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <ShroomIcon key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 text-destructive animate-shroom-spring ascii-shader" />
                   )}
@@ -1456,13 +1456,13 @@ export default function EvolvingChessPage() {
       <div className="w-1/4 flex-shrink-0"> <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} /> </div>
       <div className="w-1/2 flex flex-col items-center gap-2"> 
         <div className="w-full flex items-center justify-center gap-6"> 
-           <div className={cn("transition-opacity duration-1000", headerIconsOpacity ? "opacity-100" : "opacity-0")}>
+           <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
                 <PixelAnvil key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 text-muted-foreground/50 shrink-0 animate-anvil-impact ascii-shader" />
               )}
            </div>
            <VibeChessTitle className="h-16 w-auto" /> 
-           <div className={cn("transition-opacity duration-1000", headerIconsOpacity ? "opacity-100" : "opacity-0")}>
+           <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
                 <ShroomIcon key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 text-destructive animate-shroom-spring ascii-shader" />
               )}
@@ -1513,6 +1513,7 @@ export default function EvolvingChessPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
       <RoyalStore isOpen={isRoyalStoreOpen} onOpenChange={setIsRoyalStoreOpen} />
     </div>
   );
