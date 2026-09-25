@@ -274,96 +274,78 @@ export const PixelAnvil = ({ className }: IconProps) => (
 );
 
 export const VibeChessTitle = ({ className }: IconProps) => (
-  <svg viewBox="0 0 220 40" className={cn(className)} xmlns="http://www.w3.org/2000/svg">
-    <g className="animate-pixel-title-flash">
-       {/* VIBE (Cyan) */}
+  <svg viewBox="0 0 220 40" className={cn(className, "animate-title-shimmer")} xmlns="http://www.w3.org/2000/svg">
+    <g fill="currentColor">
+       {/* VIBE */}
        <g fill="hsl(var(--primary))">
-          {/* V with Sword Points */}
-          <g transform="translate(10, 0)">
-            <rect x="5" y="8" width="3" height="16" />
-            <rect x="8" y="24" width="4" height="4" />
-            <rect x="12" y="8" width="3" height="16" />
-            <path d="M5 8l1.5-6 1.5 6h-3zM12 8l1.5-6 1.5 6h-3z" />
+          {/* V */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0s' }}>
+            <rect x="10" y="5" width="4" height="20" />
+            <rect x="26" y="5" width="4" height="20" />
+            <rect x="14" y="25" width="4" height="4" />
+            <rect x="22" y="25" width="4" height="4" />
+            <rect x="18" y="29" width="4" height="4" />
           </g>
-          
-          {/* I as Bishop - Spacing Adjusted for Equal Gaps */}
-          <g transform="translate(27, 2) scale(1.1, 1.4)">
-            <rect x="11" y="3" width="2" height="2" />
-            <rect x="10" y="5" width="4" height="4" />
-            <rect x="11" y="9" width="2" height="2" />
-            <rect x="10" y="11" width="4" height="6" />
-            <rect x="8" y="17" width="8" height="2" />
+          {/* I */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.1s' }}>
+            <rect x="35" y="5" width="12" height="4" />
+            <rect x="39" y="9" width="4" height="16" />
+            <rect x="35" y="25" width="12" height="4" />
           </g>
-          
-          {/* B - Spacing Adjusted */}
-          <g transform="translate(53, 0)">
-            <rect x="0" y="6" width="3" height="22" />
-            <rect x="3" y="6" width="8" height="3" />
-            <rect x="11" y="9" width="3" height="6" />
-            <rect x="3" y="15" width="8" height="3" />
-            <rect x="11" y="18" width="3" height="7" />
-            <rect x="3" y="25" width="8" height="3" />
+          {/* B */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.2s' }}>
+            <rect x="52" y="5" width="4" height="24" />
+            <rect x="56" y="5" width="8" height="4" />
+            <rect x="64" y="9" width="4" height="6" />
+            <rect x="56" y="15" width="8" height="4" />
+            <rect x="64" y="19" width="4" height="6" />
+            <rect x="56" y="25" width="8" height="4" />
           </g>
-          
-          {/* E - Spacing Adjusted */}
-          <g transform="translate(77, 0)">
-            <rect x="0" y="6" width="3" height="22" />
-            <rect x="3" y="6" width="10" height="3" />
-            <rect x="3" y="15" width="7" height="3" />
-            <rect x="3" y="25" width="10" height="3" />
+          {/* E */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.3s' }}>
+            <rect x="73" y="5" width="4" height="24" />
+            <rect x="77" y="5" width="12" height="4" />
+            <rect x="77" y="15" width="8" height="4" />
+            <rect x="77" y="25" width="12" height="4" />
           </g>
        </g>
        
-       {/* CHESS (Magenta) */}
-       <g fill="hsl(var(--accent))" transform="translate(104, 0)">
+       {/* CHESS */}
+       <g fill="hsl(var(--accent))">
           {/* C */}
-          <rect x="0" y="6" width="3" height="22" />
-          <rect x="3" y="6" width="10" height="3" />
-          <rect x="3" y="25" width="10" height="3" />
-          
-          {/* H as Two Rooks */}
-          <g transform="translate(20, 2) scale(1.1, 1.4)">
-             <rect x="0" y="4" width="2" height="2" />
-             <rect x="3" y="4" width="2" height="2" />
-             <rect x="6" y="4" width="2" height="2" />
-             <rect x="0" y="6" width="8" height="3" />
-             <rect x="1" y="9" width="6" height="8" />
-             <rect x="0" y="17" width="8" height="2" />
-             <rect x="8" y="11" width="4" height="3" />
-             <g transform="translate(12, 0)">
-               <rect x="0" y="4" width="2" height="2" />
-               <rect x="3" y="4" width="2" height="2" />
-               <rect x="6" y="4" width="2" height="2" />
-               <rect x="0" y="6" width="8" height="3" />
-               <rect x="1" y="9" width="6" height="8" />
-               <rect x="0" y="17" width="8" height="2" />
-             </g>
+          <g className="animate-title-ripple" style={{ animationDelay: '0.4s' }}>
+            <rect x="105" y="5" width="16" height="4" />
+            <rect x="105" y="9" width="4" height="16" />
+            <rect x="105" y="25" width="16" height="4" />
           </g>
-          
+          {/* H */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.5s' }}>
+            <rect x="126" y="5" width="4" height="24" />
+            <rect x="142" y="5" width="4" height="24" />
+            <rect x="130" y="15" width="12" height="4" />
+          </g>
           {/* E */}
-          <g transform="translate(52, 0)">
-            <rect x="0" y="6" width="3" height="22" />
-            <rect x="3" y="6" width="10" height="3" />
-            <rect x="3" y="15" width="7" height="3" />
-            <rect x="3" y="25" width="10" height="3" />
+          <g className="animate-title-ripple" style={{ animationDelay: '0.6s' }}>
+            <rect x="151" y="5" width="4" height="24" />
+            <rect x="155" y="5" width="12" height="4" />
+            <rect x="155" y="15" width="8" height="4" />
+            <rect x="155" y="25" width="12" height="4" />
           </g>
-          
-          {/* S1 as Mirrored Knight */}
-          <g transform="translate(90, 2) scale(-1.1, 1.4)">
-            <rect x="10" y="4" width="4" height="2" />
-            <rect x="9" y="6" width="6" height="4" />
-            <rect x="7" y="8" width="4" height="4" />
-            <rect x="11" y="10" width="4" height="6" />
-            <rect x="9" y="16" width="8" height="2" />
+          {/* S */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.7s' }}>
+            <rect x="172" y="5" width="16" height="4" />
+            <rect x="172" y="9" width="4" height="6" />
+            <rect x="172" y="15" width="16" height="4" />
+            <rect x="184" y="19" width="4" height="6" />
+            <rect x="172" y="25" width="16" height="4" />
           </g>
-          
-          {/* S2 as Mirrored Knight */}
-          <g transform="translate(110, 2) scale(-1.1, 1.4)">
-            <rect x="10" y="4" width="4" height="2" />
-            <rect x="9" y="6" width="6" height="4" />
-            <rect x="7" y="8" width="4" height="4" />
-            <rect x="11" y="10" width="4" height="6" />
-            <rect x="9" y="16" width="8" height="2" />
+          {/* S */}
+          <g className="animate-title-ripple" style={{ animationDelay: '0.8s' }}>
+            <rect x="193" y="5" width="16" height="4" />
+            <rect x="193" y="9" width="4" height="6" />
+            <rect x="193" y="15" width="16" height="4" />
+            <rect x="205" y="19" width="4" height="6" />
+            <rect x="193" y="25" width="16" height="4" />
           </g>
        </g>
     </g>

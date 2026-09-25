@@ -261,6 +261,16 @@ body {
   animation: pixel-title-flash 2s ease-in-out infinite;
 }
 
+@keyframes title-ripple {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes title-shimmer {
+  0% { filter: hue-rotate(0deg); }
+  100% { filter: hue-rotate(360deg); }
+}
+
 /* --- BOSS IDLE ANIMATIONS --- */
 @keyframes void-vibe {
   0%, 100% { 

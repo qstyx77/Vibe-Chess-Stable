@@ -177,6 +177,14 @@ export default {
           '75%': { transform: 'scale(0.9)' },
           '100%': { transform: 'scale(1)' },
         },
+        'title-ripple': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-3px)' },
+        },
+        'title-shimmer': {
+          '0%': { filter: 'hue-rotate(0deg)' },
+          '100%': { filter: 'hue-rotate(360deg)' },
+        },
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
@@ -193,6 +201,8 @@ export default {
         'hop': 'hop 0.6s ease-in-out infinite',
         'anvil-impact': 'anvil-impact 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards',
         'shroom-spring': 'shroom-spring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards',
+        'title-ripple': 'title-ripple 2s ease-in-out infinite',
+        'title-shimmer': 'title-shimmer 8s linear infinite',
   		}
   	}
   },
