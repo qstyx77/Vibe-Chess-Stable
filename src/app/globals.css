@@ -120,10 +120,11 @@ body {
 
 /* --- ASCII SHADER UTILITY --- */
 .ascii-shader {
+  --ascii-unit: 2px;
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='black'/%3E%3C/svg%3E");
-  mask-size: 2px 2px;
+  mask-size: var(--ascii-unit) var(--ascii-unit);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='black'/%3E%3C/svg%3E");
-  -webkit-mask-size: 2px 2px;
+  -webkit-mask-size: var(--ascii-unit) var(--ascii-unit);
 }
 
 /* --- GAME ANIMATIONS --- */
@@ -434,4 +435,5 @@ body {
   animation: title-shimmer 8s linear infinite;
   filter: drop-shadow(0 0 15px hsl(var(--primary))) drop-shadow(0 0 30px hsl(var(--primary)));
 }
+
 

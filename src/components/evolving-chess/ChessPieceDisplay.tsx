@@ -148,63 +148,68 @@ export const ChessPieceDisplay = memo(({
     <div className={cn("w-full h-full", shouldRotateBlackPieceForTabletop && "rotate-180")}>
       <div
         className={cn(
-          "relative flex items-center justify-center w-full h-full ascii-shader",
-          pieceColorClass,
+          "relative flex items-center justify-center w-full h-full",
           (isSacrificeTarget || isCommanderPromoTarget || isSnipeTarget) && "animate-pulse",
           isPromoting && "animate-ping",
-          animationClass,
-          powerGlowClass,
-          piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]",
           isExhausted && !isFrozen && "grayscale opacity-60 contrast-50",
           isFrozen && "grayscale-[0.3] brightness-[1.1]",
           piece.id === 'boss-entity' && "animate-void-vibe",
           isSelected && !isFrozen && "animate-hop",
           "origin-center"
         )}
-        style={bossStyle}
       >
-        {isFrozen && <FrozenOverlay />}
+        {/* SHADER-TREATED WRAPPER FOR ART & STATUS ONLY */}
+        <div className={cn(
+            "absolute inset-0 ascii-shader flex items-center justify-center",
+            pieceColorClass,
+            animationClass,
+            powerGlowClass,
+            piece.isPoisoned && "animate-pulse drop-shadow-[0_0_8px_#22C55E]"
+        )} style={bossStyle}>
+            {isFrozen && <FrozenOverlay />}
 
-        {piece.id === 'boss-entity' && !isMini && (
-          <div className="absolute inset-0 z-0 pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-primary rounded-full animate-void-particle" style={{ '--x': '30px', '--y': '-35px' } as React.CSSProperties} />
-            <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-accent rounded-full animate-void-particle" style={{ '--x': '-35px', '--y': '25px', animationDelay: '0.8s' } as React.CSSProperties} />
-            <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-secondary rounded-full animate-void-particle" style={{ '--x': '25px', '--y': '30px', animationDelay: '1.6s' } as React.CSSProperties} />
-            <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-void-particle" style={{ '--x': '-28px', '--y': '-28px', animationDelay: '0.4s' } as React.CSSProperties} />
-          </div>
-        )}
+            {piece.id === 'boss-entity' && !isMini && (
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-primary rounded-full animate-void-particle" style={{ '--x': '30px', '--y': '-35px' } as React.CSSProperties} />
+                <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-accent rounded-full animate-void-particle" style={{ '--x': '-35px', '--y': '25px', animationDelay: '0.8s' } as React.CSSProperties} />
+                <div className="absolute top-1/2 left-1/2 w-1.5 h-1.5 bg-secondary rounded-full animate-void-particle" style={{ '--x': '25px', '--y': '30px', animationDelay: '1.6s' } as React.CSSProperties} />
+                <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-void-particle" style={{ '--x': '-28px', '--y': '-28px', animationDelay: '0.4s' } as React.CSSProperties} />
+            </div>
+            )}
 
-        {piece.id === 'boss-mirage' && !isMini && (
-          <div className="absolute inset-0 z-0 pointer-events-none">
-             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-300 rounded-full animate-mirage-particle" style={{ '--dx': '40px', '--dy': '-40px' } as React.CSSProperties} />
-             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-mirage-particle" style={{ '--dx': '-35px', '--dy': '35px', animationDelay: '1s' } as React.CSSProperties} />
-             <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-100 rounded-full animate-mirage-particle" style={{ '--dx': '30px', '--dy': '45px', animationDelay: '2.2s' } as React.CSSProperties} />
-             <div className="absolute top-1/2 left-1/2 w-0.5 h-0.5 bg-sky-400 rounded-full animate-mirage-particle" style={{ '--dx': '-45px', '--dy': '-20px', animationDelay: '0.5s' } as React.CSSProperties} />
-          </div>
-        )}
+            {piece.id === 'boss-mirage' && !isMini && (
+            <div className="absolute inset-0 z-0 pointer-events-none">
+                <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-300 rounded-full animate-mirage-particle" style={{ '--dx': '40px', '--dy': '-40px' } as React.CSSProperties} />
+                <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-mirage-particle" style={{ '--dx': '-35px', '--dy': '35px', animationDelay: '1s' } as React.CSSProperties} />
+                <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-100 rounded-full animate-mirage-particle" style={{ '--dx': '30px', '--dy': '45px', animationDelay: '2.2s' } as React.CSSProperties} />
+                <div className="absolute top-1/2 left-1/2 w-0.5 h-0.5 bg-sky-400 rounded-full animate-mirage-particle" style={{ '--dx': '-45px', '--dy': '-20px', animationDelay: '0.5s' } as React.CSSProperties} />
+            </div>
+            )}
 
+            <div className={cn(
+            "w-[95%] h-[95%] relative z-[1] flex items-center justify-center origin-center",
+            piece.id === 'boss-entity' && "animate-void-spin animate-void-color-cycle",
+            isMini 
+                ? ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-[180%]" : "scale-[200%]")
+                : ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-90" : "scale-100")
+            )}>
+                <IconComponent className="w-full h-full drop-shadow-md" />
+            </div>
+        </div>
+
+        {/* HUD ELEMENTS (NO SHADER) */}
         {piece.isShielded && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-[10]">
             <div className="w-[115%] h-[115%] border-2 border-white rounded-full animate-pulse shadow-[0_0_10px_white]" />
           </div>
         )}
 
-        <div className={cn(
-          "w-[95%] h-[95%] relative z-[1] flex items-center justify-center origin-center",
-          piece.id === 'boss-entity' && "animate-void-spin animate-void-color-cycle",
-          isMini 
-            ? ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-[180%]" : "scale-[200%]")
-            : ((['pawn', 'dancer', 'mimic', 'grappler', 'myco_mage', 'commander', 'infiltrator'].includes(piece.type)) ? "scale-90" : "scale-100")
-        )}>
-          <IconComponent className="w-full h-full drop-shadow-md" />
-        </div>
-
         {piece.heldItem && (
           <div className={cn(
             "absolute bottom-0 right-0 z-[5] origin-bottom-right transition-transform",
             isMini ? "scale-50" : "scale-100 md:scale-[1.3]"
           )}>
-             <ItemSprite type={piece.heldItem} size={isMini ? 12 : 20} />
+             <ItemSprite type={piece.heldItem} size={isMini ? 12 : 20} className="[--ascii-unit:1px]" />
           </div>
         )}
 
