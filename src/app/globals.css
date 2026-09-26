@@ -118,13 +118,13 @@ body {
   }
 }
 
-/* --- ASCII SHADER UTILITY --- */
+/* --- ASCII SHADER UTILITY (Fine Grain) --- */
 .ascii-shader {
-  --ascii-unit: 2px;
+  --ascii-unit: 1px; /* Global technical density reduced to 1px per user request */
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='black'/%3E%3C/svg%3E");
-  mask-size: var(--ascii-unit) var(--ascii-unit);
+  mask-size: calc(var(--ascii-unit) * 2) calc(var(--ascii-unit) * 2);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='black'/%3E%3C/svg%3E");
-  -webkit-mask-size: var(--ascii-unit) var(--ascii-unit);
+  -webkit-mask-size: calc(var(--ascii-unit) * 2) calc(var(--ascii-unit) * 2);
 }
 
 /* --- GAME ANIMATIONS --- */
@@ -435,4 +435,5 @@ body {
   animation: title-shimmer 8s linear infinite;
   filter: drop-shadow(0 0 15px hsl(var(--primary))) drop-shadow(0 0 30px hsl(var(--primary)));
 }
+
 

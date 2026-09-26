@@ -996,7 +996,8 @@ export default function EvolvingChessPage() {
     if (isAwaitingGrappleThrow) {
         const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
         const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
-        if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0 && (!sq?.piece && !sq?.item)) {
+        if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0) {
+          if (!sq?.piece && !sq?.item) {
             pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'grapple-throw', thrownPiece: grappledPieceSubject?.piece, thrownItem: grappledItemSubject?.type, grappledFrom: (grappledPieceSubject?.from || grappledItemSubject?.from) };
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1005,6 +1006,7 @@ export default function EvolvingChessPage() {
                 setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
                 setTimeout(() => { setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800);
             }
+          }
         }
         return;
     }
@@ -1044,7 +1046,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1065,7 +1067,7 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
-        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
+        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
         if (isAdjacent && (piece || (sq?.item?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || (!sq?.item && row === fr + (currentPlayer === 'white' ? -1 : 1)))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1412,13 +1414,13 @@ export default function EvolvingChessPage() {
             <div className="flex items-center gap-1.5 shrink-0"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <PixelAnvil key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 text-muted-foreground/50 shrink-0 animate-anvil-impact ascii-shader" />
+                    <PixelAnvil key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 text-[#94A3B8] shrink-0 animate-anvil-impact ascii-shader" />
                   )}
                </div>
                <VibeChessTitle className="h-8 w-auto" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <ShroomIcon key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 text-destructive animate-shroom-spring ascii-shader" />
+                    <ShroomIcon key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 text-[#EF4444] animate-shroom-spring ascii-shader" />
                   )}
                </div>
             </div> 
@@ -1430,23 +1432,67 @@ export default function EvolvingChessPage() {
           <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor)} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
         </div>
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} />
-        <div className="flex flex-wrap justify-center items-center gap-0.5 mt-0.5">
-          <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
-          <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-6 px-1.5 text-[0.65rem]"><PixelTome className="mr-1 h-3 w-3 ascii-shader" /> Rules</Button>
-          <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="h-6 px-1.5 text-[0.65rem]"><PixelSack className="mr-1 h-3 w-3 ascii-shader" /> Loot</Button>
-          <Button variant="outline" size="sm" onClick={() => setIsRoyalStoreOpen(true)} className="h-6 px-1.5 text-[0.65rem]" disabled={!user}><PixelStall className="mr-1 h-3 w-3 ascii-shader" /> Store</Button>
-          <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} className="h-6 px-1.5 text-[0.65rem]"><PixelReset className="mr-1 h-3 w-3 ascii-shader" /> Reset Game</Button>
-          {onlineStatus === 'disconnected' && ( <Button variant="outline" size="sm" onClick={handleUndo} disabled={historyStack.length === 0} className="h-6 px-1.5 text-[0.65rem]"><PixelUndo className="mr-1 h-3 w-3 ascii-shader" /> Undo</Button> )}
-          <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-6 px-1.5 text-[0.65rem]"><PixelGear className="mr-1 h-3 w-3 ascii-shader" /> Settings</Button></PopoverTrigger><PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent></Popover>
-          <Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-6 px-1.5 text-[0.65rem]" disabled={onlineStatus !== 'disconnected' || !user}><PixelSwords className="mr-1 h-3 w-3 ascii-shader" /> Dungeon</Button></Link>
-          <Link href="/leaderboard"><Button variant="outline" size="sm" className="h-6 px-1.5 text-[0.65rem]" disabled={onlineStatus !== 'disconnected'}><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" /> L.board</Button></Link>
+        
+        {/* LARGE 8-BIT CONTROLS GROUP 1 */}
+        <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full">
+          <Button variant="ghost" onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+             <PixelTome className="h-12 w-12 ascii-shader" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
+          </Button>
+          <Button variant="ghost" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+             <PixelSack className="h-12 w-12 ascii-shader" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
+          </Button>
+          <Button variant="ghost" onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={!user}>
+             <PixelStall className="h-12 w-12 ascii-shader" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
+          </Button>
+          <Button variant="ghost" onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+             <PixelReset className="h-12 w-12 ascii-shader" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
+          </Button>
+          {onlineStatus === 'disconnected' && (
+            <Button variant="ghost" onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+               <PixelUndo className="h-12 w-12 ascii-shader" />
+               <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
+            </Button>
+          )}
+          <Link href="/leaderboard" className="flex flex-col items-center gap-1">
+             <PixelTrophy className="h-12 w-12 ascii-shader" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leader</span>
+          </Link>
+          <Link href="/dungeon" className={cn(!user && "pointer-events-none", "flex flex-col items-center gap-1")}>
+             <PixelSwords className="h-12 w-12 ascii-shader" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
+          </Link>
         </div>
-        <div className="flex flex-wrap justify-center items-center gap-0.5 mt-0.5">
-            <Button variant="outline" size="sm" onClick={() => setIsWhiteAI(!isWhiteAI)} className="h-6 px-1.5 text-[0.65rem]"><PixelRobotHead className="mr-1 h-3 w-3 text-foreground ascii-shader" /> W:{isWhiteAI ? 'On' : 'Off'}</Button>
-            <Button variant="outline" size="sm" onClick={() => setIsBlackAI(!isBlackAI)} className="h-6 px-1.5 text-[0.65rem]"><PixelRobotHead className="mr-1 h-3 w-3 text-secondary ascii-shader" /> B:{isBlackAI ? 'On' : 'Off'}</Button>
-            <Button variant="outline" size="sm" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="h-6 px-1.5 text-[0.65rem]"><PixelMonitor className="mr-1 h-3 w-3 ascii-shader" /> View</Button>
+
+        {/* LARGE 8-BIT CONTROLS GROUP 2 (SETTINGS & AI) */}
+        <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full border-t border-border/20 pt-4">
+            <Button variant="ghost" onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+               <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader" />
+               <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
+            </Button>
+            <Button variant="ghost" onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+               <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader" />
+               <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
+            </Button>
+            <Button variant="ghost" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+               <PixelMonitor className="h-12 w-12 ascii-shader" />
+               <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">View</span>
+            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                  <PixelGear className="h-12 w-12 ascii-shader" />
+                  <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Setup</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
+            </Popover>
         </div>
-        <Card className="w-full mt-1"> <CardContent className="p-1.5 flex flex-col gap-1.5"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
+
+        <Card className="w-full mt-4 bg-black/40 border-none shadow-none"> <CardContent className="p-1.5 flex flex-col gap-1.5"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
   ), [board, gameInfo, statusMessage, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData?.goldBalance, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, headerCycleCount]);
@@ -1458,20 +1504,105 @@ export default function EvolvingChessPage() {
         <div className="w-full flex items-center justify-center gap-6"> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
-                <PixelAnvil key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 text-muted-foreground/50 shrink-0 animate-anvil-impact ascii-shader" />
+                <PixelAnvil key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 text-[#94A3B8] shrink-0 animate-anvil-impact ascii-shader" />
               )}
            </div>
            <VibeChessTitle className="h-16 w-auto" /> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
-                <ShroomIcon key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 text-destructive animate-shroom-spring ascii-shader" />
+                <ShroomIcon key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 text-[#EF4444] animate-shroom-spring ascii-shader" />
               )}
            </div>
         </div> 
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", (gameInfo.isCheck || isTournamentIntermission) && !gameInfo.gameOver && "text-primary animate-pulse")}> {statusMessage} </div>
         <div className="w-full"> <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor)} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} /> </div> 
       </div>
-      <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card> <CardContent className="p-2 flex flex-col gap-2"> <div className="flex flex-wrap justify-center items-center gap-1"> <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} /> <Button variant="outline" size="sm" onClick={() => setIsRulesDialogOpen(true)} className="h-7 px-2 text-[0.65rem]"><PixelTome className="mr-2 h-4 w-4 ascii-shader" /> Rules</Button> <Button variant={isInventoryOpen ? "default" : "outline"} size="sm" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="h-7 px-2 text-[0.65rem]"><PixelSack className="mr-2 h-4 w-4 ascii-shader" /> Loot</Button> <Button variant="outline" size="sm" onClick={() => setIsRoyalStoreOpen(true)} className="h-7 px-2 text-[0.65rem]" disabled={!user}><PixelStall className="mr-2 h-4 w-4 ascii-shader" /> Store</Button> <Button variant="outline" size="sm" onClick={() => setIsResetConfirmOpen(true)} disabled={onlineStatus !== 'disconnected'} className="h-7 px-2 text-[0.65rem]"><PixelReset className="mr-2 h-4 w-4 ascii-shader" /> Reset Game</Button> {onlineStatus === 'disconnected' && ( <Button variant="outline" size="sm" onClick={handleUndo} disabled={historyStack.length === 0} className="h-7 px-2 text-[0.65rem]"><PixelUndo className="mr-2 h-4 w-4 ascii-shader" /> Undo Move</Button> )} <Popover><PopoverTrigger asChild><Button variant="outline" size="sm" className="h-7 px-2 text-[0.65rem]"><PixelGear className="mr-2 h-4 w-4 ascii-shader" /> Settings</Button></PopoverTrigger><PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent></Popover> <Link href="/dungeon" className={cn(!user && "pointer-events-none")}><Button variant="outline" size="sm" className="h-7 px-2 text-[0.65rem]" disabled={onlineStatus !== 'disconnected' || !user}><PixelSwords className="mr-2 h-4 w-4 ascii-shader" /> Dungeon</Button></Link> <Link href="/leaderboard"><Button variant="outline" size="sm" className="h-7 px-2 text-[0.65rem]" disabled={onlineStatus !== 'disconnected'}><PixelTrophy className="mr-2 h-4 w-4 ascii-shader" /> L.board</Button></Link> <Button variant="outline" size="sm" onClick={() => setIsWhiteAI(!isWhiteAI)} className="h-7 px-2 text-[0.65rem]" disabled={onlineStatus !== 'disconnected'}><PixelRobotHead className="mr-2 h-4 w-4 text-foreground ascii-shader" /> W-AI:{isWhiteAI ? 'On' : 'Off'}</Button> <Button variant="outline" size="sm" onClick={() => setIsBlackAI(!isBlackAI)} className="h-7 px-2 text-[0.65rem]" disabled={onlineStatus !== 'disconnected'}><PixelRobotHead className="mr-2 h-4 w-4 text-secondary ascii-shader" /> B-AI:{isBlackAI ? 'On' : 'Off'}</Button> <Button variant="outline" size="sm" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="h-7 px-2 text-[0.65rem]"><PixelMonitor className="mr-2 h-4 w-4 ascii-shader" /> View Mode</Button> </div> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-7 px-2 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-7 px-2 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-7 px-2 text-[0.65rem] w-full"><Globe className="mr-2 h-4 w-4" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-7 px-2 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-7 px-2 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-2 items-center border-t pt-2"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-7 px-2 text-[0.65rem] w-full">Disconnect</Button> </div> )} <div className="w-full text-center h-4 text-[0.65rem] mt-1 text-muted-foreground uppercase font-pixel">{onlineStatus}</div> </CardContent> </Card> </div>
+      <div className="w-1/4 flex flex-col gap-4"> 
+         <AuthWidget /> 
+         <Card className="bg-black/40 border-none shadow-none"> 
+           <CardContent className="p-2 flex flex-col gap-4"> 
+             {/* DESKTOP LARGE 8-BIT CONTROLS */}
+             <div className="grid grid-cols-3 gap-y-6 gap-x-2 justify-items-center border-b border-border/20 pb-6">
+                <Button variant="ghost" onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                   <PixelTome className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
+                </Button>
+                <Button variant="ghost" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                   <PixelSack className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot Bag</span>
+                </Button>
+                <Button variant="ghost" onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={!user}>
+                   <PixelStall className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
+                </Button>
+                <Link href="/leaderboard" className="flex flex-col items-center gap-1">
+                   <PixelTrophy className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Heroes</span>
+                </Link>
+                <Link href="/dungeon" className={cn(!user && "pointer-events-none", "flex flex-col items-center gap-1")}>
+                   <PixelSwords className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
+                </Link>
+                <Button variant="ghost" onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                   <PixelReset className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
+                </Button>
+                {onlineStatus === 'disconnected' && (
+                  <Button variant="ghost" onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                     <PixelUndo className="h-16 w-16 ascii-shader" />
+                     <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
+                  </Button>
+                )}
+                <Button variant="ghost" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                   <PixelMonitor className="h-16 w-16 ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Camera</span>
+                </Button>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
+                      <PixelGear className="h-16 w-16 ascii-shader" />
+                      <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Settings</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
+                </Popover>
+             </div>
+
+             {/* AI TOGGLES */}
+             <div className="flex justify-center gap-8 py-2">
+                <Button variant="ghost" onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-14 w-14 text-foreground ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
+                </Button>
+                <Button variant="ghost" onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-14 w-14 text-secondary ascii-shader" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
+                </Button>
+             </div>
+
+             {onlineStatus === 'disconnected' ? ( 
+               <div className="flex flex-col gap-2 items-center border-t border-border/20 pt-4"> 
+                 <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-8 px-2 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena Entry <span className="text-yellow-500 ml-1">100g</span></Button> 
+                 <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-8 px-2 text-[0.65rem] w-full">Ranked Matchmaking</Button> 
+                 <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-8 px-2 text-[0.65rem] w-full">Create Private Room</Button> 
+                 <div className="flex gap-1 items-center w-full"> 
+                   <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-8 px-2 text-[0.65rem] flex-grow" /> 
+                   <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-8 px-2 text-[0.65rem]">Join</Button> 
+                 </div> 
+               </div> 
+             ) : ( 
+               <div className="flex flex-col gap-2 items-center border-t border-border/20 pt-4"> 
+                 <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> 
+                   <span>Room: {roomId || inputRoomId}</span> 
+                   <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> 
+                 </div> 
+                 <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-8 px-2 text-[0.65rem] w-full">Terminate Connection</Button> 
+               </div> 
+             )} 
+             <div className="w-full text-center h-4 text-[0.55rem] mt-1 text-muted-foreground uppercase font-pixel tracking-widest">{onlineStatus}</div> 
+           </CardContent> 
+         </Card> 
+      </div>
     </div>
   ), [board, currentPlayer, capturedPieces, gameInfo, killStreaks, pieceForInfoDisplay, localPlayerColor, getPlayerDisplayName, onlineStatus, turnTimer, statusMessage, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, isMoveProcessing, viewMode, animatedSquareTo, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isRulesDialogOpen, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, tournamentRound, headerIconsActive, headerIconsOpacity, headerCycleCount]);
 

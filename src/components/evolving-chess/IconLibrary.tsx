@@ -455,57 +455,57 @@ export const DaggerIcon = ({ className = "w-full h-full" }: IconProps) => (
   </svg>
 );
 
-/** LOBBY & SYSTEM ICONS **/
+/** LOBBY & SYSTEM ICONS (FULL COLOR) **/
 
 export const PixelTome = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="2" y="4" width="10" height="16" />
-    <rect x="12" y="4" width="10" height="16" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="2" y="4" width="10" height="16" fill="#10B981" />
+    <rect x="12" y="4" width="10" height="16" fill="#059669" />
     <rect x="11" y="4" width="2" height="16" fill="black" fillOpacity="0.3" />
-    <rect x="14" y="7" width="6" height="2" fill="white" fillOpacity="0.2" />
-    <rect x="14" y="11" width="6" height="2" fill="white" fillOpacity="0.2" />
-    <rect x="14" y="15" width="4" height="2" fill="white" fillOpacity="0.2" />
+    <rect x="14" y="7" width="6" height="2" fill="white" fillOpacity="0.4" />
+    <rect x="14" y="11" width="6" height="2" fill="white" fillOpacity="0.4" />
+    <rect x="14" y="15" width="4" height="2" fill="white" fillOpacity="0.4" />
   </svg>
 );
 
 export const PixelSack = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="6" y="8" width="12" height="12" />
-    <rect x="8" y="4" width="8" height="4" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="6" y="8" width="12" height="12" fill="#78350F" />
+    <rect x="8" y="4" width="8" height="4" fill="#92400E" />
     <rect x="6" y="8" width="12" height="2" fill="black" fillOpacity="0.4" />
     <rect x="10" y="9" width="4" height="1" fill="white" fillOpacity="0.3" />
   </svg>
 );
 
 export const PixelStall = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="4" y="4" width="16" height="4" />
-    <rect x="4" y="4" width="4" height="4" fill="white" fillOpacity="0.2" />
-    <rect x="12" y="4" width="4" height="4" fill="white" fillOpacity="0.2" />
-    <rect x="6" y="8" width="1" height="10" />
-    <rect x="17" y="8" width="1" height="10" />
-    <rect x="4" y="14" width="16" height="6" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="4" y="4" width="16" height="4" fill="#B91C1C" />
+    <rect x="4" y="4" width="4" height="4" fill="#EAB308" />
+    <rect x="12" y="4" width="4" height="4" fill="#EAB308" />
+    <rect x="6" y="8" width="1" height="10" fill="#78350F" />
+    <rect x="17" y="8" width="1" height="10" fill="#78350F" />
+    <rect x="4" y="14" width="16" height="6" fill="#92400E" />
     <rect x="5" y="15" width="14" height="1" fill="white" fillOpacity="0.2" />
   </svg>
 );
 
 export const PixelSwords = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <path d="M4 4l16 16M20 4L4 20" stroke="currentColor" strokeWidth="2" strokeLinecap="square" />
-    <rect x="2" y="2" width="4" height="4" />
-    <rect x="18" y="2" width="4" height="4" />
-    <rect x="2" y="18" width="4" height="4" />
-    <rect x="18" y="18" width="4" height="4" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <path d="M4 4l16 16M20 4L4 20" stroke="#94A3B8" strokeWidth="2" strokeLinecap="square" />
+    <rect x="2" y="2" width="4" height="4" fill="#64748B" />
+    <rect x="18" y="2" width="4" height="4" fill="#64748B" />
+    <rect x="2" y="18" width="4" height="4" fill="#64748B" />
+    <rect x="18" y="18" width="4" height="4" fill="#64748B" />
   </svg>
 );
 
 export const PixelTrophy = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="6" y="4" width="12" height="8" />
-    <rect x="10" y="12" width="4" height="6" />
-    <rect x="6" y="18" width="12" height="2" />
-    <rect x="4" y="5" width="2" height="4" />
-    <rect x="18" y="5" width="2" height="4" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="6" y="4" width="12" height="8" fill="#EAB308" />
+    <rect x="10" y="12" width="4" height="6" fill="#B45309" />
+    <rect x="6" y="18" width="12" height="2" fill="#78350F" />
+    <rect x="4" y="5" width="2" height="4" fill="#EAB308" />
+    <rect x="18" y="5" width="2" height="4" fill="#EAB308" />
   </svg>
 );
 
@@ -521,39 +521,39 @@ export const PixelRobotHead = ({ className }: IconProps) => (
 );
 
 export const PixelGear = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="11" y="2" width="2" height="20" />
-    <rect x="2" y="11" width="20" height="2" />
-    <rect x="6" y="6" width="12" height="12" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="11" y="2" width="2" height="20" fill="#475569" />
+    <rect x="2" y="11" width="20" height="2" fill="#475569" />
+    <rect x="6" y="6" width="12" height="12" fill="#64748B" />
     <rect x="11" y="11" width="2" height="2" fill="black" />
   </svg>
 );
 
 export const PixelUndo = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="12" y="6" width="2" height="12" />
-    <rect x="14" y="6" width="4" height="2" />
-    <rect x="14" y="16" width="4" height="2" />
-    <rect x="6" y="10" width="6" height="4" />
-    <rect x="4" y="11" width="2" height="2" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="12" y="6" width="2" height="12" fill="#3B82F6" />
+    <rect x="14" y="6" width="4" height="2" fill="#3B82F6" />
+    <rect x="14" y="16" width="4" height="2" fill="#3B82F6" />
+    <rect x="6" y="10" width="6" height="4" fill="#2563EB" />
+    <rect x="4" y="11" width="2" height="2" fill="#2563EB" />
   </svg>
 );
 
 export const PixelReset = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="6" y="6" width="12" height="2" />
-    <rect x="16" y="8" width="2" height="10" />
-    <rect x="6" y="16" width="12" height="2" />
-    <rect x="6" y="10" width="2" height="6" />
-    <rect x="4" y="8" width="4" height="4" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="6" y="6" width="12" height="2" fill="#EF4444" />
+    <rect x="16" y="8" width="2" height="10" fill="#EF4444" />
+    <rect x="6" y="16" width="12" height="2" fill="#EF4444" />
+    <rect x="6" y="10" width="2" height="6" fill="#DC2626" />
+    <rect x="4" y="8" width="4" height="4" fill="#DC2626" />
   </svg>
 );
 
 export const PixelMonitor = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="4" y="4" width="16" height="12" />
-    <rect x="6" y="6" width="12" height="8" fill="black" fillOpacity="0.3" />
-    <rect x="10" y="16" width="4" height="2" />
-    <rect x="7" y="18" width="10" height="2" />
+  <svg viewBox="0 0 24 24" className={className}>
+    <rect x="4" y="4" width="16" height="12" fill="#64748B" />
+    <rect x="6" y="6" width="12" height="8" fill="#1e1b4b" fillOpacity="0.8" />
+    <rect x="10" y="16" width="4" height="2" fill="#475569" />
+    <rect x="7" y="18" width="10" height="2" fill="#475569" />
   </svg>
 );
