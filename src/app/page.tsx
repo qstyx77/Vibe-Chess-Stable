@@ -734,7 +734,7 @@ export default function EvolvingChessPage() {
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random()*empty.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
                 let resLevel = 1;
-                if (choice.heldItem === 'soul_spark') resLevel = 2;
+                if (best.heldItem === 'soul_spark') resLevel = 2;
                 const resPiece = { ...choice, level: resLevel, id: `res_ks_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                 if (onlineStatus === 'connected' && actingPlayer === localPlayerColor) { wsRef.current?.send(JSON.stringify({ type: 'ks-resurrection', payload: { pieceId: choice.id, square: sq.algebraic } })); }
                 nextBoard[rr][rc].piece = resPiece; 
@@ -1070,7 +1070,7 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayer === 'white' ? -1 : 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
@@ -1437,7 +1437,7 @@ export default function EvolvingChessPage() {
         </div>
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} />
         
-        {/* LARGE 8-BIT CONTROLS GROUP 1 */}
+        {/* ROW 1: GAMEPLAY ACTIONS */}
         <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full">
           <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
              <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
@@ -1451,6 +1451,14 @@ export default function EvolvingChessPage() {
              <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
           </button>
+          <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
+             <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leader</span>
+          </Link>
+          <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
+             <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
+          </Link>
           <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
              <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
@@ -1461,17 +1469,9 @@ export default function EvolvingChessPage() {
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
             </button>
           )}
-          <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
-             <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leader</span>
-          </Link>
-          <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
-             <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
-          </Link>
         </div>
 
-        {/* LARGE 8-BIT CONTROLS GROUP 2 (SETTINGS & AI) */}
+        {/* ROW 2: SYSTEM & AI CONTROLS */}
         <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full border-t border-border/20 pt-4">
             <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
                <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader transition-transform group-hover:scale-110" />
@@ -1524,16 +1524,16 @@ export default function EvolvingChessPage() {
       <div className="w-1/4 flex flex-col gap-4"> 
          <AuthWidget /> 
          <Card className="bg-black/40 border-none shadow-none"> 
-           <CardContent className="p-2 flex flex-col gap-4"> 
-             {/* DESKTOP LARGE 8-BIT CONTROLS */}
-             <div className="grid grid-cols-3 gap-y-6 gap-x-2 justify-items-center border-b border-border/20 pb-6">
+           <CardContent className="p-2 flex flex-col gap-6"> 
+             {/* ROW 1: ACTIONS */}
+             <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-4 border-b border-border/20 pb-6">
                 <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelTome className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
                 </button>
                 <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
                    <PixelSack className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot Bag</span>
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
                 </button>
                 <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
                    <PixelStall className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
@@ -1557,6 +1557,18 @@ export default function EvolvingChessPage() {
                      <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
                   </button>
                 )}
+             </div>
+
+             {/* ROW 2: SYSTEM / CAMERA / AI */}
+             <div className="flex flex-wrap justify-center items-end gap-x-6 gap-y-4">
+                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-16 w-16 text-foreground ascii-shader transition-transform group-hover:scale-110" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
+                </button>
+                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-16 w-16 text-secondary ascii-shader transition-transform group-hover:scale-110" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
+                </button>
                 <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelMonitor className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Camera</span>
@@ -1570,18 +1582,6 @@ export default function EvolvingChessPage() {
                   </PopoverTrigger>
                   <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
                 </Popover>
-             </div>
-
-             {/* AI TOGGLES */}
-             <div className="flex justify-center gap-8 py-2">
-                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
-                   <PixelRobotHead className="h-16 w-16 text-foreground ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
-                </button>
-                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
-                   <PixelRobotHead className="h-16 w-16 text-secondary ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
-                </button>
              </div>
 
              {onlineStatus === 'disconnected' ? ( 
@@ -1643,6 +1643,12 @@ export default function EvolvingChessPage() {
             <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed"> Joining the Arena queue costs <span className="text-yellow-500">100 Gold</span>. Are you sure you want to proceed? </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="mt-4 gap-2">
+            <Accordion type="single" collapsible className="w-full mb-2">
+              <AccordionItem value="entry-fee" className="border-border/30">
+                <AccordionTrigger className="text-[0.6rem] uppercase py-2">View Queue Details</AccordionTrigger>
+                <AccordionContent className="text-[0.55rem] text-muted-foreground uppercase leading-tight"> Arena battles use your current Elo and Equipment. Matches are 8-player bracketed tournaments. </AccordionContent>
+              </AccordionItem>
+            </Accordion>
             <AlertDialogCancel className="h-9 text-[0.6rem] uppercase">Cancel</AlertDialogCancel>
             <AlertDialogAction className="h-9 text-[0.6rem] uppercase bg-primary text-primary-foreground" onClick={() => { setIsArenaConfirmOpen(false); joinTournamentQueue(); }}> Pay 100g & Join </AlertDialogAction>
           </AlertDialogFooter>

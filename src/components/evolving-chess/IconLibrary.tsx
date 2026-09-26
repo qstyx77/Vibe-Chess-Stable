@@ -225,17 +225,6 @@ export const PixelNecromancer = ({ className }: IconProps) => (
   </svg>
 );
 
-export const PixelColossus = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="9" y="1" width="6" height="5" />
-    <rect x="5" y="6" width="14" height="5" />
-    <rect x="7" y="11" width="10" height="9" />
-    <rect x="4" y="8" width="4" height="9" />
-    <rect x="16" y="8" width="4" height="9" />
-    <rect x="6" y="20" width="12" height="2" />
-  </svg>
-);
-
 export const PixelMirage = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <rect x="10" y="2" width="4" height="18" opacity="0.7" />
@@ -388,13 +377,6 @@ export const ShroomIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-export const ExplosionIcon = ({ className = "w-full h-full" }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1l2.1-2.1M17 7l2.1-2.1" />
-    <path d="M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8" fill="currentColor" fillOpacity="0.3" />
-  </svg>
-);
-
 export const StarIcon = ({ className = "w-full h-full" }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
     <path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.27 5.82 21 7 14.14 2 9.27l6.91-1.01L12 2z" />
@@ -470,10 +452,21 @@ export const PixelTome = ({ className }: IconProps) => (
 
 export const PixelSack = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    <rect x="6" y="8" width="12" height="12" fill="#78350F" />
-    <rect x="8" y="4" width="8" height="4" fill="#92400E" />
-    <rect x="6" y="8" width="12" height="2" fill="black" fillOpacity="0.4" />
-    <rect x="10" y="9" width="4" height="1" fill="white" fillOpacity="0.3" />
+    {/* Round RPG Pouch Body */}
+    <rect x="6" y="10" width="12" height="10" rx="3" fill="#78350F" />
+    <rect x="5" y="12" width="14" height="6" rx="2" fill="#78350F" />
+    
+    {/* Gathered Top / Drawstring Area */}
+    <rect x="8" y="7" width="8" height="4" rx="1" fill="#451a03" />
+    <rect x="7" y="8" width="10" height="2" fill="#92400E" opacity="0.3" />
+    
+    {/* Drawstring Detail */}
+    <rect x="11" y="9" width="2" height="1" fill="#FEF08A" />
+    <rect x="10" y="8" width="1" height="3" fill="#B45309" />
+    <rect x="13" y="8" width="1" height="3" fill="#B45309" />
+    
+    {/* Highlight stitch */}
+    <rect x="8" y="13" width="1" height="1" fill="white" fillOpacity="0.2" />
   </svg>
 );
 
@@ -553,11 +546,19 @@ export const PixelUndo = ({ className }: IconProps) => (
 
 export const PixelReset = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    <rect x="6" y="6" width="12" height="2" fill="#EF4444" />
-    <rect x="16" y="8" width="2" height="10" fill="#EF4444" />
-    <rect x="6" y="16" width="12" height="2" fill="#EF4444" />
-    <rect x="6" y="10" width="2" height="6" fill="#DC2626" />
-    <rect x="4" y="8" width="4" height="4" fill="#DC2626" />
+    {/* Circular Arrow Body */}
+    <rect x="8" y="4" width="8" height="2" fill="#EF4444" />
+    <rect x="16" y="6" width="2" height="8" fill="#EF4444" />
+    <rect x="8" y="14" width="8" height="2" fill="#EF4444" />
+    <rect x="6" y="6" width="2" height="6" fill="#EF4444" />
+    
+    {/* Arrow Head */}
+    <rect x="4" y="6" width="2" height="2" fill="#DC2626" />
+    <rect x="2" y="8" width="4" height="2" fill="#DC2626" />
+    <rect x="4" y="10" width="2" height="2" fill="#DC2626" />
+    
+    {/* Gap in the circle */}
+    <rect x="6" y="4" width="2" height="2" fill="black" fillOpacity="0.1" />
   </svg>
 );
 
@@ -567,5 +568,29 @@ export const PixelMonitor = ({ className }: IconProps) => (
     <rect x="6" y="6" width="12" height="8" fill="#1e1b4b" fillOpacity="0.8" />
     <rect x="10" y="16" width="4" height="2" fill="#475569" />
     <rect x="7" y="18" width="10" height="2" fill="#475569" />
+  </svg>
+);
+
+export const PixelColossus = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="9" y="1" width="6" height="5" />
+    <rect x="5" y="6" width="14" height="5" />
+    <rect x="7" y="11" width="10" height="9" />
+    <rect x="4" y="8" width="4" height="9" />
+    <rect x="16" y="8" width="4" height="9" />
+    <rect x="6" y="20" width="12" height="2" />
+  </svg>
+);
+
+export const ExplosionIcon = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+    <rect x="11" y="2" width="2" height="4" />
+    <rect x="11" y="18" width="2" height="4" />
+    <rect x="2" y="11" width="4" height="2" />
+    <rect x="18" y="11" width="4" height="2" />
+    <rect x="5" y="5" width="3" height="3" />
+    <rect x="16" y="5" width="3" height="3" />
+    <rect x="5" y="16" width="3" height="3" />
+    <rect x="16" y="16" width="3" height="3" />
   </svg>
 );
