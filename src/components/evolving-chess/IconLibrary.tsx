@@ -491,11 +491,23 @@ export const PixelStall = ({ className }: IconProps) => (
 
 export const PixelSwords = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    <path d="M4 4l16 16M20 4L4 20" stroke="#94A3B8" strokeWidth="2" strokeLinecap="square" />
-    <rect x="2" y="2" width="4" height="4" fill="#64748B" />
-    <rect x="18" y="2" width="4" height="4" fill="#64748B" />
-    <rect x="2" y="18" width="4" height="4" fill="#64748B" />
-    <rect x="18" y="18" width="4" height="4" fill="#64748B" />
+    {/* Sword 1: Top-Left to Bottom-Right */}
+    <g transform="rotate(45 12 12)">
+       <rect x="10" y="2" width="4" height="16" fill="#94A3B8" /> {/* Blade */}
+       <rect x="11" y="2" width="2" height="16" fill="#CBD5E1" /> {/* Shine */}
+       <rect x="7" y="15" width="10" height="2" fill="#EAB308" /> {/* Guard */}
+       <rect x="11" y="17" width="2" height="4" fill="#78350F" /> {/* Handle */}
+       <rect x="10.5" y="21" width="3" height="2" fill="#B45309" /> {/* Pommel */}
+    </g>
+    
+    {/* Sword 2: Top-Right to Bottom-Left */}
+    <g transform="rotate(-45 12 12)">
+       <rect x="10" y="2" width="4" height="16" fill="#94A3B8" /> {/* Blade */}
+       <rect x="11" y="2" width="2" height="16" fill="#CBD5E1" /> {/* Shine */}
+       <rect x="7" y="15" width="10" height="2" fill="#EAB308" /> {/* Guard */}
+       <rect x="11" y="17" width="2" height="4" fill="#78350F" /> {/* Handle */}
+       <rect x="10.5" y="21" width="3" height="2" fill="#B45309" /> {/* Pommel */}
+    </g>
   </svg>
 );
 

@@ -508,7 +508,7 @@ export default function EvolvingChessPage() {
     
     // Shatter audio detection
     const postPoisonPieces = boardAfterPoison.flat().filter(sq => sq.piece).map(sq => sq.piece!);
-    const anyShattered = midFrozenIds.some(id => {
+    anyShattered = midFrozenIds.some(id => {
         const p = postPoisonPieces.find(piece => piece.id === id);
         return p && (p.frozenTurnsRemaining || 0) === 0;
     });
@@ -1067,8 +1067,12 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
-        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
-        if (isAdjacent && (piece || (sq?.item?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || (!sq?.item && row === fr + (currentPlayer === 'white' ? -1 : 1)))) {
+        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
+        const targetP = board[row][col].piece;
+        const targetItem = board[row][col].item;
+        const dir = currentPlayer === 'white' ? -1 : 1;
+        const isForward = (row === fr + dir) && (col === fc);
+        if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
                 pushHistory(); let nextBoard = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
@@ -1199,7 +1203,7 @@ export default function EvolvingChessPage() {
               const expGain = (applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0) + 
                              (applyRes.pieceCapturedByAnvil ? 1 : 0) + 
                              (applyRes.selfDestructCaptures?.reduce((acc: number, vic: any) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
-              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
+              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
               if (expGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, expGain);
               if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
@@ -1435,58 +1439,58 @@ export default function EvolvingChessPage() {
         
         {/* LARGE 8-BIT CONTROLS GROUP 1 */}
         <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full">
-          <Button variant="ghost" onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-             <PixelTome className="h-12 w-12 ascii-shader" />
+          <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+             <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
-          </Button>
-          <Button variant="ghost" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-             <PixelSack className="h-12 w-12 ascii-shader" />
+          </button>
+          <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+             <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
-          </Button>
-          <Button variant="ghost" onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={!user}>
-             <PixelStall className="h-12 w-12 ascii-shader" />
+          </button>
+          <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
+             <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
-          </Button>
-          <Button variant="ghost" onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-             <PixelReset className="h-12 w-12 ascii-shader" />
+          </button>
+          <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+             <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
-          </Button>
+          </button>
           {onlineStatus === 'disconnected' && (
-            <Button variant="ghost" onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-               <PixelUndo className="h-12 w-12 ascii-shader" />
+            <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+               <PixelUndo className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
-            </Button>
+            </button>
           )}
-          <Link href="/leaderboard" className="flex flex-col items-center gap-1">
-             <PixelTrophy className="h-12 w-12 ascii-shader" />
+          <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
+             <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leader</span>
           </Link>
-          <Link href="/dungeon" className={cn(!user && "pointer-events-none", "flex flex-col items-center gap-1")}>
-             <PixelSwords className="h-12 w-12 ascii-shader" />
+          <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
+             <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
           </Link>
         </div>
 
         {/* LARGE 8-BIT CONTROLS GROUP 2 (SETTINGS & AI) */}
         <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full border-t border-border/20 pt-4">
-            <Button variant="ghost" onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-               <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader" />
+            <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+               <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
-            </Button>
-            <Button variant="ghost" onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-               <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader" />
+            </button>
+            <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+               <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
-            </Button>
-            <Button variant="ghost" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-               <PixelMonitor className="h-12 w-12 ascii-shader" />
+            </button>
+            <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+               <PixelMonitor className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">View</span>
-            </Button>
+            </button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                  <PixelGear className="h-12 w-12 ascii-shader" />
+                <button className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+                  <PixelGear className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Setup</span>
-                </Button>
+                </button>
               </PopoverTrigger>
               <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
             </Popover>
@@ -1523,46 +1527,46 @@ export default function EvolvingChessPage() {
            <CardContent className="p-2 flex flex-col gap-4"> 
              {/* DESKTOP LARGE 8-BIT CONTROLS */}
              <div className="grid grid-cols-3 gap-y-6 gap-x-2 justify-items-center border-b border-border/20 pb-6">
-                <Button variant="ghost" onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                   <PixelTome className="h-16 w-16 ascii-shader" />
+                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+                   <PixelTome className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
-                </Button>
-                <Button variant="ghost" onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                   <PixelSack className="h-16 w-16 ascii-shader" />
+                </button>
+                <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                   <PixelSack className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot Bag</span>
-                </Button>
-                <Button variant="ghost" onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={!user}>
-                   <PixelStall className="h-16 w-16 ascii-shader" />
+                </button>
+                <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
+                   <PixelStall className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
-                </Button>
-                <Link href="/leaderboard" className="flex flex-col items-center gap-1">
-                   <PixelTrophy className="h-16 w-16 ascii-shader" />
+                </button>
+                <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
+                   <PixelTrophy className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Heroes</span>
                 </Link>
-                <Link href="/dungeon" className={cn(!user && "pointer-events-none", "flex flex-col items-center gap-1")}>
-                   <PixelSwords className="h-16 w-16 ascii-shader" />
+                <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
+                   <PixelSwords className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
                 </Link>
-                <Button variant="ghost" onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                   <PixelReset className="h-16 w-16 ascii-shader" />
+                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+                   <PixelReset className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
-                </Button>
+                </button>
                 {onlineStatus === 'disconnected' && (
-                  <Button variant="ghost" onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                     <PixelUndo className="h-16 w-16 ascii-shader" />
+                  <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                     <PixelUndo className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                      <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
-                  </Button>
+                  </button>
                 )}
-                <Button variant="ghost" onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                   <PixelMonitor className="h-16 w-16 ascii-shader" />
+                <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+                   <PixelMonitor className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Camera</span>
-                </Button>
+                </button>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="ghost" className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent">
-                      <PixelGear className="h-16 w-16 ascii-shader" />
+                    <button className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+                      <PixelGear className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
                       <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Settings</span>
-                    </Button>
+                    </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
                 </Popover>
@@ -1570,14 +1574,14 @@ export default function EvolvingChessPage() {
 
              {/* AI TOGGLES */}
              <div className="flex justify-center gap-8 py-2">
-                <Button variant="ghost" onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={onlineStatus !== 'disconnected'}>
-                   <PixelRobotHead className="h-14 w-14 text-foreground ascii-shader" />
+                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-16 w-16 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
-                </Button>
-                <Button variant="ghost" onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 hover:bg-transparent" disabled={onlineStatus !== 'disconnected'}>
-                   <PixelRobotHead className="h-14 w-14 text-secondary ascii-shader" />
+                </button>
+                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-16 w-16 text-secondary ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
-                </Button>
+                </button>
              </div>
 
              {onlineStatus === 'disconnected' ? ( 
