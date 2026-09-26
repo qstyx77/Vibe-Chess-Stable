@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -125,7 +126,7 @@ export function MycoSpellMenu({ isOpen, onSelectSpell, mana, onOpenChange }: Myc
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { if (onOpenChange) onOpenChange(false); onSelectSpell(null as any); } }}>
       <DialogContent className="sm:max-w-[32rem] bg-card border-2 border-primary/50 font-pixel p-4">
-        <DialogHeader space-y-1>
+        <DialogHeader className="space-y-1">
           <div className="flex items-center justify-center gap-2">
               <ShroomIcon className="w-5 h-5 text-primary" />
               <DialogTitle className="text-primary text-center font-pixel uppercase text-base">Mushroomancy</DialogTitle>
