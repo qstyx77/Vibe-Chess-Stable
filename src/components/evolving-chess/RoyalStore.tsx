@@ -340,7 +340,7 @@ export function RoyalStore({ isOpen, onOpenChange }: RoyalStoreProps) {
                             <Card key={p.type} className="border-2 border-border/50 bg-black/40 overflow-hidden w-full">
                                 <CardContent className="p-3 flex items-center justify-between gap-4">
                                     <div className="w-12 h-12 bg-muted/10 shrink-0 flex items-center justify-center border border-border/30">
-                                        <div className="scale-[1.25]">
+                                        <div className="w-full h-full scale-[1.25] flex items-center justify-center relative">
                                             <ChessPieceDisplay piece={{ id: 'preview', type: p.type, color: 'white', level: 1, hasMoved: false }} />
                                         </div>
                                     </div>

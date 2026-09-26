@@ -145,7 +145,7 @@ export const ChessPieceDisplay = memo(({
   const displayLevelValue = effectiveLevel ?? level;
 
   return (
-    <div className={cn("w-full h-full", shouldRotateBlackPieceForTabletop && "rotate-180")}>
+    <div className={cn("w-full h-full relative", shouldRotateBlackPieceForTabletop && "rotate-180")}>
       <div
         className={cn(
           "relative flex items-center justify-center w-full h-full",
@@ -160,7 +160,7 @@ export const ChessPieceDisplay = memo(({
       >
         {/* SHADER-TREATED WRAPPER FOR ART & STATUS ONLY */}
         <div className={cn(
-            "absolute inset-0 ascii-shader flex items-center justify-center",
+            "absolute top-0 left-0 w-full h-full ascii-shader flex items-center justify-center overflow-visible",
             pieceColorClass,
             animationClass,
             powerGlowClass,
