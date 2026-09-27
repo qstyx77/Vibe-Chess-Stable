@@ -506,14 +506,12 @@ export const PixelTrophy = ({ className }: IconProps) => (
 
 export const PixelRobotHead = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    {/* Head Structure - Responsive to Player Color via currentColor */}
-    <rect x="6" y="8" width="12" height="10" fill="currentColor" />
-    <rect x="11" y="4" width="2" height="4" fill="currentColor" />
-    <rect x="10" y="2" width="4" height="2" fill="currentColor" />
-    {/* Facial Features - Hard-Coded Black for Legibility */}
-    <rect x="8" y="11" width="2" height="2" fill="black" />
-    <rect x="14" y="11" width="2" height="2" fill="black" />
-    <rect x="9" y="15" width="6" height="1" fill="black" />
+    {/* Using a hollow path with evenodd to ensure features are solid black (no dither) */}
+    <path 
+      fillRule="evenodd" 
+      fill="currentColor"
+      d="M6 8h12v10H6V8zm2 3h2v2H8v-2zm6 0h2v2h-2v-2zm-5 4h6v1H9v-1z M11 4h2v4h-2V4zm-1-2h4v2h-4V2z"
+    />
   </svg>
 );
 
