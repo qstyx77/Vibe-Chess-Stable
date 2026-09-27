@@ -1045,7 +1045,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1069,8 +1069,8 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const currentDir = currentPlayer === 'white' ? -1 : 1;
-        const isForward = (row === fr + currentDir) && (col === fc);
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
+        const isForward = (row === fr + dir) && (col === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1354,7 +1354,7 @@ export default function EvolvingChessPage() {
     initWebSocket(() => {
         const eq: Record<string, string> = {}; board.flat().forEach(sq => { if (sq.piece?.heldItem) eq[sq.piece.id] = sq.piece.heldItem; });
         if (action === 'create') { wsRef.current?.send(JSON.stringify({ type: 'create-room', user: { userId: user.uid, username: userData?.username || user.displayName || 'Host', elo: userData?.eloRating || 1200, wins: userData?.unlockedPieces || [], equipment: eq, unlockedPieces: userData?.unlockedPieces || [] } })); } 
-        else { wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, color: action === 'join' ? (localPlayerColor || 'black') : 'white', user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment: eq, unlockedPieces: userData?.unlockedPieces || [] } })); }
+        else { wsRef.current?.send(JSON.stringify({ type: 'join-room', roomId: inputRoomId, color: action === 'join' ? (localPlayerColor || 'black') : 'black', user: { userId: user.uid, username: userData?.username || user.displayName || 'Guest', elo: userData?.eloRating || 1200, wins: userData?.wins || 0, losses: userData?.losses || 0, equipment: eq, unlockedPieces: userData?.unlockedPieces || [] } })); }
     });
   }, [user, userData, inputRoomId, board, localPlayerColor, initWebSocket]);
 
@@ -1436,8 +1436,8 @@ export default function EvolvingChessPage() {
         </div>
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} />
         
-        {/* ROW 1: GAMEPLAY ACTIONS */}
-        <div className="flex flex-nowrap justify-center items-end gap-x-1 gap-y-1 mt-1 w-full px-1">
+        {/* LOBBY UI - TIERed ROW 1: ACTIONS */}
+        <div className="flex flex-nowrap justify-center items-end gap-x-2 gap-y-1 mt-1 w-full px-1">
           <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
              <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Rules</span>
@@ -1452,7 +1452,7 @@ export default function EvolvingChessPage() {
           </button>
           <Link href="/leaderboard" className="flex flex-col items-center gap-0.5 group">
              <PixelTrophy className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Heroes</span>
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Leaders</span>
           </Link>
           <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
              <PixelSwords className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
@@ -1470,13 +1470,13 @@ export default function EvolvingChessPage() {
           )}
         </div>
 
-        {/* ROW 2: SYSTEM & AI CONTROLS */}
-        <div className="flex justify-center items-end gap-x-2 gap-y-1 mt-1 w-full border-t border-border/20 pt-1">
-            <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+        {/* LOBBY UI - TIERed ROW 2: SYSTEM */}
+        <div className="flex justify-center items-end gap-x-2 gap-y-1 mt-1 w-full pt-1">
+            <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group" disabled={onlineStatus !== 'disconnected'}>
                <PixelRobotHead className="h-10 w-10 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
             </button>
-            <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+            <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group" disabled={onlineStatus !== 'disconnected'}>
                <PixelRobotHead className="h-10 w-10 text-secondary ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
             </button>
@@ -1524,57 +1524,57 @@ export default function EvolvingChessPage() {
          <AuthWidget /> 
          <Card className="bg-black/40 border-none shadow-none"> 
            <CardContent className="p-1 flex flex-col gap-2"> 
-             {/* ROW 1: ACTIONS */}
-             <div className="flex flex-wrap justify-center items-end gap-x-2.5 gap-y-1 border-b border-border/20 pb-1">
-                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
+             {/* LOBBY UI - TIERed ROW 1: ACTIONS */}
+             <div className="flex flex-wrap justify-center items-end gap-x-5 gap-y-1 pb-1">
+                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
                 </button>
-                <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
                    <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
                 </button>
-                <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
+                <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
                    <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
                 </button>
-                <Link href="/leaderboard" className="flex flex-col items-center gap-0 group">
+                <Link href="/leaderboard" className="flex flex-col items-center gap-0.5 group">
                    <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Heroes</span>
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leaders</span>
                 </Link>
-                <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0 group")}>
+                <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
                    <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
                 </Link>
-                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
+                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
                 </button>
                 {onlineStatus === 'disconnected' && (
-                  <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                  <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
                      <PixelUndo className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                      <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
                   </button>
                 )}
              </div>
 
-             {/* ROW 2: SYSTEM / CAMERA / AI */}
-             <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-1">
-                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+             {/* LOBBY UI - TIERed ROW 2: SYSTEM */}
+             <div className="flex flex-wrap justify-center items-end gap-x-5 gap-y-1 pt-1 border-t border-border/20">
+                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
                    <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
                 </button>
-                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
                    <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
                 </button>
-                <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
+                <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelMonitor className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Camera</span>
                 </button>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
+                    <button className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                       <PixelGear className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                       <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Settings</span>
                     </button>

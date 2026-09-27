@@ -452,20 +452,13 @@ export const PixelTome = ({ className }: IconProps) => (
 
 export const PixelSack = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    {/* Round RPG Pouch Body */}
     <rect x="6" y="10" width="12" height="10" rx="3" fill="#78350F" />
     <rect x="5" y="12" width="14" height="6" rx="2" fill="#78350F" />
-    
-    {/* Gathered Top / Drawstring Area */}
     <rect x="8" y="7" width="8" height="4" rx="1" fill="#451a03" />
     <rect x="7" y="8" width="10" height="2" fill="#92400E" opacity="0.3" />
-    
-    {/* Drawstring Detail */}
     <rect x="11" y="9" width="2" height="1" fill="#FEF08A" />
     <rect x="10" y="8" width="1" height="3" fill="#B45309" />
     <rect x="13" y="8" width="1" height="3" fill="#B45309" />
-    
-    {/* Highlight stitch */}
     <rect x="8" y="13" width="1" height="1" fill="white" fillOpacity="0.2" />
   </svg>
 );
@@ -484,22 +477,19 @@ export const PixelStall = ({ className }: IconProps) => (
 
 export const PixelSwords = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    {/* Sword 1: Top-Left to Bottom-Right */}
     <g transform="rotate(45 12 12)">
-       <rect x="10" y="2" width="4" height="16" fill="#94A3B8" /> {/* Blade */}
-       <rect x="11" y="2" width="2" height="16" fill="#CBD5E1" /> {/* Shine */}
-       <rect x="7" y="15" width="10" height="2" fill="#EAB308" /> {/* Guard */}
-       <rect x="11" y="17" width="2" height="4" fill="#78350F" /> {/* Handle */}
-       <rect x="10.5" y="21" width="3" height="2" fill="#B45309" /> {/* Pommel */}
+       <rect x="10" y="2" width="4" height="16" fill="#94A3B8" />
+       <rect x="11" y="2" width="2" height="16" fill="#CBD5E1" />
+       <rect x="7" y="15" width="10" height="2" fill="#EAB308" />
+       <rect x="11" y="17" width="2" height="4" fill="#78350F" />
+       <rect x="10.5" y="21" width="3" height="2" fill="#B45309" />
     </g>
-    
-    {/* Sword 2: Top-Right to Bottom-Left */}
     <g transform="rotate(-45 12 12)">
-       <rect x="10" y="2" width="4" height="16" fill="#94A3B8" /> {/* Blade */}
-       <rect x="11" y="2" width="2" height="16" fill="#CBD5E1" /> {/* Shine */}
-       <rect x="7" y="15" width="10" height="2" fill="#EAB308" /> {/* Guard */}
-       <rect x="11" y="17" width="2" height="4" fill="#78350F" /> {/* Handle */}
-       <rect x="10.5" y="21" width="3" height="2" fill="#B45309" /> {/* Pommel */}
+       <rect x="10" y="2" width="4" height="16" fill="#94A3B8" />
+       <rect x="11" y="2" width="2" height="16" fill="#CBD5E1" />
+       <rect x="7" y="15" width="10" height="2" fill="#EAB308" />
+       <rect x="11" y="17" width="2" height="4" fill="#78350F" />
+       <rect x="10.5" y="21" width="3" height="2" fill="#B45309" />
     </g>
   </svg>
 );
@@ -519,7 +509,6 @@ export const PixelRobotHead = ({ className }: IconProps) => (
     <rect x="6" y="8" width="12" height="10" />
     <rect x="11" y="4" width="2" height="4" />
     <rect x="10" y="2" width="4" height="2" />
-    {/* Explicit black features that punch through */}
     <rect x="8" y="11" width="2" height="2" fill="black" />
     <rect x="14" y="11" width="2" height="2" fill="black" />
     <rect x="9" y="15" width="6" height="1" fill="black" />
@@ -547,18 +536,13 @@ export const PixelUndo = ({ className }: IconProps) => (
 
 export const PixelReset = ({ className }: IconProps) => (
   <svg viewBox="0 0 24 24" className={className}>
-    {/* Circular Arrow Body */}
     <rect x="8" y="4" width="8" height="2" fill="#EF4444" />
     <rect x="16" y="6" width="2" height="8" fill="#EF4444" />
     <rect x="8" y="14" width="8" height="2" fill="#EF4444" />
     <rect x="6" y="6" width="2" height="6" fill="#EF4444" />
-    
-    {/* Arrow Head */}
     <rect x="4" y="6" width="2" height="2" fill="#DC2626" />
     <rect x="2" y="8" width="4" height="2" fill="#DC2626" />
     <rect x="4" y="10" width="2" height="2" fill="#DC2626" />
-    
-    {/* Gap in the circle */}
     <rect x="6" y="4" width="2" height="2" fill="black" fillOpacity="0.1" />
   </svg>
 );
