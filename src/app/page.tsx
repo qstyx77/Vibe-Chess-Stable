@@ -1161,7 +1161,7 @@ export default function EvolvingChessPage() {
           const resp = snipers.find(a => a.level >= piece.level);
           if (resp) {
               if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'archer-snipe', square: algebraic })); setIsAwaitingArcherSnipe(false); }
-              else { pushHistory(); const nextB = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))); const sniped = { ...nextB[row][col].piece! }; nextB[row][col].piece = null; 
+              else { pushHistory(); const nextB = specialActionContext?.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))); const sniped = { ...nextB[row][col].piece! }; nextB[row][col].piece = null; 
                 const nG = { white: Array.isArray(specialActionContext?.currentGraveyard.white) ? [...specialActionContext!.currentGraveyard.white] : [], black: Array.isArray(specialActionContext?.currentGraveyard.black) ? [...specialActionContext!.currentGraveyard.black] : [] };
                 const targetPile = sniped.color; nG[targetPile] = [...nG[targetPile], sniped]; setBoard(nextB); setCapturedPieces(nG); setIsAwaitingArcherSnipe(false); triggerSpecialsChain(nextB, nG, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, [...(specialActionContext!.completedMilestones || []), 'snipe'], specialActionContext!.capturingPieceId, false, lastMovedPieceType); }
           }
@@ -1410,7 +1410,7 @@ export default function EvolvingChessPage() {
 
   const mobileLayout = useMemo(() => (
     <div className="relative z-20 flex flex-col flex-grow w-full p-0.5 lg:hidden overflow-y-auto scrollbar-hide">
-      <div className="flex flex-col items-center justify-between gap-0.5 pb-1">
+      <div className="flex flex-col items-center justify-between gap-0 pb-0.5">
         <div className="w-full flex items-center justify-between">
           <div className="w-1/3 flex items-center justify-center"></div>
           <div className="w-1/3 flex items-center justify-center"> 
@@ -1430,40 +1430,40 @@ export default function EvolvingChessPage() {
           </div>
           <div className="w-1/3 flex justify-end"> <AuthWidget /> </div>
         </div>
-        <div className={cn("text-center text-[0.6rem] font-bold min-h-[1rem] uppercase w-full", (gameInfo.isCheck || isTournamentIntermission) && !gameInfo.gameOver && "text-primary animate-pulse")}> {statusMessage} </div>
+        <div className={cn("text-center text-[0.6rem] font-bold min-h-[0.75rem] uppercase w-full", (gameInfo.isCheck || isTournamentIntermission) && !gameInfo.gameOver && "text-primary animate-pulse")}> {statusMessage} </div>
         <div className="w-full">
           <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor)} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} />
         </div>
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} />
         
         {/* ROW 1: GAMEPLAY ACTIONS */}
-        <div className="flex flex-nowrap justify-center items-end gap-x-1.5 gap-y-2 mt-4 w-full px-1">
-          <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+        <div className="flex flex-nowrap justify-center items-end gap-x-1 gap-y-1 mt-1 w-full px-1">
+          <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
              <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Rules</span>
           </button>
-          <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+          <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
              <PixelSack className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Loot</span>
           </button>
-          <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
+          <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
              <PixelStall className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Store</span>
           </button>
-          <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
+          <Link href="/leaderboard" className="flex flex-col items-center gap-0.5 group">
              <PixelTrophy className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Heroes</span>
           </Link>
-          <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
+          <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
              <PixelSwords className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Dungeon</span>
           </Link>
-          <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+          <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
              <PixelReset className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Reset</span>
           </button>
           {onlineStatus === 'disconnected' && (
-            <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+            <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
                <PixelUndo className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Undo</span>
             </button>
@@ -1471,23 +1471,23 @@ export default function EvolvingChessPage() {
         </div>
 
         {/* ROW 2: SYSTEM & AI CONTROLS */}
-        <div className="flex justify-center items-end gap-x-4 gap-y-2 mt-4 w-full border-t border-border/20 pt-4">
-            <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-               <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader transition-transform group-hover:scale-110" />
+        <div className="flex justify-center items-end gap-x-2 gap-y-1 mt-1 w-full border-t border-border/20 pt-1">
+            <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+               <PixelRobotHead className="h-10 w-10 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
             </button>
-            <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-               <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader transition-transform group-hover:scale-110" />
+            <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+               <PixelRobotHead className="h-10 w-10 text-secondary ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
             </button>
-            <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-               <PixelMonitor className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+            <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+               <PixelMonitor className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">View</span>
             </button>
             <Popover>
               <PopoverTrigger asChild>
-                <button className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-                  <PixelGear className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+                <button className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+                  <PixelGear className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Setup</span>
                 </button>
               </PopoverTrigger>
@@ -1495,7 +1495,7 @@ export default function EvolvingChessPage() {
             </Popover>
         </div>
 
-        <Card className="w-full mt-4 bg-black/40 border-none shadow-none"> <CardContent className="p-1.5 flex flex-col gap-1.5"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
+        <Card className="w-full mt-1 bg-black/40 border-none shadow-none"> <CardContent className="p-1 flex flex-col gap-1"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
   ), [board, gameInfo, statusMessage, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData?.goldBalance, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, headerCycleCount]);
@@ -1503,7 +1503,7 @@ export default function EvolvingChessPage() {
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
       <div className="w-1/4 flex-shrink-0"> <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} /> </div>
-      <div className="w-1/2 flex flex-col items-center gap-2"> 
+      <div className="w-1/2 flex flex-col items-center gap-0.5"> 
         <div className="w-full flex items-center justify-center gap-6"> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
@@ -1520,38 +1520,38 @@ export default function EvolvingChessPage() {
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", (gameInfo.isCheck || isTournamentIntermission) && !gameInfo.gameOver && "text-primary animate-pulse")}> {statusMessage} </div>
         <div className="w-full"> <ChessBoard boardState={board} selectedSquare={isAnySpecialModeActive ? (isAwaitingDanceTarget ? dancerToDance : (isAwaitingGrappleThrow ? selectedSquare : (isAwaitingRayTarget ? selectedSquare : null))) : selectedSquare} possibleMoves={isAnySpecialModeActive ? [] : possibleMoves} enemySelectedSquare={isAnySpecialModeActive ? null : enemySelectedSquare} enemyPossibleMoves={isAnySpecialModeActive ? [] : enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor={boardOrientation} currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAnySpecialModeActive && currentPlayer === localPlayerColor)} playerInCheck={gameInfo.playerWithKingInCheck} viewMode={viewMode} animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop} playerToDropAnvil={playerToDropAnvil || null} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor={localPlayerColor} isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstBlood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingAnvilScrollTarget={isAwaitingAnvilScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} /> </div> 
       </div>
-      <div className="w-1/4 flex flex-col gap-4"> 
+      <div className="w-1/4 flex flex-col gap-1.5"> 
          <AuthWidget /> 
          <Card className="bg-black/40 border-none shadow-none"> 
-           <CardContent className="p-2 flex flex-col gap-6"> 
+           <CardContent className="p-1 flex flex-col gap-2"> 
              {/* ROW 1: ACTIONS */}
-             <div className="flex flex-wrap justify-center items-end gap-x-3 gap-y-4 border-b border-border/20 pb-6">
-                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+             <div className="flex flex-wrap justify-center items-end gap-x-2.5 gap-y-1 border-b border-border/20 pb-1">
+                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
                 </button>
-                <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
                    <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
                 </button>
-                <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
+                <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
                    <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
                 </button>
-                <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
+                <Link href="/leaderboard" className="flex flex-col items-center gap-0 group">
                    <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Heroes</span>
                 </Link>
-                <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
+                <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0 group")}>
                    <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
                 </Link>
-                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
                 </button>
                 {onlineStatus === 'disconnected' && (
-                  <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                  <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
                      <PixelUndo className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                      <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
                   </button>
@@ -1559,23 +1559,23 @@ export default function EvolvingChessPage() {
              </div>
 
              {/* ROW 2: SYSTEM / CAMERA / AI */}
-             <div className="flex flex-wrap justify-center items-end gap-x-6 gap-y-4">
-                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
-                   <PixelRobotHead className="h-16 w-16 text-foreground ascii-shader transition-transform group-hover:scale-110" />
+             <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-1">
+                <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
                 </button>
-                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
-                   <PixelRobotHead className="h-16 w-16 text-secondary ascii-shader transition-transform group-hover:scale-110" />
+                <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
+                   <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
                 </button>
-                <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-                   <PixelMonitor className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
+                   <PixelMonitor className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Camera</span>
                 </button>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-                      <PixelGear className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                    <button className="flex flex-col items-center gap-0 h-auto p-0 bg-transparent border-none outline-none group">
+                      <PixelGear className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                       <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Settings</span>
                     </button>
                   </PopoverTrigger>
@@ -1584,7 +1584,7 @@ export default function EvolvingChessPage() {
              </div>
 
              {onlineStatus === 'disconnected' ? ( 
-               <div className="flex flex-col gap-2 items-center border-t border-border/20 pt-4"> 
+               <div className="flex flex-col gap-1.5 items-center border-t border-border/20 pt-1.5"> 
                  <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-8 px-2 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena Entry <span className="text-yellow-500 ml-1">100g</span></Button> 
                  <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-8 px-2 text-[0.65rem] w-full">Ranked Matchmaking</Button> 
                  <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-8 px-2 text-[0.65rem] w-full">Create Private Room</Button> 
@@ -1594,7 +1594,7 @@ export default function EvolvingChessPage() {
                  </div> 
                </div> 
              ) : ( 
-               <div className="flex flex-col gap-2 items-center border-t border-border/20 pt-4"> 
+               <div className="flex flex-col gap-1.5 items-center border-t border-border/20 pt-1.5"> 
                  <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> 
                    <span>Room: {roomId || inputRoomId}</span> 
                    <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> 
@@ -1602,7 +1602,7 @@ export default function EvolvingChessPage() {
                  <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-8 px-2 text-[0.65rem] w-full">Terminate Connection</Button> 
                </div> 
              )} 
-             <div className="w-full text-center h-4 text-[0.55rem] mt-1 text-muted-foreground uppercase font-pixel tracking-widest">{onlineStatus}</div> 
+             <div className="w-full text-center h-4 text-[0.55rem] mt-0 text-muted-foreground uppercase font-pixel tracking-widest">{onlineStatus}</div> 
            </CardContent> 
          </Card> 
       </div>
