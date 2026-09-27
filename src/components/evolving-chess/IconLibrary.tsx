@@ -505,10 +505,12 @@ export const PixelTrophy = ({ className }: IconProps) => (
 );
 
 export const PixelRobotHead = ({ className }: IconProps) => (
-  <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-    <rect x="6" y="8" width="12" height="10" />
-    <rect x="11" y="4" width="2" height="4" />
-    <rect x="10" y="2" width="4" height="2" />
+  <svg viewBox="0 0 24 24" className={className}>
+    {/* Head Structure - Responsive to Player Color via currentColor */}
+    <rect x="6" y="8" width="12" height="10" fill="currentColor" />
+    <rect x="11" y="4" width="2" height="4" fill="currentColor" />
+    <rect x="10" y="2" width="4" height="2" fill="currentColor" />
+    {/* Facial Features - Hard-Coded Black for Legibility */}
     <rect x="8" y="11" width="2" height="2" fill="black" />
     <rect x="14" y="11" width="2" height="2" fill="black" />
     <rect x="9" y="15" width="6" height="1" fill="black" />
