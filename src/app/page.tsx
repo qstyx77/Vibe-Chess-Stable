@@ -402,7 +402,6 @@ export default function EvolvingChessPage() {
     if (isAwaitingAnvilScrollTarget) return "SELECT ANVIL DROP TARGET";
     if (isAwaitingShieldScrollTarget) return "SELECT ALLY TO SHIELD";
     if (isAwaitingSwapScrollTarget) return "SELECT ALLY TO SWAP";
-    if (isAwaitingSwapScrollTarget) return "SELECT ALLY TO SWAP";
     if (isAwaitingDecreeTarget) return "SELECT PAWN TO PROMOTE";
     if (isAwaitingEarthquakeScrollTarget) return "SELECT EARTHQUAKE TARGET";
     if (isAwaitingOilSlickTarget) return "SELECT 3X3 AREA FOR OIL SLICK!";
@@ -508,7 +507,7 @@ export default function EvolvingChessPage() {
     
     // Shatter audio detection
     const postPoisonPieces = boardAfterPoison.flat().filter(sq => sq.piece).map(sq => sq.piece!);
-    anyShattered = midFrozenIds.some(id => {
+    const anyShattered = midFrozenIds.some(id => {
         const p = postPoisonPieces.find(piece => piece.id === id);
         return p && (p.frozenTurnsRemaining || 0) === 0;
     });
@@ -577,7 +576,7 @@ export default function EvolvingChessPage() {
       const isNextAI = nextPlayer === 'white' ? isWhiteAI : isBlackAI;
       if (!isNextAI) setBoardOrientation(nextPlayer);
     }
-  }, [board, gameMoveCounter, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor, addLog, getPlayerDisplayName, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffectCallback, didCaptureLastTurn, viewMode, isWhiteAI, isBlackAI, positionHistory, playOutcomeSound]);
+  }, [board, gameMoveCounter, shroomSpawnCounter, nextShroomSpawnTurn, onlineStatus, localPlayerColor, addLog, getPlayerDisplayName, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, addEffectCallback, viewMode, isWhiteAI, isBlackAI, positionHistory, playOutcomeSound]);
 
   const triggerSpecialsChain = useCallback((boardToChain: BoardState, currentGraveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, oldStreak: number, newStreak: number, isExtraTurn: boolean, nextEp: AlgebraicSquare | null, actingPlayer: PlayerColor = 'white', completedMilestones: string[] = [], capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null) => {
     const isAI = (actingPlayer === 'white' && isWhiteAI) || (actingPlayer === 'black' && isBlackAI);
@@ -734,7 +733,7 @@ export default function EvolvingChessPage() {
             if (choice && empty.length > 0) {
                 const sq = empty[Math.floor(Math.random()*empty.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
                 let resLevel = 1;
-                if (best.heldItem === 'soul_spark') resLevel = 2;
+                if (choice.heldItem === 'soul_spark') resLevel = 2;
                 const resPiece = { ...choice, level: resLevel, id: `res_ks_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                 if (onlineStatus === 'connected' && actingPlayer === localPlayerColor) { wsRef.current?.send(JSON.stringify({ type: 'ks-resurrection', payload: { pieceId: choice.id, square: sq.algebraic } })); }
                 nextBoard[rr][rc].piece = resPiece; 
@@ -1070,8 +1069,8 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayerColor === 'white' ? -1 : 1;
-        const isForward = (row === fr + dir) && (col === fc);
+        const currentDir = currentPlayer === 'white' ? -1 : 1;
+        const isForward = (row === fr + currentDir) && (col === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1203,7 +1202,7 @@ export default function EvolvingChessPage() {
               const expGain = (applyRes.capturedPiece ? (DUNGEON_EXP_MAP[applyRes.capturedPiece.type] || 1) : 0) + 
                              (applyRes.pieceCapturedByAnvil ? 1 : 0) + 
                              (applyRes.selfDestructCaptures?.reduce((acc: number, vic: any) => acc + (DUNGEON_EXP_MAP[vic.type] || 1), 0) || 0);
-              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
+              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
               if (expGain > 0) addEffectCallback('level-change', algebraic, currentPlayer, expGain);
               if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
@@ -1438,41 +1437,41 @@ export default function EvolvingChessPage() {
         <GameControls currentPlayer={currentPlayer} capturedPieces={capturedPieces} isGameOver={gameInfo.gameOver} killStreaks={killStreaks} pieceForInfoDisplay={pieceForInfoDisplay} localPlayerColor={localPlayerColor} getPlayerDisplayName={getPlayerDisplayName} onlineStatus={onlineStatus} turnTimer={turnTimer} activeTimerPlayer={null} board={board} />
         
         {/* ROW 1: GAMEPLAY ACTIONS */}
-        <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full">
+        <div className="flex flex-nowrap justify-center items-end gap-x-1.5 gap-y-2 mt-4 w-full px-1">
           <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-             <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
+             <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Rules</span>
           </button>
           <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
-             <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
+             <PixelSack className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Loot</span>
           </button>
           <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
-             <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
+             <PixelStall className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Store</span>
           </button>
           <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
-             <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leader</span>
+             <PixelTrophy className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Heroes</span>
           </Link>
           <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
-             <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
+             <PixelSwords className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Dungeon</span>
           </Link>
           <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-             <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-             <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
+             <PixelReset className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+             <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Reset</span>
           </button>
           {onlineStatus === 'disconnected' && (
             <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
-               <PixelUndo className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
-               <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
+               <PixelUndo className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+               <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Undo</span>
             </button>
           )}
         </div>
 
         {/* ROW 2: SYSTEM & AI CONTROLS */}
-        <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-2 mt-4 w-full border-t border-border/20 pt-4">
+        <div className="flex justify-center items-end gap-x-4 gap-y-2 mt-4 w-full border-t border-border/20 pt-4">
             <button onClick={() => setIsWhiteAI(!isWhiteAI)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
                <PixelRobotHead className="h-12 w-12 text-foreground ascii-shader transition-transform group-hover:scale-110" />
                <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">W-AI:{isWhiteAI ? 'ON' : 'OFF'}</span>
@@ -1526,34 +1525,34 @@ export default function EvolvingChessPage() {
          <Card className="bg-black/40 border-none shadow-none"> 
            <CardContent className="p-2 flex flex-col gap-6"> 
              {/* ROW 1: ACTIONS */}
-             <div className="flex flex-wrap justify-center items-end gap-x-4 gap-y-4 border-b border-border/20 pb-6">
+             <div className="flex flex-wrap justify-center items-end gap-x-3 gap-y-4 border-b border-border/20 pb-6">
                 <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-                   <PixelTome className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                   <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
                 </button>
                 <button onClick={() => setIsInventoryOpen(!isInventoryOpen)} disabled={isLootBagDisabled} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
-                   <PixelSack className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                   <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
                 </button>
                 <button onClick={() => setIsRoyalStoreOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={!user}>
-                   <PixelStall className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                   <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
                 </button>
                 <Link href="/leaderboard" className="flex flex-col items-center gap-1 group">
-                   <PixelTrophy className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                   <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Heroes</span>
                 </Link>
                 <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-1 group")}>
-                   <PixelSwords className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                   <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
                 </Link>
                 <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
-                   <PixelReset className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                   <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
                 </button>
                 {onlineStatus === 'disconnected' && (
                   <button onClick={handleUndo} disabled={historyStack.length === 0} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
-                     <PixelUndo className="h-16 w-16 ascii-shader transition-transform group-hover:scale-110" />
+                     <PixelUndo className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                      <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Undo</span>
                   </button>
                 )}
@@ -1608,7 +1607,7 @@ export default function EvolvingChessPage() {
          </Card> 
       </div>
     </div>
-  ), [board, currentPlayer, capturedPieces, gameInfo, killStreaks, pieceForInfoDisplay, localPlayerColor, getPlayerDisplayName, onlineStatus, turnTimer, statusMessage, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, isMoveProcessing, viewMode, animatedSquareTo, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isRulesDialogOpen, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, tournamentRound, headerIconsActive, headerIconsOpacity, headerCycleCount]);
+  ), [board, currentPlayer, capturedPieces, gameInfo, killStreaks, pieceForInfoDisplay, localPlayerColor, getPlayerDisplayName, onlineStatus, turnTimer, statusMessage, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, selectedSquare, isAwaitingRayTarget, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, isMoveProcessing, viewMode, animatedSquareTo, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionQueue, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isRulesDialogOpen, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, tournamentRound, headerIconsActive, headerIconsOpacity, headerCycleCount]);
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative", showLossScreen && "after:animate-fade-to-black")}>

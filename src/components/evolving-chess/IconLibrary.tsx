@@ -519,6 +519,7 @@ export const PixelRobotHead = ({ className }: IconProps) => (
     <rect x="6" y="8" width="12" height="10" />
     <rect x="11" y="4" width="2" height="4" />
     <rect x="10" y="2" width="4" height="2" />
+    {/* Explicit black features that punch through */}
     <rect x="8" y="11" width="2" height="2" fill="black" />
     <rect x="14" y="11" width="2" height="2" fill="black" />
     <rect x="9" y="15" width="6" height="1" fill="black" />
