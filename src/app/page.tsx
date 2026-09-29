@@ -1115,8 +1115,8 @@ export default function EvolvingChessPage() {
                     setGrappledPieceSubject(tP ? { piece: { ...tP }, from: algebraic } : null); setGrappledItemSubject(tA ? { type: 'anvil', from: algebraic } : null); setIsAwaitingGrappleThrow(true);
                     const range = getEffectiveLevel(board, fR, fC); const throwT: AlgebraicSquare[] = [];
                     for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
-                        const dist = Math.max(Math.abs(tr-fR), Math.abs(fc-fC));
-                        if (dist > 0 && dist <= range && (tr === fR || tc === fC || Math.abs(tr-fR) === Math.abs(fc-fC))) { if (!board[tr][tc].piece && !board[tr][tc].item) throwT.push(coordsToAlgebraic(tr, tc)); }
+                        const dist = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
+                        if (dist > 0 && dist <= range && (tr === fR || tc === fC || Math.abs(tr-fR) === Math.abs(tc-fC))) { if (!board[tr][tc].piece && !board[tr][tc].item) throwT.push(coordsToAlgebraic(tr, tc)); }
                     }
                     setPossibleMoves(throwT); addLog("Grappler: Picked up! Now select destination."); return;
                 }
@@ -1545,3 +1545,4 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
+
