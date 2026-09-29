@@ -641,7 +641,7 @@ export default function DungeonPage() {
             const kR = mKing ? mKing.rowIndex : 0; const kC = mKing ? mKing.colIndex : 4;
             const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (emp.length > 0) {
-                emp.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - c)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
+                emp.sort((a, b) => (Math.abs(a.rowIndex - kR) + Math.abs(a.colIndex - kC)) - (Math.abs(b.rowIndex - kR) + Math.abs(b.colIndex - kC)));
                 const target = emp[0];
                 nxtB[target.rowIndex][target.colIndex].item = { type: 'anvil' }; 
                 setTimeout(() => {
@@ -833,7 +833,7 @@ export default function DungeonPage() {
             if (p.type === 'archer') return true; 
             if (p.type === 'mimic' && lastMovedPieceType === 'archer') return true; 
             const crds = board.flat().find(sq => sq.piece?.id === p.id); 
-            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, coords.colIndex) >= 3) return true; 
+            if ((p.type === 'knight' || (p.type === 'mimic' && lastMovedPieceType === 'knight')) && p.heldItem === 'shortbow' && crds && getEffectiveLevel(board, crds.rowIndex, crds.colIndex) >= 3) return true; 
             return false; 
         });
         if (snips.find(a => a.level >= piece.level)) {
@@ -1114,9 +1114,9 @@ export default function DungeonPage() {
 
   const cPanel = (
     <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden bg-black">
-      {/* Gemstone Masonry Background with 4px technical shader */}
+      {/* Gemstone Masonry Background with 4px technical shader and shimmer */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-25">
-         <div className="absolute inset-0 ascii-shader [--ascii-unit:4px]">
+         <div className="absolute inset-0 ascii-shader [--ascii-unit:4px] animate-gemstone-shimmer">
             <PixelGemstoneMasonry className="w-full h-full" />
          </div>
       </div>
@@ -1153,10 +1153,8 @@ export default function DungeonPage() {
                 <div> <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p> <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-foreground' : 'text-secondary')}> {getPlayerDisplayName(currentPlayer)} </p> </div>
                 <div className="space-y-0.5"> <p className="text-[0.55rem] font-bold text-destructive leading-none uppercase">W-Streak: {killStreaks.white}</p> <p className="text-[0.55rem] font-bold text-destructive interleaved uppercase">B-Streak: {killStreaks.black}</p> </div>
             </div>
-            <Separator className="my-1" />
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured Black</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.black.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.black.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
             <div className="w-full mb-1"> <h3 className="text-[0.6rem] font-bold text-muted-foreground uppercase mb-0.5 leading-none">Captured White</h3> <div className="flex flex-wrap gap-0.5 bg-background rounded-none min-h-[1.5rem] p-0.5 border border-border/20"> {capturedPieces.white.length === 0 ? <span className="text-[0.5rem] text-muted-foreground">None</span> : capturedPieces.white.map(p => <div key={p.id} className="w-5 h-5"><ChessPieceDisplay piece={p} isMini /></div>)} </div> </div>
-            <Separator className="my-1 bg-border/30" />
             <div className="flex-grow flex flex-col justify-center min-h-[4.5rem] pt-1"> {pieceForInfoDisplay ? ( <PieceAbilitiesInfo piece={pieceForInfoDisplay} /> ) : ( <div className="text-center text-[0.6rem] text-muted-foreground leading-tight uppercase font-pixel opacity-50"> Hover for Info </div> )} </div>
         </div>
       )}
@@ -1202,4 +1200,3 @@ export default function DungeonPage() {
     </div>
   );
 }
-

@@ -2,7 +2,6 @@
 
 import type { PlayerColor, Piece, ChatMessage, MessageCategory, BoardState } from '@/types';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '../ui/separator';
 import { ChessPieceDisplay } from './ChessPieceDisplay';
 import { PieceAbilitiesInfo } from './PieceAbilitiesInfo';
 import { cn } from '@/lib/utils';
@@ -144,9 +143,9 @@ export function GameControls({
 
   return (
     <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative overflow-hidden bg-black">
-      {/* Gemstone Masonry Background with 4px technical shader */}
+      {/* Gemstone Masonry Background with 4px technical shader and shimmer */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-25">
-         <div className="absolute inset-0 ascii-shader [--ascii-unit:4px]">
+         <div className="absolute inset-0 ascii-shader [--ascii-unit:4px] animate-gemstone-shimmer">
             <PixelGemstoneMasonry className="w-full h-full" />
          </div>
       </div>
@@ -308,12 +307,10 @@ export function GameControls({
               </p>
             </div>
           </div>
-          <Separator className="my-1"/>
           <div className="flex flex-col gap-1">
               {renderCapturedPieces('black')}
               {renderCapturedPieces('white')}
           </div>
-          <Separator className="my-1" />
           <div className="flex-grow flex flex-col justify-center min-h-[3rem]">
             {pieceForInfoDisplay ? (
               <PieceAbilitiesInfo piece={pieceForInfoDisplay} board={board} />

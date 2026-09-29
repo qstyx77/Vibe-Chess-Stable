@@ -281,6 +281,16 @@ body {
   100% { filter: hue-rotate(360deg) brightness(2.5) contrast(1.2); }
 }
 
+@keyframes gemstone-shimmer {
+  0% { filter: hue-rotate(0deg) brightness(1.2); }
+  50% { filter: hue-rotate(20deg) brightness(1.8); }
+  100% { filter: hue-rotate(0deg) brightness(1.2); }
+}
+
+.animate-gemstone-shimmer {
+  animation: gemstone-shimmer 6s ease-in-out infinite;
+}
+
 /* --- BOSS IDLE ANIMATIONS --- */
 @keyframes void-vibe {
   0%, 100% { 
@@ -435,5 +445,6 @@ body {
   animation: title-shimmer 8s linear infinite;
   filter: drop-shadow(0 0 15px hsl(var(--primary))) drop-shadow(0 0 30px hsl(var(--primary)));
 }
+
 
 
