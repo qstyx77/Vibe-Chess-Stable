@@ -753,8 +753,77 @@ export default function DungeonPage() {
     }
   }, [board, promotionSquare, promotionTargetLevel, capturedPieces, killStreaks, triggerSpecialsChain, addLog, specialActionContext, processMoveEnd, promotionQueue, getPlayerDisplayName]);
 
+  const handleMycoSpellSelect = useCallback((spell: MycoSpell) => {
+      setIsSelectingMycoSpell(false);
+      if (!spell || !selectedSquare) return;
+
+      const { row: r, col: c } = algebraicToCoords(selectedSquare);
+      const piece = board[r][c].piece;
+      if (!piece || piece.type !== 'myco_mage') return;
+
+      if (spell === 'propagate') {
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'myco-propagate' };
+          setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
+          const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+          setBoard(res.newBoard);
+          setTimeout(() => {
+              setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null);
+              processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType);
+          }, 800);
+      } else if (spell === 'teleport') {
+          setIsSelectingTeleportAlly(true);
+          addLog("Select an ally to teleport!");
+      } else if (spell === 'spore-bomb') {
+          setIsSelectingSporeBombShroom(true);
+          addLog("Select a shroom to detonate!");
+      } else if (spell === 'raise-mycelimen') {
+          const move: Move = { from: selectedSquare, to: selectedSquare, type: 'raise-mycelimen' };
+          setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(selectedSquare);
+          const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+          const nextB = res.newBoard;
+          const updatedG = { white: [...capturedPieces.white], black: [...capturedPieces.black] };
+          setBoard(nextB);
+          setTimeout(() => {
+              setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null);
+              const q = res.multiPromotions || [];
+              if (q.length > 0) {
+                  setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
+                  setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: 'white', isExtraTurn: false, newEnPassantTarget: null, oldStreak: killStreaks.white, newStreak: killStreaks.white, currentGraveyard: updatedG, currentKs: killStreaks, capturingPieceId: null });
+              } else {
+                  processMoveEnd(nextB, updatedG, killStreaks, currentPlayer, false, null, false, lastMovedPieceType);
+              }
+          }, 800);
+      }
+  }, [board, selectedSquare, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, killStreaks, currentPlayer, processMoveEnd, addLog]);
+
   const handleSquareClick = useCallback((alg: AlgebraicSquare) => {
     if (clickGuard.current) return; const { row, col } = algebraicToCoords(alg); const sq = board[row][col]; const piece = sq.piece; handlePieceHover(piece);
+    
+    if (isSelectingTeleportAlly) {
+        if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) {
+            setTeleportAllyPieceId(piece.id);
+            setIsSelectingTeleportAlly(false);
+            setIsSelectingTeleportShroom(true);
+            addLog("Select a shroom to teleport to!");
+        }
+        return;
+    }
+    if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
+        clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
+        const move: Move = { from: selectedSquare!, to: alg, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+        setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsSelectingTeleportShroom(false); setTeleportAllyPieceId(null); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800);
+        return;
+    }
+    if (isSelectingSporeBombShroom && sq?.item?.type === 'shroom') {
+        clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
+        const move: Move = { from: selectedSquare!, to: alg, type: 'spore-bomb' };
+        const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+        setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+        setTimeout(() => { setIsMoveProcessing(false); clickGuard.current = false; setIsSelectingSporeBombShroom(false); processMoveEnd(result.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType); }, 800);
+        return;
+    }
     if (isAwaitingGrappleThrow) {
         const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc); const d = Math.max(Math.abs(fr - row), Math.abs(fc - col));
         if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && d <= range && d > 0 && (!sq?.piece && !sq?.item)) {
@@ -875,6 +944,12 @@ export default function DungeonPage() {
     }
     if (selectedSquare) {
        const { row: fR, col: fC } = algebraicToCoords(selectedSquare); const moving = board[fR][fC].piece;
+       
+       if (selectedSquare === alg && moving?.type === 'myco_mage') {
+           setIsSelectingMycoSpell(true);
+           return;
+       }
+
        if (moving?.type === 'grappler' && !isSilenced(board, fR, fC, 'white')) {
            const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
            if ((tP && tP.type !== 'king') || tA) {
@@ -1104,8 +1179,12 @@ export default function DungeonPage() {
     if (isAwaitingEarthquakeScrollTarget) return "SELECT EARTHQUAKE AREA!";
     if (isAwaitingOilSlickTarget) return "SELECT 3X3 AREA FOR OIL SLICK!";
     if (isAwaitingRayTarget) return "SELECT RAY DIRECTION!";
+    if (isSelectingMycoSpell) return "CHOOSE MUSHROOMANCY SPELL";
+    if (isSelectingTeleportAlly) return "SELECT ALLY TO TELEPORT";
+    if (isSelectingTeleportShroom) return "SELECT TARGET SHROOM";
+    if (isSelectingSporeBombShroom) return "SELECT SHROOM TO DETONATE";
     if (gameInfo.message !== " ") return gameInfo.message; return "";
-  }, [isAiThinking, gameInfo.message, isAwaitingPawnSacrifice, isPromotingPawn, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget]);
+  }, [isAiThinking, gameInfo.message, isAwaitingPawnSacrifice, isPromotingPawn, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingDanceTarget, dancerToDance, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom]);
 
   const getMsgCol = (msg: ChatMessage) => { if (msg.category === 'log' || msg.sender === 'SYSTEM') return 'text-primary'; if (msg.category === 'social') return 'text-accent'; if (msg.category === 'market') return 'text-yellow-500'; if (msg.color === 'white') return 'text-foreground'; if (msg.color === 'black') return 'text-secondary'; return 'text-muted-foreground'; };
   const handleSend = (e: React.FormEvent) => { e.preventDefault(); if (chatInput.trim()) { sendMessage(chatInput.trim(), 'battle'); setChatInput(''); } };
@@ -1114,7 +1193,6 @@ export default function DungeonPage() {
 
   const cPanel = (
     <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden bg-black">
-      {/* Gemstone Masonry Background with 4px technical shader and shimmer */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-25">
          <div className="absolute inset-0 ascii-shader [--ascii-unit:4px] animate-gemstone-shimmer">
             <PixelGemstoneMasonry className="w-full h-full" />
@@ -1187,7 +1265,7 @@ export default function DungeonPage() {
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden p-0.5">
       {mobLayout} {deskLayout}
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor="white" />
-      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={null as any} onOpenChange={setIsSelectingMycoSpell} />
+      <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
         <AlertDialogContent className="font-pixel bg-black border-2 border-primary">
@@ -1195,6 +1273,7 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>
