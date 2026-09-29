@@ -113,7 +113,7 @@ export const ChessPieceDisplay = memo(({
   } else if (piece.id?.startsWith('boss-colossus')) {
     IconComponent = PixelColossus;
     pieceColorClass = ""; bossStyle = { color: '#64748B' };
-  } else if (piece.id === 'boss-mirage') {
+  } else if (piece.id?.startsWith('boss-mirage')) {
     IconComponent = PixelMirage;
     pieceColorClass = ""; bossStyle = { color: '#38BDF8' };
     animationClass = "animate-mirage-shimmer";
@@ -177,7 +177,7 @@ export const ChessPieceDisplay = memo(({
             </div>
             )}
 
-            {piece.id === 'boss-mirage' && !isMini && (
+            {piece.id?.startsWith('boss-mirage') && !isMini && (
             <div className="absolute inset-0 z-0 pointer-events-none">
                 <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-sky-300 rounded-full animate-mirage-particle" style={{ '--dx': '40px', '--dy': '-40px' } as React.CSSProperties} />
                 <div className="absolute top-1/2 left-1/2 w-1 h-1 bg-white rounded-full animate-mirage-particle" style={{ '--dx': '-35px', '--dy': '35px', animationDelay: '1s' } as React.CSSProperties} />

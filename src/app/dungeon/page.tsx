@@ -147,6 +147,8 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         break;
       case 4: 
         board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][2].piece = { id: 'boss-mirage-fake-1', type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][5].piece = { id: 'boss-mirage-fake-2', type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
         for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 5: 
@@ -459,6 +461,41 @@ export default function DungeonPage() {
   const processMoveEnd = useCallback((boardAfter: BoardState, nG: any, curKs: any, turnP: PlayerColor, extra: boolean, nEp: AlgebraicSquare | null = null, wasCap: boolean = false, movedT?: PieceType | null) => {
     let nB = boardAfter; setDidCaptureLastTurn(prev => ({ ...prev, [turnP]: wasCap }));
     
+    // Reactive Mirage Warp
+    if (turnP === 'white') {
+        const mirageEntities = nB.flat().filter(sq => sq.piece?.id?.startsWith('boss-mirage'));
+        mirageEntities.forEach(mSq => {
+            const { rowIndex: r, colIndex: c } = mSq;
+            let threatened = false;
+            for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                if (isValidSquare(r + dr, c + dc) && nB[r + dr][c + dc].piece?.color === 'white') { threatened = true; break; }
+            }
+            if (threatened) {
+                const safeEmpties = [];
+                for (let tr = 0; tr < 8; tr++) for (let tc = 0; tc < 8; tc++) {
+                    if (!nB[tr][tc].piece && !nB[tr][tc].item) {
+                        let safe = true;
+                        for (let ddr = -1; ddr <= 1; ddr++) for (let ddc = -1; ddc <= 1; ddc++) {
+                            if (isValidSquare(tr + ddr, tc + ddc) && nB[tr + ddr][tc + ddc].piece?.color === 'white') { safe = false; break; }
+                        }
+                        if (safe) safeEmpties.push({ r: tr, c: tc });
+                    }
+                }
+                const targets = safeEmpties.length > 0 ? safeEmpties : nB.flat().filter(sq => !sq.piece && !sq.item).map(sq => ({ r: sq.rowIndex, c: sq.colIndex }));
+                if (targets.length > 0) {
+                    const dest = targets[Math.floor(Math.random() * targets.length)];
+                    const p = nB[r][c].piece; nB[r][c].piece = null;
+                    nB[dest.r][dest.c].piece = p;
+                    addLog("The Mirage refracts through the light!");
+                    addEffect('magic-burst', mSq.algebraic);
+                    addEffect('light-beam', coordsToAlgebraic(dest.r, dest.c));
+                    audioManager.playResurrect();
+                }
+            }
+        });
+    }
+
     // Status effect audio detection
     const prevFrozenIds = board.flat().filter(sq => (sq.piece?.frozenTurnsRemaining || 0) > 0).map(sq => sq.piece!.id);
     const midFrozenIds = nB.flat().filter(sq => (sq.piece?.frozenTurnsRemaining || 0) > 0).map(sq => sq.piece!.id);
@@ -974,9 +1011,11 @@ export default function DungeonPage() {
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg); setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
           const oL = movingP.level, oT = movingP.type, oH = movingP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, false);
+          
+          const isFake = res.capturedPiece?.id?.startsWith('boss-mirage-fake');
           if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0);
-          const captureGainExp = res.capturedPiece ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
+          const captureGainExp = (res.capturedPiece && !isFake) ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
           if (captureGainExp > 0) addEffect('level-change', alg, 'white', captureGainExp);
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); addEffect('level-change', alg, 'white', 1); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
@@ -1075,8 +1114,11 @@ export default function DungeonPage() {
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
         const oL = mP.level, oT = mP.type, oH = mP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
         const appRes = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
+        
+        const isFake = appRes.capturedPiece?.id?.startsWith('boss-mirage-fake');
         const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0);
-        const captureGainExp = appRes.capturedPiece ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
+        const captureGainExp = (appRes.capturedPiece && !isFake) ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
+        
         if (totalCaptures > 0) { audioManager.playCapture(); addEffect('poof', toAlg); }
         if (captureGainExp > 0) addEffect('level-change', toAlg, 'black', captureGainExp);
         if (appRes.shroomConsumed) { audioManager.playShroom(); addEffect('level-change', toAlg, 'black', 1); }
@@ -1145,7 +1187,9 @@ export default function DungeonPage() {
                         const nr = r + dr; const nc = c + dc;
                         if (isValidSquare(nr, nc)) {
                             const victimSq = nB[nr][nc];
-                            if (victimSq.piece && victimSq.piece.color === 'white' && victimSq.piece.type !== 'king' && victimSq.piece.heldItem !== 'blast_shield') {
+                            if (victimSq.piece && victimSq.piece.color === 'white' && victimSq.piece.type !== 'king' && victimSq.piece.heldItem === 'blast_shield') {
+                                // Shielded
+                            } else if (victimSq.piece && victimSq.piece.color === 'white' && victimSq.piece.type !== 'king') {
                                 nG.white.push({ ...victimSq.piece });
                                 nB[nr][nc].piece = null;
                             }
@@ -1273,7 +1317,6 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>
