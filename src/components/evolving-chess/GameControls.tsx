@@ -85,7 +85,6 @@ export function GameControls({
     if (!viewport) return;
 
     const handleScroll = () => {
-      // Check if user is near bottom (within 50px threshold)
       const isAtBottom = viewport.scrollHeight - viewport.scrollTop <= viewport.clientHeight + 50;
       isAtBottomRef.current = isAtBottom;
     };
@@ -139,11 +138,10 @@ export function GameControls({
 
   const hasAnyUnread = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
   const onlineFriends = useMemo(() => friends.filter(f => onlineUserIds.has(f.id)), [friends, onlineUserIds]);
-  const offlineFriends = useMemo(() => friends.filter(f => !onlineUserIds.has(f.id)), [friends, onlineUserIds]);
 
   return (
-    <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative overflow-hidden bg-black">
-      {/* Gemstone Masonry Background with 4px technical shader and shimmer */}
+    <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden bg-black">
+      {/* Gemstone Masonry Background Layer */}
       <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-25">
          <div className="absolute inset-0 ascii-shader [--ascii-unit:4px] animate-gemstone-shimmer">
             <PixelGemstoneMasonry className="w-full h-full" />

@@ -355,7 +355,7 @@ export const PrayerHandsIcon = ({ className = "w-full h-full" }: IconProps) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M12 22l-1.5-3.5c-1-2.5-2-4.5-2-7.5 0-3 1-5 2.5-6.5L12 2l1 2.5c1.5 1.5 2.5 3.5 2.5 6.5 0 3-1 5-2 7.5L12 22z" fill="currentColor" fillOpacity="0.2" />
     <path d="M10 20l-1.5-3.5c-1-2.5-2-4.5-2-7.5 0-3 1-5 2.5-6.5L12 2" />
-    <path d="M14 20l1.5-3.5c1-2.5 2-4.5 2-7.5 0-3-1-5-2.5-6.5L12 2" />
+    <path d="M14 20l1.5-3.5c1-2.5-2-4.5-2-7.5 0-3-1-5-2.5-6.5L12 2" />
   </svg>
 );
 
@@ -586,22 +586,22 @@ export const PixelGemstoneMasonry = ({ className }: IconProps) => (
   <svg viewBox="0 0 100 100" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
     {/* Brightened staggered gemstone bricks for better shader penetration */}
     {/* Row 1 */}
-    <rect x="0" y="0" width="48" height="23" fill="#4ADE80" fillOpacity="0.9" /> {/* Mint Green */}
-    <rect x="52" y="0" width="48" height="23" fill="#38BDF8" fillOpacity="0.9" /> {/* Sky Blue */}
+    <rect x="0" y="0" width="48" height="23" fill="#4ADE80" fillOpacity="0.9" /> {/* Luminous Mint Green */}
+    <rect x="52" y="0" width="48" height="23" fill="#38BDF8" fillOpacity="0.9" /> {/* Luminous Sky Blue */}
     
     {/* Row 2 */}
-    <rect x="0" y="27" width="23" height="23" fill="#C084FC" fillOpacity="0.9" /> {/* Amethyst */}
-    <rect x="27" y="27" width="46" height="23" fill="#4ADE80" fillOpacity="0.9" /> {/* Mint Green */}
-    <rect x="77" y="27" width="23" height="23" fill="#38BDF8" fillOpacity="0.9" /> {/* Sky Blue */}
+    <rect x="0" y="27" width="23" height="23" fill="#C084FC" fillOpacity="0.9" /> {/* Luminous Amethyst */}
+    <rect x="27" y="27" width="46" height="23" fill="#4ADE80" fillOpacity="0.9" /> {/* Luminous Mint Green */}
+    <rect x="77" y="27" width="23" height="23" fill="#38BDF8" fillOpacity="0.9" /> {/* Luminous Sky Blue */}
     
     {/* Row 3 */}
-    <rect x="0" y="54" width="48" height="23" fill="#38BDF8" fillOpacity="0.9" /> {/* Sky Blue */}
-    <rect x="52" y="54" width="48" height="23" fill="#C084FC" fillOpacity="0.9" /> {/* Amethyst */}
+    <rect x="0" y="54" width="48" height="23" fill="#38BDF8" fillOpacity="0.9" /> {/* Luminous Sky Blue */}
+    <rect x="52" y="54" width="48" height="23" fill="#C084FC" fillOpacity="0.9" /> {/* Luminous Amethyst */}
     
     {/* Row 4 */}
-    <rect x="0" y="81" width="23" height="19" fill="#4ADE80" fillOpacity="0.9" /> {/* Mint Green */}
-    <rect x="27" y="81" width="46" height="19" fill="#38BDF8" fillOpacity="0.9" /> {/* Sky Blue */}
-    <rect x="77" y="81" width="23" height="19" fill="#C084FC" fillOpacity="0.9" /> {/* Amethyst */}
+    <rect x="0" y="81" width="23" height="19" fill="#4ADE80" fillOpacity="0.9" /> {/* Luminous Mint Green */}
+    <rect x="27" y="81" width="46" height="19" fill="#38BDF8" fillOpacity="0.9" /> {/* Luminous Sky Blue */}
+    <rect x="77" y="81" width="23" height="19" fill="#C084FC" fillOpacity="0.9" /> {/* Luminous Amethyst */}
     
     {/* Grout/Cracks */}
     <rect x="0" y="23" width="100" height="4" fill="black" fillOpacity="0.4" />
