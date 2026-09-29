@@ -146,9 +146,10 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         for(let i=0; i<8; i++) board[2][i].piece = { id: `front-skeleton-shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 4: 
+        // Mirage Boss Setup: 1 Real Level 7 Queen, 2 Identical Level 7 Queen Decoys
         board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
-        board[0][2].piece = { id: 'boss-mirage-fake-1', type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
-        board[0][5].piece = { id: 'boss-mirage-fake-2', type: 'pawn', color: 'black', level: 1, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][2].piece = { id: 'boss-mirage-fake-1', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
+        board[0][5].piece = { id: 'boss-mirage-fake-2', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
         for(let i=0; i<8; i++) board[0][i].piece = board[0][i].piece || { id: `phantom-${i}`, type: 'bishop', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 5: 
@@ -1283,7 +1284,7 @@ export default function DungeonPage() {
     </Card>
   );
 
-  const mobLayout = useMemo(() => (
+  const mobLayout = (
     <div className="lg:hidden flex flex-col h-full overflow-hidden">
       <div className="px-4 py-1 flex items-center justify-between shrink-0"> <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> <div className="flex items-center gap-2"> {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive" /> : <Sword className="h-4 w-4 text-primary" />} <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> </div> <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase gap-1 border-2" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-3 w-3" /> RESET </Button> </div>
       <div className="text-center py-0 shrink-0 min-h-[0.75rem]"> <p className="text-[10px] font-bold text-primary uppercase animate-pulse"> {statMsg} </p> </div>
@@ -1291,9 +1292,9 @@ export default function DungeonPage() {
       <div className="flex-grow min-h-0 flex flex-col p-0.5"> {cPanel} </div>
       <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0"> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-4 w-4 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-4 w-4 text-yellow-500" /> RULES </Button> </div>
     </div>
-  ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
+  );
 
-  const deskLayout = useMemo(() => (
+  const deskLayout = (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
       <div className="w-1/4 flex-shrink-0 flex-col gap-2 h-full"> <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1"> <ArrowLeft className="h-4 w-4" /> Lobby </Link> {cPanel} </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
@@ -1303,7 +1304,7 @@ export default function DungeonPage() {
       </div>
       <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 h-5" /> RESET RUN </Button> </CardContent> </Card> </div>
     </div>
-  ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
+  );
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden p-0.5">
