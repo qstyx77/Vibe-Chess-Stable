@@ -146,7 +146,6 @@ function generateDungeonFloor(level: number, playerArmy: Piece[]): BoardState {
         for(let i=0; i<8; i++) board[2][i].piece = { id: `front-skeleton-shield-${i}`, type: 'pawn', color: 'black', level: 4, hasMoved: false, isShielded: false, heldItem: null };
         break;
       case 4: 
-        // Mirage Boss Setup: 1 Real Level 7 Queen, 2 Identical Level 7 Queen Decoys
         board[0][3].piece = { id: 'boss-mirage', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
         board[0][2].piece = { id: 'boss-mirage-fake-1', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
         board[0][5].piece = { id: 'boss-mirage-fake-2', type: 'queen', color: 'black', level: 7, hasMoved: false, isShielded: false, heldItem: null };
@@ -806,7 +805,7 @@ export default function DungeonPage() {
           setBoard(res.newBoard);
           setTimeout(() => {
               setIsMoveProcessing(false); clickGuard.current = false; setSelectedSquare(null);
-              processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMovedPieceType);
+              processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, actT);
           }, 800);
       } else if (spell === 'teleport') {
           setIsSelectingTeleportAlly(true);
@@ -828,7 +827,7 @@ export default function DungeonPage() {
                   setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel);
                   setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: 'white', isExtraTurn: false, newEnPassantTarget: null, oldStreak: killStreaks.white, newStreak: killStreaks.white, currentGraveyard: updatedG, currentKs: killStreaks, capturingPieceId: null });
               } else {
-                  processMoveEnd(nextB, updatedG, killStreaks, currentPlayer, false, null, false, lastMovedPieceType);
+                  processMoveEnd(nextB, updatedG, killStreaks, currentPlayer, false, null, false, actT);
               }
           }, 800);
       }
@@ -1107,14 +1106,62 @@ export default function DungeonPage() {
   const performAiMove = useCallback(async () => {
     if (gameInfo.gameOver || isMoveProcessing || isAiThinking || currentPlayer !== 'black') return;
     setIsAiThinking(true);
-    const gs = adaptBoardForAI(board, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory, necroResurrectionCounter);
+
+    let currentWorkingBoard = board;
+
+    // --- VOID PULSE LOGIC ---
+    const voidEntitySq = currentWorkingBoard.flat().find(sq => sq.piece?.id === 'boss-entity');
+    if (voidEntitySq) {
+        let nB_Pulse = currentWorkingBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+        const { rowIndex: br, colIndex: bc } = voidEntitySq;
+        let pulseOccurred = false;
+        const whitePieces = [];
+        for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (nB_Pulse[r][c].piece?.color === 'white') whitePieces.push({r, c, p: nB_Pulse[r][c].piece!});
+        
+        for (const wp of whitePieces) {
+            const dr = wp.r - br;
+            const dc = wp.c - bc;
+            const dist = Math.max(Math.abs(dr), Math.abs(dc));
+            
+            if (dist === 1) { // Push & Exhaust
+                const tr = wp.r + Math.sign(dr);
+                const tc = wp.c + Math.sign(dc);
+                if (isValidSquare(tr, tc) && !nB_Pulse[tr][tc].piece && (!nB_Pulse[tr][tc].item || nB_Pulse[tr][tc].item?.type === 'shroom')) {
+                    nB_Pulse[tr][tc].piece = { ...wp.p, isPoisoned: true, cooldownTurnsRemaining: 2 };
+                    nB_Pulse[tr][tc].item = null;
+                    nB_Pulse[wp.r][wp.c].piece = null;
+                    addEffect('shockwave', coordsToAlgebraic(tr, tc), 'black');
+                    pulseOccurred = true;
+                }
+            } else if (dist <= 3) { // Pull
+                const tr = wp.r - Math.sign(dr);
+                const tc = wp.c - Math.sign(dc);
+                if (isValidSquare(tr, tc) && !nB_Pulse[tr][tc].piece && (!nB_Pulse[tr][tc].item || nB_Pulse[tr][tc].item?.type === 'shroom')) {
+                    nB_Pulse[tr][tc].piece = { ...wp.p, isPoisoned: true };
+                    nB_Pulse[tr][tc].item = null;
+                    nB_Pulse[wp.r][wp.c].piece = null;
+                    addEffect('magic-burst', coordsToAlgebraic(tr, tc));
+                    pulseOccurred = true;
+                }
+            }
+        }
+        if (pulseOccurred) {
+            currentWorkingBoard = nB_Pulse;
+            setBoard(currentWorkingBoard);
+            addLog("The Void Entity pulses! Reality warps!");
+            audioManager.playAnvil();
+            await new Promise(r => setTimeout(r, 600));
+        }
+    }
+
+    const gs = adaptBoardForAI(currentWorkingBoard, 'black', killStreaks, capturedPieces, 0, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory, necroResurrectionCounter);
     const res = aiInstance.current?.getBestMove(gs, 'black');
     if (res?.move) {
         setAiNoMoveCounter(0); const move = res.move; const fromAlg = coordsToAlgebraic(move.from[0], move.from[1]); const toAlg = coordsToAlgebraic(move.to[0], move.to[1]);
-        const mP = board[move.from[0]][move.from[1]].piece; if (!mP) { setIsAiThinking(false); return; }
+        const mP = currentWorkingBoard[move.from[0]][move.from[1]].piece; if (!mP) { setIsAiThinking(false); return; }
         setIsMoveProcessing(true); setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
         const oL = mP.level, oT = mP.type, oH = mP.heldItem; setLastMovedPieceType(oT); setLastMovedPieceLevel(oL); setLastMovedPieceHeldItem(oH || null);
-        const appRes = applyMove(board, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
+        const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white);
         
         const isFake = appRes.capturedPiece?.id?.startsWith('boss-mirage-fake');
         const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0);
@@ -1140,6 +1187,24 @@ export default function DungeonPage() {
         });
 
         let nextB = appRes.newBoard;
+
+        // --- TIME LOCK SHOCKWAVE (VOID ENTITY CAPTURE EFFECT) ---
+        if (mP.id === 'boss-entity' && totalCaptures > 0) {
+            addLog("Time Lock! The Void freezes reality!");
+            audioManager.playFreeze();
+            const { row: tr, col: tc } = algebraicToCoords(toAlg);
+            for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
+                if (dr === 0 && dc === 0) continue;
+                if (isValidSquare(tr+dr, tc+dc)) {
+                    const v = nextB[tr+dr][tc+dc].piece;
+                    if (v && v.color === 'white') {
+                        v.frozenTurnsRemaining = 2; v.cooldownTurnsRemaining = 2;
+                        addEffect('conversion', coordsToAlgebraic(tr+dr, tc+dc));
+                    }
+                }
+            }
+        }
+
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
         if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
         let rookResResult: RookResurrectionResult | null = null;
