@@ -579,3 +579,39 @@ export const ExplosionIcon = ({ className }: IconProps) => (
     <rect x="16" y="16" width="3" height="3" />
   </svg>
 );
+
+/** BACKGROUND ASSETS **/
+
+export const PixelGemstoneMasonry = ({ className }: IconProps) => (
+  <svg viewBox="0 0 100 100" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    {/* Staggered gemstone bricks with bright, item-style colors */}
+    {/* Row 1 */}
+    <rect x="0" y="0" width="48" height="23" fill="#10B981" fillOpacity="0.8" /> {/* Emerald */}
+    <rect x="52" y="0" width="48" height="23" fill="#0EA5E9" fillOpacity="0.8" /> {/* Mana Blue */}
+    
+    {/* Row 2 */}
+    <rect x="0" y="27" width="23" height="23" fill="#8B5CF6" fillOpacity="0.8" /> {/* Royal Purple */}
+    <rect x="27" y="27" width="46" height="23" fill="#10B981" fillOpacity="0.8" /> {/* Emerald */}
+    <rect x="77" y="27" width="23" height="23" fill="#0EA5E9" fillOpacity="0.8" /> {/* Mana Blue */}
+    
+    {/* Row 3 */}
+    <rect x="0" y="54" width="48" height="23" fill="#0EA5E9" fillOpacity="0.8" /> {/* Mana Blue */}
+    <rect x="52" y="54" width="48" height="23" fill="#8B5CF6" fillOpacity="0.8" /> {/* Royal Purple */}
+    
+    {/* Row 4 */}
+    <rect x="0" y="81" width="23" height="19" fill="#10B981" fillOpacity="0.8" /> {/* Emerald */}
+    <rect x="27" y="81" width="46" height="19" fill="#0EA5E9" fillOpacity="0.8" /> {/* Mana Blue */}
+    <rect x="77" y="81" width="23" height="19" fill="#8B5CF6" fillOpacity="0.8" /> {/* Royal Purple */}
+    
+    {/* Grout/Cracks */}
+    <rect x="0" y="23" width="100" height="4" fill="black" fillOpacity="0.3" />
+    <rect x="0" y="50" width="100" height="4" fill="black" fillOpacity="0.3" />
+    <rect x="0" y="77" width="100" height="4" fill="black" fillOpacity="0.3" />
+    <rect x="48" y="0" width="4" height="23" fill="black" fillOpacity="0.3" />
+    <rect x="23" y="27" width="4" height="23" fill="black" fillOpacity="0.3" />
+    <rect x="73" y="27" width="4" height="23" fill="black" fillOpacity="0.3" />
+    <rect x="48" y="54" width="4" height="23" fill="black" fillOpacity="0.3" />
+    <rect x="23" y="81" width="4" height="19" fill="black" fillOpacity="0.3" />
+    <rect x="73" y="81" width="4" height="19" fill="black" fillOpacity="0.3" />
+  </svg>
+);

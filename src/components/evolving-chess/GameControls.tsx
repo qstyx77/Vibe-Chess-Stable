@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useSocial } from '../social/SocialContext';
 import { UserInteractionPopover } from '../social/UserInteractionPopover';
+import { PixelGemstoneMasonry } from './IconLibrary';
 
 interface GameControlsProps {
   currentPlayer: PlayerColor;
@@ -142,7 +143,14 @@ export function GameControls({
   const offlineFriends = useMemo(() => friends.filter(f => !onlineUserIds.has(f.id)), [friends, onlineUserIds]);
 
   return (
-    <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative">
+    <Card className="w-full shadow-lg h-full flex flex-col mt-0.5 relative overflow-hidden bg-black">
+      {/* Gemstone Masonry Background with 4px technical shader */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-25">
+         <div className="absolute inset-0 ascii-shader [--ascii-unit:4px]">
+            <PixelGemstoneMasonry className="w-full h-full" />
+         </div>
+      </div>
+
       <button
         onClick={() => {
             setIsMessengerOpen(!isMessengerOpen);
@@ -159,7 +167,7 @@ export function GameControls({
       </button>
 
       {isMessengerOpen ? (
-        <CardContent className="p-2 flex flex-col h-full space-y-2 pt-8">
+        <CardContent className="p-2 flex flex-col h-full space-y-2 pt-8 relative z-10">
           <div className="flex gap-1 justify-center">
               <Button 
                 variant={visibleCategories.has('battle') ? 'default' : 'outline'} 
@@ -266,7 +274,7 @@ export function GameControls({
           </div>
         </CardContent>
       ) : (
-        <CardContent className="space-y-0.5 flex-grow flex flex-col p-1.5">
+        <CardContent className="space-y-0.5 flex-grow flex flex-col p-1.5 relative z-10">
           <div className="flex justify-around items-center text-center">
             <div>
               <p className="text-[0.6rem] font-medium text-muted-foreground uppercase">Player</p>

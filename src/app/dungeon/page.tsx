@@ -61,6 +61,7 @@ import { useSocial } from '@/components/social/SocialContext';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Separator } from '@/components/ui/separator';
+import { PixelGemstoneMasonry } from '@/components/evolving-chess/IconLibrary';
 
 const DUNGEON_EXP_MAP: Record<string, number> = {
   pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
@@ -1112,9 +1113,16 @@ export default function DungeonPage() {
   const hasUn = hasUnread.battle || hasUnread.social || hasUnread.log || hasUnread.market;
 
   const cPanel = (
-    <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden">
+    <Card className="w-full shadow-lg h-full flex flex-col relative overflow-hidden bg-black">
+      {/* Gemstone Masonry Background with 4px technical shader */}
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none opacity-25">
+         <div className="absolute inset-0 ascii-shader [--ascii-unit:4px]">
+            <PixelGemstoneMasonry className="w-full h-full" />
+         </div>
+      </div>
+
       {isMessengerOpen ? (
-        <div className="p-2 flex flex-col h-full space-y-2 pt-1">
+        <div className="p-2 flex flex-col h-full space-y-2 pt-1 relative z-10">
           <div className="flex items-center justify-between">
             <button onClick={() => setIsMessengerOpen(false)} className="p-1 hover:bg-muted transition-colors rounded-sm"> <MessageSquare className="h-4 w-4 text-primary" /> </button>
             <div className="flex gap-1">
@@ -1139,7 +1147,7 @@ export default function DungeonPage() {
           <form onSubmit={handleSend} className="flex gap-1"> <Input value={chatInput} onChange={(e) => setChatInput(e.target.value)} placeholder="Message..." className="h-7 text-[0.6rem] bg-background" /> <Button type="submit" size="sm" variant="secondary" className="h-7 px-2"><Send className="h-3 w-3" /></Button> </form>
         </div>
       ) : (
-        <div className="space-y-0.5 flex-grow flex flex-col p-1.5 pt-8">
+        <div className="space-y-0.5 flex-grow flex flex-col p-1.5 pt-8 relative z-10">
             <button onClick={() => setIsMessengerOpen(true)} className={cn( "absolute top-2 left-2 z-30 p-1 hover:bg-muted transition-colors", hasUn && "animate-chat-notify" )} > <MessageSquare className="h-5 w-5" /> </button>
             <div className="flex justify-around items-center text-center">
                 <div> <p className="text-[0.6rem] font-medium text-muted-foreground uppercase leading-none mb-1">Player</p> <p className={cn("text-[0.7rem] font-bold uppercase font-pixel leading-none", currentPlayer === 'white' ? 'text-foreground' : 'text-secondary')}> {getPlayerDisplayName(currentPlayer)} </p> </div>
@@ -1175,7 +1183,7 @@ export default function DungeonPage() {
       </div>
       <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 h-5" /> RESET RUN </Button> </CardContent> </Card> </div>
     </div>
-  ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
+  ), [level, statMsg, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, isSpec, lastMoveFrom, lastMoveTo, isAwaitingPawnSacrifice, playerToSacrificePawn, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstblood, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, cPanel, hasStartedFloor]);
 
   return (
     <div className="flex flex-col h-screen bg-background text-foreground font-pixel uppercase overflow-hidden p-0.5">
@@ -1194,3 +1202,4 @@ export default function DungeonPage() {
     </div>
   );
 }
+
