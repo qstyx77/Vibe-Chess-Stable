@@ -123,8 +123,10 @@ body {
   --ascii-unit: 1px; /* Global technical density */
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='black'/%3E%3C/svg%3E");
   mask-size: calc(var(--ascii-unit) * 2) calc(var(--ascii-unit) * 2);
+  mask-repeat: repeat;
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='2' height='2'%3E%3Crect width='1' height='1' fill='black'/%3E%3C/svg%3E");
   -webkit-mask-size: calc(var(--ascii-unit) * 2) calc(var(--ascii-unit) * 2);
+  -webkit-mask-repeat: repeat;
 }
 
 /* --- GAME ANIMATIONS --- */

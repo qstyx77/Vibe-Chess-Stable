@@ -92,11 +92,6 @@ const initialGameStatus: GameStatus = {
   winner: undefined,
 };
 
-const DUNGEON_EXP_MAP: Record<string, number> = {
-  pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
-  knight: 2, bishop: 2, rook: 2, palace: 2, queen: 3, king: 1, hero: 2, archer: 2, archbishop: 2
-};
-
 function adaptBoardForAI(
   currentBoardState: BoardState,
   playerForAITurn: PlayerColor,
@@ -986,7 +981,7 @@ export default function EvolvingChessPage() {
     }
     if (isAwaitingRayTarget && selectedSquare) {
         const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
-        if ((row === fR || col === fC) && algebraic !== selectedSquare) {
+        if ((actualRowIndex === fR || actualColIndex === fC) && algebraic !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type } })); setIsAwaitingRayTarget(null); setSelectedSquare(null); setPossibleMoves([]); }
             else {
@@ -1314,7 +1309,7 @@ export default function EvolvingChessPage() {
                     <PixelAnvil key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 text-[#94A3B8] shrink-0 animate-anvil-impact ascii-shader" />
                   )}
                </div>
-               <VibeChessTitle className="h-8 w-auto" /> 
+               <VibeChessTitle className="h-8 w-auto" suffix="-mob" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
                     <ShroomIcon key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 text-[#EF4444] animate-shroom-spring ascii-shader" />
@@ -1401,7 +1396,7 @@ export default function EvolvingChessPage() {
                 <PixelAnvil key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 text-[#94A3B8] shrink-0 animate-anvil-impact ascii-shader" />
               )}
            </div>
-           <VibeChessTitle className="h-16 w-auto" /> 
+           <VibeChessTitle className="h-16 w-auto ascii-shader" suffix="-desk" /> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
                 <ShroomIcon key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 text-[#EF4444] animate-shroom-spring ascii-shader" />
@@ -1545,4 +1540,3 @@ export default function EvolvingChessPage() {
     </div>
   );
 }
-

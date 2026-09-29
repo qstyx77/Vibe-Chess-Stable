@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 
 export interface IconProps {
   className?: string;
+  suffix?: string;
 }
 
 /** 8-BIT PIXEL PIECE COMPONENTS **/
@@ -262,17 +263,17 @@ export const PixelAnvil = ({ className }: IconProps) => (
   </svg>
 );
 
-export const VibeChessTitle = ({ className }: IconProps) => (
+export const VibeChessTitle = ({ className, suffix = "" }: IconProps) => (
   <svg viewBox="0 0 220 40" className={cn(className, "animate-title-shimmer")} xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <pattern id="ascii-shader" x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
+      <pattern id={`ascii-shader-title${suffix}`} x="0" y="0" width="2" height="2" patternUnits="userSpaceOnUse">
         <rect x="0" y="0" width="1" height="1" fill="white" />
       </pattern>
-      <mask id="ascii-mask">
-        <rect x="0" y="0" width="220" height="40" fill="url(#ascii-shader)" />
+      <mask id={`ascii-mask-title${suffix}`}>
+        <rect x="0" y="0" width="220" height="40" fill={`url(#ascii-shader-title${suffix})`} />
       </mask>
     </defs>
-    <g mask="url(#ascii-mask)">
+    <g mask={`url(#ascii-mask-title${suffix})`}>
        {/* VIBE */}
        <g fill="hsl(var(--primary))">
           {/* V */}
