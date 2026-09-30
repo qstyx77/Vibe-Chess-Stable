@@ -55,6 +55,7 @@ interface UserData {
   lootSyncV16?: boolean;
   lootSyncV17?: boolean;
   lootSyncV18?: boolean;
+  suggaRestoreV1?: boolean;
 }
 
 const ITEM_TYPES = Object.keys(ITEM_METADATA) as InventoryItemType[];
@@ -174,6 +175,14 @@ export function useUser() {
 
         let needsUpdate = false;
         const updates: any = {};
+
+        // Targeted restore for account SUGGA
+        if (currentData.username === 'SUGGA' && !currentData.suggaRestoreV1) {
+            updates.eloRating = 2100;
+            updates.unlockedPieces = ['dancer', 'mimic', 'grappler', 'myco_mage', 'archbishop', 'palace', 'archer'];
+            updates.suggaRestoreV1 = true;
+            needsUpdate = true;
+        }
 
         const currentInv = currentData.inventory || [];
         const currentInvMap = new Map(currentInv.map(i => [i.type, i.count]));
