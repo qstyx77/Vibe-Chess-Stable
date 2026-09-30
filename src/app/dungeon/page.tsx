@@ -38,7 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Skull, RotateCcw, Package, BookOpen, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
+import { ArrowLeft, Skull, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -61,7 +61,7 @@ import { useSocial } from '@/components/social/SocialContext';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Separator } from '@/components/ui/separator';
-import { PixelGemstoneMasonry, VibeChessTitle } from '@/components/evolving-chess/IconLibrary';
+import { PixelGemstoneMasonry, VibeChessTitle, PixelTome, PixelSack, PixelReset } from '@/components/evolving-chess/IconLibrary';
 
 const DUNGEON_EXP_MAP: Record<string, number> = {
   pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
@@ -1352,11 +1352,27 @@ export default function DungeonPage() {
 
   const mobLayout = (
     <div className="lg:hidden flex flex-col h-full overflow-hidden">
-      <div className="px-4 py-1 flex items-center justify-between shrink-0"> <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> <div className="flex items-center gap-2"> {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive" /> : <Sword className="h-4 w-4 text-primary" />} <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> </div> <Button variant="outline" size="sm" className="h-8 text-[10px] uppercase gap-1 border-2" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-3 w-3" /> RESET </Button> </div>
+      <div className="px-4 py-1 flex items-center justify-between shrink-0"> 
+        <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> 
+        <div className="flex items-center gap-2"> {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive" /> : <Sword className="h-4 w-4 text-primary" />} <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> </div> 
+        <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+           <PixelReset className="h-8 w-8 ascii-shader transition-transform group-hover:scale-110" />
+           <span className="text-[0.35rem] font-pixel uppercase tracking-tighter">Reset</span>
+        </button>
+      </div>
       <div className="text-center py-0 shrink-0 min-h-[0.75rem]"> <p className="text-[10px] font-bold text-primary uppercase animate-pulse"> {statMsg} </p> </div>
       <div className="w-full flex justify-center py-0.5 shrink-0"> <div className="w-full relative"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} /> </div> </div>
       <div className="flex-grow min-h-0 flex flex-col p-0.5"> {cPanel} </div>
-      <div className="px-4 pb-4 grid grid-cols-2 gap-2 shrink-0"> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-4 w-4 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-10 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-4 w-4 text-yellow-500" /> RULES </Button> </div>
+      <div className="flex justify-center items-end gap-x-8 pb-4 shrink-0">
+        <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+           <PixelSack className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+           <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
+        </button>
+        <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+           <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+           <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
+        </button>
+      </div>
     </div>
   );
 
@@ -1374,7 +1390,27 @@ export default function DungeonPage() {
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
         <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} /> </div>
       </div>
-      <div className="w-1/4 flex flex-col gap-4"> <AuthWidget /> <Card className="border-2 border-border/50 bg-card"> <CardContent className="p-4 flex flex-col gap-3"> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor}> <Package className="h-5 w-5 text-yellow-500" /> LOOT BAG </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 text-yellow-500 border-border/50 hover:bg-muted w-full" onClick={() => setIsRulesDialogOpen(true)}> <BookOpen className="h-5 h-5 text-yellow-500" /> RULES </Button> <Button variant="outline" className="h-12 text-[10px] uppercase gap-2 border-2 border-border/50 hover:bg-muted w-full" onClick={() => setIsResetConfirmOpen(true)}> <RotateCcw className="h-5 h-5" /> RESET RUN </Button> </CardContent> </Card> </div>
+      <div className="w-1/4 flex flex-col gap-4"> 
+        <AuthWidget /> 
+        <Card className="border-2 border-border/50 bg-card"> 
+          <CardContent className="p-4 flex flex-col gap-3"> 
+             <div className="flex flex-wrap justify-center items-end gap-x-5 gap-y-1 pb-1">
+                <button onClick={() => setIsInventoryOpen(true)} disabled={hasStartedFloor} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30">
+                   <PixelSack className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Loot</span>
+                </button>
+                <button onClick={() => setIsRulesDialogOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+                   <PixelTome className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
+                </button>
+                <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
+                   <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
+                </button>
+             </div>
+          </CardContent> 
+        </Card> 
+      </div>
     </div>
   );
 
