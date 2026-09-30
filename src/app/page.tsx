@@ -151,7 +151,7 @@ function adaptBoardForAI(
     nextShroomSpawnTurn: nextShroomSpawnTurn,
     lastMovedPieceType: lastMovedPieceType,
     lastMovedPieceHeldItem: lastMovedPieceHeldItem,
-    lastMovedPieceLevel: lastMovedPieceHeldLevel,
+    lastMovedPieceLevel: lastMovedPieceLevel,
     didOpponentCaptureLastTurn: didOpponentCaptureLastTurn,
     positionHistory: positionHistory ? [...positionHistory] : []
   };
@@ -264,6 +264,16 @@ export default function EvolvingChessPage() {
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
   const [aiStrikeCount, setAiStrikeCount] = useState(0);
   const [didCaptureLastTurn, setDidCaptureLastTurn] = useState<{ white: boolean, black: boolean }>({ white: false, black: false });
+
+  // Refs
+  const gameOverRef = useRef(false);
+  const isInitialized = useRef(false);
+  const aiInstanceRef = useRef<VibeChessAI | null>(null);
+  const clickGuardRef = useRef(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const uniqueIdCounterRef = useRef(0);
+  const lastInitializedUid = useRef<string | null>(null);
+  const lastInitializedUidRef = useRef<string | null>(null);
 
   // Header Animation States
   const [headerIconsActive, setHeaderIconsActive] = useState(true);
@@ -1009,6 +1019,7 @@ export default function EvolvingChessPage() {
         const targetItem = board[row][col].item;
         const dir = currentPlayer === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
+        
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1032,7 +1043,7 @@ export default function EvolvingChessPage() {
   }
   if (isAwaitingCommanderPromotion && piece && piece.color === currentPlayer && piece.type === 'pawn' && piece.level === 1) {
       pushHistory();
-      const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.piece} : null})));
+      const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
       nxtB[row][col].piece!.type = 'commander';
       setBoard(nxtB);
       setIsAwaitingCommanderPromotion(false);
