@@ -268,14 +268,6 @@ export default function EvolvingChessPage() {
   // Header Animation States
   const [headerIconsActive, setHeaderIconsActive] = useState(true);
   const [headerIconsOpacity, setHeaderIconsOpacity] = useState(true);
-  const [headerCycleCount, setHeaderCycleCount] = useState(0);
-
-  const aiInstanceRef = useRef<VibeChessAI | null>(null);
-  const clickGuardRef = useRef(false);
-  const uniqueIdCounterRef = useRef(20000);
-  const gameOverRef = useRef(false);
-  const lastInitializedUid = useRef<string | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     const cycle = () => {
@@ -286,7 +278,6 @@ export default function EvolvingChessPage() {
           setTimeout(() => {
             setHeaderIconsActive(true);
             setHeaderIconsOpacity(true);
-            setHeaderCycleCount(prev => prev + 1); 
             cycle();
           }, 1500);
         }, 1200);
@@ -1041,7 +1032,7 @@ export default function EvolvingChessPage() {
   }
   if (isAwaitingCommanderPromotion && piece && piece.color === currentPlayer && piece.type === 'pawn' && piece.level === 1) {
       pushHistory();
-      const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
+      const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.piece} : null})));
       nxtB[row][col].piece!.type = 'commander';
       setBoard(nxtB);
       setIsAwaitingCommanderPromotion(false);
@@ -1306,7 +1297,7 @@ export default function EvolvingChessPage() {
             <div className="flex items-center gap-1.5 shrink-0"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 shrink-0 animate-anvil-impact">
+                    <div className="h-5 w-5 shrink-0 animate-anvil-impact">
                       <PixelAnvil className="w-full h-full text-[#94A3B8] ascii-shader" />
                     </div>
                   )}
@@ -1314,7 +1305,7 @@ export default function EvolvingChessPage() {
                <VibeChessTitle className="h-8 w-auto" suffix="-mob" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <div key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 animate-shroom-spring">
+                    <div className="h-5 w-5 shrink-0 animate-shroom-spring">
                       <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
                     </div>
                   )}
@@ -1388,7 +1379,7 @@ export default function EvolvingChessPage() {
         <Card className="w-full mt-1 bg-black/40 border-none shadow-none"> <CardContent className="p-1 flex flex-col gap-1"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
-  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData?.goldBalance, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, headerCycleCount]);
+  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData?.goldBalance, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity]);
 
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
@@ -1397,7 +1388,7 @@ export default function EvolvingChessPage() {
         <div className="w-full flex items-center justify-center gap-6"> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
-                <div key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 animate-anvil-impact">
+                <div className="h-10 w-10 shrink-0 animate-anvil-impact">
                   <PixelAnvil className="w-full h-full text-[#94A3B8] ascii-shader" />
                 </div>
               )}
@@ -1405,7 +1396,7 @@ export default function EvolvingChessPage() {
            <VibeChessTitle className="h-16 w-auto ascii-shader" suffix="-desk" /> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
-                <div key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 animate-shroom-spring">
+                <div className="h-10 w-10 shrink-0 animate-shroom-spring">
                   <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
                 </div>
               )}
@@ -1457,7 +1448,7 @@ export default function EvolvingChessPage() {
                 </button>
                 <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
                    <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
+                   <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
                 </button>
                 <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelMonitor className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
@@ -1497,7 +1488,7 @@ export default function EvolvingChessPage() {
          </Card> 
       </div>
     </div>
-  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionQueue, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, headerCycleCount, turnTimer, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, isAnySpecialModeActive, dancerToDance, isAwaitingRayTarget, gameInfo.gameOver, gameInfo.isCheck]);
+  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionQueue, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, lastMovedPieceType, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, turnTimer, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, isAnySpecialModeActive, dancerToDance, isAwaitingRayTarget, gameInfo.gameOver, gameInfo.isCheck]);
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative", showLossScreen && "after:animate-fade-to-black")}>
