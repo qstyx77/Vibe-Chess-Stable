@@ -105,7 +105,7 @@ function adaptBoardForAI(
   shroomSpawnCounter?: number,
   nextShroomSpawnTurn?: number,
   lastMovedPieceHeldItem?: InventoryItemType | null,
-  lastMovedPieceLevel?: number | null,
+  lastMovedPieceHeldLevel?: number | null,
   didOpponentCaptureLastTurn?: boolean,
   positionHistory?: string[]
 ): AIGameState {
@@ -151,7 +151,7 @@ function adaptBoardForAI(
     nextShroomSpawnTurn: nextShroomSpawnTurn,
     lastMovedPieceType: lastMovedPieceType,
     lastMovedPieceHeldItem: lastMovedPieceHeldItem,
-    lastMovedPieceLevel: lastMovedPieceLevel,
+    lastMovedPieceLevel: lastMovedPieceHeldLevel,
     didOpponentCaptureLastTurn: didOpponentCaptureLastTurn,
     positionHistory: positionHistory ? [...positionHistory] : []
   };
@@ -887,7 +887,7 @@ export default function EvolvingChessPage() {
       }
       setBoard(nextB); setCapturedPieces(updatedG);
       setTimeout(() => {
-        setIsMoveProcessing(false); clickGuardRef.current = false; setIsAiThinking(false); if (gameOverRef.current) return;
+        setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; if (gameOverRef.current) return;
         if (applyResult.infiltrationWin) {
             const msg = `INFILTRATION WIN! AI has breached the back rank!`;
             setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, isThreefoldRepetitionDraw: false, gameOver: true, winner: currentPlayer, isInfiltrationWin: true });
@@ -981,7 +981,7 @@ export default function EvolvingChessPage() {
     }
     if (isAwaitingRayTarget && selectedSquare) {
         const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
-        if ((actualRowIndex === fR || actualColIndex === fC) && algebraic !== selectedSquare) {
+        if ((row === fR || col === fC) && algebraic !== selectedSquare) {
             const type = isAwaitingRayTarget === 'glacial' ? 'glacial-ray' : 'burning-ray';
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type } })); setIsAwaitingRayTarget(null); setSelectedSquare(null); setPossibleMoves([]); }
             else {
@@ -1306,13 +1306,17 @@ export default function EvolvingChessPage() {
             <div className="flex items-center gap-1.5 shrink-0"> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <PixelAnvil key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 text-[#94A3B8] shrink-0 animate-anvil-impact ascii-shader" />
+                    <div key={`header-anvil-${headerCycleCount}`} className="h-5 w-5 shrink-0 animate-anvil-impact">
+                      <PixelAnvil className="w-full h-full text-[#94A3B8] ascii-shader" />
+                    </div>
                   )}
                </div>
                <VibeChessTitle className="h-8 w-auto" suffix="-mob" /> 
                <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
                   {headerIconsActive && (
-                    <ShroomIcon key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 text-[#EF4444] animate-shroom-spring ascii-shader" />
+                    <div key={`header-shroom-${headerCycleCount}`} className="h-5 w-5 shrink-0 animate-shroom-spring">
+                      <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
+                    </div>
                   )}
                </div>
             </div> 
@@ -1393,13 +1397,17 @@ export default function EvolvingChessPage() {
         <div className="w-full flex items-center justify-center gap-6"> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
-                <PixelAnvil key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 text-[#94A3B8] shrink-0 animate-anvil-impact ascii-shader" />
+                <div key={`header-anvil-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 animate-anvil-impact">
+                  <PixelAnvil className="w-full h-full text-[#94A3B8] ascii-shader" />
+                </div>
               )}
            </div>
            <VibeChessTitle className="h-16 w-auto ascii-shader" suffix="-desk" /> 
            <div className={cn(headerIconsOpacity ? "opacity-100" : "opacity-0 transition-opacity duration-1000")}>
               {headerIconsActive && (
-                <ShroomIcon key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 text-[#EF4444] animate-shroom-spring ascii-shader" />
+                <div key={`header-shroom-desk-${headerCycleCount}`} className="h-10 w-10 shrink-0 animate-shroom-spring">
+                  <ShroomIcon className="w-full h-full text-[#EF4444] ascii-shader" />
+                </div>
               )}
            </div>
         </div> 
