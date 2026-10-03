@@ -105,7 +105,7 @@ function adaptBoardForAI(
   shroomSpawnCounter?: number,
   nextShroomSpawnTurn?: number,
   lastMovedPieceHeldItem?: InventoryItemType | null,
-  lastMovedPieceHeldLevel?: number | null,
+  lastMovedPieceLevel?: number | null,
   didOpponentCaptureLastTurn?: boolean,
   positionHistory?: string[]
 ): AIGameState {
@@ -273,7 +273,6 @@ export default function EvolvingChessPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const uniqueIdCounterRef = useRef(0);
   const lastInitializedUid = useRef<string | null>(null);
-  const lastInitializedUidRef = useRef<string | null>(null);
 
   // Header Animation States
   const [headerIconsActive, setHeaderIconsActive] = useState(true);
@@ -1459,7 +1458,7 @@ export default function EvolvingChessPage() {
                 </button>
                 <button onClick={() => setIsBlackAI(!isBlackAI)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group disabled:opacity-30" disabled={onlineStatus !== 'disconnected'}>
                    <PixelRobotHead className="h-12 w-12 text-secondary ascii-shader transition-transform group-hover:scale-110" />
-                   <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
+                   <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">B-AI:{isBlackAI ? 'ON' : 'OFF'}</span>
                 </button>
                 <button onClick={() => setViewMode(prev => prev === 'flipping' ? 'tabletop' : 'flipping')} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelMonitor className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
