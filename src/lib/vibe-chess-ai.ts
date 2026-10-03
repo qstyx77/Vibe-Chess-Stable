@@ -140,6 +140,11 @@ export class VibeChessAI {
         next.lastMovedPieceLevel = movingPiece.level;
 
         if (move.type === 'grapple-throw') {
+            // Safety: Throws cannot land on Kings
+            if (targetPiece?.type === 'king') {
+                return next; 
+            }
+
             if (move.grappledFrom) {
                 const [gr, gc] = move.grappledFrom;
                 next.board[gr][gc].piece = null;
@@ -149,11 +154,8 @@ export class VibeChessAI {
                 next.board[tR][tC].item = { type: 'anvil' };
             } else if (move.thrownPiece) {
                 const p = { ...move.thrownPiece, hasMoved: true };
-                // Hard block: don't overwrite king during throw execution
-                if (targetPiece?.type !== 'king') {
-                    next.board[tR][tC].piece = p;
-                    if (targetPiece?.color === opponent) captureCount++;
-                }
+                next.board[tR][tC].piece = p;
+                if (targetPiece?.color === opponent) captureCount++;
             }
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
         } else if (movingPiece.id?.startsWith('boss-colossus')) {

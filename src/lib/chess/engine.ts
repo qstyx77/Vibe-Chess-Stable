@@ -1,4 +1,4 @@
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, PieceType, ItemType, SquareState, RookResurrectionResult } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, ItemType, SquareState, RookResurrectionResult } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
 import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide } from './effects';
@@ -498,16 +498,24 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   if (move.type === 'grapple-throw') {
+      const dr = Math.sign(toRow - fromRow);
+      const dc = Math.sign(toCol - fromCol);
+      const slideResult = applyOilSlide(newBoard, toRow, toCol, dr, dc);
+      
+      // Safety: Throws cannot land on Kings
+      if (newBoard[slideResult.r][slideResult.c].piece?.type === 'king') {
+          return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
+      }
+
+      // If safe, proceed with removal
       if (move.grappledFrom) {
           const { row: gr, col: gc } = Array.isArray(move.grappledFrom) ? { row: move.grappledFrom[0], col: move.grappledFrom[1] } : algebraicToCoords(move.grappledFrom as AlgebraicSquare);
           newBoard[gr][gc].piece = null;
           newBoard[gr][gc].item = null;
       }
+
       if (move.thrownItem === 'anvil') {
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true };
-          const dr = Math.sign(toRow - fromRow);
-          const dc = Math.sign(toCol - fromCol);
-          const slideResult = applyOilSlide(newBoard, toRow, toCol, dr, dc);
           const victim = newBoard[slideResult.r][slideResult.c].piece;
           // Anvil protection: Kings cannot be crushed by anvils
           if (victim && victim.type !== 'king' && !victim.isShielded) {
@@ -519,24 +527,14 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
           anvilDroppedSquares.push(coordsToAlgebraic(slideResult.r, slideResult.c));
       } else if (move.thrownPiece) {
           const thrown = move.thrownPiece!;
-          const dr = Math.sign(toRow - fromRow);
-          const dc = Math.sign(toCol - fromCol);
-          const slideResult = applyOilSlide(newBoard, toRow, toCol, dr, dc);
-          
-          // Safety: Don't overwrite king during throw execution
-          if (newBoard[slideResult.r][slideResult.c].piece?.type !== 'king') {
-            newBoard[slideResult.r][slideResult.c].piece = { ...thrown, hasMoved: true };
-            newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true }; 
-            if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') {
-                captured = { ...targetPiece };
-                triggerDefiantSparks(toRow, toCol, captured.color);
-            }
-          } else {
-             // If landing was a king, restore original state (failsafe)
-             return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'grappler', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
+          newBoard[slideResult.r][slideResult.c].piece = { ...thrown, hasMoved: true };
+          newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true }; 
+          if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') {
+              captured = { ...targetPiece };
+              triggerDefiantSparks(toRow, toCol, captured.color);
           }
       }
-      return { newBoard, capturedPiece: captured, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'grappler', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares };
+      return { newBoard, capturedPiece: captured, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares };
   }
 
   if (movingPiece.id?.startsWith('boss-colossus')) {
@@ -560,7 +558,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
               newBoard[nr][nc].piece = { id: p.id, type: 'king', color: movingPiece.color, level: movingPiece.level, hasMoved: true };
           }
       });
-      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: 'king', selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
+      return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
   }
 
   if (move.type === 'dance-swap') {
