@@ -149,8 +149,11 @@ export class VibeChessAI {
                 next.board[tR][tC].item = { type: 'anvil' };
             } else if (move.thrownPiece) {
                 const p = { ...move.thrownPiece, hasMoved: true };
-                next.board[tR][tC].piece = p;
-                if (targetPiece?.color === opponent) captureCount++;
+                // Hard block: don't overwrite king during throw execution
+                if (targetPiece?.type !== 'king') {
+                    next.board[tR][tC].piece = p;
+                    if (targetPiece?.color === opponent) captureCount++;
+                }
             }
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
         } else if (movingPiece.id?.startsWith('boss-colossus')) {
@@ -210,9 +213,13 @@ export class VibeChessAI {
                     landedPiece.type = 'hero';
                 }
             }
-            next.board[tR][tC].piece = landedPiece; 
-            if (fR !== tR || fC !== tC) {
-                next.board[fR][fC].piece = null;
+            
+            // Safety: Only land if target isn't a king (gatekeeper)
+            if (targetPiece?.type !== 'king') {
+                next.board[tR][tC].piece = landedPiece; 
+                if (fR !== tR || fC !== tC) {
+                    next.board[fR][fC].piece = null;
+                }
             }
         }
 
@@ -235,8 +242,6 @@ export class VibeChessAI {
         const playerKing = this.findKingCoords(gs, aiColor);
         const opponentKing = this.findKingCoords(gs, opponentColor);
         
-        // Terminal states are now part of the sum, allowing the AI to 
-        // fight for material even in "doomed" or "kingless" positions.
         if (!playerKing) score -= 1000000;
         if (!opponentKing) score += 1000000;
 
@@ -258,7 +263,6 @@ export class VibeChessAI {
                     score += 100 * mult;
                 }
 
-                // Positional bonuses
                 if (piece.color === aiColor) {
                     if (piece.type === 'infiltrator') {
                         const targetRank = piece.color === 'white' ? 0 : 7;
@@ -266,8 +270,6 @@ export class VibeChessAI {
                         score += (7 - distance) * 60; 
                     }
                     if (this.centerSquares.has(`${r}${c}`)) score += 30;
-                    
-                    // Specific Piece Type bonuses (favor advanced classes)
                     if (['hero', 'archbishop', 'palace', 'archer'].includes(piece.type)) {
                         score += 50;
                     }
@@ -385,14 +387,17 @@ export class VibeChessAI {
                            }
                         }
                         possibleLandings.forEach(l => {
-                            moves.push({ 
-                                from: [r, c], 
-                                to: l, 
-                                type: 'grapple-throw', 
-                                thrownPiece: targetPiece ? { ...targetPiece } : undefined,
-                                thrownItem: targetAnvil ? 'anvil' : undefined,
-                                grappledFrom: [pr, pc]
-                            });
+                            // Check landing square: don't throw onto a king
+                            if (gs.board[l[0]][l[1]].piece?.type !== 'king') {
+                                moves.push({ 
+                                    from: [r, c], 
+                                    to: l, 
+                                    type: 'grapple-throw', 
+                                    thrownPiece: targetPiece ? { ...targetPiece } : undefined,
+                                    thrownItem: targetAnvil ? 'anvil' : undefined,
+                                    grappledFrom: [pr, pc]
+                                });
+                            }
                         });
                     }
                 }
@@ -419,9 +424,12 @@ export class VibeChessAI {
                         const targetSq = gs.board[r+dir][c+dc];
                         const target = targetSq.piece;
                         if (target && target.color !== p.color) {
-                           const targetLevel = getEffectiveLevel(gs.board as any, r+dir, c+dc);
-                           if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                               moves.push({from:[r,c], to:[r+dir,c+dc], type:'capture'});
+                           // NEW: Don't allow king capture in non-simplified moves
+                           if (simplified || target.type !== 'king') {
+                                const targetLevel = getEffectiveLevel(gs.board as any, r+dir, c+dc);
+                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                    moves.push({from:[r,c], to:[r+dir,c+dc], type:'capture'});
+                                }
                            }
                         }
                         if (!target && !targetSq.item && gs.enPassantTargetSquare === coordsToAlgebraic(r+dir, c+dc)) moves.push({from:[r,c], to:[r+dir,c+dc], type:'enpassant'});
@@ -439,7 +447,12 @@ export class VibeChessAI {
                             const tSq = gs.board[nr][nc];
                             const isAdjacent = Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
                             const isForward = (dr === dir && dc === 0);
-                            if (isAdjacent && tSq.piece) moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
+                            // Safety: Don't swap onto king unless it's a swap with own color (which is safe)
+                            if (isAdjacent && tSq.piece) {
+                                if (tSq.piece.type !== 'king' || tSq.piece.color === p.color) {
+                                    moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
+                                }
+                            }
                             else if (isForward && (!tSq.item || tSq.item.type === 'shroom')) moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
                             else if (isAdjacent && tSq.item?.type === 'anvil' && p.heldItem === 'dancers_ribbon') moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
                         }
@@ -455,9 +468,11 @@ export class VibeChessAI {
                         const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
-                            const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                            if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                                moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                            if (simplified || target.type !== 'king') {
+                                const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                    moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                }
                             }
                         }
                     }
@@ -472,9 +487,11 @@ export class VibeChessAI {
                         const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
-                            const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                            if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                                moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                            if (simplified || target.type !== 'king') {
+                                const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                    moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                }
                             }
                         }
                     }
@@ -488,9 +505,11 @@ export class VibeChessAI {
                             const target = targetSq.piece;
                             if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                             else if (target.color !== p.color) {
-                                const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                                    moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                if (simplified || target.type !== 'king') {
+                                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                        moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                    }
                                 }
                             }
                         }
@@ -504,7 +523,7 @@ export class VibeChessAI {
                             const targetSq = gs.board[nr][nc];
                             if (targetSq.item?.type === 'anvil') return;
                             const target = targetSq.piece;
-                            if (!target || (target.color !== p.color && !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any))) {
+                            if (!target || (target.color !== p.color && (simplified || target.type !== 'king') && !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any))) {
                                 const sR = Math.sign(dr); const sC = Math.sign(dc);
                                 let clear = true;
                                 for(let i=1; i<3; i++) {
@@ -536,9 +555,11 @@ export class VibeChessAI {
                         if(!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else { 
                             if(target.color !== p.color) {
-                                const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                                    moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                if (simplified || target.type !== 'king') {
+                                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                        moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                    }
                                 }
                                 break;
                             } 
@@ -619,9 +640,11 @@ export class VibeChessAI {
                             moves.push({ from: [r, c], to: [nr, nc], type: 'move' });
                         } else {
                             if (target.color !== p.color) {
-                                const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
-                                    moves.push({ from: [r, c], to: [nr, nc], type: 'capture' });
+                                if (simplified || target.type !== 'king') {
+                                    const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
+                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
+                                        moves.push({ from: [r, c], to: [nr, nc], type: 'capture' });
+                                    }
                                 }
                                 break;
                             } else {
@@ -655,7 +678,7 @@ export class VibeChessAI {
             }
         }
         const king = this.findKingCoords(gs, color);
-        if (!king) return false;
+        if (!king) return true; // Safety Fix: If king is missing, the player is effectively in check/lost
         return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white', true);
     }
 
