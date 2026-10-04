@@ -338,10 +338,10 @@ export default function DungeonPage() {
     isAwaitingArcherSnipe || isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || 
     isSelectingMycoSpell || isAwaitingGrappleThrow || isAwaitingDanceTarget || 
     isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || 
-    isAwaitingSwapScrollTarget || isAwaitingDecreeTarget || 
+    isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget]);
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
 
   const handlePieceHover = useCallback((p: Piece | null) => {
     setPieceForInfoDisplay(p);
@@ -873,7 +873,60 @@ export default function DungeonPage() {
         }
         return;
     }
-    if (isInventoryOpen) { if (selectedInventoryItemType && piece && piece.color === 'white') { const nB = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null }))); nB[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nB); setSelectedInventoryItemType(null); audioManager.playLevelUp(); } return; }
+    if (isInventoryOpen) {
+      if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
+        const itemMeta = ITEM_METADATA[selectedInventoryItemType];
+        if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
+            if (piece?.heldItem !== selectedInventoryItemType) {
+                addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
+            }
+        }
+        if (piece && piece.color === 'white') {
+          if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
+          if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
+
+          // attunementSlots check only if not swapping (piece.heldItem is null)
+          if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
+
+          const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+          const targetP = nextBoard[row][col].piece!;
+          const oldItem = targetP.heldItem;
+          
+          targetP.heldItem = selectedInventoryItemType;
+          setBoard(nextBoard);
+
+          let newInv = [...inventory];
+          // Handle swapping: return old item to bag
+          if (oldItem) {
+              const existingOld = newInv.find(i => i.type === oldItem);
+              if (existingOld) existingOld.count++;
+              else newInv.push({ type: oldItem, count: 1 });
+              addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
+          }
+
+          // Deduct new item from bag
+          const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
+          if (itemInBag) { 
+              itemInBag.count--; 
+              if (itemInBag.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); 
+          }
+
+          setInventory(newInv); 
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, newInv);
+          setSelectedInventoryItemType(null); 
+          audioManager.playLevelUp(); 
+          addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
+        }
+      } else if (piece && piece.heldItem && piece.color === 'white') {
+          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+          nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
+          const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
+          setInventory(nextInv);
+          saveDungeonState(level, nextBoard, currentPlayer, killStreaks, capturedPieces, shroomSpawnCounter, nextShroomSpawnTurn, enPassantTargetSquare, necroResurrectionCounter, nextInv);
+          audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
+      }
+      return;
+    }
     if (isAwaitingRayTarget && selectedSquare) {
         const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
         if ((row === fR || col === fC) && alg !== selectedSquare) {
@@ -1079,7 +1132,7 @@ export default function DungeonPage() {
         setSelectedSquare(null); setPossibleMoves([]); 
         setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
     }
-  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd]);
+  }, [board, currentPlayer, selectedSquare, enPassantTargetSquare, lastMovedPieceType, lastMovedPieceHeldItem, lastMovedPieceLevel, capturedPieces, killStreaks, isInventoryOpen, selectedInventoryItemType, handlePieceHover, triggerSpecialsChain, boardForPostSacrifice, specialActionContext, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, playerToDropAnvil, isAwaitingHolyShield, isAwaitingArcherSnipe, dancerToDance, isAwaitingDanceTarget, processPawnSacrificeCheck, didCaptureLastTurn, addEffect, promotionQueue, promotionTargetLevel, isAwaitingGrappleThrow, grappledPieceSubject, grappledItemSubject, isSelectingMycoSpell, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, playerWhoGotFirstblood, teleportAllyPieceId, addLog, clickedEnemySquare, isSpec, processMoveEnd, attunementSlots, usedSlots, saveDungeonState, level]);
 
   const startRun = useCallback((reset: boolean = false) => {
     if (isUserLoading || !userData || !user) return;
@@ -1426,7 +1479,6 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>

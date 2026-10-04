@@ -961,15 +961,46 @@ export default function EvolvingChessPage() {
     if (isInventoryOpen) {
       if (selectedInventoryItemType && !selectedInventoryItemType.startsWith('portal_scroll_')) {
         const itemMeta = ITEM_METADATA[selectedInventoryItemType];
-        if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) { addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return; }
-        if (piece && !piece.heldItem && piece.color === (localPlayerColor || 'white')) {
-          if (usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
+        if (itemMeta.rarity === 'rare' && board.flat().some(sq => sq.piece?.heldItem === selectedInventoryItemType)) {
+            if (piece?.heldItem !== selectedInventoryItemType) {
+                addLog(`LIMIT REACHED: Only one ${itemMeta.name} allowed!`); return;
+            }
+        }
+        if (piece && piece.color === (localPlayerColor || 'white')) {
+          if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
           if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
+
+          // attunementSlots check only if not swapping (piece.heldItem is null)
+          if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
+
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
-          nextBoard[row][col].piece!.heldItem = selectedInventoryItemType; setBoard(nextBoard);
-          let newInv = [...inventory]; const item = newInv.find(i => i.type === selectedInventoryItemType);
-          if (item) { item.count--; if (item.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); }
-          setInventory(newInv); saveLoadoutToFirestore(nextBoard, newInv); setSelectedInventoryItemType(null); audioManager.playLevelUp(); addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
+          const targetP = nextBoard[row][col].piece!;
+          const oldItem = targetP.heldItem;
+          
+          targetP.heldItem = selectedInventoryItemType;
+          setBoard(nextBoard);
+
+          let newInv = [...inventory];
+          // Handle swapping: return old item to bag
+          if (oldItem) {
+              const existingOld = newInv.find(i => i.type === oldItem);
+              if (existingOld) existingOld.count++;
+              else newInv.push({ type: oldItem, count: 1 });
+              addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
+          }
+
+          // Deduct new item from bag
+          const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
+          if (itemInBag) { 
+              itemInBag.count--; 
+              if (itemInBag.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); 
+          }
+
+          setInventory(newInv); 
+          saveLoadoutToFirestore(nextBoard, newInv); 
+          setSelectedInventoryItemType(null); 
+          audioManager.playLevelUp(); 
+          addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
         }
       } else if (piece && piece.heldItem && piece.color === (localPlayerColor || 'white')) {
           const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
@@ -993,7 +1024,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1016,7 +1047,7 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayer === 'white' ? -1 : 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
