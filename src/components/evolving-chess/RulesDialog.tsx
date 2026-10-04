@@ -92,7 +92,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
               <AccordionContent>
                 <RuleSection title="Combat Specialists">
                   <SubRule title="First Blood">
-                    <RuleText>The first player to capture an enemy unit in a match triggers First Blood. This grants the immediate opportunity to promote a Level 1 Pawn into a Commander.</RuleText>
+                    <RuleText>The first player to capture an enemy unit in a match triggers First Blood. This grants the immediate opportunity to promote any Level 1 Front Line unit into a Commander.</RuleText>
                   </SubRule>
                   <SubRule title="Commander">
                     <RuleText>An elite front-line unit born from First Blood. They gain 'Rallying Cry' on capture (leveling up other pawns) and promoted into a Hero upon reaching the back rank. They are specialized 'Queen Hunters'.</RuleText>

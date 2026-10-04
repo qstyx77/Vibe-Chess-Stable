@@ -231,7 +231,7 @@ export const ChessBoard = memo(({
           const isThisLastMoveFrom = currentSquareData.algebraic === lastMoveFrom;
           const isThisLastMoveTo = currentSquareData.algebraic === lastMoveTo;
           const isSacrificeTarget = isLocalActionTurn && isAwaitingPawnSacrifice && currentSquareData.piece && FRONTLINE_TYPES.includes(currentSquareData.piece.type) && currentSquareData.piece.color === playerToSacrificePawn;
-          const isCommanderPromoTarget = isLocalActionTurn && isAwaitingCommanderPromotion && currentSquareData.piece?.type === 'pawn' && currentSquareData.piece?.level === 1 && currentSquareData.piece?.color === playerToPromoteCommander;
+          const isCommanderPromoTarget = isLocalActionTurn && isAwaitingCommanderPromotion && currentSquareData.piece && FRONTLINE_TYPES.includes(currentSquareData.piece.type) && currentSquareData.piece.type !== 'commander' && currentSquareData.piece.type !== 'infiltrator' && currentSquareData.piece.level === 1 && currentSquareData.piece.color === playerToPromoteCommander;
           
           let isShieldTarget = false;
           if (isLocalActionTurn && isAwaitingHolyShield && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor) {
@@ -241,9 +241,9 @@ export const ChessBoard = memo(({
 
           const isSnipeTarget = isLocalActionTurn && isAwaitingArcherSnipe && currentSquareData.piece && currentSquareData.piece.color !== currentPlayerColor && currentSquareData.piece.level <= maxArcherLevel && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen';
           const isAnvilDropTarget = isLocalActionTurn && (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget) && !currentSquareData.piece && !currentSquareData.item;
-          const isShieldScrollTargetSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && !currentSquareData.piece.isShielded;
+          const isShieldTargetScrollSelection = isLocalActionTurn && isAwaitingShieldScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && !currentSquareData.piece.isShielded;
           const isSwapTargetSelection = isLocalActionTurn && isAwaitingSwapScrollTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.algebraic !== selectedSquare;
-          const isDecreeTarget = isLocalActionTurn && isAwaitingDecreeTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type === 'pawn' && currentSquareData.piece.level === 1;
+          const isDecreeTargetSelection = isLocalActionTurn && isAwaitingDecreeTarget && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type === 'pawn' && currentSquareData.piece.level === 1;
           
           const isTeleportAllyTarget = isLocalActionTurn && isSelectingTeleportAlly && currentSquareData.piece && currentSquareData.piece.color === currentPlayerColor && currentSquareData.piece.type !== 'king' && currentSquareData.piece.type !== 'queen' && currentSquareData.piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null);
           const isTeleportShroomTarget = isLocalActionTurn && isSelectingTeleportShroom && currentSquareData.item?.type === 'shroom';
@@ -339,12 +339,12 @@ export const ChessBoard = memo(({
               onPieceHover={onPieceHover}
               isPromoting={promotingSquare === currentSquareData.algebraic}
               isConverting={isConvertingSquare}
-              isShieldTarget={isShieldTarget || isShieldScrollTargetSelection}
+              isShieldTarget={isShieldTarget || isShieldTargetScrollSelection}
               isSnipeTarget={isSnipeTarget}
               isAnvilDropTarget={isAnvilDropTarget || isRayTarget}
               isInvTarget={isInvTarget}
               isSwapTarget={isSwapTargetSelection}
-              isDecreeTarget={isDecreeTarget}
+              isDecreeTarget={isDecreeTargetSelection}
               isDanceTarget={isDanceTarget}
               isThrowTarget={isThrowTarget}
               isGrapplePickupTarget={isGrapplePickupTarget}

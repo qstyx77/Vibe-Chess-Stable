@@ -377,7 +377,7 @@ export default function EvolvingChessPage() {
     if (isAiThinking) return (currentPlayer === 'white' ? "WHITE (AI) THINKING..." : "BLACK (AI) THINKING...");
     if (isAwaitingPawnSacrifice) return "ROYAL SACRIFICE REQUIRED!";
     if (isPromotingPawn) return "PROMOTE YOUR PAWN!";
-    if (isAwaitingCommanderPromotion) return "SELECT PAWN TO BE PROMOTED TO COMMANDER!";
+    if (isAwaitingCommanderPromotion) return "SELECT FRONTLINE UNIT TO PROMOTE!";
     if (isAwaitingAnvilDrop) return "PLACE AN ANVIL!";
     if (isAwaitingHolyShield) return "SELECT ALLY TO SHIELD!";
     if (isAwaitingArcherSnipe) return "SELECT TARGET TO SNIPE!";
@@ -636,14 +636,14 @@ export default function EvolvingChessPage() {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstBlood(actingPlayer);
         if (isAI) {
             const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const pawnSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
-            if (pawnSq) { const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actingPlayer)} promoted a Commander via First Blood!`); }
+            const flSq = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
+            if (flSq) { const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); nextBoard[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actingPlayer)} promoted a Commander via First Blood!`); }
             triggerSpecialsChain(nextBoard, nextGraveyard, currentKs, oldStreak, newStreak, isExtraTurn, nextEp, actingPlayer, [...completedMilestones, 'firstBlood'], capturingPieceId, wasCaptureThisTurn, movedPieceType); return;
         } else if (!localPlayerColor || actingPlayer === localPlayerColor) {
-            const hasL1Targets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.type === 'pawn' && sq.piece.level === 1);
+            const hasL1Targets = boardToChain.flat().some(sq => sq.piece && sq.piece.color === actingPlayer && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
             if (hasL1Targets) {
                 setSpecialActionContext({ boardForNextStep: boardToChain, playerWhoseTurnCompleted: actingPlayer, isExtraTurn: isExtraTurn, newEnPassantTarget: nextEp, oldStreak, newStreak, completedMilestones: [...completedMilestones, 'firstBlood'], currentGraveyard: nextGraveyard, currentKs: currentKs, capturingPieceId: capturingPieceId });
-                setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a Pawn to promote."); return;
+                setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a unit to promote to Commander."); return;
             }
         }
     }
@@ -765,9 +765,9 @@ export default function EvolvingChessPage() {
         const isAI = (player === 'white' && isWhiteAI) || (player === 'black' && isBlackAI);
         if (isAI) {
             const nextB = boardAfter.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const pawnSq = nextB.flat().find(sq => sq.piece && sq.piece.color === player && FRONTLINE_TYPES.includes(sq.piece.type));
-            if (pawnSq) {
-                const {row: pr, col: pc} = algebraicToCoords(pawnSq.algebraic); const sacrificed = { ...nextB[pr][pc].piece!, id: nextB[pr][pc].piece!.id };
+            const flSq = nextB.flat().find(sq => sq.piece && sq.piece.color === player && FRONTLINE_TYPES.includes(sq.piece.type));
+            if (flSq) {
+                const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); const sacrificed = { ...nextB[pr][pc].piece!, id: nextB[pr][pc].piece!.id };
                 nextB[pr][pc].piece = null; audioManager.playCapture(); addLog(`AI Sacrificed ${sacrificed.type} for the Queen!`);
                 const nextG = { white: Array.isArray(graveyard.white) ? [...graveyard.white] : [], black: Array.isArray(graveyard.black) ? [...graveyard.black] : [] }; 
                 const targetPile = sacrificed.color; nextG[targetPile] = [...nextG[targetPile], sacrificed];
@@ -777,7 +777,7 @@ export default function EvolvingChessPage() {
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(player); setBoardForPostSacrifice(boardAfter); setPlayerWhoMadeQueenMove(player); setIsExtraTurnFromQueenMove(isExtraTurn);
         setSpecialActionContext({ boardForNextStep: boardAfter, playerWhoseTurnCompleted: player, isExtraTurn: isExtraTurn, newEnPassantTarget: ep, oldStreak: oldS, newStreak: newS, currentGraveyard: graveyard, currentKs: currentKs, capturingPieceId }); 
-        addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
+        addLog("Royal Sacrifice required! Select a Frontline unit to give up."); return true;
       }
     }
     triggerSpecialsChain(boardAfter, graveyard, currentKs, oldS, newS, isExtraTurn, ep, player, [], capturingPieceId, wasCaptureThisTurn, movedPieceType as any); return false;
@@ -797,7 +797,7 @@ export default function EvolvingChessPage() {
     }
     nextBoard[row][col].piece = { ...piece, type: pieceType, level: promotionTargetLevel, hasMoved: true };
     if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
-    setBoard(nextBoard); audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(piece.color)}: Pawn Promoted to ${pieceType}!`);
+    setBoard(nextBoard); audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(piece.color)}: Frontline Promoted to ${pieceType}!`);
     const remainingQueue = promotionQueue.slice(1);
     if (remainingQueue.length > 0) {
         setPromotionQueue(remainingQueue);
@@ -1040,7 +1040,7 @@ export default function EvolvingChessPage() {
         setBoard(nextBoard); setCapturedPieces(nG); setIsAwaitingPawnSacrifice(false); triggerSpecialsChain(nextBoard, nG, specialActionContext?.currentKs || killStreaks, specialActionContext?.oldStreak || 0, specialActionContext?.oldStreak || 0, isExtraTurnFromQueenMove, specialActionContext?.newEnPassantTarget || null, currentPlayer, [], specialActionContext?.capturingPieceId || null, false, lastMovedPieceType); }
       return;
   }
-  if (isAwaitingCommanderPromotion && piece && piece.color === currentPlayer && piece.type === 'pawn' && piece.level === 1) {
+  if (isAwaitingCommanderPromotion && piece && piece.color === currentPlayer && FRONTLINE_TYPES.includes(piece.type) && piece.type !== 'commander' && piece.type !== 'infiltrator' && piece.level === 1) {
       pushHistory();
       const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
       nxtB[row][col].piece!.type = 'commander';

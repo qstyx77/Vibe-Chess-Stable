@@ -636,14 +636,14 @@ export default function DungeonPage() {
         setFirstBloodAchieved(true); setPlayerWhoGotFirstblood(actP);
         if (isAI) {
             const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const pSq = nxtB.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander');
-            if (pSq) { const {row: pr, col: pc} = algebraicToCoords(pSq.algebraic); nxtB[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actP)} promoted a Commander!`); }
+            const flSq = nxtB.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.level === 1 && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator');
+            if (flSq) { const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); nxtB[pr][pc].piece!.type = 'commander'; addLog(`${getPlayerDisplayName(actP)} promoted a Commander!`); }
             triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'firstBlood'], capId, wasCap, movedT); return;
         } else {
-            const hasL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && sq.piece.type === 'pawn' && sq.piece.level === 1);
-            if (hasL1) {
+            const hasFL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
+            if (hasFL1) {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'firstBlood'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId });
-                setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a Pawn to promote."); return;
+                setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a unit to promote to Commander."); return;
             }
         }
     }
@@ -759,9 +759,9 @@ export default function DungeonPage() {
       if (bAf.flat().some(sq => sq.piece && sq.piece.color === p && FRONTLINE_TYPES.includes(sq.piece.type))) {
         if (p === 'black') {
             const nxtB = bAf.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const pSq = nxtB.flat().find(sq => sq.piece && sq.piece.color === p && FRONTLINE_TYPES.includes(sq.piece.type));
-            if (pSq) {
-                const {row: pr, col: pc} = algebraicToCoords(pSq.algebraic); const sacrificed = { ...nxtB[pr][pc].piece! };
+            const flSq = nxtB.flat().find(sq => sq.piece && sq.piece.color === p && FRONTLINE_TYPES.includes(sq.piece.type));
+            if (flSq) {
+                const {row: pr, col: pc} = algebraicToCoords(flSq.algebraic); const sacrificed = { ...nxtB[pr][pc].piece! };
                 nxtB[pr][pc].piece = null; audioManager.playCapture(); addLog(`AI Sacrificed ${sacrificed.type} for the Queen!`);
                 const nG = { white: Array.isArray(g.white) ? [...g.white] : [], black: Array.isArray(g.black) ? [...g.black] : [] }; nG[sacrificed.color] = [...nG[sacrificed.color], sacrificed];
                 triggerSpecialsChain(nxtB, nG, cKs, oS, newStreak, isEx, ep, p, [], cId, wC, mT);
@@ -770,7 +770,7 @@ export default function DungeonPage() {
         }
         setIsAwaitingPawnSacrifice(true); setPlayerToSacrificePawn(p); setBoardForPostSacrifice(bAf);
         setSpecialActionContext({ boardForNextStep: bAf, playerWhoseTurnCompleted: p, isExtraTurn: isExtraTurn, newEnPassantTarget: ep, oldStreak: oS, newStreak: newStreak, currentGraveyard: g, currentKs: cKs, capturingPieceId: cId }); 
-        addLog("Royal Sacrifice required! Select a Pawn to give up."); return true;
+        addLog("Royal Sacrifice required! Select a unit to give up."); return true;
       }
     }
     triggerSpecialsChain(bAf, g, cKs, oS, newStreak, isEx, ep, p, [], cId, wC, mT); return false;
@@ -922,7 +922,7 @@ export default function DungeonPage() {
         setBoard(nB); setCapturedPieces(nG); setIsAwaitingPawnSacrifice(false); triggerSpecialsChain(nB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.oldStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [], specialActionContext.capturingPieceId, false, lastMovedPieceType);
         return;
     }
-    if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && piece.type === 'pawn' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
+    if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && FRONTLINE_TYPES.includes(piece.type) && piece.type !== 'commander' && piece.type !== 'infiltrator' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, lastMovedPieceType); return; }
     if (isAwaitingHolyShield && piece && piece.color === 'white' && piece.type !== 'king' && piece.type !== 'queen' && !piece.isShielded && piece.id !== specialActionContext?.capturingPieceId) { 
         const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); 
         const ally = nxtB[row][col].piece!;
@@ -1229,7 +1229,7 @@ export default function DungeonPage() {
         setBoard(nextB);
         addLog(`Dungeon: ${mP.type} to ${toAlg}`);
         setTimeout(() => { 
-          setIsMoveProcessing(false); setIsAiThinking(false); 
+          setIsAiThinking(false); setIsMoveProcessing(false); 
           const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
           processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT);
@@ -1277,13 +1277,13 @@ export default function DungeonPage() {
         }
         setIsAiThinking(false);
     }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel, aiNoMoveCounter]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, killStreaks, capturedPieces, firstBloodAchieved, playerWhoGotFirstblood, enPassantTargetSquare, lastMovedPieceType, shroomSpawnCounter, nextShroomSpawnTurn, lastMovedPieceHeldItem, lastMovedPieceLevel, didCaptureLastTurn.white, positionHistory, processPawnSacrificeCheck, addLog, addEffect, advanceLevel, aiNoMoveCounter]);
 
   useEffect(() => { if (currentPlayer === 'black' && !gameInfo.gameOver && !isMoveProcessing && !isAiThinking) { const t = setTimeout(performAiMove, 1000); return () => currentPlayer === 'black' && clearTimeout(t); } }, [currentPlayer, gameInfo.gameOver, isMoveProcessing, isAiThinking, performAiMove]);
 
   const statMsg = useMemo(() => {
     if (isAiThinking) return "DUNGEON IS THINKING..."; if (isAwaitingPawnSacrifice) return "ROYAL SACRIFICE REQUIRED!"; if (isPromotingPawn) return "PROMOTE YOUR PAWN!";
-    if (isAwaitingCommanderPromotion) return "SELECT PAWN TO BE PROMOTED TO COMMANDER!"; if (isAwaitingAnvilDrop) return "PLACE AN ANVIL!"; if (isAwaitingHolyShield) return "SELECT ALLY TO SHIELD!";
+    if (isAwaitingCommanderPromotion) return "SELECT FRONTLINE UNIT TO PROMOTE!"; if (isAwaitingAnvilDrop) return "PLACE AN ANVIL!"; if (isAwaitingHolyShield) return "SELECT ALLY TO SHIELD!";
     if (isAwaitingArcherSnipe) return "SELECT TARGET TO SNIPE!"; if (isAwaitingDanceTarget) return dancerToDance ? "PERFORM YOUR DANCE!" : "SELECT A DANCER!";
     if (isAwaitingAnvilScrollTarget) return "PLACE AN ANVIL!";
     if (isAwaitingWindScrollTarget) return "SELECT WIND PUSH AREA!";
@@ -1426,6 +1426,7 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>
