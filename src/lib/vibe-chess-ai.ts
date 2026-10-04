@@ -140,7 +140,6 @@ export class VibeChessAI {
         next.lastMovedPieceLevel = movingPiece.level;
 
         if (move.type === 'grapple-throw') {
-            // Safety: Throws cannot land on Kings
             if (targetPiece?.type === 'king') {
                 return next; 
             }
@@ -216,7 +215,6 @@ export class VibeChessAI {
                 }
             }
             
-            // Safety: Only land if target isn't a king (gatekeeper)
             if (targetPiece?.type !== 'king') {
                 next.board[tR][tC].piece = landedPiece; 
                 if (fR !== tR || fC !== tC) {
@@ -344,7 +342,28 @@ export class VibeChessAI {
             [...strides, ...leaps].forEach(([dr,dc]) => { 
                 const nr=r+dr, nc=c+dc; 
                 if(isValidSquareUtil(nr,nc) && isValidSquareUtil(nr+1,nc+1)) {
-                    moves.push({from:[r,c], to:[nr,nc], type:'move'}); 
+                    const colossusParts = ['boss-colossus-tl', 'boss-colossus-tr', 'boss-colossus-bl', 'boss-colossus-br'];
+                    const offsets = [[0,0], [0,1], [1,0], [1,1]];
+                    let isBlocked = false;
+                    for (const [or, oc] of offsets) {
+                        const targetSq = gs.board[nr+or][nc+oc];
+                        if (targetSq.item?.type === 'anvil') { isBlocked = true; break; }
+                        if (targetSq.piece && targetSq.piece.color === p.color && !colossusParts.includes(targetSq.piece.id)) { isBlocked = true; break; }
+                    }
+                    if (!isBlocked) {
+                        const stepR = Math.sign(dr); const stepC = Math.sign(dc);
+                        const dist = Math.max(Math.abs(dr), Math.abs(dc));
+                        for (let i = 1; i < dist; i++) {
+                            const ir = r + i * stepR; const ic = c + i * stepC;
+                            for (const [or, oc] of offsets) {
+                                if (!isValidSquareUtil(ir+or, ic+oc)) { isBlocked = true; break; }
+                                const pathSq = gs.board[ir+or][ic+oc];
+                                if ((pathSq.piece && !colossusParts.includes(pathSq.piece.id)) || pathSq.item?.type === 'anvil') { isBlocked = true; break; }
+                            }
+                            if (isBlocked) break;
+                        }
+                    }
+                    if (!isBlocked) moves.push({from:[r,c], to:[nr,nc], type:'move'}); 
                 }
             });
             return moves;
@@ -389,7 +408,6 @@ export class VibeChessAI {
                            }
                         }
                         possibleLandings.forEach(l => {
-                            // Check landing square: don't throw onto a king
                             if (gs.board[l[0]][l[1]].piece?.type !== 'king') {
                                 moves.push({ 
                                     from: [r, c], 
@@ -426,7 +444,6 @@ export class VibeChessAI {
                         const targetSq = gs.board[r+dir][c+dc];
                         const target = targetSq.piece;
                         if (target && target.color !== p.color) {
-                           // NEW: Don't allow king capture in non-simplified moves
                            if (simplified || target.type !== 'king') {
                                 const targetLevel = getEffectiveLevel(gs.board as any, r+dir, c+dc);
                                 if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any)) {
@@ -449,7 +466,6 @@ export class VibeChessAI {
                             const tSq = gs.board[nr][nc];
                             const isAdjacent = Math.abs(dr) <= 1 && Math.abs(dc) <= 1;
                             const isForward = (dr === dir && dc === 0);
-                            // Safety: Don't swap onto king unless it's a swap with own color (which is safe)
                             if (isAdjacent && tSq.piece) {
                                 if (tSq.piece.type !== 'king' || tSq.piece.color === p.color) {
                                     moves.push({from:[r,c], to:[nr,nc], type:'dance-swap'});
@@ -680,19 +696,17 @@ export class VibeChessAI {
             }
         }
         const king = this.findKingCoords(gs, color);
-        if (!king) return true; // Safety Fix: If king is missing, the player is effectively in check/lost
+        if (!king) return true; 
         return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white', true);
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
-        // Look for standard king first
         for (let r = 0; r < 8; r++) {
             for (let c = 0; c < 8; c++) {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === color && p.type === 'king') return { row: r, col: c };
             }
         }
-        // Then look for boss anchors in Dungeon context
         if (color === 'black') {
             for (let r = 0; r < 8; r++) {
                 for (let c = 0; c < 8; c++) {
