@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
-import { Package, Store, Trash2, UserPlus, AlertTriangle, ShieldAlert, Check } from 'lucide-react';
+import { Package, Store, Trash2, UserPlus, AlertTriangle, ShieldAlert, Check, Minus, Plus } from 'lucide-react';
 import { ITEM_METADATA, type InventoryItemType, type MarketListing } from '@/types';
 import { ItemSprite } from '@/components/evolving-chess/ItemSprite';
 import { useToast } from '@/hooks/use-toast';
@@ -43,6 +43,7 @@ export default function ProfilePage() {
   const [isListingItem, setIsListingItem] = useState<number | null>(null);
   const [selectedTypeForListing, setSelectedTypeForListing] = useState<{ type: InventoryItemType, count: number } | null>(null);
   const [listingPrice, setListingPrice] = useState(100);
+  const [listingQuantity, setListingQuantity] = useState(1);
   const [listingMode, setListingMode] = useState<'each' | 'all'>('each');
 
   // Deletion state
@@ -67,6 +68,7 @@ export default function ProfilePage() {
     setIsListingItem(slot);
     setSelectedTypeForListing(null);
     setListingPrice(100);
+    setListingQuantity(1);
     setListingMode('each');
   };
 
@@ -77,7 +79,7 @@ export default function ProfilePage() {
         itemId: selectedTypeForListing.type, 
         price: listingPrice, 
         slot: isListingItem,
-        quantity: selectedTypeForListing.count,
+        quantity: listingQuantity,
         listingType: listingMode
     };
     
@@ -86,8 +88,13 @@ export default function ProfilePage() {
     const newInv = [...(userData?.inventory || [])];
     const idx = newInv.findIndex(i => i.type === selectedTypeForListing.type);
     if (idx > -1) {
-        // Move the entire stack to the market
-        newInv.splice(idx, 1);
+        // Subtract only the chosen quantity from the inventory
+        if (newInv[idx].count > listingQuantity) {
+            newInv[idx].count -= listingQuantity;
+        } else {
+            // If listing the full amount, remove the entry
+            newInv.splice(idx, 1);
+        }
     }
 
     const userRef = doc(firestore, 'users', user.uid);
@@ -95,17 +102,18 @@ export default function ProfilePage() {
     
     if (ws?.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ 
-            type: 'market-listing-broadcast', 
-            item: selectedTypeForListing.type, 
-            price: listingPrice,
-            quantity: selectedTypeForListing.count,
-            listingType: listingMode
+            type: 'chat-message',
+            category: 'market',
+            sender: userData?.username || user.displayName || 'Player',
+            senderId: user.uid,
+            text: `[MARKET]: Listed ${listingQuantity}x ${ITEM_METADATA[selectedTypeForListing.type].name} for ${listingPrice}g (${listingMode.toUpperCase()})!`,
+            timestamp: Date.now()
         }));
     }
 
     setIsListingItem(null);
     setSelectedTypeForListing(null);
-    toast({ title: "Stall Updated", description: `${ITEM_METADATA[selectedTypeForListing.type].name} listed for ${listingPrice}g.` });
+    toast({ title: "Stall Updated", description: `${listingQuantity}x ${ITEM_METADATA[selectedTypeForListing.type].name} listed for ${listingPrice}g.` });
   };
 
   const cancelListing = (slot: number) => {
@@ -293,6 +301,39 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="space-y-2">
+                                <Label className="text-[0.6rem] uppercase text-muted-foreground px-1">Quantity to Sell</Label>
+                                <div className="flex items-center gap-4 bg-muted/20 p-2 border border-primary/20">
+                                    <Button 
+                                        variant="outline" 
+                                        size="icon" 
+                                        className="h-8 w-8" 
+                                        onClick={() => setListingQuantity(Math.max(1, listingQuantity - 1))}
+                                        disabled={listingQuantity <= 1}
+                                    >
+                                        <Minus className="h-4 w-4" />
+                                    </Button>
+                                    <input 
+                                        type="number" 
+                                        value={listingQuantity} 
+                                        onChange={(e) => setListingQuantity(Math.max(1, Math.min(Number(e.target.value), selectedTypeForListing.count)))}
+                                        className="bg-transparent border-none w-full text-white font-pixel text-center text-sm focus:outline-none"
+                                        min="1"
+                                        max={selectedTypeForListing.count}
+                                    />
+                                    <Button 
+                                        variant="outline" 
+                                        size="icon" 
+                                        className="h-8 w-8" 
+                                        onClick={() => setListingQuantity(Math.min(selectedTypeForListing.count, listingQuantity + 1))}
+                                        disabled={listingQuantity >= selectedTypeForListing.count}
+                                    >
+                                        <Plus className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                                <p className="text-[0.4rem] text-muted-foreground text-center uppercase">Selling {listingQuantity} of {selectedTypeForListing.count}</p>
+                            </div>
+
+                            <div className="space-y-2">
                                 <Label className="text-[0.6rem] uppercase text-muted-foreground px-1">Asking Price (Gold)</Label>
                                 <div className="flex items-center gap-2 bg-muted/20 p-2 border border-primary/20">
                                     <Coins className="h-4 w-4 text-yellow-500" />
@@ -305,7 +346,7 @@ export default function ProfilePage() {
                                 </div>
                             </div>
 
-                            {selectedTypeForListing.count > 1 && (
+                            {listingQuantity > 1 && (
                                 <div className="space-y-2">
                                     <Label className="text-[0.6rem] uppercase text-muted-foreground px-1">Selling Mode</Label>
                                     <div className="grid grid-cols-2 gap-2">
@@ -323,7 +364,7 @@ export default function ProfilePage() {
                                             onClick={() => setListingMode('all')}
                                         >
                                             {listingMode === 'all' && <Check className="h-3 w-3 mr-1" />}
-                                            {listingPrice}G All ({selectedTypeForListing.count})
+                                            {listingPrice}G All ({listingQuantity})
                                         </Button>
                                     </div>
                                     <p className="text-[0.4rem] text-muted-foreground italic text-center uppercase">
