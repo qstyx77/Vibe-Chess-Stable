@@ -317,12 +317,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'market-listing-broadcast':
                     wss.clients.forEach(client => {
                         if (client.readyState === WebSocket.OPEN) {
+                            const modeLabel = data.listingType === 'each' ? 'EACH' : 'ALL';
                             client.send(JSON.stringify({
                                 type: 'chat-message',
                                 message: {
                                     id: `market_${Date.now()}`,
                                     sender: 'SYSTEM',
-                                    text: `[MARKET]: ${ws.username} listed 1x ${data.item} for ${data.price}g!`,
+                                    text: `[MARKET]: ${ws.username} listed ${data.quantity}x ${data.item} for ${data.price}g (${modeLabel})!`,
                                     timestamp: Date.now(),
                                     category: 'market'
                                 }

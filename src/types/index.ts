@@ -534,6 +534,8 @@ export interface MarketListing {
   itemId: InventoryItemType;
   price: number;
   slot: number;
+  quantity: number;
+  listingType: 'each' | 'all';
 }
 
 export interface RookResurrectionResult {

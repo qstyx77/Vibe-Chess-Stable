@@ -231,9 +231,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
     }
 
     const eq: Record<string, string> = {}; 
-    // We can't easily get the board equipment here, so we rely on identify/join-tournament-queue
-    // to have sent the initial equipment. The intermission allows them to update equipment
-    // which the server will pick up when it pairs them for the next match because they identify again.
 
     wsRef.current.send(JSON.stringify({ 
         type: 'chat-message', 
@@ -268,10 +265,22 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
 
             const newBuyerInventory = [...(buyerData.inventory || [])];
             const itemIdx = newBuyerInventory.findIndex(i => i.type === listing.itemId);
-            if (itemIdx > -1) newBuyerInventory[itemIdx].count++;
-            else newBuyerInventory.push({ type: listing.itemId, count: 1 });
+            
+            const quantityPurchased = listing.listingType === 'each' ? 1 : listing.quantity;
 
-            const newSellerMarket = sellerData.marketSlots.filter((s: any) => s.slot !== slot);
+            if (itemIdx > -1) newBuyerInventory[itemIdx].count += quantityPurchased;
+            else newBuyerInventory.push({ type: listing.itemId, count: quantityPurchased });
+
+            let newSellerMarket = [...sellerData.marketSlots];
+            if (listing.listingType === 'each') {
+                const targetIdx = newSellerMarket.findIndex((s: any) => s.slot === slot);
+                newSellerMarket[targetIdx].quantity -= 1;
+                if (newSellerMarket[targetIdx].quantity <= 0) {
+                    newSellerMarket = newSellerMarket.filter((s: any) => s.slot !== slot);
+                }
+            } else {
+                newSellerMarket = newSellerMarket.filter((s: any) => s.slot !== slot);
+            }
 
             transaction.update(buyerRef, { goldBalance: newBuyerGold, inventory: newBuyerInventory });
             transaction.update(sellerRef, { goldBalance: newSellerGold, marketSlots: newSellerMarket });
@@ -289,7 +298,6 @@ export function SocialProvider({ children }: { children: React.ReactNode }) {
         return; 
     }
     
-    // We send equipment with the queue request so the server has it for pairing
     const equipment = userDataRef.current.equipment || {};
     wsRef.current.send(JSON.stringify({ 
         type: 'join-tournament-queue', 

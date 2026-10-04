@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking, useAuth } from '@/firebase';
@@ -11,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { UserInteractionPopover } from '@/components/social/UserInteractionPopover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import Link from 'next/link';
-import { Package, Store, Trash2, UserPlus, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Package, Store, Trash2, UserPlus, AlertTriangle, ShieldAlert, Check } from 'lucide-react';
 import { ITEM_METADATA, type InventoryItemType, type MarketListing } from '@/types';
 import { ItemSprite } from '@/components/evolving-chess/ItemSprite';
 import { useToast } from '@/hooks/use-toast';
@@ -28,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 
 export default function ProfilePage() {
   const { user, userData, isUserLoading, userError } = useUser();
@@ -41,7 +41,9 @@ export default function ProfilePage() {
 
   const firestore = getFirestore();
   const [isListingItem, setIsListingItem] = useState<number | null>(null);
+  const [selectedTypeForListing, setSelectedTypeForListing] = useState<{ type: InventoryItemType, count: number } | null>(null);
   const [listingPrice, setListingPrice] = useState(100);
+  const [listingMode, setListingMode] = useState<'each' | 'all'>('each');
 
   // Deletion state
   const [isDeleteAccountOpen, setIsDeleteAccountOpen] = useState(false);
@@ -63,31 +65,47 @@ export default function ProfilePage() {
 
   const listItemsForMarket = (slot: number) => {
     setIsListingItem(slot);
+    setSelectedTypeForListing(null);
+    setListingPrice(100);
+    setListingMode('each');
   };
 
-  const handleListing = (type: InventoryItemType) => {
-    if (!user || isListingItem === null) return;
+  const handleListing = () => {
+    if (!user || isListingItem === null || !selectedTypeForListing) return;
     const currentMarket = [...(userData?.marketSlots || [])];
-    const newListing: MarketListing = { itemId: type, price: listingPrice, slot: isListingItem };
+    const newListing: MarketListing = { 
+        itemId: selectedTypeForListing.type, 
+        price: listingPrice, 
+        slot: isListingItem,
+        quantity: selectedTypeForListing.count,
+        listingType: listingMode
+    };
     
     const newMarket = [...currentMarket.filter(s => s.slot !== isListingItem), newListing];
     
     const newInv = [...(userData?.inventory || [])];
-    const idx = newInv.findIndex(i => i.type === type);
+    const idx = newInv.findIndex(i => i.type === selectedTypeForListing.type);
     if (idx > -1) {
-        newInv[idx].count--;
-        if (newInv[idx].count <= 0) newInv.splice(idx, 1);
+        // Move the entire stack to the market
+        newInv.splice(idx, 1);
     }
 
     const userRef = doc(firestore, 'users', user.uid);
     updateDocumentNonBlocking(userRef, { marketSlots: newMarket, inventory: newInv });
     
     if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'market-listing-broadcast', item: type, price: listingPrice }));
+        ws.send(JSON.stringify({ 
+            type: 'market-listing-broadcast', 
+            item: selectedTypeForListing.type, 
+            price: listingPrice,
+            quantity: selectedTypeForListing.count,
+            listingType: listingMode
+        }));
     }
 
     setIsListingItem(null);
-    toast({ title: "Stall Updated", description: `${ITEM_METADATA[type].name} listed for ${listingPrice}g.` });
+    setSelectedTypeForListing(null);
+    toast({ title: "Stall Updated", description: `${ITEM_METADATA[selectedTypeForListing.type].name} listed for ${listingPrice}g.` });
   };
 
   const cancelListing = (slot: number) => {
@@ -98,8 +116,8 @@ export default function ProfilePage() {
     const newMarket = userData?.marketSlots?.filter(s => s.slot !== slot) || [];
     const newInv = [...(userData?.inventory || [])];
     const idx = newInv.findIndex(i => i.type === listing.itemId);
-    if (idx > -1) newInv[idx].count++;
-    else newInv.push({ type: listing.itemId, count: 1 });
+    if (idx > -1) newInv[idx].count += listing.quantity;
+    else newInv.push({ type: listing.itemId, count: listing.quantity });
 
     const userRef = doc(firestore, 'users', user.uid);
     updateDocumentNonBlocking(userRef, { marketSlots: newMarket, inventory: newInv });
@@ -202,8 +220,16 @@ export default function ProfilePage() {
                         <div key={slot} className="aspect-[10/12] border-2 border-dashed border-border/50 flex flex-col items-center justify-center relative bg-black/40">
                            {listing ? (
                                <div className="w-full h-full p-1 flex flex-col items-center justify-between animate-in zoom-in-95 duration-200">
-                                  <ItemSprite type={listing.itemId} size={40} />
-                                  <p className="text-[0.5rem] text-yellow-400 font-bold">{listing.price}G</p>
+                                  <div className="relative">
+                                    <ItemSprite type={listing.itemId} size={40} />
+                                    {listing.quantity > 1 && (
+                                        <span className="absolute bottom-0 right-0 bg-primary text-[0.4rem] px-0.5 font-bold">x{listing.quantity}</span>
+                                    )}
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-[0.5rem] text-yellow-400 font-bold">{listing.price}G</p>
+                                    <p className="text-[0.35rem] text-muted-foreground uppercase">{listing.listingType}</p>
+                                  </div>
                                   {isMe && (
                                       <button className="absolute -top-1 -right-1 bg-destructive text-white p-0.5" onClick={() => cancelListing(slot)}>
                                           <Trash2 className="h-2.5 w-2.5" />
@@ -255,30 +281,74 @@ export default function ProfilePage() {
                       <CardTitle className="text-sm uppercase text-primary">List Item for Sale</CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 space-y-4">
-                      <div className="flex items-center gap-4 bg-muted/20 p-3">
-                          <Coins className="h-6 w-6 text-yellow-500" />
-                          <div className="flex-grow">
-                             <p className="text-[0.6rem] uppercase text-muted-foreground">Asking Price (Gold)</p>
-                             <input 
-                                type="number" 
-                                value={listingPrice} 
-                                onChange={(e) => setListingPrice(Number(e.target.value))}
-                                className="bg-transparent border-b border-primary w-full text-white font-pixel text-sm py-1 focus:outline-none"
-                             />
-                          </div>
-                      </div>
+                      {selectedTypeForListing ? (
+                        <div className="space-y-4 animate-in fade-in duration-300">
+                            <div className="flex items-center gap-3 bg-muted/10 p-3 border border-border/30">
+                                <ItemSprite type={selectedTypeForListing.type} size={40} />
+                                <div>
+                                    <p className="text-[0.7rem] text-white uppercase font-bold">{ITEM_METADATA[selectedTypeForListing.type].name}</p>
+                                    <p className="text-[0.5rem] text-muted-foreground uppercase">Stock: {selectedTypeForListing.count}</p>
+                                </div>
+                                <Button variant="ghost" size="sm" className="ml-auto text-[0.4rem] uppercase h-6" onClick={() => setSelectedTypeForListing(null)}>Change</Button>
+                            </div>
 
-                      <p className="text-[0.6rem] uppercase text-muted-foreground px-1">Select from Inventory:</p>
-                      <ScrollArea className="h-64 pr-2">
-                         <div className="grid grid-cols-4 gap-2">
-                            {userData?.inventory?.map((item, idx) => (
-                                <button key={idx} className="aspect-[10/12] border-2 border-border flex items-center justify-center hover:border-primary transition-colors bg-black relative" onClick={() => handleListing(item.type)}>
-                                    <ItemSprite type={item.type} size={40} />
-                                    <span className="absolute bottom-0 right-0 bg-primary text-[0.45rem] px-0.5 font-bold">x{item.count}</span>
-                                </button>
-                            ))}
-                         </div>
-                      </ScrollArea>
+                            <div className="space-y-2">
+                                <Label className="text-[0.6rem] uppercase text-muted-foreground px-1">Asking Price (Gold)</Label>
+                                <div className="flex items-center gap-2 bg-muted/20 p-2 border border-primary/20">
+                                    <Coins className="h-4 w-4 text-yellow-500" />
+                                    <input 
+                                        type="number" 
+                                        value={listingPrice} 
+                                        onChange={(e) => setListingPrice(Number(e.target.value))}
+                                        className="bg-transparent border-none w-full text-white font-pixel text-sm focus:outline-none"
+                                    />
+                                </div>
+                            </div>
+
+                            {selectedTypeForListing.count > 1 && (
+                                <div className="space-y-2">
+                                    <Label className="text-[0.6rem] uppercase text-muted-foreground px-1">Selling Mode</Label>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <Button 
+                                            variant={listingMode === 'each' ? 'default' : 'outline'} 
+                                            className="h-10 text-[0.5rem] uppercase"
+                                            onClick={() => setListingMode('each')}
+                                        >
+                                            {listingMode === 'each' && <Check className="h-3 w-3 mr-1" />}
+                                            {listingPrice}G Each
+                                        </Button>
+                                        <Button 
+                                            variant={listingMode === 'all' ? 'default' : 'outline'} 
+                                            className="h-10 text-[0.5rem] uppercase"
+                                            onClick={() => setListingMode('all')}
+                                        >
+                                            {listingMode === 'all' && <Check className="h-3 w-3 mr-1" />}
+                                            {listingPrice}G All ({selectedTypeForListing.count})
+                                        </Button>
+                                    </div>
+                                    <p className="text-[0.4rem] text-muted-foreground italic text-center uppercase">
+                                        {listingMode === 'each' ? "Buyer buys 1 at a time." : "Buyer must buy the whole stack."}
+                                    </p>
+                                </div>
+                            )}
+
+                            <Button className="w-full h-12 text-[0.7rem] uppercase mt-2" onClick={handleListing}>Confirm Listing</Button>
+                        </div>
+                      ) : (
+                        <>
+                            <p className="text-[0.6rem] uppercase text-muted-foreground px-1">Select from Inventory:</p>
+                            <ScrollArea className="h-64 pr-2">
+                                <div className="grid grid-cols-4 gap-2">
+                                    {userData?.inventory?.map((item, idx) => (
+                                        <button key={idx} className="aspect-[10/12] border-2 border-border flex flex-col items-center justify-center hover:border-primary transition-colors bg-black relative" onClick={() => setSelectedTypeForListing(item)}>
+                                            <ItemSprite type={item.type} size={40} />
+                                            <span className="absolute bottom-0 right-0 bg-primary text-[0.45rem] px-0.5 font-bold">x{item.count}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                        </>
+                      )}
                       
                       <Button variant="ghost" className="w-full text-[0.6rem] uppercase h-8" onClick={() => setIsListingItem(null)}>Cancel</Button>
                   </CardContent>

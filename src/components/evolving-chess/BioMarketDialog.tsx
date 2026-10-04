@@ -40,7 +40,7 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
   const { userData: buyerData } = useUser();
   const { buyItemFromMarket } = useSocial();
   
-  const [confirmBuy, setConfirmBuy] = useState<{ isOpen: boolean, slot: number, price: number, itemName: string } | null>(null);
+  const [confirmBuy, setConfirmBuy] = useState<{ isOpen: boolean, slot: number, price: number, itemName: string, quantity: number, mode: 'each' | 'all' } | null>(null);
 
   const sellerRef = useMemoFirebase(() => {
     if (!sellerId) return null;
@@ -51,8 +51,8 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
 
   const marketSlots = sellerData?.marketSlots || [];
 
-  const handleBuyClick = (slot: number, price: number, itemName: string) => {
-    setConfirmBuy({ isOpen: true, slot, price, itemName });
+  const handleBuyClick = (slot: number, price: number, itemName: string, quantity: number, mode: 'each' | 'all') => {
+    setConfirmBuy({ isOpen: true, slot, price, itemName, quantity, mode });
   };
 
   const confirmPurchase = () => {
@@ -92,22 +92,28 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
                      return (
                         <Card key={slot.slot} className="border-2 border-border/50 bg-muted/5">
                             <CardContent className="p-3 flex items-center gap-4">
-                                <div className="bg-black p-2 border border-border/30">
+                                <div className="bg-black p-2 border border-border/30 relative">
                                     <ItemSprite type={slot.itemId} size={32} />
+                                    {slot.quantity > 1 && (
+                                        <span className="absolute -bottom-1 -right-1 bg-primary text-[0.4rem] px-0.5 font-bold">x{slot.quantity}</span>
+                                    )}
                                 </div>
                                 <div className="flex-grow">
                                     <p className="text-[0.7rem] text-white uppercase">{meta.name}</p>
                                     <p className="text-[0.45rem] text-muted-foreground leading-tight italic mt-0.5">{meta.description}</p>
-                                    <div className="flex items-center gap-1 mt-1.5">
-                                        <Coins className="h-3 w-3 text-yellow-500" />
-                                        <span className={cn("text-[0.65rem]", canAfford ? "text-yellow-400" : "text-destructive")}>{slot.price}G</span>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        <div className="flex items-center gap-1">
+                                            <Coins className="h-3 w-3 text-yellow-500" />
+                                            <span className={cn("text-[0.65rem]", canAfford ? "text-yellow-400" : "text-destructive")}>{slot.price}G</span>
+                                        </div>
+                                        <span className="text-[0.45rem] px-1 bg-muted text-muted-foreground uppercase font-bold">{slot.listingType}</span>
                                     </div>
                                 </div>
                                 <Button 
                                     size="sm" 
                                     variant={canAfford ? "default" : "outline"} 
                                     className="h-8 text-[0.5rem] uppercase"
-                                    onClick={() => handleBuyClick(slot.slot, slot.price, meta.name)}
+                                    onClick={() => handleBuyClick(slot.slot, slot.price, meta.name, slot.quantity, slot.listingType)}
                                     disabled={!canAfford}
                                 >
                                     Buy
@@ -135,7 +141,11 @@ export function BioMarketDialog({ isOpen, onOpenChange, sellerId, username }: Bi
             <AlertDialogHeader>
                 <AlertDialogTitle className="text-yellow-500 uppercase text-sm">Confirm Purchase?</AlertDialogTitle>
                 <AlertDialogDescription className="text-white text-[0.65rem] uppercase leading-relaxed">
-                    Are you sure you want to spend <span className="text-yellow-400">{confirmBuy?.price} Gold</span> to buy <span className="text-primary">{confirmBuy?.itemName}</span> from {username}?
+                    {confirmBuy?.mode === 'each' ? (
+                        <>Spend <span className="text-yellow-400">{confirmBuy?.price} Gold</span> to buy <span className="text-primary">1x {confirmBuy?.itemName}</span> from {username}?</>
+                    ) : (
+                        <>Spend <span className="text-yellow-400">{confirmBuy?.price} Gold</span> to buy the entire bundle of <span className="text-primary">{confirmBuy?.quantity}x {confirmBuy?.itemName}</span> from {username}?</>
+                    )}
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="mt-4 gap-2">
