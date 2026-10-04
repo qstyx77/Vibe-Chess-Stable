@@ -1,4 +1,4 @@
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move, LastMoveInfo } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getActiveSets } from './utils';
 import { isPieceInvulnerableToAttack, isSquareAttacked, isKingInCheck } from './validation';
@@ -8,10 +8,9 @@ export function getPossibleMoves(
   board: BoardState,
   fromSquare: AlgebraicSquare,
   enPassantTargetSquare: AlgebraicSquare | null,
-  lastMovedPieceType?: PieceType | null,
-  lastMovedPieceHeldItem?: InventoryItemType | null,
-  lastPieceL?: number | null,
-  lastMovedPieceLevel?: number | null
+  lastMoveWhite: LastMoveInfo | null,
+  lastMoveBlack: LastMoveInfo | null,
+  lastMoveGlobal: LastMoveInfo | null
 ): AlgebraicSquare[] {
   const { row, col } = algebraicToCoords(fromSquare);
   const piece = board[row][col].piece;
@@ -23,9 +22,9 @@ export function getPossibleMoves(
     piece,
     true,
     enPassantTargetSquare,
-    lastMovedPieceType,
-    lastMovedPieceHeldItem,
-    lastMovedPieceLevel,
+    lastMoveWhite,
+    lastMoveBlack,
+    lastMoveGlobal,
     false // explicitly not simplified for UI move generation
   );
 
@@ -42,18 +41,18 @@ export function getPossibleMoves(
       { from: fromSquare, to, type: moveType },
       enPassantTargetSquare,
       undefined,
-      lastMovedPieceType,
-      lastMovedPieceHeldItem,
-      lastMovedPieceLevel
+      lastMoveWhite,
+      lastMoveBlack,
+      lastMoveGlobal
     );
     
     return !isKingInCheck(
       newBoard,
       piece.color,
       enPassantTargetSet,
-      piece.type,
-      piece.heldItem,
-      piece.level
+      lastMoveWhite,
+      lastMoveBlack,
+      lastMoveGlobal
     );
   });
 }
@@ -64,9 +63,9 @@ export function getPossibleMovesInternal(
     piece: Piece,
     checkKingSafety: boolean,
     enPassantTargetSquare: AlgebraicSquare | null,
-    lastMovedPieceType?: PieceType | null,
-    lastMovedPieceHeldItem?: InventoryItemType | null,
-    lastMovedPieceLevel?: number | null,
+    lastMoveWhite: LastMoveInfo | null,
+    lastMoveBlack: LastMoveInfo | null,
+    lastMoveGlobal: LastMoveInfo | null,
     simplified: boolean = false
 ): AlgebraicSquare[] {
   if (!piece) return [];
@@ -78,14 +77,25 @@ export function getPossibleMovesInternal(
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
   if (piece.type === 'mimic') {
-    const patternType = (lastMovedPieceType && lastMovedPieceType !== 'mimic') ? lastMovedPieceType : 'pawn';
-    const virtualPiece = { ...piece, type: patternType };
-    
-    if (piece.heldItem === 'mirror_mask' || (piece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem)) {
-        virtualPiece.heldItem = lastMovedPieceHeldItem || null;
+    let activeLastMove = lastMoveGlobal;
+    if (piece.heldItem === 'mirror_mask') {
+        activeLastMove = pieceColor === 'white' ? lastMoveBlack : lastMoveWhite;
+    } else if (piece.heldItem === 'mimic_blade') {
+        activeLastMove = pieceColor === 'white' ? lastMoveWhite : lastMoveBlack;
     }
     
-    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, null, null, null, simplified);
+    const patternType = (activeLastMove?.type && activeLastMove.type !== 'mimic') ? activeLastMove.type : 'pawn';
+    const virtualPiece = { ...piece, type: patternType };
+    
+    if (piece.heldItem === 'mirror_mask') {
+        virtualPiece.heldItem = (pieceColor === 'white' ? lastMoveBlack?.item : lastMoveWhite?.item) || null;
+    } else if (piece.heldItem === 'mimic_blade') {
+        virtualPiece.heldItem = (pieceColor === 'white' ? lastMoveWhite?.item : lastMoveBlack?.item) || null;
+    } else if (activeLastMove?.item) {
+        virtualPiece.heldItem = activeLastMove.item;
+    }
+    
+    return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, simplified);
   }
 
   if (piece.id.startsWith('boss-colossus')) {
@@ -118,7 +128,7 @@ export function getPossibleMovesInternal(
     return possible;
   }
 
-  const hasMagicScroll = (piece.heldItem === 'wind_scroll' || piece.heldItem === 'life_leach' || piece.heldItem === 'summon_anvil' || piece.heldItem === 'shield_scroll' || piece.heldItem === 'rally_scroll' || piece.heldItem === 'antidote' || piece.heldItem === 'detonation_scroll' || piece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll' || piece.heldItem === 'kings_decree' || piece.heldItem === 'ice_blast' || piece.heldItem === 'soul_harvest' || piece.heldItem === 'earthquake_scroll' || piece.heldItem === 'demonic_possession' || piece.heldItem === 'heavy_rain' || piece.heldItem === 'trap_net' || piece.heldItem === 'oil_slick');
+  const hasMagicScroll = (piece.heldItem === 'wind_scroll' || piece.heldItem === 'life_leach' || piece.heldItem === 'summon_anvil' || piece.heldItem === 'shield_scroll' || piece.heldItem === 'rally_scroll' || piece.heldItem === 'antidote' || piece.heldItem === 'detonation_scroll' || piece.heldItem === 'swap_scroll' || piece.heldItem === 'ice_scroll' || piece.heldItem === 'resurrection_scroll' || piece.heldItem === 'faith_scroll' || piece.heldItem === 'kings_decree' || piece.heldItem === 'ice_blast' || piece.heldItem === 'soul_harvest' || piece.heldItem === 'earthquake_scroll' || piece.heldItem === 'demonic_possession' || piece.heldItem === 'heavy_rain' || piece.heldItem === 'trap_net' || piece.heldItem === 'oil_slick' || piece.heldItem === 'lose_faith_scroll' || piece.heldItem === 'glacial_ray' || piece.heldItem === 'burning_ray');
   const hasSelfAbility = ((piece.type === 'knight' || piece.type === 'hero' || piece.type === 'archer') && currentLevel >= 5);
   
   if (!silenced && (hasMagicScroll || hasSelfAbility || piece.type === 'myco_mage')) possible.push(fromSquare);
@@ -277,7 +287,7 @@ export function getPossibleMovesInternal(
                 if (!isValidSquare(midR, midC) || board[midR][midC].piece || (board[midR][midC].item && board[midR][midC].item?.type === 'anvil') ) continue;
                 const targetPieceAtDest = board[toR][toC].piece;
                 const isCheckCapture = targetPieceAtDest && targetPieceAtDest.color === opponentColor;
-                if (checkKingSafety && isSquareAttacked(board, coordsToAlgebraic(midR, midC), opponentColor, false, isCheckCapture ? finalTargetSquareAlgebraic : null, enPassantTargetSquare )) continue;
+                if (checkKingSafety && isSquareAttacked(board, coordsToAlgebraic(midR, midC), opponentColor, false, isCheckCapture ? finalTargetSquareAlgebraic : null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal )) continue;
             }
             const targetPiece = board[toR][toC].piece;
             const targetLevel = getEffectiveLevel(board, toR, toC);
@@ -308,9 +318,9 @@ export function getPossibleMovesInternal(
             if ((krSquare?.piece?.type === 'rook' || krSquare?.piece?.type === 'palace') && !krSquare.piece.hasMoved) {
                 if (!board[kingRow][5].piece && (!board[kingRow][5].item || board[kingRow][5].item?.type === 'shroom') &&
                     !board[kingRow][6].piece && (!board[kingRow][6].item || board[kingRow][6].item?.type === 'shroom')) {
-                    if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
-                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, false, null, enPassantTargetSquare) &&
-                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, false, null, enPassantTargetSquare)) {
+                    if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 5), opponentColor, false, null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 6), opponentColor, false, null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal)) {
                         possible.push(coordsToAlgebraic(kingRow, 6));
                     }
                 }
@@ -320,9 +330,9 @@ export function getPossibleMovesInternal(
                 if (!board[kingRow][1].piece && (!board[kingRow][1].item || board[kingRow][1].item?.type === 'shroom') &&
                     !board[kingRow][2].piece && (!board[kingRow][2].item || board[kingRow][2].item?.type === 'shroom') &&
                     !board[kingRow][3].piece && (!board[kingRow][3].item || board[kingRow][3].item?.type === 'shroom')) {
-                    if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare) &&
-                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, false, null, enPassantTargetSquare) &&
-                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, false, null, enPassantTargetSquare)) {
+                    if (!isSquareAttacked(board, coordsToAlgebraic(kingRow, 4), opponentColor, false, null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 3), opponentColor, false, null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal) &&
+                        !isSquareAttacked(board, coordsToAlgebraic(kingRow, 2), opponentColor, false, null, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal)) {
                         possible.push(coordsToAlgebraic(kingRow, 2));
                     }
                 }

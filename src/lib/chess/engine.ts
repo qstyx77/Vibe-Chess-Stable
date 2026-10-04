@@ -1,4 +1,4 @@
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, ItemType, SquareState, RookResurrectionResult } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, ItemType, SquareState, RookResurrectionResult, LastMoveInfo } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
 import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide } from './effects';
@@ -219,7 +219,16 @@ export function processRookResurrectionCheck(
   };
 }
 
-export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: AlgebraicSquare | null, graveyard?: { white: Piece[], black: Piece[] }, lastMovedPieceType?: PieceType | null, lastMovedPieceHeldItem?: InventoryItemType | null, lastMovedPieceLevel?: number | null, didOpponentCaptureLastTurn?: boolean): ApplyMoveResult {
+export function applyMove(
+  board: BoardState, 
+  move: Move, 
+  enPassantTargetSquare: AlgebraicSquare | null, 
+  graveyard?: { white: Piece[], black: Piece[] }, 
+  lastMoveWhite?: LastMoveInfo | null,
+  lastMoveBlack?: LastMoveInfo | null,
+  lastMoveGlobal?: LastMoveInfo | null,
+  didOpponentCaptureLastTurn?: boolean
+): ApplyMoveResult {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
   
   const { row: fromRow, col: fromCol } = algebraicToCoords(move.from);
@@ -264,6 +273,21 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
     return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
   }
 
+  let effectiveHeldItem = movingPiece.heldItem;
+  if (movingPiece.type === 'mimic') {
+    const myColor = movingPiece.color;
+    let activeLastMove = lastMoveGlobal;
+    if (movingPiece.heldItem === 'mirror_mask') {
+      activeLastMove = myColor === 'white' ? lastMoveBlack : lastMoveWhite;
+    } else if (movingPiece.heldItem === 'mimic_blade') {
+      activeLastMove = myColor === 'white' ? lastMoveWhite : lastMoveBlack;
+    }
+    
+    if (activeLastMove?.item) {
+      effectiveHeldItem = activeLastMove.item;
+    }
+  }
+
   const triggerDefiantSparks = (targetR: number, targetC: number, victimColor: PlayerColor) => {
     for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
@@ -283,13 +307,6 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
         }
     }
   };
-
-  let effectiveHeldItem = movingPiece.heldItem;
-  if (movingPiece.type === 'mimic') {
-    if (movingPiece.heldItem === 'mirror_mask' || (movingPiece.heldItem === 'mimic_blade' && lastMovedPieceHeldItem)) {
-      effectiveHeldItem = lastMovedPieceHeldItem || null;
-    }
-  }
 
   if (targetItem?.type === 'anvil' && movingPiece.heldItem === 'crowbar') {
       newBoard[toRow][toCol].item = null;
@@ -623,7 +640,7 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
 
   if (move.type === 'kings-decree') {
     const { row: pr, col: pc } = algebraicToCoords(move.to);
-    if (newBoard[pr][pc].piece && newBoard[pr][pc].piece!.type === 'pawn' && newBoard[pr][pc].piece!.level === 1) {
+    if (newBoard[pr][pc].piece && FRONTLINE_TYPES.includes(newBoard[pr][pc].piece!.type) && newBoard[pr][pc].piece!.level === 1) {
       newBoard[pr][pc].piece!.type = 'commander';
     }
     newBoard[fromRow][fromCol].piece!.heldItem = null;
@@ -827,8 +844,18 @@ export function applyMove(board: BoardState, move: Move, enPassantTargetSquare: 
   }
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
-  if (pieceToLand.type === 'mimic' && pieceToLand.heldItem === 'mirror_mask' && lastMovedPieceHeldItem) {
-      pieceToLand.heldItem = lastMovedPieceHeldItem;
+  if (pieceToLand.type === 'mimic') {
+    const myColor = pieceToLand.color;
+    let activeLastMove = lastMoveGlobal;
+    if (pieceToLand.heldItem === 'mirror_mask') {
+      activeLastMove = myColor === 'white' ? lastMoveBlack : lastMoveWhite;
+    } else if (pieceToLand.heldItem === 'mimic_blade') {
+      activeLastMove = myColor === 'white' ? lastMoveWhite : lastMoveBlack;
+    }
+    
+    if (activeLastMove?.item) {
+      pieceToLand.heldItem = activeLastMove.item;
+    }
   }
 
   const backRankIdx = pieceToLand.color === 'white' ? 0 : 7;

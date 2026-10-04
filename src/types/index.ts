@@ -185,7 +185,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'cyanide_pill': { name: 'Cyanide Pill', description: 'Suicide capsule. Capturing piece gains 0 levels. Consumed on capture.', isConsumable: true, rarity: 'common' },
   'demonic_possession': { name: 'Demonic Possession', description: 'Consumable scroll. Gain +5 Levels immediately, but piece is obliterated after 3 turns.', isConsumable: true, rarity: 'rare' },
   'mushroom_magnet': { name: 'Shroom Magnet', description: 'Accessory. On move/capture, pulls all Shrooms within 2 spaces 1 square closer.', isConsumable: false, rarity: 'common' },
-  'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the held item of the last piece that moved.', isConsumable: false, rarity: 'rare' },
+  'mimic_blade': { name: 'Mimic Blade', description: 'Mimic only. Replicates the item and movement of the last ALLIED piece that moved.', isConsumable: false, rarity: 'rare' },
   'thieves_gloves': { name: 'Thieves\' Gloves', description: 'Glove. 50% chance to steal an enemy\'s equipment upon capture.', isConsumable: false, rarity: 'uncommon' },
   'lead_boots': { name: 'Lead Boots', description: 'Passive. Equipped unit cannot be moved by Push-Back or Gravity effects. [HEAVY GUARD SET: w/ Blue Plate, Weighted Helm. Bonus: Frontline Push/Pull immune.]', isConsumable: false, rarity: 'common' },
   'heavy_rain': { name: 'Heavy Rain Scroll', description: 'Consumable (L3+). Randomly drops 3 Anvils on the board.', isConsumable: true, rarity: 'uncommon' },
@@ -195,7 +195,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'spore_pouch': { name: 'Spore Pouch', description: 'Common bag. Frontline only. 25% chance to spawn a Shroom on vacated square. [ALCHEMIST SET: w/ Antidote, Sclerotia. Bonus: Double Shrooms.]', isConsumable: false, rarity: 'common' },
   'kings_ransom': { name: 'King\'s Ransom', description: 'Rare amulet. King only. Saves King from Checkmate once by exiling him to back rank at L1.', isConsumable: true, rarity: 'rare' },
   'dancers_ribbon': { name: 'Dancer\'s Ribbon', description: 'Uncommon ribbon. Dancer only. The Dance (KS 1) can now swap places with Anvils.', isConsumable: false, rarity: 'uncommon' },
-  'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Mimic also copies the mimicked piece\'s Item.', isConsumable: false, rarity: 'rare' },
+  'mirror_mask': { name: 'Mirror Mask', description: 'Rare mask. Mimic only. Replicates the item and movement of the last ENEMY piece that moved.', isConsumable: false, rarity: 'rare' },
   'oil_slick': { name: 'Oil Slick', description: 'Consumable scroll. Targets a 3x3 area. Any unit or Anvil moving into these squares slides for 3 turns.', isConsumable: true, rarity: 'uncommon' },
   'gamblers_coin': { name: 'Gambler\'s Coin', description: 'Passive. Non-Royal. Captures have a 50% chance to grant double levels, but a 50% chance to grant 0 levels.', isConsumable: false, rarity: 'uncommon' },
   'sweet_revenge': { name: 'Sweet Revenge', description: 'Common Dagger. Grants +1 extra level on capture if the opponent captured a piece in their previous turn.', isConsumable: false, rarity: 'common' },
@@ -272,6 +272,12 @@ export const ITEM_SETS: Record<string, ItemSet> = {
     bonus: "Reaper's Tithe: Captured enemy units return to the graveyard at Level 1. Their extra levels are distributed randomly among units wearing items of this set."
   }
 };
+
+export interface LastMoveInfo {
+  type: PieceType | null;
+  item: InventoryItemType | null;
+  level: number | null;
+}
 
 export interface Piece {
   id: string;
@@ -418,8 +424,9 @@ export interface GameSnapshot {
   lastMoveTo: AlgebraicSquare | null;
   gameMoveCounter: number;
   enPassantTargetSquare: AlgebraicSquare | null;
-  lastMovedPieceHeldItem?: InventoryItemType | null;
-  lastMovedPieceLevel?: number | null;
+  lastMoveWhite: LastMoveInfo | null;
+  lastMoveBlack: LastMoveInfo | null;
+  lastMoveGlobal: LastMoveInfo | null;
 
   isAwaitingPawnSacrifice: boolean;
   playerToSacrificePawn: PlayerColor | null;
@@ -503,10 +510,11 @@ export interface AIGameState {
   shroomSpawnCounter?: number;
   nextShroomSpawnTurn?: number;
   necroResurrectionCounter?: number;
-  lastMovedPieceType?: PieceType | null;
-  lastMovedPieceHeldItem?: InventoryItemType | null;
-  lastMovedPieceLevel?: number | null;
+  lastMoveWhite: LastMoveInfo | null;
+  lastMoveBlack: LastMoveInfo | null;
+  lastMoveGlobal: LastMoveInfo | null;
   didOpponentCaptureLastTurn?: boolean;
+  positionHistory: string[];
 }
 
 export type MessageCategory = 'battle' | 'social' | 'log' | 'market';

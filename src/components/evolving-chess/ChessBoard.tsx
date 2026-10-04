@@ -1,7 +1,7 @@
 'use client';
 
 import React, { memo } from 'react';
-import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType } from '@/types';
+import type { BoardState, AlgebraicSquare, PlayerColor, ViewMode, Piece, Effect, InventoryItemType, LastMoveInfo } from '@/types';
 import { ChessSquare } from './ChessSquare';
 import { cn } from '@/lib/utils';
 import { algebraicToCoords, getEffectiveLevel, isItemValidForPiece, isSilenced, coordsToAlgebraic, FRONTLINE_TYPES, isValidSquare } from '@/lib/chess-utils';
@@ -55,6 +55,9 @@ interface ChessBoardProps {
   isSelectingSporeBombShroom?: boolean;
   isAwaitingOilSlickTarget?: boolean;
   isAwaitingRayTarget?: 'glacial' | 'burning' | null;
+  lastMoveWhite: LastMoveInfo | null;
+  lastMoveBlack: LastMoveInfo | null;
+  lastMoveGlobal: LastMoveInfo | null;
 }
 
 const MAGIC_BURST_COLORS: Record<string, string> = {
@@ -200,7 +203,10 @@ export const ChessBoard = memo(({
   isSelectingTeleportShroom,
   isSelectingSporeBombShroom,
   isAwaitingOilSlickTarget,
-  isAwaitingRayTarget
+  isAwaitingRayTarget,
+  lastMoveWhite,
+  lastMoveBlack,
+  lastMoveGlobal
 }: ChessBoardProps) => {
 
   const visuallyFlipBoardForLogic = viewMode === 'flipping' && playerColor === 'black';
@@ -209,7 +215,18 @@ export const ChessBoard = memo(({
   const hasTremble = effects.some(e => e.type === 'tremble');
 
   const myArchers = boardState.flat()
-    .filter(sq => sq.piece && sq.piece.color === currentPlayerColor && sq.piece.type === 'archer')
+    .filter(sq => {
+        const p = sq.piece;
+        if (!p || p.color !== currentPlayerColor) return false;
+        if (p.type === 'archer') return true;
+        if (p.type === 'mimic') {
+           let lastInfo = lastMoveGlobal;
+           if (p.heldItem === 'mirror_mask') lastInfo = currentPlayerColor === 'white' ? lastMoveBlack : lastMoveWhite;
+           else if (p.heldItem === 'mimic_blade') lastInfo = currentPlayerColor === 'white' ? lastMoveWhite : lastMoveBlack;
+           return lastInfo?.type === 'archer';
+        }
+        return false;
+    })
     .map(sq => sq.piece!);
   const maxArcherLevel = myArchers.length > 0 ? Math.max(...myArchers.map(a => a.level || 1)) : 0;
 
@@ -259,7 +276,7 @@ export const ChessBoard = memo(({
           if (isLocalActionTurn && isAwaitingDanceTarget) {
             const dancerPiece = dancerToDance ? boardState[algebraicToCoords(dancerToDance).row][algebraicToCoords(dancerToDance).col].piece : null;
             if (!dancerToDance) {
-                if (currentSquareData.piece?.type === 'dancer' && currentSquareData.piece.color === currentPlayerColor) isDanceTarget = true;
+                if (currentSquareData.piece?.color === currentPlayerColor && (currentSquareData.piece?.type === 'dancer' || currentSquareData.piece?.type === 'mimic')) isDanceTarget = true;
             } else {
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
                 const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;

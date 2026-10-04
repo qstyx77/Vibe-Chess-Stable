@@ -1,4 +1,4 @@
-import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType } from '@/types';
+import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType, LastMoveInfo } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, findKing, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
 export class VibeChessAI {
@@ -135,9 +135,9 @@ export class VibeChessAI {
         const targetItem = targetSq.item;
         let captureCount = 0;
 
-        next.lastMovedPieceType = movingPiece.type;
-        next.lastMovedPieceHeldItem = movingPiece.heldItem;
-        next.lastMovedPieceLevel = movingPiece.level;
+        const moveInfo: LastMoveInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
+        if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
+        next.lastMoveGlobal = moveInfo;
 
         if (move.type === 'grapple-throw') {
             if (targetPiece?.type === 'king') {
@@ -299,7 +299,10 @@ export class VibeChessAI {
             capturedPieces: { 
                 white: [...whiteCaps], 
                 black: [...blackCaps] 
-            }
+            },
+            lastMoveWhite: gs.lastMoveWhite ? { ...gs.lastMoveWhite } : null,
+            lastMoveBlack: gs.lastMoveBlack ? { ...gs.lastMoveBlack } : null,
+            lastMoveGlobal: gs.lastMoveGlobal ? { ...gs.lastMoveGlobal } : null
         };
     }
 
@@ -331,8 +334,25 @@ export class VibeChessAI {
         const oppColor = p.color === 'white' ? 'black' : 'white';
 
         if (p.type === 'mimic') {
-            const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
+            const myColor = p.color;
+            let activeLastMove = gs.lastMoveGlobal;
+            if (p.heldItem === 'mirror_mask') {
+                activeLastMove = myColor === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite;
+            } else if (p.heldItem === 'mimic_blade') {
+                activeLastMove = myColor === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack;
+            }
+            
+            const patternType = (activeLastMove?.type && activeLastMove.type !== 'mimic') ? activeLastMove.type : 'pawn';
             const virtualPiece = { ...p, type: patternType };
+            
+            if (p.heldItem === 'mirror_mask') {
+                virtualPiece.heldItem = (myColor === 'white' ? gs.lastMoveBlack?.item : gs.lastMoveWhite?.item) || null;
+            } else if (p.heldItem === 'mimic_blade') {
+                virtualPiece.heldItem = (myColor === 'white' ? gs.lastMoveWhite?.item : gs.lastMoveBlack?.item) || null;
+            } else if (activeLastMove?.item) {
+                virtualPiece.heldItem = activeLastMove.item;
+            }
+            
             return this.generatePieceMoves(gs, r, c, virtualPiece, simplified); 
         }
         
@@ -748,7 +768,14 @@ export class VibeChessAI {
                             if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
                     } else if (p.type === 'mimic') {
-                        const patternType = (gs.lastMovedPieceType && gs.lastMovedPieceType !== 'mimic') ? gs.lastMovedPieceType : 'pawn';
+                        const myColor = p.color;
+                        let activeLastMove = gs.lastMoveGlobal;
+                        if (p.heldItem === 'mirror_mask') {
+                            activeLastMove = myColor === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite;
+                        } else if (p.heldItem === 'mimic_blade') {
+                            activeLastMove = myColor === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack;
+                        }
+                        const patternType = (activeLastMove?.type && activeLastMove.type !== 'mimic') ? activeLastMove.type : 'pawn';
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType }, true);
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {

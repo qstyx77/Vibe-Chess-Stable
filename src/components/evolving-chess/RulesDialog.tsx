@@ -103,6 +103,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <SubRule title="Infiltrator">
                     <RuleText>A deadly assassin that moves and captures forward or diagonally. Captures by an Infiltrator 'Obliterate' the target, removing it from the game entirely (no resurrection). Reaching the back rank results in an instant win.</RuleText>
                   </SubRule>
+                  <SubRule title="The Mimic">
+                    <RuleText>Mimics replicate the movement pattern and held item of the last piece that moved. Replicating an ally vs enemy can be controlled with specialized gear.</RuleText>
+                  </SubRule>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
@@ -144,9 +147,13 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </RuleSection>
                 <RuleSection title="Dungeon Unlocks">
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
-                  <RuleText>• Mimic: Replicates the movement pattern of the piece that moved before it.</RuleText>
+                  <RuleText>• Mimic: Replicates the movement pattern and item of the absolute last piece that moved (if itemless).</RuleText>
                   <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free move forward or swap with an allied or enemy piece.</RuleText>
                   <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level).</RuleText>
+                </RuleSection>
+                <RuleSection title="Mimic Specialization">
+                   <RuleText>• Mimic Blade: Replicates the pattern and item of the last ALLIED unit that moved. Perfect for mirroring your Hero's strengths.</RuleText>
+                   <RuleText>• Mirror Mask: Replicates the pattern and item of the last ENEMY unit that moved. Turns the Mimic into the ultimate counter-unit.</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>
