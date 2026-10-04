@@ -25,11 +25,10 @@ export function getPossibleMoves(
     lastMoveWhite,
     lastMoveBlack,
     lastMoveGlobal,
-    false // explicitly not simplified for UI move generation
+    false
   );
 
   return pseudoMoves.filter(to => {
-    // Determine the type for the legality check simulation
     const targetP = board[algebraicToCoords(to).row][algebraicToCoords(to).col].piece;
     let moveType: Move['type'] = 'move';
     if (targetP && targetP.color === piece.color) moveType = 'swap';
@@ -77,24 +76,22 @@ export function getPossibleMovesInternal(
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
   if (piece.type === 'mimic') {
-    let activeLastMove = lastMoveGlobal;
-    if (piece.heldItem === 'mirror_mask') {
-        activeLastMove = pieceColor === 'white' ? lastMoveBlack : lastMoveWhite;
-    } else if (piece.heldItem === 'mimic_blade') {
-        activeLastMove = pieceColor === 'white' ? lastMoveWhite : lastMoveBlack;
-    }
-    
-    const patternType = (activeLastMove?.type && activeLastMove.type !== 'mimic') ? activeLastMove.type : 'pawn';
+    // MOVEMENT: Always source pattern from the absolute last piece that moved globally
+    const patternType = (lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic') ? lastMoveGlobal.type : 'pawn';
     const virtualPiece = { ...piece, type: patternType };
     
+    // ITEM: Specialized mimicry track selection
+    let mimickedItem: InventoryItemType | null = null;
     if (piece.heldItem === 'mirror_mask') {
-        virtualPiece.heldItem = (pieceColor === 'white' ? lastMoveBlack?.item : lastMoveWhite?.item) || null;
+        const enemyLast = pieceColor === 'white' ? lastMoveBlack : lastMoveWhite;
+        mimickedItem = enemyLast?.item || null;
     } else if (piece.heldItem === 'mimic_blade') {
-        virtualPiece.heldItem = (pieceColor === 'white' ? lastMoveWhite?.item : lastMoveBlack?.item) || null;
-    } else if (activeLastMove?.item) {
-        virtualPiece.heldItem = activeLastMove.item;
+        const allyLast = pieceColor === 'white' ? lastMoveWhite : lastMoveBlack;
+        mimickedItem = allyLast?.item || null;
     }
+    // Itemless mimics copy no items
     
+    virtualPiece.heldItem = mimickedItem;
     return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, simplified);
   }
 
@@ -122,7 +119,10 @@ export function getPossibleMovesInternal(
                 }
                 if (block1.item?.type === 'anvil' || block2.item?.type === 'anvil' || block3.item?.type === 'anvil' || block4.item?.type === 'anvil') { pathBlocked = true; break; }
             }
-            if (!pathBlocked) possible.push(coordsToAlgebraic(nr, nc));
+            if (!pathBlocked) {
+                const targetPiece = board[nr][nc].piece;
+                if (targetPiece?.type !== 'king') possible.push(coordsToAlgebraic(nr, nc));
+            }
         }
     }
     return possible;
@@ -159,8 +159,7 @@ export function getPossibleMovesInternal(
           const targetSq = board[nr][nc];
           if (targetSq.item?.type === 'anvil') break;
           if (!targetSq.piece || targetSq.piece.color !== pieceColor) {
-            // Hard block: don't target king with anvil push
-            if (simplified || targetSq.piece?.type !== 'king') {
+            if (targetSq.piece?.type !== 'king') {
                 possible.push(coordsToAlgebraic(nr, nc));
             }
           }
@@ -179,8 +178,7 @@ export function getPossibleMovesInternal(
         if (targetSq.item?.type === 'anvil') return; 
         const targetP = targetSq.piece;
         if (!targetP || targetP.color !== pieceColor) {
-          // Hard block: don't target king
-          if (simplified || targetP?.type !== 'king') {
+          if (targetP?.type !== 'king') {
             if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board)) {
                 possible.push(coordsToAlgebraic(nr, nc));
             }
@@ -202,15 +200,13 @@ export function getPossibleMovesInternal(
               const targetSq = board[nr][nc];
               if (targetSq.item?.type === 'anvil') return; 
               const target = targetSq.piece;
+              if (target?.type === 'king') return;
               if (!target) possible.push(coordsToAlgebraic(nr, nc));
               else if (target.color !== pieceColor) {
-                  // Hard block: don't target king
-                  if (simplified || target.type !== 'king') {
-                    const targetLevel = getEffectiveLevel(board, nr, nc);
-                    if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) {
-                        possible.push(coordsToAlgebraic(nr, nc));
-                    }
-                  }
+                const targetLevel = getEffectiveLevel(board, nr, nc);
+                if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) {
+                    possible.push(coordsToAlgebraic(nr, nc));
+                }
               }
           }
       });
@@ -218,7 +214,7 @@ export function getPossibleMovesInternal(
     if (isValidSquare(fromRow + dir, fromCol)) {
         const tSq = board[fromRow + dir][fromCol];
         if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
-            possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
+            if (tSq.piece?.type !== 'king') possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
             const startRank = pieceColor === 'white' ? 6 : 1;
             const jumpTarget = fromRow + 2 * dir;
             const canJumpStart = (!piece.hasMoved && fromRow === startRank) || piece.heldItem === 'swift_cloak';
@@ -231,12 +227,9 @@ export function getPossibleMovesInternal(
         const nr = fromRow + dir, nc = fromCol + dc;
         if (isValidSquare(nr, nc)) {
             const target = board[nr][nc].piece;
-            if (target && target.color !== pieceColor) {
-               // Hard block: don't target king
-               if (simplified || target.type !== 'king') {
+            if (target && target.color !== pieceColor && target.type !== 'king') {
                 const targetLevel = getEffectiveLevel(board, nr, nc);
                 if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, nc));
-               }
             }
             if (!target && coordsToAlgebraic(nr, nc) === enPassantTargetSquare) possible.push(coordsToAlgebraic(nr, nc));
         }
@@ -250,7 +243,6 @@ export function getPossibleMovesInternal(
               if (isValidSquare(nr, nc)) {
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
-                  // King protection: you can't throw units onto a king's square
                   if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
                       possible.push(coordsToAlgebraic(nr, nc));
                   }
@@ -262,9 +254,8 @@ export function getPossibleMovesInternal(
     const nr = fromRow + dir;
     if (isValidSquare(nr, fromCol)) {
         const targetSq = board[nr][fromCol];
-        if (!targetSq.piece || targetSq.piece.color !== pieceColor || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
-            // Hard block: don't target king
-            if (simplified || targetSq.piece?.type !== 'king') {
+        if (targetSq.piece?.type !== 'king') {
+            if (!targetSq.piece || targetSq.piece.color !== pieceColor || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
                 const targetLevel = getEffectiveLevel(board, nr, fromCol);
                 if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, fromCol));
             }
@@ -279,6 +270,7 @@ export function getPossibleMovesInternal(
             const toR = fromRow + dr; const toC = fromCol + dc;
             if (!isValidSquare(toR, toC)) continue;
             const targetSq = board[toR][toC];
+            if (targetSq.piece?.type === 'king') continue; 
             if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') continue;
             
             const finalTargetSquareAlgebraic = coordsToAlgebraic(toR, toC);
@@ -302,6 +294,7 @@ export function getPossibleMovesInternal(
             const toR_n = fromRow + dr_n; const toC_n = fromCol + dc_n;
             if (isValidSquare(toR_n, toC_n)) {
                 const targetSq = board[toR_n][toC_n];
+                if (targetSq.piece?.type === 'king') continue; 
                 if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') continue;
                 const targetPiece_n = board[toR_n][toC_n].piece;
                 const targetLevel_n = getEffectiveLevel(board, toR_n, toC_n);
@@ -376,8 +369,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      // Hard block: don't target king
-                      if (simplified || targetP.type !== 'king') {
+                      if (targetP.type !== 'king') {
                         if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       }
                       break;
@@ -412,8 +404,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      // Hard block: don't target king
-                      if (simplified || targetP.type !== 'king') {
+                      if (targetP.type !== 'king') {
                         if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       }
                       break;
@@ -429,16 +420,14 @@ export function getPossibleMovesInternal(
         const nr = fromRow + dr; const nc = fromCol + dc;
         if (isValidSquare(nr, nc)) {
           const targetSq = board[nr][nc];
+          if (targetSq.piece?.type === 'king') return; 
           if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') return;
           const targetP = targetSq.piece;
           if (!targetP || targetP.color !== pieceColor) {
-             // Hard block: don't target king
-             if (simplified || targetP?.type !== 'king') {
-                const targetLevel = getEffectiveLevel(board, nr, nc);
-                if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
-                  possible.push(coordsToAlgebraic(nr, nc));
-                }
-             }
+            const targetLevel = getEffectiveLevel(board, nr, nc);
+            if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+              possible.push(coordsToAlgebraic(nr, nc));
+            }
           }
         }
       });
@@ -448,16 +437,14 @@ export function getPossibleMovesInternal(
           const nr = fromRow + dr; const nc = fromCol + dc;
           if (isValidSquare(nr, nc)) {
             const targetSq = board[nr][nc];
+            if (targetSq.piece?.type === 'king') return; 
             if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') return;
             const targetP = targetSq.piece;
             if (!targetP || targetP.color !== pieceColor) {
-              // Hard block: don't target king
-              if (simplified || targetP?.type !== 'king') {
                 const targetLevel = getEffectiveLevel(board, nr, nc);
                 if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
                     possible.push(coordsToAlgebraic(nr, nc));
                 }
-              }
             }
           }
         });
@@ -468,9 +455,10 @@ export function getPossibleMovesInternal(
           const nr = fromRow + dr; const nc = fromCol + dc;
           if (isValidSquare(nr, nc)) {
             const targetSq = board[nr][nc];
+            if (targetSq.piece?.type === 'king') return; 
             if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') return;
             const targetP = targetSq.piece;
-            if (!targetP || (targetP.color !== pieceColor && (simplified || targetP.type !== 'king') && !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board))) {
+            if (!targetP || (targetP.color !== pieceColor && !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board))) {
               const sR = Math.sign(dr); const sC = Math.sign(dc);
               let clear = true;
               for (let i = 1; i < 3; i++) {
@@ -514,8 +502,7 @@ export function getPossibleMovesInternal(
               else {
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
-                      // Hard block: don't target king
-                      if (simplified || targetP.type !== 'king') {
+                      if (targetP.type !== 'king') {
                         if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
                       }
                       break;
@@ -534,7 +521,7 @@ export function getPossibleMovesInternal(
     if (isValidSquare(nr, fromCol)) {
         const tSq = board[nr][fromCol];
         if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
-            possible.push(coordsToAlgebraic(nr, fromCol));
+            if (tSq.piece?.type !== 'king') possible.push(coordsToAlgebraic(nr, fromCol));
         }
     }
   }
@@ -545,7 +532,7 @@ export function getPossibleMovesInternal(
       if (isValidSquare(nr, nc)) {
           const tSq = board[nr][nc];
           if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
-              possible.push(coordsToAlgebraic(nr, nc));
+              if (tSq.piece?.type !== 'king') possible.push(coordsToAlgebraic(nr, nc));
           }
       }
     });
@@ -576,7 +563,6 @@ function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: Algeb
   const targetP = targetSq.piece;
 
   if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') return false;
-  // Hard block: don't target king unless simplifying for check detection
   if (targetP?.type === 'king' && !simplified) return false;
 
   if (FRONTLINE_TYPES.includes(piece.type)) {

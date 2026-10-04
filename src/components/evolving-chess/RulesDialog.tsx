@@ -104,7 +104,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                     <RuleText>A deadly assassin that moves and captures forward or diagonally. Captures by an Infiltrator 'Obliterate' the target, removing it from the game entirely (no resurrection). Reaching the back rank results in an instant win.</RuleText>
                   </SubRule>
                   <SubRule title="The Mimic">
-                    <RuleText>Mimics replicate the movement pattern and held item of the last piece that moved. Replicating an ally vs enemy can be controlled with specialized gear.</RuleText>
+                    <RuleText>Mimics replicate the movement pattern and skills of the absolute last piece that moved globally, scaled by the Mimic's current level. Special items allow Mimics to replicate equipment from specific history tracks.</RuleText>
                   </SubRule>
                 </RuleSection>
               </AccordionContent>
@@ -152,8 +152,9 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level).</RuleText>
                 </RuleSection>
                 <RuleSection title="Mimic Specialization">
-                   <RuleText>• Mimic Blade: Replicates the pattern and item of the last ALLIED unit that moved. Perfect for mirroring your Hero's strengths.</RuleText>
-                   <RuleText>• Mirror Mask: Replicates the pattern and item of the last ENEMY unit that moved. Turns the Mimic into the ultimate counter-unit.</RuleText>
+                   <RuleText>• Mimic Blade: Mimic-only. Replicates the equipment of the last ALLIED unit that moved. Movement remains tied to the global last move.</RuleText>
+                   <RuleText>• Mirror Mask: Mimic-only. Replicates the equipment of the last ENEMY unit that moved. Movement remains tied to the global last move.</RuleText>
+                   <RuleText>• Itemless Mimic: Replicates movement and skills globally, but copies no items.</RuleText>
                 </RuleSection>
               </AccordionContent>
             </AccordionItem>

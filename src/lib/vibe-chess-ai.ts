@@ -334,25 +334,21 @@ export class VibeChessAI {
         const oppColor = p.color === 'white' ? 'black' : 'white';
 
         if (p.type === 'mimic') {
-            const myColor = p.color;
-            let activeLastMove = gs.lastMoveGlobal;
-            if (p.heldItem === 'mirror_mask') {
-                activeLastMove = myColor === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite;
-            } else if (p.heldItem === 'mimic_blade') {
-                activeLastMove = myColor === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack;
-            }
-            
-            const patternType = (activeLastMove?.type && activeLastMove.type !== 'mimic') ? activeLastMove.type : 'pawn';
+            // MOVEMENT: Source pattern globally
+            const patternType = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
             const virtualPiece = { ...p, type: patternType };
             
+            // ITEM: Specialized mimicry rules
+            let mimickedItem: InventoryItemType | null = null;
             if (p.heldItem === 'mirror_mask') {
-                virtualPiece.heldItem = (myColor === 'white' ? gs.lastMoveBlack?.item : gs.lastMoveWhite?.item) || null;
+                const enemyLast = p.color === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite;
+                mimickedItem = enemyLast?.item || null;
             } else if (p.heldItem === 'mimic_blade') {
-                virtualPiece.heldItem = (myColor === 'white' ? gs.lastMoveWhite?.item : gs.lastMoveBlack?.item) || null;
-            } else if (activeLastMove?.item) {
-                virtualPiece.heldItem = activeLastMove.item;
+                const allyLast = p.color === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack;
+                mimickedItem = allyLast?.item || null;
             }
             
+            virtualPiece.heldItem = mimickedItem;
             return this.generatePieceMoves(gs, r, c, virtualPiece, simplified); 
         }
         
@@ -383,7 +379,10 @@ export class VibeChessAI {
                             if (isBlocked) break;
                         }
                     }
-                    if (!isBlocked) moves.push({from:[r,c], to:[nr,nc], type:'move'}); 
+                    if (!isBlocked) {
+                        const targetPiece = gs.board[nr][nc].piece;
+                        if (targetPiece?.type !== 'king') moves.push({from:[r,c], to:[nr,nc], type:'move'});
+                    }
                 }
             });
             return moves;
@@ -504,6 +503,7 @@ export class VibeChessAI {
                         const targetSq = gs.board[nr][nc];
                         if (targetSq.item?.type === 'anvil') return; 
                         const target = targetSq.piece;
+                        if (target?.type === 'king') return;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
                             if (simplified || target.type !== 'king') {
@@ -521,6 +521,7 @@ export class VibeChessAI {
                     const nr=r+dr, nc=c+dc; 
                     if(isValidSquareUtil(nr,nc)) {
                         const targetSq = gs.board[nr][nc];
+                        if (targetSq.piece?.type === 'king') return; 
                         if (targetSq.item?.type === 'anvil') return; 
                         const target = targetSq.piece;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
@@ -539,6 +540,7 @@ export class VibeChessAI {
                         const nr=r+dr, nc=c+dc;
                         if (isValidSquareUtil(nr,nc)) {
                             const targetSq = gs.board[nr][nc];
+                            if (targetSq.piece?.type === 'king') return; 
                             if (targetSq.item?.type === 'anvil') return; 
                             const target = targetSq.piece;
                             if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
@@ -559,6 +561,7 @@ export class VibeChessAI {
                         const nr=r+dr, nc=c+dc;
                         if (isValidSquareUtil(nr,nc)) {
                             const targetSq = gs.board[nr][nc];
+                            if (targetSq.piece?.type === 'king') return; 
                             if (targetSq.item?.type === 'anvil') return;
                             const target = targetSq.piece;
                             if (!target || (target.color !== p.color && (simplified || target.type !== 'king') && !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any))) {
@@ -621,6 +624,7 @@ export class VibeChessAI {
                         const nr=r+d*dr, nc=c+d*dc;
                         if(!isValidSquareUtil(nr,nc)) break;
                         const targetSq = gs.board[nr][nc];
+                        if(targetSq.piece?.type === 'king') break; 
                         if(targetSq.item?.type === 'anvil') break;
                         if(d === 2) {
                             const midR = r + dr; const midC = c + dc;
@@ -640,6 +644,7 @@ export class VibeChessAI {
                         const nr=r+dr, nc=c+dc;
                         if(isValidSquareUtil(nr,nc) && gs.board[nr][nc].item?.type !== 'anvil') {
                             const target = gs.board[nr][nc].piece;
+                            if (target?.type === 'king') return; 
                             if(!target || (target.color !== p.color && !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any))) {
                                 moves.push({from:[r,c], to:[nr,nc], type:'move'});
                             }
@@ -768,14 +773,8 @@ export class VibeChessAI {
                             if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                         }
                     } else if (p.type === 'mimic') {
-                        const myColor = p.color;
-                        let activeLastMove = gs.lastMoveGlobal;
-                        if (p.heldItem === 'mirror_mask') {
-                            activeLastMove = myColor === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite;
-                        } else if (p.heldItem === 'mimic_blade') {
-                            activeLastMove = myColor === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack;
-                        }
-                        const patternType = (activeLastMove?.type && activeLastMove.type !== 'mimic') ? activeLastMove.type : 'pawn';
+                        // Source pattern globally for attack simulation
+                        const patternType = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
                         const moves = this.generatePieceMoves(gs, r, c, { ...p, type: patternType }, true);
                         if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) return true;
                     } else if (p.type === 'knight' || p.type === 'hero' || p.type === 'archer') {

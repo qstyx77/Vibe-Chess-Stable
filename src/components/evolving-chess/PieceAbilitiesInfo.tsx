@@ -40,7 +40,6 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
     abilities.push("The End: Wins immediately if back rank is reached.");
   }
 
-  // Set Bonuses
   if (board) {
     const activeSets = getActiveSets(board, piece.color);
     activeSets.forEach(setId => {
@@ -83,7 +82,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'faith_scroll') abilities.push("spell (L5+): chance to convert adjacent enemies.");
   if (heldItem === 'tortoise_hammer') abilities.push("heavy: 1 sq forward. Splash capture.");
   if (heldItem === 'leach_blade') abilities.push("leach: drain 1 level from adjacent enemies on capture.");
-  if (heldItem === 'kings_decree') abilities.push("spell: promote L1 Pawn to Commander.");
+  if (heldItem === 'kings_decree') abilities.push("spell: promote L1 Frontline to Commander.");
   if (heldItem === 'gravity_stone') abilities.push("gravity: capture pulls distant enemies closer.");
   if (heldItem === 'lead_boots') abilities.push("anchored: immune to push/pull.");
   if (heldItem === 'blast_shield') abilities.push("blast guard: immune to explosions.");
@@ -103,7 +102,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'cyanide_pill') abilities.push("spite: capturer gains 0 levels.");
   if (heldItem === 'demonic_possession') abilities.push("demonic: +5 levels, but unit dies in 3 turns.");
   if (heldItem === 'mushroom_magnet') abilities.push("magnetic: pulls shrooms closer on move.");
-  if (heldItem === 'mimic_blade') abilities.push("mimic: replicates last moved piece's item.");
+  if (heldItem === 'mimic_blade') abilities.push("mimic equipment: copies equipment from last allied move.");
   if (heldItem === 'thieves_gloves') abilities.push("plunder: 50% chance to steal equipment.");
   if (heldItem === 'heavy_rain') abilities.push("spell (L3+): drop 3 random anvils.");
   if (heldItem === 'kings_conquest') abilities.push("conquest: reaching KS 8 wins game.");
@@ -113,7 +112,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'spore_pouch') abilities.push("spores: 25% chance to drop Shroom on vacated square.");
   if (heldItem === 'kings_ransom') abilities.push("ransom: auto-save from checkmate (one-time).");
   if (heldItem === 'dancers_ribbon') abilities.push("ribbon: Dance skill can target Anvils.");
-  if (heldItem === 'mirror_mask') abilities.push("mask: Mimic copies mimicked unit's level/item.");
+  if (heldItem === 'mirror_mask') abilities.push("mimic equipment: copies equipment from last enemy move.");
   if (heldItem === 'oil_slick') abilities.push("spell: create sliding hazards for 3 turns.");
   if (heldItem === 'gamblers_coin') abilities.push("gambit: 50/50 chance for 2x or 0x level gain.");
   if (heldItem === 'sweet_revenge') abilities.push("revenge: +1 level gain if opponent captured last turn.");
@@ -160,7 +159,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
       if (l >= 5) abilities.push("Promotion grants extra turn.");
       if (type === 'commander') abilities.push("Rallying Cry on capture.");
       if (type === 'dancer') abilities.push("Dance: KS 1 free cardinal move/swap.");
-      if (type === 'mimic') abilities.push("Shape-shift: Copies last moved piece.");
+      if (type === 'mimic') abilities.push("Shape-shift: Replicates global last-move pattern and skills.");
       if (type === 'grappler') abilities.push("Toss: Throw adjacent unit (Range = L).");
       if (type === 'myco_mage') abilities.push(`Mushroomancy: Use Shroom Pool (${piece.shroomMana || 0}).`);
       break;

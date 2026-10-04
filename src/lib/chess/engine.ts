@@ -1,4 +1,4 @@
-import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, Move, ApplyMoveResult, InventoryItemType, ItemType, SquareState, RookResurrectionResult, LastMoveInfo } from '@/types';
+import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, SquareState, RookResurrectionResult, LastMoveInfo, ApplyMoveResult, Move } from '@/types';
 import { VAL_MAP, FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getPromotionLevel, findKing, isItemValidForPiece, getActiveSets } from './utils';
 import { triggerPushBack, triggerConversion, applyRally, applyKingDominion, syncSoulLink, triggerPoisonSplash, triggerMushroomMagnet, triggerPull, triggerExhaustion, applyOilSlide } from './effects';
@@ -267,25 +267,24 @@ export function applyMove(
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, anvilDroppedSquares };
 
-  // Safety Gate: Hard block against any move that overwrites a King (except for Swap types)
   const isSafeKingMoveType = ['castle', 'swap', 'dance-swap', 'grapple-hook-swap', 'swap-scroll'].includes(move.type || '');
   if (targetPiece?.type === 'king' && !isSafeKingMoveType) {
     return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
   }
 
+  // Determine effective item logic for Mimic copy rules
   let effectiveHeldItem = movingPiece.heldItem;
   if (movingPiece.type === 'mimic') {
-    const myColor = movingPiece.color;
-    let activeLastMove = lastMoveGlobal;
+    let mimickedItem: InventoryItemType | null = null;
     if (movingPiece.heldItem === 'mirror_mask') {
-      activeLastMove = myColor === 'white' ? lastMoveBlack : lastMoveWhite;
+        const enemyLast = movingPiece.color === 'white' ? lastMoveBlack : lastMoveWhite;
+        mimickedItem = enemyLast?.item || null;
     } else if (movingPiece.heldItem === 'mimic_blade') {
-      activeLastMove = myColor === 'white' ? lastMoveWhite : lastMoveBlack;
+        const allyLast = movingPiece.color === 'white' ? lastMoveWhite : lastMoveBlack;
+        mimickedItem = allyLast?.item || null;
     }
-    
-    if (activeLastMove?.item) {
-      effectiveHeldItem = activeLastMove.item;
-    }
+    // Itemless mimics copy no items
+    effectiveHeldItem = mimickedItem;
   }
 
   const triggerDefiantSparks = (targetR: number, targetC: number, victimColor: PlayerColor) => {
@@ -332,7 +331,6 @@ export function applyMove(
           if (!isValidSquare(nr, nc)) break;
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
-              // Safety: Burning Ray cannot destroy Kings
               if (tSq.piece.type === 'king') break;
 
               totalGain += (VAL_MAP[tSq.piece.type] || 1);
@@ -519,12 +517,10 @@ export function applyMove(
       const dc = Math.sign(toCol - fromCol);
       const slideResult = applyOilSlide(newBoard, toRow, toCol, dr, dc);
       
-      // Safety: Throws cannot land on Kings
       if (newBoard[slideResult.r][slideResult.c].piece?.type === 'king') {
           return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [] };
       }
 
-      // If safe, proceed with removal
       if (move.grappledFrom) {
           const { row: gr, col: gc } = Array.isArray(move.grappledFrom) ? { row: move.grappledFrom[0], col: move.grappledFrom[1] } : algebraicToCoords(move.grappledFrom as AlgebraicSquare);
           newBoard[gr][gc].piece = null;
@@ -534,7 +530,6 @@ export function applyMove(
       if (move.thrownItem === 'anvil') {
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true };
           const victim = newBoard[slideResult.r][slideResult.c].piece;
-          // Anvil protection: Kings cannot be crushed by anvils
           if (victim && victim.type !== 'king' && !victim.isShielded) {
               pieceCapturedByAnvil = { ...victim };
               triggerDefiantSparks(slideResult.r, slideResult.c, pieceCapturedByAnvil.color);
@@ -565,7 +560,6 @@ export function applyMove(
           if (isValidSquare(nr, nc)) {
               const victim = newBoard[nr][nc].piece;
               if (victim && victim.color === opponentColor) {
-                  // Safety: Colossus cannot crush Kings
                   if (victim.type !== 'king') {
                     triggerDefiantSparks(nr, nc, victim.color);
                     selfDestructCaptures.push({ ...victim, id: `${victim.id}_colossus_crush_${Date.now()}` });
@@ -845,17 +839,15 @@ export function applyMove(
 
   const pieceToLand = { ...movingPiece, isShielded: false, hasMoved: true };
   if (pieceToLand.type === 'mimic') {
-    const myColor = pieceToLand.color;
-    let activeLastMove = lastMoveGlobal;
+    let mimickedItem: InventoryItemType | null = null;
     if (pieceToLand.heldItem === 'mirror_mask') {
-      activeLastMove = myColor === 'white' ? lastMoveBlack : lastMoveWhite;
+        const enemyLast = pieceToLand.color === 'white' ? lastMoveBlack : lastMoveWhite;
+        mimickedItem = enemyLast?.item || null;
     } else if (pieceToLand.heldItem === 'mimic_blade') {
-      activeLastMove = myColor === 'white' ? lastMoveWhite : lastMoveBlack;
+        const allyLast = pieceToLand.color === 'white' ? lastMoveWhite : lastMoveBlack;
+        mimickedItem = allyLast?.item || null;
     }
-    
-    if (activeLastMove?.item) {
-      pieceToLand.heldItem = activeLastMove.item;
-    }
+    pieceToLand.heldItem = mimickedItem;
   }
 
   const backRankIdx = pieceToLand.color === 'white' ? 0 : 7;
@@ -1128,7 +1120,6 @@ export function applyMove(
   }
   if ((['bishop', 'archbishop'].includes(pieceToLand.type)) && effectiveLevelAfterMove >= 5) triggerConversion(newBoard, toRow, toCol, pieceToLand.color, pieceToLand, conversionEvents);
   
-  // Toxic Cloud Set Bonus logic
   const opponentColor_TC = pieceToLand.color === 'white' ? 'black' : 'white';
   const opponentSets_TC = getActiveSets(newBoard, opponentColor_TC);
   if (opponentSets_TC.includes('toxic_cloud') && pieceToLand.heldItem !== 'filter_mask') {
