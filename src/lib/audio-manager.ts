@@ -260,9 +260,9 @@ class AudioManager {
     this.resume();
     if (!this.ctx || !this.masterGain) return;
 
-    const totalDuration = 3; // Exactly 3 seconds
+    const totalDuration = 1; // Shortened to 1 second
     const noteCount = 48; // Tripled notes
-    const interval = totalDuration / noteCount; // 0.0625s
+    const interval = totalDuration / noteCount; 
     const now = this.ctx.currentTime;
 
     const cMajorScale = [
