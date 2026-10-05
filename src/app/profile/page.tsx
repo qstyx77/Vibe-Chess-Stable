@@ -1,7 +1,8 @@
+
 'use client';
 
 import { useUser, useDoc, useMemoFirebase, updateDocumentNonBlocking, useAuth } from '@/firebase';
-import { doc, getFirestore, deleteDoc } from 'firebase/firestore';
+import { doc, getFirestore, deleteDoc, runTransaction } from 'firebase/firestore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -72,64 +73,91 @@ export default function ProfilePage() {
     setListingMode('each');
   };
 
-  const handleListing = () => {
+  const handleListing = async () => {
     if (!user || isListingItem === null || !selectedTypeForListing) return;
-    const currentMarket = [...(userData?.marketSlots || [])];
-    const newListing: MarketListing = { 
-        itemId: selectedTypeForListing.type, 
-        price: listingPrice, 
-        slot: isListingItem,
-        quantity: listingQuantity,
-        listingType: listingMode
-    };
-    
-    const newMarket = [...currentMarket.filter(s => s.slot !== isListingItem), newListing];
-    
-    const newInv = [...(userData?.inventory || [])];
-    const idx = newInv.findIndex(i => i.type === selectedTypeForListing.type);
-    if (idx > -1) {
-        // Subtract only the chosen quantity from the inventory
-        if (newInv[idx].count > listingQuantity) {
-            newInv[idx].count -= listingQuantity;
-        } else {
-            // If listing the full amount, remove the entry
-            newInv.splice(idx, 1);
-        }
-    }
-
     const userRef = doc(firestore, 'users', user.uid);
-    updateDocumentNonBlocking(userRef, { marketSlots: newMarket, inventory: newInv });
     
-    if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ 
-            type: 'chat-message',
-            category: 'market',
-            sender: userData?.username || user.displayName || 'Player',
-            senderId: user.uid,
-            text: `[MARKET]: Listed ${listingQuantity}x ${ITEM_METADATA[selectedTypeForListing.type].name} for ${listingPrice}g (${listingMode.toUpperCase()})!`,
-            timestamp: Date.now()
-        }));
-    }
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const snap = await transaction.get(userRef);
+            if (!snap.exists()) throw new Error("Hero profile not found.");
+            const data = snap.data();
+            
+            const currentInv = data.inventory || [];
+            const itemIdx = currentInv.findIndex((i: any) => i.type === selectedTypeForListing.type);
+            
+            if (itemIdx === -1 || currentInv[itemIdx].count < listingQuantity) {
+                throw new Error("Insufficient items in Loot Bag.");
+            }
 
-    setIsListingItem(null);
-    setSelectedTypeForListing(null);
-    toast({ title: "Stall Updated", description: `${listingQuantity}x ${ITEM_METADATA[selectedTypeForListing.type].name} listed for ${listingPrice}g.` });
+            // Atomic Inventory Deduction
+            const newInv = [...currentInv];
+            if (newInv[itemIdx].count > listingQuantity) {
+                newInv[itemIdx].count -= listingQuantity;
+            } else {
+                newInv.splice(itemIdx, 1);
+            }
+
+            // Market Slot Update
+            const currentMarket = data.marketSlots || [];
+            const newListing: MarketListing = { 
+                itemId: selectedTypeForListing.type, 
+                price: listingPrice, 
+                slot: isListingItem,
+                quantity: listingQuantity,
+                listingType: listingMode
+            };
+            const newMarket = [...currentMarket.filter((s: any) => s.slot !== isListingItem), newListing];
+
+            transaction.update(userRef, { inventory: newInv, marketSlots: newMarket });
+        });
+        
+        if (ws?.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ 
+                type: 'chat-message',
+                category: 'market',
+                sender: userData?.username || user.displayName || 'Player',
+                senderId: user.uid,
+                text: `[MARKET]: Listed ${listingQuantity}x ${ITEM_METADATA[selectedTypeForListing.type].name} for ${listingPrice}g (${listingMode.toUpperCase()})!`,
+                timestamp: Date.now()
+            }));
+        }
+
+        setIsListingItem(null);
+        setSelectedTypeForListing(null);
+        toast({ title: "Stall Updated", description: `${listingQuantity}x ${ITEM_METADATA[selectedTypeForListing.type].name} listed for ${listingPrice}g.` });
+    } catch (e: any) {
+        console.error("Market listing error:", e);
+        toast({ variant: 'destructive', title: "Listing Failed", description: e.message });
+    }
   };
 
-  const cancelListing = (slot: number) => {
+  const cancelListing = async (slot: number) => {
     if (!user) return;
-    const listing = userData?.marketSlots?.find(s => s.slot === slot);
-    if (!listing) return;
-
-    const newMarket = userData?.marketSlots?.filter(s => s.slot !== slot) || [];
-    const newInv = [...(userData?.inventory || [])];
-    const idx = newInv.findIndex(i => i.type === listing.itemId);
-    if (idx > -1) newInv[idx].count += listing.quantity;
-    else newInv.push({ type: listing.itemId, count: listing.quantity });
-
     const userRef = doc(firestore, 'users', user.uid);
-    updateDocumentNonBlocking(userRef, { marketSlots: newMarket, inventory: newInv });
-    toast({ title: "Listing Removed", description: "Item returned to loot bag." });
+    
+    try {
+        await runTransaction(firestore, async (transaction) => {
+            const snap = await transaction.get(userRef);
+            if (!snap.exists()) throw new Error("Hero profile not found.");
+            const data = snap.data();
+            
+            const listing = data.marketSlots?.find((s: any) => s.slot === slot);
+            if (!listing) throw new Error("Listing already removed.");
+
+            const newMarket = data.marketSlots.filter((s: any) => s.slot !== slot);
+            const newInv = [...(data.inventory || [])];
+            const idx = newInv.findIndex((i: any) => i.type === listing.itemId);
+            
+            if (idx > -1) newInv[idx].count += listing.quantity;
+            else newInv.push({ type: listing.itemId, count: listing.quantity });
+
+            transaction.update(userRef, { marketSlots: newMarket, inventory: newInv });
+        });
+        toast({ title: "Listing Removed", description: "Item returned to loot bag." });
+    } catch (e: any) {
+        toast({ variant: 'destructive', title: "Error", description: e.message });
+    }
   };
 
   const confirmDeleteAccount = async () => {

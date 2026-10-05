@@ -1,3 +1,4 @@
+
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -54,7 +55,20 @@ interface Tournament {
     countdownTimer?: NodeJS.Timeout;
 }
 
-const rooms: Record<string, { clients: (WebSocket & { userId?: string, roomId?: string, username?: string })[]; gameState: any; isRanked: boolean; tournamentId?: string; round?: number; turnTimer?: NodeJS.Timeout; positionHistory: string[]; }> = {};
+const rooms: Record<string, { 
+    clients: (WebSocket & { userId?: string, roomId?: string, username?: string })[]; 
+    gameState: any; 
+    isRanked: boolean; 
+    tournamentId?: string; 
+    round?: number; 
+    turnTimer?: NodeJS.Timeout; 
+    positionHistory: string[]; 
+    historyTracks: {
+        white: { type: PieceType | null, item: InventoryItemType | null, level: number | null },
+        black: { type: PieceType | null, item: InventoryItemType | null, level: number | null },
+        global: { type: PieceType | null, item: InventoryItemType | null, level: number | null }
+    }
+}> = {};
 const userConnections: Record<string, (WebSocket & { userId?: string, roomId?: string, username?: string })> = {};
 const tournaments: Record<string, Tournament> = {};
 
@@ -120,6 +134,11 @@ const startArena = () => {
             tournamentId: tournamentId,
             round: 1,
             positionHistory: [],
+            historyTracks: {
+                white: { type: null, item: null, level: null },
+                black: { type: null, item: null, level: null },
+                global: { type: null, item: null, level: null }
+            },
             gameState: {
                 board,
                 currentPlayer: 'white',
@@ -129,9 +148,6 @@ const startArena = () => {
                 gameMoveCounter: 0,
                 lastMoveFrom: null,
                 lastMoveTo: null,
-                lastMovedPieceType: null,
-                lastMovedPieceLevel: null,
-                lastMovedPieceHeldItem: null,
                 gameInfo: { message: " ", isCheck: false, gameOver: false },
                 shroomSpawnCounter: 0,
                 nextShroomSpawnTurn: 5,
@@ -158,7 +174,6 @@ const startNextTournamentRound = (tournamentId: string) => {
     const winners = tournament.roundWinners;
     tournament.roundWinners = [];
     
-    // Clear active rooms from previous round (they should already be gone but just in case)
     tournament.activeRoomIds.clear();
 
     for (let i = 0; i < winners.length; i += 2) {
@@ -166,7 +181,6 @@ const startNextTournamentRound = (tournamentId: string) => {
         const p2Id = winners[i+1];
         
         if (!p2Id) {
-            // Bye logic
             tournament.roundWinners.push(p1Id);
             const ws = userConnections[p1Id];
             if (ws) ws.send(JSON.stringify({ type: 'tournament-intermission', round: tournament.round, nextRound: tournament.round + 1 }));
@@ -192,6 +206,11 @@ const startNextTournamentRound = (tournamentId: string) => {
             tournamentId: tournamentId,
             round: tournament.round,
             positionHistory: [],
+            historyTracks: {
+                white: { type: null, item: null, level: null },
+                black: { type: null, item: null, level: null },
+                global: { type: null, item: null, level: null }
+            },
             gameState: {
                 board,
                 currentPlayer: 'white',
@@ -201,9 +220,6 @@ const startNextTournamentRound = (tournamentId: string) => {
                 gameMoveCounter: 0,
                 lastMoveFrom: null,
                 lastMoveTo: null,
-                lastMovedPieceType: null,
-                lastMovedPieceLevel: null,
-                lastMovedPieceHeldItem: null,
                 gameInfo: { message: " ", isCheck: false, gameOver: false },
                 shroomSpawnCounter: 0,
                 nextShroomSpawnTurn: 5,
@@ -234,10 +250,8 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     tournament.roundWinners.push(winnerData.userId);
     tournament.activeRoomIds.delete(roomId);
 
-    // Standard game-over broadcast to the room
     broadcastToRoom(roomId, { type: 'game-over', winner: winnerColor, reason });
 
-    // Handle winner intermission
     const winnerWs = userConnections[winnerData.userId];
     if (winnerWs) {
         winnerWs.send(JSON.stringify({ 
@@ -251,13 +265,11 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
 
     if (tournament.activeRoomIds.size === 0) {
         if (tournament.round < 3) {
-            // Wait 15 seconds before starting next round to allow re-equipping
             broadcastTournamentMessage(tournamentId, `Round ${tournament.round} complete! Next round starts in 15 seconds...`);
             tournament.countdownTimer = setTimeout(() => {
                 startNextTournamentRound(tournamentId);
             }, 15000);
         } else {
-            // Tournament Final Complete
             if (winnerWs) {
                 winnerWs.send(JSON.stringify({ type: 'chat-message', message: {
                     id: `tourney_win_${Date.now()}`,
@@ -314,23 +326,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         if (arenaQueue.length >= 8) startArena();
                     }
                     break;
-                case 'market-listing-broadcast':
-                    wss.clients.forEach(client => {
-                        if (client.readyState === WebSocket.OPEN) {
-                            const modeLabel = data.listingType === 'each' ? 'EACH' : 'ALL';
-                            client.send(JSON.stringify({
-                                type: 'chat-message',
-                                message: {
-                                    id: `market_${Date.now()}`,
-                                    sender: 'SYSTEM',
-                                    text: `[MARKET]: ${ws.username} listed ${data.quantity}x ${data.item} for ${data.price}g (${modeLabel})!`,
-                                    timestamp: Date.now(),
-                                    category: 'market'
-                                }
-                            }));
-                        }
-                    });
-                    break;
                 case 'chat-message':
                     const msg: ChatMessage = {
                         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -364,6 +359,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         clients: [ws],
                         isRanked: false,
                         positionHistory: [],
+                        historyTracks: {
+                            white: { type: null, item: null, level: null },
+                            black: { type: null, item: null, level: null },
+                            global: { type: null, item: null, level: null }
+                        },
                         gameState: {
                             board,
                             currentPlayer: 'white',
@@ -373,9 +373,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             gameMoveCounter: 0,
                             lastMoveFrom: null,
                             lastMoveTo: null,
-                            lastMovedPieceType: null,
-                            lastMovedPieceLevel: null,
-                            lastMovedPieceHeldItem: null,
                             gameInfo: { message: " ", isCheck: false, gameOver: false },
                             shroomSpawnCounter: 0,
                             nextShroomSpawnTurn: 5,
@@ -394,13 +391,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         ws.username = data.user?.username;
                         roomToJoin.clients.push(ws);
                         
-                        // Sync room player data if missing (e.g. tournament auto-redirect)
                         if (!roomToJoin.gameState.players.white && data.color === 'white') roomToJoin.gameState.players.white = data.user;
                         if (!roomToJoin.gameState.players.black && data.color === 'black') roomToJoin.gameState.players.black = data.user;
 
-                        // Apply gear for the joining player
                         const eq = data.user?.equipment || {};
-                        const pColor = roomToJoin.clients.length === 1 ? 'white' : 'black';
+                        const pColor = roomToJoin.clients[0] === ws ? 'white' : 'black';
                         roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
                             if (sq.piece && sq.piece.color === pColor && eq[sq.piece.id]) {
                                 sq.piece.heldItem = eq[sq.piece.id];
@@ -415,6 +410,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'anvil-drop': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    if (room.gameState.currentPlayer !== playerColor) break; // Basic turn security
+
                     const { row, col } = algebraicToCoords(data.square);
                     if (isValidSquare(row, col) && !room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
                         room.gameState.board[row][col].item = { type: 'anvil' };
@@ -429,8 +427,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'holy-shield': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    if (room.gameState.currentPlayer !== playerColor) break;
+
                     const { row, col } = algebraicToCoords(data.square);
-                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
+                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece?.color === playerColor) {
                         room.gameState.board[row][col].piece.isShielded = true;
                         broadcastToRoom(ws.roomId!, { 
                             type: 'game-move', 
@@ -443,8 +444,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'archer-snipe': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    if (room.gameState.currentPlayer !== playerColor) break;
+
                     const { row, col } = algebraicToCoords(data.square);
-                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
+                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece?.color !== playerColor) {
                         const sniped = room.gameState.board[row][col].piece;
                         room.gameState.capturedPieces[sniped.color].push(sniped);
                         room.gameState.board[row][col].piece = null;
@@ -459,8 +463,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'pawn-sacrifice': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    if (room.gameState.currentPlayer !== playerColor) break;
+
                     const { row, col } = algebraicToCoords(data.payload.square);
-                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece) {
+                    if (isValidSquare(row, col) && room.gameState.board[row][col].piece?.color === playerColor) {
                         const sacrificed = room.gameState.board[row][col].piece;
                         room.gameState.capturedPieces[sacrificed.color].push(sacrificed);
                         room.gameState.board[row][col].piece = null;
@@ -475,9 +482,11 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'ks-resurrection': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
+                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    if (room.gameState.currentPlayer !== playerColor) break;
+
                     const { pieceId, square } = data.payload;
                     const { row, col } = algebraicToCoords(square);
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
                     const piece = room.gameState.capturedPieces[playerColor].find((p: Piece) => p.id === pieceId);
                     if (piece && isValidSquare(row, col) && !room.gameState.board[row][col].piece) {
                         const resPiece = { 
@@ -509,13 +518,36 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const playerColor = room.clients[0] === ws ? 'white' : 'black';
                     const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
                     
+                    // TURN & OWNERSHIP VALIDATION
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
 
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
-                    if (!movingPiece && !isRewardMove) break;
+                    if (!isRewardMove) {
+                        if (!movingPiece || movingPiece.color !== playerColor) break;
 
-                    const result = applyMove(gs.board, movePayload, gs.enPassantTargetSquare, gs.capturedPieces, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel, gs.didOpponentCaptureLastTurn);
+                        // LEGALITY VALIDATION (Authoritative)
+                        const legalMoves = getPossibleMoves(
+                            gs.board, 
+                            movePayload.from, 
+                            gs.enPassantTargetSquare,
+                            room.historyTracks.white,
+                            room.historyTracks.black,
+                            room.historyTracks.global
+                        );
+                        if (!legalMoves.includes(movePayload.to)) break;
+                    }
+
+                    const result = applyMove(
+                        gs.board, 
+                        movePayload, 
+                        gs.enPassantTargetSquare, 
+                        gs.capturedPieces, 
+                        room.historyTracks.white,
+                        room.historyTracks.black,
+                        room.historyTracks.global,
+                        gs.didOpponentCaptureLastTurn
+                    );
                     
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
@@ -546,7 +578,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         gs.didOpponentCaptureLastTurn = false;
                     }
 
-                    // Check for Rook/Palace Resurrection Call
                     const toCoords = algebraicToCoords(movePayload.to);
                     const landedPiece = gs.board[toCoords.row][toCoords.col].piece;
                     const wasCapture = !!(result.capturedPiece || result.pieceCapturedByAnvil || result.selfDestructCaptures?.length);
@@ -557,7 +588,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             playerColor,
                             movePayload,
                             movePayload.to,
-                            gs.lastMovedPieceLevel || 1,
+                            movingPiece?.level || 1,
                             gs.capturedPieces,
                             Date.now()
                         );
@@ -572,9 +603,10 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
 
                     if (movingPiece) {
-                        gs.lastMovedPieceType = movingPiece.type;
-                        gs.lastMovedPieceLevel = movingPiece.level;
-                        gs.lastMovedPieceHeldItem = movingPiece.heldItem;
+                        const trackInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
+                        if (playerColor === 'white') room.historyTracks.white = trackInfo;
+                        else room.historyTracks.black = trackInfo;
+                        room.historyTracks.global = trackInfo;
                     }
                     
                     if (result.infiltrationWin) {
@@ -599,7 +631,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
 
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
-                    if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, gs.lastMovedPieceType, gs.lastMovedPieceHeldItem, gs.lastMovedPieceLevel)) {
+                    if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global)) {
                         if (room.tournamentId) {
                             handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
                         } else {

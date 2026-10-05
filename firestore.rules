@@ -20,11 +20,11 @@ service cloud.firestore {
     // -------------------------------------------------------------------------
 
     // Users can be read by any authenticated user for the leaderboard.
-    // TEMPORARY: Allow any signed-in user to update ELO ratings for playtesting special pieces.
+    // SECURED: Only the owner can update their own profile/gold/inventory.
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create, delete: if isOwner(userId);
-      allow update: if isSignedIn(); 
+      allow update: if isOwner(userId); 
     }
 
     // Allow users to manage their own friends list.
