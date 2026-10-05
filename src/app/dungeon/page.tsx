@@ -38,7 +38,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Skull, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
+import { ArrowLeft, MessageSquare, Send, Sword, Users, ShoppingBag, ScrollText } from 'lucide-react';
 import { VibeChessAI } from '@/lib/vibe-chess-ai';
 import { cn } from '@/lib/utils';
 import { useUser, useFirestore, updateDocumentNonBlocking } from '@/firebase';
@@ -61,7 +61,7 @@ import { useSocial } from '@/components/social/SocialContext';
 import { ChessPieceDisplay } from '@/components/evolving-chess/ChessPieceDisplay';
 import { PieceAbilitiesInfo } from '@/components/evolving-chess/PieceAbilitiesInfo';
 import { Separator } from '@/components/ui/separator';
-import { PixelGemstoneMasonry, VibeChessTitle, PixelTome, PixelSack, PixelReset } from '@/components/evolving-chess/IconLibrary';
+import { PixelGemstoneMasonry, VibeChessTitle, PixelTome, PixelSack, PixelReset, PixelSwords, PixelSkull } from '@/components/evolving-chess/IconLibrary';
 
 const DUNGEON_EXP_MAP: Record<string, number> = {
   pawn: 1, dancer: 1, mimic: 1, grappler: 1, commander: 1, infiltrator: 1, myco_mage: 1, 
@@ -692,7 +692,7 @@ export default function DungeonPage() {
                     }
                     addLog(`${getPlayerDisplayName(actP)} Archbishop applied a Holy Shield!`); 
                 }
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT); return;
+                triggerSpecialsChain(nextB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT); return;
             } else {
                 const hasElig = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId);
                 if (hasElig) {
@@ -1346,7 +1346,7 @@ export default function DungeonPage() {
         setBoard(nextB);
         addLog(`Dungeon: ${mP.type} to ${toAlg}`);
         setTimeout(() => { 
-          setIsAiThinking(false); setIsMoveProcessing(false); 
+          setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; 
           const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
           processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT);
@@ -1469,13 +1469,23 @@ export default function DungeonPage() {
 
   const mobLayout = (
     <div className="lg:hidden flex flex-col h-full overflow-hidden">
-      <div className="px-4 py-1 flex items-center justify-between shrink-0"> 
-        <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> 
-        <div className="flex items-center gap-2"> {level % 10 === 0 ? <Skull className="h-4 w-4 text-destructive" /> : <Sword className="h-4 w-4 text-primary" />} <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1> </div> 
-        <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
-           <PixelReset className="h-8 w-8 ascii-shader transition-transform group-hover:scale-110" />
-           <span className="text-[0.35rem] font-pixel uppercase tracking-tighter">Reset</span>
-        </button>
+      <div className="px-4 py-1 flex items-center justify-center shrink-0 relative min-h-[3rem]"> 
+        <Link href="/" className="flex items-center gap-1 text-[10px] hover:text-primary transition-colors absolute left-4"> <ArrowLeft className="h-4 w-4" /> LOBBY </Link> 
+        <div className="flex items-center gap-2"> 
+          {level % 10 === 0 ? (
+            <>
+              <PixelSkull className="h-5 w-5 ascii-shader" />
+              <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1>
+              <PixelSkull className="h-5 w-5 ascii-shader" />
+            </>
+          ) : (
+            <>
+              <PixelSwords className="h-5 w-5 ascii-shader" />
+              <h1 className="text-sm font-bold tracking-tighter uppercase">FLOOR {level}</h1>
+              <PixelSwords className="h-5 w-5 ascii-shader" />
+            </>
+          )}
+        </div> 
       </div>
       <div className="text-center py-0 shrink-0 min-h-[0.75rem]"> <p className="text-[10px] font-bold text-primary uppercase animate-pulse"> {statMsg} </p> </div>
       <div className="w-full flex justify-center py-0.5 shrink-0"> <div className="w-full relative"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || isAiThinking || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div> </div>
@@ -1489,6 +1499,10 @@ export default function DungeonPage() {
            <PixelTome className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
            <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Rules</span>
         </button>
+        <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-1 h-auto p-0 bg-transparent border-none outline-none group">
+           <PixelReset className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
+           <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
+        </button>
       </div>
     </div>
   );
@@ -1497,10 +1511,21 @@ export default function DungeonPage() {
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
       <div className="w-1/4 flex-shrink-0 flex-col gap-2 h-full"> <Link href="/" className="flex items-center gap-1 text-[12px] hover:text-primary transition-colors uppercase font-pixel px-1 mb-1"> <ArrowLeft className="h-4 w-4" /> Lobby </Link> {cPanel} </div>
       <div className="w-1/2 flex flex-col items-center gap-2">
-        <div className="flex items-center gap-4 justify-center py-2 shrink-0 h-16"> 
-           <div className="flex items-center gap-2"> 
-              {level % 10 === 0 ? <Skull className="h-8 w-8 text-destructive" /> : <Sword className="h-8 w-8 text-primary" />} 
-              <h1 className="text-xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> 
+        <div className="flex flex-col items-center justify-center py-2 shrink-0 h-24 w-full"> 
+           <div className="flex items-center gap-3 mb-2"> 
+              {level % 10 === 0 ? (
+                <>
+                  <PixelSkull className="h-10 w-10 ascii-shader" />
+                  <h1 className="text-2xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> 
+                  <PixelSkull className="h-10 w-10 ascii-shader" />
+                </>
+              ) : (
+                <>
+                  <PixelSwords className="h-10 w-10 ascii-shader" />
+                  <h1 className="text-2xl font-bold tracking-tighter uppercase font-pixel">FLOOR {level}</h1> 
+                  <PixelSwords className="h-10 w-10 ascii-shader" />
+                </>
+              )}
            </div> 
            <VibeChessTitle className="h-12 w-auto ascii-shader" suffix="-desk" />
         </div>

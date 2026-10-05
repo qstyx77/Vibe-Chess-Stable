@@ -250,6 +250,37 @@ export const PixelVoidEntity = ({ className }: IconProps) => (
   </svg>
 );
 
+export const PixelSkull = ({ className }: IconProps) => (
+  <svg viewBox="0 0 24 24" className={className}>
+    {/* Skull Main Body - Red Tones matching PixelReset */}
+    <rect x="7" y="2" width="10" height="2" fill="#EF4444" />
+    <rect x="5" y="4" width="14" height="2" fill="#EF4444" />
+    <rect x="4" y="6" width="16" height="8" fill="#EF4444" />
+    <rect x="6" y="14" width="12" height="2" fill="#EF4444" />
+    <rect x="8" y="16" width="8" height="4" fill="#EF4444" />
+    <rect x="9" y="20" width="6" height="2" fill="#EF4444" />
+    
+    {/* Highlights - Pinker Red */}
+    <rect x="7" y="3" width="2" height="1" fill="#FCA5A5" fillOpacity="0.5" />
+    <rect x="15" y="3" width="2" height="1" fill="#FCA5A5" fillOpacity="0.5" />
+    
+    {/* Shadows - Darker Red matching PixelReset border */}
+    <rect x="4" y="8" width="1" height="4" fill="#DC2626" />
+    <rect x="19" y="8" width="1" height="4" fill="#DC2626" />
+    
+    {/* Eyes - Deep Dark */}
+    <rect x="8" y="8" width="3" height="3" fill="black" fillOpacity="0.5" />
+    <rect x="13" y="8" width="3" height="3" fill="black" fillOpacity="0.5" />
+    
+    {/* Nose hole */}
+    <rect x="11" y="12" width="2" height="1" fill="black" fillOpacity="0.5" />
+    
+    {/* Jaw Details / Teeth - Subtle Dark */}
+    <rect x="10" y="17" width="1" height="3" fill="black" fillOpacity="0.2" />
+    <rect x="13" y="17" width="1" height="3" fill="black" fillOpacity="0.2" />
+  </svg>
+);
+
 /** SPECIAL ASSETS **/
 
 export const PixelAnvil = ({ className }: IconProps) => (
