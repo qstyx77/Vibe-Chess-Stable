@@ -1481,7 +1481,7 @@ export default function EvolvingChessPage() {
               <PopoverTrigger asChild>
                 <button className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                   <PixelGear className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
-                  <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Setup</span>
+                  <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Settings</span>
                 </button>
               </PopoverTrigger>
               <PopoverContent className="w-64 bg-card border-border"><div className="space-y-6 py-2"><div className="space-y-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">SFX Volume</span><PixelGear className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[volume]} max={200} step={1} onValueChange={(val) => { setVolume(val[0]); audioManager.setVolume(val[0]); }} /></div><div className="space-y-4 border-t pt-4"><div className="flex items-center justify-between"><span className="text-[0.75rem] font-pixel uppercase">AI Depth</span><PixelMonitor className="h-4 w-4 text-primary ascii-shader" /></div><Slider defaultValue={[aiDifficulty]} min={2} max={8} step={1} onValueChange={(val) => setAiDifficulty(val[0])} /></div></div></PopoverContent>
