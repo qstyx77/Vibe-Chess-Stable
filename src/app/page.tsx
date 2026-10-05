@@ -1075,7 +1075,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1098,8 +1098,8 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayerColor === 'white' ? -1 : 1;
-        const isForward = (actualRowIndex === fr + dir) && (actualColIndex === fc);
+        const dir = currentPlayer === 'white' ? -1 : 1;
+        const isForward = (row === fr + dir) && (col === fc);
         
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
