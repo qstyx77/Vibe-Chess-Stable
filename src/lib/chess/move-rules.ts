@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move, LastMoveInfo } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getActiveSets } from './utils';
@@ -215,9 +216,9 @@ export function getPossibleMovesInternal(
         const tSq = board[fromRow + dir][fromCol];
         if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
             if (tSq.piece?.type !== 'king' || simplified) possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
-            const startRank = pieceColor === 'white' ? 7 : 0; // Fixed start rank logic for dungeon/multiplayer
+            const startRank = (pieceColor === 'white' ? 6 : 1);
             const jumpTarget = fromRow + 2 * dir;
-            const canJumpStart = (!piece.hasMoved && (fromRow === (pieceColor === 'white' ? 6 : 1))) || piece.heldItem === 'swift_cloak';
+            const canJumpStart = (!piece.hasMoved && fromRow === startRank) || piece.heldItem === 'swift_cloak';
             if (canJumpStart && isValidSquare(jumpTarget, fromCol) && !board[jumpTarget][fromCol].piece && !board[jumpTarget][fromCol].item && !board[fromRow + dir][fromCol].piece && !board[fromRow + dir][fromCol].item) {
                 possible.push(coordsToAlgebraic(jumpTarget, fromCol));
             }
@@ -239,7 +240,8 @@ export function getPossibleMovesInternal(
       for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
               if (dr === 0 && dc === 0) continue;
-              const nr = fromRow + dr, nc = findKing(board, opponentColor)?.col === undefined ? fromCol + dc : fromCol + dc; // fixed logic
+              const nr = fromRow + dr;
+              const nc = fromCol + dc;
               if (isValidSquare(nr, nc)) {
                   const targetPiece = board[nr][nc].piece;
                   const targetAnvil = board[nr][nc].item?.type === 'anvil' && piece.heldItem === 'power_glove';
