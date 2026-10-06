@@ -90,7 +90,6 @@ export function getPossibleMovesInternal(
         const allyLast = pieceColor === 'white' ? lastMoveWhite : lastMoveBlack;
         mimickedItem = allyLast?.item || null;
     }
-    // Itemless mimics copy no items
     
     virtualPiece.heldItem = mimickedItem;
     return getPossibleMovesInternal(board, fromSquare, virtualPiece, checkKingSafety, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, simplified);
@@ -180,7 +179,8 @@ export function getPossibleMovesInternal(
         const targetP = targetSq.piece;
         if (!targetP || targetP.color !== pieceColor) {
           if (targetP?.type !== 'king' || simplified) {
-            if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board)) {
+            const targetLevel = getEffectiveLevel(board, nr, nc);
+            if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) {
                 possible.push(coordsToAlgebraic(nr, nc));
             }
           }
@@ -205,7 +205,7 @@ export function getPossibleMovesInternal(
               if (!target) possible.push(coordsToAlgebraic(nr, nc));
               else if (target.color !== pieceColor) {
                 const targetLevel = getEffectiveLevel(board, nr, nc);
-                if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) {
+                if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board, simplified)) {
                     possible.push(coordsToAlgebraic(nr, nc));
                 }
               }
@@ -230,7 +230,7 @@ export function getPossibleMovesInternal(
             const target = board[nr][nc].piece;
             if (target && target.color !== pieceColor && (target.type !== 'king' || simplified)) {
                 const targetLevel = getEffectiveLevel(board, nr, nc);
-                if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, nc));
+                if (!isPieceInvulnerableToAttack(target, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(nr, nc));
             }
             if (!target && coordsToAlgebraic(nr, nc) === enPassantTargetSquare) possible.push(coordsToAlgebraic(nr, nc));
         }
@@ -259,7 +259,7 @@ export function getPossibleMovesInternal(
         if (targetSq.piece?.type !== 'king' || simplified) {
             if (!targetSq.piece || targetSq.piece.color !== pieceColor || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
                 const targetLevel = getEffectiveLevel(board, nr, fromCol);
-                if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(nr, fromCol));
+                if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(nr, fromCol));
             }
         }
     }
@@ -286,7 +286,7 @@ export function getPossibleMovesInternal(
             const targetPiece = board[toR][toC].piece;
             const targetLevel = getEffectiveLevel(board, toR, toC);
             if (!targetPiece || targetPiece.color !== pieceColor) {
-                 if (!targetPiece || !isPieceInvulnerableToAttack(targetPiece, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(toR, toC));
+                 if (!targetPiece || !isPieceInvulnerableToAttack(targetPiece, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(toR, toC));
             }
         }
     }
@@ -301,7 +301,7 @@ export function getPossibleMovesInternal(
                 const targetPiece_n = board[toR_n][toC_n].piece;
                 const targetLevel_n = getEffectiveLevel(board, toR_n, toC_n);
                 if (!targetPiece_n || targetPiece_n.color !== pieceColor) {
-                     if (!targetPiece_n || !isPieceInvulnerableToAttack(targetPiece_n, piece, targetLevel_n, currentLevel, board)) possible.push(coordsToAlgebraic(toR_n, toC_n));
+                     if (!targetPiece_n || !isPieceInvulnerableToAttack(targetPiece_n, piece, targetLevel_n, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(toR_n, toC_n));
                 }
             }
         }
@@ -372,7 +372,7 @@ export function getPossibleMovesInternal(
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
                       if (targetP.type !== 'king' || simplified) {
-                        if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                        if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(R, C));
                       }
                       break;
                   } else {
@@ -407,7 +407,7 @@ export function getPossibleMovesInternal(
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
                       if (targetP.type !== 'king' || simplified) {
-                        if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                        if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(R, C));
                       }
                       break;
                   } else {
@@ -427,7 +427,7 @@ export function getPossibleMovesInternal(
           const targetP = targetSq.piece;
           if (!targetP || targetP.color !== pieceColor) {
             const targetLevel = getEffectiveLevel(board, nr, nc);
-            if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+            if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) {
               possible.push(coordsToAlgebraic(nr, nc));
             }
           }
@@ -444,7 +444,7 @@ export function getPossibleMovesInternal(
             const targetP = targetSq.piece;
             if (!targetP || targetP.color !== pieceColor) {
                 const targetLevel = getEffectiveLevel(board, nr, nc);
-                if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+                if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) {
                     possible.push(coordsToAlgebraic(nr, nc));
                 }
             }
@@ -460,7 +460,7 @@ export function getPossibleMovesInternal(
             if (targetSq.piece?.type === 'king' && !simplified) return; 
             if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') return;
             const targetP = targetSq.piece;
-            if (!targetP || (targetP.color !== pieceColor && (targetP.type !== 'king' || simplified) && !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board))) {
+            if (!targetP || (targetP.color !== pieceColor && (targetP.type !== 'king' || simplified) && !isPieceInvulnerableToAttack(targetP, piece, getEffectiveLevel(board, nr, nc), currentLevel, board, simplified))) {
               const sR = Math.sign(dr); const sC = Math.sign(dc);
               let clear = true;
               for (let i = 1; i < 3; i++) {
@@ -471,7 +471,7 @@ export function getPossibleMovesInternal(
               }
               if (clear) {
                 const targetLevel = getEffectiveLevel(board, nr, nc);
-                if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) {
+                if (!targetP || !isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) {
                   possible.push(coordsToAlgebraic(nr, nc));
                 }
               }
@@ -505,7 +505,7 @@ export function getPossibleMovesInternal(
                   const targetLevel = getEffectiveLevel(board, R, C);
                   if (targetP.color !== pieceColor) {
                       if (targetP.type !== 'king' || simplified) {
-                        if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board)) possible.push(coordsToAlgebraic(R, C));
+                        if (!isPieceInvulnerableToAttack(targetP, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(R, C));
                       }
                       break;
                   } else {
