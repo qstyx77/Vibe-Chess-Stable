@@ -1,3 +1,4 @@
+
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, LastMoveInfo } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { getEffectiveLevel, algebraicToCoords, coordsToAlgebraic, isValidSquare, getActiveSets } from './utils';
@@ -74,27 +75,6 @@ export function isSquareAttacked(
                     const direction = attackingPiece.color === 'white' ? -1 : 1;
                     if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) {
                         if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
-                    }
-                } else if (attackingPiece.type === 'king') {
-                    const maxDistance = effectiveLevel >= 2 ? 2 : 1;
-                    const dr = targetR - r; const dc = targetC - c;
-                    if (Math.abs(dr) <= maxDistance && Math.abs(dc) <= maxDistance && (dr === 0 || dc === 0 || Math.abs(dr) === Math.abs(dc))) {
-                        if (maxDistance === 2 && (Math.abs(dr) === 2 || Math.abs(dc) === 2)) {
-                            const midR = r + Math.sign(dr); const midC = c + Math.sign(dc);
-                            if (isValidSquare(midR, midC) && !board[midR][midC].piece && (!board[midR][midC].item || board[midR][midC].item?.type === 'anvil')) {
-                                if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
-                            }
-                        } else {
-                            if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
-                        }
-                    }
-                    if (effectiveLevel >= 5) {
-                        const knightDeltas = [[-2,-1],[-2,1],[-1,-2],[-1,2],[1,-2],[1,2],[2,-1],[2,1]];
-                        for (const [dr_n, dc_n] of knightDeltas) {
-                            if (r + dr_n === targetR && c + dc_n === targetC) {
-                                if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
-                            }
-                        }
                     }
                 } else {
                     const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, true);

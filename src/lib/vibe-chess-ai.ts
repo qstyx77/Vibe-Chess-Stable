@@ -188,7 +188,7 @@ export class VibeChessAI {
                 }
             }
         } else {
-            const landedPiece = { ...movingPiece, hasMoved: true, isShielded: false };
+            const landedPiece = { ...movingPiece, isShielded: false, hasMoved: true };
             if (move.type === 'enpassant') { 
                 next.board[fR][tC].piece = null; 
                 captureCount = 1; 
@@ -567,8 +567,10 @@ export class VibeChessAI {
                         else { 
                             if(target.color !== p.color) {
                                 const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any, simplified)) {
-                                    moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                if (target.type !== 'king' || simplified) {
+                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any, simplified)) {
+                                        moves.push({from:[r,c], to:[nr,nc], type:'capture'});
+                                    }
                                 }
                                 break;
                             } 
@@ -584,7 +586,7 @@ export class VibeChessAI {
                         const nr=r+d*dr, nc=c+d*dc;
                         if(!isValidSquareUtil(nr,nc)) break;
                         const targetSq = gs.board[nr][nc];
-                        if(targetSq.piece?.type === 'king') break; 
+                        if(targetSq.piece?.type === 'king' && !simplified) break; 
                         if(targetSq.item?.type === 'anvil') break;
                         if(d === 2) {
                             const midR = r + dr; const midC = c + dc;
@@ -615,8 +617,10 @@ export class VibeChessAI {
                         } else {
                             if (target.color !== p.color) {
                                 const targetLevel = getEffectiveLevel(gs.board as any, nr, nc);
-                                if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any, simplified)) {
-                                    moves.push({ from: [r, c], to: [nr, nc], type: 'capture' });
+                                if (target.type !== 'king' || simplified) {
+                                    if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any, simplified)) {
+                                        moves.push({ from: [r, c], to: [nr, nc], type: 'capture' });
+                                    }
                                 }
                                 break;
                             } else {
