@@ -510,7 +510,7 @@ export class VibeChessAI {
                 if (effLevel >= 2) {
                     [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr,dc]) => {
                         const nr=r+dr, nc=c+dc;
-                        if (isValidSquareUtil(nr,nc)) {
+                        if(isValidSquareUtil(nr,nc)) {
                             const targetSq = gs.board[nr][nc];
                             if (targetSq.piece?.type === 'king' && !simplified) return; 
                             if (targetSq.item?.type === 'anvil') return; 
@@ -529,7 +529,7 @@ export class VibeChessAI {
                     const jumps = [[3,0],[-3,0],[0,3],[0,-3]];
                     jumps.forEach(([dr,dc]) => {
                         const nr=r+dr, nc=c+dc;
-                        if (isValidSquareUtil(nr,nc)) {
+                        if(isValidSquareUtil(nr,nc)) {
                             const targetSq = gs.board[nr][nc];
                             if (targetSq.piece?.type === 'king' && !simplified) return; 
                             if (targetSq.item?.type === 'anvil') return;
@@ -601,6 +601,23 @@ export class VibeChessAI {
                         if(target) break;
                     }
                 });
+                // KING L-SHAPE ATTACK (Level 5+)
+                if (effLevel >= 5) {
+                    this.knightMoves.forEach(([dr, dc]) => {
+                        const nr = r + dr, nc = c + dc;
+                        if (isValidSquareUtil(nr, nc)) {
+                            const targetSq = gs.board[nr][nc];
+                            if (targetSq.piece?.type === 'king' && !simplified) return;
+                            if (targetSq.item?.type === 'anvil') return;
+                            const target = targetSq.piece;
+                            if (!target || target.color !== p.color) {
+                                if (!target || !isPieceInvulnerableToAttackUtil(target, p, getEffectiveLevel(gs.board as any, nr, nc), effLevel, gs.board as any, simplified)) {
+                                    moves.push({ from: [r, c], to: [nr, nc], type: 'move' });
+                                }
+                            }
+                        }
+                    });
+                }
                 break;
             default:
                 const isRookType = p.type === 'rook' || p.type === 'palace';
