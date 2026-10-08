@@ -1312,7 +1312,7 @@ export default function EvolvingChessPage() {
     ws.onopen = () => { setOnlineStatus('connected'); if (onOpenCallback) onOpenCallback(); };
     ws.onmessage = (event) => {
       const d = JSON.parse(event.data);
-      switch (d.type) {
+      switch (d) {
         case 'room-created': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('waiting'); break;
         case 'room-joined': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('connected'); break;
         case 'game-move': {
@@ -1634,15 +1634,12 @@ export default function EvolvingChessPage() {
       <PromotionDialog isOpen={isPromotingPawn} onSelectPiece={handlePromotionSelect} pawnColor={playerToPromote} />
       <MycoSpellMenu isOpen={isSelectingMycoSpell} mana={selectedSquare ? (board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.shroomMana || 0) : 0} onSelectSpell={handleMycoSpellSelect} onOpenChange={setIsSelectingMycoSpell} />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}> 
-        <AlertDialogContent> 
+        <AlertDialogContent className="font-pixel bg-black border-2 border-primary"> 
           <AlertDialogHeader> 
-            <AlertDialogTitle className="font-pixel text-primary uppercase text-[0.75rem]">Reset Game?</AlertDialogTitle>
-            <Accordion type="single" collapsible className="w-full">
-                <AccordionItem value="item-1" className="border-none">
-                    <AccordionTrigger className="font-pixel text-primary uppercase text-[0.75rem] hover:no-underline">Details</AccordionTrigger>
-                    <AccordionContent className="font-pixel text-white text-[0.6rem] leading-relaxed"> This will clear the board and reset all streaks. Any unsaved online progress may be lost. </AccordionContent>
-                </AccordionItem>
-            </Accordion>
+            <AlertDialogTitle className="text-primary uppercase text-[0.75rem]">Reset Game?</AlertDialogTitle>
+            <AlertDialogDescription className="text-white text-[0.6rem] uppercase leading-relaxed">
+              This will clear the board and reset all streaks. Any unsaved online progress may be lost.
+            </AlertDialogDescription>
           </AlertDialogHeader> 
           <AlertDialogFooter>
             <AlertDialogCancel className="font-pixel text-[0.65rem] uppercase">Cancel</AlertDialogCancel> 
