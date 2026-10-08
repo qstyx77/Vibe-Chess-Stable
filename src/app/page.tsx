@@ -1637,9 +1637,6 @@ export default function EvolvingChessPage() {
         <AlertDialogContent className="font-pixel bg-black border-2 border-primary"> 
           <AlertDialogHeader> 
             <AlertDialogTitle className="text-primary uppercase text-[0.75rem]">Reset Game?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white text-[0.6rem] uppercase leading-relaxed">
-              This will clear the board and reset all streaks. Any unsaved online progress may be lost.
-            </AlertDialogDescription>
           </AlertDialogHeader> 
           <AlertDialogFooter>
             <AlertDialogCancel className="font-pixel text-[0.65rem] uppercase">Cancel</AlertDialogCancel> 

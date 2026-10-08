@@ -1016,7 +1016,7 @@ export default function DungeonPage() {
             setBoard(res.newBoard); setSelectedSquare(null); setPossibleMoves([]);
             if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(s => {
                 setTimeout(() => {
-                  addEffect('poof', s);
+                  addEffect('focus', s);
                   audioManager.playAnvil();
                 }, 300);
             });
@@ -1154,7 +1154,7 @@ export default function DungeonPage() {
 
           if (res.anvilDroppedSquares) res.anvilDroppedSquares.forEach(sq => {
               setTimeout(() => {
-                addEffect('poof', sq);
+                addEffect('focus', sq);
                 audioManager.playAnvil();
               }, 300);
           });
@@ -1318,7 +1318,7 @@ export default function DungeonPage() {
 
         if (appRes.anvilDroppedSquares) appRes.anvilDroppedSquares.forEach(sq => {
             setTimeout(() => {
-              addEffect('poof', sq);
+              addEffect('focus', sq);
               audioManager.playAnvil();
             }, 300);
         });
@@ -1580,10 +1580,11 @@ export default function DungeonPage() {
       <RulesDialog isOpen={isRulesDialogOpen} onOpenChange={setIsRulesDialogOpen} />
       <AlertDialog open={isResetConfirmOpen} onOpenChange={setIsResetConfirmOpen}>
         <AlertDialogContent className="font-pixel bg-black border-2 border-primary">
-          <AlertDialogHeader> <AlertDialogTitle className="text-primary uppercase">Reset Dungeon Run?</AlertDialogTitle> <AlertDialogDescription className="text-white text-[10px] uppercase">All progress will be LOST.</AlertDialogDescription> </AlertDialogHeader>
+          <AlertDialogHeader> <AlertDialogTitle className="text-primary uppercase">Reset Dungeon Run?</AlertDialogTitle> </AlertDialogHeader>
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>
