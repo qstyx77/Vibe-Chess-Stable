@@ -1106,7 +1106,7 @@ export default function DungeonPage() {
            if ((tP && tP.type !== 'king') || tA) {
                if (possibleMoves.includes(alg)) {
                    if (tP) setGrappledPieceSubject({ piece: { ...tP }, from: alg }); else setGrappledItemSubject({ type: 'anvil', from: alg });
-                   setIsAwaitingGrappleThrow(true); const range = getEffectiveLevel(board, fR, fC); const tT: AlgebraicSquare[] = [];
+                   setIsAwaitingGrappleThrow(true); const range = getEffectiveLevel(board, fR, fc); const tT: AlgebraicSquare[] = [];
                    for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
                        const d = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
                        if (d>0 && d<=range && (tr===fR||tc===fC||Math.abs(tr-fR)===Math.abs(tc-fC)) && !board[tr][tc].piece && !board[tr][tc].item) tT.push(coordsToAlgebraic(tr,tc));
@@ -1361,11 +1361,25 @@ export default function DungeonPage() {
             const {row: rr, col: rc} = algebraicToCoords(rookResResult.resurrectedSquareAlg!);
             const rp = nextB[rr][rc].piece; if (rp) { rp.type = 'queen'; }
         }
+
+        const landed = nextB[move.to[0]][move.to[1]].piece;
+        const oppBackRank = currentPlayer === 'black' ? 7 : 0;
+        let aiPromoted = false;
+        if (landed && FRONTLINE_TYPES.includes(landed.type) && move.to[0] === oppBackRank) {
+            const targetL = getPromotionLevel(appRes.capturedPiece?.type || null);
+            landed.type = 'queen';
+            landed.level = Math.min(7, targetL);
+            aiPromoted = true;
+        }
+
         setBoard(nextB);
-        addLog(`Dungeon: ${mP.type} to ${toAlg}`);
+        addLog(`Dungeon: ${mP.type} to ${toAlg}${aiPromoted ? " (PROMOTED)" : ""}`);
         setTimeout(() => { 
           setIsAiThinking(false); setIsMoveProcessing(false); clickGuard.current = false; 
-          const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0, isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
+          const oS = killStreaks['black'], nS = (totalCaptures > 0) ? oS + totalCaptures : 0;
+          let isExtraTurn = appRes.extraTurn || (oS < 6 && nS >= 6);
+          if (landed && landed.level >= 5 && aiPromoted) isExtraTurn = true;
+
           const cKs = { ...killStreaks, black: nS }; setKillStreaks(cKs);
           processPawnSacrificeCheck(nextB, nxtG, cKs, 'black', {from: fromAlg, to: toAlg, type: move.type as AIMoveType['type']}, oL, oT, isExtraTurn, appRes.enPassantTargetSet, oS, nS, nextB[move.to[0]][move.to[1]].piece?.id || null, totalCaptures > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global);
         }, 800);
