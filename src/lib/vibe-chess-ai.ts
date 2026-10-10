@@ -136,7 +136,6 @@ export class VibeChessAI {
         const targetItem = targetSq.item;
         let captureCount = 0;
 
-        // Update authoritative history tracks
         const moveInfo: LastMoveInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
         next.lastMoveGlobal = moveInfo;
@@ -204,6 +203,7 @@ export class VibeChessAI {
                 if (landedPiece.type === 'queen') landedPiece.level = Math.min(7, landedPiece.level);
                 next.board[tR][tC].item = null;
             }
+            
             const backRank = landedPiece.color === 'white' ? 0 : 7;
             if (tR === backRank) {
                 if (FRONTLINE_TYPES.includes(landedPiece.type)) {
@@ -221,7 +221,6 @@ export class VibeChessAI {
                 }
             }
 
-            // Update en-passant target square for next turn
             if (FRONTLINE_TYPES.includes(landedPiece.type) && Math.abs(fR - tR) === 2) {
                 next.enPassantTargetSquare = coordsToAlgebraic(fR + Math.sign(tR - fR), fC);
             } else {
@@ -327,8 +326,7 @@ export class VibeChessAI {
                 }
             }
         }
-        // Filter out moves that leave the King in check
-        return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color, false));
+        return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color));
     }
 
     generatePieceMoves(gs: AIGameState, r: number, c: number, p: Piece, simplified: boolean = false): AIMove[] {
@@ -391,7 +389,7 @@ export class VibeChessAI {
 
         if (!simplified && p.type === 'grappler' && !silenced) {
             const range = effLevel;
-            const inCheck = this.isInCheck(gs, p.color, true);
+            const inCheck = this.isInCheck(gs, p.color);
             for (let dr = -1; dr <= 1; dr++) {
                 for (let dc = -1; dc <= 1; dc++) {
                     if (dr === 0 && dc === 0) continue;
@@ -454,8 +452,8 @@ export class VibeChessAI {
                     if(isValidSquareUtil(r+dir, c+dc)) {
                         const targetSq = gs.board[r+dir][c+dc];
                         const target = targetSq.piece;
-                        if (target && target.color !== p.color) {
-                           if (simplified || target.type !== 'king') {
+                        if ((target && target.color !== p.color) || (simplified && !targetSq.item)) {
+                           if (simplified || (target && target.type !== 'king')) {
                                 const targetLevel = getEffectiveLevel(gs.board as any, r+dir, c+dc);
                                 if (!isPieceInvulnerableToAttackUtil(target, p, targetLevel, effLevel, gs.board as any, simplified)) {
                                     moves.push({from:[r,c], to:[r+dir,c+dc], type:'capture'});
@@ -477,7 +475,6 @@ export class VibeChessAI {
                         const targetSq = gs.board[nr][nc];
                         if (targetSq.item?.type === 'anvil') return; 
                         const target = targetSq.piece;
-                        if (target?.type === 'king') return;
                         if (!target) moves.push({from:[r,c], to:[nr,nc], type:'move'});
                         else if (target.color !== p.color) {
                             if (simplified || target.type !== 'king') {
@@ -598,10 +595,9 @@ export class VibeChessAI {
                                 moves.push({from:[r,c], to:[nr,nc], type:'move'});
                             }
                         }
-                        if(target) break;
+                        if(target) break; 
                     }
                 });
-                // KING L-SHAPE ATTACK (Level 5+)
                 if (effLevel >= 5) {
                     this.knightMoves.forEach(([dr, dc]) => {
                         const nr = r + dr, nc = c + dc;
@@ -651,7 +647,7 @@ export class VibeChessAI {
         return moves;
     }
 
-    isInCheck(gs: AIGameState, color: PlayerColor, simplified: boolean = false): boolean {
+    isInCheck(gs: AIGameState, color: PlayerColor): boolean {
         if (color === 'black') {
             const colossusParts = gs.board.flat().filter(sq => sq.piece?.id?.startsWith('boss-colossus'));
             if (colossusParts.length > 0) {
@@ -659,14 +655,14 @@ export class VibeChessAI {
                 if (otherMinions) return false;
                 for (const pt of colossusParts) {
                     const coords = this.findPieceCoordsById(gs, pt.piece!.id);
-                    if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white', true)) return true;
+                    if (coords.row !== -1 && this.isSquareAttacked(gs, coords.row, coords.col, 'white')) return true;
                 }
                 return false;
             }
         }
         const king = this.findKingCoords(gs, color);
-        if (!king) return true; 
-        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white', true);
+        if (!king) return false; 
+        return this.isSquareAttacked(gs, king.row, king.col, color === 'white' ? 'black' : 'white');
     }
 
     findKingCoords(gs: AIGameState, color: PlayerColor) {
@@ -692,7 +688,7 @@ export class VibeChessAI {
         return { row: -1, col: -1 };
     }
 
-    isSquareAttacked(gs: AIGameState, tr: number, tc: number, attackerColor: PlayerColor, simplified: boolean = false): boolean {
+    isSquareAttacked(gs: AIGameState, tr: number, tc: number, attackerColor: PlayerColor): boolean {
         if (tr === -1) return false;
         const targetPiece = gs.board[tr][tc].piece;
         const targetLevel = getEffectiveLevel(gs.board as any, tr, tc);
@@ -701,7 +697,7 @@ export class VibeChessAI {
                 const p = gs.board[r][c].piece;
                 if (p && p.color === attackerColor) {
                     const effLevel = getEffectiveLevel(gs.board as any, r, c);
-                    const moves = this.generatePieceMoves(gs, r, c, p, true);
+                    const moves = this.generatePieceMoves(gs, r, c, p, true); 
                     if (moves.some(m => m.to[0] === tr && m.to[1] === tc)) {
                         if (!isPieceInvulnerableToAttackUtil(targetPiece, p, targetLevel, effLevel, gs.board as any, true)) return true;
                     }

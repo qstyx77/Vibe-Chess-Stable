@@ -13,9 +13,6 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
         if (otherMinions) return true; 
     }
 
-    // Standard defensive abilities are ignored during check-detection to prevent self-checks
-    if (ignoreDefensiveAbilities) return false;
-
     if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) {
         if (attackingPiece.heldItem === 'ice_breaker') return false;
         return true;
@@ -24,13 +21,17 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     // Obsidian Blade bypasses Holy Shields
     if (targetPiece.isShielded && attackingPiece.heldItem === 'obsidian_blade') return false;
 
-    if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
-    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
-    
+    // Level-based core invulnerability rules (Checked before general shield shortcut)
     const hunters = ['commander', 'hero', 'infiltrator', 'dancer', 'mimic', 'grappler', 'self-destruct', 'myco_mage'];
     if (targetPiece.type === 'queen' && hunters.includes(attackingPiece.type)) return false;
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
     if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && FRONTLINE_TYPES.includes(attackingPiece.type)) return true;
+
+    // Standard defensive abilities (like Shields) are ignored during check-detection to prevent "invincible kings" from moving into fire
+    if (ignoreDefensiveAbilities) return false;
+
+    if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
+    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
     
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
 }
@@ -51,35 +52,33 @@ export function isSquareAttacked(
     const targetR = coords.row;
     const targetC = coords.col;
 
-    const activeSets = getActiveSets(board, attackerColor);
-    const isAssassinSet = activeSets.includes('assassin');
-
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             const attackingSquareAlgebraic = coordsToAlgebraic(r,c);
             if (ignoreAttackerAtSquare && attackingSquareAlgebraic === ignoreAttackerAtSquare) continue;
+            
             const attackingPiece = board[r][c].piece;
             if (attackingPiece && attackingPiece.color === attackerColor) {
                 const pieceOnTargetSq = board[targetR][targetC]?.piece || null;
                 const targetLevel = getEffectiveLevel(board, targetR, targetC);
                 const effectiveLevel = getEffectiveLevel(board, r, c);
                 
-                const isAssassinAttacker = isAssassinSet && FRONTLINE_TYPES.includes(attackingPiece.type) && effectiveLevel >= 5;
-
-                if (['pawn', 'dancer', 'commander', 'grappler', 'myco_mage'].includes(attackingPiece.type) && !isAssassinAttacker) {
-                    const direction = attackingPiece.color === 'white' ? -1 : 1;
-                    if (r + direction === targetR && Math.abs(c - targetC) === 1) {
-                        if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
-                    }
-                } else if (attackingPiece.type === 'infiltrator' || isAssassinAttacker) {
-                    const direction = attackingPiece.color === 'white' ? -1 : 1;
-                    if ( (r + direction === targetR && c === targetC) || (r + direction === targetR && Math.abs(c - targetC) === 1) ) {
-                        if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
-                    }
-                } else {
-                    const pseudoMoves = getPossibleMovesInternal(board, attackingSquareAlgebraic, attackingPiece, false, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, true);
-                    if (pseudoMoves.includes(squareToAttack)) {
-                        if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) return true;
+                // Use authoritative move generation to check for attacks
+                const pseudoMoves = getPossibleMovesInternal(
+                  board, 
+                  attackingSquareAlgebraic, 
+                  attackingPiece, 
+                  false, 
+                  enPassantTargetSquare, 
+                  lastMoveWhite || null, 
+                  lastMoveBlack || null, 
+                  lastMoveGlobal || null, 
+                  true // simplified = true for threat detection
+                );
+                
+                if (pseudoMoves.includes(squareToAttack)) {
+                    if (!isPieceInvulnerableToAttack(pieceOnTargetSq, attackingPiece, targetLevel, effectiveLevel, board, ignoreDefensiveAbilities)) {
+                        return true;
                     }
                 }
             }

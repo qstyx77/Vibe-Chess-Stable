@@ -77,11 +77,9 @@ export function getPossibleMovesInternal(
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
   if (piece.type === 'mimic') {
-    // MOVEMENT: Always source pattern from the absolute last piece that moved globally
     const patternType = (lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic') ? lastMoveGlobal.type : 'pawn';
     const virtualPiece = { ...piece, type: patternType };
     
-    // ITEM: Specialized mimicry track selection
     let mimickedItem: InventoryItemType | null = null;
     if (piece.heldItem === 'mirror_mask') {
         const enemyLast = pieceColor === 'white' ? lastMoveBlack : lastMoveWhite;
@@ -581,6 +579,7 @@ function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: Algeb
     if (dr === forward && Math.abs(dc) === 1) {
        if (targetP && targetP.color === opp) return true;
        if (!targetP && to === ep) return true;
+       if (simplified) return true; // Authoritative threat to empty square during check detection
     }
     return false;
   }

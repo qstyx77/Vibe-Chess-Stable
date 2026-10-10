@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -478,6 +479,7 @@ export default function EvolvingChessPage() {
     setGameMoveCounter(newGameMoveCounter); setCapturedPieces(currentGraveyard); setKillStreaks(currentKs);
     setDidCaptureLastTurn(prev => ({ ...prev, [playerWhoseTurnCompleted]: wasCaptureThisTurn }));
     
+    // Crucial: Use passed tracks synchronously to avoid stale history checks
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -582,6 +584,7 @@ export default function EvolvingChessPage() {
         black: Array.isArray(currentGraveyard.black) ? [...currentGraveyard.black] : []
     };
     
+    // authoritatively use passed tracks
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -814,6 +817,7 @@ export default function EvolvingChessPage() {
     if (!move) return false;
     const { row: rowIdx, col: colIdx } = algebraicToCoords(move.to); const piece = boardAfter[rowIdx][colIdx].piece;
     
+    // Pass passed tracks synchronously
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -840,35 +844,6 @@ export default function EvolvingChessPage() {
     }
     triggerSpecialsChain(boardAfter, graveyard, currentKs, oldS, newS, isExtraTurn, ep, player, [], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return false;
   }, [isWhiteAI, isBlackAI, triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
-
-  const handlePromotionSelect = useCallback((pieceType: PieceType) => {
-    setIsPromotingPawn(false);
-    setPromotionSquare(null);
-    if (!promotionSquare) return;
-    let nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null })));
-    const { row, col } = algebraicToCoords(promotionSquare);
-    const piece = nextBoard[row][col].piece;
-    if (!piece) return;
-    if (piece.heldItem && !isItemValidForPiece(piece.heldItem, pieceType)) {
-        const item = piece.heldItem; setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === item); if (existing) existing.count++; else next.push({ type: item, count: 1 }); return next; });
-        piece.heldItem = null; addLog(`Equipment Returned: ${ITEM_METADATA[item].name}`);
-    }
-    nextBoard[row][col].piece = { ...piece, type: pieceType, level: promotionTargetLevel, hasMoved: true };
-    if (pieceType === 'queen') nextBoard[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
-    setBoard(nextBoard); audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(piece.color)}: Frontline Promoted to ${pieceType}!`);
-    const remainingQueue = promotionQueue.slice(1);
-    if (remainingQueue.length > 0) {
-        setPromotionQueue(remainingQueue);
-        const nxt = remainingQueue[0]; setPromotionSquare(nxt.square); setPromotionTargetLevel(nxt.targetLevel); setIsPromotingPawn(true);
-    } else {
-        setPromotionQueue([]);
-        const ctx = specialActionContext;
-        if (ctx) {
-            const isExtra = (nextBoard[row][col].piece!.level >= 5) || ctx.isExtraTurn;
-            triggerSpecialsChain(nextBoard, ctx.currentGraveyard, ctx.currentKs, ctx.oldStreak, ctx.newStreak, isExtra, ctx.newEnPassantTarget, currentPlayer, ctx.completedMilestones, ctx.capturingPieceId, false, pieceType, ctx.trackWhite, ctx.trackBlack, ctx.trackGlobal);
-        } else { processMoveEnd(nextBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, pieceType); }
-    }
-  }, [board, promotionSquare, promotionTargetLevel, specialActionContext, currentPlayer, triggerSpecialsChain, addLog, inventory, promotionQueue, getPlayerDisplayName, capturedPieces, killStreaks, processMoveEnd]);
 
   const performAiMove = useCallback(async () => {
     if (!aiInstanceRef.current || gameInfo.gameOver || gameOverRef.current || isMoveProcessing || isAnySpecialModeActive || isAiThinking) return;
