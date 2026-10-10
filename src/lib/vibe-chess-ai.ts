@@ -64,6 +64,11 @@ export class VibeChessAI {
         let bestExtraTurn = false;
         const gameState = this.cloneGameState(originalGameState);
         
+        const possibleMoves = this.generateAllMoves(gameState, color);
+        if (possibleMoves.length === 0) return { move: null, extraTurn: false };
+        
+        bestMove = possibleMoves[0]; // Set absolute fallback
+
         try {
             for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
                 const result = this.minimax(gameState, currentDepth, -Infinity, Infinity, true, color);
@@ -78,7 +83,7 @@ export class VibeChessAI {
             console.error("[AI Internal Error]", e);
         }
         
-        return { move: bestMove || (this.generateAllMoves(gameState, color)[0] || null), extraTurn: bestExtraTurn };
+        return { move: bestMove, extraTurn: bestExtraTurn };
     }
 
     minimax = (gameState: AIGameState, depth: number, alpha: number, beta: number, isMaximizing: boolean, aiColor: PlayerColor): { score: number; move: AIMove | null; extraTurn?: boolean } => {
