@@ -136,6 +136,7 @@ export class VibeChessAI {
         const targetItem = targetSq.item;
         let captureCount = 0;
 
+        // Synchronize history tracks
         const moveInfo: LastMoveInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
         next.lastMoveGlobal = moveInfo;
@@ -326,6 +327,7 @@ export class VibeChessAI {
                 }
             }
         }
+        // Filter out moves that leave the King in check
         return moves.filter(m => !this.isInCheck(this.makeMoveOptimized(gs, m, color), color));
     }
 
@@ -571,7 +573,7 @@ export class VibeChessAI {
                                 }
                                 break;
                             } 
-                            if (effLevel < 2) break;
+                            if (effLevel < 2) break; // Standard blocking
                         }
                     }
                 });

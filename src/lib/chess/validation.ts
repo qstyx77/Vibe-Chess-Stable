@@ -13,6 +13,9 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
         if (otherMinions) return true; 
     }
 
+    // Standard defensive abilities are ignored during check-detection to prevent self-checks
+    if (ignoreDefensiveAbilities) return false;
+
     if (targetPiece.frozenTurnsRemaining && targetPiece.frozenTurnsRemaining > 0) {
         if (attackingPiece.heldItem === 'ice_breaker') return false;
         return true;
@@ -21,17 +24,13 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     // Obsidian Blade bypasses Holy Shields
     if (targetPiece.isShielded && attackingPiece.heldItem === 'obsidian_blade') return false;
 
-    // Level-based core invulnerability rules (Checked before general shield shortcut)
+    if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
+    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
+    
     const hunters = ['commander', 'hero', 'infiltrator', 'dancer', 'mimic', 'grappler', 'self-destruct', 'myco_mage'];
     if (targetPiece.type === 'queen' && hunters.includes(attackingPiece.type)) return false;
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
     if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && FRONTLINE_TYPES.includes(attackingPiece.type)) return true;
-
-    // Standard defensive abilities (like Shields) are ignored during check-detection to prevent "invincible kings" from moving into fire
-    if (ignoreDefensiveAbilities) return false;
-
-    if (targetPiece.heldItem === 'queens_peace' && targetPiece.type === 'queen') return true;
-    if (targetPiece.isShielded && attackingPiece.type !== 'self-destruct') return true;
     
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;
 }
@@ -73,7 +72,7 @@ export function isSquareAttacked(
                   lastMoveWhite || null, 
                   lastMoveBlack || null, 
                   lastMoveGlobal || null, 
-                  true // simplified = true for threat detection
+                  true
                 );
                 
                 if (pseudoMoves.includes(squareToAttack)) {

@@ -433,7 +433,7 @@ export default function EvolvingChessPage() {
       board: board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? { ...sq.item } : null }))),
       currentPlayer, gameInfo: { ...gameInfo }, capturedPieces: { white: [...capturedPieces.white], black: [...capturedPieces.black] }, killStreaks: { ...killStreaks }, boardOrientation, viewMode, isWhiteAI, isBlackAI, positionHistory: [...positionHistory], lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare, 
       lastMoveWhite, lastMoveBlack, lastMoveGlobal, 
-      isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingRookSacrifice: false, playerToSacrificeForRook: null, rookToMakeInvulnerable: null, boardForRookSacrifice: null, originalTurnPlayerForRookSacrifice: null, isExtraTurnFromRookLevelUp: false, isResurrectionPromotionInProgress: false, playerForPostResurrectionPromotion: null, isExtraTurnForPostResurrectionPromotion: false, promotionSquare, promotionMoveWasCapture: false, originalPromotionLevel: null, promotionPawnOriginalLevel: null, firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion, resurrectedSquares: [...resurrectedSquares], turnTimer, activeTimerPlayer: null, whiteTimeouts, blackTimeouts, isAwaitingAnvilDrop, playerToDropAnvil: playerToDropAnvil || null, anvilDropContext: specialActionContext ? { ...specialActionContext } as any : null, anvilDropAfterPromotion: false, inventory: [...inventory], didOpponentCaptureLastTurn: didCaptureLastTurn[currentPlayer === 'white' ? 'black' : 'white']
+      isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, isAwaitingRookSacrifice: false, playerToSacrificeForRook: null, rookToMakeInvulnerable: null, boardForRookSacrifice: null, originalTurnPlayerForRookSacrifice: null, isExtraTurnFromRookLevelUp: false, isResurrectionPromotionInProgress: false, playerForPostResurrectionPromotion: null, isExtraTurnForPostResurrectionPromotion: boolean, promotionSquare, promotionMoveWasCapture: false, originalPromotionLevel: null, promotionPawnOriginalLevel: null, firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion, resurrectedSquares: [...resurrectedSquares], turnTimer, activeTimerPlayer: null, whiteTimeouts, blackTimeouts, isAwaitingAnvilDrop, playerToDropAnvil: playerToDropAnvil || null, anvilDropContext: specialActionContext ? { ...specialActionContext } as any : null, anvilDropAfterPromotion: false, inventory: [...inventory], didOpponentCaptureLastTurn: didCaptureLastTurn[currentPlayer === 'white' ? 'black' : 'white']
     };
     setHistoryStack(prev => [...prev, snapshot].slice(-40));
   }, [board, currentPlayer, gameInfo, capturedPieces, killStreaks, boardOrientation, viewMode, isWhiteAI, isBlackAI, positionHistory, lastMoveFrom, lastMoveTo, gameMoveCounter, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, isAwaitingPawnSacrifice, playerToSacrificePawn, boardForPostSacrifice, playerWhoMadeQueenMove, isExtraTurnFromQueenMove, promotionSquare, firstBloodAchieved, playerWhoGotFirstBlood, isAwaitingCommanderPromotion, resurrectedSquares, turnTimer, whiteTimeouts, blackTimeouts, isAwaitingAnvilDrop, playerToDropAnvil, specialActionContext, inventory, didCaptureLastTurn]);
@@ -479,7 +479,6 @@ export default function EvolvingChessPage() {
     setGameMoveCounter(newGameMoveCounter); setCapturedPieces(currentGraveyard); setKillStreaks(currentKs);
     setDidCaptureLastTurn(prev => ({ ...prev, [playerWhoseTurnCompleted]: wasCaptureThisTurn }));
     
-    // Crucial: Use passed tracks synchronously to avoid stale history checks
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -584,7 +583,6 @@ export default function EvolvingChessPage() {
         black: Array.isArray(currentGraveyard.black) ? [...currentGraveyard.black] : []
     };
     
-    // authoritatively use passed tracks
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -817,7 +815,6 @@ export default function EvolvingChessPage() {
     if (!move) return false;
     const { row: rowIdx, col: colIdx } = algebraicToCoords(move.to); const piece = boardAfter[rowIdx][colIdx].piece;
     
-    // Pass passed tracks synchronously
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
@@ -844,6 +841,27 @@ export default function EvolvingChessPage() {
     }
     triggerSpecialsChain(boardAfter, graveyard, currentKs, oldS, newS, isExtraTurn, ep, player, [], capturingPieceId, wasCaptureThisTurn, movedPieceType, effWhite, effBlack, effGlobal); return false;
   }, [isWhiteAI, isBlackAI, triggerSpecialsChain, addLog, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
+
+  const handlePromotionSelect = useCallback((t: PieceType) => {
+    setIsPromotingPawn(false); setPromotionSquare(null);
+    let nB = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
+    const { row, col } = algebraicToCoords(promotionSquare!); const p = nB[row][col].piece; if (!p) return;
+    nB[row][col].piece = { ...p, type: t, hasMoved: true, level: promotionTargetLevel };
+    if (t === 'queen') nB[row][col].piece!.level = Math.min(promotionTargetLevel, 7);
+    setBoard(nB); audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(p.color)}: Pawn promoted to ${t}!`);
+    const remQ = promotionQueue.slice(1);
+    if (remQ.length > 0) { 
+        setPromotionQueue(remQ); 
+        const nxt = remQ[0]; 
+        setPromotionSquare(nxt.square); 
+        setPromotionTargetLevel(nxt.targetLevel); 
+        setIsPromotingPawn(true); 
+    } else { 
+        setPromotionQueue([]);
+        if (specialActionContext) triggerSpecialsChain(nB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, t, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal);
+        else processMoveEnd(nB, capturedPieces, killStreaks, currentPlayer, false, null, false, t);
+    }
+  }, [board, promotionSquare, promotionTargetLevel, capturedPieces, killStreaks, triggerSpecialsChain, addLog, specialActionContext, processMoveEnd, promotionQueue, getPlayerDisplayName, currentPlayer]);
 
   const performAiMove = useCallback(async () => {
     if (!aiInstanceRef.current || gameInfo.gameOver || gameOverRef.current || isMoveProcessing || isAnySpecialModeActive || isAiThinking) return;
@@ -1287,7 +1305,7 @@ export default function EvolvingChessPage() {
     ws.onopen = () => { setOnlineStatus('connected'); if (onOpenCallback) onOpenCallback(); };
     ws.onmessage = (event) => {
       const d = JSON.parse(event.data);
-      switch (d) {
+      switch (d.type) {
         case 'room-created': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('waiting'); break;
         case 'room-joined': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('connected'); break;
         case 'game-move': {
@@ -1381,13 +1399,6 @@ export default function EvolvingChessPage() {
       }
     }
   }, [isUserLoading, user, aiDifficulty, userData]);
-
-  useEffect(() => {
-    const isAiT = (currentPlayer === 'white' && isWhiteAI) || (currentPlayer === 'black' && isBlackAI);
-    if (isAiT && onlineStatus === 'disconnected' && !gameInfo.gameOver && !gameOverRef.current && !isMoveProcessing && !isAnySpecialModeActive && !isAiThinking) {
-      const timer = setTimeout(performAiMove, 1000); return () => clearTimeout(timer);
-    }
-  }, [currentPlayer, isWhiteAI, isBlackAI, onlineStatus, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, gameMoveCounter, performAiMove]);
 
   const isLootBagDisabled = useMemo(() => {
     if (!user) return true;
