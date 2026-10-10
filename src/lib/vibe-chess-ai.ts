@@ -67,7 +67,7 @@ export class VibeChessAI {
         const possibleMoves = this.generateAllMoves(gameState, color);
         if (possibleMoves.length === 0) return { move: null, extraTurn: false };
         
-        bestMove = possibleMoves[0]; // Set absolute fallback
+        bestMove = possibleMoves[0]; // Fallback
 
         try {
             for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
@@ -141,7 +141,6 @@ export class VibeChessAI {
         const targetItem = targetSq.item;
         let captureCount = 0;
 
-        // Synchronize history tracks
         const moveInfo: LastMoveInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
         next.lastMoveGlobal = moveInfo;
