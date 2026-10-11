@@ -44,7 +44,7 @@ import {
   getActiveSets
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType, ItemType, PieceType, LastMoveInfo } from '@/types';
-import { ITEM_METADATA } from '@/types';
+import { ITEM_METADATA, ITEM_SETS } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -792,7 +792,7 @@ export default function EvolvingChessPage() {
     const isSnipeTime = (newStreak >= 5 && oldStreak < 5 && snipers.length > 0) || (newStreak >= 3 && oldStreak < 3 && hasCrossbow);
     if (!silenced && isSnipeTime && !completedMilestones.includes('snipe')) {
         const oppColor = actingPlayer === 'white' ? 'black' : 'white';
-        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && sq.piece.heldItem !== 'weighted_helm');
+        const victims = boardToChain.flat().filter(sq => sq.piece && sq.piece.color === oppColor && sq.piece.level <= maxSniperLevel && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && sq.piece.heldItem !== 'weighted_helm');
         if (victims.length > 0) {
             if (isAI) {
                 const nextBoard = boardToChain.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
