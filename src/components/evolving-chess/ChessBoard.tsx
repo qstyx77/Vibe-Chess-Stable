@@ -276,7 +276,7 @@ export const ChessBoard = memo(({
           if (isLocalActionTurn && isAwaitingDanceTarget) {
             const dancerPiece = dancerToDance ? boardState[algebraicToCoords(dancerToDance).row][algebraicToCoords(dancerToDance).col].piece : null;
             if (!dancerToDance) {
-                if (currentSquareData.piece?.color === currentPlayerColor && (currentSquareData.piece?.type === 'dancer' || currentSquareData.piece?.type === 'mimic')) isDanceTarget = true;
+                if (currentSquareData.piece?.color === currentPlayerColor && currentSquareData.piece?.type === 'dancer') isDanceTarget = true;
             } else {
                 const {row: fr, col: fc} = algebraicToCoords(dancerToDance);
                 const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;

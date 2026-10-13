@@ -600,12 +600,6 @@ export default function EvolvingChessPage() {
           const p = sq.piece;
           if (!p || p.color !== actingPlayer) return false;
           if (p.type === 'dancer') return true;
-          if (p.type === 'mimic') {
-             let lastInfo = effGlobal;
-             if (p.heldItem === 'mirror_mask') lastInfo = actingPlayer === 'white' ? effBlack : effWhite;
-             else if (p.heldItem === 'mimic_blade') lastInfo = actingPlayer === 'white' ? effWhite : effBlack;
-             return lastInfo?.type === 'dancer';
-          }
           return false;
         });
         if (hasDancers) {
@@ -614,14 +608,7 @@ export default function EvolvingChessPage() {
                 const aiDancerSq = nextBoard.flat().find(sq => {
                     const p = sq.piece;
                     if (!p || p.color !== actingPlayer) return false;
-                    if (p.type === 'dancer') return true;
-                    if (p.type === 'mimic') {
-                       let lastInfo = effGlobal;
-                       if (p.heldItem === 'mirror_mask') lastInfo = actingPlayer === 'white' ? effBlack : effWhite;
-                       else if (p.heldItem === 'mimic_blade') lastInfo = actingPlayer === 'white' ? effWhite : effBlack;
-                       return lastInfo?.type === 'dancer';
-                    }
-                    return false;
+                    return p.type === 'dancer';
                 });
                 if (aiDancerSq) {
                     const {rowIndex: r, colIndex: c} = aiDancerSq;
@@ -1113,7 +1100,7 @@ export default function EvolvingChessPage() {
     if (isAwaitingDanceTarget) {
         const dp = dancerToDance ? board[algebraicToCoords(dancerToDance).row][algebraicToCoords(dancerToDance).col].piece : null;
         if (!dancerToDance) { 
-          if (piece && piece.color === currentPlayer && (piece.type === 'dancer' || piece.type === 'mimic')) { setDancerToDance(algebraic); }
+          if (piece && piece.color === currentPlayer && piece.type === 'dancer') { setDancerToDance(algebraic); }
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }

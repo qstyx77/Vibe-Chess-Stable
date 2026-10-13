@@ -612,12 +612,6 @@ export default function DungeonPage() {
         const hasD = bCh.flat().some(sq => { 
             const p = sq.piece; if (!p || p.color !== actP) return false; 
             if (p.type === 'dancer') return true;
-            if (p.type === 'mimic') {
-              let lastInfo = effGlobal;
-              if (p.heldItem === 'mirror_mask') lastInfo = actP === 'white' ? effBlack : effWhite;
-              else if (p.heldItem === 'mimic_blade') lastInfo = actP === 'white' ? effWhite : effBlack;
-              return lastInfo?.type === 'dancer';
-            }
             return false; 
         });
         if (hasD) {
@@ -625,14 +619,7 @@ export default function DungeonPage() {
                 const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
                 const aiDSq = nxtB.flat().find(sq => {
                     const p = sq.piece; if (!p || p.color !== actP) return false; 
-                    if (p.type === 'dancer') return true;
-                    if (p.type === 'mimic') {
-                      let lastInfo = effGlobal;
-                      if (p.heldItem === 'mirror_mask') lastInfo = actP === 'white' ? effBlack : effWhite;
-                      else if (p.heldItem === 'mimic_blade') lastInfo = actP === 'white' ? effWhite : effBlack;
-                      return lastInfo?.type === 'dancer';
-                    }
-                    return false;
+                    return p.type === 'dancer';
                 });
                 if (aiDSq) {
                     const {rowIndex: r, colIndex: c} = aiDSq; const dP = aiDSq.piece!; const dDir = actP === 'white' ? -1 : 1; const cands: any[] = [];
@@ -1089,7 +1076,7 @@ export default function DungeonPage() {
     }
     if (isAwaitingDanceTarget) {
         const dP = dancerToDance ? board[algebraicToCoords(dancerToDance).row][algebraicToCoords(dancerToDance).col].piece : null;
-        if (!dancerToDance) { if (piece && piece.color === 'white' && (piece.type === 'dancer' || piece.type === 'mimic')) { setDancerToDance(alg); } return; }
+        if (!dancerToDance) { if (piece && piece.color === 'white' && piece.type === 'dancer') { setDancerToDance(alg); } return; }
         if (alg === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdj = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         if (isAdj && (piece || (sq?.item?.type === 'anvil' && dP?.heldItem === 'dancers_ribbon') || (!sq?.item && row === fr - 1))) {
@@ -1576,7 +1563,7 @@ export default function DungeonPage() {
         <div className={cn("text-center text-[0.8rem] font-bold min-h-[1.5rem] uppercase w-full", gameInfo.isCheck && !gameInfo.gameOver && "text-destructive animate-pulse")}> {statMsg} </div>
         <div className="w-full"> <ChessBoard boardState={board} selectedSquare={selectedSquare} possibleMoves={possibleMoves} enemySelectedSquare={enemySelectedSquare} enemyPossibleMoves={enemyPossibleMoves} onSquareClick={handleSquareClick} playerColor="white" currentPlayerColor={currentPlayer} isInteractionDisabled={isMoveProcessing || gameInfo.gameOver || (isAiThinking && currentPlayer === 'white') || (isSpec && currentPlayer === 'white')} playerInCheck={gameInfo.playerWithKingInCheck} viewMode="flipping" animatedSquareTo={animatedSquareTo} lastMoveFrom={lastMoveFrom} lastMoveTo={lastMoveTo} isAwaitingPawnSacrifice={isAwaitingPawnSacrifice} playerToSacrificePawn={playerToSacrificePawn} isEnPassantTarget={enPassantTargetSquare} onPieceHover={handlePieceHover} effects={effects} promotingSquare={promotionSquare} isAwaitingAnvilDrop={isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget} playerToDropAnvil={playerToDropAnvil} isInventoryOpen={isInventoryOpen} selectedInventoryItemType={selectedInventoryItemType} localPlayerColor="white" isAwaitingHolyShield={isAwaitingHolyShield} isAwaitingArcherSnipe={isAwaitingArcherSnipe} isAwaitingGrappleThrow={isAwaitingGrappleThrow} isAwaitingDanceTarget={isAwaitingDanceTarget} dancerToDance={dancerToDance} grappledPieceSubject={grappledPieceSubject} isAwaitingEarthquakeScrollTarget={isAwaitingEarthquakeScrollTarget} isSelectingMycoSpell={isSelectingMycoSpell} isSelectingTeleportAlly={isSelectingTeleportAlly} isSelectingTeleportShroom={isSelectingTeleportShroom} isSelectingSporeBombShroom={isSelectingSporeBombShroom} isAwaitingCommanderPromotion={isAwaitingCommanderPromotion} playerToPromoteCommander={playerWhoGotFirstblood} isAwaitingWindScrollTarget={isAwaitingWindScrollTarget} isAwaitingShieldScrollTarget={isAwaitingShieldScrollTarget} isAwaitingSwapScrollTarget={isAwaitingSwapScrollTarget} isAwaitingDecreeTarget={isAwaitingDecreeTarget} isAwaitingOilSlickTarget={isAwaitingOilSlickTarget} isAwaitingRayTarget={isAwaitingRayTarget} lastMoveWhite={lastMoveWhite} lastMoveBlack={lastMoveBlack} lastMoveGlobal={lastMoveGlobal} /> </div>
       </div>
-      <div className="w-1/4 flex flex-col gap-4"> 
+      <div className="w-1/4 flex-col gap-4"> 
         <AuthWidget /> 
         <Card className="border-2 border-border/50 bg-card"> 
           <CardContent className="p-4 flex flex-col gap-3"> 
