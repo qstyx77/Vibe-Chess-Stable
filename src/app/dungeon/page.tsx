@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -539,8 +538,9 @@ export default function DungeonPage() {
     setPositionHistory(nHist);
     if (nHist.filter(h => h === cHash).length >= 3) { setGameInfo({ message: "Draw by Repetition!", isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: true, gameOver: true, winner: 'draw' }); addLog("Draw by Repetition!"); gameOverRef.current = true; audioManager.playDraw(); return; }
     
-    const { newBoard: bP, poisonedCaptures } = processPoisonDamage(nB, nxtP);
+    const { newBoard: bP, poisonedCaptures, levelChanges: poisonLC } = processPoisonDamage(nB, nxtP);
     nB = bP;
+    poisonLC?.forEach(lc => addEffect('level-change', lc.square, nxtP, lc.delta));
 
     const postPoisonPieces = nB.flat().filter(sq => sq.piece).map(sq => sq.piece!);
     const anyShattered = midFrozenIds.some(id => {
@@ -648,7 +648,11 @@ export default function DungeonPage() {
                     cands.sort((a,b) => b.pri - a.pri);
                     if (cands.length > 0) {
                         const best = cands[0]; const tSq = nxtB[best.r][best.c]; const tP = tSq.piece; const targetItem = tSq.item;
-                        if (targetItem?.type === 'shroom') { nxtB[best.r][best.c].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1 }; } else { nxtB[best.r][best.c].piece = { ...dP, hasMoved: true }; }
+                        if (targetItem?.type === 'shroom') { 
+                            const oldL = dP.level;
+                            nxtB[best.r][best.c].piece = { ...dP, hasMoved: true, level: (dP.level || 1) + 1 }; 
+                            if (nxtB[best.r][best.c].piece!.level > oldL) addEffect('level-change', coordsToAlgebraic(best.r, best.c), actP, 1);
+                        } else { nxtB[best.r][best.c].piece = { ...dP, hasMoved: true }; }
                         nxtB[best.r][best.c].item = null; nxtB[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null; nxtB[r][c].item = targetItem?.type === 'shroom' ? null : targetItem;
                         addLog(`${getPlayerDisplayName(actP)} Dancer performed a free ${tP ? 'swap' : (targetItem ? 'anvil swap' : 'move')}!`);
                     }
@@ -696,7 +700,9 @@ export default function DungeonPage() {
                     ally.isShielded = true; 
                     const rosaryArchbishop = nxtB.flat().find(sq => sq.piece && sq.piece.color === actP && sq.piece.heldItem === 'rosary');
                     if (rosaryArchbishop) {
+                        const oldAL = ally.level;
                         ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+                        if (ally.level > oldAL) addEffect('level-change', targs[0].algebraic, actP, 1);
                     }
                     addLog(`${getPlayerDisplayName(actP)} Archbishop applied a Holy Shield!`); 
                 }
@@ -1038,7 +1044,9 @@ export default function DungeonPage() {
         ally.isShielded = true; 
         const rosaryArchbishop = nxtB.flat().find(sq => sq.piece && sq.piece.color === 'white' && sq.piece.heldItem === 'rosary');
         if (rosaryArchbishop) {
+            const oldAL = ally.level;
             ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+            if (ally.level > oldAL) addEffect('level-change', alg, 'white', 1);
         }
         setBoard(nxtB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'shield'], specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; 
     }
@@ -1087,7 +1095,11 @@ export default function DungeonPage() {
         if (isAdj && (piece || (sq?.item?.type === 'anvil' && dP?.heldItem === 'dancers_ribbon') || (!sq?.item && row === fr - 1))) {
             let nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
             const activeD = nxtB[fr][fc].piece!; const tP = nxtB[row][col].piece; const targetItem = nxtB[row][col].item;
-            if (targetItem?.type === 'shroom') { activeD.level = Math.min(activeD.type === 'queen' ? 7 : 99, (activeD.level || 1) + 1); nxtB[row][col].item = null; }
+            if (targetItem?.type === 'shroom') { 
+                const oldL = activeD.level;
+                activeD.level = Math.min(activeD.type === 'queen' ? 7 : 99, (activeD.level || 1) + 1); nxtB[row][col].item = null; 
+                if (activeD.level > oldL) addEffect('level-change', alg, 'white', 1);
+            }
             nxtB[row][col].piece = activeD; nxtB[fr][fc].piece = tP ? { ...tP, hasMoved: true } : null; nxtB[fr][fc].item = targetItem?.type === 'shroom' ? null : targetItem;
             setBoard(nxtB); setIsAwaitingDanceTarget(false); setDancerToDance(null); audioManager.playMove(); 
             triggerSpecialsChain(nxtB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, 'white', specialActionContext!.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext!.trackWhite, specialActionContext!.trackBlack, specialActionContext!.trackGlobal);
@@ -1138,12 +1150,13 @@ export default function DungeonPage() {
 
           const res = applyMove(board, { from: selectedSquare, to: alg, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
           
+          res.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'white', lc.delta));
+
           const isFake = res.capturedPiece?.id?.startsWith('boss-mirage-fake');
           if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0);
-          const captureGainExp = (res.capturedPiece && !isFake) ? (DUNGEON_EXP_MAP[res.capturedPiece.type] || 1) : 0;
-          if (captureGainExp > 0) addEffect('level-change', alg, 'white', captureGainExp);
-          if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); addEffect('level-change', alg, 'white', 1); }
+          
+          if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
           
           if (res.hydraSplitOccurred) { 
@@ -1301,13 +1314,13 @@ export default function DungeonPage() {
 
         const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
         
+        appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
+
         const isFake = appRes.capturedPiece?.id?.startsWith('boss-mirage-fake');
         const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0);
-        const captureGainExp = (appRes.capturedPiece && !isFake) ? (DUNGEON_EXP_MAP[appRes.capturedPiece.type] || 1) : 0;
         
         if (totalCaptures > 0) { audioManager.playCapture(); addEffect('poof', toAlg); }
-        if (captureGainExp > 0) addEffect('level-change', toAlg, 'black', captureGainExp);
-        if (appRes.shroomConsumed) { audioManager.playShroom(); addEffect('level-change', toAlg, 'black', 1); }
+        if (appRes.shroomConsumed) { audioManager.playShroom(); }
         if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
         
         if (appRes.hydraSplitOccurred) { 
@@ -1599,7 +1612,6 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>

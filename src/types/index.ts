@@ -346,6 +346,11 @@ export interface Effect {
   itemType?: InventoryItemType;
 }
 
+export interface LevelChangeEvent {
+  square: AlgebraicSquare;
+  delta: number;
+}
+
 export interface ConversionEvent {
   originalPiece: Piece;
   convertedPiece: Piece;
@@ -398,6 +403,7 @@ export interface ApplyMoveResult {
   hydraSplitOccurred?: boolean;
   hydraSpawnSquares?: AlgebraicSquare[];
   anvilDroppedSquares?: AlgebraicSquare[];
+  levelChanges?: LevelChangeEvent[];
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -43,7 +42,7 @@ import {
   isSquareAttacked,
   getActiveSets
 } from '@/lib/chess-utils';
-import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType, ItemType, PieceType, LastMoveInfo } from '@/types';
+import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, GameSnapshot, ViewMode, ApplyMoveResult, AIGameState, AIBoardState, AISquareState, AIMove as AIMoveType, ResurrectedSquareInfo, Effect, ChatMessage, InventoryItem, InventoryItemType, ItemType, PieceType, LastMoveInfo, LevelChangeEvent } from '@/types';
 import { ITEM_METADATA, ITEM_SETS } from '@/types';
 import { useToast } from "@/hooks/use-toast";
 import { Button } from '@/components/ui/button';
@@ -502,7 +501,8 @@ export default function EvolvingChessPage() {
     }
 
     const nextPlayer = isExtraTurn ? playerWhoseTurnCompleted : (playerWhoseTurnCompleted === 'white' ? 'black' : 'white');
-    const { newBoard: boardAfterPoison } = processPoisonDamage(currentBoardState, nextPlayer);
+    const { newBoard: boardAfterPoison, levelChanges: poisonChanges } = processPoisonDamage(currentBoardState, nextPlayer);
+    poisonChanges?.forEach(lc => addEffectCallback('level-change', lc.square, nextPlayer, lc.delta));
     
     const postPoisonPieces = boardAfterPoison.flat().filter(sq => sq.piece).map(sq => sq.piece!);
     const anyShattered = midFrozenIds.some(id => {
@@ -650,8 +650,12 @@ export default function EvolvingChessPage() {
                         const tP = tSq.piece;
                         const targetItem = tSq.item;
                         if (targetItem?.type === 'shroom') {
+                            const oldDancerL = dancerPiece.level;
                             nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true, level: (dancerPiece.level || 1) + 1 };
                             if (nextBoard[best.r][best.c].piece!.level > 7 && nextBoard[best.r][best.c].piece!.type === 'queen') nextBoard[best.r][best.c].piece!.level = 7;
+                            if (nextBoard[best.r][best.c].piece!.level > oldDancerL) {
+                                addEffectCallback('level-change', coordsToAlgebraic(best.r, best.c), actingPlayer, 1);
+                            }
                         } else { nextBoard[best.r][best.c].piece = { ...dancerPiece, hasMoved: true }; }
                         nextBoard[best.r][best.c].item = null;
                         nextBoard[r][c].piece = tP ? { ...tP, hasMoved: true, isShielded: false } : null;
@@ -703,7 +707,11 @@ export default function EvolvingChessPage() {
                     ally.isShielded = true; 
                     const rosaryArchbishop = nextBoard.flat().find(sq => sq.piece && sq.piece.color === actingPlayer && sq.piece.heldItem === 'rosary');
                     if (rosaryArchbishop) {
+                        const oldTargetL = ally.level;
                         ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+                        if (ally.level > oldTargetL) {
+                            addEffectCallback('level-change', targets[0].algebraic, actingPlayer, 1);
+                        }
                     }
                     addLog(`${getPlayerDisplayName(actingPlayer)} Archbishop applied a Holy Shield!`); 
                 }
@@ -906,6 +914,9 @@ export default function EvolvingChessPage() {
       const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo, grappledFrom: aiMove.grappledFrom }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, oppCapLastTurn);
       let nextB = applyResult.newBoard; 
       const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+      
+      applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
+
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
           const victim = applyResult.capturedPiece!; const targetPile = victim.color; 
@@ -915,7 +926,7 @@ export default function EvolvingChessPage() {
           setTimeout(() => { setIsAiThinking(false); setIsMoveProcessing(false); clickGuardRef.current = false; processMoveEnd(nextB, updatedG, newKs, currentPlayer, false, null, false, oldT, nextTracks.white, nextTracks.black, nextTracks.global); }, 800); return; 
       }
       const streakGain = (applyResult.capturedPiece ? 1 : 0) + (applyResult.pieceCapturedByAnvil ? 1 : 0) + (applyResult.selfDestructCaptures?.length || 0);
-      if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); addEffectCallback('level-change', toAlg, currentPlayer, 1); }
+      if (applyResult.shroomConsumed) { audioManager.playShroom(); addLog("AI consumed a Shroom!"); }
       if (applyResult.promotedToHero) { audioManager.playLevelUp(); addLog("AI Hero Ascended!"); }
       if (applyResult.conversionEvents?.length > 0) { audioManager.playConversion(); applyResult.conversionEvents.forEach((e: ConversionEvent) => { addEffectCallback('conversion', e.at); }); }
       if (applyResult.rallyCryTriggered) { addEffectCallback('shockwave', applyResult.rallyCryTriggered.square, applyResult.rallyCryTriggered.color); audioManager.playRally(); addLog("AI Rallying Cry!"); }
@@ -1167,7 +1178,9 @@ export default function EvolvingChessPage() {
         ally.isShielded = true; 
         const rosaryArchbishop = nextB.flat().find(sq => sq.piece && sq.piece.color === currentPlayer && sq.piece.heldItem === 'rosary');
         if (rosaryArchbishop) {
+            const oldAL = ally.level;
             ally.level = Math.min(ally.type === 'queen' ? 7 : 99, (ally.level || 1) + 1);
+            if (ally.level > oldAL) addEffectCallback('level-change', algebraic, currentPlayer, 1);
         }
         setBoard(nextB); setIsAwaitingHolyShield(false); triggerSpecialsChain(nextB, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext!.trackWhite, specialActionContext!.trackBlack, specialActionContext!.trackGlobal); }
       return;
@@ -1243,7 +1256,10 @@ export default function EvolvingChessPage() {
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
               let nextB = applyRes.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; setBoard(nextB); setCapturedPieces(updatedG);
               const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
-              if (applyRes.shroomConsumed) addEffectCallback('level-change', algebraic, currentPlayer, 1);
+              
+              applyRes.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
+
+              if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
               if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('light-beam', sq)); }
               if (applyRes.phoenixResurrection) { addEffectCallback('light-beam', applyRes.phoenixResurrection.square); audioManager.playResurrect(); }
@@ -1321,7 +1337,7 @@ export default function EvolvingChessPage() {
             if (remoteEvents && remoteMove) {
                 const actingColor = nextGs.currentPlayer === 'white' ? 'black' : 'white';
                 if (remoteEvents.captured) { audioManager.playCapture(); addEffectCallback('poof', remoteMove.to); addLog(`${getPlayerDisplayName(actingColor)} captured a ${remoteEvents.capturedType}!`); }
-                if (remoteEvents.shroom) { audioManager.playShroom(); addEffectCallback('level-change', remoteMove.to, actingColor, 1); addLog(`${getPlayerDisplayName(actingColor)} consumed a Shroom!`); }
+                if (remoteEvents.shroom) { audioManager.playShroom(); addLog(`${getPlayerDisplayName(actingColor)} consumed a Shroom!`); }
                 if (remoteEvents.hero) { audioManager.playLevelUp(); addLog(`${getPlayerDisplayName(actingColor)} Hero Ascended!`); }
                 if (remoteEvents.rally && remoteEvents.rallyPos) { audioManager.playRally(); addEffectCallback('shockwave', remoteEvents.rallyPos, actingColor); }
                 if (remoteEvents.conversions?.length > 0) { audioManager.playConversion(); remoteEvents.conversions.forEach((pos: AlgebraicSquare) => { addEffectCallback('conversion', pos); }); }
@@ -1334,6 +1350,9 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.hydraSplit) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (remoteEvents.hydraSpawnSquares) remoteEvents.hydraSpawnSquares.forEach((pos: AlgebraicSquare) => addEffectCallback('light-beam', pos)); }
                 if (remoteEvents.phoenixRes && remoteEvents.phoenixPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.phoenixPos); }
                 if (remoteEvents.resScroll) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resScrollPos); }
+                
+                remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
+
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
                 if (isCheck) { audioManager.playCheck(); addLog("Check!"); setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer })); }
                 else { setGameInfo(prev => ({ ...prev, isCheck: false, playerWithKingInCheck: null })); }

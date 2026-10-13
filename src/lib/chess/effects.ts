@@ -1,9 +1,11 @@
-import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent } from '@/types';
+import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent, LevelChangeEvent } from '@/types';
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords, getActiveSets } from './utils';
 import { FRONTLINE_TYPES } from './constants';
+import { ITEM_SETS } from '@/types';
 
-export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, onlyAnvils: boolean = false): Piece | null {
+export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, onlyAnvils: boolean = false): { crushed: Piece | null, levelChanges: LevelChangeEvent[] } {
   let crushed: Piece | null = null;
+  const levelChanges: LevelChangeEvent[] = [];
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     if(dr===0 && dc===0) continue;
     const nr = r+dr; const nc = c+dc;
@@ -21,7 +23,11 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
         
         // Kinetic Coil logic: Gain level on push
         if (victim.piece?.heldItem === 'kinetic_coil') {
+            const oldL = victim.piece.level;
             victim.piece.level = Math.min(victim.piece.type === 'queen' ? 7 : 99, (victim.piece.level || 1) + 1);
+            if (victim.piece.level > oldL) {
+                levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: 1 });
+            }
             victim.piece.isPoisoned = false;
             victim.piece.isExhausted = false;
             victim.piece.cooldownTurnsRemaining = 0;
@@ -57,11 +63,12 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       }
     }
   }
-  return crushed;
+  return { crushed, levelChanges };
 }
 
-export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn' | 'all', origin: AlgebraicSquare): AlgebraicSquare[] {
+export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn' | 'all', origin: AlgebraicSquare): { ralliedSquares: AlgebraicSquare[], levelChanges: LevelChangeEvent[] } {
   const rallied: AlgebraicSquare[] = [];
+  const levelChanges: LevelChangeEvent[] = [];
   const { row: or, col: oc } = algebraicToCoords(origin);
   board.forEach(row => row.forEach(sq => {
     if(sq.piece && sq.piece.color === color) {
@@ -76,21 +83,33 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
                 sq.piece.isExhausted = false;
                 sq.piece.cooldownTurnsRemaining = 0;
                 rallied.push(sq.algebraic);
+                levelChanges.push({ square: sq.algebraic, delta: 1 });
             }
         }
       }
     }
   }));
-  return rallied;
+  return { ralliedSquares: rallied, levelChanges };
 }
 
-export function applyKingDominion(board: BoardState, color: PlayerColor, gain: number) {
+export function applyKingDominion(board: BoardState, color: PlayerColor, gain: number): LevelChangeEvent[] {
   const opp = color === 'white' ? 'black' : 'white';
-  board.forEach(row => row.forEach(sq => { if(sq.piece && sq.piece.color === opp && sq.piece.type === 'queen') sq.piece.level = Math.max(1, sq.piece.level - gain); }));
+  const changes: LevelChangeEvent[] = [];
+  board.forEach(row => row.forEach(sq => { 
+    if(sq.piece && sq.piece.color === opp && sq.piece.type === 'queen') {
+        const oldL = sq.piece.level;
+        sq.piece.level = Math.max(1, sq.piece.level - gain);
+        if (sq.piece.level < oldL) {
+            changes.push({ square: sq.algebraic, delta: sq.piece.level - oldL });
+        }
+    }
+  }));
+  return changes;
 }
 
-export function triggerPull(board: BoardState, r: number, c: number, color: PlayerColor) {
+export function triggerPull(board: BoardState, r: number, c: number, color: PlayerColor): LevelChangeEvent[] {
     const oppColor = color === 'white' ? 'black' : 'white';
+    const changes: LevelChangeEvent[] = [];
     for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
         if (dr === 0 && dc === 0) continue;
         const targetR = r + (dr * 2); const targetC = c + (dc * 2);
@@ -105,7 +124,11 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
                 
                 // Kinetic Coil logic: Gain level on pull
                 if (victimSq.piece.heldItem === 'kinetic_coil') {
+                    const oldL = victimSq.piece.level;
                     victimSq.piece.level = Math.min(victimSq.piece.type === 'queen' ? 7 : 99, (victimSq.piece.level || 1) + 1);
+                    if (victimSq.piece.level > oldL) {
+                        changes.push({ square: coordsToAlgebraic(targetR, targetC), delta: 1 });
+                    }
                     victimSq.piece.isPoisoned = false;
                     victimSq.piece.isExhausted = false;
                     victimSq.piece.cooldownTurnsRemaining = 0;
@@ -121,6 +144,7 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
             }
         }
     }
+    return changes;
 }
 
 export function triggerPoisonSplash(board: BoardState, r: number, c: number, attackerColor: PlayerColor) {
@@ -166,9 +190,10 @@ export function triggerMushroomMagnet(board: BoardState, r: number, c: number) {
   }
 }
 
-export function syncSoulLink(board: BoardState, color: PlayerColor): BoardState {
+export function syncSoulLink(board: BoardState, color: PlayerColor): { levelChanges: LevelChangeEvent[] } {
     let maxLevel = 0;
     let hasSoulLink = false;
+    const changes: LevelChangeEvent[] = [];
     board.forEach(row => row.forEach(sq => {
         if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
             hasSoulLink = true;
@@ -180,17 +205,22 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): BoardState 
         board.forEach(row => row.forEach(sq => {
             if (sq.piece && sq.piece.color === color && sq.piece.heldItem === 'soul_link') {
                 if (sq.piece.type !== 'queen' || sq.piece.level < 7) {
+                    const oldL = sq.piece.level;
                     sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, maxLevel);
+                    if (sq.piece.level > oldL) {
+                        changes.push({ square: sq.algebraic, delta: sq.piece.level - oldL });
+                    }
                 }
             }
         }));
     }
-    return board;
+    return { levelChanges: changes };
 }
 
-export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[] } {
+export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColor): { newBoard: BoardState, poisonedCaptures: Piece[], levelChanges: LevelChangeEvent[] } {
   const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
   const poisonedCaptures: Piece[] = [];
+  const levelChanges: LevelChangeEvent[] = [];
 
   for (let r = 0; r < 8; r++) {
     for (let c = 0; c < 8; c++) {
@@ -220,6 +250,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
                 if (p.heldItem === 'training_weights') {
                     if (p.type !== 'queen' || p.level < 7) {
                         p.level = (p.level || 1) + 1;
+                        levelChanges.push({ square: sq.algebraic, delta: 1 });
                         // Gaining a level clears status
                         p.isPoisoned = false;
                         p.isExhausted = false;
@@ -236,6 +267,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
           const currentL = p.level || 1;
           if (currentL > 1) {
             p.level = currentL - 1;
+            levelChanges.push({ square: sq.algebraic, delta: -1 });
           } else {
             p.isExhausted = true;
           }
@@ -251,7 +283,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
       }
     }
   }
-  return { newBoard, poisonedCaptures };
+  return { newBoard, poisonedCaptures, levelChanges };
 }
 
 export function processOilSlickTimers(board: BoardState, player: PlayerColor): BoardState {
