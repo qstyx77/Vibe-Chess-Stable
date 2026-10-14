@@ -1084,7 +1084,7 @@ export default function EvolvingChessPage() {
         }
         return;
     }
-    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
+    if (isSelectingTeleportAlly) { if (piece && piece.color === currentPlayer && piece.type !== 'king' && piece.type !== 'queen' && piece.id !== (selectedSquare ? boardState[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece?.id : null)) { setTeleportAllyPieceId(piece.id); setIsSelectingTeleportAlly(false); setIsSelectingTeleportShroom(true); addLog("Select a shroom to teleport to!"); } return; }
     if (isSelectingTeleportShroom && sq?.item?.type === 'shroom') {
         const move: Move = { from: selectedSquare!, to: algebraic, type: 'tele-portobello', teleportPieceId: teleportAllyPieceId! };
         if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1107,7 +1107,7 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayer === 'white' ? -1 : 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
@@ -1248,7 +1248,7 @@ export default function EvolvingChessPage() {
 
               if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
-              if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('light-beam', sq)); }
+              if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1)); }
               if (applyRes.phoenixResurrection) { addEffectCallback('light-beam', applyRes.phoenixResurrection.square); audioManager.playResurrect(); }
               if (applyRes.resurrectionScrollEvent) { addEffectCallback('light-beam', applyRes.resurrectionScrollEvent.square); audioManager.playResurrect(); }
               if (applyRes.anvilDroppedSquares) applyRes.anvilDroppedSquares.forEach(sq => { setTimeout(() => { addEffectCallback('poof', sq); audioManager.playAnvil(); }, 300); });
@@ -1309,8 +1309,9 @@ export default function EvolvingChessPage() {
     ws.onmessage = (event) => {
       const d = JSON.parse(event.data);
       switch (d.type) {
-        case 'room-created': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('waiting'); break;
-        case 'room-joined': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setOnlineStatus('connected'); break;
+        case 'room-created': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setGamePlayers(d.gameState.players); setOnlineStatus('waiting'); break;
+        case 'room-joined': setRoomId(d.roomId); setLocalPlayerColor(d.color); setBoard(d.gameState.board); setGamePlayers(d.gameState.players); setOnlineStatus('connected'); break;
+        case 'player-joined': setOnlineStatus('connected'); setBoard(d.gameState.board); setGamePlayers(d.gameState.players); addLog("A challenger has entered!"); break;
         case 'game-move': {
             const { gameState: nextGs, move: remoteMove, events: remoteEvents } = d;
             if (remoteMove) { 
