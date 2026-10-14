@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -113,7 +114,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
             <AccordionItem value="pieces">
               <AccordionTrigger className="text-[0.85rem] font-bold uppercase hover:text-accent">IV. Piece Index & Skill Tree</AccordionTrigger>
               <AccordionContent>
-                <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage)">
+                <SubRule title="The Front Line (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage, Infiltrator)">
                   <RuleText>L2: Can move 1 square backward.</RuleText>
                   <RuleText>L3: Can move 1 square sideways.</RuleText>
                   <RuleText>L4: Push-Back: Moving adjacent to units/items pushes them away.</RuleText>
@@ -127,7 +128,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                 </SubRule>
                 <SubRule title="The Clergy (Bishop, Archbishop)">
                   <RuleText>L2: Phasing: Can move through friendly units.</RuleText>
-                  <RuleText>L3: Immunity: Cannot be captured by Frontline units.</RuleText>
+                  <RuleText>L3: Immunity: Cannot be captured by any Frontline units (Pawn, Dancer, Mimic, Grappler, Commander, Myco Mage, Infiltrator).</RuleText>
                   <RuleText>L4: Swap: Can trade places with an allied Knight/Hero/Archer.</RuleText>
                   <RuleText>L5: Faith: 50% chance to convert adjacent enemies to your side after moving.</RuleText>
                 </SubRule>

@@ -30,6 +30,8 @@ export function isPieceInvulnerableToAttack(targetPiece: Piece | null, attacking
     const hunters = ['commander', 'hero', 'infiltrator', 'dancer', 'mimic', 'grappler', 'self-destruct', 'myco_mage'];
     if (targetPiece.type === 'queen' && hunters.includes(attackingPiece.type)) return false;
     if (targetPiece.type === 'queen' && targetLevel >= 7 && attackingLevel < targetLevel) return true;
+    
+    // Bishop/Archbishop Level 3 Immunity: Now covers ALL Frontline units
     if ((['bishop', 'archbishop'].includes(targetPiece.type)) && targetLevel >= 3 && FRONTLINE_TYPES.includes(attackingPiece.type)) return true;
     
     return (targetPiece.invulnerableTurnsRemaining || 0) > 0;

@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Piece, BoardState } from '@/types';
@@ -70,7 +71,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
   if (heldItem === 'antidote') abilities.push("cleanse: remove poison and exhaustion.");
   if (heldItem === 'crossbow') abilities.push("double shot: KS 3 triggers Archer Snipe.");
   if (heldItem === 'poison_tunic') abilities.push("toxic skin: poisons anyone who captures wearer.");
-  if (heldItem === 'detonation_scroll') abilities.push("spell (L5+): sacrifice unit for explosion.");
+  if (heldItem === 'detonation_scroll') abilities.push("spell (L2+): sacrifice unit for explosion.");
   if (heldItem === 'phase_boots') abilities.push("phase (L2+): can jump over friendly units.");
   if (heldItem === 'swap_scroll') abilities.push("spell (L3+): trade places with allied piece.");
   if (heldItem === 'grimoir') abilities.push("dark wisdom: adjacent allies gain +2 levels.");
@@ -179,7 +180,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
     case 'archbishop':
       if (l >= 1) abilities.push("Standard diagonal move.");
       if (l >= 2) abilities.push("Phase through friendly pieces.");
-      if (l >= 3) abilities.push("Immunity to Frontline capture.");
+      if (l >= 3) abilities.push("Immunity: Cannot be captured by Frontline units.");
       if (l >= 4) abilities.push("Swap with allied Cavalry.");
       if (l >= 5) abilities.push("Faith: Conversion chance on move.");
       if (type === 'archbishop') abilities.push("Holy Shield: KS 2 protection.");
