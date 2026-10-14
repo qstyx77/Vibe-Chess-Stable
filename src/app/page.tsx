@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -745,7 +746,7 @@ export default function EvolvingChessPage() {
                 const sq = empty[Math.floor(Math.random()*empty.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
                 let resLevel = 1;
                 if (choice.heldItem === 'soul_spark') resLevel = 2;
-                const resPiece = { ...choice, level: resLevel, id: `res_ks_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+                const resPiece: Piece = { ...choice, level: resLevel, id: `res_ks_${choice.id}_${Date.now()}`, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
                 if (onlineStatus === 'connected' && actingPlayer === localPlayerColor) { wsRef.current?.send(JSON.stringify({ type: 'ks-resurrection', payload: { pieceId: choice.id, square: sq.algebraic } })); }
                 nextBoard[rr][rc].piece = resPiece; 
                 const updatedG = { 
@@ -1007,6 +1008,25 @@ export default function EvolvingChessPage() {
     if (isAwaitingGrappleThrow) {
         const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
         const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
+        
+        // CHOICE LOGIC: Click enemy again to capture
+        if (algebraic === (grappledPieceSubject?.from || grappledItemSubject?.from) && grappledPieceSubject?.piece.color !== currentPlayer) {
+            const move: Move = { from: selectedSquare!, to: algebraic, type: 'capture' };
+            if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
+            else {
+                pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+                const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+                setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+                setTimeout(() => { 
+                    setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
+                    const wasCap = !!result.capturedPiece;
+                    const oldS = killStreaks[currentPlayer], newS = wasCap ? oldS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(cKs);
+                    processPawnSacrificeCheck(result.newBoard, {white: [...capturedPieces.white], black: [...capturedPieces.black]}, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type);
+                }, 800);
+            }
+            return;
+        }
+
         if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0) {
           if (!sq?.piece && !sq?.item) {
             pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
@@ -1212,7 +1232,9 @@ export default function EvolvingChessPage() {
                         const dist = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
                         if (dist > 0 && dist <= range && (tr === fR || tc === fC || Math.abs(tr-fR) === Math.abs(tc-fC))) { if (!board[tr][tc].piece && !board[tr][tc].item) throwT.push(coordsToAlgebraic(tr, tc)); }
                     }
-                    setPossibleMoves(throwT); addLog("Grappler: Picked up! Now select destination."); return;
+                    // CHOICE LOGIC: Add the target itself back for "click again to capture"
+                    if (tP && tP.color !== currentPlayer) throwT.push(algebraic);
+                    setPossibleMoves(throwT); addLog("Grappler: Select landing, or click enemy again to capture."); return;
                 }
             }
         }

@@ -150,7 +150,7 @@ export function RulesDialog({ isOpen, onOpenChange }: RulesDialogProps) {
                   <RuleText>• Myco Mage: Consumes shroom mana for global spells (Teleport, Spore Bomb, Pawn Army).</RuleText>
                   <RuleText>• Mimic: Replicates the movement pattern and item of the absolute last piece that moved (if itemless).</RuleText>
                   <RuleText>• Dancer: Achieving KS 1 grants 'The Dance': A free move forward or swap with an allied or enemy piece.</RuleText>
-                  <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level).</RuleText>
+                  <RuleText>• Grappler: Can pick up adjacent units and launch them across the board (Range = Level). If picking up an enemy in capture range, click them again to perform a standard capture instead of a throw.</RuleText>
                 </RuleSection>
                 <RuleSection title="Mimic Specialization">
                    <RuleText>• Mimic Blade: Mimic-only. Replicates the equipment of the last ALLIED unit that moved. Movement remains tied to the global last move.</RuleText>

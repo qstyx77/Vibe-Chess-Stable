@@ -161,7 +161,7 @@ const getPieceAbilities = (piece: Piece, board?: BoardState): string[] => {
       if (type === 'commander') abilities.push("Rallying Cry on capture.");
       if (type === 'dancer') abilities.push("Dance: KS 1 free cardinal move/swap.");
       if (type === 'mimic') abilities.push("Shape-shift: Replicates global last-move pattern and skills.");
-      if (type === 'grappler') abilities.push("Toss: Throw adjacent unit (Range = L).");
+      if (type === 'grappler') abilities.push("Toss: Throw adjacent unit (Range = L). Click enemy in capture range again to capture instead.");
       if (type === 'myco_mage') abilities.push(`Mushroomancy: Use Shroom Pool (${piece.shroomMana || 0}).`);
       break;
     case 'infiltrator': abilities.push("Fast forward/diagonal move."); abilities.push("Obliterates targets."); abilities.push("Win at back rank."); break;

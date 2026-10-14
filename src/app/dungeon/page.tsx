@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
@@ -916,6 +917,22 @@ export default function DungeonPage() {
     }
     if (isAwaitingGrappleThrow) {
         const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc); const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
+        
+        // CHOICE LOGIC: Click enemy again to capture instead of throw
+        if (alg === (grappledPieceSubject?.from || grappledItemSubject?.from) && grappledPieceSubject?.piece.color !== currentPlayer) {
+            const move: Move = { from: selectedSquare!, to: alg, type: 'capture' };
+            clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
+            const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+            setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+            setTimeout(() => { 
+                setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
+                const wasCap = !!result.capturedPiece;
+                const oldS = killStreaks[currentPlayer], newS = wasCap ? oldS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(cKs);
+                processPawnSacrificeCheck(result.newBoard, {white: [...capturedPieces.white], black: [...capturedPieces.black]}, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type);
+            }, 800);
+            return;
+        }
+
         if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0 && (!sq?.piece && !sq?.item)) {
             clickGuard.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(alg);
             const move: Move = { from: selectedSquare!, to: alg, type: 'grapple-throw', thrownPiece: grappledPieceSubject?.piece, thrownItem: grappledItemSubject?.type, grappledFrom: (grappledPieceSubject?.from || grappledItemSubject?.from) };
@@ -1105,13 +1122,15 @@ export default function DungeonPage() {
            const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
            if ((tP && tP.type !== 'king') || tA) {
                if (possibleMoves.includes(alg)) {
-                   if (tP) setGrappledPieceSubject({ piece: { ...tP }, from: alg }); else setGrappledItemSubject({ type: 'anvil', from: alg });
+                   setGrappledPieceSubject(tP ? { piece: { ...tP }, from: alg } : null); setGrappledItemSubject(tA ? { type: 'anvil', from: alg } : null);
                    setIsAwaitingGrappleThrow(true); const range = getEffectiveLevel(board, fR, fc); const tT: AlgebraicSquare[] = [];
                    for(let tr=0; tr<8; tr++) for(let tc=0; tc<8; tc++) {
                        const d = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
                        if (d>0 && d<=range && (tr===fR||tc===fC||Math.abs(tr-fR)===Math.abs(tc-fC)) && !board[tr][tc].piece && !board[tr][tc].item) tT.push(coordsToAlgebraic(tr,tc));
                    }
-                   setPossibleMoves(tT); addLog("Grappler: Select destination to throw!"); return;
+                   // CHOICE LOGIC: Add the target itself back for "click again to capture"
+                   if (tP && tP.color !== currentPlayer) tT.push(alg);
+                   setPossibleMoves(tT); addLog("Grappler: Select landing, or click enemy again to capture."); return;
                }
            }
        }
@@ -1187,7 +1206,7 @@ export default function DungeonPage() {
             if (rookResResult?.promotionRequiredForResurrectedPawn) {
                 q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
             }
-            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
+            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(nxt.targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
             else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, totalCaptures > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
           }, 800);
           return;
@@ -1299,7 +1318,7 @@ export default function DungeonPage() {
         setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);
 
-        const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, didCaptureLastTurn.white);
+        const appRes = applyMove(currentWorkingBoard, { from: fromAlg, to: toAlg, type: move.type as Move['type'], grappledFrom: move.grappledFrom ? (Array.isArray(move.grappledFrom) ? coordsToAlgebraic(move.grappledFrom[0], move.grappledFrom[1]) : move.grappledFrom) : undefined }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, balanceDidCaptureLastTurn.white);
         
         appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
 
