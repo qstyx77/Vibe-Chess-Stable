@@ -338,14 +338,14 @@ export default function DungeonPage() {
   }, [user, firestore]);
 
   const isSpec = useMemo(() => 
-    isInventoryOpen || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingHolyShield || 
+    isInventoryOpen || isPromotingPawn || isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingHolyShield || 
     isAwaitingArcherSnipe || isAwaitingPawnSacrifice || isAwaitingCommanderPromotion || 
     isSelectingMycoSpell || isAwaitingGrappleThrow || isAwaitingDanceTarget || 
-    isAwaitingWindScrollTarget || isAwaitingAnvilScrollTarget || isAwaitingShieldScrollTarget || 
+    isAwaitingWindScrollTarget || isAwaitingShieldScrollTarget || 
     isAwaitingSwapScrollTarget || isAwaitingSwapTarget || isAwaitingDecreeTarget || 
     isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget || !!isAwaitingRayTarget || isSelectingTeleportAlly || 
     isSelectingTeleportShroom || isSelectingSporeBombShroom || isLootWindowOpen, 
-  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
+  [isInventoryOpen, isPromotingPawn, isAwaitingAnvilDrop, isAwaitingAnvilScrollTarget, isAwaitingHolyShield, isAwaitingArcherSnipe, isAwaitingPawnSacrifice, isAwaitingCommanderPromotion, isSelectingMycoSpell, isAwaitingGrappleThrow, isAwaitingDanceTarget, isAwaitingEarthquakeScrollTarget, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingOilSlickTarget, isAwaitingRayTarget, isLootWindowOpen, isAwaitingWindScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingSwapTarget, isAwaitingDecreeTarget]);
 
   const handlePieceHover = useCallback((p: Piece | null) => {
     setPieceForInfoDisplay(p);
@@ -1186,7 +1186,7 @@ export default function DungeonPage() {
     if (isAwaitingDanceTarget) {
         const dP = dancerToDance ? board[algebraicToCoords(dancerToDance).row][algebraicToCoords(dancerToDance).col].piece : null;
         if (!dancerToDance) { if (piece && piece.color === 'white' && piece.type === 'dancer') { setDancerToDance(alg); } return; }
-        if (alg === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, specialActionContext.trackGlobal?.type || null, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
+        if (alg === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdj = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const activeD = board[fr][fc].piece!;
         const dancerMoveInfo: LastMoveInfo = { type: activeD.type, level: activeD.level, item: activeD.heldItem || null };

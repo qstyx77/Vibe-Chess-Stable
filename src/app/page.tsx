@@ -980,7 +980,7 @@ export default function EvolvingChessPage() {
                 const queue: {square: AlgebraicSquare, targetLevel: number}[] = applyResult.multiPromotions || [];
                 if (queue.length > 0) { 
                     setPromotionQueue(queue); const fst = queue[0]; setPlayerToPromote(currentPlayer); setPromotionTargetLevel(fst.targetLevel); setIsPromotingPawn(true); setPromotionSquare(fst.square); 
-                    setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, isExtraTurn: false, newEnPassantTarget: null, oldStreak: killStreaks[currentPlayer], newStreak: killStreaks[currentPlayer], currentGraveyard: updatedG, currentKs: killStreaks, capturingPieceId: null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global } as any); 
+                    setSpecialActionContext({ boardForNextStep: nextB, playerWhoseTurnCompleted: currentPlayer, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global } as any); 
                 } else { processMoveEnd(nextB, updatedG, killStreaks, currentPlayer, false, null, false, 'myco_mage', nextTracks.white, nextTracks.black, nextTracks.global); }
               }, 800);
           }
@@ -991,6 +991,8 @@ export default function EvolvingChessPage() {
     if (clickGuardRef.current) return;
     const { row, col } = algebraicToCoords(algebraic); const sq = board[row]?.[col]; const piece = sq?.piece;
     handlePieceHover(piece || null);
+
+    const silencedUnit = isSilenced(board, row, col, currentPlayer);
 
     if (isAwaitingShieldScrollTarget && piece && piece.color === currentPlayer) {
         if (piece.type === 'king' || piece.type === 'queen' || piece.isShielded) return;
@@ -1183,7 +1185,7 @@ export default function EvolvingChessPage() {
           return; 
         }
         if (algebraic === dancerToDance) { setIsAwaitingDanceTarget(false); setDancerToDance(null); if (specialActionContext) triggerSpecialsChain(board, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, currentPlayer, specialActionContext.completedMilestones, specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
-        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
+        const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
         const activeD = board[fr][fc].piece!;
@@ -1274,7 +1276,11 @@ export default function EvolvingChessPage() {
               setTimeout(() => { addEffectCallback('poof', algebraic); audioManager.playAnvil(); }, 300);
               setIsAwaitingAnvilDrop(false); 
               setIsAwaitingAnvilScrollTarget(false);
-              if (specialActionContext) triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); 
+              if (specialActionContext) {
+                  triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global); 
+              } else {
+                  processMoveEnd(nextBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, movedType, nextTracks.white, nextTracks.black, nextTracks.global);
+              }
           } 
       }
       return;
@@ -1331,8 +1337,6 @@ export default function EvolvingChessPage() {
             else if (moving.heldItem === 'mimic_blade') effItem = (moving.color === 'white' ? lastMoveWhite : lastMoveBlack)?.item || null;
         }
 
-        const silencedUnit = isSilenced(board, fR, fC, currentPlayer);
-
         if (selectedSquare === algebraic) {
            if (moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
            
@@ -1387,8 +1391,11 @@ export default function EvolvingChessPage() {
                        if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
                        setLastMoveGlobal(newMoveInfo);
                        const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
-                       setBoard(res.newBoard); setCapturedPieces(res.selfDestructCaptures ? { ...capturedPieces, [res.selfDestructCaptures[0].color]: [...capturedPieces[res.selfDestructCaptures[0].color], ...res.selfDestructCaptures] } : capturedPieces);
-                       setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
+                       setBoard(res.newBoard); 
+                       const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+                       if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(vic => updatedG[vic.color].push(vic));
+                       setCapturedPieces(updatedG);
+                       setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, updatedG, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
                    }
                    return;
                }
@@ -1416,7 +1423,10 @@ export default function EvolvingChessPage() {
                    setLastMoveGlobal(newMoveInfo);
                    const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
                    setBoard(res.newBoard);
-                   setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
+                   const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+                   if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(vic => updatedG[vic.color].push(vic));
+                   setCapturedPieces(updatedG);
+                   setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, updatedG, killStreaks, currentPlayer, false, null, false, moving.type, nextTracks.white, nextTracks.black, nextTracks.global); }, 800);
                }
                return;
            }
@@ -1445,13 +1455,10 @@ export default function EvolvingChessPage() {
           else if (algebraic === enPassantTargetSquare && FRONTLINE_TYPES.includes(patternType)) mType = 'enpassant';
           else if (moving.type === 'king' && Math.abs(col - fC) === 2) mType = 'castle';
           
-          // Battering Ram Check
           if ((patternType === 'rook' || patternType === 'palace') && effItem === 'battering_ram') {
               const dr = Math.sign(row - fR); const dc = Math.sign(col - fC);
               const nr = fR + dr; const nc = fC + dc;
-              if (isValidSquare(nr, nc) && board[nr][nc].item?.type === 'anvil') {
-                  mType = 'ram-push';
-              }
+              if (isValidSquare(nr, nc) && board[nr][nc].item?.type === 'anvil') mType = 'ram-push';
           }
 
           const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
@@ -1467,16 +1474,9 @@ export default function EvolvingChessPage() {
               let nextB = applyRes.newBoard; 
               const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; 
               
-              if (applyRes.capturedPiece) {
-                  const pile = applyRes.capturedPiece.color;
-                  updatedG[pile] = [...updatedG[pile], { ...applyRes.capturedPiece }];
-              }
-              if (applyRes.selfDestructCaptures) {
-                  applyRes.selfDestructCaptures.forEach(vic => {
-                      const pile = vic.color;
-                      updatedG[pile] = [...updatedG[pile], { ...vic }];
-                  });
-              }
+              if (applyRes.capturedPiece) updatedG[applyRes.capturedPiece.color].push(applyRes.capturedPiece);
+              if (applyRes.selfDestructCaptures) applyRes.selfDestructCaptures.forEach(vic => updatedG[vic.color].push(vic));
+              if (applyRes.pieceCapturedByAnvil) updatedG[applyRes.pieceCapturedByAnvil.color].push(applyRes.pieceCapturedByAnvil);
 
               setBoard(nextB); setCapturedPieces(updatedG);
               const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
@@ -1505,7 +1505,7 @@ export default function EvolvingChessPage() {
                       setGameInfo({ message: msg, isCheck: false, playerWithKingInCheck: null, isCheckmate: false, isStalemate: false, isThreefoldRepetitionDraw: false, gameOver: true, winner: currentPlayer, isInfiltrationWin: true });
                       addLog(msg); gameOverRef.current = true; playOutcomeSound(currentPlayer); return;
                   }
-                  const oldS = killStreaks[currentPlayer]; const newS = wasCap ? oldS + streakGain : 0; const updatedKs = { ...killStreaks, [currentPlayer]: newS }; const isExtra = applyRes.extraTurn || (oldS < 6 && newS >= 6); const q = applyRes.multiPromotions || []; const oppBackRank = currentPlayer === 'white' ? 0 : 7;
+                  const oldS = killStreaks[currentPlayer]; const newS = wasCap ? oldS + streakGain : 0; const updatedKs = { ...killStreaks, [currentPlayer]: newS }; const isExtra = applyRes.extraTurn || (oldS < 6 && nS >= 6); const q = applyRes.multiPromotions || []; const oppBackRank = currentPlayer === 'white' ? 0 : 7;
                   if (FRONTLINE_TYPES.includes(nextB[row][col].piece?.type || '') && row === oppBackRank) q.push({ square: algebraic, targetLevel: getPromotionLevel(applyRes.capturedPiece?.type || null) });
                   if (rookResResult?.promotionRequiredForResurrectedPawn) q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
                   if (q.length > 0) { 
