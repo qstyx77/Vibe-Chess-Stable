@@ -21,7 +21,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
 
         if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots' || (isHeavyGuard && isFrontline)) continue;
         
-        // Kinetic Coil logic: Gain level on push
         if (victim.piece?.heldItem === 'kinetic_coil') {
             const oldL = victim.piece.level;
             victim.piece.level = Math.min(victim.piece.type === 'queen' ? 7 : 99, (victim.piece.level || 1) + 1);
@@ -33,7 +32,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
             victim.piece.cooldownTurnsRemaining = 0;
         }
 
-        // Spiked Buckler logic: If victim has it, attacker (at r,c) becomes poisoned
         if (victim.piece?.heldItem === 'spiked_buckler') {
             const attacker = board[r][c].piece;
             if (attacker && attacker.heldItem !== 'filter_mask') {
@@ -41,11 +39,10 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
             }
         }
 
-        // Frayed Rope logic: If victim has it, attacker (at r,c) becomes exhausted
         if (victim.piece?.heldItem === 'frayed_rope') {
             const attacker = board[r][c].piece;
             if (attacker) {
-                attacker.cooldownTurnsRemaining = 2; // Exhausted
+                attacker.cooldownTurnsRemaining = 2;
             }
         }
 
@@ -78,7 +75,6 @@ export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn'
             const oldLevel = sq.piece.level;
             sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, sq.piece.level + 1);
             if (sq.piece.level > oldLevel) {
-                // Gaining a level clears Poison and Exhaustion
                 sq.piece.isPoisoned = false;
                 sq.piece.isExhausted = false;
                 sq.piece.cooldownTurnsRemaining = 0;
@@ -122,7 +118,6 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
 
                 if (victimSq.piece.heldItem === 'lead_boots' || (isHeavyGuard && isFrontline)) continue;
                 
-                // Kinetic Coil logic: Gain level on pull
                 if (victimSq.piece.heldItem === 'kinetic_coil') {
                     const oldL = victimSq.piece.level;
                     victimSq.piece.level = Math.min(victimSq.piece.type === 'queen' ? 7 : 99, (victimSq.piece.level || 1) + 1);
@@ -243,7 +238,6 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 
       const p = sq.piece;
       if (p && p.color === currentPlayer) {
-        // Training Weights / Sclerotia cycle
         if (p.heldItem === 'training_weights' || p.heldItem === 'sclerotia') {
             p.itemTurnCount = (p.itemTurnCount || 0) + 1;
             if (p.itemTurnCount % 5 === 0) {
@@ -251,7 +245,6 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
                     if (p.type !== 'queen' || p.level < 7) {
                         p.level = (p.level || 1) + 1;
                         levelChanges.push({ square: sq.algebraic, delta: 1 });
-                        // Gaining a level clears status
                         p.isPoisoned = false;
                         p.isExhausted = false;
                         p.cooldownTurnsRemaining = 0;
@@ -262,7 +255,6 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
             }
         }
 
-        // Filter Mask immunity
         if (p.isPoisoned && p.heldItem !== 'filter_mask') {
           const currentL = p.level || 1;
           if (currentL > 1) {

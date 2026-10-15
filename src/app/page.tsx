@@ -1,9 +1,7 @@
-
 'use client';
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { ChessBoard } from '@/components/evolving-chess/ChessBoard';
 import { GameControls } from '@/components/evolving-chess/GameControls';
 import { PromotionDialog } from '@/components/evolving-chess/PromotionDialog';
@@ -271,7 +269,6 @@ export default function EvolvingChessPage() {
   const [aiStrikeCount, setAiStrikeCount] = useState(0);
   const [didCaptureLastTurn, setDidCaptureLastTurn] = useState<{ white: boolean, black: boolean }>({ white: false, black: false });
 
-  // Refs
   const gameOverRef = useRef(false);
   const isInitialized = useRef(false);
   const aiInstanceRef = useRef<VibeChessAI | null>(null);
@@ -280,7 +277,6 @@ export default function EvolvingChessPage() {
   const uniqueIdCounterRef = useRef(0);
   const lastInitializedUid = useRef<string | null>(null);
 
-  // Header Animation States
   const [headerIconsActive, setHeaderIconsActive] = useState(true);
   const [headerIconsOpacity, setHeaderIconsOpacity] = useState(true);
 
@@ -600,8 +596,7 @@ export default function EvolvingChessPage() {
         const hasDancers = boardToChain.flat().some(sq => {
           const p = sq.piece;
           if (!p || p.color !== actingPlayer) return false;
-          if (p.type === 'dancer') return true;
-          return false;
+          return p.type === 'dancer';
         });
         if (hasDancers) {
             if (isAI) {
@@ -810,11 +805,9 @@ export default function EvolvingChessPage() {
   const processPawnSacrificeCheck = useCallback((boardAfter: BoardState, graveyard: { white: Piece[], black: Piece[] }, currentKs: { white: number, black: number }, player: PlayerColor, move: Move | null, oldL: number | undefined, oldT: PieceType | undefined, isExtraTurn: boolean, ep: AlgebraicSquare | null, oldS: number, newS: number, capturingPieceId: string | null = null, wasCaptureThisTurn: boolean = false, movedPieceType?: PieceType | null, trackWhite?: LastMoveInfo | null, trackBlack?: LastMoveInfo | null, trackGlobal?: LastMoveInfo | null) => {
     if (!move) return false;
     const { row: rowIdx, col: colIdx } = algebraicToCoords(move.to); const piece = boardAfter[rowIdx][colIdx].piece;
-    
     const effWhite = trackWhite !== undefined ? trackWhite : lastMoveWhite;
     const effBlack = trackBlack !== undefined ? trackBlack : lastMoveBlack;
     const effGlobal = trackGlobal !== undefined ? trackGlobal : lastMoveGlobal;
-
     if (piece?.type === 'queen' && piece.level === 7 && oldT === 'queen' && (oldL || 0) < 7) {
       if (boardAfter.flat().some(sq => sq.piece && sq.piece.color === player && FRONTLINE_TYPES.includes(sq.piece.type))) {
         const isAI = (player === 'white' && isWhiteAI) || (player === 'black' && isBlackAI);
@@ -862,49 +855,25 @@ export default function EvolvingChessPage() {
   const performAiMove = useCallback(async () => {
     if (!aiInstanceRef.current || gameInfo.gameOver || gameOverRef.current || isMoveProcessing || isAnySpecialModeActive || isAiThinking) return;
     setSelectedSquare(null); setPossibleMoves([]); setIsAiThinking(true);
-    
     await new Promise(resolve => setTimeout(resolve, 50));
-
     try {
       const oppCapLastTurn = didCaptureLastTurn[currentPlayer === 'white' ? 'black' : 'white'];
       const gsAI = adaptBoardForAI(board, currentPlayer, killStreaks, capturedPieces, gameMoveCounter, firstBloodAchieved, playerWhoGotFirstBlood, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, shroomSpawnCounter, nextShroomSpawnTurn, oppCapLastTurn, positionHistory);
       const resAI = aiInstanceRef.current.getBestMove(gsAI, currentPlayer); 
       let aiMove = resAI?.move;
-      const freshlyCalculated = aiMove ? getPossibleMoves(board, coordsToAlgebraic(aiMove.from[0], aiMove.from[1]), enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal) : [];
-      if (!aiMove || !freshlyCalculated.includes(coordsToAlgebraic(aiMove.to[0], aiMove.to[1]))) {
-          const nextStrikes = aiStrikeCount + 1; setAiStrikeCount(nextStrikes);
-          if (nextStrikes >= 3) {
-              const allLegal: Move[] = [];
-              for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (board[r][c].piece?.color === currentPlayer) {
-                  const moves = getPossibleMoves(board, board[r][c].algebraic, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
-                  moves.forEach(m => allLegal.push({ from: board[r][c].algebraic, to: m, type: 'move' }));
-              }
-              if (allLegal.length > 0) { const fb = allLegal[Math.floor(Math.random() * allLegal.length)]; const fC = algebraicToCoords(fb.from); const tC = algebraicToCoords(fb.to); aiMove = { from: [fC.row, fC.col], to: [tC.row, tC.col], type: 'move' }; setAiStrikeCount(0); }
-          }
-          if (!aiMove) { setIsAiThinking(false); return; }
-      } else { setAiStrikeCount(0); }
+      if (!aiMove) { setIsAiThinking(false); return; }
       const fromAlg = coordsToAlgebraic(aiMove.from[0], aiMove.from[1]); const toAlg = coordsToAlgebraic(aiMove.to[0], aiMove.to[1]);
       const p = board[aiMove.from[0]][aiMove.from[1]].piece; if (!p) { setIsAiThinking(false); return; }
       const oldL = p.level, oldT = p.type, oldH = p.heldItem;
       setIsMoveProcessing(true); clickGuardRef.current = true; setAnimatedSquareTo(toAlg); setLastMoveFrom(fromAlg); setLastMoveTo(toAlg);
-      
       const newMoveInfo: LastMoveInfo = { type: oldT, level: oldL, item: oldH || null };
-      const nextTracks = {
-          white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite,
-          black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack,
-          global: newMoveInfo
-      };
-
+      const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
       if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
       setLastMoveGlobal(newMoveInfo);
-
       pushHistory();
       const applyResult = applyMove(board, { from: fromAlg, to: toAlg, type: aiMove.type as Move['type'], promoteTo: aiMove.promoteTo, grappledFrom: aiMove.grappledFrom }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, oppCapLastTurn);
-      let nextB = applyResult.newBoard; 
-      const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
-      
+      let nextB = applyResult.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
       applyResult.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
-
       if (applyResult.itemReturned) { setInventory(prev => { const next = [...prev]; const existing = next.find(i => i.type === applyResult.itemReturned); if (existing) existing.count++; else next.push({ type: applyResult.itemReturned!, count: 1 }); return next; }); addLog(`AI returned equipment: ${ITEM_METADATA[applyResult.itemReturned].name}`); }
       if (applyResult.reflectionOccurred) { 
           const victim = applyResult.capturedPiece!; const targetPile = victim.color; 
@@ -934,14 +903,8 @@ export default function EvolvingChessPage() {
       if ((oldT === 'rook' || oldT === 'palace') && wasCap) {
           const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oldL, updatedG, uniqueIdCounterRef.current);
           if (resRes.resurrectionPerformed) {
-              nextB = resRes.boardWithResurrection;
-              updatedG.white = resRes.capturedPiecesAfterResurrection.white;
-              updatedG.black = resRes.capturedPiecesAfterResurrection.black;
-              uniqueIdCounterRef.current = resRes.newResurrectionIdCounter!;
-              rookResResult = resRes;
-              addEffectCallback('light-beam', resRes.resurrectedSquareAlg!);
-              audioManager.playResurrect();
-              addLog(`AI Resurrection Call! ${resRes.resurrectedPieceData?.type} returns.`);
+              nextB = resRes.boardWithResurrection; updatedG.white = resRes.capturedPiecesAfterResurrection.white; updatedG.black = resRes.capturedPiecesAfterResurrection.black; uniqueIdCounterRef.current = resRes.newResurrectionIdCounter!; rookResResult = resRes;
+              addEffectCallback('light-beam', resRes.resurrectedSquareAlg!); audioManager.playResurrect(); addLog(`AI Resurrection Call! ${resRes.resurrectedPieceData?.type} returns.`);
           }
       }
       if (applyResult.multiPromotions) { applyResult.multiPromotions.forEach(promo => { const {row: pr, col: pc} = algebraicToCoords(promo.square); const p = nextB[pr][pc].piece; if (p) { p.type = 'queen'; p.level = promo.targetLevel; } }); }
@@ -1008,8 +971,6 @@ export default function EvolvingChessPage() {
     if (isAwaitingGrappleThrow) {
         const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
         const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
-        
-        // CHOICE LOGIC: Click enemy again to capture
         if (algebraic === (grappledPieceSubject?.from || grappledItemSubject?.from) && grappledPieceSubject?.piece.color !== currentPlayer) {
             const move: Move = { from: selectedSquare!, to: algebraic, type: 'capture' };
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
@@ -1026,7 +987,6 @@ export default function EvolvingChessPage() {
             }
             return;
         }
-
         if (((fr === row || fc === col) || Math.abs(fr - row) === Math.abs(fc - col)) && dist <= range && dist > 0) {
           if (!sq?.piece && !sq?.item) {
             pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
@@ -1052,16 +1012,12 @@ export default function EvolvingChessPage() {
         if (piece && piece.color === (localPlayerColor || 'white')) {
           if (piece.heldItem === selectedInventoryItemType) { setSelectedInventoryItemType(null); return; }
           if (!isItemValidForPiece(selectedInventoryItemType, piece.type)) return;
-
           if (!piece.heldItem && usedSlots >= attunementSlots) { addLog("Attunement Limit Reached!"); return; }
-
           const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
           const targetP = nextBoard[row][col].piece!;
           const oldItem = targetP.heldItem;
-          
           targetP.heldItem = selectedInventoryItemType;
           setBoard(nextBoard);
-
           let newInv = [...inventory];
           if (oldItem) {
               const existingOld = newInv.find(i => i.type === oldItem);
@@ -1069,13 +1025,11 @@ export default function EvolvingChessPage() {
               else newInv.push({ type: oldItem, count: 1 });
               addLog(`Swapped: ${ITEM_METADATA[oldItem].name} returned to bag.`);
           }
-
           const itemInBag = newInv.find(i => i.type === selectedInventoryItemType);
           if (itemInBag) { 
               itemInBag.count--; 
               if (itemInBag.count <= 0) newInv = newInv.filter(i => i.type !== selectedInventoryItemType); 
           }
-
           setInventory(newInv); 
           saveLoadoutToFirestore(nextBoard, newInv); 
           setSelectedInventoryItemType(null); 
@@ -1083,7 +1037,7 @@ export default function EvolvingChessPage() {
           addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
         }
       } else if (piece && piece.heldItem && piece.color === (localPlayerColor || 'white')) {
-          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.piece } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
           nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
           const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
           setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
@@ -1129,7 +1083,6 @@ export default function EvolvingChessPage() {
         const targetItem = board[row][col].item;
         const dir = currentPlayer === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
-        
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
             else {
@@ -1222,7 +1175,8 @@ export default function EvolvingChessPage() {
     const { row: fR, col: fC } = algebraicToCoords(selectedSquare); const moving = board[fR][fC].piece; 
     const canCommit = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && (onlineStatus !== 'connected' || localPlayerColor === currentPlayer) && !isAnySpecialModeActive;
     if (canCommit && moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
-        if (!isAnySpecialModeActive && moving.type === 'grappler' && !isSilenced(board, fR, fC, currentPlayer)) {
+        const isGrappler = moving.type === 'grappler' || (moving.type === 'mimic' && lastMoveGlobal?.type === 'grappler');
+        if (!isAnySpecialModeActive && isGrappler && !isSilenced(board, fR, fC, currentPlayer)) {
             const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
             if ((tP && tP.type !== 'king') || tA) {
                 if (possibleMoves.includes(algebraic)) {
@@ -1232,7 +1186,6 @@ export default function EvolvingChessPage() {
                         const dist = Math.max(Math.abs(tr-fR), Math.abs(tc-fC));
                         if (dist > 0 && dist <= range && (tr === fR || tc === fC || Math.abs(tr-fR) === Math.abs(tc-fC))) { if (!board[tr][tc].piece && !board[tr][tc].item) throwT.push(coordsToAlgebraic(tr, tc)); }
                     }
-                    // CHOICE LOGIC: Add the target itself back for "click again to capture"
                     if (tP && tP.color !== currentPlayer) throwT.push(algebraic);
                     setPossibleMoves(throwT); addLog("Grappler: Select landing, or click enemy again to capture."); return;
                 }
@@ -1245,29 +1198,19 @@ export default function EvolvingChessPage() {
           if (tP && tP.color === moving.color) mType = 'swap';
           else if (algebraic === enPassantTargetSquare && FRONTLINE_TYPES.includes(moving.type)) mType = 'enpassant';
           else if (moving.type === 'king' && Math.abs(col - fC) === 2) mType = 'castle';
-          
           const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
-          const nextTracks = {
-              white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite,
-              black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack,
-              global: newMoveInfo
-          };
-
+          const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
           if (onlineStatus === 'connected') { 
               wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: mType } })); 
               setSelectedSquare(null); setPossibleMoves([]); 
           } else {
               pushHistory(); clickGuardRef.current = true; setLastMoveFrom(selectedSquare); setLastMoveTo(algebraic); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); setSelectedSquare(null); setPossibleMoves([]);
-              
               if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
               setLastMoveGlobal(newMoveInfo);
-
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
               let nextB = applyRes.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; setBoard(nextB); setCapturedPieces(updatedG);
               const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
-              
               applyRes.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
-
               if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
               if (applyRes.hydraSplitOccurred) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (applyRes.hydraSpawnSquares) applyRes.hydraSpawnSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1)); }
@@ -1311,7 +1254,7 @@ export default function EvolvingChessPage() {
   } else { 
     setSelectedSquare(null); setPossibleMoves([]); setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }
-}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, aiStrikeCount, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound]);
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound]);
 
   const fullGameReset = () => {
     const unlocks = userData?.unlockedPieces || []; const uElo = userData?.eloRating || 1200; let initial = initializeBoard(uElo, uElo, unlocks, unlocks);
@@ -1358,11 +1301,8 @@ export default function EvolvingChessPage() {
                 if (remoteEvents.snipe) { audioManager.playSnipe(); addLog(`${getPlayerDisplayName(actingColor)} Snipe triggered!`); }
                 if (remoteEvents.resurrection && remoteEvents.resPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resPos); addLog(`${getPlayerDisplayName(actingColor)} triggered Resurrection Call!`); }
                 if (remoteEvents.hydraSplit) { audioManager.playResurrect(); addLog("The Hydra regrows its heads!"); if (remoteEvents.hydraSpawnSquares) remoteEvents.hydraSpawnSquares.forEach((pos: AlgebraicSquare) => addEffectCallback('light-beam', pos)); }
-                if (remoteEvents.phoenixRes && remoteEvents.phoenixPos) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.phoenixPos); }
                 if (remoteEvents.resScroll) { audioManager.playResurrect(); addEffectCallback('light-beam', remoteEvents.resScrollPos); }
-                
                 remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
-
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
                 if (isCheck) { audioManager.playCheck(); addLog("Check!"); setGameInfo(prev => ({ ...prev, isCheck: true, playerWithKingInCheck: nextGs.currentPlayer })); }
                 else { setGameInfo(prev => ({ ...prev, isCheck: false, playerWithKingInCheck: null })); }
@@ -1490,14 +1430,14 @@ export default function EvolvingChessPage() {
              <PixelStall className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Store</span>
           </button>
-          <Link href="/leaderboard" className="flex flex-col items-center gap-0.5 group">
+          <button onClick={() => router.push('/leaderboard')} className="flex flex-col items-center gap-0.5 group">
              <PixelTrophy className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Leaders</span>
-          </Link>
-          <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
+          </button>
+          <button onClick={() => { if(user) router.push('/dungeon'); }} className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
              <PixelSwords className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Dungeon</span>
-          </Link>
+          </button>
           <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
              <PixelReset className="h-10 w-10 ascii-shader transition-transform group-hover:scale-110" />
              <span className="text-[0.4rem] font-pixel uppercase tracking-tighter">Reset</span>
@@ -1535,7 +1475,7 @@ export default function EvolvingChessPage() {
         <Card className="w-full mt-1 bg-black/40 border-none shadow-none"> <CardContent className="p-1 flex flex-col gap-1"> {onlineStatus === 'disconnected' ? ( <div className="flex flex-col gap-1 items-center"> <Button variant="outline" size="sm" onClick={() => setIsArenaConfirmOpen(true)} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Arena <span className="text-yellow-500 ml-1">100g</span> <Coins className="h-3 w-3 text-yellow-500" /> ({tournamentQueueCount}/8)</Button> <Button variant="outline" size="sm" onClick={handleRankedPlay} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><PixelTrophy className="mr-1 h-3 w-3 ascii-shader" />Ranked Match</Button> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('create')} disabled={!user} className="h-6 px-1.5 text-[0.65rem] w-full"><Globe className="mr-1 h-3 w-3" /> Create Online Game</Button> <div className="flex gap-1 items-center w-full"> <Input type="text" placeholder="Room ID" value={inputRoomId} onChange={(e) => setInputRoomId(e.target.value)} className="h-6 px-1.5 text-[0.65rem] flex-grow" /> <Button variant="outline" size="sm" onClick={() => handleOnlinePlay('join')} disabled={!inputRoomId} className="h-6 px-1.5 text-[0.65rem]">Join</Button> </div> </div> ) : ( <div className="flex flex-col gap-1 items-center"> <div className="flex items-center gap-2 text-[0.65rem] font-pixel text-primary uppercase"> <span>Room: {roomId || inputRoomId}</span> <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => { navigator.clipboard.writeText(roomId || inputRoomId); addLog("Room ID Copied!"); }}> <Copy className="h-3 w-3" /> </Button> </div> <Button variant="destructive" size="sm" onClick={() => wsRef.current?.close()} className="h-6 px-1.5 text-[0.65rem] w-full"><Link2Off className="mr-1 h-3 w-3" /> Disconnect</Button> </div> )} <div className="w-full text-center h-3 text-[0.65rem] text-muted-foreground uppercase font-pixel tracking-tighter">{onlineStatus}</div> </CardContent> </Card>
       </div>
     </div>
-  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData?.goldBalance, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity]);
+  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, gameInfo.gameOver, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionSquare, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, isAwaitingRayTarget, lastMoveWhite, lastMoveBlack, lastMoveGlobal, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, turnTimer, isRulesDialogOpen, userData?.goldBalance, user, volume, aiDifficulty, isWhiteAI, isBlackAI, viewMode, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, router]);
 
   const desktopLayout = useMemo(() => (
     <div className="relative z-20 hidden lg:flex flex-row items-start justify-center gap-4 w-full h-full p-4">
@@ -1578,14 +1518,14 @@ export default function EvolvingChessPage() {
                    <PixelStall className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Store</span>
                 </button>
-                <Link href="/leaderboard" className="flex flex-col items-center gap-0.5 group">
+                <button onClick={() => router.push('/leaderboard')} className="flex flex-col items-center gap-0.5 group">
                    <PixelTrophy className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Leaders</span>
-                </Link>
-                <Link href="/dungeon" className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
+                </button>
+                <button onClick={() => { if(user) router.push('/dungeon'); }} className={cn(!user && "pointer-events-none opacity-30", "flex flex-col items-center gap-0.5 group")}>
                    <PixelSwords className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Dungeon</span>
-                </Link>
+                </button>
                 <button onClick={() => setIsResetConfirmOpen(true)} className="flex flex-col items-center gap-0.5 h-auto p-0 bg-transparent border-none outline-none group">
                    <PixelReset className="h-12 w-12 ascii-shader transition-transform group-hover:scale-110" />
                    <span className="text-[0.45rem] font-pixel uppercase tracking-tighter">Reset</span>
@@ -1644,7 +1584,7 @@ export default function EvolvingChessPage() {
          </Card> 
       </div>
     </div>
-  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionQueue, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, turnTimer, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, isAnySpecialModeActive, dancerToDance, isAwaitingRayTarget, gameInfo.gameOver, gameInfo.isCheck, lastMoveWhite, lastMoveBlack, lastMoveGlobal]);
+  ), [statusMessage, board, selectedSquare, possibleMoves, enemySelectedSquare, enemyPossibleMoves, handleSquareClick, boardOrientation, currentPlayer, isMoveProcessing, isAiThinking, localPlayerColor, enPassantTargetSquare, handlePieceHover, effects, promotionQueue, isAwaitingAnvilDrop, playerToDropAnvil, isInventoryOpen, selectedInventoryItemType, isAwaitingHolyShield, isAwaitingArcherSnipe, grappledPieceSubject, isAwaitingEarthquakeScrollTarget, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingWindScrollTarget, isAwaitingAnvilScrollTarget, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingOilSlickTarget, user, volume, aiDifficulty, isWhiteAI, isBlackAI, tournamentQueueCount, handleOnlinePlay, handleRankedPlay, inputRoomId, roomId, socialOnlineStatus, handleUsePortalScroll, gameMoveCounter, isLootBagDisabled, isTournamentIntermission, headerIconsActive, headerIconsOpacity, turnTimer, capturedPieces, killStreaks, pieceForInfoDisplay, getPlayerDisplayName, onlineStatus, isAnySpecialModeActive, dancerToDance, isAwaitingRayTarget, gameInfo.gameOver, gameInfo.isCheck, lastMoveWhite, lastMoveBlack, lastMoveGlobal, router]);
 
   return (
     <div className={cn("min-h-full h-full w-full bg-background flex flex-col relative", showLossScreen && "after:animate-fade-to-black")}>

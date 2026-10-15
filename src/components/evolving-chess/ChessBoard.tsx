@@ -148,7 +148,7 @@ const EffectOverlay = ({ effect, visuallyFlipBoardForLogic }: { effect: Effect, 
     case 'light-beam': return ( <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 50 }}> <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1/4 h-[400%] bg-gradient-to-b from-transparent via-cyan-300/60 to-transparent animate-[light-beam-anim_1.5s_ease-in-out_forwards]" /> </div> );
     case 'level-change':
       const val = effect.value || 0;
-      return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]" style={{ top, left }} > <span className="text-destructive font-bold text-[1.25rem] md:text-[1.5rem] animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black' }}> {val >= 0 ? `+${val}` : val} </span> </div> );
+      return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none flex items-center justify-center z-[60]" style={{ top, left }} > <span className="font-pixel z-[60] text-[0.8rem] md:text-[1.2rem] animate-[level-float_1s_ease-out_forwards]" style={{ textShadow: '2px 2px 0px black', color: val >= 0 ? '#4ade80' : '#ef4444' }}> {val >= 0 ? `+${val}` : val} </span> </div> );
     case 'conversion': return ( <div className="absolute overflow-hidden pointer-events-none" style={{ top, left, width: '12.5%', height: '12.5%', zIndex: 55 }}> <div className="absolute inset-0 bg-primary/30 animate-pulse" /> </div> );
     case 'magic-burst': return ( <div className="absolute w-[12.5%] h-[12.5%] pointer-events-none z-[80]" style={{ top, left }} > <MagicBurstOverlay itemType={effect.itemType} /> </div> );
     case 'tremble': return null; 
@@ -269,7 +269,7 @@ export const ChessBoard = memo(({
           let isRayTarget = false;
           if (isLocalActionTurn && isAwaitingRayTarget && selectedSquare) {
               const { row: fR, col: fC } = algebraicToCoords(selectedSquare);
-              if ((actualRowIndex === fR || actualColIndex === fC) && currentSquareData.algebraic !== selectedSquare) isRayTarget = true;
+              if (actualRowIndex === fR || actualColIndex === fC) if (currentSquareData.algebraic !== selectedSquare) isRayTarget = true;
           }
 
           let isDanceTarget = false;
@@ -284,7 +284,6 @@ export const ChessBoard = memo(({
                 const targetItem = currentSquareData.item;
                 const dir = currentPlayerColor === 'white' ? -1 : 1;
                 const isForward = (actualRowIndex === fr + dir) && (actualColIndex === fc);
-                
                 if (currentSquareData.algebraic === dancerToDance) isDanceTarget = true;
                 else if (isAdjacent) {
                     if (targetP) isDanceTarget = true; 
@@ -308,11 +307,12 @@ export const ChessBoard = memo(({
           if (isLocalActionTurn && !isAwaitingGrappleThrow && selectedSquare) {
             const {row: fr, col: fc} = algebraicToCoords(selectedSquare);
             const moving = boardState[fr][fc].piece;
-            if (moving?.type === 'grappler' && !isSilenced(boardState, fr, fc, currentPlayerColor)) {
+            const isGrappler = moving?.type === 'grappler' || (moving?.type === 'mimic' && lastMoveGlobal?.type === 'grappler');
+            if (isGrappler && !isSilenced(boardState, fr, fc, currentPlayerColor)) {
                 const isAdj = Math.abs(actualRowIndex - fr) <= 1 && Math.abs(actualColIndex - fc) <= 1 && !(actualRowIndex === fr && actualColIndex === fc);
                 if (isAdj) {
                     const tP = currentSquareData.piece;
-                    const tA = currentSquareData.item?.type === 'anvil' && moving.heldItem === 'power_glove';
+                    const tA = currentSquareData.item?.type === 'anvil' && moving?.heldItem === 'power_glove';
                     if ((tP && tP.type !== 'king') || tA) isGrapplePickupTarget = true;
                 }
             }
@@ -327,7 +327,6 @@ export const ChessBoard = memo(({
           const isConvertingSquare = effects.some(e => e.type === 'conversion' && e.square === currentSquareData.algebraic);
           const effectiveLevel = currentSquareData.piece ? getEffectiveLevel(boardState, actualRowIndex, actualColIndex) : 0;
           const isGrimoirBoosted = currentSquareData.piece ? (effectiveLevel > (currentSquareData.piece.level || 1)) : false;
-
           const isCurrentlyHidingForGrapple = grappledPickupSquare === currentSquareData.algebraic;
 
           return (

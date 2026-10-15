@@ -1,4 +1,3 @@
-
 import WebSocket from 'ws';
 import http from 'http';
 import { URL } from 'url';
@@ -110,7 +109,6 @@ const startArena = () => {
         roundWinners: []
     };
 
-    // Store participant data and initialize rooms for Round 1
     for (let i = 0; i < 4; i++) {
         const p1 = participants[i*2];
         const p2 = participants[i*2+1];
@@ -129,7 +127,7 @@ const startArena = () => {
         );
 
         rooms[roomId] = {
-            clients: [], // Will be populated when they join via match-ready redirect
+            clients: [],
             isRanked: true,
             tournamentId: tournamentId,
             round: 1,
@@ -183,7 +181,7 @@ const startNextTournamentRound = (tournamentId: string) => {
         if (!p2Id) {
             tournament.roundWinners.push(p1Id);
             const ws = userConnections[p1Id];
-            if (ws) ws.send(JSON.stringify({ type: 'tournament-intermission', round: tournament.round, nextRound: tournament.round + 1 }));
+            if (ws) ws.send(JSON.stringify({ tournamentId, type: 'tournament-intermission', round: tournament.round, nextRound: tournament.round + 1 }));
             continue;
         }
 
@@ -385,17 +383,18 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 }
                 case 'join-room': {
                     const roomToJoin = rooms[data.roomId];
-                    if (roomToJoin && roomToJoin.clients.length < 2) {
+                    if (roomToJoin) {
                         ws.roomId = data.roomId;
                         ws.userId = data.user?.userId;
                         ws.username = data.user?.username;
                         roomToJoin.clients.push(ws);
                         
                         if (!roomToJoin.gameState.players.white && data.color === 'white') roomToJoin.gameState.players.white = data.user;
-                        if (!roomToJoin.gameState.players.black && data.color === 'black') roomToJoin.gameState.players.black = data.user;
+                        if (!roomToJoin.gameState.players.black && (data.color === 'black' || roomToJoin.gameState.players.white)) roomToJoin.gameState.players.black = data.user;
 
                         const eq = data.user?.equipment || {};
-                        const pColor = roomToJoin.clients[0] === ws ? 'white' : 'black';
+                        const pColor = roomToJoin.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
+                        
                         roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
                             if (sq.piece && sq.piece.color === pColor && eq[sq.piece.id]) {
                                 sq.piece.heldItem = eq[sq.piece.id];
@@ -410,8 +409,8 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'anvil-drop': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
-                    if (room.gameState.currentPlayer !== playerColor) break; // Basic turn security
+                    const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
+                    if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { row, col } = algebraicToCoords(data.square);
                     if (isValidSquare(row, col) && !room.gameState.board[row][col].piece && !room.gameState.board[row][col].item) {
@@ -427,7 +426,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'holy-shield': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { row, col } = algebraicToCoords(data.square);
@@ -444,7 +443,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'archer-snipe': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { row, col } = algebraicToCoords(data.square);
@@ -463,7 +462,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'pawn-sacrifice': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { row, col } = algebraicToCoords(data.payload.square);
@@ -482,7 +481,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                 case 'ks-resurrection': {
                     const room = ws.roomId ? rooms[ws.roomId] : null;
                     if (!room) break;
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    const playerColor = room.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                     if (room.gameState.currentPlayer !== playerColor) break;
 
                     const { pieceId, square } = data.payload;
@@ -515,39 +514,20 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const movePayload = data.payload as Move;
                     const gs = room.gameState;
                     
-                    const playerColor = room.clients[0] === ws ? 'white' : 'black';
+                    const playerColor = gs.players.white?.userId === ws.userId ? 'white' : 'black';
                     const isRewardMove = ['dance-swap', 'dance-move', 'anvil-drop', 'holy-shield', 'archer-snipe', 'pawn-sacrifice', 'ks-resurrection', 'myco-propagate', 'tele-portobello', 'spore-bomb', 'raise-mycelimen'].includes(movePayload.type || '');
                     
-                    // TURN & OWNERSHIP VALIDATION
                     if (gs.currentPlayer !== playerColor && !isRewardMove) break;
 
                     const fromSq = algebraicToCoords(movePayload.from);
                     const movingPiece = gs.board[fromSq.row][fromSq.col].piece;
                     if (!isRewardMove) {
                         if (!movingPiece || movingPiece.color !== playerColor) break;
-
-                        // LEGALITY VALIDATION (Authoritative)
-                        const legalMoves = getPossibleMoves(
-                            gs.board, 
-                            movePayload.from, 
-                            gs.enPassantTargetSquare,
-                            room.historyTracks.white,
-                            room.historyTracks.black,
-                            room.historyTracks.global
-                        );
+                        const legalMoves = getPossibleMoves(gs.board, movePayload.from, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global);
                         if (!legalMoves.includes(movePayload.to)) break;
                     }
 
-                    const result = applyMove(
-                        gs.board, 
-                        movePayload, 
-                        gs.enPassantTargetSquare, 
-                        gs.capturedPieces, 
-                        room.historyTracks.white,
-                        room.historyTracks.black,
-                        room.historyTracks.global,
-                        gs.didOpponentCaptureLastTurn
-                    );
+                    const result = applyMove(gs.board, movePayload, gs.enPassantTargetSquare, gs.capturedPieces, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global, gs.didOpponentCaptureLastTurn);
                     
                     gs.board = result.newBoard;
                     gs.enPassantTargetSquare = result.enPassantTargetSet;
@@ -583,15 +563,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const wasCapture = !!(result.capturedPiece || result.pieceCapturedByAnvil || result.selfDestructCaptures?.length);
                     
                     if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && wasCapture) {
-                        const resRes = processRookResurrectionCheck(
-                            gs.board,
-                            playerColor,
-                            movePayload,
-                            movePayload.to,
-                            movingPiece?.level || 1,
-                            gs.capturedPieces,
-                            Date.now()
-                        );
+                        const resRes = processRookResurrectionCheck(gs.board, playerColor, movePayload, movePayload.to, movingPiece?.level || 1, gs.capturedPieces, Date.now());
                         if (resRes.resurrectionPerformed) {
                             gs.board = resRes.boardWithResurrection;
                             gs.capturedPieces = resRes.capturedPiecesAfterResurrection;
@@ -610,62 +582,46 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     }
                     
                     if (result.infiltrationWin) {
-                        if (room.tournamentId) {
-                            handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'infiltration');
-                        } else {
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
-                            delete rooms[ws.roomId!];
-                        }
+                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'infiltration');
+                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'infiltration' });
                         return;
                     }
 
                     const actingKingSq = gs.board.flat().find(sq => sq.piece?.type === 'king' && sq.piece.color === playerColor);
                     if (gs.killStreaks[playerColor] >= 8 && actingKingSq?.piece?.heldItem === 'kings_conquest') {
-                        if (room.tournamentId) {
-                            handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'conquest');
-                        } else {
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest' });
-                            delete rooms[ws.roomId!];
-                        }
+                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'conquest');
+                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'conquest' });
                         return;
                     }
 
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
                     if (isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global)) {
-                        if (room.tournamentId) {
-                            handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
-                        } else {
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
-                            delete rooms[ws.roomId!];
-                        }
+                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, playerColor, 'checkmate');
+                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: playerColor, reason: 'checkmate' });
                         return;
                     }
                     
                     const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);
                     const isFrontlineMove = movingPiece?.type && FRONTLINE_TYPES.includes(movingPiece.type);
-                    if (result.capturedPiece || isFrontlineMove) {
-                        room.positionHistory = [hash];
-                    } else {
-                        room.positionHistory.push(hash);
-                    }
+                    if (result.capturedPiece || isFrontlineMove) room.positionHistory = [hash];
+                    else room.positionHistory.push(hash);
 
                     const repeats = room.positionHistory.filter(h => h === hash).length;
                     if (repeats >= 3) {
-                        if (room.tournamentId) {
-                             handleTournamentGameOver(room.tournamentId, ws.roomId!, 'draw', 'repetition');
-                        } else {
-                            broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
-                            delete rooms[ws.roomId!];
-                        }
+                        if (room.tournamentId) handleTournamentGameOver(room.tournamentId, ws.roomId!, 'draw', 'repetition');
+                        else broadcastToRoom(ws.roomId!, { type: 'game-over', winner: 'draw', reason: 'repetition' });
                     } else {
-                        if (!result.extraTurn && !isRewardMove) {
+                        const extraTurn_move = result.extraTurn || false;
+                        if (!extraTurn_move && !isRewardMove) {
                             gs.currentPlayer = gs.currentPlayer === 'white' ? 'black' : 'white';
+                            const { newBoard: boardAfterPoison, levelChanges: poisonChanges } = processPoisonDamage(gs.board, gs.currentPlayer);
+                            gs.board = boardAfterPoison;
+                            result.levelChanges = [...(result.levelChanges || []), ...poisonChanges];
                         }
                         
                         const events = {
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.pieceCapturedByAnvil)?.type,
-                            selfDestructs: result.selfDestructCaptures?.length || 0,
                             shroom: result.shroomConsumed,
                             hero: result.promotedToHero,
                             rally: !!result.rallyCryTriggered,
@@ -673,15 +629,14 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             conversions: result.conversionEvents?.map(e => e.at) || [],
                             reflection: result.reflectionOccurred,
                             ralliedSquares: result.ralliedSquares || [],
-                            extraTurn: result.extraTurn,
+                            extraTurn: extraTurn_move,
                             resurrection: !!resurrectionEvent,
                             resPos: resurrectionEvent?.square,
                             hydraSplit: result.hydraSplitOccurred,
                             hydraSpawnSquares: result.hydraSpawnSquares,
-                            phoenixRes: !!result.phoenixResurrection,
-                            phoenixPos: result.phoenixResurrection?.square,
                             resScroll: !!result.resurrectionScrollEvent,
-                            resScrollPos: result.resurrectionScrollEvent?.square
+                            resScrollPos: result.resurrectionScrollEvent?.square,
+                            levelChanges: result.levelChanges || []
                         };
 
                         broadcastToRoom(ws.roomId!, { 
@@ -699,6 +654,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
     ws.on('close', () => {
         if (ws.userId) delete userConnections[ws.userId];
         arenaQueue = arenaQueue.filter(p => p.userId !== ws.userId);
+        broadcastPresence();
         wss.clients.forEach(c => c.send(JSON.stringify({ type: 'tournament-queue-update', count: arenaQueue.length })));
     });
 });

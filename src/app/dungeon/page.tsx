@@ -1118,8 +1118,9 @@ export default function DungeonPage() {
            return;
        }
 
-       if (moving?.type === 'grappler' && !isSilenced(board, fR, fC, 'white')) {
-           const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
+       const isGrappler = moving?.type === 'grappler' || (moving?.type === 'mimic' && lastMoveGlobal?.type === 'grappler');
+       if (isGrappler && !isSilenced(board, fR, fC, 'white')) {
+           const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving?.heldItem === 'power_glove';
            if ((tP && tP.type !== 'king') || tA) {
                if (possibleMoves.includes(alg)) {
                    setGrappledPieceSubject(tP ? { piece: { ...tP }, from: alg } : null); setGrappledItemSubject(tA ? { type: 'anvil', from: alg } : null);
@@ -1206,7 +1207,7 @@ export default function DungeonPage() {
             if (rookResResult?.promotionRequiredForResurrectedPawn) {
                 q.push({ square: rookResResult.resurrectedSquareAlg!, targetLevel: 1 });
             }
-            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(nxt.targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
+            if (q.length > 0) { setPromotionQueue(q); setIsPromotingPawn(true); setPromotionSquare(q[0].square); setPromotionTargetLevel(q[0].targetLevel); setSpecialActionContext({ boardForNextStep: nextBoardState, playerWhoseTurnCompleted: 'white', isExtraTurn: isExtraTurn, newEnPassantTarget: res.enPassantTargetSet, oldStreak: oS, newStreak: nS, currentGraveyard: nxtG, currentKs: cKs, capturingPieceId: nextBoardState[row][col].piece?.id || null, trackWhite: nextTracks.white, trackBlack: nextTracks.black, trackGlobal: nextTracks.global }); } 
             else { processPawnSacrificeCheck(nextBoardState, nxtG, cKs, 'white', {from: selectedSquare, to: alg, type: mType}, oL, oT, isExtraTurn, res.enPassantTargetSet, oS, nS, nextBoardState[row][col].piece?.id || null, totalCaptures > 0, oT, nextTracks.white, nextTracks.black, nextTracks.global); }
           }, 800);
           return;
@@ -1313,7 +1314,7 @@ export default function DungeonPage() {
             white: lastMoveWhite,
             black: newMoveInfo,
             global: newMoveInfo
-        };
+          };
         
         setLastMoveBlack(newMoveInfo);
         setLastMoveGlobal(newMoveInfo);

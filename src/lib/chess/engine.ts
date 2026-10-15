@@ -274,7 +274,6 @@ export function applyMove(
     return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges };
   }
 
-  // Determine effective item logic for Mimic copy rules
   let effectiveHeldItem = movingPiece.heldItem;
   if (movingPiece.type === 'mimic') {
     let mimickedItem: InventoryItemType | null = null;
@@ -285,7 +284,6 @@ export function applyMove(
         const allyLast = movingPiece.color === 'white' ? lastMoveWhite : lastMoveBlack;
         mimickedItem = allyLast?.item || null;
     }
-    // Itemless mimics copy no items
     effectiveHeldItem = mimickedItem;
   }
 
@@ -336,7 +334,6 @@ export function applyMove(
           const tSq = newBoard[nr][nc];
           if (tSq.piece) {
               if (tSq.piece.type === 'king') break;
-
               totalGain += (VAL_MAP[tSq.piece.type] || 1);
               triggerDefiantSparks(nr, nc, tSq.piece.color);
               selfDestructCaptures.push({ ...tSq.piece, id: `${tSq.piece.id}_burn_${Date.now()}` });
@@ -347,7 +344,7 @@ export function applyMove(
       const oldRL = movingPiece.level;
       movingPiece.level += totalGain;
       if (movingPiece.type === 'queen') movingPiece.level = Math.min(7, movingPiece.level);
-      if (movingPiece.level > oldRL) levelChanges.push({ square: coordsToAlgebraic(toRow, toCol), delta: movingPiece.level - oldRL });
+      if (movingPiece.level > oldRL) levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: movingPiece.level - oldRL });
       movingPiece.heldItem = null;
       return { newBoard, capturedPiece: null, selfDestructCaptures, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares, levelChanges };
   }
@@ -532,17 +529,14 @@ export function applyMove(
       const dr = Math.sign(toRow - fromRow);
       const dc = Math.sign(toCol - fromCol);
       const slideResult = applyOilSlide(newBoard, toRow, toCol, dr, dc);
-      
       if (newBoard[slideResult.r][slideResult.c].piece?.type === 'king') {
           return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents: [], rallyCryTriggered: null, originalPieceLevel: movingPiece.level, originalPieceType: movingPiece.type, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges: [] };
       }
-
       if (move.grappledFrom) {
           const { row: gr, col: gc } = Array.isArray(move.grappledFrom) ? { row: move.grappledFrom[0], col: move.grappledFrom[1] } : algebraicToCoords(move.grappledFrom as AlgebraicSquare);
           newBoard[gr][gc].piece = null;
           newBoard[gr][gc].item = null;
       }
-
       if (move.thrownItem === 'anvil') {
           newBoard[fromRow][fromCol].piece = { ...movingPiece, hasMoved: true };
           const victim = newBoard[slideResult.r][slideResult.c].piece;
@@ -665,7 +659,7 @@ export function applyMove(
       else consumer.level = oldL + totalLevelsGained;
       if (consumer.level > oldL) levelChanges.push({ square: coordsToAlgebraic(fromRow, fromCol), delta: consumer.level - oldL });
       consumer.heldItem = null;
-      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges };
+      return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares, levelChanges };
   }
 
   if (move.type === 'kings-decree') {
@@ -674,7 +668,7 @@ export function applyMove(
       newBoard[pr][pc].piece!.type = 'commander';
     }
     newBoard[fromRow][fromCol].piece!.heldItem = null;
-    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares: [], levelChanges };
+    return { newBoard, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel, originalPieceType, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare: null, anvilDroppedSquares, levelChanges };
   }
 
   if (move.type === 'resurrection-scroll') {
@@ -1006,6 +1000,7 @@ export function applyMove(
                     const target = setUnits[Math.floor(Math.random() * setUnits.length)];
                     const p = target.p;
                     if (p.type !== 'queen' || p.level < 7) {
+                        const oldL = p.level;
                         p.level++;
                         p.isPoisoned = false;
                         p.isExhausted = false;
@@ -1105,7 +1100,7 @@ export function applyMove(
         rallyCryTriggered = { square: move.to, color: pieceToLand.color }; 
     }
     if (pieceToLand.type === 'king') {
-        const kingDrains = applyKingDominion(newBoard, pieceToLand.color, g);
+        const kingDrains = applyKingDominion(newBoard, pieceToLand.color, levelGain);
         levelChanges.push(...kingDrains);
     }
     if (effectiveHeldItem === 'poison_sword') triggerPoisonSplash(newBoard, toRow, toCol, pieceToLand.color);
@@ -1180,6 +1175,7 @@ export function applyMove(
       }));
       if (candidates.length > 0) {
         const lucky = candidates[0];
+        const oldLL = lucky.level;
         lucky.level = (lucky.level || 1) + 1;
         lucky.isPoisoned = false;
         lucky.isExhausted = false;
