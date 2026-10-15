@@ -266,7 +266,6 @@ export default function EvolvingChessPage() {
   const [isResetConfirmOpen, setIsResetConfirmOpen] = useState(false);
   const [isArenaConfirmOpen, setIsArenaConfirmOpen] = useState(false);
   const [promotionQueue, setPromotionQueue] = useState<{ square: AlgebraicSquare, targetLevel: number }[]>([]);
-  const [aiStrikeCount, setAiStrikeCount] = useState(0);
   const [didCaptureLastTurn, setDidCaptureLastTurn] = useState<{ white: boolean, black: boolean }>({ white: false, black: false });
 
   const gameOverRef = useRef(false);
@@ -930,7 +929,7 @@ export default function EvolvingChessPage() {
         setBoard(nextB); processPawnSacrificeCheck(nextB, updatedG, currentKs, currentPlayer, {from: fromAlg, to: toAlg, type: aiMove!.type as AIMoveType['type']}, oldL, oldT, isExtraTurn, applyResult.enPassantTargetSet, oldS, newS, wasCap ? landed?.id || null : null, wasCap, oldT, nextTracks.white, nextTracks.black, nextTracks.global);
       }, 800);
     } catch (e) { console.error(`[AI Error]`, e); setIsAiThinking(false); }
-  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, isWhiteAI, isBlackAI, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, processPawnSacrificeCheck, gameMoveCounter, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, pushHistory, addLog, killStreaks, capturedPieces, aiStrikeCount, didCaptureLastTurn, positionHistory, playOutcomeSound]);
+  }, [board, currentPlayer, gameInfo.gameOver, isMoveProcessing, isAnySpecialModeActive, isAiThinking, isWhiteAI, isBlackAI, shroomSpawnCounter, nextShroomSpawnTurn, firstBloodAchieved, playerWhoGotFirstBlood, processMoveEnd, processPawnSacrificeCheck, gameMoveCounter, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, pushHistory, addLog, killStreaks, capturedPieces, didCaptureLastTurn, positionHistory, playOutcomeSound]);
 
   const handleMycoSpellSelect = useCallback((spell: MycoSpell) => {
       setIsSelectingMycoSpell(false); if (!spell) { setSelectedSquare(null); return; }
@@ -968,6 +967,42 @@ export default function EvolvingChessPage() {
     if (clickGuardRef.current) return;
     const { row, col } = algebraicToCoords(algebraic); const sq = board[row]?.[col]; const piece = sq?.piece;
     handlePieceHover(piece || null);
+
+    if (isAwaitingShieldScrollTarget && piece && piece.color === currentPlayer) {
+        if (piece.type === 'king' || piece.type === 'queen' || piece.isShielded) return;
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'shield-scroll' };
+        if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
+        else {
+            pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+            setBoard(res.newBoard);
+            setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingShieldScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece?.type); }, 800);
+        }
+        return;
+    }
+    if (isAwaitingSwapScrollTarget && piece && piece.color === currentPlayer && algebraic !== selectedSquare) {
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'swap-scroll' };
+        if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
+        else {
+            pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+            setBoard(res.newBoard);
+            setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingSwapScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, board[algebraicToCoords(selectedSquare!).row][algebraicToCoords(selectedSquare!).col].piece?.type); }, 800);
+        }
+        return;
+    }
+    if (isAwaitingDecreeTarget && piece && piece.color === currentPlayer && piece.type === 'pawn' && piece.level === 1) {
+        const move: Move = { from: selectedSquare!, to: algebraic, type: 'kings-decree' };
+        if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
+        else {
+            pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
+            const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+            setBoard(res.newBoard);
+            setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingDecreeTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, 'king'); }, 800);
+        }
+        return;
+    }
+
     if (isAwaitingGrappleThrow) {
         const {row: fr, col: fc} = algebraicToCoords(selectedSquare!); const range = getEffectiveLevel(board, fr, fc);
         const dist = Math.max(Math.abs(fr - row), Math.abs(fc - col));
@@ -977,18 +1012,14 @@ export default function EvolvingChessPage() {
             else {
                 pushHistory(); clickGuardRef.current = true; setIsMoveProcessing(true); setAnimatedSquareTo(algebraic);
                 const result = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
-                setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
+                const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+                if (result.capturedPiece) updatedG[result.capturedPiece.color].push(result.capturedPiece);
+                setBoard(result.newBoard); setCapturedPieces(updatedG); setSelectedSquare(null); setPossibleMoves([]);
                 setTimeout(() => { 
                     setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
                     const wasCap = !!result.capturedPiece;
                     const oldS = killStreaks[currentPlayer], newS = wasCap ? oldS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: newS }; 
-                    const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
-                    if (result.capturedPiece) {
-                        const targetPile = result.capturedPiece.color;
-                        updatedG[targetPile] = [...updatedG[targetPile], { ...result.capturedPiece }];
-                    }
                     setKillStreaks(cKs);
-                    setCapturedPieces(updatedG);
                     processPawnSacrificeCheck(result.newBoard, updatedG, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type);
                 }, 800);
             }
@@ -1121,19 +1152,36 @@ export default function EvolvingChessPage() {
       return;
   }
   if ((isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget || isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget || isAwaitingOilSlickTarget) && !sq?.piece && !sq?.item) {
-      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'anvil-drop', square: algebraic })); setIsAwaitingAnvilDrop(false); }
+      if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: selectedSquare, to: algebraic, type: isAwaitingWindScrollTarget ? 'wind-scroll' : (isAwaitingAnvilScrollTarget ? 'summon-anvil' : (isAwaitingEarthquakeScrollTarget ? 'earthquake-scroll' : (isAwaitingOilSlickTarget ? 'oil-slick' : 'anvil-drop'))) } })); setIsAwaitingAnvilDrop(false); setIsAwaitingAnvilScrollTarget(false); setIsAwaitingWindScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setIsAwaitingOilSlickTarget(false); setSelectedSquare(null); setPossibleMoves([]); }
       else { 
           pushHistory(); 
           if (isAwaitingOilSlickTarget) { 
-              setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'oil-slick' }, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false); setBoard(res.newBoard); setTimeout(() => { setIsMoveProcessing(false); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMoveGlobal?.type); }, 800); 
+              setIsMoveProcessing(true); setAnimatedSquareTo(algebraic); const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: 'oil-slick' }, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false); setBoard(res.newBoard); setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingOilSlickTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMoveGlobal?.type); }, 800); 
           } else { 
-              const nextBoard = specialActionContext!.boardForNextStep.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))); 
-              nextBoard[row][col].item = { type: 'anvil' }; 
+              const moveType = isAwaitingWindScrollTarget ? 'wind-scroll' : (isAwaitingAnvilScrollTarget ? 'summon-anvil' : (isAwaitingEarthquakeScrollTarget ? 'earthquake-scroll' : 'move'));
+              const contextBoard = (specialActionContext?.boardForNextStep || board);
+              const nextBoard = contextBoard.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null }))); 
+              
+              if (isAwaitingAnvilDrop || isAwaitingAnvilScrollTarget) {
+                  nextBoard[row][col].item = { type: 'anvil' }; 
+                  if (isAwaitingAnvilScrollTarget && selectedSquare) {
+                      const {row: fr, col: fc} = algebraicToCoords(selectedSquare);
+                      if (nextBoard[fr][fc].piece) nextBoard[fr][fc].piece!.heldItem = null;
+                  }
+              }
+
+              if (isAwaitingWindScrollTarget || isAwaitingEarthquakeScrollTarget) {
+                  const res = applyMove(board, { from: selectedSquare!, to: algebraic, type: moveType }, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+                  setBoard(res.newBoard);
+                  setTimeout(() => { setIsMoveProcessing(false); setIsAwaitingWindScrollTarget(false); setIsAwaitingEarthquakeScrollTarget(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, lastMoveGlobal?.type); }, 800);
+                  return;
+              }
+
               setBoard(nextBoard); 
               setTimeout(() => { addEffectCallback('poof', algebraic); audioManager.playAnvil(); }, 300);
               setIsAwaitingAnvilDrop(false); 
               setIsAwaitingAnvilScrollTarget(false);
-              triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext!.trackWhite, specialActionContext!.trackBlack, specialActionContext!.trackGlobal); 
+              if (specialActionContext) triggerSpecialsChain(nextBoard, specialActionContext!.currentGraveyard, specialActionContext!.currentKs, specialActionContext!.oldStreak, specialActionContext!.newStreak, specialActionContext!.isExtraTurn, specialActionContext!.newEnPassantTarget, currentPlayer, specialActionContext!.completedMilestones, specialActionContext!.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext!.trackWhite, specialActionContext!.trackBlack, specialActionContext!.trackGlobal); 
           } 
       }
       return;
@@ -1181,7 +1229,84 @@ export default function EvolvingChessPage() {
   if (selectedSquare) {
     const { row: fR, col: fC } = algebraicToCoords(selectedSquare); const moving = board[fR][fC].piece; 
     const canCommit = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && (onlineStatus !== 'connected' || localPlayerColor === currentPlayer) && !isAnySpecialModeActive;
-    if (canCommit && moving && moving.color === currentPlayer && (!localPlayerColor || moving.color === localPlayerColor)) {
+    
+    if (canCommit && moving && moving.color === currentPlayer) {
+        if (selectedSquare === algebraic) {
+           if (moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
+           
+           if (moving.heldItem && ITEM_METADATA[moving.heldItem].isConsumable) {
+               const item = moving.heldItem;
+               const level = getEffectiveLevel(board, fR, fC);
+               const silenced = isSilenced(board, fR, fC, currentPlayer);
+               if (silenced) { addLog("Unit is silenced!"); return; }
+
+               if (item === 'shield_scroll' && level < 2) { addLog("L2 required for Shield Scroll!"); return; }
+               if (item === 'rally_scroll' && level < 3) { addLog("L3 required for Rally Scroll!"); return; }
+               if (item === 'detonation_scroll' && level < 2) { addLog("L2 required for Detonation Scroll!"); return; }
+               if (item === 'swap_scroll' && level < 3) { addLog("L3 required for Swap Scroll!"); return; }
+               if (item === 'ice_scroll' && level < 2) { addLog("L2 required for Ice Scroll!"); return; }
+               if (item === 'resurrection_scroll' && level < 4) { addLog("L4 required for Res. Scroll!"); return; }
+               if (item === 'faith_scroll' && level < 5) { addLog("L5 required for Faith Scroll!"); return; }
+               if (item === 'earthquake_scroll' && level < 3) { addLog("L3 required for Earthquake Scroll!"); return; }
+               if (item === 'heavy_rain' && level < 3) { addLog("L3 required for Heavy Rain!"); return; }
+               if (item === 'phase_out' && level < 2) { addLog("L2 required for Phase Out!"); return; }
+               if (item === 'lose_faith_scroll' && level < 2) { addLog("L2 required for Lose Thy Faith!"); return; }
+               if (item === 'kings_decree' && moving.type !== 'king') { addLog("King only!"); return; }
+
+               const immediateItems = ['life_leach', 'antidote', 'ice_scroll', 'resurrection_scroll', 'faith_scroll', 'ice_blast', 'soul_harvest', 'demonic_possession', 'heavy_rain', 'lose_faith_scroll', 'phase_out', 'rally_scroll'];
+               if (immediateItems.includes(item)) {
+                   let type = item.replace(/_/g, '-') as Move['type'];
+                   if (item === 'lose_faith_scroll') type = 'lose-thy-faith';
+                   if (item === 'phase_out') type = 'phase-out';
+                   
+                   const move: Move = { from: selectedSquare, to: selectedSquare, type };
+                   if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
+                   else {
+                       pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
+                       const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+                       setBoard(res.newBoard);
+                       setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type); }, 800);
+                   }
+                   return;
+               }
+
+               if (item === 'detonation_scroll') {
+                   const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
+                   if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
+                   else {
+                       pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
+                       const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+                       setBoard(res.newBoard); setCapturedPieces(res.selfDestructCaptures ? { ...capturedPieces, [res.selfDestructCaptures[0].color]: [...capturedPieces[res.selfDestructCaptures[0].color], ...res.selfDestructCaptures] } : capturedPieces);
+                       setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type); }, 800);
+                   }
+                   return;
+               }
+
+               if (item === 'wind_scroll') { setIsAwaitingWindScrollTarget(true); addLog("Wind Scroll: Select target square."); return; }
+               if (item === 'summon_anvil') { setIsAwaitingAnvilScrollTarget(true); addLog("Anvil Scroll: Select square."); return; }
+               if (item === 'shield_scroll') { setIsAwaitingShieldScrollTarget(true); addLog("Shield Scroll: Select ally."); return; }
+               if (item === 'swap_scroll') { setIsAwaitingSwapScrollTarget(true); addLog("Swap Scroll: Select ally."); return; }
+               if (item === 'kings_decree') { setIsAwaitingDecreeTarget(true); addLog("King's Decree: Select Pawn."); return; }
+               if (item === 'earthquake_scroll') { setIsAwaitingEarthquakeScrollTarget(true); addLog("Earthquake: Select center."); return; }
+               if (item === 'oil_slick') { setIsAwaitingOilSlickTarget(true); addLog("Oil Slick: Select area."); return; }
+               if (item === 'glacial_ray') { setIsAwaitingRayTarget('glacial'); addLog("Glacial Ray: Select direction."); return; }
+               if (item === 'burning_ray') { setIsAwaitingRayTarget('burning'); addLog("Burning Ray: Select direction."); return; }
+           }
+
+           const silenced_unit = isSilenced(board, fR, fC, currentPlayer);
+           if (!silenced_unit && (moving.type === 'knight' || moving.type === 'hero' || moving.type === 'archer') && getEffectiveLevel(board, fR, fC) >= 5) {
+               const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
+               if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
+               else {
+                   pushHistory(); setIsMoveProcessing(true); setAnimatedSquareTo(selectedSquare);
+                   const res = applyMove(board, move, enPassantTargetSquare, capturedPieces, lastMoveWhite, lastMoveBlack, lastMoveGlobal, false);
+                   setBoard(res.newBoard);
+                   setTimeout(() => { setIsMoveProcessing(false); setSelectedSquare(null); processMoveEnd(res.newBoard, capturedPieces, killStreaks, currentPlayer, false, null, false, moving.type); }, 800);
+               }
+               return;
+           }
+        }
+
         const isGrappler = moving.type === 'grappler' || (moving.type === 'mimic' && lastMoveGlobal?.type === 'grappler');
         if (!isAnySpecialModeActive && isGrappler && !isSilenced(board, fR, fC, currentPlayer)) {
             const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
@@ -1198,7 +1323,6 @@ export default function EvolvingChessPage() {
                 }
             }
         }
-        if (selectedSquare === algebraic && moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
         const freshlyCalculated = getPossibleMoves(board, selectedSquare, enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
         if (freshlyCalculated.includes(algebraic)) {
           const tP = board[row][col].piece; let mType: Move['type'] = 'move';
@@ -1277,7 +1401,7 @@ export default function EvolvingChessPage() {
   } else { 
     setSelectedSquare(null); setPossibleMoves([]); setClickedEnemySquare(null); setEnemySelectedSquare(null); setEnemyPossibleMoves([]);
   }
-}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound]);
+}, [board, currentPlayer, selectedSquare, enPassantTargetSquare, killStreaks, capturedPieces, onlineStatus, localPlayerColor, isWhiteAI, isBlackAI, boardForPostSacrifice, specialActionContext, isExtraTurnFromQueenMove, isInventoryOpen, selectedInventoryItemType, usedSlots, attunementSlots, inventory, addLog, handlePieceHover, processPawnSacrificeCheck, triggerSpecialsChain, processMoveEnd, lastMoveWhite, lastMoveBlack, lastMoveGlobal, addEffectCallback, isSelectingMycoSpell, isSelectingTeleportAlly, isSelectingTeleportShroom, isSelectingSporeBombShroom, teleportAllyPieceId, isMoveProcessing, gameInfo.gameOver, isAiThinking, isAwaitingCommanderPromotion, playerWhoGotFirstBlood, isAwaitingAnvilDrop, isAwaitingHolyShield, isAwaitingArcherSnipe, playerToDropAnvil, pushHistory, saveLoadoutToFirestore, getPlayerDisplayName, isAnySpecialModeActive, isAwaitingDanceTarget, dancerToDance, isAwaitingGrappleThrow, grappledPieceSubject, isAwaitingShieldScrollTarget, isAwaitingSwapScrollTarget, isAwaitingDecreeTarget, isAwaitingRayTarget, playerToPromote, grappledItemSubject, isAwaitingOilSlickTarget, didCaptureLastTurn, positionHistory, promotionQueue, clickedEnemySquare, playOutcomeSound, isAwaitingAnvilScrollTarget, isAwaitingWindScrollTarget, isAwaitingEarthquakeScrollTarget]);
 
   const fullGameReset = () => {
     const unlocks = userData?.unlockedPieces || []; const uElo = userData?.eloRating || 1200; let initial = initializeBoard(uElo, uElo, unlocks, unlocks);

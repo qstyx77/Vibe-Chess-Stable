@@ -1,4 +1,3 @@
-
 import type { Piece, PlayerColor, PieceType, AIMove, AIGameState, AIBoardState, AISquareState, Item, AlgebraicSquare, InventoryItemType, LastMoveInfo } from '@/types';
 import { coordsToAlgebraic, algebraicToCoords, getCastlingRightsString, isPieceInvulnerableToAttack as isPieceInvulnerableToAttackUtil, isValidSquare as isValidSquareUtil, getEffectiveLevel, getPromotionLevel, FRONTLINE_TYPES } from '@/lib/chess-utils';
 
@@ -191,6 +190,20 @@ export class VibeChessAI {
                     captureCount++;
                 }
             }
+        } else if (move.type === 'life-leach') {
+            next.board.forEach(row => row.forEach(sq => {
+                if (sq.piece && sq.piece.color === opponent) {
+                    sq.piece.level = Math.max(1, sq.piece.level - 1);
+                }
+            }));
+            movingPiece.heldItem = null;
+        } else if (move.type === 'antidote') {
+            next.board.forEach(row => row.forEach(sq => {
+                if (sq.piece && sq.piece.color === player) {
+                    sq.piece.isPoisoned = false; sq.piece.isExhausted = false; sq.piece.cooldownTurnsRemaining = 0;
+                }
+            }));
+            movingPiece.heldItem = null;
         } else {
             const landedPiece = { ...movingPiece, isShielded: false, hasMoved: true };
             if (move.type === 'enpassant') { 
@@ -235,7 +248,7 @@ export class VibeChessAI {
 
         if (captureCount > 0) {
             next.killStreaks[player] += captureCount; 
-        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate'].includes(move.type || '')) {
+        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }
         
@@ -283,6 +296,11 @@ export class VibeChessAI {
                     if (this.centerSquares.has(`${r}${c}`)) score += 30;
                     if (['hero', 'archbishop', 'palace', 'archer'].includes(piece.type)) score += 50;
                     if (['commander', 'myco_mage', 'dancer', 'mimic', 'grappler'].includes(piece.type)) score += 30;
+                    
+                    // Value consumable items
+                    if (piece.heldItem && ['life_leach', 'resurrection_scroll', 'faith_scroll', 'shield_scroll'].includes(piece.heldItem)) {
+                        score += 200;
+                    }
                 } else {
                     if (piece.type === 'infiltrator') {
                         const targetRank = piece.color === 'white' ? 0 : 7;
@@ -393,7 +411,14 @@ export class VibeChessAI {
             return moves;
         }
 
-        if (!simplified && p.type === 'grappler' && !silenced) {
+        if (!simplified && !silenced && p.heldItem) {
+            const item = p.heldItem;
+            if (item === 'life_leach') moves.push({from:[r,c], to:[r,c], type:'life-leach'});
+            if (item === 'antidote') moves.push({from:[r,c], to:[r,c], type:'antidote'});
+            if (item === 'detonation_scroll' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
+        }
+
+        if (!simplified && (p.type === 'grappler' || (p.type === 'mimic' && gs.lastMoveGlobal?.type === 'grappler')) && !silenced) {
             const range = effLevel;
             const inCheck = this.isInCheck(gs, p.color);
             for (let dr = -1; dr <= 1; dr++) {
