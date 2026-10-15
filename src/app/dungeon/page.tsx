@@ -736,7 +736,7 @@ export default function DungeonPage() {
         const mG = actP === 'white' ? nG.white : nG.black; 
         if (mG.length > 0) {
             const nxtB = bCh.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
-            const srt = [...mG].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.type]||0)); const choice = srt[0]; const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
+            const srt = [...mG].sort((a,b) => (VAL_MAP[b.type]||0) - (VAL_MAP[a.piece!.type]||0)); const choice = srt[0]; const emp = nxtB.flat().filter(sq => !sq.piece && !sq.item);
             if (choice && emp.length > 0) {
                 const sq = emp[Math.floor(Math.random()*emp.length)]; const {row: rr, col: rc} = algebraicToCoords(sq.algebraic);
                 let resLevel = 1;
@@ -998,8 +998,8 @@ export default function DungeonPage() {
             setTimeout(() => { 
                 setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
                 const wasCap = !!result.capturedPiece;
-                const oldS = killStreaks[currentPlayer], newS = wasCap ? oldS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(cKs);
-                processPawnSacrificeCheck(result.newBoard, {white: [...capturedPieces.white], black: [...capturedPieces.black]}, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type, nextTracks.white, nextTracks.black, nextTracks.global);
+                const oS = killStreaks[currentPlayer], nS = wasCap ? oS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: nS }; setKillStreaks(cKs);
+                processPawnSacrificeCheck(result.newBoard, {white: [...capturedPieces.white], black: [...capturedPieces.black]}, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oS, nS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type, nextTracks.white, nextTracks.black, nextTracks.global);
             }, 800);
             return;
         }
@@ -1340,8 +1340,8 @@ export default function DungeonPage() {
           res.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'white', lc.delta));
 
           const isFake = res.capturedPiece?.id?.startsWith('boss-mirage-fake');
-          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
-          const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0);
+          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length || res.obliteratedPieces?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
+          const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0);
           
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
@@ -1364,7 +1364,6 @@ export default function DungeonPage() {
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (res.capturedPiece) { const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; }
           if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
-          if (res.pieceCapturedByAnvil) { const pile = res.pieceCapturedByAnvil.color; nxtG[pile] = [...nxtG[pile], res.pieceCapturedByAnvil]; }
 
           let rookResResult: RookResurrectionResult | null = null;
           if ((patternType === 'rook' || patternType === 'palace') && totalCaptures > 0) {
@@ -1507,7 +1506,7 @@ export default function DungeonPage() {
         appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
 
         const isFake = appRes.capturedPiece?.id?.startsWith('boss-mirage-fake');
-        const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0);
+        const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0);
         
         if (totalCaptures > 0) { audioManager.playCapture(); addEffect('poof', toAlg); }
         if (appRes.shroomConsumed) { audioManager.playShroom(); }
@@ -1548,7 +1547,6 @@ export default function DungeonPage() {
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
         if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
         if (appRes.selfDestructCaptures) appRes.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
-        if (appRes.pieceCapturedByAnvil) { const pile = res.pieceCapturedByAnvil.color; nxtG[pile] = [...nxtG[pile], res.pieceCapturedByAnvil]; }
 
         let rookResResult: RookResurrectionResult | null = null;
         const patternType = (mP.type === 'mimic' && nextTracks.global?.type && nextTracks.global.type !== 'mimic') ? nextTracks.global.type : mP.type;

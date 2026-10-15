@@ -29,7 +29,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       // Check Battering Ram cardinal anvil push (3 squares + obliteration)
       if (isCardinal && hasBatteringRam && victimSq.item?.type === 'anvil') {
           const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 3, true);
-          if (pushResult.crushed) mainCrushed = pushResult.crushed;
           obliterated.push(...pushResult.obliterated);
           levelChanges.push(...pushResult.levelChanges);
           continue;
@@ -39,7 +38,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
       const isAnvil = victimSq.item?.type === 'anvil';
       const isEnemy = victimSq.piece && victimSq.piece.color !== color;
       
-      // Grip Gloves ONLY push Anvils at low levels. Level 4+ pushes pieces too.
       const shouldPush = (isAnvil && (canPushGeneral || hasGripGloves)) || (isEnemy && canPushGeneral);
       
       if (shouldPush) {
@@ -68,9 +66,6 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
   return { crushed: mainCrushed, obliterated, levelChanges };
 }
 
-/**
- * Performs a shove of a specific distance on dry land, then checks for oil sliding.
- */
 export function performExtendedDisplacement(board: BoardState, startR: number, startC: number, dr: number, dc: number, distance: number, obliterateInPath: boolean): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
     let currentR = startR;
     let currentC = startC;
@@ -88,24 +83,20 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
         const nextR = currentR + dr;
         const nextC = currentC + dc;
 
-        if (!isValidSquare(nextR, nextC)) {
-            // Pushed off board
-            return { crushed: mainCrushed, obliterated, levelChanges };
-        }
+        if (!isValidSquare(nextR, nextC)) break;
 
         const targetSq = board[nextR][nextC];
         
-        // Stop if blocked by solid object (Anvil or King)
         if (targetSq.item?.type === 'anvil' || targetSq.piece?.type === 'king') {
             break; 
         }
 
         if (targetSq.piece) {
-            if (obliterateInPath) {
+            // PIECES CRUSHED BY ANVILS ARE ALWAYS OBLITERATED
+            if (obliterateInPath || displacedItem?.type === 'anvil') {
                 obliterated.push({ ...targetSq.piece });
                 targetSq.piece = null;
             } else {
-                // If not obliterating, we are blocked by any piece
                 break;
             }
         }
@@ -114,14 +105,12 @@ export function performExtendedDisplacement(board: BoardState, startR: number, s
         currentC = nextC;
     }
 
-    // Place displaced object in its new square
     board[currentR][currentC].item = displacedItem;
     board[currentR][currentC].piece = displacedPiece;
 
-    // Check for further oil sliding
     if (board[currentR][currentC].oilSlickTurnsRemaining > 0) {
         const slideResult = applyOilSlide(board, currentR, currentC, dr, dc);
-        if (slideResult.crushed) mainCrushed = slideResult.crushed;
+        obliterated.push(...slideResult.obliterated);
     }
 
     return { crushed: mainCrushed, obliterated, levelChanges };
@@ -354,10 +343,10 @@ export function processOilSlickTimers(board: BoardState, player: PlayerColor): B
     return newBoard;
 }
 
-export function applyOilSlide(board: BoardState, row: number, col: number, dr: number, dc: number): { r: number, c: number, crushed: Piece | null } {
+export function applyOilSlide(board: BoardState, row: number, col: number, dr: number, dc: number): { r: number, c: number, obliterated: Piece[] } {
     let currentR = row;
     let currentC = col;
-    let totalCrushed: Piece | null = null;
+    const obliterated: Piece[] = [];
 
     while (isValidSquare(currentR + dr, currentC + dc) && board[currentR][currentC].oilSlickTurnsRemaining > 0) {
         const nr = currentR + dr;
@@ -384,7 +373,8 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
                 currentR = nr;
                 currentC = nc;
             } else if (targetSq.piece && targetSq.piece.type !== 'king' && !targetSq.piece.isShielded) {
-                totalCrushed = { ...targetSq.piece };
+                // ANVIL SLIDING INTO PIECE = OBLITERATION
+                obliterated.push({ ...targetSq.piece });
                 board[nr][nc].piece = null;
                 board[nr][nc].item = { ...movingObjItem };
                 board[currentR][currentC].item = null;
@@ -397,7 +387,7 @@ export function applyOilSlide(board: BoardState, row: number, col: number, dr: n
             break;
         }
     }
-    return { r: currentR, c: currentC, crushed: totalCrushed };
+    return { r: currentR, c: currentC, obliterated };
 }
 
 export function triggerExhaustion(board: BoardState, r: number, c: number, color: PlayerColor) {

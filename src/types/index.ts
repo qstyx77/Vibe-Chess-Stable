@@ -171,7 +171,7 @@ export const ITEM_METADATA: Record<InventoryItemType, ItemMetadata> = {
   'grappling_hook': { name: 'Grappling Hook', description: 'Passive. Can swap positions with an allied piece up to 3 squares away (requires line of sight).', isConsumable: false, rarity: 'rare' },
   'battering_ram': { name: 'Battering Ram', description: 'Rook/Palace only. Pushes cardinal Anvils 3 squares, obliterating units in path.', isConsumable: false, rarity: 'rare' },
   'knights_boots': { name: 'Knight\'s Boots', description: 'Passive. Replaces this piece\'s movement with the standard Knight L-shape pattern.', isConsumable: false, rarity: 'uncommon' },
-  'golden_chalice': { name: 'Golden Chalice', description: 'Passive. Increases the Experience Value of all captures by this unit by +1 Level. [LUMINOUS SET: w/ Logas, Gnosis. Bonus: Shared Divinity.]', isConsumable: false, rarity: 'rare' },
+  'golden_chalice': { name: 'Golden Chalice', description: 'Passive. Increases the Experience Value of all captures by this unit by +1 Level. [LUMINOUS SET: w/ Logas, Golden Chalice. Bonus: Shared Divinity.]', isConsumable: false, rarity: 'rare' },
   'earthquake_scroll': { name: 'Earthquake Scroll', description: 'Consumable (L3+). Enemy units in 3x3 area lose 2 levels and are pushed back.', isConsumable: true, rarity: 'uncommon' },
   'portal_scroll_10': { name: 'F10 Portal', description: 'Warp to Floor 10 (Boss).', isConsumable: true, rarity: 'rare' },
   'portal_scroll_20': { name: 'F20 Portal', description: 'Warp to Floor 20 (Boss).', isConsumable: true, rarity: 'rare' },
@@ -376,6 +376,7 @@ export interface ApplyMoveResult {
   selfDestructCaptures: Piece[] | null;
   destroyedAnvils: number;
   pieceCapturedByAnvil: Piece | null;
+  obliteratedPieces?: Piece[];
   anvilPushedOffBoard: boolean;
   conversionEvents: ConversionEvent[];
   rallyCryTriggered: RallyCryEvent | null;
