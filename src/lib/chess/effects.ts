@@ -1,66 +1,130 @@
 import type { BoardState, Piece, PlayerColor, AlgebraicSquare, ConversionEvent, LevelChangeEvent } from '@/types';
 import { isValidSquare, coordsToAlgebraic, getEffectiveLevel, algebraicToCoords, getActiveSets } from './utils';
 import { FRONTLINE_TYPES } from './constants';
-import { ITEM_SETS } from '@/types';
 
-export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, onlyAnvils: boolean = false): { crushed: Piece | null, levelChanges: LevelChangeEvent[] } {
-  let crushed: Piece | null = null;
+export function triggerPushBack(board: BoardState, r: number, c: number, color: PlayerColor, actor: Piece): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
+  let mainCrushed: Piece | null = null;
+  const obliterated: Piece[] = [];
   const levelChanges: LevelChangeEvent[] = [];
+  
+  const actorLevel = getEffectiveLevel(board, r, c);
+  const currentSets = getActiveSets(board, color);
+  const isWindSet = currentSets.includes('wind_set');
+  const isFrontline = FRONTLINE_TYPES.includes(actor.type);
+  const isRookPalace = actor.type === 'rook' || actor.type === 'palace';
+  
+  const canPushGeneral = (isFrontline && (actorLevel >= 4 || (actorLevel >= 2 && isWindSet))) || actor.heldItem === 'wind_cloak';
+  const hasGripGloves = isFrontline && actor.heldItem === 'grip_gloves';
+  const hasBatteringRam = isRookPalace && actor.heldItem === 'battering_ram';
+
+  if (!canPushGeneral && !hasGripGloves && !hasBatteringRam) return { crushed: null, obliterated: [], levelChanges: [] };
+
   for(let dr=-1; dr<=1; dr++) for(let dc=-1; dc<=1; dc++) {
     if(dr===0 && dc===0) continue;
     const nr = r+dr; const nc = c+dc;
     if(isValidSquare(nr, nc)) {
-      const victim = board[nr][nc];
+      const victimSq = board[nr][nc];
+      const isCardinal = (dr === 0 || dc === 0);
+
+      // Check Battering Ram cardinal anvil push (3 squares + obliteration)
+      if (isCardinal && hasBatteringRam && victimSq.item?.type === 'anvil') {
+          const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 3, true);
+          if (pushResult.crushed) mainCrushed = pushResult.crushed;
+          obliterated.push(...pushResult.obliterated);
+          levelChanges.push(...pushResult.levelChanges);
+          continue;
+      }
+
+      // Check Frontline/Grip Gloves/Wind Set/Wind Cloak pushes (1 square)
+      const isAnvil = victimSq.item?.type === 'anvil';
+      const isEnemy = victimSq.piece && victimSq.piece.color !== color;
       
-      if (onlyAnvils && victim.item?.type !== 'anvil') continue;
-
-      if(victim.item?.type === 'anvil' || (victim.piece && (color === 'neutral' as any || victim.piece.color !== color))) {
-        const activeSets = getActiveSets(board, victim.piece?.color || 'white');
-        const isHeavyGuard = activeSets.includes('heavy_guard');
-        const isFrontline = victim.piece && FRONTLINE_TYPES.includes(victim.piece.type);
-
-        if(victim.piece?.heldItem === 'passive_armor' || victim.piece?.heldItem === 'lead_boots' || (isHeavyGuard && isFrontline)) continue;
+      // Grip Gloves ONLY push Anvils at low levels. Level 4+ pushes pieces too.
+      const shouldPush = (isAnvil && (canPushGeneral || hasGripGloves)) || (isEnemy && canPushGeneral);
+      
+      if (shouldPush) {
+        const victim = victimSq.piece;
+        if(victim?.heldItem === 'passive_armor' || victim?.heldItem === 'lead_boots') continue;
         
-        if (victim.piece?.heldItem === 'kinetic_coil') {
-            const oldL = victim.piece.level;
-            victim.piece.level = Math.min(victim.piece.type === 'queen' ? 7 : 99, (victim.piece.level || 1) + 1);
-            if (victim.piece.level > oldL) {
-                levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: 1 });
-            }
-            victim.piece.isPoisoned = false;
-            victim.piece.isExhausted = false;
-            victim.piece.cooldownTurnsRemaining = 0;
-        }
+        const victimSets = victim ? getActiveSets(board, victim.color) : [];
+        if (victim && victimSets.includes('heavy_guard') && FRONTLINE_TYPES.includes(victim.type)) continue;
 
-        if (victim.piece?.heldItem === 'spiked_buckler') {
-            const attacker = board[r][c].piece;
-            if (attacker && attacker.heldItem !== 'filter_mask') {
-                attacker.isPoisoned = true;
-            }
+        if (victim?.heldItem === 'kinetic_coil') {
+            const oldL = victim.level;
+            victim.level = Math.min(victim.type === 'queen' ? 7 : 99, (victim.level || 1) + 1);
+            if (victim.level > oldL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: 1 });
+            victim.isPoisoned = false; victim.isExhausted = false; victim.cooldownTurnsRemaining = 0;
         }
+        if (victim?.heldItem === 'spiked_buckler' && actor.heldItem !== 'filter_mask') actor.isPoisoned = true;
+        if (victim?.heldItem === 'frayed_rope') actor.cooldownTurnsRemaining = 2;
 
-        if (victim.piece?.heldItem === 'frayed_rope') {
-            const attacker = board[r][c].piece;
-            if (attacker) {
-                attacker.cooldownTurnsRemaining = 2;
-            }
-        }
-
-        const tr = nr+dr; const dc_dest = nc+dc;
-        if(!isValidSquare(tr, dc_dest)) { if(victim.item) board[nr][nc].item = null; }
-        else {
-          const dest = board[tr][dc_dest];
-          if (victim.item?.type === 'anvil') {
-             const slideRes = applyOilSlide(board, nr, nc, dr, dc);
-             if (slideRes.crushed) crushed = slideRes.crushed;
-          } else if(!dest.piece && !dest.item) { 
-             applyOilSlide(board, nr, nc, dr, dc);
-          }
-        }
+        const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 1, false);
+        if (pushResult.crushed) mainCrushed = pushResult.crushed;
+        obliterated.push(...pushResult.obliterated);
+        levelChanges.push(...pushResult.levelChanges);
       }
     }
   }
-  return { crushed, levelChanges };
+  return { crushed: mainCrushed, obliterated, levelChanges };
+}
+
+/**
+ * Performs a shove of a specific distance on dry land, then checks for oil sliding.
+ */
+export function performExtendedDisplacement(board: BoardState, startR: number, startC: number, dr: number, dc: number, distance: number, obliterateInPath: boolean): { crushed: Piece | null, obliterated: Piece[], levelChanges: LevelChangeEvent[] } {
+    let currentR = startR;
+    let currentC = startC;
+    const displacedItem = board[startR][startC].item;
+    const displacedPiece = board[startR][startC].piece;
+    
+    board[startR][startC].item = null;
+    board[startR][startC].piece = null;
+
+    let mainCrushed: Piece | null = null;
+    const obliterated: Piece[] = [];
+    const levelChanges: LevelChangeEvent[] = [];
+
+    for (let d = 1; d <= distance; d++) {
+        const nextR = currentR + dr;
+        const nextC = currentC + dc;
+
+        if (!isValidSquare(nextR, nextC)) {
+            // Pushed off board
+            return { crushed: mainCrushed, obliterated, levelChanges };
+        }
+
+        const targetSq = board[nextR][nextC];
+        
+        // Stop if blocked by solid object (Anvil or King)
+        if (targetSq.item?.type === 'anvil' || targetSq.piece?.type === 'king') {
+            break; 
+        }
+
+        if (targetSq.piece) {
+            if (obliterateInPath) {
+                obliterated.push({ ...targetSq.piece });
+                targetSq.piece = null;
+            } else {
+                // If not obliterating, we are blocked by any piece
+                break;
+            }
+        }
+
+        currentR = nextR;
+        currentC = nextC;
+    }
+
+    // Place displaced object in its new square
+    board[currentR][currentC].item = displacedItem;
+    board[currentR][currentC].piece = displacedPiece;
+
+    // Check for further oil sliding
+    if (board[currentR][currentC].oilSlickTurnsRemaining > 0) {
+        const slideResult = applyOilSlide(board, currentR, currentC, dr, dc);
+        if (slideResult.crushed) mainCrushed = slideResult.crushed;
+    }
+
+    return { crushed: mainCrushed, obliterated, levelChanges };
 }
 
 export function applyRally(board: BoardState, color: PlayerColor, target: 'pawn' | 'all', origin: AlgebraicSquare): { ralliedSquares: AlgebraicSquare[], levelChanges: LevelChangeEvent[] } {
@@ -279,7 +343,7 @@ export function processPoisonDamage(board: BoardState, currentPlayer: PlayerColo
 }
 
 export function processOilSlickTimers(board: BoardState, player: PlayerColor): BoardState {
-    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null })));
+    const newBoard = board.map(row => row.map(sq => ({ ...sq, piece: sq.piece ? { ...sq.piece } : null, item: sq.item ? {...sq.item} : null, phasedPiece: sq.phasedPiece ? { ...sq.phasedPiece } : null, oilSlickTurnsRemaining: sq.oilSlickTurnsRemaining })));
     for (let r = 0; r < 8; r++) {
         for (let c = 0; c < 8; c++) {
             if (newBoard[r][c].oilSlickTurnsRemaining > 0) {

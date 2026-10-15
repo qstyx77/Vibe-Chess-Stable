@@ -1,4 +1,3 @@
-
 import type { BoardState, Piece, PieceType, PlayerColor, AlgebraicSquare, InventoryItemType, ItemType, Move, LastMoveInfo } from '@/types';
 import { FRONTLINE_TYPES } from './constants';
 import { algebraicToCoords, coordsToAlgebraic, isValidSquare, getEffectiveLevel, isSilenced, getActiveSets } from './utils';
@@ -30,11 +29,18 @@ export function getPossibleMoves(
   );
 
   return pseudoMoves.filter(to => {
-    const targetP = board[algebraicToCoords(to).row][algebraicToCoords(to).col].piece;
+    const targetSq = board[algebraicToCoords(to).row][algebraicToCoords(to).col];
+    const targetP = targetSq.piece;
     let moveType: Move['type'] = 'move';
+    
     if (targetP && targetP.color === piece.color) moveType = 'swap';
     else if (to === enPassantTargetSquare && FRONTLINE_TYPES.includes(piece.type)) moveType = 'enpassant';
     else if (piece.type === 'king' && Math.abs(algebraicToCoords(to).col - col) === 2) moveType = 'castle';
+    else if (targetSq.item?.type === 'anvil') {
+        const isBatteringRam = (piece.type === 'rook' || piece.type === 'palace') && piece.heldItem === 'battering_ram';
+        if (isBatteringRam) moveType = 'ram-push';
+        else moveType = 'move'; // Frontline/Grip shove handles in applyMove
+    }
 
     const { newBoard, enPassantTargetSet } = applyMove(
       board,
@@ -76,6 +82,11 @@ export function getPossibleMovesInternal(
   const currentLevel = getEffectiveLevel(board, fromRow, fromCol);
   const silenced = isSilenced(board, fromRow, fromCol, pieceColor);
 
+  const currentSets = getActiveSets(board, pieceColor);
+  const isWindSet = currentSets.includes('wind_set');
+  const isFrontline = FRONTLINE_TYPES.includes(piece.type);
+  const canPushAnvils = (isFrontline && (currentLevel >= 4 || (currentLevel >= 2 && isWindSet) || piece.heldItem === 'grip_gloves')) || piece.heldItem === 'wind_cloak';
+
   if (piece.type === 'mimic') {
     const patternType = (lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic') ? lastMoveGlobal.type : 'pawn';
     const virtualPiece = { ...piece, type: patternType };
@@ -106,14 +117,15 @@ export function getPossibleMovesInternal(
         if (isValidSquare(nr, nc) && isValidSquare(nr+1, nc+1)) {
             let pathBlocked = false;
             const stepR = Math.sign(dr); const stepC = Math.sign(dc);
-            for (let i = 1; i <= Math.max(Math.abs(dr), Math.abs(dc)); i++) {
+            const dist = Math.max(Math.abs(dr), Math.abs(dc));
+            for (let i = 1; i <= dist; i++) {
                 const checkR = fromRow + i * stepR; const checkC = fromCol + i * stepC;
                 if (!isValidSquare(checkR, checkC) || !isValidSquare(checkR+1, checkC+1)) { pathBlocked = true; break; }
                 const block1 = board[checkR][checkC]; const block2 = board[checkR+1][checkC]; const block3 = board[checkR][checkC+1]; const block4 = board[checkR+1][checkC+1];
                 const parts = ['boss-colossus-tl','boss-colossus-tr','boss-colossus-bl','boss-colossus-br'];
                 const isPart = (p: Piece|null) => p && parts.includes(p.id);
                 if ((block1.piece && !isPart(block1.piece)) || (block2.piece && !isPart(block2.piece)) || (block3.piece && !isPart(block3.piece)) || (block4.piece && !isPart(block4.piece))) {
-                    if (i < Math.max(Math.abs(dr), Math.abs(dc))) { pathBlocked = true; break; }
+                    if (i < dist) { pathBlocked = true; break; }
                 }
                 if (block1.item?.type === 'anvil' || block2.item?.type === 'anvil' || block3.item?.type === 'anvil' || block4.item?.type === 'anvil') { pathBlocked = true; break; }
             }
@@ -151,18 +163,7 @@ export function getPossibleMovesInternal(
     dirs.forEach(([dr, dc]) => {
       const ar = fromRow + dr; const ac = fromCol + dc;
       if (isValidSquare(ar, ac) && board[ar][ac].item?.type === 'anvil') {
-        for (let dist = 1; dist <= 3; dist++) {
-          const nr = ar + dist * dr; const nc = ac + dist * dc;
-          if (!isValidSquare(nr, nc)) break;
-          const targetSq = board[nr][nc];
-          if (targetSq.item?.type === 'anvil') break;
-          if (!targetSq.piece || targetSq.piece.color !== pieceColor) {
-            if (targetSq.piece?.type !== 'king' || simplified) {
-                possible.push(coordsToAlgebraic(nr, nc));
-            }
-          }
-          if (targetSq.piece && targetSq.piece.color === pieceColor) break;
-        }
+          if (!simplified) possible.push(coordsToAlgebraic(ar, ac));
       }
     });
   }
@@ -188,8 +189,8 @@ export function getPossibleMovesInternal(
     return possible;
   }
 
-  const activeSets = getActiveSets(board, piece.color);
-  const isAssassinSet = activeSets.includes('assassin');
+  const activeSetsInternal = getActiveSets(board, piece.color);
+  const isAssassinSet = activeSetsInternal.includes('assassin');
   const dir = piece.color === 'white' ? -1 : 1;
 
   if (isAssassinSet && FRONTLINE_TYPES.includes(piece.type) && currentLevel >= 5) {
@@ -212,7 +213,8 @@ export function getPossibleMovesInternal(
   } else if (piece.type === 'grappler') {
     if (isValidSquare(fromRow + dir, fromCol)) {
         const tSq = board[fromRow + dir][fromCol];
-        if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
+        const canEntryPush = (piece.level >= 4 || piece.heldItem === 'grip_gloves');
+        if (!tSq.piece || (tSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canEntryPush))) {
             if (tSq.piece?.type !== 'king' || simplified) possible.push(coordsToAlgebraic(fromRow + dir, fromCol));
             const startRank = (pieceColor === 'white' ? 6 : 1);
             const jumpTarget = fromRow + 2 * dir;
@@ -254,8 +256,9 @@ export function getPossibleMovesInternal(
     const nr = fromRow + dir;
     if (isValidSquare(nr, fromCol)) {
         const targetSq = board[nr][fromCol];
+        const canEntryPush = (piece.level >= 4 || piece.heldItem === 'grip_gloves');
         if (targetSq.piece?.type !== 'king' || simplified) {
-            if (!targetSq.piece || targetSq.piece.color !== pieceColor || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
+            if (!targetSq.piece || targetSq.piece.color !== pieceColor || (targetSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canEntryPush))) {
                 const targetLevel = getEffectiveLevel(board, nr, fromCol);
                 if (!targetSq.piece || !isPieceInvulnerableToAttack(targetSq.piece, piece, targetLevel, currentLevel, board, simplified)) possible.push(coordsToAlgebraic(nr, fromCol));
             }
@@ -332,7 +335,7 @@ export function getPossibleMovesInternal(
             }
         }
     }
-  } else if (FRONTLINE_TYPES.includes(piece.type)) {
+  } else if (isFrontline) {
       let rangeBonus = 0;
       if (piece.heldItem === 'scouts_map') {
         let enemyNearby = false;
@@ -350,7 +353,7 @@ export function getPossibleMovesInternal(
 
       for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
           const to = coordsToAlgebraic(r,c);
-          if (isMoveValidInternal(board, fromSquare, to, piece, enPassantTargetSquare, rangeBonus, simplified)) if(!possible.includes(to)) possible.push(to);
+          if (isMoveValidInternal(board, fromSquare, to, piece, enPassantTargetSquare, rangeBonus, simplified, currentSets)) if(!possible.includes(to)) possible.push(to);
       }
   } else if (piece.type === 'bishop' || piece.type === 'archbishop') {
       const dirs: [number, number][] = [[1,1], [1,-1], [-1,1], [-1,-1]];
@@ -516,23 +519,25 @@ export function getPossibleMovesInternal(
   }
 
   if (piece.heldItem === 'cardinal_greaves' && piece.heldItem !== 'tortoise_hammer') {
-    const dir = piece.color === 'white' ? -1 : 1;
-    const nr = fromRow + dir;
-    if (isValidSquare(nr, fromCol)) {
-        const tSq = board[nr][fromCol];
-        if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
-            if (tSq.piece?.type !== 'king' || simplified) possible.push(coordsToAlgebraic(nr, fromCol));
+    const dir_cg = piece.color === 'white' ? -1 : 1;
+    const nr_cg = fromRow + dir_cg;
+    if (isValidSquare(nr_cg, fromCol)) {
+        const tSq = board[nr_cg][fromCol];
+        const canEntryPush = (isFrontline && (currentLevel >= 4 || (currentLevel >= 2 && isWindSet) || piece.heldItem === 'grip_gloves'));
+        if (!tSq.piece || (tSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canEntryPush))) {
+            if (tSq.piece?.type !== 'king' || simplified) possible.push(coordsToAlgebraic(nr_cg, fromCol));
         }
     }
   }
   if (piece.heldItem === 'drift_boots' && piece.heldItem !== 'tortoise_hammer') {
-    const dir = piece.color === 'white' ? -1 : 1;
+    const dir_db = piece.color === 'white' ? -1 : 1;
     [-1, 1].forEach(dc => {
-      const nr = fromRow + dir; const nc = fromCol + dc;
-      if (isValidSquare(nr, nc)) {
-          const tSq = board[nr][nc];
-          if (!tSq.piece || (tSq.item?.type === 'anvil' && piece.heldItem === 'crowbar')) {
-              if (tSq.piece?.type !== 'king' || simplified) possible.push(coordsToAlgebraic(nr, nc));
+      const nr_db = fromRow + dir_db; const nc_db = fromCol + dc;
+      if (isValidSquare(nr_db, nc_db)) {
+          const tSq = board[nr_db][nc_db];
+          const canEntryPush = (isFrontline && (currentLevel >= 4 || (currentLevel >= 2 && isWindSet) || piece.heldItem === 'grip_gloves'));
+          if (!tSq.piece || (tSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canEntryPush))) {
+              if (tSq.piece?.type !== 'king' || simplified) possible.push(coordsToAlgebraic(nr_db, nc_db));
           }
       }
     });
@@ -552,7 +557,7 @@ export function getPossibleMovesInternal(
   return possible;
 }
 
-function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, ep: AlgebraicSquare | null, rangeBonus: number = 0, simplified: boolean = false): boolean {
+function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: AlgebraicSquare, piece: Piece, ep: AlgebraicSquare | null, rangeBonus: number = 0, simplified: boolean = false, actorSets: string[] = []): boolean {
   const { row: fR, col: fC } = algebraicToCoords(from);
   const { row: tR, col: tC } = algebraicToCoords(to);
   const dr = tR - fR;
@@ -562,24 +567,28 @@ function isMoveValidInternal(board: BoardState, from: AlgebraicSquare, to: Algeb
   const targetSq = board[tR][tC];
   const targetP = targetSq.piece;
 
-  if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar') return false;
+  const isFrontline = FRONTLINE_TYPES.includes(piece.type);
+  const isWindSet = actorSets.includes('wind_set');
+  const effL = getEffectiveLevel(board, fR, fC);
+  const canPushAnvils = isFrontline && (effL >= 4 || (effL >= 2 && isWindSet) || piece.heldItem === 'grip_gloves');
+
+  if (targetSq.item?.type === 'anvil' && piece.heldItem !== 'crowbar' && !canPushAnvils) return false;
   if (targetP?.type === 'king' && !simplified) return false;
 
-  if (FRONTLINE_TYPES.includes(piece.type)) {
+  if (isFrontline) {
     const forward = color === 'white' ? -1 : 1;
-    const effL = getEffectiveLevel(board, fR, fC);
-    if (dc === 0 && (!targetP || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar'))) {
+    if (dc === 0 && (!targetP || (targetSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canPushAnvils)))) {
       if (dr === forward) return true;
       if (rangeBonus > 0 && dr === (1 + rangeBonus) * forward) return true;
       if (dr === 2 * forward && !piece.hasMoved && !board[fR + forward][fC].piece && !board[fR + forward][fC].item) return true;
       if (dr === -forward && effL >= 2) return true;
       if (rangeBonus > 0 && dr === -(1 + rangeBonus) * forward && effL >= 2) return true;
     }
-    if (dr === 0 && Math.abs(dc) <= (1 + rangeBonus) && effL >= 3 && (!targetP || (targetSq.item?.type === 'anvil' && piece.heldItem === 'crowbar'))) return true;
+    if (dr === 0 && Math.abs(dc) <= (1 + rangeBonus) && effL >= 3 && (!targetP || (targetSq.item?.type === 'anvil' && (piece.heldItem === 'crowbar' || canPushAnvils)))) return true;
     if (dr === forward && Math.abs(dc) === 1) {
        if (targetP && targetP.color === opp) return true;
        if (!targetP && to === ep) return true;
-       if (simplified) return true; // Authoritative threat to empty square during check detection
+       if (simplified) return true; 
     }
     return false;
   }
