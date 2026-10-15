@@ -159,6 +159,20 @@ export class VibeChessAI {
                 if (targetPiece?.color === opponent) captureCount++;
             }
             next.board[fR][fC].piece = { ...movingPiece, hasMoved: true };
+        } else if (move.type === 'ram-push') {
+            const dr = Math.sign(tR - fR); const dc = Math.sign(tC - fC);
+            const ar = fR + dr; const ac = fC + dc;
+            const anvilItem = next.board[ar][ac].item;
+            next.board[ar][ac].item = null;
+            
+            // Simplified crush check for AI
+            if (next.board[tR][tC].piece && next.board[tR][tC].piece?.color === opponent && next.board[tR][tC].piece?.type !== 'king') {
+                captureCount++;
+                next.board[tR][tC].piece = null;
+            }
+            next.board[tR][tC].item = anvilItem;
+            next.board[fR][fC].piece = null;
+            next.board[ar][ac].piece = { ...movingPiece, hasMoved: true };
         } else if (movingPiece.id?.startsWith('boss-colossus')) {
             const pts = [{dr:0,dc:0,id:'tl'},{dr:0,dc:1,id:'tr'},{dr:1,dc:0,id:'bl'},{dr:1,dc:1,id:'br'}];
             let tlR=-1, tlC=-1;
@@ -248,7 +262,7 @@ export class VibeChessAI {
 
         if (captureCount > 0) {
             next.killStreaks[player] += captureCount; 
-        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote'].includes(move.type || '')) {
+        } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }
         
@@ -359,22 +373,13 @@ export class VibeChessAI {
         const silenced = isSilencedInternal(gs.board, r, c, p.color);
         const oppColor = p.color === 'white' ? 'black' : 'white';
 
+        let patternType = (p.type === 'mimic' && gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : p.type;
+        let effItem = p.heldItem;
         if (p.type === 'mimic') {
-            const patternType = (gs.lastMoveGlobal?.type && gs.lastMoveGlobal.type !== 'mimic') ? gs.lastMoveGlobal.type : 'pawn';
-            const virtualPiece = { ...p, type: patternType };
-            
-            let mimickedItem: InventoryItemType | null = null;
-            if (p.heldItem === 'mirror_mask') {
-                const enemyLast = p.color === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite;
-                mimickedItem = enemyLast?.item || null;
-            } else if (p.heldItem === 'mimic_blade') {
-                const allyLast = p.color === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack;
-                mimickedItem = allyLast?.item || null;
-            }
-            virtualPiece.heldItem = mimickedItem;
-            return this.generatePieceMoves(gs, r, c, virtualPiece, simplified); 
+            if (p.heldItem === 'mirror_mask') effItem = (p.color === 'white' ? gs.lastMoveBlack : gs.lastMoveWhite)?.item || null;
+            else if (p.heldItem === 'mimic_blade') effItem = (p.color === 'white' ? gs.lastMoveWhite : gs.lastMoveBlack)?.item || null;
         }
-        
+
         if (p.id?.startsWith('boss-colossus')) {
             const strides = [[-2,0],[2,0],[0,-2],[0,2],[-2,-2],[-2,2],[2,-2],[2,2]];
             const leaps = [[-4, -2], [-4, 2], [-2, -4], [-2, 4], [2, -4], [2, 4], [4, -2], [4, 2]];
@@ -418,7 +423,7 @@ export class VibeChessAI {
             if (item === 'detonation_scroll' && effLevel >= 2) moves.push({from:[r,c], to:[r,c], type:'self-destruct'});
         }
 
-        if (!simplified && (p.type === 'grappler' || (p.type === 'mimic' && gs.lastMoveGlobal?.type === 'grappler')) && !silenced) {
+        if (!simplified && patternType === 'grappler' && !silenced) {
             const range = effLevel;
             const inCheck = this.isInCheck(gs, p.color);
             for (let dr = -1; dr <= 1; dr++) {
@@ -428,7 +433,7 @@ export class VibeChessAI {
                     if (!isValidSquareUtil(pr, pc)) continue;
                     const targetSq = gs.board[pr][pc];
                     const targetPiece = targetSq.piece;
-                    const targetAnvil = targetSq.item?.type === 'anvil' && p.heldItem === 'power_glove';
+                    const targetAnvil = targetSq.item?.type === 'anvil' && effItem === 'power_glove';
                     if ((targetPiece && targetPiece.type !== 'king') || targetAnvil) {
                         const possibleLandings: [number, number][] = [];
                         if (inCheck) {
@@ -459,13 +464,36 @@ export class VibeChessAI {
                                 });
                             }
                         });
+                        
+                        // Add double-click capture choice
+                        if (targetPiece && targetPiece.color !== p.color) {
+                            moves.push({ from: [r, c], to: [pr, pc], type: 'capture' });
+                        }
                     }
                 }
             }
         }
 
+        if (!simplified && (patternType === 'rook' || patternType === 'palace') && effItem === 'battering_ram') {
+            [[0,1],[0,-1],[1,0],[-1,0]].forEach(([dr, dc]) => {
+                const ar = r + dr; const ac = c + dc;
+                if (isValidSquareUtil(ar, ac) && gs.board[ar][ac].item?.type === 'anvil') {
+                    for (let dist = 1; dist <= 3; dist++) {
+                        const nr = ar + dist * dr; const nc = ac + dist * dc;
+                        if (!isValidSquareUtil(nr, nc)) break;
+                        const tSq = gs.board[nr][nc];
+                        if (tSq.item?.type === 'anvil') break;
+                        if (!tSq.piece || tSq.piece.color !== p.color) {
+                            if (tSq.piece?.type !== 'king') moves.push({ from: [r, c], to: [nr, nc], type: 'ram-push' });
+                        }
+                        if (tSq.piece && tSq.piece.color === p.color) break;
+                    }
+                }
+            });
+        }
+
         const dir = p.color === 'white' ? -1 : 1;
-        switch (p.type) {
+        switch (patternType) {
             case 'pawn':
             case 'dancer':
             case 'commander':
@@ -474,7 +502,7 @@ export class VibeChessAI {
                 if (isValidSquareUtil(r+dir, c) && !gs.board[r+dir][c].piece && (!gs.board[r+dir][c].item || gs.board[r+dir][c].item?.type === 'shroom')) {
                     moves.push({from:[r,c], to:[r+dir,c], type:'move'});
                     const isStartRank = (p.color === 'white' && (r === 6 || r === 7)) || (p.color === 'black' && (r === 1 || r === 0));
-                    const canJump = !p.hasMoved && isStartRank || p.heldItem === 'swift_cloak';
+                    const canJump = !p.hasMoved && isStartRank || effItem === 'swift_cloak';
                     if (canJump && isValidSquareUtil(r+2*dir, c) && !gs.board[r+2*dir][c].piece && !gs.board[r+2*dir][c].item && !gs.board[r+dir][c].piece && !gs.board[r+dir][c].item) {
                         moves.push({from:[r,c], to:[r+2*dir,c], type:'move'});
                     }
@@ -647,7 +675,7 @@ export class VibeChessAI {
                 }
                 break;
             default:
-                const isRookType = p.type === 'rook' || p.type === 'palace';
+                const isRookType = patternType === 'rook' || patternType === 'palace';
                 const pDirs = isRookType ? this.directions.rook : this.directions.queen;
                 pDirs.forEach(([dr, dc]) => {
                     for (let i = 1; i < 8; i++) {
@@ -668,7 +696,7 @@ export class VibeChessAI {
                                 }
                                 break;
                             } else {
-                                const hasPhase = p.heldItem === 'phase_boots' && effLevel >= 2;
+                                const hasPhase = effItem === 'phase_boots' && effLevel >= 2;
                                 if (!hasPhase) break;
                             }
                         }

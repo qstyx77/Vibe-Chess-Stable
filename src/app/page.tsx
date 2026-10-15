@@ -1119,7 +1119,7 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayer === 'white' ? -1 : 1;
+        const dir = currentPlayerColor === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
@@ -1231,6 +1231,13 @@ export default function EvolvingChessPage() {
     const canCommit = !isMoveProcessing && !gameInfo.gameOver && !gameOverRef.current && !isAiThinking && (onlineStatus !== 'connected' || localPlayerColor === currentPlayer) && !isAnySpecialModeActive;
     
     if (canCommit && moving && moving.color === currentPlayer) {
+        const patternType = (moving.type === 'mimic' && lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic') ? lastMoveGlobal.type : moving.type;
+        let effItem = moving.heldItem;
+        if (moving.type === 'mimic') {
+            if (moving.heldItem === 'mirror_mask') effItem = (moving.color === 'white' ? lastMoveBlack : lastMoveWhite)?.item || null;
+            else if (moving.heldItem === 'mimic_blade') effItem = (moving.color === 'white' ? lastMoveWhite : lastMoveBlack)?.item || null;
+        }
+
         if (selectedSquare === algebraic) {
            if (moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
            
@@ -1307,9 +1314,9 @@ export default function EvolvingChessPage() {
            }
         }
 
-        const isGrappler = moving.type === 'grappler' || (moving.type === 'mimic' && lastMoveGlobal?.type === 'grappler');
+        const isGrappler = patternType === 'grappler' && !silenced;
         if (!isAnySpecialModeActive && isGrappler && !isSilenced(board, fR, fC, currentPlayer)) {
-            const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving.heldItem === 'power_glove';
+            const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && effItem === 'power_glove';
             if ((tP && tP.type !== 'king') || tA) {
                 if (possibleMoves.includes(algebraic)) {
                     setGrappledPieceSubject(tP ? { piece: { ...tP }, from: algebraic } : null); setGrappledItemSubject(tA ? { type: 'anvil', from: algebraic } : null); setIsAwaitingGrappleThrow(true);
@@ -1327,8 +1334,18 @@ export default function EvolvingChessPage() {
         if (freshlyCalculated.includes(algebraic)) {
           const tP = board[row][col].piece; let mType: Move['type'] = 'move';
           if (tP && tP.color === moving.color) mType = 'swap';
-          else if (algebraic === enPassantTargetSquare && FRONTLINE_TYPES.includes(moving.type)) mType = 'enpassant';
+          else if (algebraic === enPassantTargetSquare && FRONTLINE_TYPES.includes(patternType)) mType = 'enpassant';
           else if (moving.type === 'king' && Math.abs(col - fC) === 2) mType = 'castle';
+          
+          // Battering Ram Check
+          if ((patternType === 'rook' || patternType === 'palace') && effItem === 'battering_ram') {
+              const dr = Math.sign(row - fR); const dc = Math.sign(col - fC);
+              const nr = fR + dr; const nc = fC + dc;
+              if (isValidSquare(nr, nc) && board[nr][nc].item?.type === 'anvil') {
+                  mType = 'ram-push';
+              }
+          }
+
           const newMoveInfo: LastMoveInfo = { type: moving.type, level: moving.level, item: moving.heldItem || null };
           const nextTracks = { white: currentPlayer === 'white' ? newMoveInfo : lastMoveWhite, black: currentPlayer === 'black' ? newMoveInfo : lastMoveBlack, global: newMoveInfo };
           if (onlineStatus === 'connected') { 

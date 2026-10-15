@@ -200,6 +200,7 @@ function adaptBoardForAI(
     const row = currentBoardState[r]; const aiRow: AISquareState[] = [];
     if (row) { for (let c = 0; c < 8; c++) aiRow.push({ piece: row[c]?.piece ? { ...row[c].piece } : null, item: row[c]?.item ? { ...row[c].item } : null }); } 
     else { for (let c = 0; c < 8; c++) aiRow.push({ piece: null, item: null }); }
+    aiRow.push(...[]); // placeholder
     aiBoard.push(aiRow);
   }
   return { 
@@ -1063,7 +1064,7 @@ export default function DungeonPage() {
     if (isAwaitingPawnSacrifice && piece && FRONTLINE_TYPES.includes(piece.type) && piece.color === 'white') {
         let nB = boardForPostSacrifice!.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? {...s.item} : null })));
         const sac = { ...nB[row][col].piece! }; nB[row][col].piece = null; const nG = { white: Array.isArray(specialActionContext.currentGraveyard.white) ? [...specialActionContext.currentGraveyard.white] : [], black: Array.isArray(specialActionContext.currentGraveyard.black) ? [...specialActionContext.currentGraveyard.black] : [] }; nG[sac.color] = [...nG[sac.color], sac];
-        setBoard(nB); setCapturedPieces(nG); setIsAwaitingPawnSacrifice(false); triggerSpecificationChain(nB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.oldStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [], specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal);
+        setBoard(nB); setCapturedPieces(nG); setIsAwaitingPawnSacrifice(false); triggerSpecialsChain(nB, nG, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.oldStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [], specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal);
         return;
     }
     if (isAwaitingCommanderPromotion && piece && piece.color === 'white' && FRONTLINE_TYPES.includes(piece.type) && piece.type !== 'commander' && piece.type !== 'infiltrator' && piece.level === 1) { const nxtB = board.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null}))); nxtB[row][col].piece!.type = 'commander'; setBoard(nxtB); setIsAwaitingCommanderPromotion(false); triggerSpecialsChain(nxtB, specialActionContext.currentGraveyard, specialActionContext.currentKs, specialActionContext.oldStreak, specialActionContext.newStreak, specialActionContext.isExtraTurn, specialActionContext.newEnPassantTarget, 'white', [...(specialActionContext.completedMilestones || []), 'firstBlood'], specialActionContext.capturingPieceId, false, lastMoveGlobal?.type, specialActionContext.trackWhite, specialActionContext.trackBlack, specialActionContext.trackGlobal); return; }
@@ -1194,9 +1195,16 @@ export default function DungeonPage() {
            }
        }
 
-       const isGrappler = moving?.type === 'grappler' || (moving?.type === 'mimic' && lastMoveGlobal?.type === 'grappler');
-       if (isGrappler && !isSilenced(board, fR, fC, 'white')) {
-           const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && moving?.heldItem === 'power_glove';
+       const patternType = (moving?.type === 'mimic' && lastMoveGlobal?.type && lastMoveGlobal.type !== 'mimic') ? lastMoveGlobal.type : moving?.type;
+       let effItem = moving?.heldItem;
+       if (moving?.type === 'mimic') {
+           if (moving.heldItem === 'mirror_mask') effItem = lastMoveBlack?.item || null;
+           else if (moving.heldItem === 'mimic_blade') effItem = lastMoveWhite?.item || null;
+       }
+
+       const isGrappler = patternType === 'grappler' && !isSilenced(board, fR, fC, 'white');
+       if (isGrappler) {
+           const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && effItem === 'power_glove';
            if ((tP && tP.type !== 'king') || tA) {
                if (possibleMoves.includes(alg)) {
                    setGrappledPieceSubject(tP ? { piece: { ...tP }, from: alg } : null); setGrappledItemSubject(tA ? { type: 'anvil', from: alg } : null);
@@ -1216,8 +1224,18 @@ export default function DungeonPage() {
           const movingP = board[algebraicToCoords(selectedSquare).row][algebraicToCoords(selectedSquare).col].piece; if (!movingP) return;
           const tP = board[row][col].piece; let mType: Move['type'] = 'move';
           if (tP && tP.color === movingP.color) mType = 'swap';
-          else if (alg === enPassantTargetSquare && FRONTLINE_TYPES.includes(movingP.type)) mType = 'enpassant';
+          else if (alg === enPassantTargetSquare && FRONTLINE_TYPES.includes(patternType || '')) mType = 'enpassant';
           else if (movingP.type === 'king' && Math.abs(col - fC) === 2) mType = 'castle';
+          
+          // Battering Ram Check
+          if ((patternType === 'rook' || patternType === 'palace') && effItem === 'battering_ram') {
+              const dr = Math.sign(row - fR); const dc = Math.sign(col - fC);
+              const nr = fR + dr; const nc = fC + dc;
+              if (isValidSquare(nr, nc) && board[nr][nc].item?.type === 'anvil') {
+                  mType = 'ram-push';
+              }
+          }
+
           setIsMoveProcessing(true); clickGuard.current = true; setAnimatedSquareTo(alg); setLastMoveFrom(selectedSquare); setLastMoveTo(alg);
           const oL = movingP.level, oT = movingP.type, oH = movingP.heldItem; 
           
@@ -1259,8 +1277,11 @@ export default function DungeonPage() {
           let nextBoardState = res.newBoard;
           const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
           if (res.capturedPiece) { const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; }
+          if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
+          if (res.pieceCapturedByAnvil) { const pile = res.pieceCapturedByAnvil.color; nxtG[pile] = [...nxtG[pile], res.pieceCapturedByAnvil]; }
+
           let rookResResult: RookResurrectionResult | null = null;
-          if ((oT === 'rook' || oT === 'palace') && totalCaptures > 0) {
+          if ((patternType === 'rook' || patternType === 'palace') && totalCaptures > 0) {
               const resRes = processRookResurrectionCheck(nextBoardState, 'white', {from: selectedSquare, to: alg, type: mType}, alg, oL, nxtG, Date.now());
               if (resRes.resurrectionPerformed) {
                   nextBoardState = resRes.boardWithResurrection;
@@ -1440,8 +1461,13 @@ export default function DungeonPage() {
 
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
         if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
+        if (appRes.selfDestructCaptures) appRes.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
+        if (appRes.pieceCapturedByAnvil) { const pile = appRes.pieceCapturedByAnvil.color; nxtG[pile] = [...nxtG[pile], appRes.pieceCapturedByAnvil]; }
+
         let rookResResult: RookResurrectionResult | null = null;
-        if ((oT === 'rook' || oT === 'palace') && totalCaptures > 0) {
+        const patternType = (mP.type === 'mimic' && nextTracks.global?.type && nextTracks.global.type !== 'mimic') ? nextTracks.global.type : mP.type;
+        
+        if ((patternType === 'rook' || patternType === 'palace') && totalCaptures > 0) {
             const resRes = processRookResurrectionCheck(nextB, 'black', {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oL, nxtG, Date.now());
             if (resRes.resurrectionPerformed) {
                 nextB = resRes.boardWithResurrection;
@@ -1463,7 +1489,7 @@ export default function DungeonPage() {
         const oppBackRank = currentPlayer === 'black' ? 7 : 0;
         let aiPromoted = false;
         if (landed && FRONTLINE_TYPES.includes(landed.type) && move.to[0] === oppBackRank) {
-            const targetL = getPromotionLevel(appRes.capturedPiece?.type || null);
+            const targetL = getPromotionLevel(appRes.capturedPiece?.type || appRes.pieceCapturedByAnvil?.type || null);
             landed.type = 'queen';
             landed.level = Math.min(7, targetL);
             aiPromoted = true;
