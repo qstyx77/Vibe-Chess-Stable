@@ -698,7 +698,7 @@ export default function DungeonPage() {
             } else {
                 const hasElig = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && sq.piece.type !== 'king' && sq.piece.type !== 'queen' && !sq.piece.isShielded && sq.piece.id !== capId);
                 if (hasElig) {
-                    setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'shield'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                    setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'shield'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                     setIsAwaitingHolyShield(true); addLog("Holy Shield ready!"); return;
                 } else { triggerSpecialsChain(bCh, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'shield'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return; }
             }
@@ -722,7 +722,7 @@ export default function DungeonPage() {
             }
             triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'anvil'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
         } else {
-            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+            setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'anvil'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
             setPlayerToDropAnvil(actP); setIsAwaitingAnvilDrop(true); addLog("Anvil Drop ready!"); return;
         }
     }
@@ -890,6 +890,8 @@ export default function DungeonPage() {
   const handleSquareClick = useCallback((alg: AlgebraicSquare) => {
     if (clickGuard.current) return; const { row, col } = algebraicToCoords(alg); const sq = board[row][col]; const piece = sq.piece; handlePieceHover(piece);
     
+    const silencedUnit = isSilenced(board, row, col, currentPlayer);
+
     if (isAwaitingShieldScrollTarget && piece && piece.color === currentPlayer) {
         if (piece.type === 'king' || piece.type === 'queen' || piece.isShielded) return;
         const move: Move = { from: selectedSquare!, to: alg, type: 'shield-scroll' };
@@ -1202,7 +1204,7 @@ export default function DungeonPage() {
            else if (moving.heldItem === 'mimic_blade') effItem = lastMoveWhite?.item || null;
        }
 
-       const isGrappler = patternType === 'grappler' && !isSilenced(board, fR, fC, 'white');
+       const isGrappler = (patternType === 'grappler' || (moving?.type === 'mimic' && lastMoveGlobal?.type === 'grappler')) && !silencedUnit;
        if (isGrappler) {
            const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && effItem === 'power_glove';
            if ((tP && tP.type !== 'king') || tA) {
@@ -1468,7 +1470,7 @@ export default function DungeonPage() {
         const patternType = (mP.type === 'mimic' && nextTracks.global?.type && nextTracks.global.type !== 'mimic') ? nextTracks.global.type : mP.type;
         
         if ((patternType === 'rook' || patternType === 'palace') && totalCaptures > 0) {
-            const resRes = processRookResurrectionCheck(nextB, 'black', {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oL, nxtG, Date.now());
+            const resRes = processRookResurrectionCheck(nextB, currentPlayer, {from: fromAlg, to: toAlg, type: 'move'}, toAlg, oL, nxtG, Date.now());
             if (resRes.resurrectionPerformed) {
                 nextB = resRes.boardWithResurrection;
                 nxtG.white = resRes.capturedPiecesAfterResurrection.white;

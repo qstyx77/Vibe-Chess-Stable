@@ -1119,7 +1119,7 @@ export default function EvolvingChessPage() {
         const {row: fr, col: fc} = algebraicToCoords(dancerToDance); const isAdjacent = Math.abs(row - fr) <= 1 && Math.abs(col - fc) <= 1;
         const targetP = board[row][col].piece;
         const targetItem = board[row][col].item;
-        const dir = currentPlayerColor === 'white' ? -1 : 1;
+        const dir = currentPlayer === 'white' ? -1 : 1;
         const isForward = (row === fr + dir) && (col === fc);
         if (isAdjacent && (targetP || (targetItem?.type === 'anvil' && dp?.heldItem === 'dancers_ribbon') || ((!targetItem || targetItem.type === 'shroom') && isForward))) {
             if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: { from: dancerToDance, to: algebraic, type: 'dance-swap' } })); setIsAwaitingDanceTarget(false); setDancerToDance(null); }
@@ -1238,14 +1238,15 @@ export default function EvolvingChessPage() {
             else if (moving.heldItem === 'mimic_blade') effItem = (moving.color === 'white' ? lastMoveWhite : lastMoveBlack)?.item || null;
         }
 
+        const silencedUnit = isSilenced(board, fR, fC, currentPlayer);
+
         if (selectedSquare === algebraic) {
            if (moving.type === 'myco_mage') { setIsSelectingMycoSpell(true); return; }
            
            if (moving.heldItem && ITEM_METADATA[moving.heldItem].isConsumable) {
                const item = moving.heldItem;
                const level = getEffectiveLevel(board, fR, fC);
-               const silenced = isSilenced(board, fR, fC, currentPlayer);
-               if (silenced) { addLog("Unit is silenced!"); return; }
+               if (silencedUnit) { addLog("Unit is silenced!"); return; }
 
                if (item === 'shield_scroll' && level < 2) { addLog("L2 required for Shield Scroll!"); return; }
                if (item === 'rally_scroll' && level < 3) { addLog("L3 required for Rally Scroll!"); return; }
@@ -1300,8 +1301,7 @@ export default function EvolvingChessPage() {
                if (item === 'burning_ray') { setIsAwaitingRayTarget('burning'); addLog("Burning Ray: Select direction."); return; }
            }
 
-           const silenced_unit = isSilenced(board, fR, fC, currentPlayer);
-           if (!silenced_unit && (moving.type === 'knight' || moving.type === 'hero' || moving.type === 'archer') && getEffectiveLevel(board, fR, fC) >= 5) {
+           if (!silencedUnit && (moving.type === 'knight' || moving.type === 'hero' || moving.type === 'archer') && getEffectiveLevel(board, fR, fC) >= 5) {
                const move: Move = { from: selectedSquare, to: selectedSquare, type: 'self-destruct' };
                if (onlineStatus === 'connected') { wsRef.current?.send(JSON.stringify({ type: 'game-move', payload: move })); setSelectedSquare(null); setPossibleMoves([]); }
                else {
@@ -1314,8 +1314,8 @@ export default function EvolvingChessPage() {
            }
         }
 
-        const isGrappler = patternType === 'grappler' && !silenced;
-        if (!isAnySpecialModeActive && isGrappler && !isSilenced(board, fR, fC, currentPlayer)) {
+        const isGrappler = (patternType === 'grappler' || (moving.type === 'mimic' && lastMoveGlobal?.type === 'grappler')) && !silencedUnit;
+        if (!isAnySpecialModeActive && isGrappler) {
             const tSq = board[row][col]; const tP = tSq.piece; const tA = tSq.item?.type === 'anvil' && effItem === 'power_glove';
             if ((tP && tP.type !== 'king') || tA) {
                 if (possibleMoves.includes(algebraic)) {
