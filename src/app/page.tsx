@@ -407,7 +407,7 @@ export default function EvolvingChessPage() {
 
   const getPlayerDisplayName = useCallback((player: PlayerColor) => {
     if (!player) return '...'; 
-    if (onlineStatus === 'connected' || onlineStatus === 'waiting') {
+    if (onlineStatus === 'connected' || onlineStatus === 'waiting' || onlineStatus === 'connecting') {
         const username = gamePlayers?.[player]?.username;
         if (username) return player === localPlayerColor ? `${username} (You)` : username;
     }
@@ -981,8 +981,15 @@ export default function EvolvingChessPage() {
                 setTimeout(() => { 
                     setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
                     const wasCap = !!result.capturedPiece;
-                    const oldS = killStreaks[currentPlayer], newS = wasCap ? oldS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: newS }; setKillStreaks(cKs);
-                    processPawnSacrificeCheck(result.newBoard, {white: [...capturedPieces.white], black: [...capturedPieces.black]}, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type);
+                    const oldS = killStreaks[currentPlayer], newS = wasCap ? oldS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: newS }; 
+                    const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] };
+                    if (result.capturedPiece) {
+                        const targetPile = result.capturedPiece.color;
+                        updatedG[targetPile] = [...updatedG[targetPile], { ...result.capturedPiece }];
+                    }
+                    setKillStreaks(cKs);
+                    setCapturedPieces(updatedG);
+                    processPawnSacrificeCheck(result.newBoard, updatedG, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oldS, newS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type);
                 }, 800);
             }
             return;
@@ -1037,7 +1044,7 @@ export default function EvolvingChessPage() {
           addLog(`Equipped ${ITEM_METADATA[selectedInventoryItemType].name}`);
         }
       } else if (piece && piece.heldItem && piece.color === (localPlayerColor || 'white')) {
-          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.piece } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
+          const removed = piece.heldItem; const nextBoard = board.map(r => r.map(s => ({ ...s, piece: s.piece ? { ...s.piece } : null, item: s.item ? { ...s.item } : null, phasedPiece: s.phasedPiece ? { ...s.phasedPiece } : null })));
           nextBoard[row][col].piece!.heldItem = null; setBoard(nextBoard);
           const nextInv = [...inventory]; const item = nextInv.find(i => i.type === removed); if (item) item.count++; else nextInv.push({ type: removed, count: 1 });
           setInventory(nextInv); saveLoadoutToFirestore(nextBoard, nextInv); audioManager.playMove(); addLog(`Unequipped ${ITEM_METADATA[removed].name}`);
@@ -1208,8 +1215,24 @@ export default function EvolvingChessPage() {
               if (currentPlayer === 'white') setLastMoveWhite(newMoveInfo); else setLastMoveBlack(newMoveInfo);
               setLastMoveGlobal(newMoveInfo);
               const applyRes = applyMove(board, { from: selectedSquare, to: algebraic, type: mType }, enPassantTargetSquare, capturedPieces, nextTracks.white, nextTracks.black, nextTracks.global, false);
-              let nextB = applyRes.newBoard; const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; setBoard(nextB); setCapturedPieces(updatedG);
+              let nextB = applyRes.newBoard; 
+              const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; 
+              
+              const isObliteration_local = applyRes.promotedToInfiltrator || (moving.type === 'infiltrator' && applyRes.capturedPiece);
+              if (applyRes.capturedPiece && !isObliteration_local) {
+                  const pile = applyRes.capturedPiece.color;
+                  updatedG[pile] = [...updatedG[pile], { ...applyRes.capturedPiece }];
+              }
+              if (applyRes.selfDestructCaptures) {
+                  applyRes.selfDestructCaptures.forEach(vic => {
+                      const pile = vic.color;
+                      updatedG[pile] = [...updatedG[pile], { ...vic }];
+                  });
+              }
+
+              setBoard(nextB); setCapturedPieces(updatedG);
               const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.pieceCapturedByAnvil ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0);
+              
               applyRes.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
               if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
               if (applyRes.ralliedSquares) applyRes.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
