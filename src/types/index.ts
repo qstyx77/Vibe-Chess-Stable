@@ -407,6 +407,7 @@ export interface ApplyMoveResult {
   hydraSpawnSquares?: AlgebraicSquare[];
   anvilDroppedSquares?: AlgebraicSquare[];
   levelChanges?: LevelChangeEvent[];
+  smokeBombEvent?: { piece: Piece, square: AlgebraicSquare };
 }
 
 export type ViewMode = 'flipping' | 'tabletop';

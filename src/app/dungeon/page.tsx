@@ -770,7 +770,7 @@ export default function DungeonPage() {
                 }
                 addLog(`${actP === 'white' ? "Hero" : "Dungeon"} sniped a Level ${sniped.level} ${sniped.type}!`); audioManager.playSnipe(); addEffect('poof', coordsToAlgebraic(row, col));
                 const targetP = sniped.color; nG[targetP] = [...(nG[targetP]||[]), sniped];
-                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, effWhite, effBlack, effGlobal); return;
+                triggerSpecialsChain(nxtB, nG, cKs, oldS, newS, isEx, nEp, actP, [...compM, 'dance'], capId, wasCap, movedT, nextAITracks.white, nextAITracks.black, nextAITracks.global); return;
             } else {
                 setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'snipe'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingArcherSnipe(true); addLog("Sniper active! Select a target to snipe."); return;
@@ -978,10 +978,17 @@ export default function DungeonPage() {
                 addLog(`STOLEN: ${ITEM_METADATA[result.stolenItem].name}!`);
             }
 
+            if (result.smokeBombEvent) {
+                addLog(`Smoke Bomb! ${result.smokeBombEvent.piece.type} escaped to back rank!`);
+                addEffect('poof', result.smokeBombEvent.square);
+            } else if (result.capturedPiece) {
+                updatedG[result.capturedPiece.color].push(result.capturedPiece);
+            }
+
             setBoard(result.newBoard); setSelectedSquare(null); setPossibleMoves([]);
             setTimeout(() => { 
                 setIsMoveProcessing(false); clickGuard.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
-                const wasCap = !!result.capturedPiece;
+                const wasCap = !!(result.capturedPiece || result.smokeBombEvent);
                 const oS = killStreaks[currentPlayer], nS = wasCap ? oS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: nS }; setKillStreaks(cKs);
                 processPawnSacrificeCheck(result.newBoard, updatedG, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oS, nS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type, nextTracks.white, nextTracks.black, nextTracks.global);
             }, 800);
@@ -1326,9 +1333,9 @@ export default function DungeonPage() {
           
           res.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'white', lc.delta));
 
-          const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0);
+          const totalCaptures = (res.capturedPiece ? 1 : 0) + (res.pieceCapturedByAnvil ? 1 : 0) + (res.selfDestructCaptures?.length || 0) + (res.obliteratedPieces?.length || 0) + (res.smokeBombEvent ? 1 : 0);
           
-          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length || res.obliteratedPieces?.length) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
+          if (res.capturedPiece || res.pieceCapturedByAnvil || res.selfDestructCaptures?.length || res.obliteratedPieces?.length || res.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', alg); if (res.capturedPiece) addLog(`Hero: Captured ${res.capturedPiece.type}!`); }
           
           if (res.shroomConsumed) { audioManager.playShroom(); addLog("Hero: Consumed a Shroom!"); }
           if (res.ralliedSquares) res.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'white', 1));
@@ -1359,7 +1366,13 @@ export default function DungeonPage() {
               addLog(`STOLEN: ${ITEM_METADATA[res.stolenItem].name}!`);
           }
 
-          if (res.capturedPiece) { const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; }
+          if (res.smokeBombEvent) {
+              addLog(`Smoke Bomb! ${res.smokeBombEvent.piece.type} escaped to back rank!`);
+              addEffect('poof', res.smokeBombEvent.square);
+          } else if (res.capturedPiece) { 
+              const pile = res.capturedPiece.color; nxtG[pile] = [...nxtG[pile], res.capturedPiece]; 
+          }
+          
           if (res.selfDestructCaptures) res.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
 
           let rookResResult: RookResurrectionResult | null = null;
@@ -1502,9 +1515,9 @@ export default function DungeonPage() {
         
         appRes.levelChanges?.forEach(lc => addEffect('level-change', lc.square, 'black', lc.delta));
 
-        const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0);
+        const totalCaptures = (appRes.capturedPiece ? 1 : 0) + (appRes.pieceCapturedByAnvil ? 1 : 0) + (appRes.selfDestructCaptures?.length || 0) + (appRes.obliteratedPieces?.length || 0) + (appRes.smokeBombEvent ? 1 : 0);
         
-        if (appRes.capturedPiece || appRes.pieceCapturedByAnvil || appRes.selfDestructCaptures?.length || appRes.obliteratedPieces?.length) { audioManager.playCapture(); addEffect('poof', toAlg); }
+        if (appRes.capturedPiece || appRes.pieceCapturedByAnvil || appRes.selfDestructCaptures?.length || appRes.obliteratedPieces?.length || appRes.smokeBombEvent) { audioManager.playCapture(); addEffect('poof', toAlg); }
         if (appRes.shroomConsumed) { audioManager.playShroom(); }
         if (appRes.ralliedSquares) appRes.ralliedSquares.forEach(sq => addEffect('level-change', sq, 'black', 1));
         
@@ -1541,7 +1554,14 @@ export default function DungeonPage() {
         }
 
         const nxtG = { white: Array.isArray(capturedPieces.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces.black) ? [...capturedPieces.black] : [] }; 
-        if (appRes.capturedPiece) { const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; }
+        
+        if (appRes.smokeBombEvent) {
+            addLog(`Smoke Bomb! ${appRes.smokeBombEvent.piece.type} escaped to back rank!`);
+            addEffect('poof', appRes.smokeBombEvent.square);
+        } else if (appRes.capturedPiece) { 
+            const pile = appRes.capturedPiece.color; nxtG[pile] = [...nxtG[pile], appRes.capturedPiece]; 
+        }
+        
         if (appRes.selfDestructCaptures) appRes.selfDestructCaptures.forEach(p => { const pile = p.color; nxtG[pile] = [...nxtG[pile], p]; });
 
         let rookResResult: RookResurrectionResult | null = null;
@@ -1804,6 +1824,7 @@ export default function DungeonPage() {
           <AlertDialogFooter> <AlertDialogCancel className="h-10 text-[10px] uppercase">Cancel</AlertDialogCancel> <AlertDialogAction className="h-10 text-[10px] uppercase bg-destructive text-white" onClick={() => { startRun(true); setIsResetConfirmOpen(false); }}>Reset Now</AlertDialogAction> </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <InventoryWindow isOpen={isInventoryOpen} onClose={() => setIsInventoryOpen(false)} inventory={inventory} selectedItemType={selectedInventoryItemType} onSelectItem={setSelectedInventoryItemType} onUseItem={handleUsePortalScroll} attunementSlots={attunementSlots} usedSlots={usedSlots} />
       <LootWinningsWindow isOpen={isLootWindowOpen} onClose={handleClaimLoot} loot={lootFound} floor={level} />
     </div>

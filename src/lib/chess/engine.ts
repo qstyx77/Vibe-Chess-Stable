@@ -265,6 +265,7 @@ export function applyMove(
   let hydraSpawnSquares: AlgebraicSquare[] = [];
   let anvilDroppedSquares: AlgebraicSquare[] = [];
   const levelChanges: LevelChangeEvent[] = [];
+  let smokeBombEvent = undefined;
 
   const movingPiece = newBoard[fromRow][fromCol].piece;
   if (!movingPiece) return { newBoard: board, capturedPiece: null, selfDestructCaptures: null, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered: null, originalPieceLevel: 0, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed: false, enPassantTargetSet: null, extraTurn, specialCaptureSquare, anvilDroppedSquares, levelChanges, obliteratedPieces: [] };
@@ -942,6 +943,24 @@ export function applyMove(
         levelChanges.push(...pullChanges);
     }
     if (shardShatter) { promotedToInfiltrator = true; obliteratedPieces.push({ ...captured, id: `shattered_${captured.id}_${Date.now()}` }); captured = null; }
+
+    // SMOKE BOMB Logic
+    if (captured && captured.heldItem === 'smoke_bomb') {
+        const backRankIdx = captured.color === 'white' ? 7 : 0;
+        const candidates: AlgebraicSquare[] = [];
+        for (let c = 0; c < 8; c++) {
+            if (!newBoard[backRankIdx][c].piece && !newBoard[backRankIdx][c].item) {
+                candidates.push(coordsToAlgebraic(backRankIdx, c));
+            }
+        }
+        if (candidates.length > 0) {
+            const dest = candidates[Math.floor(Math.random() * candidates.length)];
+            const { row: dr, col: dc } = algebraicToCoords(dest);
+            newBoard[dr][dc].piece = { ...captured, id: `${captured.id}_smoke_${Date.now()}`, heldItem: null, hasMoved: true, isShielded: false, isPoisoned: false, cooldownTurnsRemaining: 0, frozenTurnsRemaining: 0 };
+            smokeBombEvent = { piece: captured, square: dest };
+            captured = null; 
+        }
+    }
   }
 
   if (didLevelUpFlag && effectiveHeldItem === 'soul_link') {
@@ -1027,5 +1046,5 @@ export function applyMove(
       }
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces, smokeBombEvent };
 }

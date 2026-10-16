@@ -557,7 +557,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
                     const toCoords = algebraicToCoords(movePayload.to);
                     const landedPiece = gs.board[toCoords.row][toCoords.col].piece;
-                    const wasCapture = !!(result.capturedPiece || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0));
+                    const wasCapture = !!(result.capturedPiece || result.selfDestructCaptures?.length || (result.obliteratedPieces && result.obliteratedPieces.length > 0) || result.smokeBombEvent);
                     
                     if (landedPiece && (landedPiece.type === 'rook' || landedPiece.type === 'palace') && wasCapture) {
                         const resRes = processRookResurrectionCheck(gs.board, playerColor, movePayload, movePayload.to, movingPiece?.level || 1, gs.capturedPieces, Date.now());
@@ -618,7 +618,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         
                         const events = {
                             captured: wasCapture,
-                            capturedType: (result.capturedPiece || result.obliteratedPieces?.[0])?.type,
+                            capturedType: (result.capturedPiece || result.obliteratedPieces?.[0] || result.smokeBombEvent?.piece)?.type,
                             shroom: result.shroomConsumed,
                             hero: result.promotedToHero,
                             rally: !!result.rallyCryTriggered,
@@ -635,7 +635,9 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                             resScrollPos: result.resurrectionScrollEvent?.square,
                             levelChanges: result.levelChanges || [],
                             stolen: !!result.stolenItem,
-                            stolenItem: result.stolenItem
+                            stolenItem: result.stolenItem,
+                            smokeBomb: !!result.smokeBombEvent,
+                            smokePos: result.smokeBombEvent?.square
                         };
 
                         broadcastToRoom(ws.roomId!, { 

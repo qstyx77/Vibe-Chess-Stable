@@ -899,7 +899,14 @@ export default function EvolvingChessPage() {
       if (isObliteration) { audioManager.playObliterate(); addLog("AI Obliterated a unit!"); addEffectCallback('poof', toAlg); }
       else if (applyResult.capturedPiece || (applyResult.selfDestructCaptures && applyResult.selfDestructCaptures.length > 0)) { audioManager.playCapture(); addEffectCallback('poof', toAlg); if (applyResult.capturedPiece) addLog(`AI Captured ${applyResult.capturedPiece.type}!`); }
       else { audioManager.playMove(); addLog(`AI ${p.type} to ${toAlg}`); }
-      if (applyResult.capturedPiece && !isObliteration) { const pile = applyResult.capturedPiece.color; updatedG[pile] = [...updatedG[pile], { ...applyResult.capturedPiece }]; }
+      
+      if (applyResult.smokeBombEvent) {
+          addLog(`Smoke Bomb! ${applyResult.smokeBombEvent.piece.type} escaped to back rank!`);
+          addEffectCallback('poof', applyResult.smokeBombEvent.square);
+      } else if (applyResult.capturedPiece && !isObliteration) { 
+          const pile = applyResult.capturedPiece.color; updatedG[pile] = [...updatedG[pile], { ...applyResult.capturedPiece }]; 
+      }
+      
       if (applyResult.selfDestructCaptures) { applyResult.selfDestructCaptures.forEach(vic => { const pile = vic.color; updatedG[pile] = [...updatedG[pile], { ...vic }]; }); }
       if (applyResult.ralliedSquares) applyResult.ralliedSquares.forEach(sq => addEffectCallback('level-change', sq, currentPlayer, 1));
       if (applyResult.anvilDroppedSquares) applyResult.anvilDroppedSquares.forEach(sq => {
@@ -1071,11 +1078,17 @@ export default function EvolvingChessPage() {
                     addLog(`STOLEN: ${ITEM_METADATA[result.stolenItem].name}!`);
                 }
 
-                if (result.capturedPiece) updatedG[result.capturedPiece.color].push(result.capturedPiece);
+                if (result.smokeBombEvent) {
+                    addLog(`Smoke Bomb! ${result.smokeBombEvent.piece.type} escaped to back rank!`);
+                    addEffectCallback('poof', result.smokeBombEvent.square);
+                } else if (result.capturedPiece) {
+                    updatedG[result.capturedPiece.color].push(result.capturedPiece);
+                }
+                
                 setBoard(result.newBoard); setCapturedPieces(updatedG); setSelectedSquare(null); setPossibleMoves([]);
                 setTimeout(() => { 
                     setIsMoveProcessing(false); clickGuardRef.current = false; setIsAwaitingGrappleThrow(false); setGrappledPieceSubject(null); setGrappledItemSubject(null); 
-                    const wasCap = !!result.capturedPiece;
+                    const wasCap = !!(result.capturedPiece || result.smokeBombEvent);
                     const oS = killStreaks[currentPlayer], nS = wasCap ? oS + 1 : 0, cKs = { ...killStreaks, [currentPlayer]: nS }; 
                     setKillStreaks(cKs);
                     processPawnSacrificeCheck(result.newBoard, updatedG, cKs, currentPlayer, move, grappledPieceSubject!.piece.level, grappledPieceSubject!.piece.type, result.extraTurn, result.enPassantTargetSet, oS, nS, result.newBoard[row][col].piece?.id || null, wasCap, grappledPieceSubject!.piece.type, nextTracks.white, nextTracks.black, nextTracks.global);
@@ -1485,7 +1498,13 @@ export default function EvolvingChessPage() {
               let nextB = applyRes.newBoard; 
               const updatedG = { white: Array.isArray(capturedPieces?.white) ? [...capturedPieces.white] : [], black: Array.isArray(capturedPieces?.black) ? [...capturedPieces.black] : [] }; 
               
-              if (applyRes.capturedPiece) updatedG[applyRes.capturedPiece.color].push(applyRes.capturedPiece);
+              if (applyRes.smokeBombEvent) {
+                  addLog(`Smoke Bomb! ${applyRes.smokeBombEvent.piece.type} escaped to back rank!`);
+                  addEffectCallback('poof', applyRes.smokeBombEvent.square);
+              } else if (applyRes.capturedPiece) {
+                  updatedG[applyRes.capturedPiece.color].push(applyRes.capturedPiece);
+              }
+              
               if (applyRes.selfDestructCaptures) applyRes.selfDestructCaptures.forEach(vic => updatedG[vic.color].push(vic));
 
               if (applyRes.stolenItem && user) {
@@ -1499,7 +1518,7 @@ export default function EvolvingChessPage() {
               }
 
               setBoard(nextB); setCapturedPieces(updatedG);
-              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0) + (applyRes.obliteratedPieces?.length || 0);
+              const streakGain = (applyRes.capturedPiece ? 1 : 0) + (applyRes.selfDestructCaptures?.length || 0) + (applyRes.obliteratedPieces?.length || 0) + (applyRes.smokeBombEvent ? 1 : 0);
               
               applyRes.levelChanges?.forEach(lc => addEffectCallback('level-change', lc.square, currentPlayer, lc.delta));
               if (applyRes.shroomConsumed) addLog(`${getPlayerDisplayName(currentPlayer)} consumed a Shroom!`);
@@ -1603,6 +1622,10 @@ export default function EvolvingChessPage() {
                         setInventory(newInv);
                         saveLoadoutToFirestore(nextGs.board, newInv);
                     }
+                }
+                if (remoteEvents.smokeBomb && remoteEvents.smokePos) {
+                    audioManager.playResurrect(); addEffectCallback('poof', remoteEvents.smokePos);
+                    addLog(`${getPlayerDisplayName(actingColor)}'s unit escaped via Smoke Bomb!`);
                 }
                 remoteEvents.levelChanges?.forEach((lc: any) => addEffectCallback('level-change', lc.square, actingColor, lc.delta));
                 const isCheck = isKingInCheck(nextGs.board, nextGs.currentPlayer, nextGs.enPassantTargetSquare, lastMoveWhite, lastMoveBlack, lastMoveGlobal);
