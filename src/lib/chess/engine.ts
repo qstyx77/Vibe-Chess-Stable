@@ -666,8 +666,16 @@ export function applyMove(
         specialCaptureSquare = coordsToAlgebraic(cpR, cpC);
     } else { captured = null; }
   } else if (targetPiece && targetPiece.color !== movingPiece.color && targetPiece.type !== 'king') { 
-      captured = { ...targetPiece }; 
-      triggerDefiantSparks(newBoard, toRow, toCol, captured.color);
+      if (targetPiece.heldItem === 'mirror_shield' && !['king', 'queen'].includes(movingPiece.type)) {
+          reflectionOccurred = true;
+          captured = { ...movingPiece }; // Attacker is captured
+          newBoard[fromRow][fromCol].piece = null;
+          newBoard[toRow][toCol].piece = { ...targetPiece, heldItem: null, hasMoved: true }; // Shield breaks
+          return { newBoard, capturedPiece: captured, selfDestructCaptures: [], destroyedAnvils: 0, pieceCapturedByAnvil: null, anvilPushedOffBoard: false, conversionEvents, rallyCryTriggered: null, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack: false, queenLevelReducedEvents: null, promotedToInfiltrator: false, promotedToHero: false, infiltrationWin: false, shroomConsumed: false, enPassantTargetSet: null, extraTurn: false, specialCaptureSquare, reflectionOccurred, anvilDroppedSquares: [], levelChanges: [], obliteratedPieces: [] };
+      } else {
+          captured = { ...targetPiece }; 
+          triggerDefiantSparks(newBoard, toRow, toCol, captured.color);
+      }
   }
 
   const pieceLanded = { ...movingPiece, isShielded: false, hasMoved: true };
@@ -695,7 +703,12 @@ export function applyMove(
     if (originalEffectiveLevelBefore >= 5) extraTurn = true;
   }
 
-  if (promotedToInfiltrator) pieceLanded.type = 'infiltrator';
+  if (teamActiveSets.includes('assassin') && FRONTLINE_TYPES.includes(pieceLanded.type) && pieceLanded.level >= 5 && pieceLanded.type !== 'infiltrator') {
+      pieceLanded.type = 'infiltrator';
+      pieceLanded.id = `${pieceLanded.id}_assassin_morph_${Date.now()}`;
+      promotedToInfiltrator = true;
+  }
+
   if (pieceLanded.heldItem && !isItemValidForPiece(pieceLanded.heldItem, pieceLanded.type)) { 
       if (!itemReturned) itemReturned = pieceLanded.heldItem; 
       pieceLanded.heldItem = null; 
