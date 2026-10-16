@@ -48,11 +48,16 @@ export function triggerPushBack(board: BoardState, r: number, c: number, color: 
         if (victim?.heldItem === 'kinetic_coil') {
             const oldL = victim.level;
             victim.level = Math.min(victim.type === 'queen' ? 7 : 99, (victim.level || 1) + 1);
-            if (victim.level > oldL) levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: 1 });
-            victim.isPoisoned = false; victim.isExhausted = false; victim.cooldownTurnsRemaining = 0;
+            if (victim.level > oldL) {
+                levelChanges.push({ square: coordsToAlgebraic(nr, nc), delta: 1 });
+                victim.isPoisoned = false; victim.isExhausted = false; victim.cooldownTurnsRemaining = 0;
+            }
         }
         if (victim?.heldItem === 'spiked_buckler' && actor.heldItem !== 'filter_mask') actor.isPoisoned = true;
-        if (victim?.heldItem === 'frayed_rope') actor.cooldownTurnsRemaining = 2;
+        if (victim?.heldItem === 'frayed_rope') {
+            actor.isExhausted = true;
+            actor.cooldownTurnsRemaining = 2;
+        }
 
         const pushResult = performExtendedDisplacement(board, nr, nc, dr, dc, 1, false);
         if (pushResult.crushed) mainCrushed = pushResult.crushed;
@@ -181,7 +186,10 @@ export function triggerPull(board: BoardState, r: number, c: number, color: Play
 
                 if (victimSq.piece.heldItem === 'frayed_rope') {
                     const attacker = board[r][c].piece;
-                    if (attacker) attacker.cooldownTurnsRemaining = 2;
+                    if (attacker) {
+                        attacker.isExhausted = true;
+                        attacker.cooldownTurnsRemaining = 2;
+                    }
                 }
 
                 const midR = r + dr, midC = c + dc;
@@ -283,6 +291,9 @@ export function syncSoulLink(board: BoardState, color: PlayerColor): { levelChan
                     sq.piece.level = Math.min(sq.piece.type === 'queen' ? 7 : 99, maxLevel);
                     if (sq.piece.level > oldL) {
                         changes.push({ square: sq.algebraic, delta: sq.piece.level - oldL });
+                        sq.piece.isPoisoned = false;
+                        sq.piece.isExhausted = false;
+                        sq.piece.cooldownTurnsRemaining = 0;
                     }
                 }
             }
@@ -450,6 +461,7 @@ export function triggerExhaustion(board: BoardState, r: number, c: number, color
             if (isValidSquare(nr, nc)) {
                 const victim = board[nr][nc].piece;
                 if (victim && victim.color === oppColor) {
+                    victim.isExhausted = true;
                     victim.cooldownTurnsRemaining = 2;
                 }
             }
