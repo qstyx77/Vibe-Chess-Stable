@@ -66,7 +66,7 @@ export class VibeChessAI {
         const possibleMoves = this.generateAllMoves(gameState, color);
         if (possibleMoves.length === 0) return { move: null, extraTurn: false };
         
-        bestMove = possibleMoves[0]; // Fallback
+        bestMove = possibleMoves[0]; 
 
         try {
             for (let currentDepth = 1; currentDepth <= this.maxDepth; currentDepth++) {
@@ -139,6 +139,7 @@ export class VibeChessAI {
         const targetPiece = targetSq.piece;
         const targetItem = targetSq.item;
         let captureCount = 0;
+        let obliterationCount = 0;
 
         const moveInfo: LastMoveInfo = { type: movingPiece.type, level: movingPiece.level, item: movingPiece.heldItem || null };
         if (player === 'white') next.lastMoveWhite = moveInfo; else next.lastMoveBlack = moveInfo;
@@ -152,8 +153,7 @@ export class VibeChessAI {
                         const victim = next.board[nr][nc].piece;
                         if (victim && victim.color === opponent && victim.type !== 'king') {
                             victim.level = Math.max(1, victim.level - 2);
-                            captureCount++; // Valued as effective capture for AI bias
-                            // Simulate push
+                            captureCount++; 
                             const pdr = Math.sign(nr - tR); const pdc = Math.sign(nc - tC);
                             if (isValidSquareUtil(nr + pdr, nc + pdc) && !next.board[nr + pdr][nc + pdc].piece && !next.board[nr + pdr][nc + pdc].item) {
                                 next.board[nr + pdr][nc + pdc].piece = victim;
@@ -166,7 +166,7 @@ export class VibeChessAI {
             movingPiece.heldItem = null;
         } else if (move.type === 'oil-slick') {
             for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-                if (isValidSquareUtil(tR + dr, tC + dc)) next.board[tR + dr][tC + dc].item = { type: 'shroom' }; // Placeholder for hazard evaluation
+                if (isValidSquareUtil(tR + dr, tC + dc)) next.board[tR + dr][tC + dc].item = { type: 'shroom' }; 
             }
             movingPiece.heldItem = null;
         } else if (move.type === 'phase-out') {
@@ -187,7 +187,7 @@ export class VibeChessAI {
                 const tSq = next.board[nr][nc];
                 if (tSq.piece) {
                     if (tSq.piece.type === 'king') break;
-                    captureCount++;
+                    obliterationCount++;
                     totalGain += (VAL_MAP[tSq.piece.type] || 1);
                     tSq.piece = null;
                 }
@@ -236,7 +236,7 @@ export class VibeChessAI {
             next.board[ar][ac].item = null;
             
             if (next.board[tR][tC].piece && next.board[tR][tC].piece?.color === opponent && next.board[tR][tC].piece?.type !== 'king') {
-                captureCount++;
+                obliterationCount++;
                 next.board[tR][tC].piece = null;
             }
             next.board[tR][tC].item = anvilItem;
@@ -250,7 +250,7 @@ export class VibeChessAI {
             pts.forEach(pt => { 
                 const nr=tR+pt.dr, nc=tC+pt.dc; 
                 if(isValidSquareUtil(nr,nc)) { 
-                    if(next.board[nr][nc].piece?.color === opponent) captureCount++; 
+                    if(next.board[nr][nc].piece?.color === opponent) obliterationCount++; 
                     next.board[nr][nc].piece = { id: `boss-colossus-${pt.id}`, type:'king', color:player, level: movingPiece.level, hasMoved:true }; 
                 } 
             });
@@ -293,7 +293,9 @@ export class VibeChessAI {
                 next.board[fR][tC].piece = null; 
                 captureCount = 1; 
             } else if (targetPiece && targetPiece.color !== player && targetPiece.type !== 'king') { 
-                captureCount = 1; 
+                if (landedPiece.type === 'infiltrator') obliterationCount = 1;
+                else captureCount = 1; 
+                
                 let g = (this.captureLevelBonuses[targetPiece.type] || 1); 
                 if (landedPiece.heldItem === 'sweet_revenge' && gs.didOpponentCaptureLastTurn) g += 1;
                 landedPiece.level += g;
@@ -329,12 +331,13 @@ export class VibeChessAI {
             }
         }
 
-        if (movingPiece.isExhausted && !captureCount) {
+        const removalOccurred = captureCount > 0 || obliterationCount > 0;
+        if (movingPiece.isExhausted && !removalOccurred) {
              movingPiece.cooldownTurnsRemaining = 2;
         }
 
-        if (captureCount > 0) {
-            next.killStreaks[player] += captureCount; 
+        if (removalOccurred) {
+            next.killStreaks[player] += (captureCount + obliterationCount); 
         } else if (!['swap', 'dance-swap', 'grapple-hook-swap', 'myco-propagate', 'life-leach', 'antidote', 'ram-push', 'glacial-ray', 'burning-ray', 'earthquake-scroll', 'oil-slick', 'phase-out'].includes(move.type || '')) {
             next.killStreaks[player] = 0;
         }

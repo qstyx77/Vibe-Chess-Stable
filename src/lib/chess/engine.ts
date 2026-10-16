@@ -770,7 +770,9 @@ export function applyMove(
 
   if (captured) {
     const shardShatter = pieceLanded.heldItem === 'ice_breaker' && (captured.frozenTurnsRemaining || 0) > 0;
-    
+    const attackerIsInfiltrator = pieceLanded.type === 'infiltrator';
+    const isObliterationEvent = shardShatter || attackerIsInfiltrator;
+
     if (captured.heldItem === 'glass_shard') {
         pieceLanded.isExhausted = true;
         pieceLanded.cooldownTurnsRemaining = 2;
@@ -803,6 +805,7 @@ export function applyMove(
     if (captured.heldItem === 'soul_link') {
         newBoard.forEach(row => row.forEach(sq => {
             if (sq.piece && sq.piece.color === captured!.color && sq.piece.heldItem === 'soul_link') {
+                triggerDefiantSparks(newBoard, sq.rowIndex, sq.colIndex, captured!.color);
                 obliteratedPieces.push({ ...sq.piece, id: `${sq.piece.id}_linked_${Date.now()}` });
                 sq.piece = null;
             }
@@ -916,7 +919,11 @@ export function applyMove(
         const pullChanges = triggerPull(newBoard, toRow, toCol, pieceLanded.color);
         levelChanges.push(...pullChanges);
     }
-    if (shardShatter) { promotedToInfiltrator = true; obliteratedPieces.push({ ...captured, id: `shattered_${captured.id}_${Date.now()}` }); captured = null; }
+    
+    if (isObliterationEvent) { 
+        obliteratedPieces.push({ ...captured, id: `${captured.id}_obl_${Date.now()}` }); 
+        captured = null; 
+    }
 
     if (captured && captured.heldItem === 'smoke_bomb') {
         const backRankIdx = captured.color === 'white' ? 7 : 0;
@@ -1061,5 +1068,6 @@ export function applyMove(
       }
   }
 
-  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces, smokeBombEvent, glassShardTriggered, signalHornEvent };
+  return { newBoard, capturedPiece: captured, selfDestructCaptures, destroyedAnvils, pieceCapturedByAnvil: null, anvilPushedOffBoard, conversionEvents, rallyCryTriggered, originalPieceLevel: originalLevelValue, originalPieceType: originalTypeIdentifier, selfCheckByPushBack, queenLevelReducedEvents: null, promotedToInfiltrator, promotedToHero, infiltrationWin, shroomConsumed, enPassantTargetSet: enPassantTargetSquare, extraTurn, specialCaptureSquare, phoenixResurrection, reflectionOccurred, resurrectionScrollEvent, itemReturned, stolenItem, multiPromotions, ralliedSquares, winByKingsConquest, hydraSplitOccurred, hydraSpawnSquares, anvilDroppedSquares, levelChanges, obliteratedPieces, smokeBombEvent, glassShardTriggered, signalHornEvent };
 }
+

@@ -264,15 +264,13 @@ const handleTournamentGameOver = (tournamentId: string, roomId: string, winnerCo
     tournament.roundWinners.push(winnerData.userId);
     tournament.activeRoomIds.delete(roomId);
 
-    // ELO CALCULATION
     const eloChanges = calculateEloChange(winnerData.elo || 1200, loserData.elo || 1200);
     const eloInfo: any = {};
     eloInfo[winnerData.userId] = { oldElo: winnerData.elo || 1200, newElo: (winnerData.elo || 1200) + eloChanges.winnerGain };
     eloInfo[loserData.userId] = { oldElo: loserData.elo || 1200, newElo: (loserData.elo || 1200) + eloChanges.loserLoss };
 
-    // GOLD PRIZES (ONLY FOR CHAMPIONSHIP)
     const goldEarned: Record<string, number> = {};
-    if (tournament.round === 3) goldEarned[winnerData.userId] = 500; // Grand Prize
+    if (tournament.round === 3) goldEarned[winnerData.userId] = 500; 
 
     broadcastToRoom(roomId, { 
         type: 'game-over', 
@@ -428,16 +426,13 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const eq = data.user?.equipment || {};
                         const pColor = roomToJoin.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                         
-                        // ELITE PIECE SCALING 
                         const elo = data.user?.elo || 1200;
                         let bUp = false, rUp = false, nUp = false;
 
                         roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
                             if (sq.piece && sq.piece.color === pColor) {
-                                // Sync equipment for joining player
                                 if (eq[sq.piece.id]) sq.piece.heldItem = eq[sq.piece.id];
                                 
-                                // Scale Piece types dynamically for Guest side of casual board
                                 if (sq.piece.type === 'bishop' && elo >= 1500 && !bUp) { sq.piece.type = 'archbishop'; bUp = true; }
                                 if (sq.piece.type === 'rook' && elo >= 1800 && !rUp) { sq.piece.type = 'palace'; rUp = true; }
                                 if (sq.piece.type === 'knight' && elo >= 2100 && !nUp) { sq.piece.type = 'archer'; nUp = true; }
@@ -770,7 +765,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     
                     const hash = boardToPositionHash(gs.board, gs.currentPlayer === 'white' ? 'black' : 'white', gs.enPassantTargetSquare);
                     const isFrontlineMove = movingPiece?.type && FRONTLINE_TYPES.includes(movingPiece.type);
-                    if (result.capturedPiece || isFrontlineMove) room.positionHistory = [hash];
+                    if (wasCapture || isFrontlineMove) room.positionHistory = [hash];
                     else room.positionHistory.push(hash);
 
                     const repeats = room.positionHistory.filter(h => h === hash).length;
@@ -789,6 +784,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const events = {
                             captured: wasCapture,
                             capturedType: (result.capturedPiece || result.obliteratedPieces?.[0] || result.smokeBombEvent?.piece)?.type,
+                            obliterated: result.obliteratedPieces && result.obliteratedPieces.length > 0,
                             shroom: result.shroomConsumed,
                             hero: result.promotedToHero,
                             rally: !!result.rallyCryTriggered,
@@ -837,3 +833,4 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
 
 const PORT = 8080;
 server.listen(PORT, '0.0.0.0', () => { console.log(`Server listening on port ${PORT}`); });
+
