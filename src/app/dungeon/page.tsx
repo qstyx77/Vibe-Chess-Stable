@@ -31,6 +31,7 @@ import {
   isSquareAttacked,
   processOilSlickTimers,
   boardToPositionHash,
+  getActiveSets,
 } from '@/lib/chess-utils';
 import type { BoardState, PlayerColor, AlgebraicSquare, Piece, Move, GameStatus, PieceType, Effect, InventoryItem, InventoryItemType, AIGameState, AIBoardState, AISquareState, SquareState, ItemType, ChatMessage, MessageCategory, RookResurrectionResult, AIMove as AIMoveType, ConversionEvent, LastMoveInfo } from '@/types';
 import { ITEM_METADATA } from '@/types';
@@ -480,11 +481,16 @@ export default function DungeonPage() {
     if (midFrozenIds.length > prevFrozenIds.length) audioManager.playFreeze();
 
     nB = processOilSlickTimers(nB, turnP);
-    const cCounter = shroomSpawnCounter + 1;
-    if (cCounter >= nextShroomSpawnTurn) {
+    
+    let currentShroomCounter = shroomSpawnCounter + 1;
+    const activeSets = getActiveSets(nB, 'white');
+    if (activeSets.includes('alchemist')) currentShroomCounter += 1;
+
+    if (currentShroomCounter >= nextShroomSpawnTurn) {
         const { newBoard: bW, spawnedAt } = spawnShroom(nB);
-        if (spawnedAt) { nB = bW; addLog("A mystical Shroom 🍄 has appeared!"); audioManager.playShroom(); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); } else { setShroomSpawnCounter(cCounter); }
-    } else { setShroomSpawnCounter(cCounter); }
+        if (spawnedAt) { nB = bW; addLog("A mystical Shroom 🍄 has appeared!"); audioManager.playShroom(); setShroomSpawnCounter(0); setNextShroomSpawnTurn(Math.floor(Math.random() * 6) + 5); } else { setShroomSpawnCounter(currentShroomCounter); }
+    } else { setShroomSpawnCounter(currentShroomCounter); }
+
     const actT = movedT || lastMoveGlobal?.type;
     const nxtP = extra ? turnP : (turnP === 'white' ? 'black' : 'white');
     const necro = nB.flat().find(sq => sq.piece?.id === 'boss-necro');
@@ -641,7 +647,7 @@ export default function DungeonPage() {
         } else {
             const hasFL1 = bCh.flat().some(sq => sq.piece && sq.piece.color === actP && FRONTLINE_TYPES.includes(sq.piece.type) && sq.piece.type !== 'commander' && sq.piece.type !== 'infiltrator' && sq.piece.level === 1);
             if (hasFL1) {
-                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isEx, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'firstBlood'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
+                setSpecialActionContext({ boardForNextStep: bCh, playerWhoseTurnCompleted: actP, isExtraTurn: isExtraTurn, newEnPassantTarget: nEp, oldStreak: oldS, newStreak: newS, completedMilestones: [...compM, 'firstBlood'], currentGraveyard: nG, currentKs: cKs, capturingPieceId: capId, trackWhite: effWhite, trackBlack: effBlack, trackGlobal: effGlobal });
                 setIsAwaitingCommanderPromotion(true); addLog("First Blood! Choose a unit to promote to Commander."); return;
             }
         }
@@ -1459,6 +1465,7 @@ export default function DungeonPage() {
         let nB_Pulse = currentWorkingBoard.map(r => r.map(s => ({...s, piece: s.piece ? {...s.piece} : null, item: s.item ? {...s.item} : null})));
         const { rowIndex: br, colIndex: bc } = voidEntitySq;
         let pulseOccurred = false;
+        
         const whitePieces = [];
         for (let r=0; r<8; r++) for (let c=0; c<8; c++) if (nB_Pulse[r][c].piece?.color === 'white') whitePieces.push({r, c, p: nB_Pulse[r][c].piece!});
         
@@ -1468,6 +1475,7 @@ export default function DungeonPage() {
             const dist = Math.max(Math.abs(dr), Math.abs(dc));
             
             if (dist === 1) { 
+                // Blast adjacent
                 const tr = wp.r + Math.sign(dr);
                 const tc = wp.c + Math.sign(dc);
                 if (isValidSquare(tr, tc) && !nB_Pulse[tr][tc].piece && (!nB_Pulse[tr][tc].item || nB_Pulse[tr][tc].item?.type === 'shroom')) {
@@ -1478,6 +1486,7 @@ export default function DungeonPage() {
                     pulseOccurred = true;
                 }
             } else if (dist <= 3) { 
+                // Pull distant
                 const tr = wp.r - Math.sign(dr);
                 const tc = wp.c - Math.sign(dc);
                 if (isValidSquare(tr, tc) && !nB_Pulse[tr][tc].piece && (!nB_Pulse[tr][tc].item || nB_Pulse[tr][tc].item?.type === 'shroom')) {
@@ -1598,7 +1607,7 @@ export default function DungeonPage() {
         const oppBackRank = currentPlayer === 'black' ? 7 : 0;
         let aiPromoted = false;
         if (landed && FRONTLINE_TYPES.includes(landed.type) && move.to[0] === oppBackRank) {
-            const targetL = getPromotionLevel(appRes.capturedPiece?.type || null);
+            const targetL = getPromotionLevel(appRes.capturedPiece?.type || appRes.pieceCapturedByAnvil?.type || null);
             landed.type = 'queen';
             landed.level = Math.min(7, targetL);
             aiPromoted = true;

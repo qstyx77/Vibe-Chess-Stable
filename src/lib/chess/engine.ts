@@ -1027,7 +1027,7 @@ export function applyMove(
 
   triggerToxicCloud(newBoard, toRow, toCol, pieceLanded.color);
 
-  if ((pieceLanded.type === 'infiltrator' || assassinAtBackRank) && toRow === (pieceLanded.color === 'white' ? 0 : 7)) infiltrationWin = true;
+  if ((pieceLanded.type === 'infiltrator' || pieceLanded.id === 'boss-entity' || assassinAtBackRank) && toRow === (pieceLanded.color === 'white' ? 0 : 7)) infiltrationWin = true;
 
   const hSplitTarget = (captured?.id?.startsWith('boss-hydra') ? captured : (obliteratedPieces.find(p => p.id?.startsWith('boss-hydra'))));
   if (hSplitTarget) {
