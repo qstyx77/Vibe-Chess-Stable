@@ -119,12 +119,14 @@ const startArena = () => {
         tournament.participantsData[p2.userId] = p2.userData;
 
         const roomId = `arena_${tournamentId}_r1_${i}`;
+        // Elite Scaling is handled by initializeBoard using the specific player Elos
         const board = initializeBoard(
             p1.userData?.elo || 1200, 
             p2.userData?.elo || 1200, 
             p1.userData?.unlockedPieces || [], 
-            [],
-            p1.userData?.equipment || {}
+            p2.userData?.unlockedPieces || [],
+            p1.userData?.equipment || {},
+            p2.userData?.equipment || {}
         );
 
         rooms[roomId] = {
@@ -194,8 +196,9 @@ const startNextTournamentRound = (tournamentId: string) => {
             p1Data?.elo || 1200, 
             p2Data?.elo || 1200, 
             p1Data?.unlockedPieces || [], 
-            [],
-            p1Data?.equipment || {}
+            p2Data?.unlockedPieces || [],
+            p1Data?.equipment || {},
+            p2Data?.equipment || {}
         );
 
         rooms[roomId] = {
@@ -395,9 +398,19 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                         const eq = data.user?.equipment || {};
                         const pColor = roomToJoin.gameState.players.white?.userId === ws.userId ? 'white' : 'black';
                         
+                        // ELITE PIECE SCALING (Upgrade one of each if threshold met)
+                        const elo = data.user?.elo || 1200;
+                        let bUp = false, rUp = false, nUp = false;
+
                         roomToJoin.gameState.board.forEach((row: any) => row.forEach((sq: any) => {
-                            if (sq.piece && sq.piece.color === pColor && eq[sq.piece.id]) {
-                                sq.piece.heldItem = eq[sq.piece.id];
+                            if (sq.piece && sq.piece.color === pColor) {
+                                // Sync equipment for joining player
+                                if (eq[sq.piece.id]) sq.piece.heldItem = eq[sq.piece.id];
+                                
+                                // Scale Piece types dynamically for Guest side of casual board
+                                if (sq.piece.type === 'bishop' && elo >= 1500 && !bUp) { sq.piece.type = 'archbishop'; bUp = true; }
+                                if (sq.piece.type === 'rook' && elo >= 1800 && !rUp) { sq.piece.type = 'palace'; rUp = true; }
+                                if (sq.piece.type === 'knight' && elo >= 2100 && !nUp) { sq.piece.type = 'archer'; nUp = true; }
                             }
                         }));
 
@@ -655,7 +668,6 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                     const oppColor = playerColor === 'white' ? 'black' : 'white';
                     let mate = isCheckmate(gs.board, oppColor, gs.enPassantTargetSquare, room.historyTracks.white, room.historyTracks.black, room.historyTracks.global);
                     
-                    // SERVER-SIDE KING'S RANSOM SYNC
                     if (mate) {
                         const kingInfo = findKing(gs.board, oppColor);
                         if (kingInfo && kingInfo.piece.heldItem === 'kings_ransom') {
@@ -675,7 +687,7 @@ wss.on('connection', (ws: WebSocket & { roomId?: string, userId?: string, userna
                                 const { row: kr, col: kc } = algebraicToCoords(kingInfo.algebraic);
                                 gs.board[kr][kc].piece = null;
                                 gs.board[dr][dc].piece = { ...kingInfo.piece, heldItem: null, level: 1, hasMoved: true };
-                                mate = false; // Ransom consumed, checkmate averted
+                                mate = false; // Ransom consumed
                                 broadcastToRoom(ws.roomId!, { type: 'chat-message', message: {
                                     id: `ransom_${Date.now()}`,
                                     sender: 'SYSTEM',
