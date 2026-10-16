@@ -1,4 +1,3 @@
-
 export * from './chess/constants';
 export * from './chess/utils';
 export * from './chess/validation';

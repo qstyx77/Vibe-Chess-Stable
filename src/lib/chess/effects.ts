@@ -206,6 +206,37 @@ export function triggerPoisonSplash(board: BoardState, r: number, c: number, att
     }
 }
 
+export function triggerToxicCloud(board: BoardState, r: number, c: number, color: PlayerColor) {
+  const actingPiece = board[r][c].piece;
+  if (!actingPiece) return;
+
+  const actingSets = getActiveSets(board, color);
+  const isActingPoisonZone = actingSets.includes('toxic_cloud');
+  const oppColor = color === 'white' ? 'black' : 'white';
+
+  for (let dr = -1; dr <= 1; dr++) {
+    for (let dc = -1; dc <= 1; dc++) {
+      if (dr === 0 && dc === 0) continue;
+      const nr = r + dr;
+      const nc = c + dc;
+      if (isValidSquare(nr, nc)) {
+        const victim = board[nr][nc].piece;
+        if (victim && victim.color === oppColor) {
+          // Rule 1: If I am a poison zone, I poison the neighbor
+          if (isActingPoisonZone && victim.heldItem !== 'filter_mask') {
+            victim.isPoisoned = true;
+          }
+          // Rule 2: If the neighbor is a poison zone, they poison me
+          const victimSets = getActiveSets(board, victim.color);
+          if (victimSets.includes('toxic_cloud') && actingPiece.heldItem !== 'filter_mask') {
+            actingPiece.isPoisoned = true;
+          }
+        }
+      }
+    }
+  }
+}
+
 export function triggerConversion(board: BoardState, r: number, c: number, color: PlayerColor, converter: Piece, events: ConversionEvent[]) {
   const robeBonus = converter.heldItem === 'monks_robe' ? 0.2 : 0;
   const threshold = 0.5 + robeBonus;
